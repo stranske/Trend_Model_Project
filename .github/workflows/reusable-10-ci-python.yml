@@ -1,0 +1,394 @@
+name: Reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Single Python version to execute. Overrides `python-versions` when set.
+        required: false
+        type: string
+        default: ''
+      python-versions:
+        description: JSON array of Python versions executed when `python-version` is unset.
+        required: false
+        type: string
+        default: '["3.11"]'
+      marker:
+        description: Pytest marker expression passed to `-m`.
+        required: false
+        type: string
+        default: 'not quarantine and not slow'
+      artifact-prefix:
+        description: Optional prefix applied to all artifact names (e.g. `sf-minimal-`).
+        required: false
+        type: string
+        default: ''
+      coverage-min:
+        description: Minimum coverage percentage required to pass the run.
+        required: false
+        type: string
+        default: ''
+      enable-metrics:
+        description: Generate ci-metrics.json from pytest JUnit results.
+        required: false
+        type: boolean
+        default: false
+      enable-history:
+        description: Append metrics-history.ndjson summarising test runs.
+        required: false
+        type: boolean
+        default: false
+      enable-classification:
+        description: Produce classification.json summarising failing tests.
+        required: false
+        type: boolean
+        default: false
+      enable-coverage-delta:
+        description: Compute coverage-delta.json comparing against baseline coverage.
+        required: false
+        type: boolean
+        default: false
+      enable-soft-gate:
+        description: Emit coverage trend summary/history and manage the soft gate warning comment.
+        required: false
+        type: boolean
+        default: false
+      baseline-coverage:
+        description: Baseline coverage percentage used by coverage delta computation.
+        required: false
+        type: string
+        default: ''
+      coverage-alert-drop:
+        description: Soft alert threshold (percentage points) for coverage delta calculations.
+        required: false
+        type: string
+        default: ''
+      fail-on-coverage-drop:
+        description: Fail the workflow when coverage drop exceeds the alert threshold.
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  tests:
+    name: python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON((inputs['python-version'] != '' && format('["{0}"]', inputs['python-version'])) || inputs['python-versions']) }}
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      PYTEST_MARKER: ${{ inputs.marker }}
+      ARTIFACT_PREFIX: ${{ inputs['artifact-prefix'] }}
+      COVERAGE_MINIMUM: ${{ inputs['coverage-min'] || vars.COVERAGE_MINIMUM || '70' }}
+      ENABLE_METRICS: ${{ inputs['enable-metrics'] && 'true' || 'false' }}
+      ENABLE_HISTORY: ${{ inputs['enable-history'] && 'true' || 'false' }}
+      ENABLE_CLASSIFICATION: ${{ inputs['enable-classification'] && 'true' || 'false' }}
+      ENABLE_COVERAGE_DELTA: ${{ inputs['enable-coverage-delta'] && 'true' || 'false' }}
+      ENABLE_SOFT_GATE: ${{ inputs['enable-soft-gate'] && 'true' || 'false' }}
+      BASELINE_COVERAGE: ${{ inputs['baseline-coverage'] || vars.BASELINE_COVERAGE || '' }}
+      COVERAGE_ALERT_DROP: ${{ inputs['coverage-alert-drop'] || vars.COVERAGE_ALERT_DROP || '' }}
+      FAIL_ON_COVERAGE_DROP: ${{ inputs['fail-on-coverage-drop'] && 'true' || 'false' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements.lock
+            pyproject.toml
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+          set -a
+          source .github/workflows/ci-python-versions.env
+          set +a
+          python -m pip install \
+            black=="${BLACK_VERSION}" \
+            ruff=="${RUFF_VERSION}" \
+            mypy=="${MYPY_VERSION}" \
+            pytest=="${PYTEST_VERSION}" \
+            pytest-cov=="${PYTEST_COV_VERSION}" \
+            coverage=="${COVERAGE_VERSION}"
+
+      - name: Run Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check .
+
+      - name: Determine MyPy pin
+        id: mypy-pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .github/workflows/ci-python-versions.env
+          echo "python-version=${CI_PYTHON_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Run MyPy
+        if: ${{ steps.mypy-pin.outputs.python-version == matrix.python-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mypy
+
+      - name: Run pytest
+        shell: bash
+        env:
+          MARKER: ${{ env.PYTEST_MARKER }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          if [ -n "${MARKER}" ]; then
+            MARKER_ARGS=("-m" "${MARKER}")
+          else
+            MARKER_ARGS=()
+          fi
+          pytest "${MARKER_ARGS[@]}" \
+            --maxfail=1 \
+            --durations=25 \
+            --junitxml=pytest-junit.xml \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing
+
+      - name: Generate coverage JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          coverage json -o coverage.json
+
+      - name: Enforce coverage minimum
+        shell: bash
+        env:
+          THRESHOLD: ${{ env.COVERAGE_MINIMUM }}
+        run: |
+          set -euo pipefail
+          python -c "import os; from pathlib import Path; from xml.etree import ElementTree as ET; "\
+            "threshold=float(os.environ.get('THRESHOLD','0') or '0'); xml_path=Path('coverage.xml'); "\
+            "\nif not xml_path.is_file(): raise SystemExit('coverage.xml not generated');"\
+            "root=ET.parse(xml_path).getroot(); rate=root.get('line-rate'); "\
+            "\nif rate is None: raise SystemExit('coverage.xml missing line-rate attribute');"\
+            "percent=float(rate)*100.0; print(f'Coverage: {percent:.2f}% (minimum {threshold:.2f}%)');"\
+            "\nif percent + 1e-9 < threshold: raise SystemExit(f'Coverage {percent:.2f}% below minimum {threshold:.2f}%')"
+
+      - name: Generate coverage trend summary
+        id: coverage-trend
+        shell: bash
+        env:
+          MINIMUM: ${{ env.COVERAGE_MINIMUM }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python tools/coverage_trend.py \
+            --coverage-xml coverage.xml \
+            --coverage-json coverage.json \
+            --baseline config/coverage-baseline.json \
+            --artifact-path artifacts/coverage-trend.json \
+            --summary-path artifacts/coverage-summary.md \
+            --job-summary "$GITHUB_STEP_SUMMARY" \
+            --github-output coverage-trend.env \
+            --minimum "${MINIMUM}"
+          if [ -f coverage-trend.env ]; then
+            cat coverage-trend.env >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Append coverage trend history
+        if: ${{ env.ENABLE_SOFT_GATE == 'true' }}
+        shell: bash
+        env:
+          HISTORY_PATH: artifacts/coverage-trend-history.ndjson
+          RECORD_PATH: artifacts/coverage-trend.json
+        run: |
+          set -euo pipefail
+          python scripts/coverage_history_append.py
+
+      - name: Compute coverage delta
+        if: ${{ env.ENABLE_COVERAGE_DELTA == 'true' }}
+        shell: bash
+        env:
+          COVERAGE_XML_PATH: coverage.xml
+          OUTPUT_PATH: coverage-delta.json
+          BASELINE_COVERAGE: ${{ env.BASELINE_COVERAGE }}
+          ALERT_DROP: ${{ env.COVERAGE_ALERT_DROP }}
+          FAIL_ON_DROP: ${{ env.FAIL_ON_COVERAGE_DROP }}
+        run: |
+          set -euo pipefail
+          python scripts/ci_coverage_delta.py
+
+      - name: Generate CI metrics
+        if: ${{ env.ENABLE_METRICS == 'true' }}
+        shell: bash
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          OUTPUT_PATH: ci-metrics.json
+        run: |
+          set -euo pipefail
+          python scripts/ci_metrics.py
+
+      - name: Append CI history
+        if: ${{ env.ENABLE_HISTORY == 'true' || env.ENABLE_CLASSIFICATION == 'true' }}
+        shell: bash
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          METRICS_PATH: ci-metrics.json
+          HISTORY_PATH: metrics-history.ndjson
+          ENABLE_CLASSIFICATION: ${{ env.ENABLE_CLASSIFICATION }}
+          CLASSIFICATION_OUT: classification.json
+        run: |
+          set -euo pipefail
+          python scripts/ci_history.py
+
+      - name: Validate feature artifacts
+        shell: bash
+        env:
+          EXPECT_METRICS: ${{ env.ENABLE_METRICS }}
+          EXPECT_HISTORY: ${{ env.ENABLE_HISTORY }}
+          EXPECT_CLASSIFICATION: ${{ env.ENABLE_CLASSIFICATION }}
+          EXPECT_COV_DELTA: ${{ env.ENABLE_COVERAGE_DELTA }}
+          HISTORY_ARTIFACT_NAME: metrics-history.ndjson
+        run: |
+          set -euo pipefail
+          python scripts/ci_feature_assert.py
+
+      - name: Upload coverage artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}coverage-{1}', env.ARTIFACT_PREFIX, matrix.python-version) }}
+          path: |
+            coverage.xml
+            coverage.json
+            pytest-junit.xml
+            artifacts/coverage-summary.md
+            artifacts/coverage-trend.json
+            artifacts/coverage-trend-history.ndjson
+          if-no-files-found: warn
+
+      - name: Upload metrics artifact
+        if: ${{ always() && env.ENABLE_METRICS == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}ci-metrics', env.ARTIFACT_PREFIX) }}
+          path: ci-metrics.json
+
+      - name: Upload metrics history artifact
+        if: ${{ always() && env.ENABLE_HISTORY == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}metrics-history', env.ARTIFACT_PREFIX) }}
+          path: metrics-history.ndjson
+
+      - name: Upload classification artifact
+        if: ${{ always() && env.ENABLE_CLASSIFICATION == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}classification', env.ARTIFACT_PREFIX) }}
+          path: classification.json
+
+      - name: Upload coverage delta artifact
+        if: ${{ always() && env.ENABLE_COVERAGE_DELTA == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}coverage-delta', env.ARTIFACT_PREFIX) }}
+          path: coverage-delta.json
+
+      - name: Upload coverage summary artifact
+        if: ${{ always() && env.ENABLE_SOFT_GATE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ format('{0}coverage-summary-{1}', env.ARTIFACT_PREFIX, matrix.python-version) }}
+          path: |
+            artifacts/coverage-summary.md
+            artifacts/coverage-trend.json
+            artifacts/coverage-trend-history.ndjson
+
+      - name: Manage coverage soft gate comment
+        if: ${{ env.ENABLE_SOFT_GATE == 'true' && github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.coverage-trend.outputs.comment }}
+          STATUS: ${{ steps.coverage-trend.outputs.status }}
+        with:
+          script: |
+            const marker = '<!-- coverage-soft-gate -->';
+            const body = process.env.COMMENT_BODY || '';
+            const status = (process.env.STATUS || '').toLowerCase();
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request context; skipping comment management.');
+              return;
+            }
+            async function findExisting() {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: pr.number,
+                per_page: 100,
+              });
+              return comments.find(comment => typeof comment.body === 'string' && comment.body.includes(marker));
+            }
+            const existing = await findExisting();
+            if (status === 'warn' && body.trim()) {
+              const fullBody = `${marker}\n${body.trim()}`;
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body: fullBody,
+                });
+                core.info('Updated soft coverage gate warning comment.');
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: fullBody,
+                });
+                core.info('Posted soft coverage gate warning comment.');
+              }
+            } else if (existing) {
+              await github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+              });
+              core.info('Removed existing soft coverage gate comment (status OK).');
+            } else {
+              core.info('No coverage warning required.');
+            }
+
+      - name: Summarize reusable run
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Reusable CI summary';
+            echo "- Python version: ${PYTHON_VERSION}";
+            echo "- Pytest marker: ${PYTEST_MARKER:-'(none)'}";
+            echo "- Coverage minimum: ${COVERAGE_MINIMUM}";
+            echo "- Metrics enabled: ${ENABLE_METRICS}";
+            echo "- History enabled: ${ENABLE_HISTORY}";
+            echo "- Classification enabled: ${ENABLE_CLASSIFICATION}";
+            echo "- Coverage delta enabled: ${ENABLE_COVERAGE_DELTA}";
+            echo "- Soft gate enabled: ${ENABLE_SOFT_GATE}";
+          } >> "$GITHUB_STEP_SUMMARY"
