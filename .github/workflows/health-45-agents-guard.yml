@@ -10,9 +10,9 @@ on:
       - unlabeled
       - ready_for_review
     paths:
-      - '.github/workflows/agents-*.yml'
-      - '.github/workflows/health-45-agents-guard.yml'
-      - '.github/scripts/health-45-guard.js'
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
