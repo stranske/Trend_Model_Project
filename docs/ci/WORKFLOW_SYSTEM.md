@@ -27,6 +27,13 @@ Maintenance & repo health ──► Issue / agents automation
 Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
 the surface polished, and the agents stack orchestrates follow-up work.
 
+> 📌 **Where this document fits.** The `README.md` “CI automation orientation”
+> call-out and the opening section of `CONTRIBUTING.md` both point here as the
+> canonical map of what runs where. Keep this guide side by side with
+> [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you are evaluating workflow
+> edits—the policy spells out the guardrails, while this page traces the
+> topology those guardrails protect.
+
 ### Contents
 
 - [Quick orientation for new contributors](#quick-orientation-for-new-contributors)
