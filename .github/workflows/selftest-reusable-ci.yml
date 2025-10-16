@@ -16,15 +16,12 @@ on:
         required: false
         default: ''
 
-env:
-  DEFAULT_PYTHON_VERSIONS: '["3.11"]'
-
 jobs:
   scenario:
     name: Scenario - ${{ matrix.name }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
-      python-versions: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || env.DEFAULT_PYTHON_VERSIONS }}
+      python-versions: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '["3.11"]' }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
       enable-history: ${{ matrix.enable-history }}
@@ -93,7 +90,7 @@ jobs:
       run_id: ${{ steps.run_metadata.outputs.run_id }}
     env:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
-      PYTHON_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || env.DEFAULT_PYTHON_VERSIONS }}
+      PYTHON_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '["3.11"]' }}
       RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.reason) || '' }}
       MATRIX_RESULT: ${{ needs.scenario.result }}
     steps:
