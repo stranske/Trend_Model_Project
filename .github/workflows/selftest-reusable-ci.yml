@@ -5,28 +5,26 @@ on:
     - cron: '30 6 * * *'
   workflow_dispatch:
     inputs:
-      reason:
-        description: 'Why are you running this self-test?'
-        required: false
-        default: 'nightly verification'
       python_versions:
         description: >-
           JSON array of Python versions forwarded to the reusable CI workflow.
-          Leave empty to exercise the default nightly configuration.
+          Leave empty to use the default nightly matrix.
+        required: false
+        default: '["3.11"]'
+      reason:
+        description: 'Optional run reason appended to the workflow summary.'
         required: false
         default: ''
 
-permissions:
-  contents: read
-  actions: read
+env:
+  DEFAULT_PYTHON_VERSIONS: '["3.11"]'
 
 jobs:
   scenario:
     name: Scenario - ${{ matrix.name }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
-    secrets: inherit
     with:
-      python-versions: ${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '["3.11"]' }}
+      python-versions: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || env.DEFAULT_PYTHON_VERSIONS }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
       enable-history: ${{ matrix.enable-history }}
@@ -35,6 +33,7 @@ jobs:
       enable-soft-gate: ${{ matrix.enable-soft-gate }}
       baseline-coverage: ${{ matrix.baseline-coverage || '0' }}
       coverage-alert-drop: ${{ matrix.coverage-alert-drop || '1' }}
+    secrets: inherit
     strategy:
       fail-fast: false
       matrix:
@@ -94,26 +93,19 @@ jobs:
       run_id: ${{ steps.run_metadata.outputs.run_id }}
     env:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
-      PYTHON_VERSIONS: ${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '["3.11"]' }}
-      DISPATCH_REASON: ${{ inputs.reason || '' }}
-      TRIGGER_EVENT: ${{ github.event_name }}
+      PYTHON_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || env.DEFAULT_PYTHON_VERSIONS }}
+      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.reason) || '' }}
+      MATRIX_RESULT: ${{ needs.scenario.result }}
     steps:
       - name: Summarize matrix execution
         run: |
-          reason="${DISPATCH_REASON}"
-          if [ -z "${reason}" ]; then
-            if [ "${TRIGGER_EVENT}" = "schedule" ]; then
-              reason="scheduled run"
-            else
-              reason="(not provided)"
-            fi
-          fi
-
           {
-            echo "## Self-Test Matrix Summary"
-            echo "Workflow result: ${{ needs.scenario.result }}"
-            echo "Trigger: ${TRIGGER_EVENT}"
-            echo "Dispatch reason: ${reason}"
+            echo "## Self-Test Reusable CI Summary"
+            echo "Workflow result: ${{ env.MATRIX_RESULT }}"
+            echo "Dispatched via: ${{ github.event_name }}"
+            if [ -n "${RUN_REASON}" ]; then
+              echo "Run reason: ${RUN_REASON}"
+            fi
             echo "Requested python-versions: ${PYTHON_VERSIONS}"
             echo "Scenarios: ${SCENARIO_LIST}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -260,4 +252,10 @@ jobs:
         if: ${{ steps.verify.outputs.failures != '0' }}
         run: |
           echo "Artifact expectation mismatches detected." >&2
+          exit 1
+
+      - name: Surface matrix result
+        if: ${{ env.MATRIX_RESULT != 'success' }}
+        run: |
+          echo "Self-test matrix completed with status: ${MATRIX_RESULT}." >&2
           exit 1
