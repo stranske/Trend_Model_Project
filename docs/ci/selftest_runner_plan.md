@@ -18,11 +18,11 @@
 5. Automated tests (unit or integration) covering workflow configuration helpers are updated/added where applicable, and they pass locally/CI.
 
 ## Initial Task Checklist
-- [ ] Audit the existing self-test workflows to catalogue triggers, inputs, outputs, and dependent jobs.
-- [ ] Design the consolidated workflow matrix, mapping each legacy use case to a matrix entry or conditional branch.
-- [ ] Draft the new `.github/workflows/selftest-runner.yml` with reusable inputs and shared job logic.
-- [ ] Implement any supporting composite actions or scripts needed to share logic between matrix entries.
-- [ ] Update documentation (`docs/ci/WORKFLOW_SYSTEM.md`, `docs/ci/WORKFLOWS.md`, etc.) to reflect the new runner and migration guidance.
-- [ ] Run targeted tests (e.g., `pytest tests/test_workflow_selftest_consolidation.py`) to validate helper logic.
-- [ ] Remove legacy workflow files once parity is verified and ensure CI remains green.
-- [ ] Communicate rollout plan (e.g., changelog note or internal announcement) if required by project governance.
+- [x] Audit the existing self-test workflows to catalogue triggers, inputs, outputs, and dependent jobs.
+- [x] Design the consolidated workflow matrix, mapping each legacy use case to a matrix entry or conditional branch.
+- [x] Draft the new `.github/workflows/selftest-runner.yml` with reusable inputs and shared job logic.
+- [x] Implement any supporting composite actions or scripts needed to share logic between matrix entries.
+- [x] Update documentation (`docs/ci/WORKFLOW_SYSTEM.md`, `docs/ci/WORKFLOWS.md`, etc.) to reflect the new runner and migration guidance.
+- [x] Run targeted tests (e.g., `pytest tests/test_workflow_selftest_consolidation.py`) to validate helper logic.
+- [x] Remove legacy workflow files once parity is verified and ensure CI remains green.
+- [x] Communicate rollout plan (e.g., changelog note or internal announcement) if required by project governance.
