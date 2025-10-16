@@ -16,9 +16,9 @@
 6. CI runs for the updated branch show Gate succeeding on a docs-only change and executing normally on a non-docs-only change (evidence recorded in PR description or summary).
 
 ## Initial Task Checklist
-- [ ] Audit `.github/workflows/` to confirm the legacy `pr-14-docs-only.yml` file status and identify any lingering references.
-- [ ] Extend Gate workflow (or its helpers) to short-circuit heavy jobs when `docs_only` is detected while still emitting a single tagged skip comment.
-- [ ] Add or update automated tests that enforce the absence of the deprecated workflow file and validate docs-only detection logic.
-- [ ] Refresh `docs/ci/WORKFLOW_SYSTEM.md` to document the consolidated Gate docs-only fast path and removal of PR-14 workflow.
-- [ ] Run targeted CI/tests (e.g., Gate workflow via PR, focused pytest modules) to demonstrate docs-only fast pass and regular execution paths.
-- [ ] Capture evidence (links/screenshots/log references) of Gate behavior for both docs-only and non-docs-only scenarios and summarize in the PR description.
+- [x] Audit `.github/workflows/` to confirm the legacy `pr-14-docs-only.yml` file status and identify any lingering references.
+- [x] Extend Gate workflow (or its helpers) to short-circuit heavy jobs when `docs_only` is detected while still emitting a single tagged skip comment.
+- [x] Add or update automated tests that enforce the absence of the deprecated workflow file and validate docs-only detection logic.
+- [x] Refresh `docs/ci/WORKFLOW_SYSTEM.md` to document the consolidated Gate docs-only fast path and removal of PR-14 workflow.
+- [x] Run targeted CI/tests (e.g., Gate workflow via PR, focused pytest modules) to demonstrate docs-only fast pass and regular execution paths.
+- [x] Capture evidence (links/screenshots/log references) of Gate behavior for both docs-only and non-docs-only scenarios and summarize in the PR description.
