@@ -157,7 +157,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     env = publish.get("env", {})
     missing_env = sorted(required_env - set(env))
     assert not missing_env, (
-        "publish-results env block drifted; missing keys: " f"{missing_env}."
+        f"publish-results env block drifted; missing keys: {missing_env}."
     )
 
     steps = publish.get("steps", [])
