@@ -27,6 +27,21 @@ Maintenance & repo health ──► Issue / agents automation
 Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
 the surface polished, and the agents stack orchestrates follow-up work.
 
+### Contents
+
+- [Quick orientation for new contributors](#quick-orientation-for-new-contributors)
+- [Onboarding checklist (save for future you)](#onboarding-checklist-save-for-future-you)
+- [Scenario cheat sheet](#scenario-cheat-sheet)
+- [Bucket quick reference](#bucket-quick-reference)
+- [Topology at a glance](#topology-at-a-glance)
+- [Buckets and canonical workflows](#buckets-and-canonical-workflows)
+- [Workflow summary table](#workflow-summary-table)
+- [Policy](#policy)
+- [Final topology (keep vs retire)](#final-topology-keep-vs-retire)
+- [How to change a workflow safely](#how-to-change-a-workflow-safely)
+- [Verification checklist](#verification-checklist)
+- [Branch protection playbook](#branch-protection-playbook)
+
 ### How the buckets interact in practice
 
 - **Gate and PR 02 Autofix** are the first responders on every pull request.
@@ -99,6 +114,10 @@ highlight the most common entry points:
 - **Editing YAML under `.github/workflows/`?** Read [How to change a workflow
   safely](#how-to-change-a-workflow-safely) before committing; it lists the
   approvals, labels, and verification steps Gate will enforce.
+- **Need to run lint, type checking, or container tests by hand?** Use the
+  [Error checking, linting, and testing topology](#error-checking-linting-and-testing-topology)
+  section to find the reusable entry points and confirm which callers already
+  exercise the matrix.
 
 ### Bucket quick reference
 
