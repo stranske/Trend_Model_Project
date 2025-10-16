@@ -34,6 +34,17 @@ the surface polished, and the agents stack orchestrates follow-up work.
 > edits—the policy spells out the guardrails, while this page traces the
 > topology those guardrails protect.
 
+> 🧭 **Use this map to stay oriented.**
+> - Start with the [quick orientation](#quick-orientation-for-new-contributors)
+>   checklist when you are new or returning so you know which buckets will
+>   react to your work.
+> - Reference the [workflow summary table](#workflow-summary-table) for
+>   triggers, required signals, and log links before you brief a reviewer or
+>   rerun a check manually.
+> - Follow [How to change a workflow safely](#how-to-change-a-workflow-safely)
+>   alongside [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you update
+>   `.github/workflows/` so you never bypass the guardrails.
+
 ### Contents
 
 - [Quick orientation for new contributors](#quick-orientation-for-new-contributors)
