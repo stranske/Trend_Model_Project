@@ -30,15 +30,12 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Self-test workflows should match the expected manual roster."""
+    """Only the consolidated self-test runner should remain active."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
-    expected = [
-        "selftest-81-reusable-ci.yml",
-        "selftest-runner.yml",
-    ]
+    expected = ["selftest-runner.yml"]
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
@@ -97,10 +94,11 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     ), "pull_request_number must remain optional to reuse comment mode outside PRs."
 
     jobs = data.get("jobs", {})
-    run_matrix = jobs.get("run-matrix") or {}
+    scenario_job = jobs.get("scenario") or {}
+    assert scenario_job, "selftest-runner.yml must declare the scenario job."
     assert (
-        run_matrix.get("uses") == "./.github/workflows/selftest-81-reusable-ci.yml"
-    ), "Runner should delegate execution to selftest-81-reusable-ci.yml."
+        scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
+    ), "Runner should delegate execution to reusable-10-ci-python.yml."
 
 
 def test_selftest_runner_publish_job_contract() -> None:
@@ -111,9 +109,10 @@ def test_selftest_runner_publish_job_contract() -> None:
     publish = jobs.get("publish-results") or {}
 
     assert publish, "selftest-runner.yml should retain the publish-results job."
-    assert (
-        publish.get("needs") == "run-matrix"
-    ), "publish-results must depend on the reusable self-test matrix."
+    assert set(publish.get("needs", [])) == {
+        "scenario",
+        "aggregate",
+    }, "publish-results should depend on both the matrix execution and aggregation jobs."
     assert (
         publish.get("if") == "${{ always() }}"
     ), "publish-results should always execute to surface matrix status."
@@ -268,17 +267,15 @@ def test_selftest_triggers_are_manual_only() -> None:
             "trigger so self-tests remain manually invoked."
         )
 
-        if workflow_file.name != "selftest-81-reusable-ci.yml":
-            assert trigger_keys == {required_manual_trigger}, (
-                f"{workflow_file.name} should only expose {required_manual_trigger}. "
-                "Workflow-call support is reserved for selftest-81-reusable-ci.yml."
-            )
+        assert trigger_keys == {
+            required_manual_trigger
+        }, f"{workflow_file.name} should only expose {required_manual_trigger}."
 
 
 def test_selftest_dispatch_reason_input() -> None:
     """Self-test dispatch should keep the reason field optional but present."""
 
-    raw_data = yaml.safe_load(SELFTEST_PATH.read_text()) or {}
+    raw_data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
 
     triggers_raw = raw_data.get("on")
     if triggers_raw is None and True in raw_data:
@@ -389,16 +386,13 @@ def test_archived_selftests_retain_manual_triggers() -> None:
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
-        SELFTEST_PATH.exists()
-    ), "selftest-81-reusable-ci.yml is missing from .github/workflows/"
+        RUNNER_PATH.exists()
+    ), "selftest-runner.yml is missing from .github/workflows/"
 
-    data = yaml.safe_load(SELFTEST_PATH.read_text())
+    data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
     jobs = data.get("jobs", {})
 
-    scenario_job = jobs.get("scenario")
-    assert (
-        scenario_job is not None
-    ), "Scenario job missing from selftest-81-reusable-ci.yml"
+    scenario_job = jobs.get("scenario") or {}
     assert (
         scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
     ), "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
@@ -417,8 +411,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         scenario_names == expected_names
     ), "Self-test scenario matrix drifted; update verification docs/tests if intentional."
 
-    aggregate_job = jobs.get("aggregate")
-    assert aggregate_job is not None, "Aggregate verification job missing"
+    aggregate_job = jobs.get("aggregate") or {}
     assert (
         aggregate_job.get("needs") == "scenario"
     ), "Aggregate job must depend on the scenario matrix"
@@ -453,13 +446,5 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
     assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ inputs['python-versions'] }}"
-    ), "Verification step should read python-versions input via PYTHON_VERSIONS env var for dynamic artifact expectations."
-
-
-def test_selftest_reusable_exposes_workflow_call() -> None:
-    data = yaml.safe_load(SELFTEST_PATH.read_text())
-    triggers = data.get("on") or data.get(True) or {}
-    assert (
-        "workflow_call" in triggers
-    ), "selftest-81-reusable-ci.yml must expose workflow_call for downstream wrappers."
+        verify_env.get("PYTHON_VERSIONS") == "${{ env.PYTHON_VERSIONS }}"
+    ), "Verification step should read python version overrides from the aggregate env."

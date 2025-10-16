@@ -2,7 +2,7 @@
 
 This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. All advanced features are opt‑in so existing callers remain unaffected until they enable them.
 
-> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch the `selftest-81-reusable-ci.yml` runner when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
+> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-runner.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
 
 ### Overview
 

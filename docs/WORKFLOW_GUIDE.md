@@ -21,7 +21,7 @@ operational detail for the kept set.
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
-| `selftest-` | Manual self-tests & experiments | `selftest-81-reusable-ci.yml`, `selftest-runner.yml` |
+| `selftest-` | Manual self-tests & experiments | `selftest-runner.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
 
 **Naming checklist**
@@ -67,8 +67,7 @@ _Additional opt-in utilities_
 - **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
 
 ### Self-tests
-- **`selftest-81-reusable-ci.yml`** — Reusable CI matrix exerciser exposed via both `workflow_dispatch` and `workflow_call`.
-- **`selftest-runner.yml`** — Manual entry point that forwards to `selftest-81` for comment/summary/dual-runtime verification.
+- **`selftest-runner.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
 
 ## Archived & Legacy Workflows
 
@@ -77,7 +76,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
 - **Historical consumer wrappers** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
-- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`) — Superseded by `selftest-runner.yml` + `selftest-81-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
+- **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-runner.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.

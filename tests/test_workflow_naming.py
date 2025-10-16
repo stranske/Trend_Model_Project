@@ -176,6 +176,5 @@ EXPECTED_NAMES = {
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
-    "selftest-81-reusable-ci.yml": "Selftest 81 Reusable CI",
     "selftest-runner.yml": "Selftest Runner",
 }

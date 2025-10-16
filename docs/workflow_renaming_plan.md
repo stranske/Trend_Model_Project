@@ -12,7 +12,7 @@
 1. Every workflow in `.github/workflows/` follows the prescribed naming convention and numbering bands.
 2. All renamed workflows have their historical filenames removed from the repository.
 3. All direct references (workflows, docs, scripts, READMEs) are updated to the new filenames and pass linting/validation as applicable.
-4. Self-test workflows (`selftest-81-reusable-ci.yml` and the consolidated `selftest-runner.yml`, previously the `selftest-8X-*` wrappers) are configured for manual `workflow_dispatch` triggers only, per the task list.
+4. The self-test workflow (`selftest-runner.yml`, previously the `selftest-8X-*` wrappers) is configured for manual `workflow_dispatch` triggers only, per the task list.
 5. Orchestrator workflows invoke `agents-64-verify-agent-assignment.yml` (no stale references to renamed files).
 6. CI (Gate) completes successfully after the rename and all required workflows resolve with the new filenames.
 7. Documentation or release notes referencing workflows reflect the updated names, and a screenshot or link demonstrates the Actions list showing only the renamed workflows.

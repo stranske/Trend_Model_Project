@@ -34,12 +34,16 @@
 - Autofix: `reusable-18-autofix.yml`.
 
 ### Self‑tests
-- `selftest-81-reusable-ci.yml` remains the reusable matrix.
-- `selftest-runner.yml` is the single manual entry point. Inputs:
+- `selftest-runner.yml` is the consolidated manual entry point and hosts the
+  verification matrix directly. Inputs:
   - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface and Python matrix).
   - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
   - `enable_history`: `true` or `false` (download the verification artifact for local inspection).
-  - Optional niceties for comment/summary titles plus the dispatch reason.
+  - Optional niceties:
+    - `pull_request_number`: required only when `mode == comment` and `post_to == pr-number`.
+    - `summary_title` / `comment_title`: override headings for the workflow summary and PR comment.
+    - `reason`: free-form dispatch rationale recorded in the run summary and comment output.
+    - `python_versions`: optional JSON array that overrides the default matrix.
 
 ## Policy
 
@@ -54,7 +58,7 @@
 
 ## Final topology (keep vs retire)
 
-- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44/45, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-81-reusable-ci.yml`, `selftest-runner.yml`.
+- **Keep**: `pr-00-gate.yml`, `maint-46-post-ci.yml`, health 42/43/44/45, agents 70/63, `agents-critical-guard.yml`, reusable 10/12/16/18, `selftest-runner.yml`.
 - **Retire**: `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   retired Agents 61/62 consumer workflows (removed from the Actions catalogue),
   and the legacy `selftest-*` wrappers replaced by `selftest-runner.yml`.

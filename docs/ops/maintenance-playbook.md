@@ -92,15 +92,15 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 
 1. **Pick the right mode** — dispatch `selftest-runner.yml` and choose `summary`,
    `comment`, or `dual-runtime` depending on whether you want a workflow
-   summary-only run, a PR comment, or a dual Python matrix. The runner handles
-   forwarding the correct `python-versions` list to `selftest-81-reusable-ci.yml`.
+   summary-only run, a PR comment, or a dual Python matrix. Supply the optional
+   `python_versions` override when you need interpreters outside the defaults.
 2. **Provide required inputs** — comment mode requires a `pull_request_number`
    when `post_to` is `pr-number`. Optional overrides let you change comment and
    summary titles without editing the workflow.
-3. **Remember the delegation** — the runner calls
-   `selftest-81-reusable-ci.yml`, which exposes both `workflow_dispatch` and
-   `workflow_call`. Verification mismatches cause the runner job to fail (unless
-   the run is comment-only) after surfacing the Markdown summary/comment.
+3. **Review the embedded matrix** — verification mismatches cause the runner
+   job to fail (unless the run is comment-only) after surfacing the Markdown
+   summary/comment. Use `enable_history: true` when you need the JSON artifact
+   for offline inspection.
 
 ## Common tooling
 

@@ -13,7 +13,7 @@ retired and now live only in git history, with verification notes captured in
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
 | Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
 | Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
-| Selftest 81 Reusable CI | `.github/workflows/selftest-81-reusable-ci.yml` | Manual/`workflow_call` matrix that exercises the reusable CI executor across documented feature toggles and powers the consolidated self-test runner. |
+| Selftest Runner | `.github/workflows/selftest-runner.yml` | Manual workflow that bundles the reusable CI matrix with publication logic. Modes toggle summary vs comment output and single vs dual-runtime matrices; optional inputs override Python versions, artifact downloads, and comment presentation. |
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
 Consumer example (excerpt from `pr-00-gate.yml`):
@@ -99,14 +99,14 @@ syntax. Each automation path has a bound sized to its typical runtime plus
 headroom (readiness/preflight: 15 minutes, diagnostics: 20 minutes, bootstrap:
 30 minutes, keepalive: 25 minutes).
 
-## 5. Selftest 81 Reusable CI (`selftest-81-reusable-ci.yml`)
-Runs the matrix that validates the reusable CI executor across feature
-combinations (coverage delta, soft gate, metrics, history, classification).
-`selftest-81` supports both `workflow_dispatch` and `workflow_call`: trigger it
-directly for ad-hoc verification or let the consolidated runner
-(`selftest-runner.yml`) call it as a reusable job. The runner exposes inputs for
-summary, PR comment, and dual-runtime scenarios while inheriting all
-verification outputs without duplicating the matrix definition.
+## 5. Selftest Runner (`selftest-runner.yml`)
+Hosts the matrix that validates the reusable CI executor across feature
+combinations (coverage delta, soft gate, metrics, history, classification)
+and publishes the verification results. Dispatch the workflow manually to
+select summary vs. PR comment reporting, enable dual-runtime execution, or
+override the Python version list entirely via the `python_versions` input.
+Artifact downloads remain optional (`enable_history`), and the comment/summary
+titles plus dispatch reason can be customised to document ad-hoc runs.
 
 ## Adoption Notes
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
