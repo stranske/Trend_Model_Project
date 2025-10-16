@@ -1,5 +1,7 @@
 import pathlib
 
+import yaml
+
 ALLOWED_PREFIXES = (
     "pr-",
     "maint-",
@@ -37,6 +39,63 @@ def test_archive_directories_removed():
     )
     legacy_dir = pathlib.Path("Old/.github/workflows")
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
+
+
+def test_docs_only_fast_path_workflow_removed():
+    legacy_fast_path = WORKFLOW_DIR / "pr-14-docs-only.yml"
+    assert (
+        not legacy_fast_path.exists()
+    ), "Legacy docs-only fast path must remain removed; Gate owns the behavior"
+
+
+def test_gate_docs_only_branching_logic():
+    gate_workflow = WORKFLOW_DIR / "pr-00-gate.yml"
+    assert gate_workflow.exists(), "Gate workflow must remain present"
+
+    config = yaml.safe_load(gate_workflow.read_text(encoding="utf-8"))
+    jobs = config.get("jobs") or {}
+
+    detect = jobs.get("detect") or {}
+    outputs = detect.get("outputs") or {}
+    assert {
+        "doc_only",
+        "run_core",
+        "reason",
+    }.issubset(outputs), "Detect job must expose doc_only, run_core, and reason outputs"
+
+    heavy_jobs = {
+        "core-tests-311",
+        "core-tests-312",
+        "docker-smoke",
+    }
+    for job_name in heavy_jobs:
+        job_config = jobs.get(job_name)
+        assert job_config, f"{job_name} job missing from Gate workflow"
+        condition = job_config.get("if")
+        assert condition, f"{job_name} job missing docs-only guard condition"
+        assert (
+            "needs.detect.outputs.doc_only != 'true'" in condition
+        ), f"{job_name} must skip when docs-only"
+        assert (
+            "needs.detect.outputs.run_core == 'true'" in condition
+        ), f"{job_name} must honor run_core toggle"
+
+    gate_job = jobs.get("gate") or {}
+    gate_steps = gate_job.get("steps") or []
+    docs_only_steps = [
+        step for step in gate_steps if isinstance(step, dict) and step.get("id") == "docs_only"
+    ]
+    assert docs_only_steps, "Gate job must include docs-only handling step"
+    docs_only_step = docs_only_steps[0]
+    assert (
+        docs_only_step.get("if") == "needs.detect.outputs.doc_only == 'true'"
+    ), "Docs-only step must run only for doc-only changes"
+
+    script_block = ((docs_only_step.get("with") or {}).get("script")) or ""
+    assert "<!-- gate-docs-only -->" in script_block, "Docs-only comment marker missing"
+    assert (
+        "Gate fast-pass" in script_block
+    ), "Docs-only script must communicate fast-pass message"
 
 
 def test_inventory_docs_list_all_workflows():
