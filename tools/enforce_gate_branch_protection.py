@@ -294,7 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--context",
         dest="contexts",
         action="append",
-        help="Status check context to require. May be passed multiple times. Defaults to 'Gate / gate'.",
+        help="Status check context to require. May be passed multiple times. Defaults to the configured required contexts (Gate / gate and Health 45 Agents Guard / Enforce agents workflow protections).",
     )
     parser.add_argument(
         "--token",
