@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pathlib
 
-from pathlib import Path
-
 import yaml
 
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
@@ -110,9 +108,10 @@ def test_selftest_runner_publish_job_contract() -> None:
     publish = jobs.get("publish-results") or {}
 
     assert publish, "selftest-runner.yml should retain the publish-results job."
-    assert set(publish.get("needs", [])) == {"scenario", "aggregate"}, (
-        "publish-results should depend on both the matrix execution and aggregation jobs."
-    )
+    assert set(publish.get("needs", [])) == {
+        "scenario",
+        "aggregate",
+    }, "publish-results should depend on both the matrix execution and aggregation jobs."
     assert (
         publish.get("if") == "${{ always() }}"
     ), "publish-results should always execute to surface matrix status."
@@ -267,9 +266,9 @@ def test_selftest_triggers_are_manual_only() -> None:
             "trigger so self-tests remain manually invoked."
         )
 
-        assert trigger_keys == {required_manual_trigger}, (
-            f"{workflow_file.name} should only expose {required_manual_trigger}."
-        )
+        assert trigger_keys == {
+            required_manual_trigger
+        }, f"{workflow_file.name} should only expose {required_manual_trigger}."
 
 
 def test_selftest_dispatch_reason_input() -> None:
@@ -385,15 +384,17 @@ def test_archived_selftests_retain_manual_triggers() -> None:
 
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
-    assert RUNNER_PATH.exists(), "selftest-runner.yml is missing from .github/workflows/"
+    assert (
+        RUNNER_PATH.exists()
+    ), "selftest-runner.yml is missing from .github/workflows/"
 
     data = yaml.safe_load(RUNNER_PATH.read_text()) or {}
     jobs = data.get("jobs", {})
 
     scenario_job = jobs.get("scenario") or {}
-    assert scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml", (
-        "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
-    )
+    assert (
+        scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
+    ), "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
 
     matrix = scenario_job.get("strategy", {}).get("matrix", {}).get("include", [])
     scenario_names = [entry.get("name") for entry in matrix]
@@ -410,20 +411,20 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Self-test scenario matrix drifted; update verification docs/tests if intentional."
 
     aggregate_job = jobs.get("aggregate") or {}
-    assert aggregate_job.get("needs") == "scenario", (
-        "Aggregate job must depend on the scenario matrix"
-    )
-    assert aggregate_job.get("if") == "${{ always() }}", (
-        "Aggregate job should always run to summarise results"
-    )
+    assert (
+        aggregate_job.get("needs") == "scenario"
+    ), "Aggregate job must depend on the scenario matrix"
+    assert (
+        aggregate_job.get("if") == "${{ always() }}"
+    ), "Aggregate job should always run to summarise results"
 
     permissions = aggregate_job.get("permissions", {})
-    assert permissions.get("actions") == "read", (
-        "Aggregate job must read workflow artifacts"
-    )
-    assert permissions.get("contents") == "read", (
-        "Aggregate job must read repository contents"
-    )
+    assert (
+        permissions.get("actions") == "read"
+    ), "Aggregate job must read workflow artifacts"
+    assert (
+        permissions.get("contents") == "read"
+    ), "Aggregate job must read repository contents"
 
     env = aggregate_job.get("env", {})
     aggregate_list = env.get("SCENARIO_LIST", "")
@@ -439,10 +440,10 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
 
     steps = aggregate_job.get("steps", [])
     verify_step = next((step for step in steps if step.get("id") == "verify"), None)
-    assert verify_step is not None, (
-        "Aggregate job must include the github-script verification step"
-    )
+    assert (
+        verify_step is not None
+    ), "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
-    assert verify_env.get("PYTHON_VERSIONS") == "${{ env.PYTHON_VERSIONS }}", (
-        "Verification step should read python version overrides from the aggregate env."
-    )
+    assert (
+        verify_env.get("PYTHON_VERSIONS") == "${{ env.PYTHON_VERSIONS }}"
+    ), "Verification step should read python version overrides from the aggregate env."
