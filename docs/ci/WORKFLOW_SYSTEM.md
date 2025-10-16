@@ -77,6 +77,59 @@ highlight the most common entry points:
   safely](#how-to-change-a-workflow-safely) before committing; it lists the
   approvals, labels, and verification steps Gate will enforce.
 
+### Bucket quick reference
+
+Use this cheat sheet when you need the quickest possible answer about “what
+fires where” without diving into the full tables:
+
+- **PR checks (Gate + PR 02 Autofix)**
+  - **Primary workflows.** `pr-00-gate.yml`, `pr-02-autofix.yml` under
+    `.github/workflows/`.
+  - **Triggers.** `pull_request`, with Gate also running in
+    `pull_request_target` for fork visibility. Autofix is label-gated.
+  - **Purpose.** Guard every PR, detect docs-only diffs, and offer an optional
+    autofix sweep before reviewers spend time on hygiene nits.
+  - **Where to inspect logs.** Gate: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
+    Autofix: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml).
+- **Maintenance & repo health**
+  - **Primary workflows.** `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`,
+    and the health guardrails (`health-40` through `health-45`).
+  - **Triggers.** Combination of `workflow_run` (Maint 46 watching Gate),
+    recurring schedules, and manual dispatch for Maint 45.
+  - **Purpose.** Keep the default branch stable after merges, surface drift, and
+    enforce branch-protection expectations without waiting for the next PR.
+  - **Where to inspect logs.** Maint 46: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml).
+    Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
+    Health guardrails: the [Health 40–45 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection+OR+workflow%3AHealth+45+Agents+Guard).
+- **Issue / agents automation**
+  - **Primary workflows.** `agents-70-orchestrator.yml`, the paired
+    `agents-63-*.yml` issue bridges, `agents-64-verify-agent-assignment.yml`, and
+    `agents-critical-guard.yml`.
+  - **Triggers.** A mix of orchestrator `workflow_call` hand-offs, labelled
+    issues, schedules, and guarded pull requests when protected YAML changes.
+  - **Purpose.** Convert tracked issues into automation tasks while preserving
+    the immutable agents surface behind Code Owners, labels, and guard checks.
+  - **Where to inspect logs.** Orchestrator:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml).
+    Agents 63 bridge:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml).
+    Agents Critical Guard:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml).
+- **Error checking, linting, and testing topology**
+  - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
+    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, and `selftest-runner.yml`.
+  - **Triggers.** Invoked via `workflow_call` by Gate, Maint 46, and manual
+    reruns. `selftest-runner.yml` exposes `workflow_dispatch` for on-demand
+    verification.
+  - **Purpose.** Provide a consistent lint/type/test/container matrix so every
+    caller sees identical results.
+  - **Where to inspect logs.** Reusable Python CI:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml).
+    Docker CI:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml).
+    Self-test runner:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml).
+
 ## Topology at a glance
 
 | Bucket | Where it runs | YAML entry points | Why it exists |
