@@ -21,18 +21,13 @@ jobs:
     name: Enforce agents workflow protections
     runs-on: ubuntu-latest
     steps:
-      - name: Check out policy scripts
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 1
       - name: Evaluate protected file changes
         id: evaluate
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
             const path = require('path');
+            const Module = require('module');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/health-45-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
@@ -48,32 +43,39 @@ jobs:
             ];
 
             async function loadGuardModule() {
-              if (require.cache[guardPath]) {
-                return require.cache[guardPath].exports;
+              if (Module._cache[guardPath]) {
+                return Module._cache[guardPath].exports;
               }
 
-              if (fs.existsSync(guardPath)) {
+              try {
                 return require(guardPath);
+              } catch (error) {
+                if (error.code !== 'MODULE_NOT_FOUND') {
+                  throw error;
+                }
+
+                core.info(`Guard script missing locally; fetching ${guardRelativePath} at ${baseRef}`);
+                const response = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: guardRelativePath,
+                  ref: baseRef,
+                });
+
+                if (Array.isArray(response.data) || response.data.type !== 'file') {
+                  throw new Error(`Unable to load ${guardRelativePath} from ${baseRef}`);
+                }
+
+                const encoding = response.data.encoding || 'base64';
+                const source = Buffer.from(response.data.content || '', encoding).toString('utf-8');
+
+                const guardModule = new Module(guardPath, module.parent || module);
+                guardModule.filename = guardPath;
+                guardModule.paths = Module._nodeModulePaths(path.dirname(guardPath));
+                guardModule._compile(source, guardPath);
+                Module._cache[guardPath] = guardModule;
+                return guardModule.exports;
               }
-
-              const response = await github.rest.repos.getContent({
-                owner,
-                repo,
-                path: guardRelativePath,
-                ref: baseRef,
-              });
-
-              if (Array.isArray(response.data) || response.data.type !== 'file') {
-                throw new Error(`Unable to load ${guardRelativePath} from ${baseRef}`);
-              }
-
-              const encoding = response.data.encoding || 'base64';
-              const buffer = Buffer.from(response.data.content || '', encoding);
-              const source = buffer.toString('utf-8');
-
-              fs.mkdirSync(path.dirname(guardPath), { recursive: true });
-              fs.writeFileSync(guardPath, source, { encoding: 'utf-8' });
-              return require(guardPath);
             }
 
             const { evaluateGuard } = await loadGuardModule();
