@@ -39,6 +39,13 @@ def test_archive_directories_removed():
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
 
 
+def test_docs_only_fast_path_workflow_removed():
+    legacy_fast_path = WORKFLOW_DIR / "pr-14-docs-only.yml"
+    assert (
+        not legacy_fast_path.exists()
+    ), "Legacy docs-only fast path must remain removed; Gate owns the behavior"
+
+
 def test_inventory_docs_list_all_workflows():
     docs = {
         "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path(
