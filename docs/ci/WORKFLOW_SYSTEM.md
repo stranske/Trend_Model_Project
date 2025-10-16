@@ -44,6 +44,24 @@ When you first land on the project:
    specifics (inputs, permissions, job layout) once you know which surface you
    are touching.
 
+### Scenario cheat sheet
+
+The table below is the canonical source of truth, but these quick scenarios
+highlight the most common entry points:
+
+- **Opening or updating a feature PR?** Expect the [PR checks bucket](#pr-checks-gate--autofix)
+  (Gate + optional Autofix) to run automatically and to fan out into the
+  reusable CI topology.
+- **Investigating a nightly or weekend regression?** Start with the
+  [Maintenance & repo health](#maintenance--repo-health) workflows—they collect
+  the scheduled hygiene runs and post-merge follow-ups.
+- **Working on labelled agent issues or Codex escalations?** Review the
+  [Issue / agents automation](#issue--agents-automation) guardrails so you know
+  which workflows dispatch work and which checks must stay green.
+- **Editing YAML under `.github/workflows/`?** Read [How to change a workflow
+  safely](#how-to-change-a-workflow-safely) before committing; it lists the
+  approvals, labels, and verification steps Gate will enforce.
+
 ## Topology at a glance
 
 | Bucket | Where it runs | YAML entry points | Why it exists |
