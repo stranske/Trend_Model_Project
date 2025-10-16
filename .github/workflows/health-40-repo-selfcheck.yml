@@ -86,61 +86,50 @@ jobs:
             }
 
             let branchStatus = 'unknown';
-            let branchNote = 'Branch protection not checked.';
+            let branchNote = 'Branch protection probe did not run.';
             const serviceBotPat = (process.env.SERVICE_BOT_PAT || '').trim();
-            let privilegedChecksUsed = false;
-            let privilegedChecksSkipped = false;
+            const privilegedChecksUsed = Boolean(serviceBotPat);
+            const privilegedChecksSkipped = false;
             let branchFetchError = null;
 
-            const runPrivilegedCheck = async () => {
-              // Use the authenticated `github` client made available by actions/github-script
-              // This avoids requiring external modules (e.g. @octokit/rest) which may not be
-              // available in the action runtime and would cause an unhandled exception.
-              try {
-                const resp = await github.rest.repos.getBranchProtection({
-                  owner,
-                  repo,
-                  branch: defaultBranch,
-                  ...(serviceBotPat ? { headers: { authorization: `token ${serviceBotPat}` } } : {})
-                });
-                // resp.status is not always present on the returned object; treat success as configured
+            const tokenDescriptor = privilegedChecksUsed
+              ? 'SERVICE_BOT_PAT token'
+              : 'default GITHUB_TOKEN';
+
+            try {
+              const response = await github.rest.repos.getBranch({
+                owner,
+                repo,
+                branch: defaultBranch,
+              });
+
+              const isProtected = Boolean(response?.data?.protected);
+              if (isProtected) {
                 branchStatus = 'enabled';
                 branchNote = `Branch protection is configured for ${defaultBranch}.`;
-                return;
-              } catch (error) {
-                // Normalize different failure modes into statuses the rest of the workflow understands.
-                const status = error.status || '';
-                if (status === 404) {
-                  branchStatus = 'missing';
-                  branchNote = `Branch protection is not configured for ${defaultBranch}.`;
-                } else if (status === 401) {
-                  branchStatus = 'forbidden';
-                  branchNote = 'The supplied token was rejected (401 Unauthorized) when reading branch protection settings.';
-                  core.warning(branchNote);
-                } else if (status === 403) {
-                  branchStatus = 'forbidden';
-                  branchNote = 'The supplied token lacks permission to read branch protection settings.';
-                  core.warning(branchNote);
-                } else {
-                  branchStatus = 'error';
-                  const msg = error?.response?.data?.message || error?.message || String(error);
-                  branchNote = `Branch protection check failed${status ? ` (status ${status})` : ''}: ${msg}`;
-                  core.warning(branchNote);
-                }
-                // Preserve a textual fetch/error note for downstream reporting
-                branchFetchError = branchNote;
-                return;
+              } else {
+                branchStatus = 'missing';
+                branchNote = `Branch protection is not configured for ${defaultBranch}.`;
               }
-            };
+            } catch (error) {
+              const status = error?.status || error?.response?.status || '';
+              const detail = error?.response?.data?.message || error?.message || String(error);
 
-            if (serviceBotPat) {
-              privilegedChecksUsed = true;
-              await runPrivilegedCheck();
-            } else {
-              privilegedChecksSkipped = true;
-              branchStatus = 'skipped';
-              branchNote = 'SERVICE_BOT_PAT not configured; skipped branch protection check.';
-              core.notice('Skipped privileged checks because SERVICE_BOT_PAT is not configured.');
+              if (status === 401 || status === 403) {
+                branchStatus = 'forbidden';
+                branchNote = `Branch protection probe was not authorized using the ${tokenDescriptor}.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else if (status === 404) {
+                branchStatus = 'error';
+                branchNote = `Branch protection probe could not find the ${defaultBranch} branch.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else {
+                branchStatus = 'error';
+                branchNote = `Branch protection probe failed${status ? ` (status ${status})` : ''}: ${detail}`;
+                core.warning(branchNote);
+              }
+
+              branchFetchError = detail ? `${branchNote} ${detail}` : branchNote;
             }
 
             const checks = [
@@ -170,9 +159,9 @@ jobs:
                     ? 'pass'
                     : branchStatus === 'missing'
                     ? 'error'
-                    : branchStatus === 'skipped'
-                    ? 'warn'
                     : branchStatus === 'error' || branchStatus === 'forbidden'
+                    ? 'warn'
+                    : branchStatus === 'skipped'
                     ? 'warn'
                     : 'info',
                 detail: branchNote,
@@ -187,16 +176,16 @@ jobs:
               },
             ];
 
-            core.info(
-              [
-                `Repo health summary @ ${timestamp}`,
-                `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
-                `• Branch protection status: ${branchStatus}`,
-                privilegedChecksUsed
-                  ? '• Privileged checks: executed with SERVICE_BOT_PAT'
-                  : '• Privileged checks: skipped (SERVICE_BOT_PAT not configured)',
-              ].join('\n')
-            );
+              core.info(
+                [
+                  `Repo health summary @ ${timestamp}`,
+                  `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
+                  `• Branch protection status: ${branchStatus}`,
+                  privilegedChecksUsed
+                    ? '• Branch protection probe token: SERVICE_BOT_PAT'
+                    : '• Branch protection probe token: default GITHUB_TOKEN',
+                ].join('\n')
+              );
 
             core.setOutput('checks', JSON.stringify(checks));
             core.setOutput('timestamp', timestamp);
@@ -279,7 +268,7 @@ jobs:
                   lines.append('> ⚠️ Privileged checks ran but reported access issues. Review the branch protection result above for details.')
           else:
               lines.append('')
-              lines.append('> ℹ️ No privileged checks were requested in this run.')
+              lines.append('> ℹ️ Branch protection probe ran with the default `GITHUB_TOKEN`.')
 
           output = '\n'.join(lines) + '\n'
           print(output)
@@ -319,7 +308,7 @@ jobs:
               if branch_status == 'missing':
                   fix_items.append(f"- [ ] Enable branch protection on `{default_branch}`.")
               elif branch_status in {'error', 'forbidden', 'skipped'}:
-                  fix_items.append('- [ ] Restore branch protection visibility (configure SERVICE_BOT_PAT or retry later).')
+                  fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
 
           if not fix_items:
               fix_items.append('- [x] No action required — repo health checks are green.')
