@@ -17,7 +17,7 @@ ledger of retired workflows.
 Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
-Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets, observability surfaces, merge policy, and guardrails from [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely), while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
+Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets, merge policy, and guardrails from [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely), while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
 
 - Passing the Gate check (and the Agents Guard check when agent workflows
   change) is required to merge to the default branch. Branch protection also
