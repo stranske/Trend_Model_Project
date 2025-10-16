@@ -372,13 +372,13 @@ Tasks
 
   - Update Health 44’s enforcement step to pass all intended required contexts and disable cleanup:
 
-    -context "Gate / gate"
+    - context "Gate / gate"
 
-    -context "Enforce agents workflow protections"
+    - context "Enforce agents workflow protections"
 
-      -context "Health 45 Agents Guard / Enforce agents workflow protections"
+      - context "Health 45 Agents Guard / Enforce agents workflow protections"
 
-      -no-clean
+      - no-clean
 
     - Ensure the job runs in dry-run on PRs and with --apply on schedule/workflow_dispatch.
 
