@@ -40,6 +40,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
 - [Onboarding checklist (save for future you)](#onboarding-checklist-save-for-future-you)
 - [Scenario cheat sheet](#scenario-cheat-sheet)
 - [Bucket quick reference](#bucket-quick-reference)
+- [Observability surfaces by bucket](#observability-surfaces-by-bucket)
 - [Topology at a glance](#topology-at-a-glance)
 - [Buckets and canonical workflows](#buckets-and-canonical-workflows)
 - [Lifecycle example: from pull request to follow-up automation](#lifecycle-example-from-pull-request-to-follow-up-automation)
@@ -74,7 +75,9 @@ When you first land on the project:
    request or scheduled automation.
 2. **Use the workflow summary table** as the canonical source for triggers,
    required status, and log links when you need to confirm behaviour or share a
-   run with reviewers.
+   run with reviewers. Pair it with the
+   [observability surfaces](#observability-surfaces-by-bucket) section to grab
+   the exact permalink or artifact bundle you need for status updates.
 3. **Review [How to change a workflow safely](#how-to-change-a-workflow-safely)**
    before editing any YAML. It enumerates the guardrails, labels, and approval
    steps you must follow.
@@ -208,6 +211,46 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml).
     Self-test runner:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml).
+
+### Observability surfaces by bucket
+
+Think of these run histories, dashboards, and artifacts as the canonical places
+to verify that automation worked—or to capture a permalink for post-mortems and
+status updates:
+
+- **PR checks**
+  - *Gate summary comment.* Appears automatically on every pull request and is
+    the first line of evidence when a contributor wants to share status.
+  - *Gate workflow run.* The Checks tab links to
+    [pr-00-gate.yml history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml),
+    which exposes reusable job logs and uploaded artifacts for failing runs.
+  - *Autofix artifacts.* When the `autofix` label is applied, the workflow
+    uploads the formatted patch or commit diff for reviewers to inspect before
+    merging.
+- **Maintenance & repo health**
+  - *Maint 46 comment and artifact bundle.* Each run posts a consolidated
+    summary with links to artifacts, making it easy to confirm that post-merge
+    hygiene completed.
+  - *Health 40–45 dashboards.* The Actions list filtered by `workflow:Health`
+    serves as the heartbeat for scheduled enforcement jobs. Failures here are a
+    red flag that branch protection or guardrails drifted.
+- **Issue / agents automation**
+  - *Agents 70 orchestrator timeline.* The orchestrator’s
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml)
+    reveals downstream dispatch history and the inputs supplied by labelled
+    issues.
+  - *Agents Critical Guard status.* Inspect
+    [agents-critical-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml)
+    whenever a protected YAML edit lands; it should be green before merge.
+  - *Agents 63 bridge logs.* These runs attach trace logs showing which issues
+    were synced or bootstrapped, invaluable when debugging missed escalations.
+- **Error checking, linting, and testing topology**
+  - *Reusable job logs.* Because the reusable workflows emit job-level logs for
+    each caller, you can open the workflow run from Gate or Maint 46 and expand
+    the “Reusable CI” job to see the full lint/test output.
+  - *Self-test runner summary artifact.* Manual dispatch uploads an artifact
+    containing the combined test report so local reproductions can be compared
+    against CI output.
 
 ## Topology at a glance
 

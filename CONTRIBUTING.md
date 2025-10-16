@@ -3,7 +3,8 @@
 Thank you for contributing to the Trend Model Project.
 
 Before diving into automation specifics, read the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md). It captures the
-required merge policy and the [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). It also explains how
+required merge policy, observability surfaces, and the
+[keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). It also explains how
 Gate, Maint 46, and the agents orchestrator collaborate, and the
 [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) section outlines the guardrail and approval
 sequence for edits. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
@@ -15,7 +16,7 @@ ledger of retired workflows.
 Pull requests flow through a single required check and a consolidated
 post-processing workflow:
 
-Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets, merge policy, and guardrails from [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely), while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
+Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets, observability surfaces, merge policy, and guardrails from [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely), while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
 
 - Passing the Gate check (and the Agents Guard check when agent workflows
   change) is required to merge to the default branch. Branch protection also
