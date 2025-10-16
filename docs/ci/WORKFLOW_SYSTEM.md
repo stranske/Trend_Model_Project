@@ -27,6 +27,21 @@ Maintenance & repo health ──► Issue / agents automation
 Gate opens the door, reusable CI fans out the heavy lifting, maintenance keeps
 the surface polished, and the agents stack orchestrates follow-up work.
 
+### How the buckets interact in practice
+
+- **Gate and PR 02 Autofix** are the first responders on every pull request.
+  Gate decides whether to fan out into the reusable CI topology, while Autofix
+  runs the optional clean-up sweep when the label is applied.
+- **Maint 46 Post CI** wakes up after a successful Gate run and aggregates the
+  results, while the remaining maintenance workflows keep the default branch
+  protected on a schedule or by manual dispatch.
+- **Agents automation** consumes labelled issues and protected workflow edits,
+  using the orchestrator to coordinate downstream jobs and guards such as the
+  Agents Critical Guard.
+- **Reusable lint/test/topology workflows** execute only when called; they
+  provide the shared matrix for Gate, Maint 46, and manual reruns so contributors
+  see the same results regardless of entry point.
+
 ### Quick orientation for new contributors
 
 When you first land on the project:
