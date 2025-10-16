@@ -34,6 +34,17 @@ the surface polished, and the agents stack orchestrates follow-up work.
 > edits—the policy spells out the guardrails, while this page traces the
 > topology those guardrails protect.
 
+> 🧾 **One-minute orientation.**
+> - Glance at [Topology at a glance](#topology-at-a-glance) to map the four
+>   automation buckets to their YAML entry points and understand why each
+>   surface exists.
+> - Use the [Bucket quick reference](#bucket-quick-reference) or
+>   [Workflow summary table](#workflow-summary-table) when you need the
+>   trigger/purpose/required matrix for a review or incident response.
+> - Keep [How to change a workflow safely](#how-to-change-a-workflow-safely)
+>   open next to [AGENTS_POLICY.md](./AGENTS_POLICY.md) before editing any
+>   workflow so you never bypass the guardrails.
+
 > 🧭 **Use this map to stay oriented.**
 > - Start with the [quick orientation](#quick-orientation-for-new-contributors)
 >   checklist when you are new or returning so you know which buckets will
