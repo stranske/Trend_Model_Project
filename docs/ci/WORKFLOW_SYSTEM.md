@@ -1,10 +1,20 @@
 # Workflow System Overview
 
-**Purpose.** Describe what runs where, why each workflow exists, and how the
-pieces interlock so contributors can land changes without tripping the guardrails.
-The system splits into four buckets that mirror how automation shows up on a
-pull request or scheduled cadence: PR checks, maintenance, issue/agent
-automation, and the linting/testing topology.
+**Purpose.** Document what runs where, why each workflow exists, and how the
+pieces interlock so contributors can land changes without tripping the
+guardrails. Automation shows up in four canonical buckets that mirror what a
+contributor experiences on a pull request or on the maintenance calendar:
+
+1. **PR checks** – gatekeeping for every pull request (Gate, PR 02 Autofix).
+2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
+   the repository clean (Maint 46 Post CI, Maint 45, recurring health checks).
+3. **Issue / agents automation** – orchestrated agent work and issue
+   synchronisation (Agents 70 orchestrator plus Agents 63/64 companions).
+4. **Error checking, linting, and testing topology** – reusable workflows that
+   fan out lint, type, test, and container verification across the matrix.
+
+Each bucket below calls out the canonical workflows, the YAML entry point, and
+the policy guardrails that keep the surface safe.
 
 ## Buckets and canonical workflows
 
@@ -78,24 +88,24 @@ automation, and the linting/testing topology.
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
 | Gate (`pr-00-gate.yml`) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | Actions → **Gate / gate**, skip comment on PR |
-| PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label-gated) | Optional fast fixers when the `autofix` label is present. | ⚪ Optional | Actions → **PR 02 Autofix**, uploaded patch artifact |
-| Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply tiny hygiene fixes, and update failure tracker state. | ⚪ Optional (runs automatically post-CI) | PR summary comment, attached artifacts |
-| Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR if changes are needed. | ⚪ Manual | Actions → run summary, generated PR |
+| PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | Actions → **PR 02 Autofix**, uploaded patch artifact |
+| Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | PR summary comment, attached artifacts |
+| Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | Actions → run summary, generated PR |
 | Health 40 Repo Selfcheck (`health-40-repo-selfcheck.yml`) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | Workflow summary uploads JSON metrics |
-| Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Weekly dependency and repo hygiene sweep. | ⚪ Scheduled | Workflow run summary |
+| Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | Workflow run summary |
 | Health 42 Actionlint (`health-42-actionlint.yml`) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | Actionlint report artifact |
 | Health 43 CI Signature Guard (`health-43-ci-signature-guard.yml`) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | Step summary with verification status |
 | Health 44 Gate Branch Protection (`health-44-gate-branch-protection.yml`) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | `enforcement.json` / `verification.json` artifacts |
 | Health 45 Agents Guard (`health-45-agents-guard.yml`) | `pull_request`, `workflow_dispatch`, `schedule` | Block unauthorized changes to protected agents workflows. | ✅ Required when `agents-*.yml` changes | Required status check on PRs, workflow summary |
-| Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan-out consumer automation and dispatch work. | ✅ Critical surface | Actions → Orchestrator run logs |
+| Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan out consumer automation and dispatch work. | ✅ Critical surface | Actions → Orchestrator run logs |
 | Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | Actions → Agents 63 Issue Bridge logs |
 | Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | Actions → Agents 63 ChatGPT Sync logs |
 | Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | Workflow summary, alert comments |
-| Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | Job logs + pytest artifacts |
-| Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build + smoke-test container images. | ✅ When invoked | Job logs |
-| Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Provide the orchestrated dispatch implementation. | ✅ When invoked | Job logs |
-| Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralize formatter + fixer execution. | ✅ When invoked | Uploaded patch artifact |
-| Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Manual verification matrix across interpreters. | ⚪ Manual | Workflow summary + optional history artifact |
+| Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | Job logs + pytest artifacts |
+| Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | Job logs |
+| Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | Job logs |
+| Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | Uploaded patch artifact |
+| Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | Workflow summary + optional history artifact |
 
 ## Policy
 
