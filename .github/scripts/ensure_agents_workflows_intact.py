@@ -65,8 +65,8 @@ def main() -> int:
         print(f"::error::{message}")
 
     print(
-        "Refer to docs/AGENTS_POLICY.md for emergency override steps and repository "
-        "ruleset guidance."
+        "Refer to docs/ci/AGENTS_POLICY.md for emergency override steps and "
+        "repository ruleset guidance."
     )
     return 1
 

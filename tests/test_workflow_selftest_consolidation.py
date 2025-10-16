@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
+import pathlib
 
 import yaml
 
-WORKFLOW_DIR = Path(".github/workflows")
-ARCHIVE_DIR = Path("Old/workflows")
+WORKFLOW_DIR = pathlib.Path(".github/workflows")
+ARCHIVE_DIR = pathlib.Path("Old/workflows")
 SELFTEST_PATH = WORKFLOW_DIR / "selftest-81-reusable-ci.yml"
 RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
 
