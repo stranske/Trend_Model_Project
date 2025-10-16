@@ -87,25 +87,25 @@ the policy guardrails that keep the surface safe.
 
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
-| Gate (`pr-00-gate.yml`) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | Actions → **Gate / gate**, skip comment on PR |
-| PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | Actions → **PR 02 Autofix**, uploaded patch artifact |
-| Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | PR summary comment, attached artifacts |
-| Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | Actions → run summary, generated PR |
-| Health 40 Repo Selfcheck (`health-40-repo-selfcheck.yml`) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | Workflow summary uploads JSON metrics |
-| Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | Workflow run summary |
-| Health 42 Actionlint (`health-42-actionlint.yml`) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | Actionlint report artifact |
-| Health 43 CI Signature Guard (`health-43-ci-signature-guard.yml`) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | Step summary with verification status |
-| Health 44 Gate Branch Protection (`health-44-gate-branch-protection.yml`) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | `enforcement.json` / `verification.json` artifacts |
-| Health 45 Agents Guard (`health-45-agents-guard.yml`) | `pull_request`, `workflow_dispatch`, `schedule` | Block unauthorized changes to protected agents workflows. | ✅ Required when `agents-*.yml` changes | Required status check on PRs, workflow summary |
-| Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan out consumer automation and dispatch work. | ✅ Critical surface | Actions → Orchestrator run logs |
-| Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | Actions → Agents 63 Issue Bridge logs |
-| Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | Actions → Agents 63 ChatGPT Sync logs |
-| Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | Workflow summary, alert comments |
-| Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | Job logs + pytest artifacts |
-| Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | Job logs |
-| Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | Job logs |
-| Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | Uploaded patch artifact |
-| Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | Workflow summary + optional history artifact |
+| Gate (`pr-00-gate.yml`) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
+| PR 02 Autofix (`pr-02-autofix.yml`) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | [Autofix runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml) |
+| Maint 46 Post CI (`maint-46-post-ci.yml`) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
+| Maint 45 Cosmetic Repair (`maint-45-cosmetic-repair.yml`) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
+| Health 40 Repo Selfcheck (`health-40-repo-selfcheck.yml`) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |
+| Health 41 Repo Health (`health-41-repo-health.yml`) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
+| Health 42 Actionlint (`health-42-actionlint.yml`) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
+| Health 43 CI Signature Guard (`health-43-ci-signature-guard.yml`) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-43-ci-signature-guard.yml) |
+| Health 44 Gate Branch Protection (`health-44-gate-branch-protection.yml`) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
+| Health 45 Agents Guard (`health-45-agents-guard.yml`) | `pull_request`, `workflow_dispatch`, `schedule` | Block unauthorized changes to protected agents workflows. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-45-agents-guard.yml) |
+| Agents 70 Orchestrator (`agents-70-orchestrator.yml`) | `workflow_call`, `workflow_dispatch` | Fan out consumer automation and dispatch work. | ✅ Critical surface | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
+| Agents 63 Codex Issue Bridge (`agents-63-codex-issue-bridge.yml`) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ✅ Critical surface | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
+| Agents 63 ChatGPT Issue Sync (`agents-63-chatgpt-issue-sync.yml`) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ✅ Critical surface | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
+| Agents 64 Verify Agent Assignment (`agents-64-verify-agent-assignment.yml`) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
+| Reusable Python CI (`reusable-10-ci-python.yml`) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
+| Reusable Docker CI (`reusable-12-ci-docker.yml`) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
+| Reusable Agents (`reusable-16-agents.yml`) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-16-agents.yml) |
+| Reusable Autofix (`reusable-18-autofix.yml`) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-18-autofix.yml) |
+| Self-test Runner (`selftest-runner.yml`) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | [Self-test runner history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml) |
 
 ## Policy
 
@@ -157,6 +157,10 @@ the policy guardrails that keep the surface safe.
 5. After merge, remove the label and verify the guard workflows report green.
 
 ## Verification checklist
+
+- Gate badge in `README.md` and branch protection both show as required for the default branch.
+- Health 45 Agents Guard appears as a required check whenever protected workflows change and reports ✅ in the latest run.
+- Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
 
 - Gate runs and passes on docs-only PRs and appears as a required check.
 - Health 45 blocks unauthorized agents workflow edits and reports as the
