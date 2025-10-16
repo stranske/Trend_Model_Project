@@ -116,9 +116,18 @@ highlight the most common entry points:
 - **Opening or updating a feature PR?** Expect the [PR checks bucket](#pr-checks-gate--autofix)
   (Gate + optional Autofix) to run automatically and to fan out into the
   reusable CI topology.
+- **Gate is red on your PR?** Expand the Gate summary comment to spot the
+  failing lane, then open the linked workflow run. The reusable jobs expose a
+  dedicated "Reusable CI" job section; download the attached artifact when
+  Gate mentions one so you can compare the logs locally before re-running the
+  check.
 - **Investigating a nightly or weekend regression?** Start with the
   [Maintenance & repo health](#maintenance--repo-health) workflows—they collect
   the scheduled hygiene runs and post-merge follow-ups.
+- **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
+  workflow run, review the uploaded artifact bundle, and check the linked
+  follow-up issue before you retry. Maint 46 only exits green when both the
+  reusable CI fan-out and the hygiene sweep succeed.
 - **Working on labelled agent issues or Codex escalations?** Review the
   [Issue / agents automation](#issue--agents-automation) guardrails so you know
   which workflows dispatch work and which checks must stay green.
