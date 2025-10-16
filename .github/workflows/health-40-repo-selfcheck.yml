@@ -348,7 +348,11 @@ jobs:
           for check in checks:
               title = check.get('title', 'Unknown')
               status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
-              detail = check.get('detail', '').replace('|', '\\|')
+              detail = (
+                  check.get('detail', '')
+                  .replace('|', '\\|')
+                  .replace('\n', '<br>')
+              )
               comment_sections.append(f'| {title} | {status} | {detail or ""} |')
 
           comment_sections.extend([
