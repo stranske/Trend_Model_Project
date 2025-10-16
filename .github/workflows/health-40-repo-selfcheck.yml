@@ -93,55 +93,44 @@ jobs:
             let branchFetchError = null;
 
             const runPrivilegedCheck = async () => {
-              const endpoint = `https://api.github.com/repos/${owner}/${repo}/branches/${defaultBranch}/protection`;
-              const headers = {
-                'Accept': 'application/vnd.github+json',
-                'User-Agent': 'repo-health-selfcheck',
-                'Authorization': `token ${serviceBotPat}`,
-              };
-
-              let response;
+              // Use the authenticated `github` client made available by actions/github-script
+              // This avoids requiring external modules (e.g. @octokit/rest) which may not be
+              // available in the action runtime and would cause an unhandled exception.
               try {
-                response = await fetch(endpoint, { headers });
-              } catch (error) {
-                branchStatus = 'error';
-                branchNote = `Branch protection check encountered a network error: ${error?.message || error}`;
-                core.warning(branchNote);
-                branchFetchError = branchNote;
-                return;
-              }
-
-              if (response.status === 200) {
+                const resp = await github.rest.repos.getBranchProtection({
+                  owner,
+                  repo,
+                  branch: defaultBranch,
+                  ...(serviceBotPat ? { headers: { authorization: `token ${serviceBotPat}` } } : {})
+                });
+                // resp.status is not always present on the returned object; treat success as configured
                 branchStatus = 'enabled';
                 branchNote = `Branch protection is configured for ${defaultBranch}.`;
                 return;
-              }
-
-              if (response.status === 404) {
-                branchStatus = 'missing';
-                branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+              } catch (error) {
+                // Normalize different failure modes into statuses the rest of the workflow understands.
+                const status = error.status || '';
+                if (status === 404) {
+                  branchStatus = 'missing';
+                  branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                } else if (status === 401) {
+                  branchStatus = 'forbidden';
+                  branchNote = 'The supplied token was rejected (401 Unauthorized) when reading branch protection settings.';
+                  core.warning(branchNote);
+                } else if (status === 403) {
+                  branchStatus = 'forbidden';
+                  branchNote = 'The supplied token lacks permission to read branch protection settings.';
+                  core.warning(branchNote);
+                } else {
+                  branchStatus = 'error';
+                  const msg = error?.response?.data?.message || error?.message || String(error);
+                  branchNote = `Branch protection check failed${status ? ` (status ${status})` : ''}: ${msg}`;
+                  core.warning(branchNote);
+                }
+                // Preserve a textual fetch/error note for downstream reporting
+                branchFetchError = branchNote;
                 return;
               }
-
-              if (response.status === 401) {
-                branchStatus = 'forbidden';
-                branchNote = 'The supplied token was rejected (401 Unauthorized) when reading branch protection settings.';
-                core.warning(branchNote);
-                return;
-              }
-
-              if (response.status === 403) {
-                branchStatus = 'forbidden';
-                branchNote = 'The supplied token lacks permission to read branch protection settings.';
-                core.warning(branchNote);
-                return;
-              }
-
-              branchStatus = 'error';
-              const detail = await response.text();
-              branchNote = `Branch protection check failed with status ${response.status}: ${detail}`;
-              core.warning(branchNote);
-              branchFetchError = branchNote;
             };
 
             if (serviceBotPat) {
