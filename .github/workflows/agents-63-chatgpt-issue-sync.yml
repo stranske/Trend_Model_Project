@@ -1,5 +1,4 @@
 name: Agents 63 ChatGPT Issue Sync
-# Policy reference: docs/ci/AGENTS_POLICY.md (guardrails, allowlisted changes, overrides)
 
 on:
   workflow_dispatch:
