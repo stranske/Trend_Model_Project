@@ -89,7 +89,7 @@ jobs:
             let branchNote = 'Branch protection probe did not run.';
             const serviceBotPat = (process.env.SERVICE_BOT_PAT || '').trim();
             const privilegedChecksUsed = Boolean(serviceBotPat);
-            const privilegedChecksSkipped = false;
+            const privilegedChecksSkipped = !privilegedChecksUsed;
             let branchFetchError = null;
 
             const tokenDescriptor = privilegedChecksUsed
@@ -255,7 +255,7 @@ jobs:
 
           if privileged_skipped:
               lines.append('')
-              lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured.')
+              lines.append('> ⚠️ Privileged checks were skipped because `SERVICE_BOT_PAT` is not configured. Branch protection probe ran with the default `GITHUB_TOKEN`.')
           elif privileged_used and branch_status in {'enabled', 'missing'}:
               lines.append('')
               lines.append('> ✅ Privileged checks executed with the configured credentials.')
