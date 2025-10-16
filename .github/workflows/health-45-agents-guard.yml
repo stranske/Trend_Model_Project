@@ -9,8 +9,6 @@ on:
       - labeled
       - unlabeled
       - ready_for_review
-    paths:
-      - '.github/workflows/agents-*.yml'
 
 permissions:
   contents: read

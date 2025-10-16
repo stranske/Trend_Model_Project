@@ -1,7 +1,7 @@
 # Workflow System Publication Plan (Issue #2617)
 
 ## Scope / Key Constraints
-- Publish the finalized `docs/ci/WORKFLOW_SYSTEM.md` overview sourced from the tracking issue, ensuring terminology and workflow listings match the current CI/agents topology (Gate as the sole required PR check, orchestrator entry point, retired workflows noted as archived).
+- Publish the finalized `docs/ci/WORKFLOW_SYSTEM.md` overview sourced from the tracking issue, ensuring terminology and workflow listings match the current CI/agents topology (Gate plus the Health-45 Agents Guard as the required PR checks, orchestrator entry point, retired workflows noted as archived).
 - Update `README.md` and `docs/WORKFLOW_GUIDE.md` so contributors can easily discover the new overview; align descriptions to avoid conflicting guidance with existing CI documentation.
 - Refresh `docs/ci/WORKFLOWS.md` to reference the overview for high-level context while keeping its focus on actionable CI workflow details; explicitly move retired workflows into an archived section consistent with repository conventions.
 - Remove the obsolete `WORKFLOW_AUDIT_TEMP.md` file without losing any still-relevant information (confirm migrated content exists in the new overview or other docs before deletion).

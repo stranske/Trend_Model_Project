@@ -1,14 +1,14 @@
 # Gate Workflow Branch Protection Plan
 
 ## Scope and Key Constraints
-- Enforce the `gate` GitHub Actions workflow as a required status check on the default branch (currently `main`).
+- Enforce the `gate` GitHub Actions workflow (plus the companion Health-45 Agents Guard check) as required status checks on the default branch (currently `main`).
 - Remove any legacy required status checks that overlap or conflict with `gate` (e.g., older `CI` workflows).
 - Enable the "Require branches to be up to date" option so merges must include the latest default-branch commits.
 - Preserve existing job names inside `gate.yml` (`core tests (3.11)`, `core tests (3.12)`, `docker smoke`, `gate`) to avoid downstream automation regressions.
 - Communicate the new requirement in contributor-facing docs (CONTRIBUTING.md) without altering unrelated guidance.
 
 ## Acceptance Criteria / Definition of Done
-- Default branch protection rule lists `gate` as a required status check and prevents merging until it succeeds.
+- Default branch protection rule lists `gate` (alongside the Health-45 Agents Guard) as required status checks and prevents merging until they succeed.
 - Any deprecated required checks (e.g., `CI`) are removed from the protection rule.
 - "Require branches to be up to date" is enabled for the default branch protection rule.
 - CONTRIBUTING.md explicitly instructs contributors that the `gate` check must pass before merging.
@@ -28,7 +28,7 @@
 ## Implementation Summary
 
 - Added `tools/enforce_gate_branch_protection.py` to interrogate and update the default branch protection rule via the GitHub
-  REST API so the `Gate / gate` context remains the sole required check while "Require branches to be up to date" stays enabled.
+  REST API so the `Gate / gate` and `Health 45 Agents Guard / Enforce agents workflow protections` contexts remain the required checks while "Require branches to be up to date" stays enabled.
   The helper accepts explicit `--token` and `--api-url` overrides for GitHub Enterprise Server environments while continuing to
   respect `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_API_URL` when flags are omitted.
 - The helper defaults to `GITHUB_REPOSITORY`/`DEFAULT_BRANCH` and can run in dry-run mode to audit the current contexts before
@@ -40,8 +40,8 @@
 - Scheduled automation (`.github/workflows/health-44-gate-branch-protection.yml`) executes the helper nightly and on-demand,
   applying fixes whenever the optional `BRANCH_PROTECTION_TOKEN` secret is configured and always re-validating with `--check`
   using the workflow's default token so misconfigurations fail fast. When no enforcement token is provided, the verification
-  step inspects the branch metadata API (which only requires repository read access) to confirm that **Gate / gate** remains
-  the required status check.
+  step inspects the branch metadata API (which only requires repository read access) to confirm that **Gate / gate** and
+  **Health 45 Agents Guard / Enforce agents workflow protections** remain the required status checks.
 
 ## Automation Requirements
 
@@ -71,8 +71,8 @@ Expected dry-run output when the rule is correct:
 ```
 Repository: stranske/Trend_Model_Project
 Branch:     main
-Current contexts: Gate / gate
-Desired contexts: Gate / gate
+Current contexts: Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections
+Desired contexts: Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections
 Current 'require up to date': True
 Desired 'require up to date': True
 No changes required.
@@ -96,7 +96,7 @@ For GitHub Enterprise Server instances, add `--api-url https://hostname/api/v3` 
 ## Validation Checklist
 
 - After enforcing the rule, run `gh api repos/stranske/Trend_Model_Project/branches/main/protection/required_status_checks` to
-  confirm the payload lists only `Gate / gate` and has `"strict": true`.
-- Open a throwaway pull request from an outdated branch to confirm the merge box displays `Required — Gate / gate` and blocks
-  merges until the workflow finishes successfully.
+- confirm the payload lists `Gate / gate` and `Health 45 Agents Guard / Enforce agents workflow protections` and has `"strict": true`.
+- Open a throwaway pull request from an outdated branch to confirm the merge box displays `Required — Gate / gate` and
+  `Required — Health 45 Agents Guard / Enforce agents workflow protections`, blocking merges until the workflows finish successfully.
 - Capture screenshots or console transcripts for the repository automation log (attach to the issue or link in meeting notes).

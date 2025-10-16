@@ -1,19 +1,23 @@
 # Validation Pull Request — Gate Branch Protection
 
 - **Pull request:** https://github.com/stranske/Trend_Model_Project/pull/2665
-- **Validation window:** 2025-10-15 (UTC)
+- **Validation window:** 2025-10-16 (UTC)
 
 ## Evidence collected
 
-1. **Required check listed as Gate / gate**
-   - Commit: `3c3f9159e2240a8239d7f808376706c8e3dc0e3d`
-   - Status payload: `docs/evidence/gate-branch-protection/validation-pr-status-2665.json`
-   - Result: The commit-status API reports Gate as the sole required context, confirming that the PR cannot merge until the Gate workflow succeeds.
-2. **Gate run succeeded and unblocked the PR**
-   - Workflow run: https://github.com/stranske/Trend_Model_Project/actions/runs/18515647840
-   - Result: Gate returned `state: success`, matching the required check listed in the status payload. No additional blocking checks were introduced during the validation.
+1. **Branch protection now requires both contexts**
+   - Snapshot: `docs/evidence/gate-branch-protection/verification-run-18548574371.json`
+   - Result: Health 44 captured the post-enforcement state with both `Gate / gate` **and** `Health 45 Agents Guard / Enforce agents workflow protections` marked required and `strict` enabled on `phase-2-dev`.
+2. **Enforcement run applied missing context**
+   - Workflow run: https://github.com/stranske/Trend_Model_Project/actions/runs/18548574371
+   - Snapshot: `docs/evidence/gate-branch-protection/enforcement-run-18548574371.json`
+   - Result: Health 44 ran with `--apply`, added the agents guard context, and confirmed `strict` was already true.
+3. **Verification fails when the guard is absent**
+   - Workflow run: https://github.com/stranske/Trend_Model_Project/actions/runs/18548480690
+   - Snapshot: `docs/evidence/gate-branch-protection/verification-run-18548480690.json`
+   - Result: Health 44 (check mode) failed after reporting drift: only Gate was required and the `strict` flag could not be confirmed.
 
 ## Follow-up actions
 
-- Re-run this validation after any change to the default branch protection rule or the Gate workflow name.
-- Update the evidence bundle with fresh status payloads if a future audit requires a failing Gate run screenshot or snapshot.
+- Refresh this validation bundle if the default branch, workflow names, or required check set changes again.
+- Capture a new commit-status payload once PR traffic exercises the dual required checks so the status API evidence matches the enforcement snapshots.

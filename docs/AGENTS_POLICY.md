@@ -30,12 +30,9 @@ reintroduced; the orchestrator surface replaced them entirely.
    settings (**Settings → Code security and analysis → Rulesets → New ruleset →
    Branch**). Capture screenshots of the configuration in the incident log so
    auditors can confirm the guardrail is in place.
-3. **CI guardrail** – the `Agents Critical Guard` check (see
-   `.github/workflows/agents-critical-guard.yml`) fails any pull request that
-   deletes or renames a protected file. The check documents override steps and
-   prevents merges unless a maintainer explicitly bypasses the branch protection
-   rule. Mark this status check as **required** on the default branch so the
-   enforcement cannot be skipped accidentally.
+3. **CI guardrails** – two status checks enforce the policy:
+   - `Agents Critical Guard` (see `.github/workflows/agents-critical-guard.yml`) fails any pull request that deletes or renames a protected file. The check documents override steps and prevents merges unless a maintainer explicitly bypasses the branch protection rule.
+   - `Health 45 Agents Guard` (see `.github/workflows/health-45-agents-guard.yml`) runs on every PR and blocks edits unless the PR carries `agents:allow-change` and an approved CODEOWNER review. Branch protection requires this check alongside Gate.
 
 ## Emergency override procedure
 
@@ -54,8 +51,7 @@ reintroduced; the orchestrator surface replaced them entirely.
 ## Verification checklist
 
 - The default branch protection lists **Require review from Code Owners** and
-   includes the files above. The `Agents Critical Guard` status check is marked
-   as required.
+  includes the files above. Both the `Agents Critical Guard` and `Health 45 Agents Guard` status checks are required.
 - The repository ruleset shows the three workflows in its “Protected file
   patterns” section with **Block deletion** and **Block rename** enabled.
 - A maintainer can describe the override procedure without referencing this

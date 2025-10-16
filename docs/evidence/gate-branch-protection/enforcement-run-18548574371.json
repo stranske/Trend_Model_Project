@@ -1,0 +1,30 @@
+{
+  "after": {
+    "contexts": [
+      "Gate / gate",
+      "Health 45 Agents Guard / Enforce agents workflow protections"
+    ],
+    "strict": true
+  },
+  "branch": "phase-2-dev",
+  "changes_applied": true,
+  "changes_required": true,
+  "current": {
+    "contexts": [
+      "Gate / gate"
+    ],
+    "strict": true
+  },
+  "desired": {
+    "contexts": [
+      "Gate / gate",
+      "Health 45 Agents Guard / Enforce agents workflow protections"
+    ],
+    "strict": true
+  },
+  "generated_at": "2025-10-16T02:40:06Z",
+  "mode": "apply",
+  "repository": "stranske/Trend_Model_Project",
+  "require_strict": false,
+  "strict_unknown": false
+}

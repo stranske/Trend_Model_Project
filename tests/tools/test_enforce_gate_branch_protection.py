@@ -22,9 +22,6 @@ from tools.enforce_gate_branch_protection import (
 )
 
 
-REQUIRED_CONTEXTS = list(DEFAULT_CONTEXTS)
-
-
 class DummyResponse(requests.Response):
     def __init__(
         self, status_code: int, payload: dict | None = None, text: str = ""
@@ -56,9 +53,12 @@ class DummySession(requests.Session):
         return self._response
 
 
-def test_parse_contexts_defaults_to_required_contexts() -> None:
-    assert parse_contexts(None) == REQUIRED_CONTEXTS
-    assert parse_contexts([""]) == REQUIRED_CONTEXTS
+GATE_CONTEXT = "Gate / gate"
+
+
+def test_parse_contexts_defaults_to_gate_when_missing() -> None:
+    assert parse_contexts(None) == DEFAULT_CONTEXTS
+    assert parse_contexts([""]) == DEFAULT_CONTEXTS
 
 
 def test_parse_contexts_preserves_non_empty_values() -> None:
@@ -66,25 +66,24 @@ def test_parse_contexts_preserves_non_empty_values() -> None:
 
 
 def test_normalise_contexts_deduplicates_and_sorts() -> None:
-    assert normalise_contexts(["Extra", "Gate / gate", "Gate / gate"]) == [
-        "Extra",
-        "Gate / gate",
-    ]
+    candidates = ["Extra", *DEFAULT_CONTEXTS, GATE_CONTEXT]
+    assert normalise_contexts(candidates) == sorted({"Extra", *DEFAULT_CONTEXTS})
 
 
 def test_diff_contexts_returns_expected_differences() -> None:
-    to_add, to_remove = diff_contexts(["Gate / gate"], ["Gate / gate", "Extra"])
+    to_add, to_remove = diff_contexts(DEFAULT_CONTEXTS, [*DEFAULT_CONTEXTS, "Extra"])
     assert to_add == ["Extra"]
     assert to_remove == []
 
-    to_add, to_remove = diff_contexts(["Legacy"], ["Gate / gate"])
-    assert to_add == ["Gate / gate"]
+    to_add, to_remove = diff_contexts(["Legacy"], DEFAULT_CONTEXTS)
+    assert to_add == DEFAULT_CONTEXTS
     assert to_remove == ["Legacy"]
 
 
 def test_format_contexts_handles_empty_and_multiple_values() -> None:
     assert format_contexts([]) == "(none)"
-    assert format_contexts(["Gate / gate", "Extra"]) == "Gate / gate, Extra"
+    expected = [*DEFAULT_CONTEXTS, "Extra"]
+    assert format_contexts(expected) == ", ".join(expected)
 
 
 def test_fetch_status_checks_raises_for_missing_rule() -> None:
@@ -94,33 +93,33 @@ def test_fetch_status_checks_raises_for_missing_rule() -> None:
 
 
 def test_fetch_status_checks_returns_state() -> None:
-    response = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
+    response = DummyResponse(200, {"strict": True, "contexts": DEFAULT_CONTEXTS})
     session = DummySession(response)
     state = fetch_status_checks(session, "owner/repo", "main")
-    assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+    assert state == StatusCheckState(strict=True, contexts=DEFAULT_CONTEXTS)
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
-    response = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
+    response = DummyResponse(200, {"strict": True, "contexts": DEFAULT_CONTEXTS})
     session = DummySession(response)
 
     state = update_status_checks(
         session,
         "owner/repo",
         "main",
-        contexts=["Gate / gate"],
+        contexts=DEFAULT_CONTEXTS,
         strict=True,
     )
 
-    assert session.last_payload == {"contexts": ["Gate / gate"], "strict": True}
-    assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+    assert session.last_payload == {"contexts": DEFAULT_CONTEXTS, "strict": True}
+    assert state == StatusCheckState(strict=True, contexts=DEFAULT_CONTEXTS)
 
 
 def test_update_status_checks_raises_on_failure() -> None:
     session = DummySession(DummyResponse(500, text="error"))
     with pytest.raises(BranchProtectionError):
         update_status_checks(
-            session, "owner/repo", "main", contexts=["Gate / gate"], strict=True
+            session, "owner/repo", "main", contexts=DEFAULT_CONTEXTS, strict=True
         )
 
 
@@ -136,7 +135,7 @@ def test_main_reports_no_changes_in_dry_run(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=True,
-            contexts=list(REQUIRED_CONTEXTS),
+            contexts=DEFAULT_CONTEXTS,
         ),
     )
 
@@ -197,7 +196,7 @@ def test_main_applies_changes_when_requested(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": REQUIRED_CONTEXTS,
+        "contexts": DEFAULT_CONTEXTS,
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -263,11 +262,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": [
-            "Gate / gate",
-            "Health 45 Agents Guard / Enforce agents workflow protections",
-            "Legacy",
-        ],
+        "contexts": sorted({*DEFAULT_CONTEXTS, "Legacy"}),
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -337,8 +332,7 @@ def test_main_check_mode_succeeds_when_clean(
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
-            strict=True,
-            contexts=list(REQUIRED_CONTEXTS),
+            strict=True, contexts=DEFAULT_CONTEXTS
         ),
     )
 
@@ -408,7 +402,7 @@ def test_main_bootstraps_when_apply(
     assert captured_payload == {
         "repo": "owner/repo",
         "branch": "main",
-        "contexts": REQUIRED_CONTEXTS,
+        "contexts": list(DEFAULT_CONTEXTS),
         "strict": True,
         "api_root": "https://api.github.com",
     }
@@ -451,7 +445,7 @@ def test_main_flags_missing_require_up_to_date(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=False,
-            contexts=list(REQUIRED_CONTEXTS),
+            contexts=DEFAULT_CONTEXTS,
         ),
     )
 
@@ -493,7 +487,7 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["branch"] == "main"
     assert data["mode"] == "inspect"
     assert data["current"] == {"strict": False, "contexts": ["Legacy"]}
-    assert data["desired"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
+    assert data["desired"] == {"strict": True, "contexts": list(DEFAULT_CONTEXTS)}
     assert data["changes_required"] is True
     assert data["changes_applied"] is False
     assert data["strict_unknown"] is False
@@ -514,6 +508,8 @@ def test_main_snapshot_updates_after_apply(
         lambda *_args, **_kwargs: StatusCheckState(strict=False, contexts=["Legacy"]),
     )
 
+    captured_payload: dict[str, object] = {}
+
     def fake_update(
         _session: object,
         repo: str,
@@ -525,10 +521,19 @@ def test_main_snapshot_updates_after_apply(
     ) -> StatusCheckState:
         assert repo == "owner/repo"
         assert branch == "main"
-        assert contexts == REQUIRED_CONTEXTS
+        assert contexts == list(DEFAULT_CONTEXTS)
         assert strict is True
         assert api_root == "https://api.github.com"
-        return StatusCheckState(strict=True, contexts=contexts)
+        captured_payload.update(
+            {
+                "repo": repo,
+                "branch": branch,
+                "contexts": list(contexts),
+                "strict": strict,
+                "api_root": api_root,
+            }
+        )
+        return StatusCheckState(strict=True, contexts=list(contexts))
 
     monkeypatch.setattr(
         "tools.enforce_gate_branch_protection.update_status_checks",
@@ -555,7 +560,7 @@ def test_main_snapshot_updates_after_apply(
     assert data["changes_applied"] is True
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
-    assert data["after"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
+    assert data["after"] == {"strict": True, "contexts": list(DEFAULT_CONTEXTS)}
 
 
 def test_main_check_mode_allows_unknown_strict(
@@ -570,7 +575,7 @@ def test_main_check_mode_allows_unknown_strict(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=None,
-            contexts=list(REQUIRED_CONTEXTS),
+            contexts=list(DEFAULT_CONTEXTS),
         ),
     )
 
@@ -602,7 +607,7 @@ def test_main_check_mode_requires_unknown_strict_when_requested(
         "tools.enforce_gate_branch_protection.fetch_status_checks",
         lambda *_args, **_kwargs: StatusCheckState(
             strict=None,
-            contexts=list(REQUIRED_CONTEXTS),
+            contexts=list(DEFAULT_CONTEXTS),
         ),
     )
 

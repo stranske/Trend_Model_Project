@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate and Agents Guard workflows."""
+"""Ensure the default branch requires the Gate and agents guard workflows."""
 
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ def resolve_api_root(explicit: str | None = None) -> str:
     return candidate.rstrip("/")
 
 
-DEFAULT_CONTEXTS = (
+DEFAULT_CONTEXTS = [
     "Gate / gate",
     "Health 45 Agents Guard / Enforce agents workflow protections",
-)
+]
 
 
 class BranchProtectionError(RuntimeError):
@@ -278,10 +278,7 @@ def diff_contexts(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Ensure the default branch requires the Gate and Agents Guard workflow"
-            " status checks."
-        ),
+        description="Ensure the default branch requires the Gate workflow status check.",
     )
     parser.add_argument(
         "--repo",
@@ -297,11 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--context",
         dest="contexts",
         action="append",
-        help=(
-            "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow"
-            " protections'."
-        ),
+        help="Status check context to require. May be passed multiple times. Defaults to 'Gate / gate'.",
     )
     parser.add_argument(
         "--token",

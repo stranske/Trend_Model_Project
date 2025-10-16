@@ -22,7 +22,7 @@ for the consolidation.
    Gate via `workflow_run` triggers and operate on the Gate job manifest.
 4. Gate fans out to Python 3.11, Python 3.12, and Docker smoke by delegating to `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml`.
 5. CI signature fixtures (`.github/signature-fixtures/*`) represent the Gate topology.
-6. Documentation (CONTRIBUTING, workflow catalog, automation references) calls out Gate as the sole required PR check.
+6. Documentation (CONTRIBUTING, workflow catalog, automation references) calls out Gate as the primary required PR check and notes the companion Health-45 Agents Guard requirement.
 
 ## Completion Checklist
 
@@ -31,4 +31,4 @@ for the consolidation.
 - [x] Point `maint-46-post-ci.yml` at Gate.
 - [x] Regenerate `.github/signature-fixtures/basic_jobs.json` and the corresponding hash for the Gate manifest.
 - [x] Verify Gate reuses `reusable-10-ci-python.yml` for Python 3.11/3.12 and `reusable-12-ci-docker.yml` for Docker smoke.
-- [x] Refresh documentation to describe Gate as the sole required check and record the archival of the legacy wrappers.
+- [x] Refresh documentation to describe Gate (alongside the Health-45 Agents Guard) as the required check set and record the archival of the legacy wrappers.
