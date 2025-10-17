@@ -10,9 +10,6 @@ from scripts import build_autofix_pr_comment as comment_builder
 pytestmark = pytest.mark.cosmetic
 
 
-pytestmark = pytest.mark.cosmetic
-
-
 def test_build_comment_includes_metrics(tmp_path: pathlib.Path) -> None:
     report = {
         "changed": True,
@@ -66,3 +63,190 @@ def test_build_comment_handles_missing_inputs(tmp_path: pathlib.Path) -> None:
     assert comment.startswith(comment_builder.MARKER)
     assert "| Remaining issues | 0 |" in comment
     assert "- No additional artifacts" in comment
+
+
+def test_build_comment_includes_result_block(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = {
+        "changed": False,
+        "classification": {
+            "total": 0,
+            "new": 0,
+            "allowed": 0,
+            "timestamp": "2025-09-21T13:07:52Z",
+        },
+    }
+    trend = {
+        "remaining_latest": 0,
+        "new_latest": 0,
+        "remaining_spark": "▁",
+        "new_spark": "▁",
+    }
+
+    report_path = tmp_path / "report.json"
+    trend_path = tmp_path / "trend.json"
+    report_path.write_text(json.dumps(report))
+    trend_path.write_text(json.dumps(trend))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "Autofix commit: [deadbeef](https://example.test)\nLabels: `autofix:applied`",
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            trend_path=trend_path,
+            pr_number="7",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    assert "## Autofix result" in comment
+    assert "Autofix commit: [deadbeef](https://example.test)" in comment
+    assert "Labels: `autofix:applied`" in comment
+
+
+def test_build_comment_preserves_multiline_result_block(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": True}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "Patch ready: [autofix-patch-pr-5](https://example.test)",
+                "Labels: `autofix:patch`, `autofix:debt`",
+                "",
+                "Apply locally:",
+                "1. Download the artifact.",
+                "2. Run `git am < autofix.patch`.",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="5",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "Patch ready: [autofix-patch-pr-5](https://example.test)" in result_section
+    assert "Labels: `autofix:patch`, `autofix:debt`" in result_section
+    assert "Apply locally:" in result_section
+    assert "1. Download the artifact." in result_section
+    assert "2. Run `git am < autofix.patch`." in result_section
+
+
+def test_build_comment_reports_commit_with_debt(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": True}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "Autofix commit: [cafebabe](https://example.test)",
+                "Labels: `autofix:applied`, `autofix:debt`",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="29",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "Autofix commit: [cafebabe](https://example.test)" in result_section
+    assert "Labels: `autofix:applied`, `autofix:debt`" in result_section
+
+
+def test_build_comment_reports_clean_result(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": False}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "No changes required.",
+                "Labels: `autofix:clean`, `autofix:debt`",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="11",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "No changes required." in result_section
+    assert "Labels: `autofix:clean`, `autofix:debt`" in result_section
+
+
+def test_build_comment_reports_clean_without_debt(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": False}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "No changes required.",
+                "Labels: `autofix:clean`",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="12",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "No changes required." in result_section
+    assert "Labels: `autofix:clean`" in result_section
+
+
+def test_build_comment_includes_meta_line(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"classification": {}}))
+
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CONCLUSION", "success")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CLASS", "success")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_REASON", "labeled")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_PR_HEAD", "feature/demo")
+
+    comment = comment_builder.build_comment(
+        report_path=report_path,
+        pr_number="101",
+    )
+
+    meta_line = "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
+    assert meta_line in comment
+    assert comment.splitlines()[1] == meta_line

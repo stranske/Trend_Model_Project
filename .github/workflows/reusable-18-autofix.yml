@@ -118,6 +118,36 @@ jobs:
               core.warning(`Failed to ensure autofix label: ${error.message}`);
             }
 
+      - name: Install Ruff for safe sweep
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [[ -f "${pin_file}" ]]; then
+            # shellcheck disable=SC1090
+            source "${pin_file}"
+            if [[ -n "${RUFF_VERSION:-}" ]]; then
+              echo "RUFF_VERSION=${RUFF_VERSION}" >> "${GITHUB_ENV}"
+              python3 -m pip install --upgrade --user "ruff==${RUFF_VERSION}"
+            else
+              echo "${pin_file} did not define RUFF_VERSION; installing default Ruff release" >&2
+              python3 -m pip install --upgrade --user ruff
+            fi
+          else
+            echo "Missing ${pin_file}; installing default Ruff release" >&2
+            python3 -m pip install --upgrade --user ruff
+          fi
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Ruff safe autofix sweep
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff --version
+          ruff check --fix --exit-zero .
+
       - name: Autofix
         if: steps.guard.outputs.skip != 'true'
         id: autofix
@@ -156,43 +186,26 @@ jobs:
           echo "[autofix] Failed to push after 3 attempts" >&2
           exit 1
 
-      - name: Label PR (autofix applied)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.info('No pull request context; skipping applied label.');
-              return;
-            }
-            const baseLabel = "${{ inputs.opt_in_label }}";
-            const labels = [baseLabel, 'autofix:applied'];
-            try {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                labels,
-              });
-            } catch (error) {
-              core.warning(`Failed to add autofix applied label: ${error.message}`);
-            }
-
       - name: Prepare commit summary (same-repo)
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         shell: bash
         run: |
           if [ -n "$COMMIT_SHA" ]; then
             url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
             short_sha=$(printf '%.12s' "$COMMIT_SHA")
+            labels="\`autofix:applied\`"
+            if [ "${REMAINING:-0}" -gt 0 ]; then
+              labels="$labels, \`autofix:debt\`"
+            fi
             {
               echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
               echo "Autofix commit: [${short_sha}]($url)"
+              echo "Labels: $labels"
               echo "EOF"
             } >> "$GITHUB_ENV"
           fi
@@ -246,13 +259,19 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         shell: bash
         run: |
           url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
           name="autofix-patch-pr-$PR_NUMBER"
+          labels="\`autofix:patch\`"
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "Patch ready: [${name}](${url})"
+            echo "Labels: $labels"
             echo ""
             echo "Apply locally:"
             echo "1. Download the artifact from the Actions run."
@@ -265,31 +284,93 @@ jobs:
 
       - name: Prepare no-change summary
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed != 'true'
+        env:
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         run: |
+          labels="\`autofix:clean\`"
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "No changes required."
+            echo "Labels: $labels"
             echo "EOF"
           } >> "$GITHUB_ENV"
 
-
-      - name: Manage clean/debt labels (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+      - name: Manage autofix outcome labels
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/github-script@v7
+        env:
+          AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
+          SAME_REPO: ${{ steps.same_repo.outputs.same }}
+          REMAINING_ISSUES: ${{ steps.autofix.outputs.remaining_issues }}
         with:
           script: |
             const pr = context.payload.pull_request;
-            const remaining = parseInt('${{ steps.autofix.outputs.remaining_issues }}', 10) || 0;
+            if (!pr) {
+              core.info('No pull request context; skipping outcome labels.');
+              return;
+            }
+            const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
+            const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
+            const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
+            const appliedLabel = 'autofix:applied';
             const cleanLabel = 'autofix:clean';
             const debtLabel = 'autofix:debt';
-            const want = remaining === 0 ? cleanLabel : debtLabel;
-            const drop = remaining === 0 ? debtLabel : cleanLabel;
-            try {
-              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, name: drop }).catch(()=>{});
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, labels: [want] });
-              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, name: 'autofix:patch' }).catch(()=>{});
-            } catch(e) {
-              core.warning('Label management warning: ' + e.message);
+            const patchLabel = 'autofix:patch';
+
+            async function addLabel(label) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: [label],
+                });
+              } catch (error) {
+                core.warning(`Failed to add ${label}: ${error.message}`);
+              }
+            }
+
+            async function removeLabel(label) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: label,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Failed to remove ${label}: ${error.message}`);
+                }
+              }
+            }
+
+            const desired = new Set();
+            if (remaining > 0) {
+              desired.add(debtLabel);
+            }
+            if (!changed) {
+              desired.add(cleanLabel);
+            }
+            if (changed && sameRepo) {
+              desired.add(appliedLabel);
+            }
+            if (changed && !sameRepo) {
+              desired.add(patchLabel);
+            }
+
+            for (const label of desired) {
+              await addLabel(label);
+            }
+
+            const managed = [appliedLabel, cleanLabel, debtLabel, patchLabel];
+            for (const label of managed) {
+              if (!desired.has(label)) {
+                await removeLabel(label);
+              }
             }
 
       - name: Restore prior autofix history artifact (same-repo)
