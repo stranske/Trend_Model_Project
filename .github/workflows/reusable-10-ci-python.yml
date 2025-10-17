@@ -144,24 +144,26 @@ jobs:
         python-version: >-
           ${{ fromJson(
             (
-              inputs['python-versions'] != '' &&
-              inputs['python-versions'] != '[]' &&
-              startsWith(trim(inputs['python-versions']), '[')
-            )
-            && (inputs['python-versions'] && trim(inputs['python-versions']))
-            || (
-              inputs['python-versions'] != '' &&
-              inputs['python-versions'] != '[]' &&
-              !contains(trim(inputs['python-versions']), '[') &&
-              !contains(trim(inputs['python-versions']), ']')
-            )
-            && format('["{0}"]', trim(inputs['python-versions']))
-            || format(
-              '["{0}"]',
               (
-                inputs['python-version'] && trim(inputs['python-version'])
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                contains(inputs['python-versions'], '[')
               )
-              || '3.11'
+              && inputs['python-versions']
+            )
+            || (
+              (
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                !contains(inputs['python-versions'], '[')
+              )
+              && format('[{0}]', toJson(inputs['python-versions']))
+            )
+            || (
+              (
+                inputs['python-version'] != ''
+              )
+              && format('[{0}]', toJson(inputs['python-version']))
             )
             || '["3.11"]'
           ) }}
