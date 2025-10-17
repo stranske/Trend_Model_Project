@@ -4,6 +4,20 @@ import pathlib
 
 import yaml
 
+ARCHIVE_LEDGER_PATH = pathlib.Path("ARCHIVE_WORKFLOWS.md")
+WORKFLOW_SYSTEM_DOC = pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md")
+WORKFLOWS_DOC = pathlib.Path("docs/ci/WORKFLOWS.md")
+
+LEGACY_COMMENT_WRAPPERS = (
+    "maint-43-selftest-pr-comment.yml",
+    "pr-20-selftest-pr-comment.yml",
+    "selftest-pr-comment.yml",
+)
+
+
+def _normalize(text: str) -> str:
+    return text.replace("\u00a0", " ")
+
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_DIR = pathlib.Path("Old/workflows")
 RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
@@ -48,11 +62,7 @@ def test_selftest_workflow_inventory() -> None:
 def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
     """Redundant PR comment wrappers should remain deleted."""
 
-    expected_missing = {
-        "maint-43-selftest-pr-comment.yml",
-        "pr-20-selftest-pr-comment.yml",
-        "selftest-pr-comment.yml",
-    }
+    expected_missing = set(LEGACY_COMMENT_WRAPPERS)
 
     active_matches = {
         path.name
@@ -72,6 +82,43 @@ def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
         "Old/workflows/: "
         f"{sorted(expected_missing & archived_matches)}"
     )
+
+
+def test_archive_ledgers_comment_wrappers() -> None:
+    """Archive ledger must document the retired comment wrappers."""
+
+    ledger_text = _normalize(ARCHIVE_LEDGER_PATH.read_text())
+    for wrapper in LEGACY_COMMENT_WRAPPERS:
+        assert (
+            wrapper in ledger_text
+        ), f"Archive ledger missing entry for retired workflow {wrapper}."
+
+    assert (
+        "Maint 46 Post CI" in ledger_text
+    ), "Archive ledger should point readers to the Maint 46 Post CI summary path."
+    assert (
+        "selftest-runner.yml" in ledger_text
+    ), "Archive ledger should reference the consolidated Self-test Runner."
+
+
+def test_workflow_docs_highlight_comment_consolidation() -> None:
+    """Documentation must highlight the surviving self-test comment surfaces."""
+
+    system_text = _normalize(WORKFLOW_SYSTEM_DOC.read_text())
+    catalog_text = _normalize(WORKFLOWS_DOC.read_text())
+
+    for doc_text in (system_text, catalog_text):
+        assert (
+            "Maint 46 Post CI" in doc_text
+        ), "Docs should explain Maint 46 Post CI as the canonical comment path."
+        assert (
+            "selftest-runner.yml" in doc_text
+        ), "Docs should reference the manual Self-test Runner entry point."
+
+    for wrapper in LEGACY_COMMENT_WRAPPERS:
+        assert (
+            wrapper in system_text or wrapper in catalog_text
+        ), f"Docs should mention the retirement of {wrapper}."
 
 
 def test_selftest_reusable_ci_dispatch_contract() -> None:
