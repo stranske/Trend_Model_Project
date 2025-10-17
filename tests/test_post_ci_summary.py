@@ -113,6 +113,130 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert "_(no jobs reported)_" in body
 
 
+def test_docs_only_fast_pass_includes_context() -> None:
+    runs = [
+        {
+            "key": "gate",
+            "displayName": "Gate",
+            "present": True,
+            "id": 303,
+            "run_attempt": 1,
+            "conclusion": "success",
+            "status": "completed",
+            "html_url": "https://example.test/gate/303",
+            "jobs": [
+                {"name": "detect changed files", "conclusion": "success"},
+                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.12)", "conclusion": "skipped"},
+                {"name": "docker smoke", "conclusion": "skipped"},
+                {"name": "gate", "conclusion": "success"},
+            ],
+        }
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha="deadbeef",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    assert "Docs-only change detected; heavy checks skipped." in body
+    assert (
+        "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in body
+    )
+    assert "| Gate / core tests (3.11) | ⏭️ skipped |" in body
+    assert "| Gate / core tests (3.12) | ⏭️ skipped |" in body
+    assert "| Gate / docker smoke | ⏭️ skipped |" in body
+    assert "### Coverage Overview" in body
+
+
+def test_docs_only_note_requires_all_heavy_jobs_skipped() -> None:
+    runs = [
+        {
+            "key": "gate",
+            "displayName": "Gate",
+            "present": True,
+            "id": 404,
+            "run_attempt": 1,
+            "conclusion": "success",
+            "status": "completed",
+            "html_url": "https://example.test/gate/404",
+            "jobs": [
+                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.12)", "conclusion": "success"},
+                {"name": "docker smoke", "conclusion": "skipped"},
+                {"name": "gate", "conclusion": "success"},
+            ],
+        }
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha="c0ffee",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    assert "Docs-only change detected; heavy checks skipped." not in body
+    assert (
+        "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        not in body
+    )
+
+
+def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
+    runs = [
+        {
+            "key": "gate",
+            "displayName": "Gate",
+            "present": True,
+            "id": 505,
+            "run_attempt": 1,
+            "conclusion": "success",
+            "status": "completed",
+            "html_url": "https://example.test/gate/505",
+            "jobs": [
+                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.12)", "conclusion": "skipped"},
+                {"name": "docker smoke", "conclusion": "skipped"},
+                {"name": "gate", "conclusion": "success"},
+            ],
+        }
+    ]
+
+    coverage_stats = {
+        "avg_latest": 88.0,
+        "avg_delta": -1.0,
+        "worst_latest": 80.5,
+        "worst_delta": 0.5,
+        "history_len": 7,
+    }
+    coverage_section = "Supplementary coverage details."
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha="baddad",
+        coverage_stats=coverage_stats,
+        coverage_section=coverage_section,
+        required_groups_env=None,
+    )
+
+    lines = body.splitlines()
+    note = "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+    assert lines.count(note) == 1
+    assert "Docs-only change detected; heavy checks skipped." in body
+
+    coverage_header_index = lines.index("### Coverage Overview")
+    coverage_jobs_index = next(
+        i for i, line in enumerate(lines) if line.startswith("- Coverage (jobs):")
+    )
+    coverage_section_index = lines.index(coverage_section)
+    note_index = lines.index(note)
+
+    assert coverage_header_index < coverage_jobs_index < coverage_section_index < note_index
 def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     flaky_job = {
         "name": "main / flaky-suite",
