@@ -113,6 +113,7 @@ jobs:
               } else {
                 branchStatus = 'missing';
                 branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                core.warning(branchNote);
               }
             } catch (error) {
               const status = error?.status || error?.response?.status || '';
