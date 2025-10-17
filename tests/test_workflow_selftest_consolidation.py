@@ -14,6 +14,10 @@ LEGACY_COMMENT_WRAPPERS = (
     "selftest-pr-comment.yml",
 )
 
+LEGACY_COMMENT_WRAPPER_STEMS = tuple(
+    pathlib.Path(name).stem for name in LEGACY_COMMENT_WRAPPERS
+)
+
 
 def _normalize(text: str) -> str:
     return text.replace("\u00a0", " ")
@@ -62,25 +66,32 @@ def test_selftest_workflow_inventory() -> None:
 def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
     """Redundant PR comment wrappers should remain deleted."""
 
-    expected_missing = set(LEGACY_COMMENT_WRAPPERS)
+    expected_missing = set(LEGACY_COMMENT_WRAPPER_STEMS)
 
-    active_matches = {
-        path.name
-        for path in WORKFLOW_DIR.glob("*selftest*pr-comment*.yml")
-    }
-    archived_matches = {
-        path.name
-        for path in ARCHIVE_DIR.glob("*selftest*pr-comment*.yml")
-    }
+    active_matches = _collect_comment_wrapper_variants(WORKFLOW_DIR)
+    archived_matches = _collect_comment_wrapper_variants(ARCHIVE_DIR)
 
-    assert not (expected_missing & active_matches), (
-        "Legacy self-test comment workflows resurfaced in .github/workflows/: "
-        f"{sorted(expected_missing & active_matches)}"
+    unexpected_active = sorted(
+        name
+        for stem, names in active_matches.items()
+        if stem in expected_missing
+        for name in sorted(names)
     )
-    assert not (expected_missing & archived_matches), (
+    unexpected_archived = sorted(
+        name
+        for stem, names in archived_matches.items()
+        if stem in expected_missing
+        for name in sorted(names)
+    )
+
+    assert not unexpected_active, (
+        "Legacy self-test comment workflows resurfaced in .github/workflows/: "
+        f"{unexpected_active}"
+    )
+    assert not unexpected_archived, (
         "Legacy self-test comment workflows should no longer be tracked in "
         "Old/workflows/: "
-        f"{sorted(expected_missing & archived_matches)}"
+        f"{unexpected_archived}"
     )
 
 
@@ -749,3 +760,18 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         verify_env.get("PYTHON_VERSIONS") == "${{ env.PYTHON_VERSIONS }}"
     ), "Verification step should read python version overrides from the aggregate env."
+def _collect_comment_wrapper_variants(
+    directory: pathlib.Path,
+) -> dict[str, set[str]]:
+    """Return discovered legacy wrapper names grouped by stem.
+
+    The historical files occasionally resurfaced with a `.yaml` extension when
+    copied manually.  Guard against that variant by collecting both `.yml` and
+    `.yaml` matches.
+    """
+
+    variants: dict[str, set[str]] = {}
+    for pattern in ("*selftest*pr-comment*.yml", "*selftest*pr-comment*.yaml"):
+        for path in directory.glob(pattern):
+            variants.setdefault(path.stem, set()).add(path.name)
+    return variants
