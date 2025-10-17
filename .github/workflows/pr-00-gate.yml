@@ -106,6 +106,17 @@ jobs:
                 '/rfcs/',
                 '/specs/',
                 '/notes/',
+                '\\docs\\',
+                '\\doc\\',
+                '\\documentation\\',
+                '\\design-docs\\',
+                '\\handbook\\',
+                '\\guide\\',
+                '\\guides\\',
+                '\\adr\\',
+                '\\rfcs\\',
+                '\\specs\\',
+                '\\notes\\',
               ];
               if (docSegments.some(segment => normalised.includes(segment))) {
                 return true;

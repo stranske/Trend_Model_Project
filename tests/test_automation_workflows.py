@@ -357,6 +357,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "scans nested documentation segments": "const docSegments = [",
             "contains mkdocs basename": "'mkdocs',",
             "contains docfx basename": "'docfx',",
+            "captures windows-style segments": "\\\\docs\\\\",
         }
 
         for label, snippet in expected_snippets.items():
