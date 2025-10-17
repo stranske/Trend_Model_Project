@@ -113,6 +113,45 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert "_(no jobs reported)_" in body
 
 
+def test_docs_only_fast_pass_includes_context() -> None:
+    runs = [
+        {
+            "key": "gate",
+            "displayName": "Gate",
+            "present": True,
+            "id": 303,
+            "run_attempt": 1,
+            "conclusion": "success",
+            "status": "completed",
+            "html_url": "https://example.test/gate/303",
+            "jobs": [
+                {"name": "detect changed files", "conclusion": "success"},
+                {"name": "core tests (3.11)", "conclusion": "skipped"},
+                {"name": "core tests (3.12)", "conclusion": "skipped"},
+                {"name": "docker smoke", "conclusion": "skipped"},
+                {"name": "gate", "conclusion": "success"},
+            ],
+        }
+    ]
+
+    body = build_summary_comment(
+        runs=runs,
+        head_sha="deadbeef",
+        coverage_stats=None,
+        coverage_section=None,
+        required_groups_env=None,
+    )
+
+    assert "Docs-only change detected; heavy checks skipped." in body
+    assert (
+        "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in body
+    )
+    assert "| Gate / core tests (3.11) | ⏭️ skipped |" in body
+    assert "| Gate / core tests (3.12) | ⏭️ skipped |" in body
+    assert "| Gate / docker smoke | ⏭️ skipped |" in body
+    assert "### Coverage Overview" in body
+
+
 def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     flaky_job = {
         "name": "main / flaky-suite",

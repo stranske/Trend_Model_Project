@@ -115,6 +115,7 @@ def _slugify(value: str) -> str:
 
 
 class RequiredJobRule(TypedDict):
+    key: str
     label: str
     slug_variants: List[List[str]]
     fallback_patterns: List[str]
@@ -122,6 +123,7 @@ class RequiredJobRule(TypedDict):
 
 REQUIRED_JOB_RULES: List[RequiredJobRule] = [
     {
+        "key": "core311",
         "label": "core tests (3.11)",
         "slug_variants": [
             ["core", "3-11"],
@@ -132,6 +134,7 @@ REQUIRED_JOB_RULES: List[RequiredJobRule] = [
         "fallback_patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"],
     },
     {
+        "key": "core312",
         "label": "core tests (3.12)",
         "slug_variants": [
             ["core", "3-12"],
@@ -142,11 +145,13 @@ REQUIRED_JOB_RULES: List[RequiredJobRule] = [
         "fallback_patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"],
     },
     {
+        "key": "docker",
         "label": "docker smoke",
         "slug_variants": [["docker", "smoke"], ["smoke", "docker"]],
         "fallback_patterns": [r"docker.*smoke|smoke.*docker"],
     },
     {
+        "key": "gate",
         "label": "gate",
         "slug_variants": [["gate"], ["aggregator", "gate"]],
         "fallback_patterns": [r"gate"],
@@ -154,8 +159,19 @@ REQUIRED_JOB_RULES: List[RequiredJobRule] = [
 ]
 
 
+DOC_ONLY_JOB_KEYS: tuple[str, ...] = ("core311", "core312", "docker")
+
+
 def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:
     return any(all(token in slug for token in option) for option in variants)
+
+
+def _classify_job_key(name: str) -> str | None:
+    slug = _slugify(name)
+    for rule in REQUIRED_JOB_RULES:
+        if _matches_slug(slug, rule["slug_variants"]):
+            return rule["key"]
+    return None
 
 
 def _derive_required_groups_from_runs(
@@ -201,6 +217,59 @@ def _derive_required_groups_from_runs(
                 }
             )
     return groups
+
+
+def _collect_category_states(
+    runs: Sequence[Mapping[str, object]]
+) -> dict[str, tuple[str, str | None]]:
+    states: dict[str, tuple[str, str | None]] = {}
+    for run in runs:
+        if not isinstance(run, Mapping) or not run.get("present"):
+            continue
+        display = str(
+            run.get("displayName")
+            or run.get("display_name")
+            or run.get("key")
+            or "workflow"
+        )
+        jobs = run.get("jobs")
+        if not isinstance(jobs, Sequence):
+            continue
+        for job in jobs:
+            if not isinstance(job, Mapping):
+                continue
+            name_value = job.get("name")
+            if not isinstance(name_value, str):
+                continue
+            name = name_value.strip()
+            if not name:
+                continue
+            key = _classify_job_key(name)
+            if not key:
+                continue
+            state_value = job.get("conclusion") or job.get("status")
+            state_str = str(state_value) if state_value is not None else None
+            label = f"{display} / {name}" if display else name
+            existing = states.get(key)
+            if existing is None or _priority(state_str) < _priority(existing[1]):
+                states[key] = (label, state_str)
+    return states
+
+
+def _is_docs_only_fast_pass(
+    category_states: Mapping[str, tuple[str, str | None]]
+) -> bool:
+    seen_skipped = False
+    for key in DOC_ONLY_JOB_KEYS:
+        record = category_states.get(key)
+        if record is None:
+            return False
+        state = record[1] or ""
+        normalized = state.lower()
+        if normalized != "skipped":
+            return False
+        seen_skipped = True
+    return seen_skipped
 
 
 def _load_required_groups(
@@ -517,6 +586,8 @@ def build_summary_comment(
     required_groups_env: str | None,
 ) -> str:
     deduped_runs = _dedupe_runs(runs)
+    category_states = _collect_category_states(deduped_runs)
+    docs_only_fast_pass = _is_docs_only_fast_pass(category_states)
     rows = _build_job_rows(deduped_runs)
     job_table_lines = _format_jobs_table(rows)
     groups = _load_required_groups(required_groups_env, deduped_runs)
@@ -533,6 +604,12 @@ def build_summary_comment(
         if not coverage_block:
             coverage_block.append("### Coverage Overview")
         coverage_block.append(coverage_section_clean)
+    if docs_only_fast_pass:
+        note = "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        if coverage_block:
+            coverage_block.append(note)
+        else:
+            coverage_block.extend(["### Coverage Overview", note])
 
     body_parts: MutableSequence[str] = ["## Automated Status Summary"]
     if head_sha:
@@ -544,6 +621,9 @@ def build_summary_comment(
     body_parts.append("")
     body_parts.extend(job_table_lines)
     body_parts.append("")
+    if docs_only_fast_pass:
+        body_parts.append("Docs-only change detected; heavy checks skipped.")
+        body_parts.append("")
     body_parts.extend(part for part in coverage_block if part)
     if coverage_block:
         body_parts.append("")
