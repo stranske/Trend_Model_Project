@@ -85,6 +85,14 @@ Open a focused PR (or issue) for:
 | Missing ignore for known untyped lib | Not in allowlist | Add to `ALLOWLIST` in script, run autofix locally. |
 | CI autofix skipped | No diff produced | Confirm local environment replicates tool versions. |
 
+## Acceptance criteria traceability
+
+| Acceptance criterion | Implementation checkpoints |
+|----------------------|----------------------------|
+| Safe fixes only (formatting, imports, trivial lint) | Early Ruff sweep runs before the composite autofix to catch cosmetic diffs, then the composite restricts itself to formatter and lint hygiene tooling.【F:.github/workflows/reusable-18-autofix.yml†L121-L209】【F:.github/actions/autofix/action.yml†L34-L110】 |
+| Labels applied correctly based on outcome | Result blocks enumerate the applied labels and the outcome label manager toggles `autofix:applied`, `autofix:clean`, `autofix:patch`, and `autofix:debt` based on change detection and residual diagnostics.【F:.github/workflows/reusable-18-autofix.yml†L187-L374】【F:tests/test_build_autofix_pr_comment.py†L68-L173】 |
+| PR description comment summarising what changed | The consolidated PR comment always embeds the Autofix result block (when provided) so reviewers see the commit or patch link alongside the label summary, with regression tests locking the behaviour in place.【F:scripts/build_autofix_pr_comment.py†L236-L256】【F:tests/test_build_autofix_pr_comment.py†L68-L144】 |
+
 ## Verification scenarios
 
 Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue #2649’s safeguards remain in place:
