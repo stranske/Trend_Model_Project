@@ -4,7 +4,8 @@ This repository includes an extended **autofix** workflow that standardises styl
 
 ## What It Does (Scope)
 1. Code formatting & style
-   - `ruff` (lint + --fix for safe rules)
+- Early `ruff check --fix --exit-zero` sweep that runs before the heavier composite so trivial whitespace/import issues are cleaned even when later phases short-circuit. The step installs the pinned Ruff version when `.github/workflows/autofix-versions.env` is present and otherwise falls back to the latest release.【F:.github/workflows/reusable-18-autofix.yml†L121-L148】
+  - Full composite run covering `ruff`, `black`, `isort`, and `docformatter` with both safe and targeted lint passes.【F:.github/actions/autofix/action.yml†L34-L110】
    - `black` (code formatting)
    - `isort` (import sorting where unambiguous)
    - `docformatter` (docstring wrapping)
@@ -17,6 +18,11 @@ This repository includes an extended **autofix** workflow that standardises styl
    - Invokes a non-blocking mypy run so subsequent CI/type checks are faster.
 
 If any step produces changes, the workflow auto‑commits them back to the PR branch with a conventional message (e.g. `chore(autofix): style + type hygiene`).
+
+## Result Labels & Status Comment
+- Same-repo branches that receive an autofix commit automatically gain the `autofix:applied` label; forked PRs receive `autofix:patch` when an artifact is uploaded.【F:.github/workflows/reusable-18-autofix.yml†L187-L281】
+- Runs that finish clean (no diff) toggle `autofix:clean`, while any unresolved diagnostics append `autofix:debt` alongside the primary outcome label.【F:.github/workflows/reusable-18-autofix.yml†L283-L371】
+- Every execution updates a single status comment with an **Autofix result** block that lists the applied labels so reviewers can confirm the outcome at a glance.【F:.github/workflows/reusable-18-autofix.yml†L187-L297】【F:scripts/build_autofix_pr_comment.py†L218-L253】
 
 ## What It Intentionally Does NOT Do
 - It does **not** attempt deep structural refactors or resolve complex type inference issues.
@@ -79,6 +85,14 @@ Open a focused PR (or issue) for:
 | Missing ignore for known untyped lib | Not in allowlist | Add to `ALLOWLIST` in script, run autofix locally. |
 | CI autofix skipped | No diff produced | Confirm local environment replicates tool versions. |
 
+## Acceptance criteria traceability
+
+| Acceptance criterion | Implementation checkpoints |
+|----------------------|----------------------------|
+| Safe fixes only (formatting, imports, trivial lint) | Early Ruff sweep runs before the composite autofix to catch cosmetic diffs, then the composite restricts itself to formatter and lint hygiene tooling.【F:.github/workflows/reusable-18-autofix.yml†L121-L209】【F:.github/actions/autofix/action.yml†L34-L110】 |
+| Labels applied correctly based on outcome | Result blocks enumerate the applied labels and the outcome label manager toggles `autofix:applied`, `autofix:clean`, `autofix:patch`, and `autofix:debt` based on change detection and residual diagnostics.【F:.github/workflows/reusable-18-autofix.yml†L187-L374】【F:tests/test_build_autofix_pr_comment.py†L68-L173】 |
+| PR description comment summarising what changed | The consolidated PR comment always embeds the Autofix result block (when provided) so reviewers see the commit or patch link alongside the label summary, with regression tests locking the behaviour in place.【F:scripts/build_autofix_pr_comment.py†L236-L256】【F:tests/test_build_autofix_pr_comment.py†L68-L144】 |
+
 ## Verification scenarios
 
 Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue #2649’s safeguards remain in place:
@@ -93,9 +107,25 @@ Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue�
 2. Ensure the workflow uploads an `autofix-patch-pr-<number>` artifact, applies the `autofix:patch` label, and the status comment explains how to apply the patch locally.
 3. Download and apply the patch with `git am` to confirm it replays cleanly, then push manually to complete the fix.
 
+### Label outcomes
+1. Re-run the workflow on a clean branch (no staged lint issues) and verify the status comment reports “No changes required” with the `autofix:clean` label.【F:.github/workflows/reusable-18-autofix.yml†L283-L297】
+2. Introduce a trivial lint (e.g. reorder imports) and confirm the rerun pushes a commit, applies `autofix:applied`, and lists the label in the comment.【F:.github/workflows/reusable-18-autofix.yml†L187-L209】
+3. If the run leaves residual diagnostics, expect `autofix:debt` to accompany either result label.【F:.github/workflows/reusable-18-autofix.yml†L299-L371】
+
 ### Label gating sanity check
 1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
 2. Confirm the `apply` job is skipped and no new comments are posted, demonstrating the label gate is working as expected.
+
+### Demo PR verification (acceptance scenario)
+To replicate Issue #2724’s acceptance criteria end-to-end:
+
+1. Push a same-repo branch that intentionally violates a simple Ruff rule (for example, add trailing whitespace to a Python file).
+2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix` unless overridden in repository variables).
+3. Observe the **PR 02 Autofix** workflow run; once complete it should:
+   - Install Ruff, apply the safe `ruff check --fix --exit-zero` sweep, and commit cosmetic fixes back to the branch.【F:.github/workflows/reusable-18-autofix.yml†L121-L209】
+   - Apply the `autofix:applied` label (and remove any stale `autofix:clean`) when the commit lands.【F:.github/workflows/reusable-18-autofix.yml†L283-L360】
+   - Update the status comment with an **Autofix result** block summarising the labels and linking to the commit.【F:.github/workflows/reusable-18-autofix.yml†L187-L297】【F:scripts/build_autofix_pr_comment.py†L214-L256】
+4. If no diff is produced (for example, after re-running on a clean branch) expect the workflow to reapply `autofix:clean` and report “No changes required.” in the same status comment block.【F:.github/workflows/reusable-18-autofix.yml†L299-L360】
 
 ## Future Enhancements (Optional Backlog)
 - Add metrics: record autofix delta lines per run.
