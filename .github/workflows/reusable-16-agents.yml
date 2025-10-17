@@ -395,6 +395,13 @@ jobs:
             const label = labels[0];
             const labelLower = label.toLowerCase();
 
+            const skipped = [];
+            const logSkip = (issue, reason) => {
+              const message = `#${issue.number}: skipped – ${reason}`;
+              core.info(message);
+              skipped.push(message);
+            };
+
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -407,12 +414,12 @@ jobs:
 
             for (const issue of issues) {
               if (issue.pull_request) {
-                core.info(`#${issue.number}: skipped – issue is a pull request.`);
+                logSkip(issue, 'issue is a pull request.');
                 continue;
               }
 
               if (issue.title && issue.title.toLowerCase().includes('wip')) {
-                core.info(`#${issue.number}: skipped – title marked as work in progress.`);
+                logSkip(issue, 'title marked as work in progress.');
                 continue;
               }
 
@@ -422,7 +429,7 @@ jobs:
               });
 
               if (!matchesLabel) {
-                core.info(`#${issue.number}: skipped – missing required label ${label}.`);
+                logSkip(issue, `missing required label ${label}.`);
                 continue;
               }
 
@@ -431,15 +438,22 @@ jobs:
 
             const numbers = accepted.map((issue) => issue.number);
 
-            summary
-              .addRaw(`Bootstrap label: **${label}**`)
-              .addEOL()
-              .addRaw(
-                numbers.length
-                  ? `Accepted issues: ${numbers.map((num) => `#${num}`).join(', ')}`
-                  : `No open issues labelled **${label}** are eligible for bootstrap.`
-              )
-              .addEOL();
+            summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
+
+            if (numbers.length) {
+              summary.addRaw('Eligible issues:').addEOL();
+              summary.addList(
+                accepted.map((issue) => `#${issue.number} – ${(issue.title || 'untitled').trim()}`)
+              );
+            } else {
+              summary
+                .addRaw(`No open issues labelled **${label}** are eligible for bootstrap.`)
+                .addEOL();
+            }
+
+            if (skipped.length) {
+              summary.addDetails('Skipped issues', skipped.join('\n'));
+            }
             await summary.write();
 
             core.setOutput('issue_numbers', numbers.join(','));
