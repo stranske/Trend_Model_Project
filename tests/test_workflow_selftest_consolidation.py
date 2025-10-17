@@ -45,6 +45,35 @@ def test_selftest_workflow_inventory() -> None:
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
 
 
+def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
+    """Redundant PR comment wrappers should remain deleted."""
+
+    expected_missing = {
+        "maint-43-selftest-pr-comment.yml",
+        "pr-20-selftest-pr-comment.yml",
+        "selftest-pr-comment.yml",
+    }
+
+    active_matches = {
+        path.name
+        for path in WORKFLOW_DIR.glob("*selftest*pr-comment*.yml")
+    }
+    archived_matches = {
+        path.name
+        for path in ARCHIVE_DIR.glob("*selftest*pr-comment*.yml")
+    }
+
+    assert not (expected_missing & active_matches), (
+        "Legacy self-test comment workflows resurfaced in .github/workflows/: "
+        f"{sorted(expected_missing & active_matches)}"
+    )
+    assert not (expected_missing & archived_matches), (
+        "Legacy self-test comment workflows should no longer be tracked in "
+        "Old/workflows/: "
+        f"{sorted(expected_missing & archived_matches)}"
+    )
+
+
 def test_selftest_reusable_ci_dispatch_contract() -> None:
     data = _read_workflow(REUSABLE_PATH)
     triggers = _resolve_triggers(data)
