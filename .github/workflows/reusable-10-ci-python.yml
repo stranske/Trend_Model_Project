@@ -103,6 +103,10 @@ on:
         description: JSON array of Python versions to execute.
         required: false
         default: '["3.11"]'
+      python-version:
+        description: Primary Python version to use when `python-versions` is empty.
+        required: false
+        default: '3.11'
       enable-metrics:
         description: Enable metrics artifact generation.
         required: false
@@ -152,7 +156,14 @@ jobs:
               !contains(inputs['python-versions'], ']')
             )
             && format('["{0}"]', inputs['python-versions'])
-            || format('["{0}"]', inputs['python-version'])
+            || format(
+              '["{0}"]',
+              coalesce(
+                inputs['python-version'],
+                github.event.inputs['python-version'],
+                '3.11'
+              )
+            )
           ) }}
     defaults:
       run:
