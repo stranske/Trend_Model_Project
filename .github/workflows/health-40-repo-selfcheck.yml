@@ -121,9 +121,16 @@ jobs:
 
               branchHttpStatus = status ? String(status) : 'unknown';
 
-              if (status === 401 || status === 403) {
+              const loweredDetail = (detail || '').toLowerCase();
+              const isRateLimited = status === 403 && /rate limit/.test(loweredDetail);
+
+              if (status === 401 || (status === 403 && !isRateLimited)) {
                 branchStatus = 'forbidden';
                 branchNote = `Branch protection probe was not authorized using the ${tokenDescriptor}.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else if (isRateLimited) {
+                branchStatus = 'rate_limited';
+                branchNote = `Branch protection probe hit a rate limit while using the ${tokenDescriptor}.`;
                 core.warning(`${branchNote} (${detail})`);
               } else if (status === 404) {
                 branchStatus = 'error';
@@ -179,6 +186,8 @@ jobs:
                     ? 'error'
                     : branchStatus === 'forbidden'
                     ? 'warn'
+                    : branchStatus === 'rate_limited'
+                    ? 'warn'
                     : branchStatus === 'error'
                     ? 'error'
                     : branchStatus === 'skipped'
@@ -188,6 +197,7 @@ jobs:
                 branchStatus,
                 branchFetchError,
                 httpStatus: branchHttpStatus,
+                token: tokenDescriptor,
               },
               {
                 key: 'default-branch',
@@ -390,6 +400,11 @@ jobs:
                   if response_detail:
                       message = f"{message} Latest response: {response_detail}"
 
+                  fix_items.append(message)
+              elif branch_status == 'rate_limited':
+                  message = '- [ ] Retry the branch protection probe after GitHub rate limits reset.'
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
                   fix_items.append(message)
               elif branch_status in {'error', 'skipped'}:
                   message = '- [ ] Restore branch protection visibility (ensure required permissions or retry later).'
