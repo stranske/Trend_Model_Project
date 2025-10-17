@@ -156,9 +156,12 @@ jobs:
               !contains(inputs['python-versions'], ']')
             )
             && format('["{0}"]', inputs['python-versions'])
-            || (
-              inputs['python-version'] != '' &&
-              format('["{0}"]', inputs['python-version'])
+            || format(
+              '["{0}"]',
+              (
+                inputs['python-version'] != '' && inputs['python-version']
+              )
+              || '3.11'
             )
             || '["3.11"]'
           ) }}
