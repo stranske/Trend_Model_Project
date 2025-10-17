@@ -24,3 +24,4 @@
 - [ ] Align artifact upload steps to the normalized naming scheme and retention policy; confirm optional steps follow the same pattern.
 - [ ] Execute a dry-run via `workflow_dispatch` (or local `act` simulation if feasible) to ensure the workflow succeeds end-to-end.
 - [ ] Share results with Gate owners to confirm artifact compatibility and capture any follow-up adjustments.
+<!-- bootstrap for codex on issue https://github.com/stranske/Trend_Model_Project/issues/2721 -->
