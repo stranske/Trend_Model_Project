@@ -144,6 +144,35 @@ def test_build_comment_preserves_multiline_result_block(
     assert "2. Run `git am < autofix.patch`." in result_section
 
 
+def test_build_comment_reports_commit_with_debt(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": True}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "Autofix commit: [cafebabe](https://example.test)",
+                "Labels: `autofix:applied`, `autofix:debt`",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="29",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "Autofix commit: [cafebabe](https://example.test)" in result_section
+    assert "Labels: `autofix:applied`, `autofix:debt`" in result_section
+
+
 def test_build_comment_reports_clean_result(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
