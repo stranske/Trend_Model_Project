@@ -33,9 +33,7 @@ jobs:
   summarize:
     if: >
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.pull_requests &&
-      github.event.workflow_run.pull_requests[0] &&
-      github.event.workflow_run.pull_requests[0].number
+      github.event.workflow_run.head_sha != ''
     runs-on: ubuntu-latest
     outputs:
       summary_body: ${{ steps.prep.outputs.body }}
@@ -55,7 +53,10 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const workflowRun = context.payload.workflow_run || {};
-            const headSha = workflowRun.head_sha || context.sha || '';
+            const prFromPayload = Array.isArray(workflowRun.pull_requests)
+              ? workflowRun.pull_requests.find(item => item && item.head && item.head.sha)
+              : null;
+            const headSha = (prFromPayload?.head?.sha || workflowRun.head_sha || context.sha || '').trim();
 
             const parseJsonInput = (raw, fallback) => {
               if (!raw) {
@@ -454,9 +455,7 @@ jobs:
     name: Gather context
     if: >
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.pull_requests &&
-      github.event.workflow_run.pull_requests[0] &&
-      github.event.workflow_run.pull_requests[0].number
+      github.event.workflow_run.head_sha != ''
     runs-on: ubuntu-latest
     outputs:
       found: ${{ steps.info.outputs.found }}
@@ -514,8 +513,11 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
-            const branch = run.head_branch;
-            const headSha = run.head_sha;
+            const payloadPr = run && Array.isArray(run.pull_requests)
+              ? run.pull_requests.find(item => item && typeof item.number === 'number')
+              : null;
+            const branch = (payloadPr?.head?.ref || run?.head_branch || '').trim();
+            const headSha = (payloadPr?.head?.sha || run?.head_sha || '').trim();
 
             const result = {
               found: 'false',
@@ -554,10 +556,6 @@ jobs:
             const headShaLower = (headSha || '').toLowerCase();
             let pr = null;
             let prNumber = null;
-
-            const payloadPr = run && Array.isArray(run.pull_requests)
-              ? run.pull_requests.find(item => item && typeof item.number === 'number')
-              : null;
 
             if (payloadPr) {
               prNumber = Number(payloadPr.number);
@@ -609,6 +607,13 @@ jobs:
             result.head_sha = pr.head?.sha || headSha;
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
+
+            const resolvedHeadRef = result.head_ref || branch || 'unknown-ref';
+            const resolvedHeadSha = result.head_sha || headSha || 'unknown-sha';
+            const gateRunId = run?.id ? String(run.id) : 'unknown-run';
+            core.notice(
+              `Resolved PR #${result.pr} (${resolvedHeadRef} @ ${resolvedHeadSha}) for Gate run ${gateRunId}.`,
+            );
 
             const failureTrackerSkipPrs = new Set([10, 12]);
             if (failureTrackerSkipPrs.has(prNumber)) {
