@@ -106,3 +106,39 @@ def test_build_comment_includes_result_block(
     assert "## Autofix result" in comment
     assert "Autofix commit: [deadbeef](https://example.test)" in comment
     assert "Labels: `autofix:applied`" in comment
+
+
+def test_build_comment_preserves_multiline_result_block(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": True}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "Patch ready: [autofix-patch-pr-5](https://example.test)",
+                "Labels: `autofix:patch`, `autofix:debt`",
+                "",
+                "Apply locally:",
+                "1. Download the artifact.",
+                "2. Run `git am < autofix.patch`.",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="5",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "Patch ready: [autofix-patch-pr-5](https://example.test)" in result_section
+    assert "Labels: `autofix:patch`, `autofix:debt`" in result_section
+    assert "Apply locally:" in result_section
+    assert "1. Download the artifact." in result_section
+    assert "2. Run `git am < autofix.patch`." in result_section
