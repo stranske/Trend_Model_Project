@@ -146,20 +146,20 @@ jobs:
             (
               inputs['python-versions'] != '' &&
               inputs['python-versions'] != '[]' &&
-              startsWith(inputs['python-versions'], '[')
+              startsWith(trim(inputs['python-versions']), '[')
             )
-            && inputs['python-versions']
+            && (inputs['python-versions'] && trim(inputs['python-versions']))
             || (
               inputs['python-versions'] != '' &&
               inputs['python-versions'] != '[]' &&
-              !contains(inputs['python-versions'], '[') &&
-              !contains(inputs['python-versions'], ']')
+              !contains(trim(inputs['python-versions']), '[') &&
+              !contains(trim(inputs['python-versions']), ']')
             )
-            && format('["{0}"]', inputs['python-versions'])
+            && format('["{0}"]', trim(inputs['python-versions']))
             || format(
               '["{0}"]',
               (
-                inputs['python-version'] && inputs['python-version']
+                inputs['python-version'] && trim(inputs['python-version'])
               )
               || '3.11'
             )

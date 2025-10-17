@@ -23,5 +23,11 @@
 - [x] Review the mypy pin verification step to detect missing `pyproject.toml` and skip or default appropriately; add defensive logging.
 - [x] Align artifact upload steps to the normalized naming scheme and retention policy; confirm optional steps follow the same pattern.
 - [ ] Execute a dry-run via `workflow_dispatch` (or local `act` simulation if feasible) to ensure the workflow succeeds end-to-end.
+  - Attempted `act workflow_dispatch` locally, but Docker is unavailable in the execution environment (see verification notes below).
 - [ ] Share results with Gate owners to confirm artifact compatibility and capture any follow-up adjustments.
+
+## Verification Notes
+
+- ✅ Matrix fallback logic exercised locally via a Python harness to confirm handling of empty, single-value, and JSON-array inputs.
+- ⚠️ `act workflow_dispatch` blocked by missing Docker daemon in the execution environment; manual run on GitHub Actions remains required for end-to-end validation.
 <!-- bootstrap for Codex on issue https://github.com/stranske/Trend_Model_Project/issues/2721 -->
