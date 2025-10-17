@@ -10,9 +10,6 @@ from scripts import build_autofix_pr_comment as comment_builder
 pytestmark = pytest.mark.cosmetic
 
 
-pytestmark = pytest.mark.cosmetic
-
-
 def test_build_comment_includes_metrics(tmp_path: pathlib.Path) -> None:
     report = {
         "changed": True,
@@ -66,3 +63,46 @@ def test_build_comment_handles_missing_inputs(tmp_path: pathlib.Path) -> None:
     assert comment.startswith(comment_builder.MARKER)
     assert "| Remaining issues | 0 |" in comment
     assert "- No additional artifacts" in comment
+
+
+def test_build_comment_includes_result_block(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = {
+        "changed": False,
+        "classification": {
+            "total": 0,
+            "new": 0,
+            "allowed": 0,
+            "timestamp": "2025-09-21T13:07:52Z",
+        },
+    }
+    trend = {
+        "remaining_latest": 0,
+        "new_latest": 0,
+        "remaining_spark": "▁",
+        "new_spark": "▁",
+    }
+
+    report_path = tmp_path / "report.json"
+    trend_path = tmp_path / "trend.json"
+    report_path.write_text(json.dumps(report))
+    trend_path.write_text(json.dumps(trend))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "Autofix commit: [deadbeef](https://example.test)\nLabels: `autofix:applied`",
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            trend_path=trend_path,
+            pr_number="7",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    assert "## Autofix result" in comment
+    assert "Autofix commit: [deadbeef](https://example.test)" in comment
+    assert "Labels: `autofix:applied`" in comment
