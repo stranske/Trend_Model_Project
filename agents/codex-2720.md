@@ -9,7 +9,7 @@ is available for manual annotations, and the legacy comment wrappers stay retire
 - [x] Remove duplicate self-test workflows and record their status in `ARCHIVE_WORKFLOWS.md`.
 - [x] Update CI documentation (`docs/ci/WORKFLOW_SYSTEM.md`, `docs/ci/WORKFLOWS.md`) to describe the consolidated path.
 - [x] Add a regression guard (`tests/test_workflow_selftest_consolidation.py`) so archived wrappers cannot silently return.
-- [ ] Monitor Maint 46 Post CI runs after consolidation and backfill any missed edge cases.
+- [x] Monitor Maint 46 Post CI runs after consolidation and backfill any missed edge cases. (Run [#18597199319](https://github.com/stranske/Trend_Model_Project/actions/runs/18597199319) validated the comment handoff.)
 
 ## Next Steps / Owners
 - Workflow consolidation monitoring: @workflow-maintainer
