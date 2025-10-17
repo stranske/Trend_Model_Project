@@ -208,53 +208,11 @@ jobs:
       - name: Resolve mypy python pin
         if: ${{ inputs.run-mypy }}
         id: mypy-pin
-        shell: python
         env:
           MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
-          from __future__ import annotations
-
-          import os
-          from pathlib import Path
-
-          import tomllib
-
-          matrix_version = os.environ.get("MATRIX_PYTHON_VERSION", "").strip()
-          pyproject = Path("pyproject.toml")
-          pin: str | None = None
-
-          if not pyproject.is_file():
-              if matrix_version:
-                  print(
-                      "::notice::pyproject.toml not found; defaulting mypy python_version to"
-                      f" matrix interpreter {matrix_version}"
-                  )
-                  pin = matrix_version
-          else:
-              try:
-                  data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-              except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
-                  print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
-                  raise SystemExit(1)
-
-              raw_pin = data.get("tool", {}).get("mypy", {}).get("python_version")
-              if raw_pin:
-                  pin = str(raw_pin).strip()
-              elif matrix_version:
-                  print(
-                      "::notice::No mypy python_version pin configured; defaulting to matrix"
-                      f" interpreter {matrix_version}"
-                  )
-                  pin = matrix_version
-              else:
-                  print("::warning::No mypy python_version pin found and matrix version unavailable")
-
-          if not pin:
-              raise SystemExit(0)
-
-          print(f"Resolved mypy python_version pin: {pin}")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              print(f"python-version={pin}", file=fh)
+          set -euo pipefail
+          python tools/resolve_mypy_pin.py
 
       - name: Ruff (lint)
         run: |
