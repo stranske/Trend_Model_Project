@@ -124,18 +124,20 @@ jobs:
         run: |
           set -euo pipefail
           pin_file=".github/workflows/autofix-versions.env"
-          if [[ ! -f "${pin_file}" ]]; then
-            echo "Missing ${pin_file}; unable to install Ruff for safe sweep." >&2
-            exit 1
+          if [[ -f "${pin_file}" ]]; then
+            # shellcheck disable=SC1090
+            source "${pin_file}"
+            if [[ -n "${RUFF_VERSION:-}" ]]; then
+              echo "RUFF_VERSION=${RUFF_VERSION}" >> "${GITHUB_ENV}"
+              python3 -m pip install --upgrade --user "ruff==${RUFF_VERSION}"
+            else
+              echo "${pin_file} did not define RUFF_VERSION; installing default Ruff release" >&2
+              python3 -m pip install --upgrade --user ruff
+            fi
+          else
+            echo "Missing ${pin_file}; installing default Ruff release" >&2
+            python3 -m pip install --upgrade --user ruff
           fi
-          # shellcheck disable=SC1090
-          source "${pin_file}"
-          if [[ -z "${RUFF_VERSION:-}" ]]; then
-            echo "${pin_file} did not define RUFF_VERSION" >&2
-            exit 1
-          fi
-          echo "RUFF_VERSION=${RUFF_VERSION}" >> "${GITHUB_ENV}"
-          python3 -m pip install --upgrade --user "ruff==${RUFF_VERSION}"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
       - name: Ruff safe autofix sweep

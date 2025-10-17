@@ -4,7 +4,7 @@ This repository includes an extended **autofix** workflow that standardises styl
 
 ## What It Does (Scope)
 1. Code formatting & style
-- Early `ruff check --fix --exit-zero` sweep that runs before the heavier composite so trivial whitespace/import issues are cleaned even when later phases short-circuit.【F:.github/workflows/reusable-18-autofix.yml†L121-L148】
+- Early `ruff check --fix --exit-zero` sweep that runs before the heavier composite so trivial whitespace/import issues are cleaned even when later phases short-circuit. The step installs the pinned Ruff version when `.github/workflows/autofix-versions.env` is present and otherwise falls back to the latest release.【F:.github/workflows/reusable-18-autofix.yml†L121-L148】
   - Full composite run covering `ruff`, `black`, `isort`, and `docformatter` with both safe and targeted lint passes.【F:.github/actions/autofix/action.yml†L34-L110】
    - `black` (code formatting)
    - `isort` (import sorting where unambiguous)
