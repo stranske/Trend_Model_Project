@@ -246,6 +246,10 @@ jobs:
               lines.append('')
               lines.append(f'*Default branch:* `{default_branch}`')
 
+          if branch_token:
+              lines.append('')
+              lines.append(f'*Branch protection probe token:* `{branch_token}`')
+
           if checks:
               lines.append('')
               lines.append('| Check | Status | Details |')
@@ -290,6 +294,7 @@ jobs:
                   'status': branch_status,
                   'note': branch_note,
                   'fetch_error': branch_fetch_error,
+                  'token': branch_token,
               },
           }
 
@@ -331,6 +336,7 @@ jobs:
               '## Repo health self-check',
               f'*Run timestamp:* `{timestamp}`' if timestamp else None,
               f'*Default branch:* `{default_branch}`' if default_branch else None,
+              f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
               '',
               '### Checks',
               '| Check | Status | Details |',
