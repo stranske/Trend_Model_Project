@@ -103,6 +103,10 @@ on:
         description: JSON array of Python versions to execute.
         required: false
         default: '["3.11"]'
+      python-version:
+        description: Primary Python version to use when `python-versions` is empty.
+        required: false
+        default: '3.11'
       enable-metrics:
         description: Enable metrics artifact generation.
         required: false
@@ -133,7 +137,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJson((inputs['python-versions'] != '' && inputs['python-versions'] != '[]') && inputs['python-versions'] || format('["{0}"]', inputs['python-version'])) }}
+        # Callers using bracket notation must provide a valid JSON array; the
+        # matrix load will fail at runtime if the value cannot be parsed.
+        # Callers supplying a single version string must omit brackets;
+        # malformed values will be wrapped and passed through as-is.
+        python-version: >-
+          ${{ fromJson(
+            (
+              (
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                contains(inputs['python-versions'], '[')
+              )
+              && inputs['python-versions']
+            )
+            || (
+              (
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                !contains(inputs['python-versions'], '[')
+              )
+              && format('[{0}]', toJson(inputs['python-versions']))
+            )
+            || (
+              (
+                inputs['python-version'] != ''
+              )
+              && format('[{0}]', toJson(inputs['python-version']))
+            )
+            || '["3.11"]'
+          ) }}
     defaults:
       run:
         shell: bash
@@ -175,34 +208,11 @@ jobs:
       - name: Resolve mypy python pin
         if: ${{ inputs.run-mypy }}
         id: mypy-pin
-        shell: python
+        env:
+          MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
-          from __future__ import annotations
-
-          import os
-          from pathlib import Path
-
-          import tomllib
-
-          pyproject = Path("pyproject.toml")
-          if not pyproject.is_file():
-              print("::error file=pyproject.toml::pyproject.toml is required to resolve the mypy python_version pin")
-              raise SystemExit(1)
-
-          try:
-              data = tomllib.loads(pyproject.read_text())
-          except tomllib.TOMLDecodeError as exc:  # pragma: no cover - workflow guard
-              print(f"::error file=pyproject.toml::Failed to parse pyproject.toml: {exc}")
-              raise SystemExit(1)
-
-          pin = data.get("tool", {}).get("mypy", {}).get("python_version")
-          if not pin:
-              print("::error::Unable to determine mypy python_version pin from pyproject.toml")
-              raise SystemExit(1)
-
-          print(f"Resolved mypy python_version pin: {pin}")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              print(f"python-version={pin}", file=fh)
+          set -euo pipefail
+          python tools/resolve_mypy_pin.py
 
       - name: Ruff (lint)
         run: |
@@ -210,7 +220,7 @@ jobs:
           ruff check --output-format github .
 
       - name: Mypy (type check)
-        if: ${{ inputs.run-mypy && matrix.python-version == steps.mypy-pin.outputs.python-version }}
+        if: ${{ inputs.run-mypy && steps.mypy-pin.outputs.python-version != '' && matrix.python-version == steps.mypy-pin.outputs.python-version }}
         run: |
           set -euo pipefail
           args=()
@@ -300,6 +310,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}ci-metrics
           path: ci-metrics.json
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Append metrics history
         if: ${{ inputs['enable-history'] || inputs['enable-classification'] }}
@@ -319,6 +330,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}metrics-history
           path: ${{ inputs['history-artifact-name'] }}
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload classification artifact
         if: ${{ inputs['enable-classification'] }}
@@ -327,6 +339,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}classification
           path: classification.json
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Compute coverage delta
         if: ${{ inputs['enable-coverage-delta'] }}
@@ -346,6 +359,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}coverage-delta
           path: coverage-delta.json
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Generate coverage trend summary
         if: ${{ inputs['enable-soft-gate'] }}
@@ -392,6 +406,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
           path: coverage-summary.md
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload coverage trend artifact
         if: ${{ inputs['enable-soft-gate'] }}
@@ -400,6 +415,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
           path: coverage-trend.json
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload coverage trend history artifact
         if: ${{ inputs['enable-soft-gate'] }}
@@ -408,6 +424,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
           path: coverage-trend-history.ndjson
           if-no-files-found: warn
+          retention-days: 7
 
   logs_summary:
     name: logs summary
