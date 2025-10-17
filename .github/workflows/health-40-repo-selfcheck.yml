@@ -194,6 +194,7 @@ jobs:
             core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
             core.setOutput('branch_protection_status', branchStatus);
             core.setOutput('branch_protection_note', branchNote);
+            core.setOutput('branch_protection_token', tokenDescriptor);
             core.setOutput('missing_labels', JSON.stringify(missingLabels));
             core.setOutput('label_errors', JSON.stringify(labelErrors));
             core.setOutput('branch_fetch_error', branchFetchError || '');
@@ -211,6 +212,7 @@ jobs:
           MISSING_LABELS: ${{ steps.collect.outputs.missing_labels }}
           LABEL_ERRORS: ${{ steps.collect.outputs.label_errors }}
           BRANCH_FETCH_ERROR: ${{ steps.collect.outputs.branch_fetch_error }}
+          BRANCH_TOKEN: ${{ steps.collect.outputs.branch_protection_token }}
         run: |
           python - <<'PY'
           import json
@@ -226,6 +228,7 @@ jobs:
           missing_labels = json.loads(os.environ.get('MISSING_LABELS') or '[]')
           label_errors = json.loads(os.environ.get('LABEL_ERRORS') or '[]')
           branch_fetch_error = os.environ.get('BRANCH_FETCH_ERROR') or ''
+          branch_token = os.environ.get('BRANCH_TOKEN') or ''
 
           status_labels = {
               'pass': '✅ Pass',
@@ -305,9 +308,20 @@ jobs:
               if label_errors:
                   fix_items.append('- [ ] Re-run after resolving label API warnings (check token permissions).')
           if any(check.get('key') == 'branch' for check in findings):
+              target_branch = default_branch or 'default branch'
               if branch_status == 'missing':
-                  fix_items.append(f"- [ ] Enable branch protection on `{default_branch}`.")
-              elif branch_status in {'error', 'forbidden', 'skipped'}:
+                  fix_items.append(f"- [ ] Enable branch protection on `{target_branch}`.")
+              elif branch_status == 'forbidden':
+                  token_hint = branch_token or 'configured credentials'
+                  detail = branch_note.replace('\n', ' ').strip()
+                  message = (
+                      f"- [ ] Restore branch protection visibility for `{target_branch}` "
+                      f"(ensure the {token_hint} has the required access)."
+                  )
+                  if detail:
+                      message = f"{message} Latest response: {detail}"
+                  fix_items.append(message)
+              elif branch_status in {'error', 'skipped'}:
                   fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
 
           if not fix_items:
