@@ -4,7 +4,8 @@ This repository includes an extended **autofix** workflow that standardises styl
 
 ## What It Does (Scope)
 1. Code formatting & style
-   - `ruff` (lint + --fix for safe rules)
+   - Early `ruff check --fix --exit-zero` sweep that runs before the heavier composite so trivial whitespace/import issues are cleaned even when later phases short-circuit.【F:.github/workflows/reusable-18-autofix.yml†L96-L110】
+   - Full composite run covering `ruff`, `black`, `isort`, and `docformatter` with both safe and targeted lint passes.【F:.github/actions/autofix/action.yml†L33-L111】
    - `black` (code formatting)
    - `isort` (import sorting where unambiguous)
    - `docformatter` (docstring wrapping)
@@ -17,6 +18,11 @@ This repository includes an extended **autofix** workflow that standardises styl
    - Invokes a non-blocking mypy run so subsequent CI/type checks are faster.
 
 If any step produces changes, the workflow auto‑commits them back to the PR branch with a conventional message (e.g. `chore(autofix): style + type hygiene`).
+
+## Result Labels & Status Comment
+- Same-repo branches that receive an autofix commit automatically gain the `autofix:applied` label; forked PRs receive `autofix:patch` when an artifact is uploaded.【F:.github/workflows/reusable-18-autofix.yml†L213-L291】
+- Runs that finish clean (no diff) toggle `autofix:clean`, while any unresolved diagnostics append `autofix:debt` alongside the primary outcome label.【F:.github/workflows/reusable-18-autofix.yml†L292-L360】
+- Every execution updates a single status comment with an **Autofix result** block that lists the applied labels so reviewers can confirm the outcome at a glance.【F:.github/workflows/reusable-18-autofix.yml†L187-L286】【F:scripts/build_autofix_pr_comment.py†L218-L253】
 
 ## What It Intentionally Does NOT Do
 - It does **not** attempt deep structural refactors or resolve complex type inference issues.
@@ -92,6 +98,11 @@ Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue�
 1. From a fork, open a PR with the `autofix` label and a trivially fixable lint issue.
 2. Ensure the workflow uploads an `autofix-patch-pr-<number>` artifact, applies the `autofix:patch` label, and the status comment explains how to apply the patch locally.
 3. Download and apply the patch with `git am` to confirm it replays cleanly, then push manually to complete the fix.
+
+### Label outcomes
+1. Re-run the workflow on a clean branch (no staged lint issues) and verify the status comment reports “No changes required” with the `autofix:clean` label.【F:.github/workflows/reusable-18-autofix.yml†L248-L272】
+2. Introduce a trivial lint (e.g. reorder imports) and confirm the rerun pushes a commit, applies `autofix:applied`, and lists the label in the comment.【F:.github/workflows/reusable-18-autofix.yml†L213-L239】
+3. If the run leaves residual diagnostics, expect `autofix:debt` to accompany either result label.【F:.github/workflows/reusable-18-autofix.yml†L292-L360】
 
 ### Label gating sanity check
 1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
