@@ -158,11 +158,10 @@ jobs:
             && format('["{0}"]', inputs['python-versions'])
             || format(
               '["{0}"]',
-              coalesce(
-                inputs['python-version'],
-                github.event.inputs['python-version'],
-                '3.11'
+              (
+                inputs['python-version'] != '' && inputs['python-version']
               )
+              || '3.11'
             )
           ) }}
     defaults:
