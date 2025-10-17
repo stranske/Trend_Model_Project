@@ -199,7 +199,7 @@ def test_selftest_reusable_ci_jobs_contract() -> None:
     ), "Scenario job should namespace artifacts with the matrix name prefix."
     assert (
         scenario_with["python-versions"]
-        == "${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '[\"3.11\"]' }}"
+        == "${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '[\"3.11\"]' }}"
     ), "Scenario job python-versions forwarder drifted; keep fallback logic intact."
 
     strategy = scenario.get("strategy", {})
@@ -271,7 +271,7 @@ def test_selftest_reusable_ci_jobs_contract() -> None:
     ), "Aggregate SCENARIO_LIST should enumerate the scenario matrix."
     assert (
         env.get("PYTHON_VERSIONS")
-        == "${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || '[\"3.11\"]' }}"
+        == "${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '[\"3.11\"]' }}"
     ), "Aggregate PYTHON_VERSIONS fallback logic drifted; keep nightly default intact."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"

@@ -10,11 +10,15 @@ on:
           JSON array of Python versions forwarded to the reusable CI workflow.
           Leave empty to use the default nightly matrix.
         required: false
-        default: '["3.11"]'
+        default: ''
       reason:
         description: 'Optional run reason appended to the workflow summary.'
         required: false
-        default: ''
+        default: 'nightly verification'
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   scenario:
@@ -91,15 +95,16 @@ jobs:
     env:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
       PYTHON_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '["3.11"]' }}
-      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.reason) || '' }}
+      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.reason != '' && github.event.inputs.reason) || 'nightly verification' }}
+      TRIGGER_EVENT: ${{ github.event_name }}
       MATRIX_RESULT: ${{ needs.scenario.result }}
     steps:
       - name: Summarize matrix execution
         run: |
           {
             echo "## Self-Test Reusable CI Summary"
-            echo "Workflow result: ${{ env.MATRIX_RESULT }}"
-            echo "Dispatched via: ${{ github.event_name }}"
+            echo "Workflow result: ${MATRIX_RESULT}"
+            echo "Dispatched via: ${TRIGGER_EVENT}"
             if [ -n "${RUN_REASON}" ]; then
               echo "Run reason: ${RUN_REASON}"
             fi
