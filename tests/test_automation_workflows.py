@@ -352,6 +352,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         expected_snippets = {
             "supports doc extensions": ".txt",
+            "covers quarto docs": ".qmd",
             "covers doc basenames": "const docBasenames = new Set([",
             "handles documentation prefixes": "const docPrefixes = [",
             "scans nested documentation segments": "const docSegments = [",

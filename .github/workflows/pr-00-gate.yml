@@ -48,6 +48,7 @@ jobs:
                 '.markdown',
                 '.rst',
                 '.txt',
+                '.qmd',
                 '.adoc',
               ];
               if (docExtensions.some(ext => normalised.endsWith(ext))) {
