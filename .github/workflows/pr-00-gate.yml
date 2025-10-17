@@ -41,13 +41,70 @@ jobs:
 
             const classify = filename => {
               const normalised = filename.toLowerCase();
-              const docExtensions = ['.md', '.mdx', '.markdown', '.rst'];
+
+              const docExtensions = [
+                '.md',
+                '.mdx',
+                '.markdown',
+                '.rst',
+                '.txt',
+                '.adoc',
+              ];
               if (docExtensions.some(ext => normalised.endsWith(ext))) {
                 return true;
               }
 
-              const docPrefixes = ['docs/', 'assets/', 'docs_', 'documentation/'];
+              const docBasenames = new Set([
+                'readme',
+                'changelog',
+                'contributing',
+                'code_of_conduct',
+                'code-of-conduct',
+                'security',
+                'guidelines',
+              ]);
+              const basename = normalised.split('/').pop();
+              if (basename) {
+                const nameWithoutExt = basename.includes('.')
+                  ? basename.slice(0, basename.lastIndexOf('.'))
+                  : basename;
+                if (docBasenames.has(nameWithoutExt)) {
+                  return true;
+                }
+              }
+
+              const docPrefixes = [
+                'docs/',
+                'docs\\',
+                'docs_',
+                'doc/',
+                'doc\\',
+                'assets/docs/',
+                'assets/docs\\',
+                'documentation/',
+                'documentation\\',
+                'guides/',
+                'handbook/',
+                'manual/',
+              ];
               if (docPrefixes.some(prefix => normalised.startsWith(prefix))) {
+                return true;
+              }
+
+              const docSegments = [
+                '/docs/',
+                '/doc/',
+                '/documentation/',
+                '/design-docs/',
+                '/handbook/',
+                '/guide/',
+                '/guides/',
+                '/adr/',
+                '/rfcs/',
+                '/specs/',
+                '/notes/',
+              ];
+              if (docSegments.some(segment => normalised.includes(segment))) {
                 return true;
               }
 

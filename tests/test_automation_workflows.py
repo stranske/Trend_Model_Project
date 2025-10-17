@@ -293,6 +293,88 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     % workflow_path.name,
                 )
 
+    def test_gate_detector_covers_common_docs_patterns(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        detect_job = workflow.get("jobs", {}).get("detect", {})
+        self.assertTrue(detect_job, "Gate workflow must expose detect job")
+
+        steps = detect_job.get("steps", [])
+        diff_step = next((step for step in steps if step.get("id") == "diff"), None)
+        self.assertIsNotNone(diff_step, "Detect job must use diff step to classify changes")
+
+        script = (diff_step or {}).get("with", {}).get("script", "")
+        self.assertTrue(script, "Diff step must embed classifier script")
+
+        expected_snippets = {
+            "supports doc extensions": ".txt",
+            "covers doc basenames": "const docBasenames = new Set([",
+            "handles documentation prefixes": "const docPrefixes = [",
+            "scans nested documentation segments": "const docSegments = [",
+        }
+
+        for label, snippet in expected_snippets.items():
+            with self.subTest(check=label):
+                self.assertIn(snippet, script, f"Classifier script should {label}")
+
+    def test_gate_downloads_coverage_with_tolerance(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        gate_job = workflow.get("jobs", {}).get("gate", {})
+        self.assertTrue(gate_job, "Gate workflow must define gate job")
+
+        coverage_steps = [
+            step
+            for step in gate_job.get("steps", [])
+            if isinstance(step, dict)
+            and isinstance(step.get("name"), str)
+            and step["name"].startswith("Download coverage")
+        ]
+
+        self.assertEqual(
+            len(coverage_steps),
+            2,
+            "Gate job should include coverage downloads for both 3.11 and 3.12",
+        )
+
+        for step in coverage_steps:
+            with self.subTest(step=step.get("name")):
+                self.assertTrue(
+                    step.get("continue-on-error"),
+                    "Coverage download should tolerate missing artifacts",
+                )
+                condition = step.get("if", "")
+                self.assertIn(
+                    "needs.detect.outputs.doc_only != 'true'",
+                    condition,
+                    "Coverage download must skip docs-only runs",
+                )
+
+    def test_gate_summary_reports_job_table(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        gate_job = workflow.get("jobs", {}).get("gate", {})
+        self.assertTrue(gate_job, "Gate workflow must define gate job")
+
+        summarize_step = next(
+            (
+                step
+                for step in gate_job.get("steps", [])
+                if isinstance(step, dict) and step.get("id") == "summarize"
+            ),
+            None,
+        )
+
+        self.assertIsNotNone(
+            summarize_step,
+            "Gate workflow should expose summarize step for results table",
+        )
+
+        script = (summarize_step or {}).get("run", "")
+        self.assertIn("| Job | Result |", script)
+        self.assertIn(
+            "Docs-only change detected; heavy checks skipped",
+            script,
+            "Docs-only message should appear in summary output",
+        )
+
     def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
         """Ensure `if:` conditionals avoid the invalid pytest marker syntax."""
 
