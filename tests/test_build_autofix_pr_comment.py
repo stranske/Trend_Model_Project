@@ -202,6 +202,35 @@ def test_build_comment_reports_clean_result(
     assert "Labels: `autofix:clean`, `autofix:debt`" in result_section
 
 
+def test_build_comment_reports_clean_without_debt(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": False}))
+
+    monkeypatch.setenv(
+        "AUTOFIX_RESULT_BLOCK",
+        "\n".join(
+            (
+                "No changes required.",
+                "Labels: `autofix:clean`",
+            )
+        ),
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="12",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_RESULT_BLOCK", raising=False)
+
+    result_section = comment.split("## Autofix result", 1)[1]
+    assert "No changes required." in result_section
+    assert "Labels: `autofix:clean`" in result_section
+
+
 def test_build_comment_includes_meta_line(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
