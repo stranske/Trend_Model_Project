@@ -378,8 +378,8 @@ jobs:
               .filter(Boolean);
 
             if (!labels.length) {
-              const message = 'bootstrap_issues_label is empty; skipping bootstrap sweep.';
-              core.warning(message);
+              const message = 'bootstrap_issues_label input must be set to a non-empty label.';
+              core.setFailed(message);
               summary.addRaw(message).addEOL();
               await summary.write();
               core.setOutput('issue_numbers', '');
@@ -403,25 +403,40 @@ jobs:
               per_page: 30
             });
 
-            const ready = issues.filter((issue) => {
+            const accepted = [];
+
+            for (const issue of issues) {
               if (issue.pull_request) {
-                return false;
+                core.info(`#${issue.number}: skipped – issue is a pull request.`);
+                continue;
               }
+
               if (issue.title && issue.title.toLowerCase().includes('wip')) {
-                return false;
+                core.info(`#${issue.number}: skipped – title marked as work in progress.`);
+                continue;
               }
+
               const matchesLabel = (issue.labels || []).some((candidate) => {
                 const name = typeof candidate === 'string' ? candidate : candidate?.name || '';
                 return name.toLowerCase() === labelLower;
               });
-              return matchesLabel;
-            });
 
-            const numbers = ready.map((issue) => issue.number);
+              if (!matchesLabel) {
+                core.info(`#${issue.number}: skipped – missing required label ${label}.`);
+                continue;
+              }
+
+              accepted.push(issue);
+            }
+
+            const numbers = accepted.map((issue) => issue.number);
+
             summary
+              .addRaw(`Bootstrap label: **${label}**`)
+              .addEOL()
               .addRaw(
                 numbers.length
-                  ? `Ready issues matching **${label}**: ${numbers.map((num) => `#${num}`).join(', ')}`
+                  ? `Accepted issues: ${numbers.map((num) => `#${num}`).join(', ')}`
                   : `No open issues labelled **${label}** are eligible for bootstrap.`
               )
               .addEOL();
