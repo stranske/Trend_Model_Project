@@ -21,7 +21,7 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: write
+  pull-requests: read
   checks: read
   actions: read
   issues: write
@@ -607,6 +607,13 @@ jobs:
             result.head_sha = pr.head?.sha || headSha;
             result.same_repo = pr.head?.repo?.full_name === `${owner}/${repo}` ? 'true' : 'false';
             result.is_draft = pr.draft ? 'true' : 'false';
+
+            const resolvedHeadRef = result.head_ref || branch || 'unknown-ref';
+            const resolvedHeadSha = result.head_sha || headSha || 'unknown-sha';
+            const gateRunId = run?.id ? String(run.id) : 'unknown-run';
+            core.notice(
+              `Resolved PR #${result.pr} (${resolvedHeadRef} @ ${resolvedHeadSha}) for Gate run ${gateRunId}.`,
+            );
 
             const failureTrackerSkipPrs = new Set([10, 12]);
             if (failureTrackerSkipPrs.has(prNumber)) {
