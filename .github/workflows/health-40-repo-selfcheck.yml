@@ -118,7 +118,7 @@ jobs:
               const status = error?.status || error?.response?.status || '';
               const detail = error?.response?.data?.message || error?.message || String(error);
 
-              branchHttpStatus = status ? String(status) : '';
+              branchHttpStatus = status ? String(status) : 'unknown';
 
               if (status === 401 || status === 403) {
                 branchStatus = 'forbidden';
@@ -140,6 +140,10 @@ jobs:
             const branchDetail = branchFetchError
               ? `${branchNote} (${branchFetchError})`
               : branchNote;
+
+            if (!branchHttpStatus) {
+              branchHttpStatus = 'unknown';
+            }
 
             const branchDetailWithStatus = branchHttpStatus
               ? `${branchDetail} (HTTP status: ${branchHttpStatus})`
