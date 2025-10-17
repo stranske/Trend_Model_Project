@@ -143,7 +143,9 @@ jobs:
             && inputs['python-versions']
             || (
               inputs['python-versions'] != '' &&
-              inputs['python-versions'] != '[]'
+              inputs['python-versions'] != '[]' &&
+              !contains(inputs['python-versions'], '[') &&
+              !contains(inputs['python-versions'], ']')
             )
             && format('["{0}"]', trim(inputs['python-versions']))
             || format('["{0}"]', inputs['python-version'])
