@@ -233,6 +233,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         expected_patterns = {
             "declares docs-only marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "queries existing comments": r"existingComments\.find",
             "checks existing comment marker": r"comment\.body\.includes\(\s*marker\s*\)",
             "creates marker comment": r"github\.rest\.issues\.createComment",
             "updates marker comment when needed": r"github\.rest\.issues\.updateComment",
@@ -310,6 +311,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "covers doc basenames": "const docBasenames = new Set([",
             "handles documentation prefixes": "const docPrefixes = [",
             "scans nested documentation segments": "const docSegments = [",
+            "contains mkdocs basename": "'mkdocs',",
+            "contains docfx basename": "'docfx',",
         }
 
         for label, snippet in expected_snippets.items():

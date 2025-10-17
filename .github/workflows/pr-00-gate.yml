@@ -62,6 +62,9 @@ jobs:
                 'code-of-conduct',
                 'security',
                 'guidelines',
+                'mkdocs',
+                'docfx',
+                'antora-playbook',
               ]);
               const basename = normalised.split('/').pop();
               if (basename) {
