@@ -448,6 +448,11 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             script,
             "Summarize step should append docs-only messaging to the Gate summary",
         )
+        self.assertIn(
+            "Gate fast-pass: docs-only change detected; heavy checks skipped.",
+            script,
+            "Summarize step should set the fast-pass description that matches the marker comment",
+        )
 
     def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
         """Ensure `if:` conditionals avoid the invalid pytest marker syntax."""

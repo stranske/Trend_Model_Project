@@ -321,11 +321,18 @@ jobs:
             if [ -z "${REASON}" ]; then
               REASON="docs_only"
             fi
+
+            NOTE="Docs-only change detected; heavy checks skipped."
+            DESCRIPTION="Gate fast-pass: docs-only change detected; heavy checks skipped."
+            if [ "${REASON}" != "docs_only" ]; then
+              NOTE="Docs-only change detected; heavy checks skipped (${REASON})."
+              DESCRIPTION="Docs-only change; heavy checks skipped (${REASON})."
+            fi
+
             {
               echo
-              echo "Docs-only change detected; heavy checks skipped (${REASON})."
+              echo "${NOTE}"
             } >> "$GITHUB_STEP_SUMMARY"
-            DESCRIPTION="Docs-only change; heavy checks skipped (${REASON})."
           else
             if [ "${CORE_311}" != "success" ]; then
               STATE="failure"
