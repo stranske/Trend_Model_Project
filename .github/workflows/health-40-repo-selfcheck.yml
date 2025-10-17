@@ -91,6 +91,7 @@ jobs:
             const privilegedChecksUsed = Boolean(serviceBotPat);
             const privilegedChecksSkipped = !privilegedChecksUsed;
             let branchFetchError = null;
+            let branchHttpStatus = '';
 
             const tokenDescriptor = privilegedChecksUsed
               ? 'SERVICE_BOT_PAT token'
@@ -103,6 +104,8 @@ jobs:
                 branch: defaultBranch,
               });
 
+              branchHttpStatus = '200';
+
               const isProtected = Boolean(response?.data?.protected);
               if (isProtected) {
                 branchStatus = 'enabled';
@@ -114,6 +117,8 @@ jobs:
             } catch (error) {
               const status = error?.status || error?.response?.status || '';
               const detail = error?.response?.data?.message || error?.message || String(error);
+
+              branchHttpStatus = status ? String(status) : '';
 
               if (status === 401 || status === 403) {
                 branchStatus = 'forbidden';
@@ -197,6 +202,7 @@ jobs:
             core.setOutput('branch_protection_status', branchStatus);
             core.setOutput('branch_protection_note', branchNote);
             core.setOutput('branch_protection_token', tokenDescriptor);
+            core.setOutput('branch_protection_http_status', branchHttpStatus);
             core.setOutput('missing_labels', JSON.stringify(missingLabels));
             core.setOutput('label_errors', JSON.stringify(labelErrors));
             core.setOutput('branch_fetch_error', branchFetchError || '');
@@ -215,6 +221,7 @@ jobs:
           LABEL_ERRORS: ${{ steps.collect.outputs.label_errors }}
           BRANCH_FETCH_ERROR: ${{ steps.collect.outputs.branch_fetch_error }}
           BRANCH_TOKEN: ${{ steps.collect.outputs.branch_protection_token }}
+          BRANCH_HTTP_STATUS: ${{ steps.collect.outputs.branch_protection_http_status }}
         run: |
           python - <<'PY'
           import json
@@ -231,6 +238,7 @@ jobs:
           label_errors = json.loads(os.environ.get('LABEL_ERRORS') or '[]')
           branch_fetch_error = os.environ.get('BRANCH_FETCH_ERROR') or ''
           branch_token = os.environ.get('BRANCH_TOKEN') or ''
+          branch_http_status = os.environ.get('BRANCH_HTTP_STATUS') or ''
 
           status_labels = {
               'pass': '✅ Pass',
@@ -251,6 +259,10 @@ jobs:
           if branch_token:
               lines.append('')
               lines.append(f'*Branch protection probe token:* `{branch_token}`')
+
+          if branch_http_status:
+              lines.append('')
+              lines.append(f'*Branch protection probe HTTP status:* `{branch_http_status}`')
 
           if checks:
               lines.append('')
@@ -297,6 +309,7 @@ jobs:
                   'note': branch_note,
                   'fetch_error': branch_fetch_error,
                   'token': branch_token,
+                  'http_status': branch_http_status,
               },
           }
 
@@ -356,6 +369,7 @@ jobs:
               f'*Run timestamp:* `{timestamp}`' if timestamp else None,
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
               '',
               '### Checks',
               '| Check | Status | Details |',
@@ -386,6 +400,7 @@ jobs:
               f'*Run timestamp:* `{timestamp}`' if timestamp else None,
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
               '',
               '## Checks',
               '| Check | Status | Details |',
