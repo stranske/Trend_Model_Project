@@ -389,7 +389,15 @@ jobs:
             }
 
             if (labels.length > 1) {
-              core.notice(`Multiple bootstrap labels provided; using first entry: ${labels[0]}`);
+              const message =
+                'bootstrap_issues_label input must define exactly one label to avoid sweeping unintended issues.';
+              core.setFailed(message);
+              summary.addRaw(message).addEOL();
+              await summary.write();
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+              return;
             }
 
             const label = labels[0];

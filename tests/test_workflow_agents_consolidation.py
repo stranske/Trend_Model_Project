@@ -141,6 +141,9 @@ def test_bootstrap_filters_on_configured_label():
     assert (
         "bootstrap_issues_label input must be set to a non-empty label" in text
     ), "Bootstrap step must fail fast when label is missing"
+    assert (
+        "bootstrap_issues_label input must define exactly one label" in text
+    ), "Bootstrap step must reject multi-label configurations"
     assert "labels: label" in text, "Bootstrap issue query must request the configured label"
     assert (
         "missing required label ${label}" in text
