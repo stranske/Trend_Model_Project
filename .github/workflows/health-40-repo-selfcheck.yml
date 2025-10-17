@@ -319,12 +319,22 @@ jobs:
               elif branch_status == 'forbidden':
                   token_hint = branch_token or 'configured credentials'
                   detail = branch_note.replace('\n', ' ').strip()
-                  message = (
-                      f"- [ ] Restore branch protection visibility for `{target_branch}` "
-                      f"(ensure the {token_hint} has the required access)."
-                  )
+
+                  if token_hint == 'default GITHUB_TOKEN':
+                      message = (
+                          f"- [ ] Restore branch protection visibility for `{target_branch}` by provisioning "
+                          "`secrets.SERVICE_BOT_PAT` with admin:read access or adjusting repository permissions "
+                          "so the workflow token can inspect protection settings."
+                      )
+                  else:
+                      message = (
+                          f"- [ ] Restore branch protection visibility for `{target_branch}` "
+                          f"(ensure the {token_hint} has the required access)."
+                      )
+
                   if detail:
                       message = f"{message} Latest response: {detail}"
+
                   fix_items.append(message)
               elif branch_status in {'error', 'skipped'}:
                   fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
