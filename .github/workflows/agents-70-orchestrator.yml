@@ -190,16 +190,6 @@ jobs:
 
             const optionsSource = merged.options_json ?? merged.options ?? DEFAULT_OPTIONS_JSON;
 
-            const bootstrapLabelCandidate = toString(
-              merged.bootstrap_issues_label ?? bootstrap.label,
-              DEFAULTS.bootstrap_issues_label
-            ).trim();
-            const bootstrapLabel = bootstrapLabelCandidate || DEFAULTS.bootstrap_issues_label;
-
-            if (!bootstrapLabelCandidate) {
-              core.notice(`Using default bootstrap label: ${DEFAULTS.bootstrap_issues_label}`);
-            }
-
             const outputs = {
               enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
               readiness_agents: readinessAgents,
@@ -217,7 +207,10 @@ jobs:
               enable_watchdog: toBoolString(merged.enable_watchdog, DEFAULTS.enable_watchdog),
               enable_keepalive: toBoolString(merged.enable_keepalive ?? keepalive.enabled, DEFAULTS.enable_keepalive),
               enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
-              bootstrap_issues_label: bootstrapLabel,
+              bootstrap_issues_label: toString(
+                merged.bootstrap_issues_label ?? bootstrap.label,
+                DEFAULTS.bootstrap_issues_label
+              ),
               draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
               options_json: sanitiseOptions(optionsSource)
             };
