@@ -49,14 +49,15 @@ def test_selftest_reusable_ci_dispatch_contract() -> None:
     data = _read_workflow(REUSABLE_PATH)
     triggers = _resolve_triggers(data)
 
-    assert (
-        set(triggers) == {"schedule", "workflow_dispatch"}
-    ), "Reusable CI workflow should expose schedule and workflow_dispatch triggers."
+    assert set(triggers) == {
+        "schedule",
+        "workflow_dispatch",
+    }, "Reusable CI workflow should expose schedule and workflow_dispatch triggers."
 
     schedule_entries = triggers.get("schedule", [])
-    assert isinstance(schedule_entries, list) and schedule_entries, (
-        "Reusable CI workflow should declare at least one cron schedule entry."
-    )
+    assert (
+        isinstance(schedule_entries, list) and schedule_entries
+    ), "Reusable CI workflow should declare at least one cron schedule entry."
     primary_schedule = schedule_entries[0]
     assert (
         primary_schedule.get("cron") == "30 6 * * *"
@@ -308,11 +309,15 @@ def test_selftest_reusable_ci_jobs_contract() -> None:
         upload_with.get("path") == "selftest-report.json"
     ), "Self-test report upload path drifted; keep JSON summary name stable."
 
-    fail_step = _find_step(lambda step: step.get("name") == "Fail on verification errors")
+    fail_step = _find_step(
+        lambda step: step.get("name") == "Fail on verification errors"
+    )
     assert fail_step, "Aggregate job must fail when verification mismatches occur."
     assert (
         fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}"
     ), "Failure guard should inspect verification failure count."
+
+
 def test_selftest_runner_publish_job_contract() -> None:
     """Publish-results job must enforce verification guardrails consistently."""
 
