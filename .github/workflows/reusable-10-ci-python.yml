@@ -133,17 +133,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Callers using bracket notation must provide a valid JSON array; the
+        # matrix load will fail at runtime if the value cannot be parsed.
+        # Callers supplying a single version string must omit brackets;
+        # malformed values will be wrapped and passed through as-is.
         python-version: >-
           ${{ fromJson(
             (
-              inputs['python-versions'] != '' && inputs['python-versions'] != '[]'
-              && startsWith(trim(inputs['python-versions']), '[')
-              && inputs['python-versions']
+              inputs['python-versions'] != '' &&
+              inputs['python-versions'] != '[]' &&
+              startsWith(inputs['python-versions'], '[')
             )
+            && inputs['python-versions']
             || (
-              inputs['python-versions'] != '' && inputs['python-versions'] != '[]'
-              && format('["{0}"]', trim(inputs['python-versions']))
+              inputs['python-versions'] != '' &&
+              inputs['python-versions'] != '[]' &&
+              !contains(inputs['python-versions'], '[') &&
+              !contains(inputs['python-versions'], ']')
             )
+            && format('["{0}"]', inputs['python-versions'])
             || format('["{0}"]', inputs['python-version'])
           ) }}
     defaults:
