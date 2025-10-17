@@ -10,14 +10,14 @@
 
 ## Acceptance Criteria / Definition of Done
 1. `health-40-repo-selfcheck.yml` validates successfully (no schema errors) and executes on both scheduled (`cron`) and `workflow_dispatch` triggers.
-2. Branch protection checks handle 403 responses gracefully by emitting a warning (e.g., job output `protection_issue="Unable to verify…"`) without failing the workflow.
+2. Branch protection checks handle 403 and 429 responses gracefully by emitting a warning (e.g., job output `protection_issue="Unable to verify…"`) without failing the workflow.
 3. When the workflow detects any failure condition, it updates or creates a single GitHub issue named `[health] repository self-check failed` with aggregated diagnostics and multi-line details.
 4. Deprecated self-test workflows are removed from active CI runs, relocated/archived as required, and their new status is reflected in both `ARCHIVE_WORKFLOWS.md` and `docs/ci/WORKFLOWS.md`.
 5. Documentation explains the updated workflow behaviour, permission scopes, and degradation strategy, ensuring maintainers understand the fallback logic.
 6. Repository automation remains compliant with GitHub permission policies (no unsupported scopes) and produces passing CI runs post-change.
 
 ### 2026-02-18 status update
-- `.github/workflows/health-40-repo-selfcheck.yml` now relies solely on the default token (`contents: read`, `issues: write`) and uses `repos.getBranch` to probe protection, treating 403 responses as warnings while still flagging missing protection as errors.
+- `.github/workflows/health-40-repo-selfcheck.yml` now relies solely on the default token (`contents: read`, `issues: write`) and uses `repos.getBranch` to probe protection, treating 403 and 429 responses as warnings while still flagging missing protection as errors.
 - The aggregation step emits both a PR-ready checklist and a tracker body; the workflow opens or updates `[health] repository self-check failed` when warnings/errors persist and automatically closes the tracker when the run clears.
 - `docs/ci/WORKFLOWS.md` documents the reduced permission surface and the tracker issue behaviour so operators know what to expect from the updated run summaries.
 

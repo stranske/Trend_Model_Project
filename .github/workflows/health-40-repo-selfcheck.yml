@@ -122,7 +122,8 @@ jobs:
               branchHttpStatus = status ? String(status) : 'unknown';
 
               const loweredDetail = (detail || '').toLowerCase();
-              const isRateLimited = status === 403 && /rate limit/.test(loweredDetail);
+              const isRateLimited =
+                status === 429 || (status === 403 && /rate limit/.test(loweredDetail));
 
               if (status === 401 || (status === 403 && !isRateLimited)) {
                 branchStatus = 'forbidden';
