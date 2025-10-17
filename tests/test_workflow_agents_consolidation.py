@@ -40,6 +40,18 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
+def test_agents_orchestrator_bootstrap_label_default():
+    wf = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
+    assert wf.exists(), "agents-70-orchestrator.yml must exist"
+    text = wf.read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label: 'agent:codex'," in text
+    ), "Default bootstrap label must remain agent:codex"
+    assert (
+        "core.notice(`Using default bootstrap label: ${DEFAULTS.bootstrap_issues_label}`);" in text
+    ), "Resolve step should log when falling back to the default label"
+
+
 def test_reusable_agents_workflow_structure():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     assert reusable.exists(), "reusable-16-agents.yml must exist"
@@ -105,6 +117,22 @@ def test_keepalive_job_present():
         "issue_numbers_json" in text
     ), "Ready issues step must emit issue_numbers_json output"
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
+
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive_job = jobs.get("keepalive")
+    assert keepalive_job, "Reusable workflow must expose keepalive job"
+    assert (
+        keepalive_job.get("name") == "Codex Keepalive Sweep"
+    ), "Keepalive job must retain its expected display name"
+    keepalive_name_instances = [
+        job.get("name")
+        for job in jobs.values()
+        if isinstance(job, dict) and job.get("name") == "Codex Keepalive Sweep"
+    ]
+    assert (
+        len(keepalive_name_instances) == 1
+    ), "Codex keepalive job name should appear exactly once across jobs"
 
 
 def test_bootstrap_filters_on_configured_label():
