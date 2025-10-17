@@ -239,6 +239,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "updates marker comment when needed": r"github\.rest\.issues\.updateComment",
             "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
             "uses marker payload": r"const targetBody\s*=\s*`\$\{marker}\\n\$\{message}`;",
+            "includes fast-pass messaging": r"Gate fast-pass: docs-only change detected; heavy checks skipped\.",
         }
 
         for label, pattern in expected_patterns.items():
@@ -359,6 +360,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "contains mkdocs basename": "'mkdocs',",
             "contains docfx basename": "'docfx',",
             "captures windows-style segments": "\\\\docs\\\\",
+            "captures manual segment": "/manual/",
+            "captures windows manual segment": "\\\\manual\\\\",
         }
 
         for label, snippet in expected_snippets.items():
@@ -396,6 +399,28 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     condition,
                     "Coverage download must skip docs-only runs",
                 )
+                self.assertEqual(
+                    step.get("uses"),
+                    "actions/download-artifact@v4",
+                    "Coverage downloads should use actions/download-artifact v4",
+                )
+                inputs = step.get("with", {})
+                self.assertIsInstance(inputs, dict)
+                name_value = inputs.get("name")
+                self.assertIsInstance(name_value, str)
+                self.assertTrue(
+                    name_value.startswith("coverage-"),
+                    "Coverage artifact names should follow coverage-<version> naming",
+                )
+                path_value = inputs.get("path")
+                self.assertIsInstance(path_value, str)
+                version_suffix = name_value.split("-", 1)[-1]
+                normalized_suffix = version_suffix.replace(".", "")
+                expected_token = f"core-tests-{normalized_suffix}" if normalized_suffix else ""
+                self.assertTrue(
+                    expected_token and expected_token in path_value,
+                    "Coverage download paths should include the normalized python version suffix",
+                )
 
     def test_gate_summary_reports_job_table(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
@@ -421,7 +446,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertIn(
             "Docs-only change detected; heavy checks skipped",
             script,
-            "Docs-only message should appear in summary output",
+            "Summarize step should append docs-only messaging to the Gate summary",
         )
 
     def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
