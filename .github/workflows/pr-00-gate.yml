@@ -41,11 +41,17 @@ jobs:
 
             const classify = filename => {
               const normalised = filename.toLowerCase();
-              return (
-                normalised.endsWith('.md') ||
-                normalised.startsWith('docs/') ||
-                normalised.startsWith('assets/')
-              );
+              const docExtensions = ['.md', '.mdx', '.markdown', '.rst'];
+              if (docExtensions.some(ext => normalised.endsWith(ext))) {
+                return true;
+              }
+
+              const docPrefixes = ['docs/', 'assets/', 'docs_', 'documentation/'];
+              if (docPrefixes.some(prefix => normalised.startsWith(prefix))) {
+                return true;
+              }
+
+              return false;
             };
 
             const changedFiles = files.map(file => file.filename);
@@ -123,11 +129,6 @@ jobs:
               message = `Gate fast-pass: docs-only change detected; heavy checks skipped. Reason: ${reason}.`;
             }
 
-            await core.summary
-              .addHeading('Gate status', 3)
-              .addRaw(`${message}\n`)
-              .write();
-
             if (context.eventName === 'pull_request' && reason === 'docs_only') {
               const existingComments = await github.paginate(github.rest.issues.listComments, {
                 owner: context.repo.owner,
@@ -136,16 +137,25 @@ jobs:
                 per_page: 100,
               });
 
-              const alreadyCommented = existingComments.some(comment =>
+              const existing = existingComments.find(comment =>
                 typeof comment.body === 'string' && comment.body.includes(marker)
               );
 
-              if (!alreadyCommented) {
+              const targetBody = `${marker}\n${message}`;
+
+              if (!existing) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.payload.pull_request.number,
-                  body: `${marker}\n${message}`,
+                  body: targetBody,
+                });
+              } else if (existing.body !== targetBody) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body: targetBody,
                 });
               }
             }
@@ -154,60 +164,75 @@ jobs:
             core.setOutput('description', message);
 
       - name: Download coverage (3.11)
-        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result == 'success' }}
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.11
           path: coverage/core-tests-311
 
       - name: Download coverage (3.12)
-        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result == 'success' }}
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result != 'skipped' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.12
           path: coverage/core-tests-312
 
       - name: Summarize results
-        if: needs.detect.outputs.doc_only != 'true'
+        if: ${{ always() }}
         id: summarize
         run: |
-          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+
+          DOC_ONLY="${{ needs.detect.outputs.doc_only }}"
+          RUN_CORE="${{ needs.detect.outputs.run_core }}"
+          REASON="${{ needs.detect.outputs.reason }}"
+          CORE_311="${{ needs.core-tests-311.result || 'skipped' }}"
+          CORE_312="${{ needs.core-tests-312.result || 'skipped' }}"
+          DOCKER="${{ needs.docker-smoke.result || 'skipped' }}"
+
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
           ### Gate status
           | Job | Result |
           | --- | ------ |
-          | core-tests-311 | ${{ needs.core-tests-311.result }} |
-          | core-tests-312 | ${{ needs.core-tests-312.result }} |
-          | docker-smoke | ${{ needs.docker-smoke.result }} |
+          | core-tests-311 | ${CORE_311:-unknown} |
+          | core-tests-312 | ${CORE_312:-unknown} |
+          | docker-smoke | ${DOCKER:-unknown} |
           EOF
 
           STATE="success"
           DESCRIPTION="All Gate checks succeeded."
 
-          if [ "${{ needs.detect.outputs.run_core }}" != "true" ]; then
-            REASON="${{ needs.detect.outputs.reason }}"
-            if [ -z "$REASON" ]; then
+          doc_only_normalized="${DOC_ONLY:-false}"
+          run_core_normalized="${RUN_CORE:-true}"
+
+          if [ "${doc_only_normalized}" = "true" ] || [ "${run_core_normalized}" != "true" ]; then
+            if [ -z "${REASON}" ]; then
               REASON="docs_only"
             fi
             {
               echo
-              echo "Docs-only change detected; heavy checks skipped ($REASON)."
+              echo "Docs-only change detected; heavy checks skipped (${REASON})."
             } >> "$GITHUB_STEP_SUMMARY"
-            DESCRIPTION="Docs-only change; heavy checks skipped ($REASON)."
+            DESCRIPTION="Docs-only change; heavy checks skipped (${REASON})."
           else
-            if [ "${{ needs.core-tests-311.result }}" != "success" ]; then
+            if [ "${CORE_311}" != "success" ]; then
               STATE="failure"
-              DESCRIPTION="core-tests-311 result: ${{ needs.core-tests-311.result }}."
-            elif [ "${{ needs.core-tests-312.result }}" != "success" ]; then
+              DESCRIPTION="core-tests-311 result: ${CORE_311}."
+            elif [ "${CORE_312}" != "success" ]; then
               STATE="failure"
-              DESCRIPTION="core-tests-312 result: ${{ needs.core-tests-312.result }}."
-            elif [ "${{ needs.docker-smoke.result }}" != "success" ]; then
+              DESCRIPTION="core-tests-312 result: ${CORE_312}."
+            elif [ "${DOCKER}" != "success" ]; then
               STATE="failure"
-              DESCRIPTION="docker-smoke result: ${{ needs.docker-smoke.result }}."
+              DESCRIPTION="docker-smoke result: ${DOCKER}."
             fi
           fi
 
-          echo "state=$STATE" >> "$GITHUB_OUTPUT"
-          echo "description=$DESCRIPTION" >> "$GITHUB_OUTPUT"
+          {
+            echo "state=${STATE}"
+            echo "description=${DESCRIPTION}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Report Gate commit status
         if: ${{ always() }}

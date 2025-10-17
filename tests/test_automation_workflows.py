@@ -234,10 +234,10 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         expected_patterns = {
             "declares docs-only marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
             "checks existing comment marker": r"comment\.body\.includes\(\s*marker\s*\)",
-            "posts marker-prefixed comment": r"body:\s*`\$\{marker}\\n\$\{message}`",
-            "appends message to job summary": r"\.addRaw\(`\$\{message}\\n`\)",
-            "awaits summary API": r"await\s+core\.summary",
+            "creates marker comment": r"github\.rest\.issues\.createComment",
+            "updates marker comment when needed": r"github\.rest\.issues\.updateComment",
             "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
+            "uses marker payload": r"const targetBody\s*=\s*`\$\{marker}\\n\$\{message}`;",
         }
 
         for label, pattern in expected_patterns.items():
