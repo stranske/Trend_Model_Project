@@ -83,7 +83,9 @@ def test_gate_docs_only_branching_logic():
     gate_job = jobs.get("gate") or {}
     gate_steps = gate_job.get("steps") or []
     docs_only_steps = [
-        step for step in gate_steps if isinstance(step, dict) and step.get("id") == "docs_only"
+        step
+        for step in gate_steps
+        if isinstance(step, dict) and step.get("id") == "docs_only"
     ]
     assert docs_only_steps, "Gate job must include docs-only handling step"
     docs_only_step = docs_only_steps[0]
@@ -176,5 +178,6 @@ EXPECTED_NAMES = {
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
+    "selftest-reusable-ci.yml": "Selftest Reusable CI",
     "selftest-runner.yml": "Selftest Runner",
 }
