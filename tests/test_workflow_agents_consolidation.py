@@ -93,6 +93,9 @@ def test_keepalive_job_present():
         "Codex Keepalive Sweep" in text
     ), "Keepalive job must exist in reusable agents workflow"
     assert (
+        text.count("name: Codex Keepalive Sweep") == 1
+    ), "Codex keepalive job should appear exactly once"
+    assert (
         "enable_keepalive" in text
     ), "Keepalive job must document enable_keepalive option"
     assert (
@@ -102,6 +105,18 @@ def test_keepalive_job_present():
         "issue_numbers_json" in text
     ), "Ready issues step must emit issue_numbers_json output"
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
+
+
+def test_bootstrap_filters_on_configured_label():
+    reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
+    text = reusable.read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label input must be set to a non-empty label" in text
+    ), "Bootstrap step must fail fast when label is missing"
+    assert "labels: label" in text, "Bootstrap issue query must request the configured label"
+    assert (
+        "missing required label ${label}" in text
+    ), "Bootstrap step must skip issues lacking the required label"
 
 
 def test_agents_orchestrator_has_concurrency_defaults():

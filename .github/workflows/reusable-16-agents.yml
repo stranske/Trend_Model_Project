@@ -696,6 +696,11 @@ jobs:
                 `Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`
               )
               .addEOL();
+            core.summary
+              .addRaw(
+                `Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}`
+              )
+              .addEOL();
             if (triggered.length) {
               core.summary.addList(triggered);
             } else {
