@@ -134,8 +134,12 @@ jobs:
                 core.warning(branchNote);
               }
 
-              branchFetchError = detail ? `${branchNote} ${detail}` : branchNote;
+              branchFetchError = detail ? String(detail) : '';
             }
+
+            const branchDetail = branchFetchError
+              ? `${branchNote} (${branchFetchError})`
+              : branchNote;
 
             const checks = [
               {
@@ -171,7 +175,7 @@ jobs:
                     : branchStatus === 'skipped'
                     ? 'warn'
                     : 'info',
-                detail: branchNote,
+                detail: branchDetail,
                 branchStatus,
                 branchFetchError,
                 httpStatus: branchHttpStatus,
@@ -184,16 +188,23 @@ jobs:
               },
             ];
 
-              core.info(
-                [
-                  `Repo health summary @ ${timestamp}`,
-                  `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
-                  `• Branch protection status: ${branchStatus}`,
-                  privilegedChecksUsed
-                    ? '• Branch protection probe token: SERVICE_BOT_PAT'
-                    : '• Branch protection probe token: default GITHUB_TOKEN',
-                ].join('\n')
-              );
+            const summaryLines = [
+              `Repo health summary @ ${timestamp}`,
+              `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
+              `• Branch protection status: ${branchStatus}`,
+            ];
+
+            if (branchHttpStatus) {
+              summaryLines.push(`• Branch protection HTTP status: ${branchHttpStatus}`);
+            }
+
+            summaryLines.push(
+              privilegedChecksUsed
+                ? '• Branch protection probe token: SERVICE_BOT_PAT'
+                : '• Branch protection probe token: default GITHUB_TOKEN'
+            );
+
+            core.info(summaryLines.join('\n'));
 
             core.setOutput('checks', JSON.stringify(checks));
             core.setOutput('timestamp', timestamp);
@@ -237,7 +248,7 @@ jobs:
           branch_note = os.environ.get('BRANCH_NOTE') or ''
           missing_labels = json.loads(os.environ.get('MISSING_LABELS') or '[]')
           label_errors = json.loads(os.environ.get('LABEL_ERRORS') or '[]')
-          branch_fetch_error = os.environ.get('BRANCH_FETCH_ERROR') or ''
+          branch_fetch_error = (os.environ.get('BRANCH_FETCH_ERROR') or '').strip()
           branch_token = os.environ.get('BRANCH_TOKEN') or ''
           branch_http_status = os.environ.get('BRANCH_HTTP_STATUS') or ''
 
@@ -248,6 +259,21 @@ jobs:
               'skipped': '⏭️ Skipped',
               'error': '❌ Error',
           }
+
+          def format_response_detail(note: str, http_status: str, fetch_error: str) -> str:
+              parts = []
+              for value in (note, fetch_error):
+                  text = (value or '').replace('\n', ' ').strip()
+                  if text and text not in parts:
+                      parts.append(text)
+
+              status = (http_status or '').strip()
+              if status:
+                  status_text = f'HTTP status: {status}'
+                  if status_text not in parts:
+                      parts.append(status_text)
+
+              return ' | '.join(parts)
 
           lines = ['# Repo health summary']
           if timestamp:
@@ -330,11 +356,15 @@ jobs:
                   fix_items.append('- [ ] Re-run after resolving label API warnings (check token permissions).')
           if any(check.get('key') == 'branch' for check in findings):
               target_branch = default_branch or 'default branch'
+              response_detail = format_response_detail(branch_note, branch_http_status, branch_fetch_error)
+
               if branch_status == 'missing':
-                  fix_items.append(f"- [ ] Enable branch protection on `{target_branch}`.")
+                  message = f"- [ ] Enable branch protection on `{target_branch}`."
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+                  fix_items.append(message)
               elif branch_status == 'forbidden':
                   token_hint = branch_token or 'configured credentials'
-                  detail = branch_note.replace('\n', ' ').strip()
 
                   if token_hint == 'default GITHUB_TOKEN':
                       message = (
@@ -348,19 +378,15 @@ jobs:
                           f"(ensure the {token_hint} has the required access)."
                       )
 
-                  if detail:
-                      message = f"{message} Latest response: {detail}"
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
 
                   fix_items.append(message)
               elif branch_status in {'error', 'skipped'}:
-                  detail = branch_note.replace('\n', ' ').strip()
-                  if detail:
-                      fix_items.append(
-                          '- [ ] Restore branch protection visibility (ensure required permissions or retry later). '
-                          f'Latest response: {detail}'
-                      )
-                  else:
-                      fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
+                  message = '- [ ] Restore branch protection visibility (ensure required permissions or retry later).'
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+                  fix_items.append(message)
 
           if not fix_items:
               fix_items.append('- [x] No action required — repo health checks are green.')
