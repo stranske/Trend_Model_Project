@@ -55,7 +55,10 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const workflowRun = context.payload.workflow_run || {};
-            const headSha = workflowRun.head_sha || context.sha || '';
+            const prFromPayload = Array.isArray(workflowRun.pull_requests)
+              ? workflowRun.pull_requests.find(item => item && item.head && item.head.sha)
+              : null;
+            const headSha = (prFromPayload?.head?.sha || workflowRun.head_sha || context.sha || '').trim();
 
             const parseJsonInput = (raw, fallback) => {
               if (!raw) {
@@ -514,8 +517,11 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prefix = process.env.COMMIT_PREFIX || 'chore(autofix):';
-            const branch = run.head_branch;
-            const headSha = run.head_sha;
+            const payloadPr = run && Array.isArray(run.pull_requests)
+              ? run.pull_requests.find(item => item && typeof item.number === 'number')
+              : null;
+            const branch = (payloadPr?.head?.ref || run?.head_branch || '').trim();
+            const headSha = (payloadPr?.head?.sha || run?.head_sha || '').trim();
 
             const result = {
               found: 'false',
@@ -554,10 +560,6 @@ jobs:
             const headShaLower = (headSha || '').toLowerCase();
             let pr = null;
             let prNumber = null;
-
-            const payloadPr = run && Array.isArray(run.pull_requests)
-              ? run.pull_requests.find(item => item && typeof item.number === 'number')
-              : null;
 
             if (payloadPr) {
               prNumber = Number(payloadPr.number);
