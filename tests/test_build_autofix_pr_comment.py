@@ -142,3 +142,24 @@ def test_build_comment_preserves_multiline_result_block(
     assert "Apply locally:" in result_section
     assert "1. Download the artifact." in result_section
     assert "2. Run `git am < autofix.patch`." in result_section
+
+
+def test_build_comment_includes_meta_line(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"classification": {}}))
+
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CONCLUSION", "success")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CLASS", "success")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_REASON", "labeled")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_PR_HEAD", "feature/demo")
+
+    comment = comment_builder.build_comment(
+        report_path=report_path,
+        pr_number="101",
+    )
+
+    meta_line = "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
+    assert meta_line in comment
+    assert comment.splitlines()[1] == meta_line
