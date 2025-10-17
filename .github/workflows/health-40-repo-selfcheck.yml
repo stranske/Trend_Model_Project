@@ -141,6 +141,10 @@ jobs:
               ? `${branchNote} (${branchFetchError})`
               : branchNote;
 
+            const branchDetailWithStatus = branchHttpStatus
+              ? `${branchDetail} (HTTP status: ${branchHttpStatus})`
+              : branchDetail;
+
             const checks = [
               {
                 key: 'labels',
@@ -175,7 +179,7 @@ jobs:
                     : branchStatus === 'skipped'
                     ? 'warn'
                     : 'info',
-                detail: branchDetail,
+                detail: branchDetailWithStatus,
                 branchStatus,
                 branchFetchError,
                 httpStatus: branchHttpStatus,
