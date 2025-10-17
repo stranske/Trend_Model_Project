@@ -388,6 +388,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   - Optional niceties include `pull_request_number`,
     `summary_title`/`comment_title`, `reason`, and `python_versions` (JSON array
     to override the default matrix).
+  - Maint 46 Post CI now serves as the canonical Gate follow-up comment. The
+    legacy wrappers `maint-43-selftest-pr-comment.yml`,
+    `pr-20-selftest-pr-comment.yml`, and `selftest-pr-comment.yml` were retired
+    in Issue #2720 so PR annotations flow through either Maint 46 or this
+    manual runner.
 
 ## Workflow summary table
 
