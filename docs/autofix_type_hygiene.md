@@ -108,6 +108,17 @@ Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue�
 1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
 2. Confirm the `apply` job is skipped and no new comments are posted, demonstrating the label gate is working as expected.
 
+### Demo PR verification (acceptance scenario)
+To replicate Issue #2724’s acceptance criteria end-to-end:
+
+1. Push a same-repo branch that intentionally violates a simple Ruff rule (for example, add trailing whitespace to a Python file).
+2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix` unless overridden in repository variables).
+3. Observe the **PR 02 Autofix** workflow run; once complete it should:
+   - Install Ruff, apply the safe `ruff check --fix --exit-zero` sweep, and commit cosmetic fixes back to the branch.【F:.github/workflows/reusable-18-autofix.yml†L121-L209】
+   - Apply the `autofix:applied` label (and remove any stale `autofix:clean`) when the commit lands.【F:.github/workflows/reusable-18-autofix.yml†L283-L360】
+   - Update the status comment with an **Autofix result** block summarising the labels and linking to the commit.【F:.github/workflows/reusable-18-autofix.yml†L187-L297】【F:scripts/build_autofix_pr_comment.py†L214-L256】
+4. If no diff is produced (for example, after re-running on a clean branch) expect the workflow to reapply `autofix:clean` and report “No changes required.” in the same status comment block.【F:.github/workflows/reusable-18-autofix.yml†L299-L360】
+
 ## Future Enhancements (Optional Backlog)
 - Add metrics: record autofix delta lines per run.
 - Dry-run mode for PR comments instead of commits (toggle by label).
