@@ -190,15 +190,20 @@ jobs:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         shell: bash
         run: |
           if [ -n "$COMMIT_SHA" ]; then
             url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
             short_sha=$(printf '%.12s' "$COMMIT_SHA")
+            labels="\`autofix:applied\`"
+            if [ "${REMAINING:-0}" -gt 0 ]; then
+              labels="$labels, \`autofix:debt\`"
+            fi
             {
               echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
               echo "Autofix commit: [${short_sha}]($url)"
-              echo "Labels: \`autofix:applied\`"
+              echo "Labels: $labels"
               echo "EOF"
             } >> "$GITHUB_ENV"
           fi
@@ -252,14 +257,19 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         shell: bash
         run: |
           url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
           name="autofix-patch-pr-$PR_NUMBER"
+          labels="\`autofix:patch\`"
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "Patch ready: [${name}](${url})"
-            echo "Labels: \`autofix:patch\`"
+            echo "Labels: $labels"
             echo ""
             echo "Apply locally:"
             echo "1. Download the artifact from the Actions run."
@@ -272,11 +282,17 @@ jobs:
 
       - name: Prepare no-change summary
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed != 'true'
+        env:
+          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         run: |
+          labels="\`autofix:clean\`"
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "No changes required."
-            echo "Labels: \`autofix:clean\`"
+            echo "Labels: $labels"
             echo "EOF"
           } >> "$GITHUB_ENV"
 
@@ -334,7 +350,7 @@ jobs:
             if (remaining > 0) {
               desired.add(debtLabel);
             }
-            if (!changed && remaining === 0) {
+            if (!changed) {
               desired.add(cleanLabel);
             }
             if (changed && sameRepo) {
