@@ -159,10 +159,11 @@ jobs:
             || format(
               '["{0}"]',
               (
-                inputs['python-version'] != '' && inputs['python-version']
+                inputs['python-version'] && inputs['python-version']
               )
               || '3.11'
             )
+            || '["3.11"]'
           ) }}
     defaults:
       run:
