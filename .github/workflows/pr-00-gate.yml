@@ -223,6 +223,42 @@ jobs:
             core.setOutput('state', 'success');
             core.setOutput('description', message);
 
+      - name: Remove stale docs-only marker
+        if: needs.detect.outputs.doc_only != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- gate-docs-only -->';
+
+            if (context.eventName !== 'pull_request') {
+              core.info('Not a pull_request event; nothing to clean up.');
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            const existing = comments.find(comment =>
+              typeof comment.body === 'string' && comment.body.includes(marker)
+            );
+
+            if (!existing) {
+              core.info('No docs-only fast-pass marker found to remove.');
+              return;
+            }
+
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+            });
+
+            core.info(`Removed stale docs-only marker comment ${existing.id}.`);
+
       - name: Download coverage (3.11)
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
         continue-on-error: true

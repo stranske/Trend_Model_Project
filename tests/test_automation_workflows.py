@@ -249,6 +249,50 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     msg=f"Docs-only handler script should {label}",
                 )
 
+    def test_gate_removes_stale_docs_only_marker(self) -> None:
+        workflow = self._read_workflow("pr-00-gate.yml")
+        gate_job = workflow.get("jobs", {}).get("gate", {})
+        self.assertTrue(gate_job, "Gate workflow must define gate job")
+
+        steps = gate_job.get("steps", [])
+        cleanup_step = next(
+            (
+                step
+                for step in steps
+                if isinstance(step, dict)
+                and step.get("name") == "Remove stale docs-only marker"
+            ),
+            None,
+        )
+
+        self.assertIsNotNone(
+            cleanup_step,
+            "Gate workflow should clean up docs-only marker comments when code changes are present",
+        )
+
+        condition = (cleanup_step or {}).get("if", "")
+        self.assertIn(
+            "needs.detect.outputs.doc_only != 'true'",
+            condition,
+            "Cleanup step should only run when the change is not docs-only",
+        )
+
+        script = (cleanup_step or {}).get("with", {}).get("script", "")
+        expected_cleanup_patterns = {
+            "defines marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "lists pull request comments": r"github\.rest\.issues\.listComments",
+            "detects marker comment": r"comment\.body\.includes\(marker\)",
+            "removes marker comment": r"github\.rest\.issues\.deleteComment",
+        }
+
+        for label, pattern in expected_cleanup_patterns.items():
+            with self.subTest(cleanup_pattern=label):
+                self.assertRegex(
+                    script,
+                    pattern,
+                    msg=f"Cleanup script should {label}",
+                )
+
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
         """Ensure pytest marker filters stay inside shell commands."""
 
