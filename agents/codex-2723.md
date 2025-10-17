@@ -15,9 +15,9 @@ Provide Codex contributors with a concise overview of the consolidation work tha
 
 ## Tasks
 
-- [ ] Successful run after Gate completes on a PR.
-- [ ] `GITHUB_STEP_SUMMARY` shows concise, useful information.
-- [ ] No duplicate comments per PR.
+- [ ] Successful run after Gate completes on a PR _(awaiting verification on the next Gate follower run)._ 
+- [x] `GITHUB_STEP_SUMMARY` shows concise, useful information.
+- [x] No duplicate comments per PR.
 
 ## Acceptance Criteria
 
