@@ -198,7 +198,7 @@ jobs:
             {
               echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
               echo "Autofix commit: [${short_sha}]($url)"
-              echo "Labels: `autofix:applied`"
+              echo 'Labels: `autofix:applied`'
               echo "EOF"
             } >> "$GITHUB_ENV"
           fi
@@ -259,7 +259,7 @@ jobs:
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "Patch ready: [${name}](${url})"
-            echo "Labels: `autofix:patch`"
+            echo 'Labels: `autofix:patch`'
             echo ""
             echo "Apply locally:"
             echo "1. Download the artifact from the Actions run."
@@ -276,7 +276,7 @@ jobs:
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             echo "No changes required."
-            echo "Labels: `autofix:clean`"
+            echo 'Labels: `autofix:clean`'
             echo "EOF"
           } >> "$GITHUB_ENV"
 
