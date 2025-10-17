@@ -380,6 +380,36 @@ jobs:
 
           comment_body = '\n'.join(filter(lambda block: block is not None, comment_sections))
 
+          issue_sections = [
+              '# Repository self-check findings',
+              '',
+              f'*Run timestamp:* `{timestamp}`' if timestamp else None,
+              f'*Default branch:* `{default_branch}`' if default_branch else None,
+              f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              '',
+              '## Checks',
+              '| Check | Status | Details |',
+              '| --- | --- | --- |',
+          ]
+
+          for check in checks:
+              title = check.get('title', 'Unknown')
+              status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
+              detail = (
+                  check.get('detail', '')
+                  .replace('|', '\\|')
+                  .replace('\n', '<br>')
+              )
+              issue_sections.append(f'| {title} | {status} | {detail or ""} |')
+
+          issue_sections.extend([
+              '',
+              '## Remediation checklist',
+              *fix_items,
+          ])
+
+          issue_body = '\n'.join(filter(lambda block: block is not None, issue_sections))
+
           output_path = os.environ['GITHUB_OUTPUT']
           with open(output_path, 'a', encoding='utf-8') as handle:
               handle.write('comment_body<<COMMENT\n')
@@ -387,8 +417,90 @@ jobs:
               handle.write('\nCOMMENT\n')
               handle.write(f"has_errors={'true' if error_findings else 'false'}\n")
               handle.write(f"has_warnings={'true' if findings and not error_findings else 'false'}\n")
+              handle.write('issue_body<<ISSUE\n')
+              handle.write(issue_body)
+              handle.write('\nISSUE\n')
 
           PY
+
+      - name: Update failure tracker issue
+        if: ${{ steps.aggregate.outputs.has_errors == 'true' || steps.aggregate.outputs.has_warnings == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueTitle = '[health] repository self-check failed';
+            const body = (process.env.ISSUE_BODY || '').trim();
+
+            if (!body) {
+              core.info('No issue body provided; skipping tracker update.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const existing = openIssues.find((issue) => issue.title === issueTitle);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.info(`Updated existing tracker issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                body,
+              });
+              core.info(`Opened tracker issue #${created.data.number}.`);
+            }
+
+      - name: Close failure tracker issue
+        if: ${{ steps.aggregate.outputs.has_errors != 'true' && steps.aggregate.outputs.has_warnings != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueTitle = '[health] repository self-check failed';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const existing = openIssues.find((issue) => issue.title === issueTitle);
+
+            if (!existing) {
+              core.info('No open tracker issue to close.');
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: existing.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed tracker issue #${existing.number}.`);
 
       - name: Upload JSON summary
         if: always()

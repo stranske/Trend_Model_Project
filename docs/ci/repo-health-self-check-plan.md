@@ -16,6 +16,11 @@
 5. Documentation explains the updated workflow behaviour, permission scopes, and degradation strategy, ensuring maintainers understand the fallback logic.
 6. Repository automation remains compliant with GitHub permission policies (no unsupported scopes) and produces passing CI runs post-change.
 
+### 2026-02-18 status update
+- `.github/workflows/health-40-repo-selfcheck.yml` now relies solely on the default token (`contents: read`, `issues: write`) and uses `repos.getBranch` to probe protection, treating 403 responses as warnings while still flagging missing protection as errors.
+- The aggregation step emits both a PR-ready checklist and a tracker body; the workflow opens or updates `[health] repository self-check failed` when warnings/errors persist and automatically closes the tracker when the run clears.
+- `docs/ci/WORKFLOWS.md` documents the reduced permission surface and the tracker issue behaviour so operators know what to expect from the updated run summaries.
+
 ## Initial Task Checklist
 - [x] Audit the current `health-40-repo-selfcheck` workflow to catalogue permissions, branch-protection calls, and failure aggregation logic.
 - [x] Replace unsupported `permissions.administration` usage with supported granular scopes; ensure the workflow compiles locally via `workflow_dispatch` dry runs.

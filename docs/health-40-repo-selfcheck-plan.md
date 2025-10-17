@@ -2,16 +2,16 @@
 
 ## Scope and Key Constraints
 - **Workflow slug**: Ensure `.github/workflows/health-40-repo-selfcheck.yml` remains the active repo self-check (formerly `repo-health-self-check.yml`) without breaking triggers or references.
-- **Permissions compliance**: Limit workflow `permissions` to `contents: read`, `issues: write`, and `pull-requests: read`; all other scopes are out of scope.
-- **Graceful privilege handling**: Constrain privileged GitHub API calls so they execute only when `SERVICE_BOT_PAT` is supplied. Without the PAT, the workflow must skip those checks without failing the job.
+- **Permissions compliance**: Limit workflow `permissions` to `contents: read` and `issues: write`; all other scopes are out of scope.
+- **Graceful privilege handling**: Constrain privileged GitHub API calls so they execute only when `SERVICE_BOT_PAT` is supplied. Without the PAT, the workflow must downgrade branch-protection visibility gaps to warnings instead of failing the job.
 - **Reporting**: Ensure each check reports status in both the log output and `$GITHUB_STEP_SUMMARY` for observability during manual or scheduled runs.
 - **Automation boundaries**: No changes to core analysis code or demo pipeline; work is confined to workflow YAML and the helper script invoked by the workflow.
 
 ## Acceptance Criteria / Definition of Done
 1. Workflow file renamed to `.github/workflows/health-40-repo-selfcheck.yml`, and any internal or external references updated.
-2. Workflow `permissions` block requests only supported scopes (`contents: read`, `issues: write`, `pull-requests: read`).
+2. Workflow `permissions` block requests only supported scopes (`contents: read`, `issues: write`).
 3. Workflow runs complete successfully on both `workflow_dispatch` and scheduled triggers without permission-related failures.
-4. Privileged API calls are gated behind a check for `env.SERVICE_BOT_PAT`. When absent, the job surfaces a yellow “skipped privileged checks” note in the step summary while keeping the overall job successful.
+4. Privileged API calls are gated behind a check for `env.SERVICE_BOT_PAT`. When absent, the job surfaces a yellow warning about downgraded branch protection visibility while keeping the overall job successful.
 5. `$GITHUB_STEP_SUMMARY` contains a concise Markdown table or bullet list summarizing each check and its outcome for every run.
 6. A manual `workflow_dispatch` run is triggered, and the run URL is documented in the pull request discussion.
 
