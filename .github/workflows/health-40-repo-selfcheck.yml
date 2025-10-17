@@ -159,8 +159,10 @@ jobs:
                     ? 'pass'
                     : branchStatus === 'missing'
                     ? 'error'
-                    : branchStatus === 'error' || branchStatus === 'forbidden'
+                    : branchStatus === 'forbidden'
                     ? 'warn'
+                    : branchStatus === 'error'
+                    ? 'error'
                     : branchStatus === 'skipped'
                     ? 'warn'
                     : 'info',
@@ -337,7 +339,14 @@ jobs:
 
                   fix_items.append(message)
               elif branch_status in {'error', 'skipped'}:
-                  fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
+                  detail = branch_note.replace('\n', ' ').strip()
+                  if detail:
+                      fix_items.append(
+                          '- [ ] Restore branch protection visibility (ensure required permissions or retry later). '
+                          f'Latest response: {detail}'
+                      )
+                  else:
+                      fix_items.append('- [ ] Restore branch protection visibility (ensure required permissions or retry later).')
 
           if not fix_items:
               fix_items.append('- [x] No action required — repo health checks are green.')
