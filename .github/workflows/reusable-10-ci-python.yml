@@ -135,13 +135,18 @@ jobs:
       matrix:
         python-version: >-
           ${{ fromJson(
-            inputs['python-versions'] != '' && inputs['python-versions'] != '[]'
-              ? (
-                  startsWith(trim(inputs['python-versions']), '[')
-                    ? inputs['python-versions']
-                    : format('["{0}"]', trim(inputs['python-versions']))
-                )
-              : format('["{0}"]', inputs['python-version'])
+            (
+              inputs['python-versions'] != '' &&
+              inputs['python-versions'] != '[]' &&
+              startsWith(trim(inputs['python-versions']), '[')
+            )
+            && inputs['python-versions']
+            || (
+              inputs['python-versions'] != '' &&
+              inputs['python-versions'] != '[]'
+            )
+            && format('["{0}"]', trim(inputs['python-versions']))
+            || format('["{0}"]', inputs['python-version'])
           ) }}
     defaults:
       run:
