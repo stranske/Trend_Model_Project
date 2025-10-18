@@ -1,4 +1,5 @@
-import os,sys
+import os
+import sys
 
 
 def demo_autofix():
