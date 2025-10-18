@@ -149,6 +149,25 @@ def test_bootstrap_uses_paginated_issue_scan():
     ), "Bootstrap summary should report how many issues were inspected"
 
 
+def test_bootstrap_summary_includes_scope_and_counts():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Bootstrap label: **" in text
+    ), "Bootstrap run summary should surface the resolved label scope"
+    assert (
+        "Skipped issues" in text
+    ), "Bootstrap summary must document skipped issues"
+    assert (
+        "Accepted issues:" in text
+    ), "Bootstrap summary must include accepted issue counts"
+    assert (
+        "Skipped issues:" in text
+    ), "Bootstrap summary must include skipped issue counts"
+    assert (
+        "https://github.com/" in text
+    ), "Bootstrap summary should link directly to accepted issues"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
@@ -244,6 +263,23 @@ def test_reusable_watchdog_job_gated_by_flag():
         isinstance(step, dict) and step.get("uses") == "actions/checkout@v4"
         for step in steps
     ), "Watchdog job must continue performing basic repo checks"
+
+
+def test_keepalive_summary_reports_scope_and_activity():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Target labels:" in text
+    ), "Keepalive summary should list the label scope"
+    assert (
+        "Agent logins:" in text
+    ), "Keepalive summary should surface the Codex logins under consideration"
+    assert (
+        "No unattended Codex tasks detected." in text
+        or "keepalive posted" in text
+    ), "Keepalive summary must describe whether any PRs required intervention"
+    assert (
+        "Triggered keepalive count:" in text
+    ), "Keepalive summary should record how many follow-up comments were sent"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
