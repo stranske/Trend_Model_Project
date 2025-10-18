@@ -556,7 +556,7 @@ jobs:
             core.setOutput('skipped_issues', String(skippedCount));
             core.setOutput('duplicate_topics', String(duplicateCount));
             core.setOutput('invalid_topics', String(invalidTopicCount));
-            const mutationTotal = createdCount + updatedCount + reopenedCount;
+            const mutationTotal = createdCount + updatedCount;
             core.setOutput('mutations_performed', String(mutationTotal));
             if (!createdCount && !updatedCount && !reopenedCount) {
               core.notice('No issues required modifications; run completed without mutations.');
