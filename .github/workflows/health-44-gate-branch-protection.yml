@@ -171,11 +171,14 @@ jobs:
                       label = "After" if enforcement.get("after") else "Target"
                       summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
                   summary.write(f"- Changes applied: {enforcement.get('changes_applied', False)}\n\n")
+              else:
+                  summary.write("- Enforcement snapshot not available (step skipped or failed).\n\n")
 
               if verification is not None:
                   summary.write("**Verification snapshot**\n\n")
                   current = verification.get("current")
                   desired = verification.get("after") or verification.get("desired")
+                  summary.write(f"- Mode: `{verification.get('mode', 'unknown')}`\n")
                   if "no_clean" in verification:
                       summary.write(
                           f"- Cleanup disabled: {bool(verification.get('no_clean'))}\n"
@@ -192,6 +195,8 @@ jobs:
                   if "strict_unknown" in verification:
                       summary.write(f"- Strict status unknown: {verification.get('strict_unknown')}\n")
                   summary.write("\n")
+              else:
+                  summary.write("- Verification snapshot not available (step skipped or failed).\n\n")
 
               if not has_token:
                   summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; enforcement ran in observer mode.\n")
