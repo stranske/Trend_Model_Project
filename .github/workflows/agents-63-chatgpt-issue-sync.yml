@@ -177,14 +177,23 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
+            const defaultOutputs = {
+              created_issues: 0,
+              updated_issues: 0,
+              reopened_issues: 0,
+              skipped_issues: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              mutations_performed: 0,
+            };
+            const setOutputs = (overrides = {}) => {
+              const values = { ...defaultOutputs, ...overrides };
+              for (const [key, value] of Object.entries(values)) {
+                core.setOutput(key, String(value));
+              }
+            };
             const setZeroOutputs = () => {
-              core.setOutput('created_issues', '0');
-              core.setOutput('updated_issues', '0');
-              core.setOutput('reopened_issues', '0');
-              core.setOutput('skipped_issues', '0');
-              core.setOutput('duplicate_topics', '0');
-              core.setOutput('invalid_topics', '0');
-              core.setOutput('mutations_performed', '0');
+              setOutputs();
             };
             if (!fs.existsSync('topics.json')) {
               core.notice('topics.json not found – assuming parser short-circuited. Exiting without mutations.');
@@ -235,13 +244,7 @@ jobs:
               core.notice(
                 `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
               );
-              core.setOutput('created_issues', '0');
-              core.setOutput('updated_issues', '0');
-              core.setOutput('reopened_issues', '0');
-              core.setOutput('skipped_issues', '0');
-              core.setOutput('duplicate_topics', String(duplicateCount));
-              core.setOutput('invalid_topics', '0');
-              core.setOutput('mutations_performed', '0');
+              setOutputs({ duplicate_topics: duplicateCount });
               return;
             }
             const { owner, repo } = context.repo;
@@ -550,14 +553,15 @@ jobs:
             for (const line of summaryLines) {
               core.summary.addRaw(`- ${line}\n`);
             }
-            core.setOutput('created_issues', String(createdCount));
-            core.setOutput('updated_issues', String(updatedCount));
-            core.setOutput('reopened_issues', String(reopenedCount));
-            core.setOutput('skipped_issues', String(skippedCount));
-            core.setOutput('duplicate_topics', String(duplicateCount));
-            core.setOutput('invalid_topics', String(invalidTopicCount));
-            const mutationTotal = createdCount + updatedCount;
-            core.setOutput('mutations_performed', String(mutationTotal));
+            setOutputs({
+              created_issues: createdCount,
+              updated_issues: updatedCount,
+              reopened_issues: reopenedCount,
+              skipped_issues: skippedCount,
+              duplicate_topics: duplicateCount,
+              invalid_topics: invalidTopicCount,
+              mutations_performed: createdCount + updatedCount,
+            });
             if (!createdCount && !updatedCount && !reopenedCount) {
               core.notice('No issues required modifications; run completed without mutations.');
             }
