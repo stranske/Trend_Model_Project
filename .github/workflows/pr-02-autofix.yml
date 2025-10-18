@@ -65,7 +65,7 @@ jobs:
 
   apply:
     needs: label_gate
-    if: ${{ needs.label_gate.outputs.fire == 'true' }}
+    if: ${{ github.event.pull_request && ( contains(github.event.pull_request.labels.*.name, vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix') || ( github.event.action == 'labeled' && github.event.label.name == (vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix') ) ) && needs.label_gate.outputs.fire == 'true' }}
     permissions:
       contents: write
       pull-requests: write
