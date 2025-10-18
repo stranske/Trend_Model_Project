@@ -154,9 +154,7 @@ def test_bootstrap_summary_includes_scope_and_counts():
     assert (
         "Bootstrap label: **" in text
     ), "Bootstrap run summary should surface the resolved label scope"
-    assert (
-        "Skipped issues" in text
-    ), "Bootstrap summary must document skipped issues"
+    assert "Skipped issues" in text, "Bootstrap summary must document skipped issues"
     assert (
         "Accepted issues:" in text
     ), "Bootstrap summary must include accepted issue counts"
@@ -209,18 +207,14 @@ def test_agents_orchestrator_schedule_preserved():
     ], "Orchestrator schedule must stay on the 20-minute cadence"
 
 
-def test_orchestrator_bootstrap_label_has_default_notice():
-    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+def test_bootstrap_step_defaults_label_when_missing():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const fallbackLabel = 'agent:codex'" in text
+    ), "Bootstrap logic must define agent:codex as the fallback label"
     assert (
         "bootstrap_issues_label not provided; defaulting to" in text
-    ), "Orchestrator must record bootstrap label fallback notice"
-
-
-def test_orchestrator_bootstrap_label_defaults_to_agent_codex():
-    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
-    assert (
-        "bootstrap_issues_label: 'agent:codex'" in text
-    ), "Bootstrap label default must remain agent:codex"
+    ), "Bootstrap step must record when it falls back to the default label"
 
 
 def test_agents_consumer_workflow_removed():
@@ -247,7 +241,9 @@ def test_codex_issue_bridge_triggers_on_agent_label():
     assert {"opened", "labeled", "reopened"}.issubset(
         types
     ), "Issue bridge must react to issue label lifecycle events"
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(encoding="utf-8")
+    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+        encoding="utf-8"
+    )
     assert (
         "agent:codex" in text
     ), "Issue bridge must guard on the agent:codex label to trigger hand-off"
@@ -284,15 +280,12 @@ def test_reusable_watchdog_job_gated_by_flag():
 
 def test_keepalive_summary_reports_scope_and_activity():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
-    assert (
-        "Target labels:" in text
-    ), "Keepalive summary should list the label scope"
+    assert "Target labels:" in text, "Keepalive summary should list the label scope"
     assert (
         "Agent logins:" in text
     ), "Keepalive summary should surface the Codex logins under consideration"
     assert (
-        "No unattended Codex tasks detected." in text
-        or "keepalive posted" in text
+        "No unattended Codex tasks detected." in text or "keepalive posted" in text
     ), "Keepalive summary must describe whether any PRs required intervention"
     assert (
         "Triggered keepalive comments" in text

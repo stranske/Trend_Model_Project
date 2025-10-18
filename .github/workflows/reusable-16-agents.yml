@@ -371,7 +371,15 @@ jobs:
             const summary = core.summary;
             summary.addHeading('Codex Bootstrap', 2);
 
-            const raw = process.env.LABEL || '';
+            const fallbackLabel = 'agent:codex';
+            let raw = process.env.LABEL || '';
+            if (!raw.trim()) {
+              const message = `bootstrap_issues_label not provided; defaulting to ${fallbackLabel}.`;
+              core.notice(message);
+              summary.addRaw(message).addEOL();
+              raw = fallbackLabel;
+            }
+
             const labels = raw
               .split(',')
               .map((value) => value.trim())
