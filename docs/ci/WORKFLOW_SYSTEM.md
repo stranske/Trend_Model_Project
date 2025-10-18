@@ -424,10 +424,14 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Autofix.** Maint 46 centralizes automated follow-up fixes. Forks upload
   patch artifacts instead of pushing. Pre-CI autofix (`pr-02-autofix.yml`) must
   stay label-gated and cancel duplicates while Gate runs.
-- **Branch protection.** The default branch must require Gate and Health 45. The
-  Health 44 workflow resolves the current default branch via the REST API and
+- **Branch protection.** The default branch must require the Gate status context
+  (`gate`). Health 44 resolves the current default branch via the REST API and
   either enforces or verifies the rule (requires a `BRANCH_PROTECTION_TOKEN`
-  secret with admin scope for enforcement).
+  secret with admin scope for enforcement). When agent workflows are in play,
+  the rule also enforces **Health 45 Agents Guard** so protected files stay
+  gated. Maint 46 Post CI wakes up only after Gate succeeds; it publishes the
+  consolidated summary comment but remains informational rather than a required
+  status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
   to `agents-63-chatgpt-issue-sync.yml`, `agents-63-codex-issue-bridge.yml`, and
   `agents-70-orchestrator.yml` stay maintainer gated on top of the immutable
@@ -479,6 +483,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - Health 44 confirms branch protection requires Gate and Agents Guard on the default branch.
 - Maint 46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
 
+### Required vs informational checks on `phase-2-dev`
+
+- **Required before merge.** Gate / `gate` must finish green on every pull request into `phase-2-dev`. Branch protection enforces this context.
+- **Informational after merge.** Maint 46 Post CI fans out once Gate finishes and posts the aggregated summary comment. It mirrors the reusable CI results but does not block merges because it runs post-merge.
+
 ## Branch protection playbook
 
 1. **Confirm the default branch.**
@@ -493,7 +502,15 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      Health 44 applies the branch protection before verifying. Without it the
      workflow performs a read-only check, uploads an observer-mode summary, and
      still fails if Gate is not required.
-3. **Run the enforcement script locally when needed.**
+3. **Configure branch protection manually when adjusting via the UI.**
+   - Navigate to **Settings → Branches → Add branch protection rule** and target
+     the default branch (`phase-2-dev`).
+   - Enable **Require status checks to pass before merging**, then select
+     **Gate / gate**. Keep **Health 45 Agents Guard / Enforce agents workflow
+     protections** checked so agent-surface edits stay gated.
+   - Enable **Require branches to be up to date before merging** to match the
+     automation policy.
+4. **Run the enforcement script locally when needed.**
    - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check`
      reports the current status.
    - Add `--require-strict` to fail if the workflow token cannot confirm
@@ -501,19 +518,20 @@ Keep this table handy when you are triaging automation: it confirms which workfl
    - Add `--apply` to enforce the rule locally (requires admin token in
      `GITHUB_TOKEN`/`GH_TOKEN`). Use `--snapshot path.json` to capture
      before/after state for change control.
-4. **Audit the result.**
+5. **Audit the result.**
    - Health 44 uploads JSON snapshots (`enforcement.json`, `verification.json`)
      mirroring the script output and writes a step summary when it runs in
      observer mode.
-   - In GitHub settings, confirm that **Gate** and **Health 45 Agents Guard**
-     appear under required status checks and that “Require branches to be up to
-     date before merging” is enabled.
-5. **Trigger Health 44 on demand.**
+   - In GitHub settings, confirm that **Gate / gate** appears under required
+     status checks, with **Health 45 Agents Guard** retained for agent-surface
+     enforcement. Maint 46 Post CI is intentionally absent—it publishes the
+     summary comment after merge and remains informational.
+6. **Trigger Health 44 on demand.**
    - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>`
      whenever you change branch-protection settings.
    - Scheduled executions run daily at 06:00 UTC; a manual dispatch confirms the
      fix immediately after you apply it.
-6. **Verify with a test PR.**
+7. **Verify with a test PR.**
    - Open a throwaway PR against the default branch and confirm that the Checks
      tab shows **Gate / gate** under “Required checks.” When you modify
      `agents-*.yml`, also confirm **Health 45 Agents Guard / Enforce agents
