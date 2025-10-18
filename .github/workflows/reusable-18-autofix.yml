@@ -772,7 +772,14 @@ jobs:
           if [ -f autofix_report_enriched.json ]; then
             python -c "import json, os; from datetime import datetime, timezone; from pathlib import Path; meta={'pull_request': os.environ.get('PR_NUMBER'), 'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}; path = Path('autofix_report_enriched.json'); data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}; data.update(meta); Path('autofix_report.json').write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
           else
-            python -c "import json, os; from pathlib import Path; file_list_raw = os.environ.get('REPORT_FILE_LIST', ''); payload={'mode': os.environ.get('REPORT_MODE', ''), 'changed': os.environ.get('REPORT_CHANGED', ''), 'remaining_issues': os.environ.get('REPORT_REMAINING', ''), 'new_issues': os.environ.get('REPORT_NEW', ''), 'file_list': [line for line in file_list_raw.split('\n') if line]}; Path('autofix_report.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
+            jq -n \
+              --arg mode "${REPORT_MODE}" \
+              --arg changed "${REPORT_CHANGED}" \
+              --arg remaining "${REPORT_REMAINING}" \
+              --arg new_issues "${REPORT_NEW}" \
+              --arg file_list_raw "${REPORT_FILE_LIST}" \
+              '($file_list_raw | split("\n") | map(select(length > 0))) as $files | {mode: $mode, changed: $changed, remaining_issues: $remaining, new_issues: $new_issues, file_list: $files}' \
+              > autofix_report.json || echo '{"error":"merge_failed"}' > autofix_report.json
           fi
           echo "Enriched report ready."
         env:
@@ -814,10 +821,8 @@ jobs:
             echo "New (non-allowlisted) ruff issues: ${NEW_ISSUES:-0}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${CHANGED:-false}" = "true" ]; then
-            if [ "${SAME_REPO:-false}" != "true" ]; then
-              echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
-            fi
+          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
+            echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ "${mode_value}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
