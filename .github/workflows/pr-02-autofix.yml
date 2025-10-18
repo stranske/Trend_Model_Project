@@ -66,3 +66,12 @@ jobs:
     secrets: inherit
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
+
+  debug_gate:
+    needs: label_gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show gate outputs
+        run: |
+          echo "enabled=${{ needs.label_gate.outputs.enabled }}"
+          echo "label=${{ needs.label_gate.outputs.label }}"
