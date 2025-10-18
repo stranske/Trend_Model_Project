@@ -170,6 +170,9 @@ def test_bootstrap_summary_highlights_scope_and_skips():
     assert (
         "Skipped issues: ${skipped.length}" in text
     ), "Bootstrap summary should report the count of skipped issues"
+    assert (
+        "summary.addRaw('No eligible issues found.')" in text
+    ), "Bootstrap summary should document when no matching issues are identified"
 
 
 def test_keepalive_summary_reports_targets():
@@ -189,6 +192,12 @@ def test_keepalive_summary_reports_targets():
     assert (
         "Triggered keepalive count: ${triggered.length}" in text
     ), "Keepalive summary should record the number of triggered keepalive actions"
+    assert (
+        "summary.addList(triggered)" in text
+    ), "Keepalive summary should list triggered comments when present"
+    assert (
+        "summary.addRaw('No unattended Codex tasks detected.')" in text
+    ), "Keepalive summary should note when no sweeps are required"
 
 
 def test_agents_orchestrator_has_concurrency_defaults():
