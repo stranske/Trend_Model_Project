@@ -405,6 +405,17 @@ jobs:
 
             summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
 
+            const summariseList = (items, limit = 20) => {
+              if (items.length <= limit) {
+                return items;
+              }
+              const hidden = items.length - limit;
+              return [
+                ...items.slice(0, limit),
+                `${hidden} more entries not shown to avoid excessive summary noise.`
+              ];
+            };
+
             const skipped = [];
             const accepted = [];
             const logSkip = (issue, reason) => {
@@ -486,7 +497,10 @@ jobs:
               summary.addRaw('No eligible issues found.').addEOL();
             }
 
-            summary.addDetails('Skipped issues', skipped.length ? skipped : ['None']);
+            summary.addDetails(
+              'Skipped issues',
+              skipped.length ? summariseList(skipped) : ['None']
+            );
             const summaryItems = [
               `Accepted issues: ${accepted.length}`,
               `Skipped issues: ${skipped.length}`,
@@ -577,6 +591,17 @@ jobs:
             const rawOptions = process.env.OPTIONS_JSON || '{}';
             const options = parseJson(rawOptions, {});
             const summary = core.summary;
+
+            const summariseList = (items, limit = 20) => {
+              if (items.length <= limit) {
+                return items;
+              }
+              const hidden = items.length - limit;
+              return [
+                ...items.slice(0, limit),
+                `${hidden} more entries not shown to avoid excessive summary noise.`
+              ];
+            };
 
             const keepaliveEnabled = coerceBool(
               options.enable_keepalive ?? options.keepalive_enabled,
@@ -734,7 +759,7 @@ jobs:
             }
 
             if (triggered.length) {
-              summary.addList(triggered);
+              summary.addList(summariseList(triggered));
             } else {
               summary.addRaw('No unattended Codex tasks detected.');
             }
