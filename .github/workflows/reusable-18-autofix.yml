@@ -706,6 +706,7 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
         with:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
@@ -719,7 +720,9 @@ jobs:
               core.info('No files recorded for clean summary; skipping comment.');
               return;
             }
-            const header = 'Tests-only cosmetic autofix updated these files:';
+            const cleanLabel = (process.env.CLEAN_LABEL || '').trim();
+            const labelSuffix = cleanLabel ? ` (\`${cleanLabel}\`)` : '';
+            const header = `Tests-only cosmetic autofix${labelSuffix} updated these files:`;
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
             const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
