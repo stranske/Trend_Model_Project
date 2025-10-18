@@ -391,17 +391,24 @@ jobs:
             let updatedCount = 0;
             let reopenedCount = 0;
             let skippedCount = 0;
+            let invalidTopicCount = 0;
             for (const topic of deduped) {
               try {
+                const rawTitle = typeof topic.title === 'string' ? topic.title : '';
+                const title = rawTitle.trim();
+                if (!title) {
+                  invalidTopicCount += 1;
+                  core.warning('Skipping topic without a valid title.');
+                  continue;
+                }
                 const desired = [];
                 for (const rawLabel of topic.labels || []) {
                   const resolved = await ensureLabel(rawLabel);
                   if (resolved) desired.push(resolved);
-                  else core.warning(`Skipped label "${rawLabel}" for ${topic.title}.`);
+                  else core.warning(`Skipped label "${rawLabel}" for ${title}.`);
                 }
                 const unique = Array.from(new Set(desired));
                 const body = buildBody(topic);
-                const title = topic.title;
                 const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
                 let issueNumber = null;
                 if (guid) {
@@ -447,7 +454,8 @@ jobs:
                     .filter(Boolean);
                   const final = Array.from(new Set([...current, ...unique]));
                   const needsStateChange = issueData.data.state === 'closed';
-                  const needsTitle = issueData.data.title !== title;
+                  const existingTitle = (issueData.data.title || '').trim();
+                  const needsTitle = existingTitle !== title;
                   const existingBody = (issueData.data.body || '').trim();
                   const normalizedExistingBody = normalizeSyncFooter(existingBody);
                   const normalizedDesiredBody = normalizeSyncFooter(body);
@@ -513,6 +521,7 @@ jobs:
               `Reopened issues: ${reopenedCount}`,
               `Skipped (no changes): ${skippedCount}`,
               `Duplicate topics skipped: ${duplicateCount}`,
+              `Invalid topics skipped: ${invalidTopicCount}`,
             ];
             const summary = summaryLines.join('\n');
             core.notice(summary);
@@ -525,6 +534,7 @@ jobs:
             core.setOutput('reopened_issues', String(reopenedCount));
             core.setOutput('skipped_issues', String(skippedCount));
             core.setOutput('duplicate_topics', String(duplicateCount));
+            core.setOutput('invalid_topics', String(invalidTopicCount));
             const mutationTotal = createdCount + updatedCount + reopenedCount;
             core.setOutput('mutations_performed', String(mutationTotal));
             if (!createdCount && !updatedCount && !reopenedCount) {
