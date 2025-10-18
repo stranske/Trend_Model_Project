@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
+      issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
