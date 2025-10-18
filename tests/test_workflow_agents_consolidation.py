@@ -104,6 +104,21 @@ def test_keepalive_job_present():
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
 
 
+def test_keepalive_job_defined_once():
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive_jobs = [
+        (name, job.get("name"))
+        for name, job in jobs.items()
+        if isinstance(job, dict)
+        and isinstance(job.get("name"), str)
+        and "Codex Keepalive" in job.get("name")
+    ]
+    assert keepalive_jobs == [
+        ("keepalive", "Codex Keepalive Sweep")
+    ], "Reusable workflow must expose a single Codex keepalive job"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
@@ -126,6 +141,13 @@ def test_agents_orchestrator_has_concurrency_defaults():
     assert (
         "Job timeouts live inside reusable-16-agents.yml" in text
     ), "Orchestrator workflow should document where the timeout is enforced"
+
+
+def test_orchestrator_bootstrap_label_has_default_notice():
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label not provided; defaulting to" in text
+    ), "Orchestrator must record bootstrap label fallback notice"
 
 
 def test_agents_consumer_workflow_removed():
