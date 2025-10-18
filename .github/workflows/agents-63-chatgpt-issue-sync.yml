@@ -25,6 +25,9 @@ on:
 jobs:
   sync:
     name: Normalize ChatGPT topics into GitHub issues
+    concurrency:
+      group: agent-sync-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,9 +177,24 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
-            const topics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
-            if (!Array.isArray(topics) || topics.length === 0) {
+            const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
               core.setFailed('No topics to process.');
+              return;
+            }
+            const normalizeLabel = (label) => label.trim().toLowerCase();
+            const requiredLabels = new Set(['agents', 'agent:codex']);
+            const topics = rawTopics.filter((topic) => {
+              const labels = Array.isArray(topic.labels) ? topic.labels : [];
+              const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
+              if (!hasRequired) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(`Skipping topic without agent label${preview}.`);
+              }
+              return hasRequired;
+            });
+            if (!topics.length) {
+              core.notice('No topics matched agent labels. Exiting without changes.');
               return;
             }
             const { owner, repo } = context.repo;
@@ -318,6 +336,21 @@ jobs:
               lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
               return lines.join('\n');
             };
+            const labelsEqual = (a, b) => {
+              const clean = (list) =>
+                Array.from(new Set((list || []).map((l) => l.trim()).filter(Boolean))).sort((x, y) =>
+                  x.localeCompare(y, undefined, { sensitivity: 'accent' }),
+                );
+              const left = clean(a);
+              const right = clean(b);
+              if (left.length !== right.length) return false;
+              for (let i = 0; i < left.length; i += 1) {
+                if (left[i].toLowerCase() !== right[i].toLowerCase()) {
+                  return false;
+                }
+              }
+              return true;
+            };
             for (const topic of topics) {
               try {
                 const desired = [];
@@ -354,18 +387,28 @@ jobs:
                     .map((l) => l.name)
                     .filter(Boolean);
                   const final = Array.from(new Set([...current, ...unique]));
+                  const needsStateChange = issueData.data.state === 'closed';
+                  const needsTitle = issueData.data.title !== title;
+                  const needsBody = (issueData.data.body || '').trim() !== body.trim();
+                  const needsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
+                    core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
+                    continue;
+                  }
                   const payload = { owner, repo, issue_number: issueNumber, title, body, labels: final };
-                  if (issueData.data.state === 'closed') payload.state = 'open';
+                  if (needsStateChange) payload.state = 'open';
                   await github.rest.issues.update(payload);
-                  try {
-                    await github.rest.issues.createComment({
-                      owner,
-                      repo,
-                      issue_number: issueNumber,
-                      body: `Updated by [workflow run](${process.env.RUN_URL}).`,
-                    });
-                  } catch (e) {
-                    core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                  if (needsTitle || needsBody || needsLabels || needsStateChange) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        body: `Updated by [workflow run](${process.env.RUN_URL}).`,
+                      });
+                    } catch (e) {
+                      core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                    }
                   }
                 } else {
                   const created = await github.rest.issues.create({
