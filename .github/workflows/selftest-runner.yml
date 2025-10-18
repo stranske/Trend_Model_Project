@@ -1,6 +1,8 @@
 name: Selftest Runner
 
 on:
+  schedule:
+    - cron: '30 6 * * *'
   workflow_dispatch:
     inputs:
       reason:
@@ -56,7 +58,7 @@ jobs:
     name: Scenario - ${{ matrix.name }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
-      python-versions: ${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || (inputs.mode == 'dual-runtime' && '["3.11","3.12"]' || '["3.11"]') }}
+      python-versions: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions) || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]') || '["3.11"]' }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
       enable-history: ${{ matrix.enable-history }}
@@ -125,14 +127,19 @@ jobs:
       run_id: ${{ steps.run_metadata.outputs.run_id }}
     env:
       SCENARIO_LIST: minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate
-      PYTHON_VERSIONS: ${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || (inputs.mode == 'dual-runtime' && '["3.11","3.12"]' || '["3.11"]') }}
+      PYTHON_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions) || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]') || '["3.11"]' }}
+      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason) || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test') || 'nightly verification' }}
+      TRIGGER_EVENT: ${{ github.event_name }}
     steps:
       - name: Summarize matrix execution
         run: |
           {
             echo "## Self-Test Matrix Summary"
             echo "Workflow result: ${{ needs.scenario.result }}"
-            echo "Dispatched reason: ${{ inputs.reason }}"
+            echo "Triggered via: ${TRIGGER_EVENT}"
+            if [ -n "${RUN_REASON}" ]; then
+              echo "Run reason: ${RUN_REASON}"
+            fi
             echo "Requested python-versions: ${PYTHON_VERSIONS}"
             echo "Scenarios: ${SCENARIO_LIST}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -293,18 +300,18 @@ jobs:
       actions: read
       pull-requests: write
     env:
-      MODE: ${{ inputs.mode }}
-      POST_TO: ${{ inputs.post_to }}
-      ENABLE_HISTORY: ${{ inputs.enable_history }}
-      PR_NUMBER: ${{ inputs.pull_request_number }}
-      SUMMARY_TITLE: ${{ inputs.summary_title }}
-      COMMENT_TITLE: ${{ inputs.comment_title }}
-      REASON: ${{ inputs.reason }}
+      MODE: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode) || 'summary' }}
+      POST_TO: ${{ (github.event_name == 'workflow_dispatch' && inputs.post_to) || 'none' }}
+      ENABLE_HISTORY: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
+      PR_NUMBER: ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
+      SUMMARY_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.summary_title != '' && inputs.summary_title) || 'Selftest Runner Summary' }}
+      COMMENT_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.comment_title != '' && inputs.comment_title) || 'Selftest Runner Comment' }}
+      REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason) || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test') || 'nightly verification' }}
       WORKFLOW_RESULT: ${{ needs.scenario.result }}
       VERIFICATION_TABLE: ${{ needs.aggregate.outputs.verification_table }}
       FAILURE_COUNT: ${{ needs.aggregate.outputs.failures }}
       RUN_ID: ${{ needs.aggregate.outputs.run_id }}
-      REQUESTED_VERSIONS: ${{ inputs.python_versions && inputs.python_versions != '' && inputs.python_versions || (inputs.mode == 'dual-runtime' && '["3.11","3.12"]' || '["3.11"]') }}
+      REQUESTED_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions) || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]') || '["3.11"]' }}
     steps:
       - name: Validate pull request target
         if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
@@ -362,12 +369,12 @@ jobs:
         if: ${{ env.MODE != 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
@@ -459,12 +466,12 @@ jobs:
         if: ${{ env.MODE == 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
