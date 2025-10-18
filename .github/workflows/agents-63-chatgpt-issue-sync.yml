@@ -206,16 +206,50 @@ jobs:
             const setZeroOutputs = () => {
               setOutputs();
             };
+            const publishSummary = async ({
+              createdCount = 0,
+              updatedCount = 0,
+              reopenedCount = 0,
+              skippedCount = 0,
+              duplicateCount = 0,
+              invalidTopicCount = 0,
+              notice,
+            } = {}) => {
+              const summaryLines = [
+                `Topics provided: ${metrics.topics_total}`,
+                `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
+                `Deduplicated topics: ${metrics.topics_after_dedup}`,
+                `Topics processed: ${metrics.topics_processed}`,
+                `Created issues: ${createdCount}`,
+                `Updated issues: ${updatedCount}`,
+                `Reopened issues: ${reopenedCount}`,
+                `Skipped (no changes): ${skippedCount}`,
+                `Duplicate topics skipped: ${duplicateCount}`,
+                `Invalid topics skipped: ${invalidTopicCount}`,
+                `Mutations performed: ${createdCount + updatedCount}`,
+              ];
+              const summaryText = summaryLines.join('\n');
+              if (notice) core.notice(notice);
+              core.notice(summaryText);
+              core.summary.clear();
+              core.summary.addHeading('Agents issue sync results');
+              for (const line of summaryLines) {
+                core.summary.addRaw(`- ${line}\n`);
+              }
+              await core.summary.write();
+            };
             if (!fs.existsSync('topics.json')) {
-              core.notice('topics.json not found – assuming parser short-circuited. Exiting without mutations.');
               setZeroOutputs();
+              await publishSummary({
+                notice: 'topics.json not found – assuming parser short-circuited. Exiting without mutations.',
+              });
               return;
             }
             const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
             metrics.topics_total = Array.isArray(rawTopics) ? rawTopics.length : 0;
             if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
-              core.notice('No topics provided. Exiting without mutations.');
               setZeroOutputs();
+              await publishSummary({ notice: 'No topics provided. Exiting without mutations.' });
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
@@ -231,8 +265,10 @@ jobs:
             });
             metrics.topics_with_agent_labels = topics.length;
             if (!topics.length) {
-              core.notice('No topics matched agent labels. Exiting without changes.');
               setZeroOutputs();
+              await publishSummary({
+                notice: 'No topics matched agent labels. Exiting without changes.',
+              });
               return;
             }
             const seenTopics = new Set();
@@ -255,10 +291,11 @@ jobs:
             }
             metrics.topics_after_dedup = deduped.length;
             if (!deduped.length) {
-              core.notice(
-                `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
-              );
               setOutputs({ duplicate_topics: duplicateCount });
+              await publishSummary({
+                notice: `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
+                duplicateCount,
+              });
               return;
             }
             const { owner, repo } = context.repo;
@@ -555,25 +592,6 @@ jobs:
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
               }
             }
-            const summaryLines = [
-              `Topics provided: ${metrics.topics_total}`,
-              `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
-              `Deduplicated topics: ${metrics.topics_after_dedup}`,
-              `Topics processed: ${metrics.topics_processed}`,
-              `Created issues: ${createdCount}`,
-              `Updated issues: ${updatedCount}`,
-              `Reopened issues: ${reopenedCount}`,
-              `Skipped (no changes): ${skippedCount}`,
-              `Duplicate topics skipped: ${duplicateCount}`,
-              `Invalid topics skipped: ${invalidTopicCount}`,
-              `Mutations performed: ${createdCount + updatedCount}`,
-            ];
-            const summary = summaryLines.join('\n');
-            core.notice(summary);
-            core.summary.addHeading('Agents issue sync results');
-            for (const line of summaryLines) {
-              core.summary.addRaw(`- ${line}\n`);
-            }
             setOutputs({
               created_issues: createdCount,
               updated_issues: updatedCount,
@@ -583,8 +601,15 @@ jobs:
               invalid_topics: invalidTopicCount,
               mutations_performed: createdCount + updatedCount,
             });
+            await publishSummary({
+              createdCount,
+              updatedCount,
+              reopenedCount,
+              skippedCount,
+              duplicateCount,
+              invalidTopicCount,
+            });
             if (!createdCount && !updatedCount && !reopenedCount) {
               core.notice('No issues required modifications; run completed without mutations.');
             }
-            await core.summary.write();
 
