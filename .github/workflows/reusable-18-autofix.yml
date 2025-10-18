@@ -857,9 +857,6 @@ jobs:
             {
               echo ""
               echo "Tests-only files updated:"
-              while IFS= read -r clean_file; do
-                [ -z "$clean_file" ] && continue
-                printf -- "- \`%s\`\n" "$clean_file"
-              done <<< "${FILE_LIST}"
             } >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "${FILE_LIST}" | sed 's/.*/- `&`/' >> "$GITHUB_STEP_SUMMARY"
           fi
