@@ -192,6 +192,23 @@ def test_agents_orchestrator_has_concurrency_defaults():
     ), "Orchestrator workflow should document where the timeout is enforced"
 
 
+def test_agents_orchestrator_schedule_preserved():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
+
+    on_section = _workflow_on_section(data)
+    schedule = on_section.get("schedule") or []
+    assert schedule, "Orchestrator schedule must remain defined"
+
+    cron_entries = [
+        entry.get("cron")
+        for entry in schedule
+        if isinstance(entry, dict) and "cron" in entry
+    ]
+    assert cron_entries == [
+        "*/20 * * * *"
+    ], "Orchestrator schedule must stay on the 20-minute cadence"
+
+
 def test_orchestrator_bootstrap_label_has_default_notice():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
