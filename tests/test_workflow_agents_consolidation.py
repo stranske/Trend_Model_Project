@@ -170,6 +170,13 @@ def test_orchestrator_bootstrap_label_has_default_notice():
     ), "Orchestrator must record bootstrap label fallback notice"
 
 
+def test_orchestrator_bootstrap_label_defaults_to_agent_codex():
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label: 'agent:codex'" in text
+    ), "Bootstrap label default must remain agent:codex"
+
+
 def test_agents_consumer_workflow_removed():
     path = WORKFLOWS_DIR / "agents-62-consumer.yml"
     assert not path.exists(), "Retired Agents 62 consumer wrapper must remain absent"
