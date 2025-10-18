@@ -187,11 +187,30 @@ jobs:
           fi
           echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
           echo "new_issues=0" >> "$GITHUB_OUTPUT"
-          git diff --name-only | grep '^tests/' > tests_clean_changes.txt || true
-          if [ -s tests_clean_changes.txt ]; then
+          mapfile -t changed_paths < <(git diff --name-only)
+          outside_tests=()
+          tests_only=()
+          for path in "${changed_paths[@]}"; do
+            if [[ -z "$path" ]]; then
+              continue
+            fi
+            if [[ "$path" == tests/* ]]; then
+              tests_only+=("$path")
+            else
+              outside_tests+=("$path")
+            fi
+          done
+          if [ ${#outside_tests[@]} -gt 0 ]; then
+            {
+              echo "[autofix-clean] ERROR: clean mode produced non-test changes:" >&2
+              printf '  - %s\n' "${outside_tests[@]}" >&2
+            }
+            exit 1
+          fi
+          if [ ${#tests_only[@]} -gt 0 ]; then
             {
               echo "file_list<<'EOF'"
-              cat tests_clean_changes.txt
+              printf '%s\n' "${tests_only[@]}"
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
           fi
