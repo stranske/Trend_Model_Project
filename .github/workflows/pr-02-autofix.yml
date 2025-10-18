@@ -50,6 +50,11 @@ jobs:
       - name: Report gate result
         if: always()
         run: echo "autofix_enabled=${{ steps.evaluate.outputs.enabled }}"
+      - name: Report event context
+        if: always()
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_present=${{ github.event.pull_request != null }}"
 
   apply:
     needs: label_gate
