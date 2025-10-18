@@ -377,19 +377,18 @@ jobs:
               core.setOutput('first_issue', '');
             };
 
+            const fallbackLabel = 'agent:codex';
+            const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
             const raw = process.env.LABEL || '';
-            const labels = raw
+            let labels = raw
               .split(',')
               .map((value) => value.trim())
               .filter(Boolean);
 
+            let fallbackUsed = false;
             if (!labels.length) {
-              const message = 'bootstrap_issues_label input must be set to a non-empty label.';
-              core.setFailed(message);
-              summary.addRaw(message).addEOL();
-              clearOutputs();
-              await summary.write();
-              return;
+              labels = [fallbackLabel];
+              fallbackUsed = true;
             }
 
             if (labels.length > 1) {
@@ -404,6 +403,11 @@ jobs:
 
             const label = labels[0];
             const labelLower = label.toLowerCase();
+
+            if (fallbackUsed) {
+              summary.addRaw(fallbackMessage).addEOL();
+              core.notice(fallbackMessage);
+            }
 
             summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
 

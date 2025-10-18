@@ -122,8 +122,8 @@ def test_keepalive_job_defined_once():
 def test_bootstrap_requires_single_label():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
-        "bootstrap_issues_label input must be set to a non-empty label." in text
-    ), "Bootstrap step must fail fast when no label is provided"
+        "bootstrap_issues_label not provided; defaulting to agent:codex." in text
+    ), "Bootstrap step must record when it falls back to the default label"
     assert (
         "bootstrap_issues_label input must define exactly one label" in text
     ), "Bootstrap step must prevent sweeping multiple labels"

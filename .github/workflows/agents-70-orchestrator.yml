@@ -190,6 +190,13 @@ jobs:
 
             const optionsSource = merged.options_json ?? merged.options ?? DEFAULT_OPTIONS_JSON;
 
+            const fallbackBootstrapLabel = DEFAULTS.bootstrap_issues_label;
+            const bootstrapFallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
+            const bootstrapLabelSource = merged.bootstrap_issues_label ?? bootstrap.label;
+            const bootstrapLabelCandidate = toString(bootstrapLabelSource, '').trim();
+            const bootstrapLabel = bootstrapLabelCandidate || fallbackBootstrapLabel;
+            const bootstrapUsedFallback = !bootstrapLabelCandidate;
+
             const outputs = {
               enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
               readiness_agents: readinessAgents,
@@ -207,10 +214,7 @@ jobs:
               enable_watchdog: toBoolString(merged.enable_watchdog, DEFAULTS.enable_watchdog),
               enable_keepalive: toBoolString(merged.enable_keepalive ?? keepalive.enabled, DEFAULTS.enable_keepalive),
               enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
-              bootstrap_issues_label: toString(
-                merged.bootstrap_issues_label ?? bootstrap.label,
-                DEFAULTS.bootstrap_issues_label
-              ),
+              bootstrap_issues_label: bootstrapLabel,
               draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
               options_json: sanitiseOptions(optionsSource)
             };
@@ -264,6 +268,10 @@ jobs:
               [{ data: 'Parameter', header: true }, { data: 'Value', header: true }],
               ...orderedKeys.map((key) => [key, summarise(outputs[key])])
             ]);
+            if (bootstrapUsedFallback) {
+              summary.addRaw(bootstrapFallbackMessage).addEOL();
+              core.notice(bootstrapFallbackMessage);
+            }
             await summary.write();
 
   orchestrate:
