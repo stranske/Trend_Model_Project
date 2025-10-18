@@ -573,6 +573,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      status checks, with **Health 45 Agents Guard** retained for agent-surface
      enforcement. Maint 46 Post CI is intentionally absent—it publishes the
      summary comment after merge and remains informational.
+   - From the command line, run
+     `gh api repos/<owner>/<repo>/branches/<default-branch>/protection/required_status_checks/contexts`
+     to list the enforced contexts; expect `gate` (and, when applicable,
+     `agents-guard`). Capture the JSON output when filing incident reports.
 6. **Trigger Health 44 on demand.**
    - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>`
      whenever you change branch-protection settings.
