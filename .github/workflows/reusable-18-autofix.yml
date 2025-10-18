@@ -854,8 +854,10 @@ jobs:
             echo "New (non-allowlisted) ruff issues: ${new_value}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${CHANGED:-false}" = "true" ]; then
+            if [ "${SAME_REPO:-false}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
           if [ "$mode_value" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
