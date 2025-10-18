@@ -271,6 +271,7 @@ jobs:
               if (typeof label !== 'string') return false;
               return label.trim().toLowerCase() === 'agent:codex';
             };
+            let topicsWithAgentLabels = 0;
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
               const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
@@ -279,6 +280,7 @@ jobs:
                 core.info(`Skipping topic without agent label${preview}.`);
                 return false;
               }
+              topicsWithAgentLabels += 1;
               const otherAgentLabels = labels.filter((label) => isAgentLabel(label) && !isCodexAgentLabel(label));
               if (otherAgentLabels.length) {
                 const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
@@ -290,7 +292,7 @@ jobs:
               }
               return true;
             });
-            metrics.topics_with_agent_labels = topics.length;
+            metrics.topics_with_agent_labels = topicsWithAgentLabels;
             if (!topics.length) {
               setZeroOutputs();
               const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
