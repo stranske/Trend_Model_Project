@@ -28,6 +28,7 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 DEFAULT_CONTEXTS = (
     "Gate / gate",
+    "Enforce agents workflow protections",
     "Health 45 Agents Guard / Enforce agents workflow protections",
 )
 
@@ -299,8 +300,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow"
-            " protections'."
+            " 'Gate / gate', 'Enforce agents workflow protections', and 'Health 45"
+            " Agents Guard / Enforce agents workflow protections'."
         ),
     )
     parser.add_argument(

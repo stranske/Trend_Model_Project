@@ -2,6 +2,12 @@ name: Health 44 Gate Branch Protection
 
 on:
   workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   schedule:
     - cron: '0 6 * * *'
 
@@ -50,12 +56,15 @@ jobs:
           if [ -z "${ENFORCE_TOKEN}" ]; then
             echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
             echo "The verification step will still fail if Gate or Agents Guard is not required on the default branch."
+          elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            echo "BRANCH_PROTECTION_TOKEN detected but pull_request events run in dry-run mode."
+            echo "Schedule and workflow_dispatch events will apply the desired configuration."
           else
             echo "BRANCH_PROTECTION_TOKEN detected; enforcement step will run before verification."
           fi
 
       - name: Enforce gate branch protection
-        if: env.ENFORCE_TOKEN != ''
+        if: env.ENFORCE_TOKEN != '' && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -63,6 +72,10 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --apply \
+            --context "Gate / gate" \
+            --context "Enforce agents workflow protections" \
+            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --no-clean \
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
 
       - name: Verify gate branch protection is required (admin scope)
@@ -75,6 +88,10 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --check \
             --require-strict \
+            --context "Gate / gate" \
+            --context "Enforce agents workflow protections" \
+            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
       - name: Verify gate branch protection is required (read-only)
@@ -86,17 +103,88 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --check \
+            --context "Gate / gate" \
+            --context "Enforce agents workflow protections" \
+            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
-      - name: Record observer-mode summary
-        if: env.ENFORCE_TOKEN == ''
+      - name: Record branch protection summary
+        if: always()
+        env:
+          HAS_ENFORCE_TOKEN: ${{ env.ENFORCE_TOKEN != '' }}
         run: |
-          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ### Gate & Agents Guard branch protection (observer mode)
-          - `BRANCH_PROTECTION_TOKEN` is not configured; Health-44 cannot enforce the rule automatically.
-          - Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run this workflow to enable `--require-strict` verification.
-          - Manual fallback: `python tools/enforce_gate_branch_protection.py --repo $GITHUB_REPOSITORY --branch $DEFAULT_BRANCH_NAME --require-strict --check`.
-          EOF
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", ""))
+          summary_path = Path(os.environ.get("GITHUB_STEP_SUMMARY", ""))
+          has_token = os.environ.get("HAS_ENFORCE_TOKEN", "false").lower() == "true"
+
+          if not summary_path:
+              raise SystemExit(0)
+
+          def load_snapshot(name: str):
+              path = snapshot_dir / f"{name}.json"
+              if not path.exists():
+                  return None
+              with path.open(encoding="utf-8") as handle:
+                  return json.load(handle)
+
+          def render_contexts(section):
+              contexts = None
+              if isinstance(section, dict):
+                  contexts = section.get("contexts")
+              if not contexts:
+                  return "(none)"
+              return ", ".join(contexts)
+
+          enforcement = load_snapshot("enforcement")
+          verification = load_snapshot("verification")
+
+          if enforcement is None and verification is None and not has_token:
+              with summary_path.open("a", encoding="utf-8") as summary:
+                  summary.write("### Gate & Agents Guard branch protection (observer mode)\n\n")
+                  summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; Health 44 ran in observer mode.\n")
+                  summary.write("- Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run the workflow to enable enforcement.\n")
+              raise SystemExit(0)
+
+          with summary_path.open("a", encoding="utf-8") as summary:
+              summary.write("### Gate & Agents Guard branch protection\n\n")
+
+              if enforcement is not None:
+                  summary.write("**Enforcement snapshot**\n\n")
+                  current = enforcement.get("current")
+                  desired = enforcement.get("after") or enforcement.get("desired")
+                  summary.write(f"- Mode: `{enforcement.get('mode', 'unknown')}`\n")
+                  if current is not None:
+                      summary.write(f"- Current contexts: {render_contexts(current)}\n")
+                  if desired is not None:
+                      label = "After" if enforcement.get("after") else "Desired"
+                      summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
+                  summary.write(f"- Changes applied: {enforcement.get('changes_applied', False)}\n\n")
+
+              if verification is not None:
+                  summary.write("**Verification snapshot**\n\n")
+                  current = verification.get("current")
+                  desired = verification.get("after") or verification.get("desired")
+                  if current is not None:
+                      summary.write(f"- Current contexts: {render_contexts(current)}\n")
+                  if desired is not None:
+                      label = "After" if verification.get("after") else "Desired"
+                      summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
+                  if "changes_required" in verification:
+                      summary.write(f"- Changes required: {verification.get('changes_required')}\n")
+                  if "strict_unknown" in verification:
+                      summary.write(f"- Strict status unknown: {verification.get('strict_unknown')}\n")
+                  summary.write("\n")
+
+              if not has_token:
+                  summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; enforcement ran in observer mode.\n")
+                  summary.write("- Manual fallback: `python tools/enforce_gate_branch_protection.py --repo $GITHUB_REPOSITORY --branch $DEFAULT_BRANCH_NAME --require-strict --check`.\n")
+          PY
 
       - name: Upload branch protection snapshots
         if: always()
