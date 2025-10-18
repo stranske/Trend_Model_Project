@@ -100,3 +100,6 @@ For GitHub Enterprise Server instances, add `--api-url https://hostname/api/v3` 
   confirm the payload lists the three contexts above and has `"strict": true`.
 - Open a throwaway pull request from an outdated branch to confirm the merge box displays each required context (Gate and Agents Guard) and blocks merges until the workflows finish successfully.
 - Capture screenshots or console transcripts for the repository automation log (attach to the issue or link in meeting notes).
+- Include the Health 44 step summary in the evidence bundle. The summary must display the enforcement and verification snapshots
+  with the Gate and Agents Guard contexts clearly marked as the "Before" and "After/Target" states, note that cleanup was
+  disabled (`--no-clean`), and list any contexts that were added or removed during enforcement.
