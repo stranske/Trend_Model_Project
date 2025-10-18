@@ -58,7 +58,7 @@ jobs:
 
   apply:
     needs: label_gate
-    if: github.event.pull_request != null && fromJSON(needs.label_gate.outputs.enabled)
+    if: ${{ github.event.pull_request != null && fromJSON(needs.label_gate.outputs.enabled) }}
     permissions:
       contents: write
       pull-requests: write
