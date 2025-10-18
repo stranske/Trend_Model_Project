@@ -1,10 +1,10 @@
 # Issue #2729: CI/CD and Branch Protection Checklist
 
 ## Required check before merge: Gate
-- [ ] Ensure the "Gate" status context is required on `phase-2-dev` and passing before merge.
+- [ ] Ensure the "Gate" status context (`gate`) is required on `phase-2-dev` and passing before merge.
 
 ## Informational: Maint 46 Post CI summary
-- [ ] Review the Maint 46 Post CI comment after Gate succeeds to confirm the aggregated CI results.
+- [ ] Review the Maint 46 Post CI (`maint-46-post-ci`) comment after Gate succeeds to confirm the aggregated CI results and keep it informational.
 
 ## How to configure branch protection in GitHub
 - [ ] Follow [GitHub's branch protection guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches).

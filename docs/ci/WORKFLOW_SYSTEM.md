@@ -509,6 +509,16 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 45 Agents Guard** / `agents-guard` | [`health-45-agents-guard.yml`](../../.github/workflows/health-45-agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
 | **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
 
+> 🆔 **Status context names to copy exactly.**
+> - **Gate** reports the context `gate`. This is the string the branch-protection
+>   rule must require.
+> - **Health 45 Agents Guard** reports as `agents-guard` when agent workflows
+>   change; GitHub adds it automatically on those PRs when the branch rule keeps
+>   it enforced.
+> - **Maint 46 Post CI** reports the context `maint-46-post-ci`, but the branch
+>   rule must leave it unchecked so the workflow continues to post only the
+>   informational timeline summary.
+
 > 🛠️ **Quick start routine.** To confirm the configuration end-to-end, (1) open
 > **Settings → Branches** and verify **Gate / gate** is the selected required
 > status while **Maint 46 Post CI** stays unchecked, (2) raise or refresh a pull
