@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: 'stranske/Trend_Model_Project/.github/workflows/reusable-18-autofix.yml@${{ github.sha }}'
+    uses: ./.github/workflows/reusable-18-autofix.yml
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
       pr_number: ${{ github.event.pull_request.number }}
