@@ -565,6 +565,7 @@ jobs:
               `Skipped (no changes): ${skippedCount}`,
               `Duplicate topics skipped: ${duplicateCount}`,
               `Invalid topics skipped: ${invalidTopicCount}`,
+              `Mutations performed: ${createdCount + updatedCount}`,
             ];
             const summary = summaryLines.join('\n');
             core.notice(summary);
