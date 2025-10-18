@@ -30,6 +30,7 @@ jobs:
     outputs:
       enabled: ${{ steps.evaluate.outputs.enabled }}
       label: ${{ steps.evaluate.outputs.label }}
+      fire: ${{ steps.fire_guard.outputs.fire }}
     steps:
       - name: Evaluate label gate
         id: evaluate
@@ -50,6 +51,9 @@ jobs:
             }
         env:
           AUTOFIX_OPT_IN_LABEL: ${{ env.AUTOFIX_OPT_IN_LABEL }}
+      - name: Compute apply guard
+        id: fire_guard
+        run: echo "fire=${{ github.event.pull_request != null && steps.evaluate.outputs.enabled == 'true' }}" >> "$GITHUB_OUTPUT"
       - name: Report gate result
         if: always()
         run: echo "autofix_enabled=${{ steps.evaluate.outputs.enabled }}"
@@ -61,7 +65,7 @@ jobs:
 
   apply:
     needs: label_gate
-    if: ${{ github.event.pull_request != null && fromJSON(needs.label_gate.outputs.enabled) }}
+    if: ${{ needs.label_gate.outputs.fire == 'true' }}
     permissions:
       contents: write
       pull-requests: write
