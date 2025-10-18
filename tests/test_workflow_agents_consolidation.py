@@ -139,6 +139,16 @@ def test_bootstrap_filters_by_requested_label():
     ), "Bootstrap script must skip issues that do not carry the requested label"
 
 
+def test_bootstrap_uses_paginated_issue_scan():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "github.paginate.iterator" in text
+    ), "Bootstrap must paginate issue scanning to avoid truncation"
+    assert (
+        "Evaluated issues:" in text
+    ), "Bootstrap summary should report how many issues were inspected"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 

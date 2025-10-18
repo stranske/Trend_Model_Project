@@ -416,34 +416,51 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner,
-              repo,
-              state: 'open',
-              labels: label,
-              per_page: 30
-            });
+            const scanLimit = 100;
+            let scanned = 0;
+            let truncated = false;
 
-            for (const issue of issues) {
-              if (issue.pull_request) {
-                logSkip(issue, 'pull request detected');
-                continue;
+            const iterator = github.paginate.iterator(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: 'open',
+                labels: label,
+                per_page: 50
               }
+            );
 
-              const labelNames = (issue.labels || [])
-                .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
-                .filter(Boolean);
-              if (!labelNames.includes(labelLower)) {
-                logSkip(issue, `missing required label ${label}`);
-                continue;
+            outer: for await (const page of iterator) {
+              for (const issue of page.data) {
+                if (scanned >= scanLimit) {
+                  truncated = true;
+                  core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+                  break outer;
+                }
+
+                scanned += 1;
+
+                if (issue.pull_request) {
+                  logSkip(issue, 'pull request detected');
+                  continue;
+                }
+
+                const labelNames = (issue.labels || [])
+                  .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
+                  .filter(Boolean);
+                if (!labelNames.includes(labelLower)) {
+                  logSkip(issue, `missing required label ${label}`);
+                  continue;
+                }
+
+                if ((issue.title || '').toLowerCase().includes('wip')) {
+                  logSkip(issue, 'title flagged as work-in-progress');
+                  continue;
+                }
+
+                accepted.push(issue);
               }
-
-              if ((issue.title || '').toLowerCase().includes('wip')) {
-                logSkip(issue, 'title flagged as work-in-progress');
-                continue;
-              }
-
-              accepted.push(issue);
             }
 
             if (accepted.length) {
@@ -470,10 +487,15 @@ jobs:
             }
 
             summary.addDetails('Skipped issues', skipped.length ? skipped : ['None']);
-            summary.addList([
+            const summaryItems = [
               `Accepted issues: ${accepted.length}`,
-              `Skipped issues: ${skipped.length}`
-            ]);
+              `Skipped issues: ${skipped.length}`,
+              `Evaluated issues: ${scanned}`
+            ];
+            if (truncated) {
+              summaryItems.push(`Scan truncated after ${scanLimit} issues.`);
+            }
+            summary.addList(summaryItems);
             await summary.write();
 
             const numbers = accepted.map((issue) => issue.number);
