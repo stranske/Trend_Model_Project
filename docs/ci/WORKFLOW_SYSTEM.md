@@ -482,6 +482,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - Health 45 blocks unauthorized agents workflow edits and reports as the required check whenever `agents-*.yml` files change.
 - Health 44 confirms branch protection requires Gate and Agents Guard on the default branch.
 - Maint 46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
+- Maint 46 Post CI remains informational—expect its guidance in the pull-request timeline, not in the required status list.
 
 ### Required vs informational checks on `phase-2-dev`
 
@@ -498,11 +499,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
 
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
-> **Required** heading for every PR into `phase-2-dev`. Maintainers reviewing
-> follow-up CI should scroll to the Maint 46 Post CI timeline comment after
-> merge—it links back to the successful Gate run and aggregates the reusable CI
-> matrix. The pull-request template links here so authors confirm the required
-> check before requesting review.
+> **Required** heading for every PR into `phase-2-dev`. Seeing Gate as the sole
+> required status is expected—Maint 46 Post CI never appears in that list
+> because it runs only after merge. Maintainers reviewing follow-up CI should
+> scroll to the Maint 46 Post CI timeline comment after merge—it links back to
+> the successful Gate run and aggregates the reusable CI matrix. The pull-
+> request template links here so authors confirm the required check before
+> requesting review.
 
 - **Required before merge.** Gate / `gate` must finish green on every pull
   request into `phase-2-dev`. Branch protection enforces this context and every
@@ -567,6 +570,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      tab shows **Gate / gate** under “Required checks.” When you modify
      `agents-*.yml`, also confirm **Health 45 Agents Guard / Enforce agents
      workflow protections** is listed as required.
+   - Seeing **Maint 46 Post CI** absent from the required list is correct—it
+     remains informational and will surface as a timeline comment after merge.
    - Close the PR after verification to avoid polluting history.
 
 ### Recovery scenarios
