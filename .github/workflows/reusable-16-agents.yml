@@ -554,6 +554,7 @@ jobs:
 
             const rawOptions = process.env.OPTIONS_JSON || '{}';
             const options = parseJson(rawOptions, {});
+            const summary = core.summary;
 
             const keepaliveEnabled = coerceBool(
               options.enable_keepalive ?? options.keepalive_enabled,
@@ -561,9 +562,9 @@ jobs:
             );
             if (!keepaliveEnabled) {
               core.info('Codex keepalive disabled via options_json.');
-              core.summary.addHeading('Codex Keepalive');
-              core.summary.addRaw('Skip requested via options_json.');
-              core.summary.write();
+              summary.addHeading('Codex Keepalive');
+              summary.addRaw('Skip requested via options_json.');
+              await summary.write();
               return;
             }
 
@@ -599,8 +600,6 @@ jobs:
             const repo = context.repo.repo;
             const now = Date.now();
             const triggered = [];
-
-            const summary = core.summary;
             summary.addHeading('Codex Keepalive');
             summary
               .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)

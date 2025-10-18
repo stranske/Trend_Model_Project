@@ -174,8 +174,11 @@ def test_bootstrap_summary_highlights_scope_and_skips():
 
 def test_keepalive_summary_reports_targets():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
-    assert (
-        "core.summary.addHeading('Codex Keepalive')" in text
+    assert any(
+        snippet in text for snippet in (
+            "summary.addHeading('Codex Keepalive')",
+            "core.summary.addHeading('Codex Keepalive')",
+        )
     ), "Keepalive job should continue writing a run summary"
     assert (
         "Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}" in text
