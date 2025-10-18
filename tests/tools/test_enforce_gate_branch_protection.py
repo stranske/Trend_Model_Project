@@ -338,6 +338,8 @@ def test_main_snapshot_records_no_clean_flag(
     assert data["mode"] == "apply"
     assert data["no_clean"] is True
     assert data["changes_applied"] is True
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == []
     assert data["after"] == {
         "strict": True,
         "contexts": [
@@ -574,6 +576,8 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
     assert data["no_clean"] is False
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == ["Legacy"]
     assert "after" not in data
 
 
@@ -632,6 +636,8 @@ def test_main_snapshot_updates_after_apply(
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
     assert data["no_clean"] is False
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == ["Legacy"]
     assert data["after"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
 
 

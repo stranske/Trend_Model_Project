@@ -170,6 +170,14 @@ jobs:
                   if desired is not None:
                       label = "After" if enforcement.get("after") else "Target"
                       summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
+                  if "to_add" in enforcement:
+                      summary.write(
+                          f"- Contexts to add: {render_contexts(enforcement.get('to_add') or [])}\n"
+                      )
+                  if "to_remove" in enforcement:
+                      summary.write(
+                          f"- Contexts to remove: {render_contexts(enforcement.get('to_remove') or [])}\n"
+                      )
                   summary.write(f"- Changes applied: {enforcement.get('changes_applied', False)}\n\n")
               else:
                   summary.write("- Enforcement snapshot not available (step skipped or failed).\n\n")
@@ -190,6 +198,14 @@ jobs:
                   if desired is not None:
                       label = "After" if verification.get("after") else "Target"
                       summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
+                  if "to_add" in verification:
+                      summary.write(
+                          f"- Contexts to add: {render_contexts(verification.get('to_add') or [])}\n"
+                      )
+                  if "to_remove" in verification:
+                      summary.write(
+                          f"- Contexts to remove: {render_contexts(verification.get('to_remove') or [])}\n"
+                      )
                   if "changes_required" in verification:
                       summary.write(f"- Changes required: {verification.get('changes_required')}\n")
                   if "strict_unknown" in verification:

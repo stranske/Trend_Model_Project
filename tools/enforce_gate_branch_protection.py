@@ -281,8 +281,23 @@ def diff_contexts(
 ) -> tuple[list[str], list[str]]:
     current_set = set(current)
     desired_set = set(desired)
-    to_add = sorted(desired_set - current_set)
-    to_remove = sorted(current_set - desired_set)
+
+    to_add: list[str] = []
+    seen_add: set[str] = set()
+    for context in desired:
+        if context in current_set or context in seen_add:
+            continue
+        seen_add.add(context)
+        to_add.append(context)
+
+    to_remove: list[str] = []
+    seen_remove: set[str] = set()
+    for context in current:
+        if context in desired_set or context in seen_remove:
+            continue
+        seen_remove.add(context)
+        to_remove.append(context)
+
     return to_add, to_remove
 
 
@@ -414,6 +429,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "strict_unknown": False,
                 }
             )
+            snapshot["to_add"] = list(desired_contexts)
+            snapshot["to_remove"] = []
 
         if args.apply:
             try:
@@ -457,6 +474,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             snapshot.setdefault(
                 "desired", {"strict": True, "contexts": list(desired_contexts)}
             )
+            snapshot.setdefault("to_add", list(desired_contexts))
+            snapshot.setdefault("to_remove", [])
             _write_snapshot(args.snapshot, snapshot)
         return 1
 
@@ -474,6 +493,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
         snapshot["strict_unknown"] = strict_is_unknown
         snapshot["require_strict"] = bool(args.require_strict)
+        snapshot["to_add"] = list(to_add)
+        snapshot["to_remove"] = list(to_remove)
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")
