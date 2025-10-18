@@ -161,6 +161,12 @@ def test_bootstrap_summary_highlights_scope_and_skips():
     assert (
         "summary.addDetails('Skipped issues'" in text
     ), "Bootstrap summary should list skipped issue reasons to avoid silent no-ops"
+    assert (
+        "Accepted issues: ${accepted.length}" in text
+    ), "Bootstrap summary should report the count of accepted issues"
+    assert (
+        "Skipped issues: ${skipped.length}" in text
+    ), "Bootstrap summary should report the count of skipped issues"
 
 
 def test_keepalive_summary_reports_targets():
@@ -174,6 +180,9 @@ def test_keepalive_summary_reports_targets():
     assert (
         "Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}" in text
     ), "Keepalive summary should expose the resolved agent login list"
+    assert (
+        "Triggered keepalive count: ${triggered.length}" in text
+    ), "Keepalive summary should record the number of triggered keepalive actions"
 
 
 def test_agents_orchestrator_has_concurrency_defaults():

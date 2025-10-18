@@ -452,6 +452,10 @@ jobs:
             }
 
             summary.addDetails('Skipped issues', skipped.length ? skipped : ['None']);
+            summary.addList([
+              `Accepted issues: ${accepted.length}`,
+              `Skipped issues: ${skipped.length}`
+            ]);
             await summary.write();
 
             const numbers = accepted.map((issue) => issue.number);
@@ -695,4 +699,5 @@ jobs:
             } else {
               summary.addRaw('No unattended Codex tasks detected.');
             }
+            summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
             await summary.write();
