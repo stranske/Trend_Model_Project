@@ -14,6 +14,11 @@ on:
         required: false
         default: 'chore(autofix):'
         type: string
+      clean_label:
+        description: 'Label enabling tests-only cosmetic mode'
+        required: false
+        default: 'autofix:clean'
+        type: string
 
 permissions:
   contents: read
@@ -118,6 +123,22 @@ jobs:
               core.warning(`Failed to ensure autofix label: ${error.message}`);
             }
 
+      - name: Detect tests-only clean mode
+        if: steps.guard.outputs.skip != 'true'
+        id: clean_mode
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('enabled', 'false');
+              return;
+            }
+            const label = "${{ inputs.clean_label }}";
+            const hasLabel = Array.isArray(pr.labels) && pr.labels.some((labelInfo) => labelInfo.name === label);
+            core.info(`Tests-only clean mode enabled: ${hasLabel}`);
+            core.setOutput('enabled', hasLabel ? 'true' : 'false');
+
       - name: Install Ruff for safe sweep
         if: steps.guard.outputs.skip != 'true'
         shell: bash
@@ -141,20 +162,85 @@ jobs:
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
       - name: Ruff safe autofix sweep
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
         shell: bash
         run: |
           set -euo pipefail
           ruff --version
           ruff check --fix --exit-zero .
 
+      - name: Tests-only cosmetic sweep
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
+        id: clean_autofix
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[autofix-clean] Running tests-only cosmetic sweep"
+          ruff --version
+          ruff check tests --select I --fix --exit-zero || true
+          ruff check tests --fix --exit-zero || true
+          ruff format tests || true
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
+          echo "new_issues=0" >> "$GITHUB_OUTPUT"
+          git diff --name-only | grep '^tests/' > tests_clean_changes.txt || true
+          if [ -s tests_clean_changes.txt ]; then
+            {
+              echo "file_list<<'EOF'"
+              cat tests_clean_changes.txt
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Autofix
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
         id: autofix
         uses: ./.github/actions/autofix
 
+      - name: Consolidate fix mode outputs
+        if: steps.guard.outputs.skip != 'true'
+        id: fix_results
+        env:
+          MODE_ENABLED: ${{ steps.clean_mode.outputs.enabled }}
+          CLEAN_CHANGED: ${{ steps.clean_autofix.outputs.changed }}
+          CLEAN_REMAINING: ${{ steps.clean_autofix.outputs.remaining_issues }}
+          CLEAN_NEW: ${{ steps.clean_autofix.outputs.new_issues }}
+          CLEAN_FILE_LIST: ${{ steps.clean_autofix.outputs.file_list }}
+          AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
+          AUTO_REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          AUTO_NEW: ${{ steps.autofix.outputs.new_issues }}
+        run: |
+          set -euo pipefail
+          mode="standard"
+          changed="${AUTO_CHANGED:-false}"
+          remaining="${AUTO_REMAINING:-0}"
+          new="${AUTO_NEW:-0}"
+          file_list=""
+          if [ "${MODE_ENABLED}" = "true" ]; then
+            mode="clean"
+            changed="${CLEAN_CHANGED:-false}"
+            remaining="${CLEAN_REMAINING:-0}"
+            new="${CLEAN_NEW:-0}"
+            file_list="${CLEAN_FILE_LIST:-}"
+          fi
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "remaining_issues=${remaining}" >> "$GITHUB_OUTPUT"
+          echo "new_issues=${new}" >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list" ]; then
+            {
+              echo "file_list<<'EOF'"
+              printf '%s\n' "$file_list"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Commit changes (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -164,7 +250,7 @@ jobs:
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -187,31 +273,39 @@ jobs:
           exit 1
 
       - name: Prepare commit summary (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
-          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
         shell: bash
         run: |
           if [ -n "$COMMIT_SHA" ]; then
             url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
             short_sha=$(printf '%.12s' "$COMMIT_SHA")
             labels="\`autofix:applied\`"
+            if [ "$MODE" = "clean" ]; then
+              labels="$labels, \`autofix:tests-only\`"
+            fi
             if [ "${REMAINING:-0}" -gt 0 ]; then
               labels="$labels, \`autofix:debt\`"
             fi
             {
               echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
-              echo "Autofix commit: [${short_sha}]($url)"
+              if [ "$MODE" = "clean" ]; then
+                echo "Tests-only cosmetic autofix commit: [${short_sha}]($url)"
+              else
+                echo "Autofix commit: [${short_sha}]($url)"
+              fi
               echo "Labels: $labels"
               echo "EOF"
             } >> "$GITHUB_ENV"
           fi
 
       - name: Create patch artifact (fork PR)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -221,14 +315,14 @@ jobs:
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-patch-pr-${{ github.event.pull_request.number }}
           path: autofix.patch
 
       - name: Label PR (autofix patch available)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -252,25 +346,33 @@ jobs:
 
 
       - name: Prepare patch summary (fork PR)
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
         shell: bash
         run: |
           url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
           name="autofix-patch-pr-$PR_NUMBER"
           labels="\`autofix:patch\`"
+          if [ "$MODE" = "clean" ]; then
+            labels="$labels, \`autofix:tests-only\`"
+          fi
           if [ "${REMAINING:-0}" -gt 0 ]; then
             labels="$labels, \`autofix:debt\`"
           fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
-            echo "Patch ready: [${name}](${url})"
+            if [ "$MODE" = "clean" ]; then
+              echo "Tests-only cosmetic patch: [${name}](${url})"
+            else
+              echo "Patch ready: [${name}](${url})"
+            fi
             echo "Labels: $labels"
             echo ""
             echo "Apply locally:"
@@ -283,17 +385,26 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Prepare no-change summary
-        if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed != 'true'
         env:
-          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
         run: |
-          labels="\`autofix:clean\`"
+          if [ "$MODE" = "clean" ]; then
+            labels="\`autofix:clean\`, \`autofix:tests-only\`"
+          else
+            labels="\`autofix:clean\`"
+          fi
           if [ "${REMAINING:-0}" -gt 0 ]; then
             labels="$labels, \`autofix:debt\`"
           fi
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
-            echo "No changes required."
+            if [ "$MODE" = "clean" ]; then
+              echo "Tests-only cosmetic sweep found no changes."
+            else
+              echo "No changes required."
+            fi
             echo "Labels: $labels"
             echo "EOF"
           } >> "$GITHUB_ENV"
@@ -302,9 +413,10 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         uses: actions/github-script@v7
         env:
-          AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
+          AUTO_CHANGED: ${{ steps.fix_results.outputs.changed }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
-          REMAINING_ISSUES: ${{ steps.autofix.outputs.remaining_issues }}
+          REMAINING_ISSUES: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -319,6 +431,7 @@ jobs:
             const cleanLabel = 'autofix:clean';
             const debtLabel = 'autofix:debt';
             const patchLabel = 'autofix:patch';
+            const testsOnlyLabel = 'autofix:tests-only';
 
             async function addLabel(label) {
               try {
@@ -329,6 +442,27 @@ jobs:
                   labels: [label],
                 });
               } catch (error) {
+                if (error.status === 404 && label === testsOnlyLabel) {
+                  core.info(`Label ${label} missing; attempting to create it.`);
+                  try {
+                    await github.rest.issues.createLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: label,
+                      color: 'D4C5F9',
+                      description: 'Autofix tests-only cosmetic sweep',
+                    });
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: pr.number,
+                      labels: [label],
+                    });
+                    return;
+                  } catch (creationError) {
+                    core.warning(`Failed to create ${label}: ${creationError.message}`);
+                  }
+                }
                 core.warning(`Failed to add ${label}: ${error.message}`);
               }
             }
@@ -361,12 +495,15 @@ jobs:
             if (changed && !sameRepo) {
               desired.add(patchLabel);
             }
+            if ((process.env.MODE || '').toLowerCase() === 'clean') {
+              desired.add(testsOnlyLabel);
+            }
 
             for (const label of desired) {
               await addLabel(label);
             }
 
-            const managed = [appliedLabel, cleanLabel, debtLabel, patchLabel];
+            const managed = [appliedLabel, cleanLabel, debtLabel, patchLabel, testsOnlyLabel];
             for (const label of managed) {
               if (!desired.has(label)) {
                 await removeLabel(label);
@@ -475,6 +612,37 @@ jobs:
               console.log('Created new autofix status comment.');
             }
 
+      - name: Upsert tests-only file summary comment
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request context; skipping tests-only summary comment.');
+              return;
+            }
+            const marker = '<!-- autofix-clean-summary -->';
+            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            if (!filesRaw.length) {
+              core.info('No files recorded for clean summary; skipping comment.');
+              return;
+            }
+            const header = 'Tests-only cosmetic autofix updated these files:';
+            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const body = bodyLines.join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100 });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing tests-only summary comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body });
+              core.info('Created new tests-only summary comment.');
+            }
+
       - name: Regression detector (same-repo)
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
@@ -517,9 +685,9 @@ jobs:
             python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};data.update(meta);json.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || echo '{"error":"merge_failed"}' > autofix_report.json
           else
             printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-              "${{ steps.autofix.outputs.changed }}" \
-              "${{ steps.autofix.outputs.remaining_issues }}" \
-              "${{ steps.autofix.outputs.new_issues }}" \
+              "${{ steps.fix_results.outputs.changed }}" \
+              "${{ steps.fix_results.outputs.remaining_issues }}" \
+              "${{ steps.fix_results.outputs.new_issues }}" \
               "${{ github.event.pull_request.number }}" \
               "$ts" > autofix_report.json
           fi
@@ -540,11 +708,12 @@ jobs:
           {
             echo "### Reusable Autofix Summary"
             echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}"
-            echo "Applied changes: ${{ steps.autofix.outputs.changed }}"
+            echo "Mode: ${{ steps.fix_results.outputs.mode || 'standard' }}"
+            echo "Applied changes: ${{ steps.fix_results.outputs.changed }}"
             echo "Same repo: ${{ steps.same_repo.outputs.same }}"
-            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
-            echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}"
-            if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
+            echo "Remaining ruff issues: ${{ steps.fix_results.outputs.remaining_issues }}"
+            echo "New (non-allowlisted) ruff issues: ${{ steps.fix_results.outputs.new_issues }}"
+            if [ "${{ steps.fix_results.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
               echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
