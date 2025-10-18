@@ -834,8 +834,11 @@ jobs:
           PATCH_PR_NUMBER: ${{ inputs.pr_number }}
           GUARD_SKIP: ${{ steps.guard.outputs.skip }}
         run: |
+          set -euo pipefail
+
           mode_value="${MODE:-standard}"
           guard_value="${GUARD_SKIP:-false}"
+
           {
             echo "### Reusable Autofix Summary"
             echo "Loop guard skip: ${guard_value}"
@@ -859,4 +862,4 @@ jobs:
                 printf -- "- \`%s\`\n" "$clean_file"
               done <<< "${FILE_LIST}"
             } >> "$GITHUB_STEP_SUMMARY"
-          fi  # clean-mode summary guard
+          fi
