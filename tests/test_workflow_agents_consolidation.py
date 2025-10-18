@@ -189,10 +189,20 @@ def test_bootstrap_summary_mentions_truncation_notice():
     ), "Bootstrap summary must document when the issue scan hits the truncation guard"
 
 
+def test_bootstrap_dedupes_duplicate_labels():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const dedupeLabels = (values) =>" in text
+    ), "Bootstrap script should define a helper to dedupe requested labels"
+    assert (
+        "Duplicate bootstrap labels removed; proceeding with:" in text
+    ), "Bootstrap summary must surface when duplicate labels are trimmed"
+
+
 def test_bootstrap_label_filter_is_case_insensitive():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
-        "const labelLower = label.toLowerCase();" in text
+        "const labelLower = labels[0].lower;" in text
     ), "Bootstrap step must normalise the requested label for comparisons"
     assert (
         "labelNames.includes(labelLower)" in text

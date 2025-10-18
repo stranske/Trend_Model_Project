@@ -380,14 +380,32 @@ jobs:
             const fallbackLabel = 'agent:codex';
             const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
             const raw = process.env.LABEL || '';
-            let labels = raw
+            const trimmed = raw
               .split(',')
               .map((value) => value.trim())
               .filter(Boolean);
 
+            const dedupeLabels = (values) => {
+              const seen = new Set();
+              const unique = [];
+              for (const value of values) {
+                const lower = value.toLowerCase();
+                if (seen.has(lower)) {
+                  continue;
+                }
+                seen.add(lower);
+                unique.push({ raw: value, lower });
+              }
+              return unique;
+            };
+
+            const unique = dedupeLabels(trimmed);
+            const dedupeReduced = unique.length === 1 && trimmed.length > 1;
+
+            let labels = unique;
             let fallbackUsed = false;
             if (!labels.length) {
-              labels = [fallbackLabel];
+              labels = [{ raw: fallbackLabel, lower: fallbackLabel.toLowerCase() }];
               fallbackUsed = true;
             }
 
@@ -401,12 +419,18 @@ jobs:
               return;
             }
 
-            const label = labels[0];
-            const labelLower = label.toLowerCase();
+            const label = labels[0].raw;
+            const labelLower = labels[0].lower;
 
             if (fallbackUsed) {
               summary.addRaw(fallbackMessage).addEOL();
               core.notice(fallbackMessage);
+            }
+
+            if (!fallbackUsed && dedupeReduced) {
+              const dedupeNotice = `Duplicate bootstrap labels removed; proceeding with: ${label}`;
+              summary.addRaw(dedupeNotice).addEOL();
+              core.notice(dedupeNotice);
             }
 
             summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
