@@ -176,6 +176,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "[autofix-clean] Running tests-only cosmetic sweep"
+          if [ ! -d tests ]; then
+            echo "[autofix-clean] No tests/ directory detected; skipping"
+            {
+              echo "changed=false"
+              echo "remaining_issues=0"
+              echo "new_issues=0"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           ruff --version
           if [ ! -d tests ]; then
             echo "[autofix-clean] No tests/ directory present; skipping."
