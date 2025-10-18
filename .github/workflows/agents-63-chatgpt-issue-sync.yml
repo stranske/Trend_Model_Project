@@ -213,8 +213,11 @@ jobs:
               skippedCount = 0,
               duplicateCount = 0,
               invalidTopicCount = 0,
+              mutationCount,
               notice,
             } = {}) => {
+              const mutationsPerformed =
+                typeof mutationCount === 'number' ? mutationCount : createdCount + updatedCount;
               const summaryLines = [
                 `Topics provided: ${metrics.topics_total}`,
                 `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
@@ -226,7 +229,7 @@ jobs:
                 `Skipped (no changes): ${skippedCount}`,
                 `Duplicate topics skipped: ${duplicateCount}`,
                 `Invalid topics skipped: ${invalidTopicCount}`,
-                `Mutations performed: ${createdCount + updatedCount}`,
+                `Mutations performed: ${mutationsPerformed}`,
               ];
               const summaryText = summaryLines.join('\n');
               if (notice) core.notice(notice);
@@ -592,6 +595,7 @@ jobs:
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
               }
             }
+            const mutationCount = createdCount + updatedCount;
             setOutputs({
               created_issues: createdCount,
               updated_issues: updatedCount,
@@ -599,7 +603,7 @@ jobs:
               skipped_issues: skippedCount,
               duplicate_topics: duplicateCount,
               invalid_topics: invalidTopicCount,
-              mutations_performed: createdCount + updatedCount,
+              mutations_performed: mutationCount,
             });
             await publishSummary({
               createdCount,
@@ -608,6 +612,7 @@ jobs:
               skippedCount,
               duplicateCount,
               invalidTopicCount,
+              mutationCount,
             });
             if (!createdCount && !updatedCount && !reopenedCount) {
               core.notice('No issues required modifications; run completed without mutations.');
