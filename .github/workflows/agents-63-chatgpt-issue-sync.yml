@@ -177,13 +177,24 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
+            const setZeroOutputs = () => {
+              core.setOutput('created_issues', '0');
+              core.setOutput('updated_issues', '0');
+              core.setOutput('reopened_issues', '0');
+              core.setOutput('skipped_issues', '0');
+              core.setOutput('duplicate_topics', '0');
+              core.setOutput('invalid_topics', '0');
+              core.setOutput('mutations_performed', '0');
+            };
             if (!fs.existsSync('topics.json')) {
               core.notice('topics.json not found – assuming parser short-circuited. Exiting without mutations.');
+              setZeroOutputs();
               return;
             }
             const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
             if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
               core.notice('No topics provided. Exiting without mutations.');
+              setZeroOutputs();
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
@@ -199,6 +210,7 @@ jobs:
             });
             if (!topics.length) {
               core.notice('No topics matched agent labels. Exiting without changes.');
+              setZeroOutputs();
               return;
             }
             const seenTopics = new Set();
@@ -221,6 +233,7 @@ jobs:
             }
             if (!deduped.length) {
               core.notice('All topics were filtered as duplicates. Exiting without changes.');
+              setZeroOutputs();
               return;
             }
             const { owner, repo } = context.repo;
