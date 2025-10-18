@@ -498,6 +498,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > playbook. Maintainers should continue to find Maint 46 exclusively as the
 > post-merge timeline summary.
 
+> 📌 **Definition of done for branch protection.**
+> - Gate / `gate` remains the sole required status for `phase-2-dev` before merge.
+> - Maint 46 Post CI stays informational and surfaces only as the post-merge timeline summary.
+> - Branch protection rules keep Maint 46 unchecked while retaining the automatic Health 45 Agents Guard enforcement on agents-surface PRs.
+
 | Context | Workflow | Required before merge? | Where it appears |
 | --- | --- | --- | --- |
 | **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
