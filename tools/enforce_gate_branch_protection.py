@@ -30,7 +30,6 @@ DEFAULT_CONTEXTS = (
     "Gate / gate",
     "Enforce agents workflow protections",
     "Health 45 Agents Guard / Enforce agents workflow protections",
-    "Enforce agents workflow protections",
 )
 
 
