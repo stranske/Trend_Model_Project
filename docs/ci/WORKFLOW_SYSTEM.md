@@ -491,6 +491,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 45 Agents Guard** / `agents-guard` | [`health-45-agents-guard.yml`](../../.github/workflows/health-45-agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
 | **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
 
+> ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
+> **Required** heading for every PR into `phase-2-dev`. Maintainers reviewing
+> follow-up CI should scroll to the Maint 46 Post CI timeline comment after
+> merge—it links back to the successful Gate run and aggregates the reusable CI
+> matrix. The pull-request template links here so authors confirm the required
+> check before requesting review.
+
 - **Required before merge.** Gate / `gate` must finish green on every pull
   request into `phase-2-dev`. Branch protection enforces this context and every
   PR shows the check under **Required** in the Checks tab. When you touch
