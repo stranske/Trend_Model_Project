@@ -175,6 +175,25 @@ def test_bootstrap_summary_includes_scope_and_counts():
     ), "Bootstrap summary must clamp accepted issue output to avoid excessive entries"
 
 
+def test_bootstrap_guard_clears_outputs_on_failure():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const clearOutputs = () =>" in text
+    ), "Bootstrap guard should define an output clearing helper"
+    assert (
+        "core.setOutput('issue_numbers', '')" in text
+    ), "Bootstrap guard must clear issue_numbers when aborting"
+    assert (
+        "core.setOutput('issue_numbers_json', '[]')" in text
+    ), "Bootstrap guard must clear issue_numbers_json when aborting"
+    assert (
+        "core.setOutput('first_issue', '')" in text
+    ), "Bootstrap guard must clear first_issue when aborting"
+    assert (
+        "clearOutputs();" in text
+    ), "Bootstrap guard should invoke the output clearing helper before exiting early"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
