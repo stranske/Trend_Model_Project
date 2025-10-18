@@ -170,6 +170,9 @@ def test_bootstrap_summary_includes_scope_and_counts():
     assert (
         "https://github.com/" in text
     ), "Bootstrap summary should link directly to accepted issues"
+    assert (
+        "summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))))" in text
+    ), "Bootstrap summary must clamp accepted issue output to avoid excessive entries"
 
 
 def test_agents_orchestrator_has_concurrency_defaults():

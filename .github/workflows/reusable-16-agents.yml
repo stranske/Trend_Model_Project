@@ -498,7 +498,7 @@ jobs:
                 );
               };
 
-              summary.addList(accepted.map((issue) => formatIssue(issue)));
+              summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))));
             } else {
               summary.addRaw('No eligible issues found.').addEOL();
             }
