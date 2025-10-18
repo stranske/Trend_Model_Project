@@ -199,6 +199,10 @@ jobs:
               topics_after_dedup: 0,
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              assigned_elsewhere: 0,
+              mutations_performed: 0,
             };
             const setOutputs = (overrides = {}) => {
               const values = { ...defaultOutputs, ...metrics, ...overrides };
@@ -315,6 +319,7 @@ jobs:
                 const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
                 core.info(`Skipping duplicate topic${preview}.`);
                 duplicateCount += 1;
+                metrics.duplicate_topics = duplicateCount;
                 continue;
               }
               if (key) {
@@ -323,8 +328,9 @@ jobs:
               deduped.push(topic);
             }
             metrics.topics_after_dedup = deduped.length;
+            metrics.duplicate_topics = duplicateCount;
             if (!deduped.length) {
-              setOutputs({ duplicate_topics: duplicateCount });
+              setOutputs();
               await publishSummary({
                 notice: `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
                 duplicateCount,
@@ -575,6 +581,7 @@ jobs:
                 const title = rawTitle.trim();
                 if (!title) {
                   invalidTopicCount += 1;
+                  metrics.invalid_topics = invalidTopicCount;
                   core.warning('Skipping topic without a valid title.');
                   continue;
                 }
@@ -663,6 +670,7 @@ jobs:
                     );
                     skippedCount += 1;
                     assignedElsewhereCount += 1;
+                    metrics.assigned_elsewhere = assignedElsewhereCount;
                     continue;
                   }
                   const needsLabels = !labelsEqual(current, final);
@@ -776,15 +784,15 @@ jobs:
               summaryNotice = `All ${assignedElsewhereCount} processed ${plural} already assigned to other agents. No mutations performed.`;
             }
             const mutationCount = createdCount + updatedCount;
+            metrics.duplicate_topics = duplicateCount;
+            metrics.invalid_topics = invalidTopicCount;
+            metrics.assigned_elsewhere = assignedElsewhereCount;
+            metrics.mutations_performed = mutationCount;
             setOutputs({
               created_issues: createdCount,
               updated_issues: updatedCount,
               reopened_issues: reopenedCount,
               skipped_issues: skippedCount,
-              duplicate_topics: duplicateCount,
-              invalid_topics: invalidTopicCount,
-              mutations_performed: mutationCount,
-              assigned_elsewhere: assignedElsewhereCount,
             });
             await publishSummary({
               createdCount,
