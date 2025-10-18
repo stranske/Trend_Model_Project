@@ -859,6 +859,7 @@ jobs:
               echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
+          fi
 
           if [ "$mode_value" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
             {
