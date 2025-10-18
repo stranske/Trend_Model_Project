@@ -282,6 +282,7 @@ jobs:
           COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
         shell: bash
         run: |
           if [ -n "$COMMIT_SHA" ]; then
@@ -290,6 +291,9 @@ jobs:
             labels="\`autofix:applied\`"
             if [ "$MODE" = "clean" ]; then
               labels="$labels, \`autofix:tests-only\`"
+              if [ -n "${CLEAN_LABEL}" ]; then
+                labels="$labels, \`${CLEAN_LABEL}\`"
+              fi
             fi
             if [ "${REMAINING:-0}" -gt 0 ]; then
               labels="$labels, \`autofix:debt\`"
@@ -357,6 +361,7 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
         shell: bash
         run: |
           url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
@@ -364,6 +369,9 @@ jobs:
           labels="\`autofix:patch\`"
           if [ "$MODE" = "clean" ]; then
             labels="$labels, \`autofix:tests-only\`"
+            if [ -n "${CLEAN_LABEL}" ]; then
+              labels="$labels, \`${CLEAN_LABEL}\`"
+            fi
           fi
           if [ "${REMAINING:-0}" -gt 0 ]; then
             labels="$labels, \`autofix:debt\`"
@@ -391,9 +399,13 @@ jobs:
         env:
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
         run: |
           if [ "$MODE" = "clean" ]; then
-            labels="\`autofix:clean\`, \`autofix:tests-only\`"
+            labels="\`autofix:tests-only\`"
+            if [ -n "${CLEAN_LABEL}" ]; then
+              labels="$labels, \`${CLEAN_LABEL}\`"
+            fi
           else
             labels="\`autofix:clean\`"
           fi
@@ -419,6 +431,7 @@ jobs:
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
           REMAINING_ISSUES: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_INPUT_LABEL: ${{ inputs.clean_label }}
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -430,10 +443,10 @@ jobs:
             const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
             const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
             const appliedLabel = 'autofix:applied';
-            const cleanLabel = 'autofix:clean';
             const debtLabel = 'autofix:debt';
             const patchLabel = 'autofix:patch';
             const testsOnlyLabel = 'autofix:tests-only';
+            const cleanInputLabel = (process.env.CLEAN_INPUT_LABEL || '').trim();
 
             async function addLabel(label) {
               try {
@@ -488,9 +501,6 @@ jobs:
             if (remaining > 0) {
               desired.add(debtLabel);
             }
-            if (!changed) {
-              desired.add(cleanLabel);
-            }
             if (changed && sameRepo) {
               desired.add(appliedLabel);
             }
@@ -499,17 +509,24 @@ jobs:
             }
             if ((process.env.MODE || '').toLowerCase() === 'clean') {
               desired.add(testsOnlyLabel);
+              if (cleanInputLabel) {
+                desired.add(cleanInputLabel);
+              }
             }
 
             for (const label of desired) {
               await addLabel(label);
             }
 
-            const managed = [appliedLabel, cleanLabel, debtLabel, patchLabel, testsOnlyLabel];
+            const managed = [appliedLabel, debtLabel, patchLabel, testsOnlyLabel];
             for (const label of managed) {
               if (!desired.has(label)) {
                 await removeLabel(label);
               }
+            }
+
+            if (cleanInputLabel && !desired.has(cleanInputLabel)) {
+              core.info(`Leaving clean trigger label ${cleanInputLabel} untouched.`);
             }
 
       - name: Restore prior autofix history artifact (same-repo)
