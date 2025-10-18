@@ -27,8 +27,8 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 
 DEFAULT_CONTEXTS = (
-    "Enforce agents workflow protections",
     "Gate / gate",
+    "Enforce agents workflow protections",
     "Health 45 Agents Guard / Enforce agents workflow protections",
 )
 
@@ -235,8 +235,14 @@ def parse_contexts(values: Iterable[str] | None) -> List[str]:
 
 
 def normalise_contexts(contexts: Sequence[str]) -> List[str]:
-    unique = {context for context in contexts if context}
-    return sorted(unique)
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for context in contexts:
+        if not context or context in seen:
+            continue
+        seen.add(context)
+        ordered.append(context)
+    return ordered
 
 
 def format_contexts(contexts: Sequence[str]) -> str:
@@ -300,7 +306,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Enforce agents workflow protections', 'Gate / gate', and 'Health 45"
+            " 'Gate / gate', 'Enforce agents workflow protections', and 'Health 45"
             " Agents Guard / Enforce agents workflow protections'."
         ),
     )
@@ -451,7 +457,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     target_contexts = (
-        normalise_contexts(list(current_state.contexts) + list(desired_contexts))
+        normalise_contexts(list(desired_contexts) + list(current_state.contexts))
         if args.no_clean
         else desired_contexts
     )
