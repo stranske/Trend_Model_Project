@@ -11,8 +11,8 @@ on:
       - labeled
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 env:
   AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
@@ -23,10 +23,14 @@ concurrency:
 
 jobs:
   label_gate:
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.evaluate.outputs.enabled }}
       label: ${{ steps.evaluate.outputs.label }}
+      fire: ${{ steps.fire_guard.outputs.fire }}
     steps:
       - name: Evaluate label gate
         id: evaluate
@@ -47,23 +51,57 @@ jobs:
             }
         env:
           AUTOFIX_OPT_IN_LABEL: ${{ env.AUTOFIX_OPT_IN_LABEL }}
+      - name: Compute apply guard
+        id: fire_guard
+        run: echo "fire=${{ github.event.pull_request != null && steps.evaluate.outputs.enabled == 'true' }}" >> "$GITHUB_OUTPUT"
+      - name: Report gate result
+        if: always()
+        run: echo "autofix_enabled=${{ steps.evaluate.outputs.enabled }}"
+      - name: Report event context
+        if: always()
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_present=${{ github.event.pull_request != null }}"
 
   apply:
     needs: label_gate
-    if: >
-      github.event.pull_request != null && (
-        contains(
-          github.event.pull_request.labels.*.name,
-          vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix'
-        ) || (
-          github.event.action == 'labeled' &&
-          (github.event.label.name || '') == (vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix')
-        )
-      ) && needs.label_gate.outputs.enabled == 'true'
+    if: ${{ github.event.pull_request && ( contains(github.event.pull_request.labels.*.name, vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix') || ( github.event.action == 'labeled' && github.event.label.name == (vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix') ) ) && needs.label_gate.outputs.fire == 'true' }}
     permissions:
       contents: write
       pull-requests: write
     uses: ./.github/workflows/reusable-18-autofix.yml
-    secrets: inherit
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      pr_title: ${{ github.event.pull_request.title }}
+      pr_is_draft: ${{ github.event.pull_request.draft }}
+      pr_labels_json: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+      same_repo: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+      caller_actor: ${{ github.actor }}
+
+  debug_gate:
+    needs: label_gate
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show gate outputs
+        run: |
+          echo "enabled=${{ needs.label_gate.outputs.enabled }}"
+          echo "label=${{ needs.label_gate.outputs.label }}"
+          echo "enabled_bool=${{ fromJSON(needs.label_gate.outputs.enabled) }}"
+
+  condition_probe:
+    needs: label_gate
+    if: ${{ github.event.pull_request != null && fromJSON(needs.label_gate.outputs.enabled) }}
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm condition
+        run: echo "probe_condition=true"
+      - name: Evaluate reusable guard
+        run: echo "autofix_guard=${{ github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]' && !startsWith(github.event.pull_request.title, 'chore(autofix):') && ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, needs.label_gate.outputs.label) ) }}"

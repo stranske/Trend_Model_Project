@@ -14,13 +14,41 @@ on:
         required: false
         default: 'chore(autofix):'
         type: string
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+      pr_head_ref:
+        description: 'Pull request head ref'
+        required: true
+        type: string
+      pr_title:
+        description: 'Pull request title'
+        required: true
+        type: string
+      pr_is_draft:
+        description: 'Whether the pull request is a draft'
+        required: true
+        type: boolean
+      pr_labels_json:
+        description: 'JSON array of pull request label names'
+        required: true
+        type: string
+      same_repo:
+        description: 'True when PR branch lives in the same repository'
+        required: true
+        type: boolean
+      caller_actor:
+        description: 'Workflow caller actor'
+        required: true
+        type: string
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 concurrency:
-  group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
+  group: pr-02-autofix-${{ inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -29,23 +57,24 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: >-
-      ${{ github.event_name == 'pull_request' &&
-          github.actor != 'github-actions' &&
-          github.actor != 'github-actions[bot]' &&
-          !startsWith(github.event.pull_request.title, inputs.commit_prefix) &&
-          ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, inputs.opt_in_label) ) }}
+    if: ${{ true }}
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+      PR_HEAD_REF: ${{ inputs.pr_head_ref }}
+      PR_TITLE: ${{ inputs.pr_title }}
+      PR_IS_DRAFT: ${{ inputs.pr_is_draft }}
+      PR_LABELS_JSON: ${{ inputs.pr_labels_json }}
+      SAME_REPO: ${{ inputs.same_repo }}
+      CALLER_ACTOR: ${{ inputs.caller_actor }}
+      OPT_IN_LABEL: ${{ inputs.opt_in_label }}
     steps:
       - name: Set commit prefix env
         id: prefix
         run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> "$GITHUB_ENV"
       - name: Set sanitized PR head ref
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          RAW_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          echo "PR_HEAD_REF=${RAW_HEAD_REF}" >> "$GITHUB_ENV"
+          echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
@@ -58,7 +87,8 @@ jobs:
         run: |
           set -euo pipefail
           skip=false
-          if [ "${{ github.actor }}" = "github-actions" ] || [ "${{ github.actor }}" = "github-actions[bot]" ]; then
+          caller="${CALLER_ACTOR}"
+          if [ "$caller" = "github-actions" ] || [ "$caller" = "github-actions[bot]" ]; then
             head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
             head_msg_lc=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
             prefix_lc=$(printf '%s' "${{ inputs.commit_prefix }}" | tr '[:upper:]' '[:lower:]')
@@ -75,15 +105,10 @@ jobs:
             exit 0
           fi
 
-      - name: Detect same-repo PR
+      - name: Record same-repo flag
         if: steps.guard.outputs.skip != 'true'
         id: same_repo
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const same = pr.head.repo.full_name === `${context.repo.owner}/${context.repo.repo}`;
-            core.setOutput('same', String(same));
+        run: echo "same=${SAME_REPO}" >> "$GITHUB_OUTPUT"
 
       - name: Guard remove legacy autofix history file
         if: steps.guard.outputs.skip != 'true'
@@ -99,19 +124,22 @@ jobs:
       - name: Ensure autofix label present
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          OPT_IN_LABEL: ${{ inputs.opt_in_label }}
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.info('No pull request context; skipping label application.');
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping label application.');
               return;
             }
-            const label = "${{ inputs.opt_in_label }}";
+            const label = process.env.OPT_IN_LABEL;
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: pr.number,
+                issue_number: prNumber,
                 labels: [label],
               });
             } catch (error) {
@@ -224,26 +252,29 @@ jobs:
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: autofix-patch-pr-${{ github.event.pull_request.number }}
+          name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
 
       - name: Label PR (autofix patch available)
         if: steps.guard.outputs.skip != 'true' && steps.autofix.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
         uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          OPT_IN_LABEL: ${{ inputs.opt_in_label }}
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.info('No pull request context; skipping patch label.');
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping patch label.');
               return;
             }
-            const baseLabel = "${{ inputs.opt_in_label }}";
+            const baseLabel = process.env.OPT_IN_LABEL;
             const labels = [baseLabel, 'autofix:patch'];
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: pr.number,
+                issue_number: prNumber,
                 labels,
               });
             } catch (error) {
@@ -257,8 +288,8 @@ jobs:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REF: ${{ inputs.pr_head_ref }}
           REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
         shell: bash
         run: |
@@ -305,11 +336,12 @@ jobs:
           AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
           REMAINING_ISSUES: ${{ steps.autofix.outputs.remaining_issues }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.info('No pull request context; skipping outcome labels.');
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping outcome labels.');
               return;
             }
             const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
@@ -325,7 +357,7 @@ jobs:
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: pr.number,
+                  issue_number: prNumber,
                   labels: [label],
                 });
               } catch (error) {
@@ -338,7 +370,7 @@ jobs:
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: pr.number,
+                  issue_number: prNumber,
                   name: label,
                 });
               } catch (error) {
@@ -380,7 +412,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ github.repository }}
           TARGET_RUN_ID: ${{ github.run_id }}
-          TARGET_PR: ${{ github.event.pull_request.number }}
+          TARGET_PR: ${{ inputs.pr_number }}
         shell: bash
         run: |
           set -euo pipefail
@@ -437,7 +469,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: autofix-history-pr-${{ github.event.pull_request.number }}
+          name: autofix-history-pr-${{ inputs.pr_number }}
           path: ci/autofix/history.json
           if-no-files-found: ignore
 
@@ -453,25 +485,31 @@ jobs:
         uses: ./.github/actions/build-pr-comment
         with:
           output: autofix_pr_comment.md
-          pr-number: ${{ github.event.pull_request.number }}
+          pr-number: ${{ inputs.pr_number }}
 
       - name: Upsert consolidated PR comment
         if: steps.guard.outputs.skip != 'true'
         uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- autofix-status: DO NOT EDIT -->';
             const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
-            const pr = context.payload.pull_request;
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping PR comment update.');
+              return;
+            }
             // Fetch existing comments once (first 100 is ample for typical PRs)
-            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100 });
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find(c => c.body && c.body.includes(marker));
             if (existing) {
               await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
               console.log('Updated existing autofix status comment.');
             } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body });
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
               console.log('Created new autofix status comment.');
             }
 
@@ -520,18 +558,18 @@ jobs:
               "${{ steps.autofix.outputs.changed }}" \
               "${{ steps.autofix.outputs.remaining_issues }}" \
               "${{ steps.autofix.outputs.new_issues }}" \
-              "${{ github.event.pull_request.number }}" \
+              "${{ inputs.pr_number }}" \
               "$ts" > autofix_report.json
           fi
           echo "Enriched report ready.";
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ inputs.pr_number }}
 
       - name: Upload JSON report
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: autofix-report-pr-${{ github.event.pull_request.number }}
+          name: autofix-report-pr-${{ inputs.pr_number }}
           path: autofix_report.json
 
       - name: Summary
@@ -545,6 +583,6 @@ jobs:
             echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
             echo "New (non-allowlisted) ruff issues: ${{ steps.autofix.outputs.new_issues }}"
             if [ "${{ steps.autofix.outputs.changed }}" = "true" ] && [ "${{ steps.same_repo.outputs.same }}" != "true" ]; then
-              echo "Patch artifact: autofix-patch-pr-${{ github.event.pull_request.number }}"
+              echo "Patch artifact: autofix-patch-pr-${{ inputs.pr_number }}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
