@@ -608,6 +608,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      block solely on Gate (and Agents Guard when applicable).
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
+   - Click **Save changes**, then open or refresh a pull request aimed at
+     `phase-2-dev` to confirm the **Checks** tab shows **Gate / gate** under
+     **Required checks**. If Maint 46 Post CI appears in that list, revisit the
+     branch rule immediately and deselect it so the workflow stays informational.
 4. **Run the enforcement script locally when needed.**
    - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check`
      reports the current status.
