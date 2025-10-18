@@ -47,6 +47,9 @@ jobs:
             }
         env:
           AUTOFIX_OPT_IN_LABEL: ${{ env.AUTOFIX_OPT_IN_LABEL }}
+      - name: Report gate result
+        if: always()
+        run: echo "autofix_enabled=${{ steps.evaluate.outputs.enabled }}"
 
   apply:
     needs: label_gate
