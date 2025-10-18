@@ -75,3 +75,4 @@ jobs:
         run: |
           echo "enabled=${{ needs.label_gate.outputs.enabled }}"
           echo "label=${{ needs.label_gate.outputs.label }}"
+          echo "enabled_bool=${{ fromJSON(needs.label_gate.outputs.enabled) }}"
