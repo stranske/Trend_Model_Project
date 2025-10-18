@@ -57,11 +57,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: >-
-      ${{ inputs.caller_actor != 'github-actions' &&
-          inputs.caller_actor != 'github-actions[bot]' &&
-          !startsWith(inputs.pr_title, inputs.commit_prefix) &&
-          ( !inputs.pr_is_draft || contains(fromJSON(inputs.pr_labels_json), inputs.opt_in_label) ) }}
+    if: ${{ true }}
     env:
       PR_NUMBER: ${{ inputs.pr_number }}
       PR_HEAD_REF: ${{ inputs.pr_head_ref }}
