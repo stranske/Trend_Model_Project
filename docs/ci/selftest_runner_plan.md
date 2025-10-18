@@ -1,5 +1,14 @@
 # Consolidated Self-Test Runner Plan
 
+> **Status (2026-11-15, Issue #2728):** Completed. `selftest-runner.yml` is now the
+> sole self-test workflow and runs on the nightly 06:30 UTC cron as well as
+> `workflow_dispatch`. The legacy wrappers (`maint-43-selftest-pr-comment.yml`,
+> `maint-44-selftest-reusable-ci.yml`, `maint-48-selftest-reusable-ci.yml`,
+> `selftest-pr-comment.yml`, `selftest-reusable-ci.yml`) exist only in git history
+> with their rationale captured in [`ARCHIVE_WORKFLOWS.md`](../../ARCHIVE_WORKFLOWS.md).
+> Guardrails in `tests/test_workflow_selftest_consolidation.py` enforce this
+> single-entry inventory.
+
 ## Scope and Key Constraints
 - Replace the existing collection of self-test GitHub Actions workflows with a single parameterized runner that can reproduce all current automation entry points (PR comment trigger, reusable CI job, main pipeline, etc.).
 - Preserve behaviour for each retired workflow, including custom comment formatting, PR metadata handling, and conditional execution logic, while reducing maintenance duplication.

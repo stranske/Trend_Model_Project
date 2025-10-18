@@ -251,8 +251,8 @@ Outputs:
 ### Consolidated runner (Issue #2651)
 
 - **Entry point:** Dispatch **Selftest Runner** (`.github/workflows/selftest-runner.yml`) from the Actions tab when you need a
-  comment, workflow summary, or dual-runtime verification. The workflow accepts only manual `workflow_dispatch` events; no
-  scheduled or PR triggers remain after consolidation.
+  comment, workflow summary, or dual-runtime verification. The workflow also runs on a nightly cron (06:30 UTC); only PR and push
+  triggers remain disabled after consolidation.
 - **Inputs:**
   - `mode` — `summary`, `comment`, or `dual-runtime`. Summary posts only to the workflow run, comment publishes to a PR, and
     dual-runtime fans out to both Python 3.11 and 3.12 before surfacing a summary.
@@ -281,19 +281,14 @@ Outputs:
   The CLI automatically prompts for the branch/ref; omit `pull_request_number` (or set `post_to=none`) when you only need the
   workflow summary.
 
-### Reusable matrix (Issue #1660)
+### Nightly verification (Issue #1660 follow-up)
 
-- **Trigger scope:** Manual dispatch or `workflow_call`. Launch the workflow from the Actions tab under **Selftest 81 Reusable
-  CI** or via the CLI when validating changes to `.github/workflows/reusable-10-ci-python.yml` or its helper scripts. Provide a
-  short justification in the optional `reason` input so future readers know why the self-test was executed. No pull_request,
-  push, or scheduled hooks run this matrix automatically.
-- **Latest remediation:** The October 2025 failure stemmed from `typing-inspection` drifting from `0.4.1` to `0.4.2`, causing
-  `tests/test_lockfile_consistency.py` to fail during the reusable matrix runs. Refresh `requirements.lock` with
-  `uv pip compile --upgrade pyproject.toml -o requirements.lock` before re-running the workflow. The matrix now completes when
-  invoked manually.
-- **Diagnostics:** Each run uploads a `selftest-report` artifact summarising scenario coverage and any unexpected or missing
-  artifacts. Use it alongside the job logs to validate new reusable features before promoting changes.
-- **Failure triage workflow:** When a manual run fails, open it in the Actions tab and download diagnostics with the GitHub CLI:
+- **Trigger scope:** The nightly cron (06:30 UTC) exercises the full scenario matrix using the runner’s summary mode. Manual
+  `workflow_dispatch` invocations share the same path so maintainers can rehearse changes to
+  `.github/workflows/reusable-10-ci-python.yml` or its helpers.
+- **Diagnostics:** Each run uploads a `selftest-report` artifact summarising expected vs actual artifacts. Use it alongside the
+  job logs to validate reusable updates before promoting changes.
+- **Failure triage workflow:** When a run fails, download diagnostics with the GitHub CLI:
 
   ```bash
   gh run download <run-id> --dir selftest-artifacts
@@ -301,20 +296,7 @@ Outputs:
   ```
 
   Inspect `selftest-artifacts/selftest-report/selftest-report.json` for mismatched artifacts and reproduce dependency drift
-  issues locally or to validate lockfile drift fixes with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
-
-- **CLI helpers:**
-
-  ```bash
-  # Manual dispatch (requires `gh auth login` with workflow scope)
-  gh workflow run "Self-Test Reusable CI"
-
-  # Monitor most recent manual outcomes
-  gh run list --workflow "Self-Test Reusable CI" --limit 2 --json conclusion,headBranch,runNumber,startedAt
-  ```
-
-  Use the `gh run list` output to confirm two consecutive manual runs (e.g., verification passes after a reusable CI change)
-  have concluded with `success` before closing out Issue #1660 follow-up tasks.
+  issues locally or validate fixes with `pytest tests/test_lockfile_consistency.py -k "up_to_date" -q`.
 ## 7.5 Universal Logs Summary (Issue #1351)
 Source: `logs_summary` job inside `reusable-10-ci-python.yml` enumerates all jobs via the Actions API and writes a Markdown table to the run summary. Columns include Job, Status (emoji), Duration, and Log link.
 
