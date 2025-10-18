@@ -117,6 +117,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          from collections.abc import Iterable
           from pathlib import Path
 
           snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", ""))
@@ -137,9 +138,19 @@ jobs:
               contexts = None
               if isinstance(section, dict):
                   contexts = section.get("contexts")
+              elif isinstance(section, str):
+                  contexts = [section]
+              elif isinstance(section, Iterable):
+                  contexts = list(section)
+
               if not contexts:
                   return "(none)"
-              return ", ".join(contexts)
+
+              filtered = [str(context).strip() for context in contexts if str(context).strip()]
+              if not filtered:
+                  return "(none)"
+
+              return ", ".join(filtered)
 
           enforcement = load_snapshot("enforcement")
           verification = load_snapshot("verification")
