@@ -579,3 +579,16 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      for regressions.
   3. Open a short-lived PR targeting the default branch to confirm that Gate and
      Agents Guard return as required before declaring recovery complete.
+- **Maint 46 Post CI comment missing or stale.**
+  1. Visit the [Maint 46 workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml)
+     and verify a run triggered from the Gate success you just merged. `workflow_run`
+     events always list the source Gate run in the summary—expand it to confirm
+     the linkage.
+  2. If the run failed or never triggered, use **Re-run all jobs** on the
+     workflow page or dispatch it manually with `gh workflow run "Maint 46 Post CI" --ref <default-branch>`.
+     For manual dispatches, keep the default branch checked out so the summary
+     references the merged commit.
+  3. Once Maint 46 finishes, confirm the pull-request timeline shows the new
+     Maint 46 summary comment (with links back to the Gate run and reusable
+     matrix). If the comment is still absent, note the remediation in the
+     incident issue and ping `#trend-ci` for follow-up.
