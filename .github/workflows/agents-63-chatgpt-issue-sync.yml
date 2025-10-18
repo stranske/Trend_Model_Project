@@ -563,6 +563,32 @@ jobs:
                       `Preserving existing sync footer for issue #${issueNumber} to avoid unnecessary run URL churn.`,
                     );
                   }
+                  const normalizeAgentLabel = (labelName) => {
+                    if (!labelName) return null;
+                    const trimmed = labelName.trim();
+                    if (!trimmed.toLowerCase().startsWith('agent:')) return null;
+                    return trimmed.toLowerCase();
+                  };
+                  const currentAgentLabels = current
+                    .map((label) => normalizeAgentLabel(label))
+                    .filter((label) => label !== null);
+                  const desiredAgentLabels = unique
+                    .map((label) => normalizeAgentLabel(label))
+                    .filter((label) => label !== null);
+                  const wantsCodex = desiredAgentLabels.includes('agent:codex');
+                  if (
+                    currentAgentLabels.length > 0 &&
+                    !currentAgentLabels.includes('agent:codex') &&
+                    wantsCodex
+                  ) {
+                    core.info(
+                      `Skipping issue #${issueNumber} because it already has an agent assignment (${currentAgentLabels.join(
+                        ', ',
+                      )}).`,
+                    );
+                    skippedCount += 1;
+                    continue;
+                  }
                   const needsLabels = !labelsEqual(current, final);
                   if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
                     core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
