@@ -185,9 +185,19 @@ jobs:
               duplicate_topics: 0,
               invalid_topics: 0,
               mutations_performed: 0,
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
+            };
+            const metrics = {
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
             };
             const setOutputs = (overrides = {}) => {
-              const values = { ...defaultOutputs, ...overrides };
+              const values = { ...defaultOutputs, ...metrics, ...overrides };
               for (const [key, value] of Object.entries(values)) {
                 core.setOutput(key, String(value));
               }
@@ -201,6 +211,7 @@ jobs:
               return;
             }
             const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            metrics.topics_total = Array.isArray(rawTopics) ? rawTopics.length : 0;
             if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
               core.notice('No topics provided. Exiting without mutations.');
               setZeroOutputs();
@@ -217,6 +228,7 @@ jobs:
               }
               return hasRequired;
             });
+            metrics.topics_with_agent_labels = topics.length;
             if (!topics.length) {
               core.notice('No topics matched agent labels. Exiting without changes.');
               setZeroOutputs();
@@ -240,6 +252,7 @@ jobs:
               }
               deduped.push(topic);
             }
+            metrics.topics_after_dedup = deduped.length;
             if (!deduped.length) {
               core.notice(
                 `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
@@ -426,6 +439,7 @@ jobs:
                   core.warning('Skipping topic without a valid title.');
                   continue;
                 }
+                metrics.topics_processed += 1;
                 const desired = [];
                 for (const rawLabel of topic.labels || []) {
                   const resolved = await ensureLabel(rawLabel);
@@ -541,6 +555,10 @@ jobs:
               }
             }
             const summaryLines = [
+              `Topics provided: ${metrics.topics_total}`,
+              `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
+              `Deduplicated topics: ${metrics.topics_after_dedup}`,
+              `Topics processed: ${metrics.topics_processed}`,
               `Created issues: ${createdCount}`,
               `Updated issues: ${updatedCount}`,
               `Reopened issues: ${reopenedCount}`,
