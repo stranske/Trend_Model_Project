@@ -27,8 +27,9 @@ jobs:
     name: Normalize ChatGPT topics into GitHub issues
     runs-on: ubuntu-latest
     concurrency:
+      # Queue overlapping runs on the same ref so a prior sync can finish cleanly.
       group: agent-sync-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     permissions:
       contents: read
       issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
