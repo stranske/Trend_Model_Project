@@ -770,48 +770,10 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f autofix_report_enriched.json ]; then
-            python <<'EOF' || echo '{"error":"merge_failed"}' > autofix_report.json
-import json
-import os
-from datetime import datetime, timezone
-from pathlib import Path
-
-meta = {
-    "pull_request": os.environ.get("PR_NUMBER"),
-    "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-}
-
-try:
-    data = json.loads(Path("autofix_report_enriched.json").read_text(encoding="utf-8"))
-except Exception:
-    data = {}
-
-data.update(meta)
-Path("autofix_report.json").write_text(
-    json.dumps(data, indent=2, sort_keys=True) + "\n",
-    encoding="utf-8",
-)
-EOF
+            python -c "import json, os; from datetime import datetime, timezone; from pathlib import Path; meta={'pull_request': os.environ.get('PR_NUMBER'), 'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}; path = Path('autofix_report_enriched.json'); data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}; data.update(meta); Path('autofix_report.json').write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
           else
             ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            REPORT_TIMESTAMP="$ts" python <<'EOF' || echo '{"error":"merge_failed"}' > autofix_report.json
-import json
-import os
-from pathlib import Path
-
-payload = {
-    "changed": os.getenv("REPORT_CHANGED", ""),
-    "remaining_issues": os.getenv("REPORT_REMAINING", ""),
-    "new_issues": os.getenv("REPORT_NEW", ""),
-    "pull_request": os.getenv("REPORT_PR", ""),
-    "timestamp_utc": os.getenv("REPORT_TIMESTAMP", ""),
-}
-
-Path("autofix_report.json").write_text(
-    json.dumps(payload, indent=2, sort_keys=True) + "\n",
-    encoding="utf-8",
-)
-EOF
+            REPORT_TIMESTAMP="$ts" python -c "import json, os; from pathlib import Path; payload={'changed': os.getenv('REPORT_CHANGED', ''), 'remaining_issues': os.getenv('REPORT_REMAINING', ''), 'new_issues': os.getenv('REPORT_NEW', ''), 'pull_request': os.getenv('REPORT_PR', ''), 'timestamp_utc': os.getenv('REPORT_TIMESTAMP', '')}; Path('autofix_report.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
           fi
           echo "Enriched report ready."
         env:
@@ -831,18 +793,21 @@ EOF
       - name: Summary
         if: always()
         env:
-          MODE: ${{ steps.fix_results.outputs.mode || 'standard' }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
           CHANGED: ${{ steps.fix_results.outputs.changed }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
           PATCH_PR_NUMBER: ${{ inputs.pr_number }}
+          GUARD_SKIP: ${{ steps.guard.outputs.skip }}
         run: |
+          mode_value="${MODE:-standard}"
+          guard_value="${GUARD_SKIP:-false}"
           {
             echo "### Reusable Autofix Summary"
-            echo "Loop guard skip: ${{ steps.guard.outputs.skip || 'false' }}"
-            echo "Mode: ${MODE:-standard}"
+            echo "Loop guard skip: ${guard_value}"
+            echo "Mode: ${mode_value}"
             echo "Applied changes: ${CHANGED:-false}"
             echo "Same repo: ${SAME_REPO:-false}"
             echo "Remaining ruff issues: ${REMAINING:-0}"
@@ -853,7 +818,7 @@ EOF
             echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ "${MODE:-standard}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
+          if [ "${mode_value}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
             {
               echo ""
               echo "Tests-only files updated:"
