@@ -235,20 +235,16 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-critical-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
-    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml`,
-    and `selftest-runner.yml`.
-  - **Triggers.** Invoked via `workflow_call` by Gate, Maint 46, and manual
-    reruns. `selftest-reusable-ci.yml` runs on its nightly cron (06:30 UTC) and
-    remains dispatchable for ad-hoc rehearsals, while `selftest-runner.yml`
-    exposes `workflow_dispatch` for on-demand publication modes.
+    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, and `selftest-runner.yml`.
+  - **Triggers.** Invoked via `workflow_call` by Gate, Maint 46, and manual
+    reruns. `selftest-runner.yml` handles the nightly rehearsal (cron at 06:30 UTC)
+    and manual publication modes via `workflow_dispatch`.
   - **Purpose.** Provide a consistent lint/type/test/container matrix so every
     caller sees identical results.
   - **Where to inspect logs.** Reusable Python CI:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml).
     Docker CI:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml).
-    Self-test reusable CI:
-    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-reusable-ci.yml).
     Self-test runner:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml).
 
@@ -301,12 +297,11 @@ status updates:
   - *Reusable job logs.* Because the reusable workflows emit job-level logs for
     each caller, you can open the workflow run from Gate or Maint 46 and expand
     the “Reusable CI” job to see the full lint/test output.
-  - *Self-test reusable CI summary.* Nightly matrix rehearsals append artifact
-    verification tables to the run summary so regressions surface without
-    paging maintainers.
-  - *Self-test runner summary artifact.* Manual dispatch uploads an artifact
-    containing the combined test report so local reproductions can be compared
-    against CI output.
+    - *Self-test runner nightly summary.* The scheduled run appends the
+      verification table to the job summary so regressions surface without
+      paging maintainers.
+    - *Self-test runner history artifact.* Manual dispatch uploads the combined
+      test report so local reproductions can be compared against CI output.
 
 ## Topology at a glance
 
@@ -315,7 +310,7 @@ status updates:
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml`, `pr-02-autofix.yml` | Keep the default branch green by running the gating matrix, autofix sweep, and docs-only short circuit before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`) | `agents-70-orchestrator.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-critical-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
-| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml`, `selftest-runner.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
+| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-runner.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
 
@@ -375,11 +370,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Reusable Agents** – `reusable-16-agents.yml` powers orchestrated dispatch.
 - **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for PR 02
   Autofix and Maint 46.
-- **Self-test Reusable CI** – `selftest-reusable-ci.yml` keeps the reusable
-  Python CI matrix warm on a nightly cadence and verifies artifact inventories;
-  manual dispatch accepts a reason string and explicit interpreter list.
-- **Self-test Runner** – `selftest-runner.yml` is the consolidated manual entry
-  point. Inputs:
+- **Self-test Runner** – `selftest-runner.yml` is the consolidated entry
+  point. It runs nightly via cron (06:30 UTC) to rehearse the reusable matrix
+  and accepts manual dispatches for summary/comment publication. Inputs:
   - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface
     and Python matrix).
   - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
@@ -419,8 +412,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Reusable Docker CI** (`reusable-12-ci-docker.yml`, error-checking bucket) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
 | **Reusable Agents** (`reusable-16-agents.yml`, error-checking bucket) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-16-agents.yml) |
 | **Reusable Autofix** (`reusable-18-autofix.yml`, error-checking bucket) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-18-autofix.yml) |
-| **Selftest Reusable CI** (`selftest-reusable-ci.yml`, error-checking bucket) | `schedule`, `workflow_dispatch` | Exercise the reusable CI scenarios nightly and report artifact coverage. | ⚪ Scheduled | [Selftest Reusable CI history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-reusable-ci.yml) |
-| **Self-test Runner** (`selftest-runner.yml`, error-checking bucket) | `workflow_dispatch` | Run manual verification matrix across interpreters. | ⚪ Manual | [Self-test runner history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml) |
+| **Self-test Runner** (`selftest-runner.yml`, error-checking bucket) | `schedule` (06:30 UTC), `workflow_dispatch` | Rehearse the reusable CI scenarios nightly and publish manual summaries or PR comments on demand. | ⚪ Scheduled/manual | [Self-test runner history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-runner.yml) |
 
 ## Policy
 

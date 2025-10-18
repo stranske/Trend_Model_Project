@@ -25,7 +25,6 @@ def _normalize(text: str) -> str:
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_DIR = pathlib.Path("Old/workflows")
 RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
-REUSABLE_PATH = WORKFLOW_DIR / "selftest-reusable-ci.yml"
 
 
 def _read_workflow(path: pathlib.Path) -> dict:
@@ -52,12 +51,12 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Nightly reusable CI and manual runner should be the only active workflows."""
+    """Self-test runner should be the only active workflow."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
-    expected = ["selftest-reusable-ci.yml", "selftest-runner.yml"]
+    expected = ["selftest-runner.yml"]
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
@@ -132,68 +131,6 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
         ), f"Docs should mention the retirement of {wrapper}."
 
 
-def test_selftest_reusable_ci_dispatch_contract() -> None:
-    data = _read_workflow(REUSABLE_PATH)
-    triggers = _resolve_triggers(data)
-
-    assert set(triggers) == {
-        "schedule",
-        "workflow_dispatch",
-    }, "Reusable CI workflow should expose schedule and workflow_dispatch triggers."
-
-    schedule_entries = triggers.get("schedule", [])
-    assert (
-        isinstance(schedule_entries, list) and schedule_entries
-    ), "Reusable CI workflow should declare at least one cron schedule entry."
-    primary_schedule = schedule_entries[0]
-    assert (
-        primary_schedule.get("cron") == "30 6 * * *"
-    ), "Reusable CI nightly cron drifted; update docs/tests alongside schedule changes."
-
-    workflow_dispatch = triggers.get("workflow_dispatch") or {}
-    inputs = workflow_dispatch.get("inputs", {})
-
-    reason = inputs.get("reason") or {}
-    assert reason, "Reusable CI dispatch must expose a reason input."
-    assert (
-        reason.get("default") == "nightly verification"
-    ), "Reason input default should explain the nightly verification."
-    reason_required = reason.get("required")
-    assert reason_required in (
-        None,
-        False,
-        "false",
-    ), "Reason input should remain optional for manual runs."
-
-    python_versions = inputs.get("python_versions") or {}
-    assert python_versions, "Reusable CI dispatch must expose python_versions input."
-    assert (
-        python_versions.get("default") == ""
-    ), "python_versions should default to an empty override for nightly runs."
-    pv_required = python_versions.get("required")
-    assert pv_required in (
-        None,
-        False,
-        "false",
-    ), "python_versions input should remain optional."
-
-    permissions = data.get("permissions", {})
-    assert permissions, "Reusable CI workflow should declare minimal permissions."
-    assert (
-        permissions.get("contents") == "read"
-    ), "Reusable CI should only request read access to contents."
-    assert (
-        permissions.get("actions") == "read"
-    ), "Reusable CI should only request read access to actions metadata."
-    unexpected_permissions = sorted(
-        key for key in permissions if key not in {"contents", "actions"}
-    )
-    assert not unexpected_permissions, (
-        "Reusable CI workflow requested unexpected permissions: "
-        f"{unexpected_permissions}."
-    )
-
-
 def test_selftest_runner_inputs_cover_variants() -> None:
     """The consolidated runner should expose the requested input variants."""
 
@@ -202,10 +139,20 @@ def test_selftest_runner_inputs_cover_variants() -> None:
 
     assert triggers, "selftest-runner.yml is missing trigger definitions."
     assert set(triggers) == {
-        "workflow_dispatch"
-    }, "Runner must remain a manual workflow_dispatch entry point."
+        "schedule",
+        "workflow_dispatch",
+    }, "Runner must expose schedule and workflow_dispatch triggers."
 
-    workflow_dispatch = triggers["workflow_dispatch"] or {}
+    schedule_entries = triggers.get("schedule", [])
+    assert (
+        isinstance(schedule_entries, list) and schedule_entries
+    ), "Runner schedule trigger should declare at least one cron entry."
+    primary_schedule = schedule_entries[0]
+    assert (
+        primary_schedule.get("cron") == "30 6 * * *"
+    ), "Self-test runner nightly cron drifted; update docs/tests with intentional changes."
+
+    workflow_dispatch = triggers.get("workflow_dispatch") or {}
     inputs = workflow_dispatch.get("inputs", {})
 
     def _assert_choice(
@@ -254,8 +201,8 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     ), "Runner should delegate execution to reusable-10-ci-python.yml."
 
 
-def test_selftest_reusable_ci_jobs_contract() -> None:
-    data = _read_workflow(REUSABLE_PATH)
+def test_selftest_runner_jobs_contract() -> None:
+    data = _read_workflow(RUNNER_PATH)
     jobs = data.get("jobs", {})
 
     scenario = jobs.get("scenario") or {}
@@ -285,10 +232,19 @@ def test_selftest_reusable_ci_jobs_contract() -> None:
     assert (
         scenario_with["artifact-prefix"] == "sf-${{ matrix.name }}-"
     ), "Scenario job should namespace artifacts with the matrix name prefix."
+    python_versions_expr = scenario_with["python-versions"]
     assert (
-        scenario_with["python-versions"]
-        == "${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '[\"3.11\"]' }}"
-    ), "Scenario job python-versions forwarder drifted; keep fallback logic intact."
+        "github.event_name == 'workflow_dispatch'" in python_versions_expr
+    ), "Scenario job should branch on workflow_dispatch triggers."
+    assert (
+        "inputs.python_versions != ''" in python_versions_expr
+    ), "Scenario job should respect custom python_versions overrides."
+    assert (
+        "inputs.mode == 'dual-runtime'" in python_versions_expr
+    ), "Scenario job should enable dual-runtime mode when requested."
+    assert (
+        "'[\"3.11\"]'" in python_versions_expr
+    ), "Scenario job should fall back to the default 3.11 matrix."
 
     strategy = scenario.get("strategy", {})
     assert (
@@ -357,10 +313,22 @@ def test_selftest_reusable_ci_jobs_contract() -> None:
         env.get("SCENARIO_LIST")
         == "minimal, metrics_only, metrics_history, classification_only, coverage_delta, full_soft_gate"
     ), "Aggregate SCENARIO_LIST should enumerate the scenario matrix."
+    aggregate_python = env.get("PYTHON_VERSIONS", "")
     assert (
-        env.get("PYTHON_VERSIONS")
-        == "${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.python_versions != '' && github.event.inputs.python_versions) || '[\"3.11\"]' }}"
-    ), "Aggregate PYTHON_VERSIONS fallback logic drifted; keep nightly default intact."
+        "github.event_name == 'workflow_dispatch'" in aggregate_python
+    ), "Aggregate job should branch on workflow_dispatch events."
+    assert (
+        "inputs.python_versions != ''" in aggregate_python
+    ), "Aggregate job should honor manual python_versions overrides."
+    assert (
+        "inputs.mode == 'dual-runtime'" in aggregate_python
+    ), "Aggregate job should forward dual-runtime requests."
+    assert (
+        "'[\"3.11\"]'" in aggregate_python
+    ), "Aggregate job should fall back to the default 3.11 matrix."
+    assert (
+        env.get("RUN_REASON")
+    ), "Aggregate job should capture the run reason for summaries."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
     ), "Aggregate job should capture the trigger event name."
@@ -528,7 +496,7 @@ def test_selftest_triggers_are_manual_only() -> None:
         "push",
     }
     required_manual_trigger = "workflow_dispatch"
-    allowed_triggers = {required_manual_trigger, "workflow_call"}
+    allowed_triggers = {required_manual_trigger, "workflow_call", "schedule"}
 
     for workflow_file in selftest_files:
         data = _read_workflow(workflow_file)
@@ -559,10 +527,10 @@ def test_selftest_triggers_are_manual_only() -> None:
             "Self-tests should not run automatically on PRs or pushes."
         )
 
-        unsupported = sorted(trigger_keys - allowed_triggers - {"schedule"})
+        unsupported = sorted(trigger_keys - allowed_triggers)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch (and workflow_call for reusable entry points) are permitted."
+            "Only workflow_dispatch, schedule, or workflow_call are permitted."
         )
 
         assert required_manual_trigger in trigger_keys, (
@@ -570,18 +538,13 @@ def test_selftest_triggers_are_manual_only() -> None:
             "trigger so self-tests remain manually invoked."
         )
 
-        if workflow_file.name == REUSABLE_PATH.name:
-            assert trigger_keys == {
-                required_manual_trigger,
-                "schedule",
-            }, (
-                "selftest-reusable-ci.yml should expose a nightly schedule in addition "
-                "to workflow_dispatch."
-            )
-        else:
-            assert trigger_keys == {
-                required_manual_trigger
-            }, f"{workflow_file.name} should only expose {required_manual_trigger}."
+        assert "schedule" in trigger_keys, (
+            f"{workflow_file.name} should expose a nightly schedule in addition to "
+            "workflow_dispatch."
+        )
+        assert trigger_keys <= allowed_triggers, (
+            f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
+        )
 
 
 def test_selftest_dispatch_reason_input() -> None:
