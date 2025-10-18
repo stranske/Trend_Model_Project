@@ -201,6 +201,28 @@ jobs:
               core.notice('No topics matched agent labels. Exiting without changes.');
               return;
             }
+            const seenTopics = new Set();
+            const deduped = [];
+            let duplicateCount = 0;
+            for (const topic of topics) {
+              const guidKey = topic.guid ? `guid:${topic.guid.trim().toLowerCase()}` : null;
+              const titleKey = topic.title ? `title:${topic.title.trim().toLowerCase()}` : null;
+              const key = guidKey || titleKey;
+              if (key && seenTopics.has(key)) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(`Skipping duplicate topic${preview}.`);
+                duplicateCount += 1;
+                continue;
+              }
+              if (key) {
+                seenTopics.add(key);
+              }
+              deduped.push(topic);
+            }
+            if (!deduped.length) {
+              core.notice('All topics were filtered as duplicates. Exiting without changes.');
+              return;
+            }
             const { owner, repo } = context.repo;
             const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
             const canonicalizeNewLabel = (name) => {
@@ -359,7 +381,7 @@ jobs:
             let updatedCount = 0;
             let reopenedCount = 0;
             let skippedCount = 0;
-            for (const topic of topics) {
+            for (const topic of deduped) {
               try {
                 const desired = [];
                 for (const rawLabel of topic.labels || []) {
@@ -441,12 +463,16 @@ jobs:
               `Updated issues: ${updatedCount}`,
               `Reopened issues: ${reopenedCount}`,
               `Skipped (no changes): ${skippedCount}`,
+              `Duplicate topics skipped: ${duplicateCount}`,
             ];
             const summary = summaryLines.join('\n');
             core.notice(summary);
             core.summary.addHeading('Agents issue sync results');
             for (const line of summaryLines) {
               core.summary.addRaw(`- ${line}\n`);
+            }
+            if (!createdCount && !updatedCount && !reopenedCount) {
+              core.notice('No issues required modifications; run completed without mutations.');
             }
             await core.summary.write();
 
