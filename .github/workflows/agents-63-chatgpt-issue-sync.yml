@@ -179,7 +179,7 @@ jobs:
             const crypto = require('crypto');
             const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
             if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
-              core.setFailed('No topics to process.');
+              core.notice('No topics provided. Exiting without mutations.');
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
@@ -351,6 +351,10 @@ jobs:
               }
               return true;
             };
+            let createdCount = 0;
+            let updatedCount = 0;
+            let reopenedCount = 0;
+            let skippedCount = 0;
             for (const topic of topics) {
               try {
                 const desired = [];
@@ -364,7 +368,6 @@ jobs:
                 const title = topic.title;
                 const guid = topic.guid;
                 let issueNumber = null;
-                let state = 'open';
                 const searchOpen = await github.rest.search.issuesAndPullRequests({
                   q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
                   per_page: 1,
@@ -378,7 +381,6 @@ jobs:
                   });
                   if (searchAny.data.items.length) {
                     issueNumber = searchAny.data.items[0].number;
-                    state = searchAny.data.items[0].state;
                   }
                 }
                 if (issueNumber) {
@@ -393,11 +395,16 @@ jobs:
                   const needsLabels = !labelsEqual(current, final);
                   if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
                     core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
+                    skippedCount += 1;
                     continue;
                   }
                   const payload = { owner, repo, issue_number: issueNumber, title, body, labels: final };
                   if (needsStateChange) payload.state = 'open';
                   await github.rest.issues.update(payload);
+                  updatedCount += 1;
+                  if (needsStateChange) {
+                    reopenedCount += 1;
+                  }
                   if (needsTitle || needsBody || needsLabels || needsStateChange) {
                     try {
                       await github.rest.issues.createComment({
@@ -419,8 +426,23 @@ jobs:
                     labels: unique,
                   });
                   core.info(`Created issue #${created.data.number} for ${title}.`);
+                  createdCount += 1;
                 }
               } catch (e) {
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
               }
             }
+            const summaryLines = [
+              `Created issues: ${createdCount}`,
+              `Updated issues: ${updatedCount}`,
+              `Reopened issues: ${reopenedCount}`,
+              `Skipped (no changes): ${skippedCount}`,
+            ];
+            const summary = summaryLines.join('\n');
+            core.notice(summary);
+            core.summary.addHeading('Agents issue sync results');
+            for (const line of summaryLines) {
+              core.summary.addRaw(`- ${line}\n`);
+            }
+            await core.summary.write();
+
