@@ -429,9 +429,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   either enforces or verifies the rule (requires a `BRANCH_PROTECTION_TOKEN`
   secret with admin scope for enforcement). When agent workflows are in play,
   the rule also enforces **Health 45 Agents Guard** so protected files stay
-  gated. Maint 46 Post CI wakes up only after Gate succeeds; it publishes the
-  consolidated summary comment but remains informational rather than a required
-  status check.
+  gated. Maint 46 Post CI always runs after Gate turns green, posting the
+  consolidated summary comment as the informational "state of CI" snapshot—it is
+  intentionally *not* configured as a required status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
   to `agents-63-chatgpt-issue-sync.yml`, `agents-63-codex-issue-bridge.yml`, and
   `agents-70-orchestrator.yml` stay maintainer gated on top of the immutable
@@ -485,8 +485,16 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Required vs informational checks on `phase-2-dev`
 
-- **Required before merge.** Gate / `gate` must finish green on every pull request into `phase-2-dev`. Branch protection enforces this context.
-- **Informational after merge.** Maint 46 Post CI fans out once Gate finishes and posts the aggregated summary comment. It mirrors the reusable CI results but does not block merges because it runs post-merge.
+- **Required before merge.** Gate / `gate` must finish green on every pull
+  request into `phase-2-dev`. Branch protection enforces this context and every
+  PR shows the check under **Required** in the Checks tab. When you touch
+  `agents-*.yml`, GitHub automatically adds **Health 45 Agents Guard** to the
+  required list for that PR because the branch rule keeps the guard enforced.
+- **Informational after merge.** Maint 46 Post CI fans out once Gate finishes
+  and posts the aggregated summary comment. It mirrors the reusable CI results
+  but does not block merges because it runs post-merge. Treat the Maint 46
+  comment as the single source of truth for CI health after a merge—review it to
+  confirm the latest Gate run and reusable jobs stayed green.
 
 ## Branch protection playbook
 
@@ -507,7 +515,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      the default branch (`phase-2-dev`).
    - Enable **Require status checks to pass before merging**, then select
      **Gate / gate**. Keep **Health 45 Agents Guard / Enforce agents workflow
-     protections** checked so agent-surface edits stay gated.
+     protections** checked so agent-surface edits stay gated. Maint 46 Post CI
+     stays unchecked because it posts post-merge guidance only.
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
 4. **Run the enforcement script locally when needed.**
