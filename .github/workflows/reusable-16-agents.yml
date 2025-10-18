@@ -759,7 +759,7 @@ jobs:
             }
 
             if (triggered.length) {
-              summary.addList(summariseList(triggered));
+              summary.addDetails('Triggered keepalive comments', summariseList(triggered));
             } else {
               summary.addRaw('No unattended Codex tasks detected.');
             }
