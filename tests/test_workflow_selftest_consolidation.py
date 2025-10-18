@@ -586,77 +586,24 @@ def test_selftest_dispatch_reason_input() -> None:
 
 
 def test_archived_selftest_inventory() -> None:
-    assert ARCHIVE_DIR.exists(), "Old/workflows directory is missing"
-
     archived_workflows = sorted(
         path.name for path in ARCHIVE_DIR.glob("*selftest*.yml")
     )
-    assert archived_workflows == [
-        "maint-90-selftest.yml",
-        "reusable-99-selftest.yml",
-    ], (
-        "Archived self-test workflows are missing or unexpected files are present. "
-        "Expected maint-90-selftest.yml and reusable-99-selftest.yml."
+    assert not archived_workflows, (
+        "Self-test archives should no longer live on disk. "
+        "Remove duplicates under Old/workflows/ and retrieve historical YAML from git history when needed."
     )
 
-
-def test_archived_selftests_retain_manual_triggers() -> None:
-    """Archived self-test wrappers should stay manual-first to avoid
-    regressions."""
-
-    archived_files = sorted(ARCHIVE_DIR.glob("*selftest*.yml"))
-    assert (
-        archived_files
-    ), "Expected archived self-test workflows to remain in Old/workflows/."
-
-    disallowed_triggers = {
-        "pull_request",
-        "pull_request_target",
-        "push",
-        "schedule",
-    }
-    required_manual_trigger = "workflow_dispatch"
-    optional_triggers = {"workflow_call"}
-    allowed_triggers = {required_manual_trigger} | optional_triggers
-
-    for workflow_file in archived_files:
-        data = _read_workflow(workflow_file)
-
-        triggers_raw = data.get("on")
-        if triggers_raw is None and True in data:
-            triggers_raw = data[True]
-        if triggers_raw is None:
-            triggers_raw = {}
-
-        if isinstance(triggers_raw, list):
-            triggers = {str(event): {} for event in triggers_raw}
-        elif isinstance(triggers_raw, str):
-            triggers = {triggers_raw: {}}
-        elif isinstance(triggers_raw, dict):
-            triggers = triggers_raw
-        else:
-            raise AssertionError(
-                f"Unexpected trigger configuration in {workflow_file.name}: {type(triggers_raw)!r}"
-            )
-
-        trigger_keys = set(triggers)
-
-        unexpected = sorted(trigger_keys & disallowed_triggers)
-        assert not unexpected, (
-            f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
-            "Archived self-tests should remain manual-only entry points (no PR, push, or scheduled automation)."
-        )
-
-        unsupported = sorted(trigger_keys - allowed_triggers)
-        assert not unsupported, (
-            f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
-            "Only workflow_dispatch or workflow_call are permitted."
-        )
-
-        assert required_manual_trigger in trigger_keys, (
-            f"{workflow_file.name} must retain a {required_manual_trigger} entry "
-            "so the wrapper can be invoked manually if restored."
-        )
+    ledger_text = _normalize(ARCHIVE_LEDGER_PATH.read_text())
+    assert "Historical copies of `maint-90-selftest.yml`" in ledger_text, (
+        "Archive ledger should document where to find the retired self-test wrappers."
+    )
+    assert "Old/workflows" in ledger_text, (
+        "Archive ledger should mention the former archive directory so contributors know it was removed."
+    )
+    assert "#2728" in ledger_text, (
+        "Archive ledger must reference the consolidation issue that removed the residual files."
+    )
 
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
@@ -734,6 +681,9 @@ def _collect_comment_wrapper_variants(
     """
 
     variants: dict[str, set[str]] = {}
+    if not directory.exists():
+        return {}
+
     for pattern in ("*selftest*pr-comment*.yml", "*selftest*pr-comment*.yaml"):
         for path in directory.glob(pattern):
             variants.setdefault(path.stem, set()).add(path.name)
