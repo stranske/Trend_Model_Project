@@ -783,6 +783,9 @@ jobs:
           echo "Enriched report ready.";
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
+          REPORT_CHANGED: ${{ steps.fix_results.outputs.changed }}
+          REPORT_REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          REPORT_NEW: ${{ steps.fix_results.outputs.new_issues }}
 
       - name: Upload JSON report
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
