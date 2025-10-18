@@ -572,15 +572,10 @@ jobs:
                   const currentAgentLabels = current
                     .map((label) => normalizeAgentLabel(label))
                     .filter((label) => label !== null);
-                  const desiredAgentLabels = unique
-                    .map((label) => normalizeAgentLabel(label))
-                    .filter((label) => label !== null);
-                  const wantsCodex = desiredAgentLabels.includes('agent:codex');
-                  if (
-                    currentAgentLabels.length > 0 &&
-                    !currentAgentLabels.includes('agent:codex') &&
-                    wantsCodex
-                  ) {
+                  const hasNonCodexAssignment = currentAgentLabels.some(
+                    (label) => label !== 'agent:codex',
+                  );
+                  if (hasNonCodexAssignment) {
                     core.info(
                       `Skipping issue #${issueNumber} because it already has an agent assignment (${currentAgentLabels.join(
                         ', ',
