@@ -863,5 +863,5 @@ jobs:
               echo ""
               echo "Tests-only files updated:"
             } >> "$GITHUB_STEP_SUMMARY"
-            printf '%s\n' "$file_list_value" | sed 's/.*/- `&`/' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "$file_list_value" | sed "s/.*/- `&`/" >> "$GITHUB_STEP_SUMMARY"
           fi
