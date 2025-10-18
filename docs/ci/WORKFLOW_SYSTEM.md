@@ -476,6 +476,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 ## Verification checklist
 
 - Gate badge in `README.md` and branch protection both show as required for the default branch.
+- New pull requests list **Gate / gate** under **Required checks**; missing the
+  entry is an incident that requires running the branch-protection playbook.
 - Health 45 Agents Guard appears as a required check whenever protected workflows change and reports ✅ in the latest run.
 - Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
 - Gate runs and passes on docs-only PRs and appears as a required check.
@@ -490,7 +492,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > before merge. Maint 46 Post CI publishes an informational timeline comment
 > **after** Gate succeeds and the PR lands. Health 45 Agents Guard only becomes
 > required on PRs that touch `agents-*.yml`, keeping protected automation gated
-> without widening the branch rule for every change.
+> without widening the branch rule for every change. Every new pull request into
+> `phase-2-dev` should show **Gate / gate** under **Required checks**—treat a
+> missing Gate status as an incident and follow the branch-protection
+> playbook. Maintainers should continue to find Maint 46 exclusively as the
+> post-merge timeline summary.
 
 | Context | Workflow | Required before merge? | Where it appears |
 | --- | --- | --- | --- |
