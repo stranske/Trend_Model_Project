@@ -295,8 +295,21 @@ def test_keepalive_summary_reports_scope_and_activity():
         or "keepalive posted" in text
     ), "Keepalive summary must describe whether any PRs required intervention"
     assert (
+        "Triggered keepalive comments" in text
+    ), "Keepalive summary should wrap triggered comment list in a collapsible section"
+    assert (
         "Triggered keepalive count:" in text
     ), "Keepalive summary should record how many follow-up comments were sent"
+
+
+def test_keepalive_job_runs_after_failures():
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive = jobs.get("keepalive")
+    assert keepalive, "Reusable workflow must define keepalive job"
+    assert (
+        keepalive.get("if") == "${{ always() && inputs.enable_keepalive == 'true' }}"
+    ), "Keepalive job must run even if earlier jobs fail while respecting enable_keepalive flag"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
