@@ -27,8 +27,8 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 
 DEFAULT_CONTEXTS = (
-    "Gate / gate",
     "Enforce agents workflow protections",
+    "Gate / gate",
     "Health 45 Agents Guard / Enforce agents workflow protections",
 )
 

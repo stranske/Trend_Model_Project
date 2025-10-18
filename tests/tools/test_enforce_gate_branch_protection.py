@@ -264,6 +264,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "repo": "owner/repo",
         "branch": "main",
         "contexts": [
+            "Enforce agents workflow protections",
             "Gate / gate",
             "Health 45 Agents Guard / Enforce agents workflow protections",
             "Legacy",
