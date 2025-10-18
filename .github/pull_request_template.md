@@ -8,4 +8,5 @@
 
 ## CI readiness
 - [ ] Reviewed the [Workflow System Overview](../docs/ci/WORKFLOW_SYSTEM.md#required-vs-informational-checks-on-phase-2-dev) to confirm Gate / `gate` is the required status and Maint 46 Post CI is informational after merge.
+- [ ] Checked this pull request's **Checks** tab to confirm Gate / `gate` appears under **Required checks** (Health 45 Agents Guard auto-adds when `agents-*.yml` files change).
 - [ ] Confirmed the latest Gate run is green (or linked the failing run with context).

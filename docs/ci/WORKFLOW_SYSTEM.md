@@ -507,6 +507,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > **“Maint 46 Post CI summary”** for quick scanning. The pull-
 > request template links here so authors confirm the required check before
 > requesting review.
+>
+> ✍️ **Author checklist.** When you open or update a pull request, confirm the
+> Checks tab shows **Gate / gate** under **Required checks** before requesting
+> review. If you edited any `agents-*.yml` files, also verify GitHub added
+> **Health 45 Agents Guard** to the required list automatically.
 
 > 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows Gate as
 > the sole required status and that it is green (or actively running). After the
