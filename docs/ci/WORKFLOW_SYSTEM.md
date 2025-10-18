@@ -485,6 +485,12 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Required vs informational checks on `phase-2-dev`
 
+> **Quick reference.** Gate / `gate` is the single status GitHub must block on
+> before merge. Maint 46 Post CI publishes an informational timeline comment
+> **after** Gate succeeds and the PR lands. Health 45 Agents Guard only becomes
+> required on PRs that touch `agents-*.yml`, keeping protected automation gated
+> without widening the branch rule for every change.
+
 | Context | Workflow | Required before merge? | Where it appears |
 | --- | --- | --- | --- |
 | **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
@@ -526,11 +532,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      still fails if Gate is not required.
 3. **Configure branch protection manually when adjusting via the UI.**
    - Navigate to **Settings → Branches → Add branch protection rule** and target
-     the default branch (`phase-2-dev`).
+     the default branch (`phase-2-dev`). Review [GitHub’s branch protection
+     guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches)
+     if any UI labels change.
    - Enable **Require status checks to pass before merging**, then select
      **Gate / gate**. Keep **Health 45 Agents Guard / Enforce agents workflow
-     protections** checked so agent-surface edits stay gated. Maint 46 Post CI
-     stays unchecked because it posts post-merge guidance only.
+     protections** checked so agent-surface edits stay gated. Leave Maint 46 Post
+     CI unchecked—it posts post-merge guidance and must stay informational.
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
 4. **Run the enforcement script locally when needed.**
