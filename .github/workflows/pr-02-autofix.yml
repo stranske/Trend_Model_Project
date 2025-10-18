@@ -65,9 +65,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/reusable-18-autofix.yml
-    with:
-      opt_in_label: ${{ needs.label_gate.outputs.label }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report apply trigger
+        run: |
+          echo "apply_triggered=true"
+          echo "opt_in_label=${{ needs.label_gate.outputs.label }}"
 
   debug_gate:
     needs: label_gate
