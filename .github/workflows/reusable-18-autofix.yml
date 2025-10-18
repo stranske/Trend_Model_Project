@@ -188,9 +188,11 @@ jobs:
           ruff check tests --fix --exit-zero
           if [ ! -d tests ]; then
             echo "[autofix-clean] No tests/ directory present; skipping."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
-            echo "new_issues=0" >> "$GITHUB_OUTPUT"
+            {
+              echo "changed=false"
+              echo "remaining_issues=0"
+              echo "new_issues=0"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           ruff check tests --select I --fix --exit-zero || true
