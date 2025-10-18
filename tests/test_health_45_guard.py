@@ -56,7 +56,7 @@ def test_deletion_blocks_with_comment():
     assert result["blocked"] is True
     assert any("was deleted" in reason for reason in result["failureReasons"])
     assert "Health 45 Agents Guard" in result["summary"]
-    assert result["commentBody"].startswith("<!-- health-45-agents-guard -->")
+    assert result["commentBody"].startswith("<!-- agents-guard-marker -->")
 
 
 def test_rename_blocks_with_guidance():

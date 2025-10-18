@@ -164,7 +164,7 @@ function evaluateGuard({
   codeownersContent = '',
   protectedPaths = DEFAULT_PROTECTED_PATHS,
   labelName = 'agents:allow-change',
-  marker = '<!-- health-45-agents-guard -->',
+  marker = '<!-- agents-guard-marker -->',
 } = {}) {
   const normalizedLabelName = String(labelName).toLowerCase();
   const protectedSet = new Set(protectedPaths);

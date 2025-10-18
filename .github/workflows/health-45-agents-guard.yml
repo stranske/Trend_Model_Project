@@ -30,7 +30,7 @@ jobs:
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/health-45-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
-            const marker = '<!-- health-45-agents-guard -->';
+            const marker = '<!-- agents-guard-marker -->';
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
@@ -143,6 +143,10 @@ jobs:
               return;
             }
 
+            const markedBody = marker && !body.includes(marker)
+              ? `${marker}\n\n${body}`
+              : body;
+
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
 
@@ -155,12 +159,12 @@ jobs:
 
             const alreadyPosted = existingComments.find((comment) => comment.body && comment.body.includes(marker));
             if (alreadyPosted) {
-              if (alreadyPosted.body !== body) {
+              if (alreadyPosted.body !== markedBody) {
                 await github.rest.issues.updateComment({
                   owner,
                   repo,
                   comment_id: alreadyPosted.id,
-                  body,
+                  body: markedBody,
                 });
               }
               return;
@@ -170,7 +174,7 @@ jobs:
               owner,
               repo,
               issue_number: prNumber,
-              body,
+              body: markedBody,
             });
 
       - name: Fail when guard blocks the pull request
