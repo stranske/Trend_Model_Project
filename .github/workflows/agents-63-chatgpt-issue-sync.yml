@@ -389,41 +389,89 @@ jobs:
                 labelResolutionCache.set(key.toLowerCase(), value);
               }
             };
-            const ensureLabel = async (input) => {
-              const trimmed = input.trim();
-              if (!trimmed) return null;
-              const cacheKey = trimmed.toLowerCase();
-              if (labelResolutionCache.has(cacheKey)) {
-                return labelResolutionCache.get(cacheKey);
+            const classifyTopicLabels = (rawLabels) => {
+              const details = [];
+              const pendingCreates = new Map();
+              const skipped = [];
+              for (const raw of rawLabels || []) {
+                if (typeof raw !== 'string') continue;
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const cacheKey = trimmed.toLowerCase();
+                if (labelResolutionCache.has(cacheKey)) {
+                  const cached = labelResolutionCache.get(cacheKey);
+                  if (cached) {
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const existing = findMatchingLabel(trimmed);
+                if (existing) {
+                  memoizeLabelResolution([trimmed, existing], existing);
+                  details.push({ name: existing, requiresCreation: false });
+                  continue;
+                }
+                const newName = canonicalizeNewLabel(trimmed);
+                const canonicalKey = newName.toLowerCase();
+                if (labelResolutionCache.has(canonicalKey)) {
+                  const cached = labelResolutionCache.get(canonicalKey);
+                  if (cached) {
+                    memoizeLabelResolution([trimmed, newName, cached], cached);
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const already = findMatchingLabel(newName);
+                if (already) {
+                  memoizeLabelResolution([trimmed, newName, already], already);
+                  details.push({ name: already, requiresCreation: false });
+                  continue;
+                }
+                if (!pendingCreates.has(canonicalKey)) {
+                  pendingCreates.set(canonicalKey, {
+                    name: newName,
+                    source: trimmed,
+                    keys: [trimmed, newName],
+                  });
+                } else {
+                  pendingCreates.get(canonicalKey).keys.push(trimmed);
+                }
+                details.push({ name: newName, requiresCreation: true, pendingKey: canonicalKey });
               }
-              const existing = findMatchingLabel(trimmed);
-              if (existing) {
-                memoizeLabelResolution([trimmed, existing], existing);
-                return existing;
+              return { details, pendingCreates, skipped };
+            };
+            const ensurePendingLabelCreates = async (pendingCreates) => {
+              const successful = new Set();
+              for (const pending of pendingCreates.values()) {
+                const existing = findMatchingLabel(pending.name);
+                if (existing) {
+                  memoizeLabelResolution([...pending.keys, existing], existing);
+                  successful.add(existing.toLowerCase());
+                  continue;
+                }
+                const color = generateColor(pending.name);
+                try {
+                  const created = await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: pending.name,
+                    color,
+                    description: `Synthesized from ChatGPT import for ${pending.source}`,
+                  });
+                  labelsCache.push(created.data);
+                  const resolvedName = created.data.name || pending.name;
+                  memoizeLabelResolution([...pending.keys, resolvedName], resolvedName);
+                  successful.add(resolvedName.toLowerCase());
+                } catch (e) {
+                  core.warning(`Failed to create label for "${pending.source}": ${e.message}`);
+                  memoizeLabelResolution(pending.keys, null);
+                }
               }
-              const newName = canonicalizeNewLabel(trimmed);
-              const already = findMatchingLabel(newName);
-              if (already) {
-                memoizeLabelResolution([trimmed, newName, already], already);
-                return already;
-              }
-              const color = generateColor(newName);
-              try {
-                const created = await github.rest.issues.createLabel({
-                  owner,
-                  repo,
-                  name: newName,
-                  color,
-                  description: `Synthesized from ChatGPT import for ${trimmed}`,
-                });
-                labelsCache.push(created.data);
-                memoizeLabelResolution([trimmed, newName, created.data.name], created.data.name);
-                return created.data.name;
-              } catch (e) {
-                core.warning(`Failed to create label for "${trimmed}": ${e.message}`);
-                memoizeLabelResolution([trimmed, newName], null);
-                return null;
-              }
+              return successful;
             };
             const formatTasks = (text) => {
               if (!text || !text.trim()) return '_Not provided._';
@@ -499,13 +547,13 @@ jobs:
                   continue;
                 }
                 metrics.topics_processed += 1;
-                const desired = [];
-                for (const rawLabel of topic.labels || []) {
-                  const resolved = await ensureLabel(rawLabel);
-                  if (resolved) desired.push(resolved);
-                  else core.warning(`Skipped label "${rawLabel}" for ${title}.`);
+                const { details: labelDetails, pendingCreates, skipped } = classifyTopicLabels(topic.labels || []);
+                for (const skippedLabel of skipped) {
+                  core.warning(`Skipped label "${skippedLabel}" for ${title}.`);
                 }
-                const unique = Array.from(new Set(desired));
+                const uniqueDesired = Array.from(
+                  new Set(labelDetails.map((detail) => detail.name).filter((name) => typeof name === 'string' && name)),
+                );
                 const body = buildBody(topic);
                 const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
                 let issueNumber = null;
@@ -550,7 +598,7 @@ jobs:
                   const current = (issueData.data.labels || [])
                     .map((l) => l.name)
                     .filter(Boolean);
-                  const final = Array.from(new Set([...current, ...unique]));
+                  let final = Array.from(new Set([...current, ...uniqueDesired]));
                   const needsStateChange = issueData.data.state === 'closed';
                   const existingTitle = (issueData.data.title || '').trim();
                   const needsTitle = existingTitle !== title;
@@ -590,6 +638,30 @@ jobs:
                     skippedCount += 1;
                     continue;
                   }
+                  let ensuredLabels = uniqueDesired;
+                  if (pendingCreates.size && (needsLabels || !labelsEqual(current, uniqueDesired))) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    ensuredLabels = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) return true;
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                    final = Array.from(new Set([...current, ...ensuredLabels]));
+                  }
+                  const finalNeedsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || finalNeedsLabels)) {
+                    core.info(
+                      `No changes detected for issue #${issueNumber} after label reconciliation; skipping update.`,
+                    );
+                    skippedCount += 1;
+                    continue;
+                  }
                   const bodyForUpdate = needsBody ? body : issueData.data.body;
                   const payload = {
                     owner,
@@ -620,12 +692,29 @@ jobs:
                     }
                   }
                 } else {
+                  let labelsForCreation = uniqueDesired;
+                  if (pendingCreates.size) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    labelsForCreation = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) {
+                              return true;
+                            }
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                  }
                   const created = await github.rest.issues.create({
                     owner,
                     repo,
                     title,
                     body,
-                    labels: unique,
+                    labels: labelsForCreation,
                   });
                   core.info(`Created issue #${created.data.number} for ${title}.`);
                   createdCount += 1;
