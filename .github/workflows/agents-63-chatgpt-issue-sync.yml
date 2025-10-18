@@ -189,6 +189,7 @@ jobs:
               topics_with_agent_labels: 0,
               topics_after_dedup: 0,
               topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
               assigned_elsewhere: 0,
             };
             const metrics = {
@@ -196,6 +197,7 @@ jobs:
               topics_with_agent_labels: 0,
               topics_after_dedup: 0,
               topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
             };
             const setOutputs = (overrides = {}) => {
               const values = { ...defaultOutputs, ...metrics, ...overrides };
@@ -224,6 +226,7 @@ jobs:
                 `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
                 `Deduplicated topics: ${metrics.topics_after_dedup}`,
                 `Topics processed: ${metrics.topics_processed}`,
+                `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
                 `Created issues: ${createdCount}`,
                 `Updated issues: ${updatedCount}`,
                 `Reopened issues: ${reopenedCount}`,
@@ -259,20 +262,42 @@ jobs:
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
             const requiredLabels = new Set(['agents', 'agent:codex']);
+            const isAgentLabel = (label) => {
+              if (typeof label !== 'string') return false;
+              return label.trim().toLowerCase().startsWith('agent:');
+            };
+            const isCodexAgentLabel = (label) => {
+              if (typeof label !== 'string') return false;
+              return label.trim().toLowerCase() === 'agent:codex';
+            };
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
               const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
               if (!hasRequired) {
                 const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
                 core.info(`Skipping topic without agent label${preview}.`);
+                return false;
               }
-              return hasRequired;
+              const otherAgentLabels = labels.filter((label) => isAgentLabel(label) && !isCodexAgentLabel(label));
+              if (otherAgentLabels.length) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(
+                  `Skipping topic targeted at other agents${preview}. Labels: ${otherAgentLabels.join(', ')}`,
+                );
+                metrics.topics_skipped_for_other_agents += 1;
+                return false;
+              }
+              return true;
             });
             metrics.topics_with_agent_labels = topics.length;
             if (!topics.length) {
               setZeroOutputs();
+              const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
+              const notice = otherAgentSkipCount
+                ? `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`
+                : 'No topics matched agent labels. Exiting without changes.';
               await publishSummary({
-                notice: 'No topics matched agent labels. Exiting without changes.',
+                notice,
               });
               return;
             }
