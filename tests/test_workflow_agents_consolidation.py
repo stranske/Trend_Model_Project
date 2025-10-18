@@ -40,6 +40,16 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
+def test_orchestrator_bootstrap_label_delegates_fallback():
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label empty; defaulting to agent:codex." not in text
+    ), "Orchestrator should delegate fallback handling to the reusable workflow"
+    assert (
+        "core.notice(bootstrapLabelFallbackNotice);" not in text
+    ), "Orchestrator must avoid emitting fallback notices directly"
+
+
 def test_reusable_agents_workflow_structure():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     assert reusable.exists(), "reusable-16-agents.yml must exist"
@@ -104,6 +114,125 @@ def test_keepalive_job_present():
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
 
 
+def test_keepalive_job_defined_once():
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive_jobs = [
+        (name, job.get("name"))
+        for name, job in jobs.items()
+        if isinstance(job, dict)
+        and isinstance(job.get("name"), str)
+        and "Codex Keepalive" in job.get("name")
+    ]
+    assert keepalive_jobs == [
+        ("keepalive", "Codex Keepalive Sweep")
+    ], "Reusable workflow must expose a single Codex keepalive job"
+
+
+def test_bootstrap_requires_single_label():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label not provided; defaulting to agent:codex." in text
+    ), "Bootstrap step must record when it falls back to the default label"
+    assert (
+        "bootstrap_issues_label input must define exactly one label" in text
+    ), "Bootstrap step must prevent sweeping multiple labels"
+
+
+def test_bootstrap_label_fallback_emits_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "core.notice(fallbackMessage);" in text
+    ), "Bootstrap step should surface fallback usage as a notice for operators"
+
+
+def test_bootstrap_filters_by_requested_label():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "labels: label" in text
+    ), "Bootstrap GitHub API call must request only the configured label"
+    assert (
+        "missing required label ${label}" in text
+    ), "Bootstrap script must skip issues that do not carry the requested label"
+
+
+def test_bootstrap_uses_paginated_issue_scan():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "github.paginate.iterator" in text
+    ), "Bootstrap must paginate issue scanning to avoid truncation"
+    assert (
+        "Evaluated issues:" in text
+    ), "Bootstrap summary should report how many issues were inspected"
+
+
+def test_bootstrap_summary_includes_scope_and_counts():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Bootstrap label: **" in text
+    ), "Bootstrap run summary should surface the resolved label scope"
+    assert "Skipped issues" in text, "Bootstrap summary must document skipped issues"
+    assert (
+        "Accepted issues:" in text
+    ), "Bootstrap summary must include accepted issue counts"
+    assert (
+        "Skipped issues:" in text
+    ), "Bootstrap summary must include skipped issue counts"
+    assert (
+        "https://github.com/" in text
+    ), "Bootstrap summary should link directly to accepted issues"
+    assert (
+        "summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))))"
+        in text
+    ), "Bootstrap summary must clamp accepted issue output to avoid excessive entries"
+
+
+def test_bootstrap_summary_mentions_truncation_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Scan truncated after ${scanLimit} issues." in text
+    ), "Bootstrap summary must document when the issue scan hits the truncation guard"
+
+
+def test_bootstrap_dedupes_duplicate_labels():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const dedupeLabels = (values) =>" in text
+    ), "Bootstrap script should define a helper to dedupe requested labels"
+    assert (
+        "Duplicate bootstrap labels removed; proceeding with:" in text
+    ), "Bootstrap summary must surface when duplicate labels are trimmed"
+
+
+def test_bootstrap_label_filter_is_case_insensitive():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const labelLower = labels[0].lower;" in text
+    ), "Bootstrap step must normalise the requested label for comparisons"
+    assert (
+        "labelNames.includes(labelLower)" in text
+    ), "Bootstrap step should compare label membership using the normalised value"
+
+
+def test_bootstrap_guard_clears_outputs_on_failure():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const clearOutputs = () =>" in text
+    ), "Bootstrap guard should define an output clearing helper"
+    assert (
+        "core.setOutput('issue_numbers', '')" in text
+    ), "Bootstrap guard must clear issue_numbers when aborting"
+    assert (
+        "core.setOutput('issue_numbers_json', '[]')" in text
+    ), "Bootstrap guard must clear issue_numbers_json when aborting"
+    assert (
+        "core.setOutput('first_issue', '')" in text
+    ), "Bootstrap guard must clear first_issue when aborting"
+    assert (
+        "clearOutputs();" in text
+    ), "Bootstrap guard should invoke the output clearing helper before exiting early"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
@@ -126,6 +255,33 @@ def test_agents_orchestrator_has_concurrency_defaults():
     assert (
         "Job timeouts live inside reusable-16-agents.yml" in text
     ), "Orchestrator workflow should document where the timeout is enforced"
+
+
+def test_agents_orchestrator_schedule_preserved():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
+
+    on_section = _workflow_on_section(data)
+    schedule = on_section.get("schedule") or []
+    assert schedule, "Orchestrator schedule must remain defined"
+
+    cron_entries = [
+        entry.get("cron")
+        for entry in schedule
+        if isinstance(entry, dict) and "cron" in entry
+    ]
+    assert cron_entries == [
+        "*/20 * * * *"
+    ], "Orchestrator schedule must stay on the 20-minute cadence"
+
+
+def test_bootstrap_step_defaults_label_when_missing():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const fallbackLabel = 'agent:codex'" in text
+    ), "Bootstrap logic must define agent:codex as the fallback label"
+    assert (
+        "bootstrap_issues_label not provided; defaulting to" in text
+    ), "Bootstrap step must record when it falls back to the default label"
 
 
 def test_agents_consumer_workflow_removed():
@@ -152,7 +308,9 @@ def test_codex_issue_bridge_triggers_on_agent_label():
     assert {"opened", "labeled", "reopened"}.issubset(
         types
     ), "Issue bridge must react to issue label lifecycle events"
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(encoding="utf-8")
+    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+        encoding="utf-8"
+    )
     assert (
         "agent:codex" in text
     ), "Issue bridge must guard on the agent:codex label to trigger hand-off"
@@ -185,6 +343,56 @@ def test_reusable_watchdog_job_gated_by_flag():
         isinstance(step, dict) and step.get("uses") == "actions/checkout@v4"
         for step in steps
     ), "Watchdog job must continue performing basic repo checks"
+
+
+def test_keepalive_summary_reports_scope_and_activity():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert "Target labels:" in text, "Keepalive summary should list the label scope"
+    assert (
+        "Agent logins:" in text
+    ), "Keepalive summary should surface the Codex logins under consideration"
+    assert (
+        "No unattended Codex tasks detected." in text or "keepalive posted" in text
+    ), "Keepalive summary must describe whether any PRs required intervention"
+    assert (
+        "Triggered keepalive comments" in text
+    ), "Keepalive summary should wrap triggered comment list in a collapsible section"
+    assert (
+        "Triggered keepalive count:" in text
+    ), "Keepalive summary should record how many follow-up comments were sent"
+    assert (
+        "Evaluated pull requests:" in text
+    ), "Keepalive summary should report how many PRs were inspected"
+
+
+def test_keepalive_summary_includes_skip_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Skip requested via options_json." in text
+    ), "Keepalive summary must log when the job exits early due to options overrides"
+
+
+def test_keepalive_dedupes_scope_configuration():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const dedupe =" in text
+    ), "Keepalive script should define a dedupe helper for repeated inputs"
+    assert (
+        "targetLabels = dedupe(targetLabels)" in text
+    ), "Keepalive must dedupe resolved label scope before reporting it"
+    assert (
+        "agentLogins = dedupe(agentLogins)" in text
+    ), "Keepalive must dedupe resolved agent login list"
+
+
+def test_keepalive_job_runs_after_failures():
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive = jobs.get("keepalive")
+    assert keepalive, "Reusable workflow must define keepalive job"
+    assert (
+        keepalive.get("if") == "${{ always() && inputs.enable_keepalive == 'true' }}"
+    ), "Keepalive job must run even if earlier jobs fail while respecting enable_keepalive flag"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
