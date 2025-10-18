@@ -164,9 +164,11 @@ jobs:
                           f"- Cleanup disabled: {bool(enforcement.get('no_clean'))}\n"
                       )
                   if current is not None:
-                      summary.write(f"- Current contexts: {render_contexts(current)}\n")
+                      summary.write(
+                          f"- Before contexts: {render_contexts(current)}\n"
+                      )
                   if desired is not None:
-                      label = "After" if enforcement.get("after") else "Desired"
+                      label = "After" if enforcement.get("after") else "Target"
                       summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
                   summary.write(f"- Changes applied: {enforcement.get('changes_applied', False)}\n\n")
 
@@ -179,9 +181,11 @@ jobs:
                           f"- Cleanup disabled: {bool(verification.get('no_clean'))}\n"
                       )
                   if current is not None:
-                      summary.write(f"- Current contexts: {render_contexts(current)}\n")
+                      summary.write(
+                          f"- Before contexts: {render_contexts(current)}\n"
+                      )
                   if desired is not None:
-                      label = "After" if verification.get("after") else "Desired"
+                      label = "After" if verification.get("after") else "Target"
                       summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
                   if "changes_required" in verification:
                       summary.write(f"- Changes required: {verification.get('changes_required')}\n")
