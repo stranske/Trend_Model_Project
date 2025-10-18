@@ -498,6 +498,13 @@ jobs:
             for (const line of summaryLines) {
               core.summary.addRaw(`- ${line}\n`);
             }
+            core.setOutput('created_issues', String(createdCount));
+            core.setOutput('updated_issues', String(updatedCount));
+            core.setOutput('reopened_issues', String(reopenedCount));
+            core.setOutput('skipped_issues', String(skippedCount));
+            core.setOutput('duplicate_topics', String(duplicateCount));
+            const mutationTotal = createdCount + updatedCount + reopenedCount;
+            core.setOutput('mutations_performed', String(mutationTotal));
             if (!createdCount && !updatedCount && !reopenedCount) {
               core.notice('No issues required modifications; run completed without mutations.');
             }
