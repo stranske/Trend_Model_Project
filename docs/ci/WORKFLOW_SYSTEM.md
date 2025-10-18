@@ -503,7 +503,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > required status is expected—Maint 46 Post CI never appears in that list
 > because it runs only after merge. Maintainers reviewing follow-up CI should
 > scroll to the Maint 46 Post CI timeline comment after merge—it links back to
-> the successful Gate run and aggregates the reusable CI matrix. The pull-
+> the successful Gate run, aggregates the reusable CI matrix, and is titled
+> **“Maint 46 Post CI summary”** for quick scanning. The pull-
 > request template links here so authors confirm the required check before
 > requesting review.
 
