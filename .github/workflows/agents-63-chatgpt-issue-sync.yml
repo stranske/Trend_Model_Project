@@ -249,6 +249,7 @@ jobs:
             }
             const { owner, repo } = context.repo;
             const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const escapeSearch = (value) => value.replace(/["\\]/g, (char) => `\\${char}`);
             const canonicalizeNewLabel = (name) => {
               let cleaned = name.trim().toLowerCase();
               cleaned = cleaned.replace(/[_\u2013\u2014]/g, ' ');
@@ -436,15 +437,16 @@ jobs:
                 const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
                 let issueNumber = null;
                 if (guid) {
+                  const escapedGuid = escapeSearch(guid);
                   const searchOpen = await github.rest.search.issuesAndPullRequests({
-                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
+                    q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue is:open`,
                     per_page: 1,
                   });
                   if (searchOpen.data.items.length) {
                     issueNumber = searchOpen.data.items[0].number;
                   } else {
                     const searchAny = await github.rest.search.issuesAndPullRequests({
-                      q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                      q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue`,
                       per_page: 1,
                     });
                     if (searchAny.data.items.length) {
@@ -453,7 +455,6 @@ jobs:
                   }
                 }
                 if (!issueNumber && title && title.trim()) {
-                  const escapeSearch = (value) => value.replace(/["\\]/g, (char) => `\\${char}`);
                   const quotedTitle = escapeSearch(title.trim());
                   const searchTitleOpen = await github.rest.search.issuesAndPullRequests({
                     q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue is:open`,
