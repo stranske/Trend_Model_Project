@@ -522,9 +522,21 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > because it runs only after merge. Maintainers reviewing follow-up CI should
 > scroll to the Maint 46 Post CI timeline comment after merge—it links back to
 > the successful Gate run, aggregates the reusable CI matrix, and is titled
-> **“Maint 46 Post CI summary”** for quick scanning. The pull-
-> request template links here so authors confirm the required check before
-> requesting review.
+> **“Maint 46 Post CI summary”** for quick scanning. The pull-request template
+> links here so authors confirm the required check before requesting review. If
+> the PR UI shows a grey “Required checks” pill with no entries, refresh to
+> ensure Gate reports in; a missing Gate badge signals the branch-protection
+> incident called out below.
+
+#### UI reference: verifying new pull requests
+
+1. Open the pull request and expand the **Checks** tab.
+2. Confirm the **Required** subsection lists **Gate / gate** with either the
+   ✅ (passing) or ⏳ (pending) indicator. If the PR touches `agents-*.yml`, also
+   look for **Health 45 Agents Guard** automatically appended to the same list.
+3. Return to the **Conversation** tab after merge to locate the
+   **Maint 46 Post CI summary** timeline comment. It includes links back to the
+   Gate run so reviewers can audit the enforcement trail without leaving the PR.
 
 > 🚨 **Missing Gate? Treat it as a branch-protection incident.** If a freshly
 > opened or rebased pull request fails to list **Gate / gate** under
@@ -577,12 +589,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
      guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches)
      if any UI labels change.
    - Enable **Require status checks to pass before merging**, then select
-     **Gate / gate**. Keep **Health 45 Agents Guard / Enforce agents workflow
-     protections** checked so agent-surface edits stay gated. Leave Maint 46 Post
-     CI unchecked—it posts post-merge guidance and must stay informational. If
-     you see Maint 46 Post CI in the selected list, clear it before saving so the
-     branch rule continues to block solely on Gate (and Agents Guard when
-     applicable).
+     **Gate / gate**. Use the filter box to type `gate` so the correct context is
+     highlighted, then click the entry until a check mark appears. Keep
+     **Health 45 Agents Guard / Enforce agents workflow protections** checked so
+     agent-surface edits stay gated. Leave Maint 46 Post CI unchecked—it posts
+     post-merge guidance and must stay informational. If you see Maint 46 Post CI
+     in the selected list, clear it before saving so the branch rule continues to
+     block solely on Gate (and Agents Guard when applicable).
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
 4. **Run the enforcement script locally when needed.**
