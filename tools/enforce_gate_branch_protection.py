@@ -157,7 +157,10 @@ def update_status_checks(
     strict: bool,
     api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
-    payload: dict[str, Any] = {"contexts": sorted(contexts), "strict": strict}
+    payload: dict[str, Any] = {
+        "contexts": normalise_contexts(contexts),
+        "strict": strict,
+    }
     response = session.patch(
         _status_checks_url(repo, branch, api_root=api_root),
         json=payload,
@@ -182,7 +185,7 @@ def bootstrap_branch_protection(
     payload: dict[str, Any] = {
         "required_status_checks": {
             "strict": strict,
-            "contexts": sorted(set(contexts)),
+            "contexts": normalise_contexts(contexts),
         },
         "enforce_admins": True,
         "required_pull_request_reviews": None,

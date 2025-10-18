@@ -101,19 +101,28 @@ def test_fetch_status_checks_returns_state() -> None:
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
-    response = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
+    response = DummyResponse(
+        200,
+        {"strict": True, "contexts": ["Gate / gate", "Legacy"]},
+    )
     session = DummySession(response)
 
     state = update_status_checks(
         session,
         "owner/repo",
         "main",
-        contexts=["Gate / gate"],
+        contexts=["Legacy", "Gate / gate", "Gate / gate"],
         strict=True,
     )
 
-    assert session.last_payload == {"contexts": ["Gate / gate"], "strict": True}
-    assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+    assert session.last_payload == {
+        "contexts": ["Legacy", "Gate / gate"],
+        "strict": True,
+    }
+    assert state == StatusCheckState(
+        strict=True,
+        contexts=["Gate / gate", "Legacy"],
+    )
 
 
 def test_update_status_checks_raises_on_failure() -> None:
