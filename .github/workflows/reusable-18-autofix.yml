@@ -773,12 +773,15 @@ jobs:
           if [ -f autofix_report_enriched.json ]; then
             python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};data.update(meta);json.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || echo '{"error":"merge_failed"}' > autofix_report.json
           else
-            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-              "${{ steps.fix_results.outputs.changed }}" \
-              "${{ steps.fix_results.outputs.remaining_issues }}" \
-              "${{ steps.fix_results.outputs.new_issues }}" \
-              "${{ inputs.pr_number }}" \
-              "$ts" > autofix_report.json
+            cat <<EOF > autofix_report.json
+            {
+              "changed": "${{ steps.fix_results.outputs.changed }}",
+              "remaining_issues": "${{ steps.fix_results.outputs.remaining_issues }}",
+              "new_issues": "${{ steps.fix_results.outputs.new_issues }}",
+              "pull_request": "${{ inputs.pr_number }}",
+              "timestamp_utc": "$ts"
+            }
+            EOF
           fi
           echo "Enriched report ready.";
         env:
@@ -810,15 +813,19 @@ jobs:
             echo "Same repo: ${SAME_REPO:-false}"
             echo "Remaining ruff issues: ${REMAINING:-0}"
             echo "New (non-allowlisted) ruff issues: ${NEW_ISSUES:-0}"
-            if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
-              echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}"
-            fi
-            if [ "${MODE:-standard}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
+            echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${MODE:-standard}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
+            {
               echo ""
               echo "Tests-only files updated:"
               while IFS= read -r clean_file; do
                 [ -z "$clean_file" ] && continue
                 printf -- "- \`%s\`\n" "$clean_file"
               done <<< "${FILE_LIST}"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
