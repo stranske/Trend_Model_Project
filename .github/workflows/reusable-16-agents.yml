@@ -368,16 +368,181 @@ jobs:
           LABEL: ${{ inputs.bootstrap_issues_label }}
         with:
           script: |
-            const label = process.env.LABEL;
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: label,
-              per_page: 30
-            });
-            const ready = issues.filter(i => !i.pull_request && !i.title.toLowerCase().includes('wip'));
-            const numbers = ready.map(r => r.number);
+            const summary = core.summary;
+            summary.addHeading('Codex Bootstrap', 2);
+
+            const clearOutputs = () => {
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+            };
+
+            const fallbackLabel = 'agent:codex';
+            const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
+            const raw = process.env.LABEL || '';
+            const trimmed = raw
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            const dedupeLabels = (values) => {
+              const seen = new Set();
+              const unique = [];
+              for (const value of values) {
+                const lower = value.toLowerCase();
+                if (seen.has(lower)) {
+                  continue;
+                }
+                seen.add(lower);
+                unique.push({ raw: value, lower });
+              }
+              return unique;
+            };
+
+            const unique = dedupeLabels(trimmed);
+            const dedupeReduced = unique.length === 1 && trimmed.length > 1;
+
+            let labels = unique;
+            let fallbackUsed = false;
+            if (!labels.length) {
+              labels = [{ raw: fallbackLabel, lower: fallbackLabel.toLowerCase() }];
+              fallbackUsed = true;
+            }
+
+            if (labels.length > 1) {
+              const message =
+                'bootstrap_issues_label input must define exactly one label to avoid sweeping unintended issues.';
+              core.setFailed(message);
+              summary.addRaw(message).addEOL();
+              clearOutputs();
+              await summary.write();
+              return;
+            }
+
+            const label = labels[0].raw;
+            const labelLower = labels[0].lower;
+
+            if (fallbackUsed) {
+              summary.addRaw(fallbackMessage).addEOL();
+              core.notice(fallbackMessage);
+            }
+
+            if (!fallbackUsed && dedupeReduced) {
+              const dedupeNotice = `Duplicate bootstrap labels removed; proceeding with: ${label}`;
+              summary.addRaw(dedupeNotice).addEOL();
+              core.notice(dedupeNotice);
+            }
+
+            summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
+
+            const summariseList = (items, limit = 20) => {
+              if (items.length <= limit) {
+                return items;
+              }
+              const hidden = items.length - limit;
+              return [
+                ...items.slice(0, limit),
+                `${hidden} more entries not shown to avoid excessive summary noise.`
+              ];
+            };
+
+            const skipped = [];
+            const accepted = [];
+            const logSkip = (issue, reason) => {
+              const message = `#${issue.number}: skipped – ${reason}`;
+              core.info(message);
+              skipped.push(message);
+            };
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const scanLimit = 100;
+            let scanned = 0;
+            let truncated = false;
+
+            const iterator = github.paginate.iterator(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: 'open',
+                labels: label,
+                per_page: 50
+              }
+            );
+
+            outer: for await (const page of iterator) {
+              for (const issue of page.data) {
+                if (scanned >= scanLimit) {
+                  truncated = true;
+                  core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+                  break outer;
+                }
+
+                scanned += 1;
+
+                if (issue.pull_request) {
+                  logSkip(issue, 'pull request detected');
+                  continue;
+                }
+
+                const labelNames = (issue.labels || [])
+                  .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
+                  .filter(Boolean);
+                if (!labelNames.includes(labelLower)) {
+                  logSkip(issue, `missing required label ${label}`);
+                  continue;
+                }
+
+                if ((issue.title || '').toLowerCase().includes('wip')) {
+                  logSkip(issue, 'title flagged as work-in-progress');
+                  continue;
+                }
+
+                accepted.push(issue);
+              }
+            }
+
+            if (accepted.length) {
+              const formatIssue = (issue) => {
+                const title = (issue.title || 'untitled').trim();
+                const number = issue.number;
+                return (
+                  '[#' +
+                  number +
+                  '](https://github.com/' +
+                  owner +
+                  '/' +
+                  repo +
+                  '/issues/' +
+                  number +
+                  ') – ' +
+                  title
+                );
+              };
+
+              summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))));
+            } else {
+              summary.addRaw('No eligible issues found.').addEOL();
+            }
+
+            summary.addDetails(
+              'Skipped issues',
+              skipped.length ? summariseList(skipped) : ['None']
+            );
+            const summaryItems = [
+              `Accepted issues: ${accepted.length}`,
+              `Skipped issues: ${skipped.length}`,
+              `Evaluated issues: ${scanned}`
+            ];
+            if (truncated) {
+              summaryItems.push(`Scan truncated after ${scanLimit} issues.`);
+            }
+            summary.addList(summaryItems);
+            await summary.write();
+
+            const numbers = accepted.map((issue) => issue.number);
             core.setOutput('issue_numbers', numbers.join(','));
             core.setOutput('issue_numbers_json', JSON.stringify(numbers));
             core.setOutput('first_issue', numbers.length ? String(numbers[0]) : '');
@@ -388,220 +553,6 @@ jobs:
           issue: ${{ fromJson(steps.ready.outputs.issue_numbers_json)[0] }}
           service_bot_pat: ${{ secrets.service_bot_pat || '' }}
           draft: ${{ inputs.draft_pr }}
-
-  keepalive-sweep:
-    name: Codex Keepalive Sweep
-    runs-on: ubuntu-latest
-    if: ${{ always() && inputs.enable_keepalive == 'true' }}
-    timeout-minutes: 25
-    steps:
-      - name: Sweep stalled checklists
-        id: sweep
-        uses: actions/github-script@v7
-        env:
-          OPTIONS_JSON: ${{ inputs.options_json }}
-        with:
-          script: |
-            const DEFAULT_KEEPALIVE = {
-              enabled: true,
-              dry_run: false,
-              idle_minutes: 10,
-              cooldown_minutes: 30,
-              command: '@codex plan-and-execute',
-              comment_suffix: '_(automated keepalive sweep)_',
-              labels: ['agent:codex'],
-              exclude_labels: ['status:complete', 'status:done'],
-              assignees: ['chatgpt-codex-connector'],
-              include_prs: false,
-              max_candidates: 25
-            };
-
-            const parseJson = (raw) => {
-              if (!raw || !raw.trim()) {
-                return {};
-              }
-              try {
-                return JSON.parse(raw);
-              } catch (error) {
-                core.warning(`Invalid options_json provided (${error.message}). Falling back to defaults.`);
-                return {};
-              }
-            };
-
-            const normalizeList = (value) => {
-              if (Array.isArray(value)) {
-                return value.filter(Boolean).map((entry) => String(entry).trim()).filter(Boolean);
-              }
-              if (typeof value === 'string' && value.trim()) {
-                return value.split(',').map((entry) => entry.trim()).filter(Boolean);
-              }
-              return [];
-            };
-
-            const rawOptions = process.env.OPTIONS_JSON || '{}';
-            const userOptions = parseJson(rawOptions);
-            const keepalive = {
-              ...DEFAULT_KEEPALIVE,
-              ...(userOptions.keepalive || {})
-            };
-
-            keepalive.labels = normalizeList(keepalive.labels);
-            keepalive.exclude_labels = normalizeList(keepalive.exclude_labels);
-            keepalive.assignees = normalizeList(keepalive.assignees);
-
-            const toNumber = (value, fallback) => {
-              const n = Number(value);
-              return Number.isFinite(n) && n > 0 ? n : fallback;
-            };
-
-            keepalive.idle_minutes = toNumber(keepalive.idle_minutes, DEFAULT_KEEPALIVE.idle_minutes);
-            keepalive.cooldown_minutes = toNumber(keepalive.cooldown_minutes, DEFAULT_KEEPALIVE.cooldown_minutes);
-            keepalive.max_candidates = Math.max(1, Math.floor(toNumber(keepalive.max_candidates, DEFAULT_KEEPALIVE.max_candidates)));
-
-            const summary = core.summary;
-            summary.addHeading('Codex Keepalive Sweep', 2);
-
-            if (!keepalive.enabled) {
-              core.notice('Codex keepalive sweep disabled via configuration.');
-              summary.addRaw('Disabled via configuration.').addEOL();
-              await summary.write();
-              core.setOutput('triggered', '[]');
-              core.setOutput('dry_run', String(keepalive.dry_run));
-              return;
-            }
-
-            const now = Date.now();
-            const idleMs = keepalive.idle_minutes * 60 * 1000;
-            const cooldownMs = keepalive.cooldown_minutes * 60 * 1000;
-            const command = String(keepalive.command || DEFAULT_KEEPALIVE.command);
-            const commandRegex = new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-
-            const { owner, repo } = context.repo;
-            const issueParams = {
-              owner,
-              repo,
-              state: 'open',
-              per_page: 100
-            };
-
-            if (keepalive.labels.length) {
-              issueParams.labels = keepalive.labels.join(',');
-            }
-
-            const candidates = [];
-            // Use github.paginate.iterator to fetch issues page by page and break early
-            outer: for await (const { data: issues } of github.paginate.iterator(github.rest.issues.listForRepo, issueParams)) {
-              for (const issue of issues) {
-                if (candidates.length >= keepalive.max_candidates) {
-                  break outer;
-                }
-
-                if (!keepalive.include_prs && issue.pull_request) {
-                  continue;
-                }
-
-                const issueLabels = (issue.labels || []).map((label) => (typeof label === 'string' ? label : label.name || '').toLowerCase());
-                if (keepalive.exclude_labels.some((label) => issueLabels.includes(label.toLowerCase()))) {
-                  continue;
-                }
-
-                if (keepalive.assignees.length) {
-                  const assignees = (issue.assignees || []).map((as) => (as.login || '').toLowerCase());
-                  const hasAssignee = keepalive.assignees.some((target) => assignees.includes(target.toLowerCase()));
-                  if (!hasAssignee) {
-                    continue;
-                  }
-                }
-
-                const updatedAt = new Date(issue.updated_at).getTime();
-                if (Number.isFinite(updatedAt) && now - updatedAt < idleMs) {
-                  continue;
-                }
-
-                const comments = await github.paginate(github.rest.issues.listComments, {
-                  owner,
-                  repo,
-                  issue_number: issue.number,
-                  per_page: 100
-                });
-
-                let lastCommand = null;
-                for (const comment of comments) {
-                  if (commandRegex.test(comment.body || '')) {
-                    lastCommand = comment;
-                  }
-                }
-
-                if (lastCommand) {
-                  const lastCommandAt = new Date(lastCommand.created_at).getTime();
-                  if (Number.isFinite(lastCommandAt) && now - lastCommandAt < cooldownMs) {
-                    continue;
-                  }
-                }
-
-                candidates.push({
-                  issue,
-                  lastCommandAt: lastCommand ? lastCommand.created_at : null,
-                  idleMinutes: Math.floor((now - updatedAt) / 60000)
-                });
-              }
-            }
-
-            if (!candidates.length) {
-              summary.addRaw('No stalled checklists detected.').addEOL();
-              await summary.write();
-              core.setOutput('triggered', '[]');
-              core.setOutput('dry_run', String(keepalive.dry_run));
-              return;
-            }
-
-            const triggered = [];
-            for (const candidate of candidates) {
-              triggered.push({
-                number: candidate.issue.number,
-                title: candidate.issue.title,
-                idleMinutes: candidate.idleMinutes,
-                lastCommandAt: candidate.lastCommandAt
-              });
-              if (keepalive.dry_run) {
-                core.info(`[dry-run] Would reissue command for #${candidate.issue.number}`);
-                continue;
-              }
-              const bodyLines = [
-                command,
-                '',
-                `_(keepalive sweep triggered after ${candidate.idleMinutes} minutes idle)_`
-              ];
-              if (keepalive.comment_suffix) {
-                bodyLines.push('', keepalive.comment_suffix);
-              }
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: candidate.issue.number,
-                body: bodyLines.join('\n')
-              });
-              core.notice(`Reissued keepalive command for #${candidate.issue.number}`);
-            }
-
-            const tableRows = [
-              [{ data: 'Issue', header: true }, { data: 'Idle (min)', header: true }, { data: 'Last command', header: true }]
-            ];
-            for (const entry of triggered) {
-              tableRows.push([
-                `#${entry.number} ${entry.title}`,
-                String(entry.idleMinutes),
-                entry.lastCommandAt ? new Date(entry.lastCommandAt).toISOString() : 'never'
-              ]);
-            }
-
-            summary
-              .addRaw(`Processed ${triggered.length} stalled checklist${triggered.length === 1 ? '' : 's'}.`).addEOL()
-              .addTable(tableRows);
-
-            await summary.write();
-            core.setOutput('triggered', JSON.stringify(triggered));
-            core.setOutput('dry_run', String(keepalive.dry_run));
 
   watchdog:
     if: inputs.enable_watchdog == 'true'
@@ -667,8 +618,32 @@ jobs:
               return num;
             };
 
+            const dedupe = (values) => {
+              const seen = new Set();
+              const unique = [];
+              for (const value of values) {
+                if (!seen.has(value)) {
+                  seen.add(value);
+                  unique.push(value);
+                }
+              }
+              return unique;
+            };
+
             const rawOptions = process.env.OPTIONS_JSON || '{}';
             const options = parseJson(rawOptions, {});
+            const summary = core.summary;
+
+            const summariseList = (items, limit = 20) => {
+              if (items.length <= limit) {
+                return items;
+              }
+              const hidden = items.length - limit;
+              return [
+                ...items.slice(0, limit),
+                `${hidden} more entries not shown to avoid excessive summary noise.`
+              ];
+            };
 
             const keepaliveEnabled = coerceBool(
               options.enable_keepalive ?? options.keepalive_enabled,
@@ -676,9 +651,9 @@ jobs:
             );
             if (!keepaliveEnabled) {
               core.info('Codex keepalive disabled via options_json.');
-              core.summary.addHeading('Codex Keepalive');
-              core.summary.addRaw('Skip requested via options_json.');
-              core.summary.write();
+              summary.addHeading('Codex Keepalive');
+              summary.addRaw('Skip requested via options_json.');
+              await summary.write();
               return;
             }
 
@@ -686,13 +661,14 @@ jobs:
             const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
             const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agent:codex';
-            const targetLabels = String(labelSource)
+            let targetLabels = String(labelSource)
               .split(',')
               .map((value) => value.trim().toLowerCase())
               .filter(Boolean);
             if (!targetLabels.length) {
-              targetLabels.push('agent:codex');
+              targetLabels = ['agent:codex'];
             }
+            targetLabels = dedupe(targetLabels);
 
             const commandRaw = options.keepalive_command ?? '@codex plan-and-execute';
             const command = String(commandRaw).trim() || '@codex plan-and-execute';
@@ -702,18 +678,27 @@ jobs:
             const marker = String(markerRaw);
 
             const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
-            const agentLogins = String(agentSource)
+            let agentLogins = String(agentSource)
               .split(',')
               .map((value) => value.trim().toLowerCase())
               .filter(Boolean);
             if (!agentLogins.length) {
-              agentLogins.push('chatgpt-codex-connector');
+              agentLogins = ['chatgpt-codex-connector'];
             }
+            agentLogins = dedupe(agentLogins);
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const now = Date.now();
             const triggered = [];
+            let scanned = 0;
+            summary.addHeading('Codex Keepalive');
+            summary
+              .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
+              .addEOL();
+            summary
+              .addRaw(`Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}`)
+              .addEOL();
 
             const paginatePulls = github.paginate.iterator(
               github.rest.pulls.list,
@@ -722,6 +707,7 @@ jobs:
 
             for await (const page of paginatePulls) {
               for (const pr of page.data) {
+                scanned += 1;
                 const labelNames = (pr.labels || []).map((label) =>
                   (typeof label === 'string' ? label : label?.name || '').toLowerCase()
                 );
@@ -818,10 +804,11 @@ jobs:
               }
             }
 
-            core.summary.addHeading('Codex Keepalive');
             if (triggered.length) {
-              core.summary.addList(triggered);
+              summary.addDetails('Triggered keepalive comments', summariseList(triggered));
             } else {
-              core.summary.addRaw('No unattended Codex tasks detected.');
+              summary.addRaw('No unattended Codex tasks detected.');
             }
-            core.summary.write();
+            summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
+            summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
+            await summary.write();
