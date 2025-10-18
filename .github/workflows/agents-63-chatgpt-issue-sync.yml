@@ -594,6 +594,14 @@ jobs:
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
               }
             }
+            let summaryNotice;
+            if (!metrics.topics_processed && invalidTopicCount) {
+              const invalidSummary =
+                metrics.topics_after_dedup > 0
+                  ? `All ${metrics.topics_after_dedup} topics were skipped because they lacked valid titles.`
+                  : 'All topics were skipped because they lacked valid titles.';
+              summaryNotice = invalidSummary;
+            }
             const mutationCount = createdCount + updatedCount;
             setOutputs({
               created_issues: createdCount,
@@ -612,8 +620,11 @@ jobs:
               duplicateCount,
               invalidTopicCount,
               mutationCount,
+              notice: summaryNotice,
             });
             if (!createdCount && !updatedCount && !reopenedCount) {
-              core.notice('No issues required modifications; run completed without mutations.');
+              if (!summaryNotice) {
+                core.notice('No issues required modifications; run completed without mutations.');
+              }
             }
 
