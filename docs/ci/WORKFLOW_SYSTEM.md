@@ -504,6 +504,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 45 Agents Guard** / `agents-guard` | [`health-45-agents-guard.yml`](../../.github/workflows/health-45-agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
 | **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
 
+> 🛠️ **Quick start routine.** To confirm the configuration end-to-end, (1) open
+> **Settings → Branches** and verify **Gate / gate** is the selected required
+> status while **Maint 46 Post CI** stays unchecked, (2) raise or refresh a pull
+> request to see **Gate / gate** listed under **Required checks**, and (3) after
+> merging, locate the **Maint 46 Post CI summary** comment in the timeline to
+> confirm it posted as the informational roll-up.
+
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
 > **Required** heading for every PR into `phase-2-dev`. Seeing Gate as the sole
 > required status is expected—Maint 46 Post CI never appears in that list
