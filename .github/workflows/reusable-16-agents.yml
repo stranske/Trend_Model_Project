@@ -572,10 +572,14 @@ jobs:
             const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
             const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agent:codex';
-            const targetLabels = String(labelSource)
-              .split(',')
-              .map((value) => value.trim().toLowerCase())
-              .filter(Boolean);
+            const targetLabels = Array.from(
+              new Set(
+                String(labelSource)
+                  .split(',')
+                  .map((value) => value.trim().toLowerCase())
+                  .filter(Boolean)
+              )
+            );
             if (!targetLabels.length) {
               targetLabels.push('agent:codex');
             }
@@ -588,10 +592,14 @@ jobs:
             const marker = String(markerRaw);
 
             const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
-            const agentLogins = String(agentSource)
-              .split(',')
-              .map((value) => value.trim().toLowerCase())
-              .filter(Boolean);
+            const agentLogins = Array.from(
+              new Set(
+                String(agentSource)
+                  .split(',')
+                  .map((value) => value.trim().toLowerCase())
+                  .filter(Boolean)
+              )
+            );
             if (!agentLogins.length) {
               agentLogins.push('chatgpt-codex-connector');
             }

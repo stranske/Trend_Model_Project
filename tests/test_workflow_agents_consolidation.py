@@ -183,6 +183,10 @@ def test_keepalive_summary_reports_targets():
             "core.summary.addHeading('Codex Keepalive')",
         )
     ), "Keepalive job should continue writing a run summary"
+    assert "Array.from(\n              new Set(" in text, "Keepalive should deduplicate configured labels"
+    assert (
+        "Array.from(\n              new Set(\n                String(agentSource)" in text
+    ), "Keepalive should deduplicate configured agent logins"
     assert (
         "Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}" in text
     ), "Keepalive summary should expose the deduplicated label set"
