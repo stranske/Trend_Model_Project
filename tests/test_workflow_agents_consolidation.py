@@ -304,6 +304,19 @@ def test_keepalive_summary_reports_scope_and_activity():
     ), "Keepalive summary should report how many PRs were inspected"
 
 
+def test_keepalive_dedupes_scope_configuration():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const dedupe =" in text
+    ), "Keepalive script should define a dedupe helper for repeated inputs"
+    assert (
+        "targetLabels = dedupe(targetLabels)" in text
+    ), "Keepalive must dedupe resolved label scope before reporting it"
+    assert (
+        "agentLogins = dedupe(agentLogins)" in text
+    ), "Keepalive must dedupe resolved agent login list"
+
+
 def test_keepalive_job_runs_after_failures():
     data = _load_workflow_yaml("reusable-16-agents.yml")
     jobs = data.get("jobs", {})

@@ -594,6 +594,18 @@ jobs:
               return num;
             };
 
+            const dedupe = (values) => {
+              const seen = new Set();
+              const unique = [];
+              for (const value of values) {
+                if (!seen.has(value)) {
+                  seen.add(value);
+                  unique.push(value);
+                }
+              }
+              return unique;
+            };
+
             const rawOptions = process.env.OPTIONS_JSON || '{}';
             const options = parseJson(rawOptions, {});
             const summary = core.summary;
@@ -625,13 +637,14 @@ jobs:
             const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
             const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agent:codex';
-            const targetLabels = String(labelSource)
+            let targetLabels = String(labelSource)
               .split(',')
               .map((value) => value.trim().toLowerCase())
               .filter(Boolean);
             if (!targetLabels.length) {
-              targetLabels.push('agent:codex');
+              targetLabels = ['agent:codex'];
             }
+            targetLabels = dedupe(targetLabels);
 
             const commandRaw = options.keepalive_command ?? '@codex plan-and-execute';
             const command = String(commandRaw).trim() || '@codex plan-and-execute';
@@ -641,13 +654,14 @@ jobs:
             const marker = String(markerRaw);
 
             const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
-            const agentLogins = String(agentSource)
+            let agentLogins = String(agentSource)
               .split(',')
               .map((value) => value.trim().toLowerCase())
               .filter(Boolean);
             if (!agentLogins.length) {
-              agentLogins.push('chatgpt-codex-connector');
+              agentLogins = ['chatgpt-codex-connector'];
             }
+            agentLogins = dedupe(agentLogins);
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
