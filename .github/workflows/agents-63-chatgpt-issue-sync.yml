@@ -362,6 +362,15 @@ jobs:
               lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
               return lines.join('\n');
             };
+            const normalizeSyncFooter = (text) => {
+              if (!text) return '';
+              return text
+                .trim()
+                .replace(
+                  /Synced by \[workflow run\]\([^)]+\)\./gi,
+                  'Synced by [workflow run](RUN_URL_PLACEHOLDER).',
+                );
+            };
             const labelsEqual = (a, b) => {
               const clean = (list) =>
                 Array.from(new Set((list || []).map((l) => l.trim()).filter(Boolean))).sort((x, y) =>
@@ -417,14 +426,32 @@ jobs:
                   const final = Array.from(new Set([...current, ...unique]));
                   const needsStateChange = issueData.data.state === 'closed';
                   const needsTitle = issueData.data.title !== title;
-                  const needsBody = (issueData.data.body || '').trim() !== body.trim();
+                  const existingBody = (issueData.data.body || '').trim();
+                  const normalizedExistingBody = normalizeSyncFooter(existingBody);
+                  const normalizedDesiredBody = normalizeSyncFooter(body);
+                  const needsBody = normalizedExistingBody !== normalizedDesiredBody;
+                  if (!needsBody && existingBody !== body.trim()) {
+                    core.info(
+                      `Preserving existing sync footer for issue #${issueNumber} to avoid unnecessary run URL churn.`,
+                    );
+                  }
                   const needsLabels = !labelsEqual(current, final);
                   if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
                     core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
                     skippedCount += 1;
                     continue;
                   }
-                  const payload = { owner, repo, issue_number: issueNumber, title, body, labels: final };
+                  const bodyForUpdate = needsBody ? body : issueData.data.body;
+                  const payload = {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    title,
+                    labels: final,
+                  };
+                  if (bodyForUpdate !== undefined && bodyForUpdate !== null) {
+                    payload.body = bodyForUpdate;
+                  }
                   if (needsStateChange) payload.state = 'open';
                   await github.rest.issues.update(payload);
                   updatedCount += 1;
