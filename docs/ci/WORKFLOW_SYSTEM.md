@@ -508,6 +508,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > request template links here so authors confirm the required check before
 > requesting review.
 
+> 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows Gate as
+> the sole required status and that it is green (or actively running). After the
+> merge lands, locate the **Maint 46 Post CI summary** comment in the timeline to
+> confirm the informational roll-up posted and links back to the passing Gate
+> run—no branch-protection changes are needed for Maint 46 because it must stay
+> informational.
+
 - **Required before merge.** Gate / `gate` must finish green on every pull
   request into `phase-2-dev`. Branch protection enforces this context and every
   PR shows the check under **Required** in the Checks tab. When you touch
