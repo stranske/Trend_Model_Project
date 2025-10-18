@@ -22,12 +22,13 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: agent-sync-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sync:
     name: Normalize ChatGPT topics into GitHub issues
-    concurrency:
-      group: agent-sync-${{ github.ref }}
-      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
