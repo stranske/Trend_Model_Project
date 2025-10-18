@@ -838,9 +838,6 @@ jobs:
 
           mode_value="${MODE:-standard}"
           guard_value="${GUARD_SKIP:-false}"
-          changed_value="${CHANGED:-false}"
-          same_repo_value="${SAME_REPO:-false}"
-          file_list_value="${FILE_LIST:-}"
           remaining_value="${REMAINING:-0}"
           new_value="${NEW_ISSUES:-0}"
 
@@ -848,20 +845,20 @@ jobs:
             echo "### Reusable Autofix Summary"
             echo "Loop guard skip: ${guard_value}"
             echo "Mode: ${mode_value}"
-            echo "Applied changes: ${changed_value}"
-            echo "Same repo: ${same_repo_value}"
+            echo "Applied changes: ${CHANGED:-false}"
+            echo "Same repo: ${SAME_REPO:-false}"
             echo "Remaining ruff issues: ${remaining_value}"
             echo "New (non-allowlisted) ruff issues: ${new_value}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$changed_value" = "true" ] && [ "$same_repo_value" != "true" ]; then
+          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
             echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ "$mode_value" = "clean" ] && [ -n "$file_list_value" ]; then
+          if [ "$mode_value" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
             {
               echo ""
               echo "Tests-only files updated:"
             } >> "$GITHUB_STEP_SUMMARY"
-            printf '%s\n' "$file_list_value" | sed "s/.*/- `&`/" >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "${FILE_LIST:-}" | sed "s/.*/- `&`/" >> "$GITHUB_STEP_SUMMARY"
           fi
