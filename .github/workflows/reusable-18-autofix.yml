@@ -187,7 +187,7 @@ jobs:
           fi
           echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
           echo "new_issues=0" >> "$GITHUB_OUTPUT"
-          mapfile -t changed_paths < <(git diff --name-only)
+          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
           outside_tests=()
           tests_only=()
           for path in "${changed_paths[@]}"; do
