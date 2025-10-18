@@ -772,8 +772,21 @@ jobs:
           if [ -f autofix_report_enriched.json ]; then
             python -c "import json, os; from datetime import datetime, timezone; from pathlib import Path; meta={'pull_request': os.environ.get('PR_NUMBER'), 'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}; path = Path('autofix_report_enriched.json'); data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}; data.update(meta); Path('autofix_report.json').write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
           else
-            python -c "import json, os, sys;\nfiles=[line.strip() for line in os.environ.get('REPORT_FILE_LIST','').splitlines() if line.strip()];\ndata={'mode': os.environ.get('REPORT_MODE',''), 'changed': os.environ.get('REPORT_CHANGED',''), 'remaining_issues': os.environ.get('REPORT_REMAINING',''), 'new_issues': os.environ.get('REPORT_NEW',''), 'file_list': files};\njson.dump(data, sys.stdout, indent=2, sort_keys=True); sys.stdout.write('\\n')" \
-              > autofix_report.json || echo '{"error":"merge_failed"}' > autofix_report.json
+            python <<'PY' || echo '{"error":"merge_failed"}' > autofix_report.json
+            import json
+            import os
+            from pathlib import Path
+
+            files = [line.strip() for line in os.environ.get('REPORT_FILE_LIST', '').splitlines() if line.strip()]
+            payload = {
+                'mode': os.environ.get('REPORT_MODE', ''),
+                'changed': os.environ.get('REPORT_CHANGED', ''),
+                'remaining_issues': os.environ.get('REPORT_REMAINING', ''),
+                'new_issues': os.environ.get('REPORT_NEW', ''),
+                'file_list': files,
+            }
+            Path('autofix_report.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+            PY
           fi
           echo "Enriched report ready."
         env:
@@ -828,4 +841,4 @@ jobs:
                 printf -- "- \`%s\`\n" "$clean_file"
               done <<< "${FILE_LIST}"
             } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          fi  # clean-mode summary guard
