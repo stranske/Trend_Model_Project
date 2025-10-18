@@ -778,7 +778,23 @@ jobs:
             REPORT_NEW="${{ steps.fix_results.outputs.new_issues }}" \
             REPORT_PR="${{ inputs.pr_number }}" \
             REPORT_TIMESTAMP="$ts" \
-            python -c 'import json, os, pathlib; payload = {"changed": os.getenv("REPORT_CHANGED", ""), "remaining_issues": os.getenv("REPORT_REMAINING", ""), "new_issues": os.getenv("REPORT_NEW", ""), "pull_request": os.getenv("REPORT_PR", ""), "timestamp_utc": os.getenv("REPORT_TIMESTAMP", "")}; pathlib.Path("autofix_report.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")'
+            python <<EOF
+import json
+import os
+import pathlib
+
+payload = {
+    "changed": os.getenv("REPORT_CHANGED", ""),
+    "remaining_issues": os.getenv("REPORT_REMAINING", ""),
+    "new_issues": os.getenv("REPORT_NEW", ""),
+    "pull_request": os.getenv("REPORT_PR", ""),
+    "timestamp_utc": os.getenv("REPORT_TIMESTAMP", "")
+}
+pathlib.Path("autofix_report.json").write_text(
+    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8"
+)
+EOF
           fi
           echo "Enriched report ready.";
         env:
