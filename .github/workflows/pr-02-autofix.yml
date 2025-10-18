@@ -16,6 +16,7 @@ permissions:
 
 env:
   AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+  AUTOFIX_CLEAN_LABEL: ${{ vars.AUTOFIX_CLEAN_LABEL != '' && vars.AUTOFIX_CLEAN_LABEL || 'autofix:clean' }}
 
 concurrency:
   group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}
@@ -27,6 +28,7 @@ jobs:
     outputs:
       enabled: ${{ steps.evaluate.outputs.enabled }}
       label: ${{ steps.evaluate.outputs.label }}
+      clean_label: ${{ steps.evaluate.outputs.clean_label }}
     steps:
       - name: Evaluate label gate
         id: evaluate
@@ -34,6 +36,7 @@ jobs:
         with:
           script: |
             const label = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            const cleanLabel = process.env.AUTOFIX_CLEAN_LABEL || 'autofix:clean';
             const payload = context.payload || {};
             const pr = payload.pull_request;
             const labels = pr?.labels || [];
@@ -42,11 +45,13 @@ jobs:
             const enabled = Boolean(hasLabel || triggeredByLabel);
             core.setOutput('enabled', String(enabled));
             core.setOutput('label', label);
+            core.setOutput('clean_label', cleanLabel);
             if (!enabled) {
               core.info(`Autofix label "${label}" not present; skipping run.`);
             }
         env:
           AUTOFIX_OPT_IN_LABEL: ${{ env.AUTOFIX_OPT_IN_LABEL }}
+          AUTOFIX_CLEAN_LABEL: ${{ env.AUTOFIX_CLEAN_LABEL }}
 
   apply:
     needs: label_gate
@@ -67,3 +72,4 @@ jobs:
     secrets: inherit
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
+      clean_label: ${{ needs.label_gate.outputs.clean_label }}
