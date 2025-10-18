@@ -177,6 +177,10 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
+            if (!fs.existsSync('topics.json')) {
+              core.notice('topics.json not found – assuming parser short-circuited. Exiting without mutations.');
+              return;
+            }
             const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
             if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
               core.notice('No topics provided. Exiting without mutations.');
