@@ -382,14 +382,31 @@ jobs:
               usedColors.add('777777');
               return '777777';
             };
+            const labelResolutionCache = new Map();
+            const memoizeLabelResolution = (keys, value) => {
+              for (const key of keys) {
+                if (!key) continue;
+                labelResolutionCache.set(key.toLowerCase(), value);
+              }
+            };
             const ensureLabel = async (input) => {
               const trimmed = input.trim();
               if (!trimmed) return null;
+              const cacheKey = trimmed.toLowerCase();
+              if (labelResolutionCache.has(cacheKey)) {
+                return labelResolutionCache.get(cacheKey);
+              }
               const existing = findMatchingLabel(trimmed);
-              if (existing) return existing;
+              if (existing) {
+                memoizeLabelResolution([trimmed, existing], existing);
+                return existing;
+              }
               const newName = canonicalizeNewLabel(trimmed);
               const already = findMatchingLabel(newName);
-              if (already) return already;
+              if (already) {
+                memoizeLabelResolution([trimmed, newName, already], already);
+                return already;
+              }
               const color = generateColor(newName);
               try {
                 const created = await github.rest.issues.createLabel({
@@ -400,9 +417,11 @@ jobs:
                   description: `Synthesized from ChatGPT import for ${trimmed}`,
                 });
                 labelsCache.push(created.data);
+                memoizeLabelResolution([trimmed, newName, created.data.name], created.data.name);
                 return created.data.name;
               } catch (e) {
                 core.warning(`Failed to create label for "${trimmed}": ${e.message}`);
+                memoizeLabelResolution([trimmed, newName], null);
                 return null;
               }
             };
