@@ -275,6 +275,71 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
     assert "Update successful." in captured.out
 
 
+def test_main_snapshot_records_no_clean_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=True, contexts=["Legacy"]),
+    )
+
+    def fake_update(
+        _session: object,
+        repo: str,
+        branch: str,
+        *,
+        contexts: list[str],
+        strict: bool,
+        api_root: str = "",
+    ) -> StatusCheckState:
+        assert contexts == [
+            "Gate / gate",
+            "Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Legacy",
+        ]
+        return StatusCheckState(strict=True, contexts=contexts)
+
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.update_status_checks",
+        fake_update,
+    )
+
+    snapshot_file = tmp_path / "state.json"
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--apply",
+            "--no-clean",
+            "--snapshot",
+            str(snapshot_file),
+        ]
+    )
+
+    assert exit_code == 0
+    data = json.loads(snapshot_file.read_text())
+    assert data["mode"] == "apply"
+    assert data["no_clean"] is True
+    assert data["changes_applied"] is True
+    assert data["after"] == {
+        "strict": True,
+        "contexts": [
+            "Gate / gate",
+            "Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Legacy",
+        ],
+    }
+
+
 def test_main_reports_missing_rule_in_dry_run(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -499,6 +564,7 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["changes_applied"] is False
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
+    assert data["no_clean"] is False
     assert "after" not in data
 
 
@@ -556,6 +622,7 @@ def test_main_snapshot_updates_after_apply(
     assert data["changes_applied"] is True
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
+    assert data["no_clean"] is False
     assert data["after"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
 
 
