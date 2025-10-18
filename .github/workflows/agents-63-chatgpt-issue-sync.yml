@@ -736,6 +736,17 @@ jobs:
                   : 'All topics were skipped because they lacked valid titles.';
               summaryNotice = invalidSummary;
             }
+            if (
+              !summaryNotice &&
+              assignedElsewhereCount &&
+              metrics.topics_processed > 0 &&
+              assignedElsewhereCount === metrics.topics_processed &&
+              !createdCount &&
+              !updatedCount
+            ) {
+              const plural = assignedElsewhereCount === 1 ? 'topic was' : 'topics were';
+              summaryNotice = `All ${assignedElsewhereCount} processed ${plural} already assigned to other agents. No mutations performed.`;
+            }
             const mutationCount = createdCount + updatedCount;
             setOutputs({
               created_issues: createdCount,
