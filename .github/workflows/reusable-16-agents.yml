@@ -653,6 +653,7 @@ jobs:
             const repo = context.repo.repo;
             const now = Date.now();
             const triggered = [];
+            let scanned = 0;
             summary.addHeading('Codex Keepalive');
             summary
               .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
@@ -668,6 +669,7 @@ jobs:
 
             for await (const page of paginatePulls) {
               for (const pr of page.data) {
+                scanned += 1;
                 const labelNames = (pr.labels || []).map((label) =>
                   (typeof label === 'string' ? label : label?.name || '').toLowerCase()
                 );
@@ -770,4 +772,5 @@ jobs:
               summary.addRaw('No unattended Codex tasks detected.');
             }
             summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
+            summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
             await summary.write();

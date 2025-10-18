@@ -299,6 +299,9 @@ def test_keepalive_summary_reports_scope_and_activity():
     assert (
         "Triggered keepalive count:" in text
     ), "Keepalive summary should record how many follow-up comments were sent"
+    assert (
+        "Evaluated pull requests:" in text
+    ), "Keepalive summary should report how many PRs were inspected"
 
 
 def test_keepalive_job_runs_after_failures():
