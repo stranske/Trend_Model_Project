@@ -111,14 +111,25 @@ jobs:
         run: echo "probe_condition=true"
       - name: Evaluate reusable guard
         env:
-          AUTOFIX_BASE: ${{ github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]' && ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, needs.label_gate.outputs.label) ) }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          REQUIRED_LABEL: ${{ needs.label_gate.outputs.label }}
         run: |
           set -euo pipefail
-          base="${AUTOFIX_BASE:-false}"
-          title="${PR_TITLE:-}"
-          if [[ "$title" == chore(autofix):* ]]; then
-            echo "autofix_guard=false"
-          else
-            echo "autofix_guard=${base}"
+          has_required_label=$(python -c 'import json, os; labels = set(json.loads(os.environ.get("PR_LABELS_JSON") or "[]")); required = os.environ.get("REQUIRED_LABEL") or ""; print("true" if required and required in labels else "false")')
+
+          guard=true
+          if [ "${EVENT_NAME}" != "pull_request" ]; then
+            guard=false
+          elif [ "${ACTOR}" = "github-actions" ] || [ "${ACTOR}" = "github-actions[bot]" ]; then
+            guard=false
+          elif printf '%s' "${PR_TITLE}" | grep -q '^chore(autofix):'; then
+            guard=false
+          elif [ "${PR_IS_DRAFT}" = "true" ] && [ "${has_required_label}" != "true" ]; then
+            guard=false
           fi
+
+          echo "autofix_guard=${guard}"
