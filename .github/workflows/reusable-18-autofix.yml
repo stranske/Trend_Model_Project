@@ -813,10 +813,11 @@ jobs:
           echo "Enriched report ready."
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
+          REPORT_MODE: ${{ steps.fix_results.outputs.mode }}
           REPORT_CHANGED: ${{ steps.fix_results.outputs.changed }}
           REPORT_REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           REPORT_NEW: ${{ steps.fix_results.outputs.new_issues }}
-          REPORT_PR: ${{ inputs.pr_number }}
+          REPORT_FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
 
       - name: Upload JSON report
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
@@ -849,8 +850,10 @@ jobs:
             printf 'New (non-allowlisted) ruff issues: %s\n' "${NEW_ISSUES:-0}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
-            echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${CHANGED:-false}" = "true" ]; then
+            if [ "${SAME_REPO:-false}" != "true" ]; then
+              echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
           if [ "${mode_value}" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
