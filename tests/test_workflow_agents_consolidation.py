@@ -135,6 +135,13 @@ def test_bootstrap_requires_single_label():
     ), "Bootstrap step must prevent sweeping multiple labels"
 
 
+def test_bootstrap_label_fallback_emits_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "core.notice(fallbackMessage);" in text
+    ), "Bootstrap step should surface fallback usage as a notice for operators"
+
+
 def test_bootstrap_filters_by_requested_label():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
@@ -180,6 +187,16 @@ def test_bootstrap_summary_mentions_truncation_notice():
     assert (
         "Scan truncated after ${scanLimit} issues." in text
     ), "Bootstrap summary must document when the issue scan hits the truncation guard"
+
+
+def test_bootstrap_label_filter_is_case_insensitive():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "const labelLower = label.toLowerCase();" in text
+    ), "Bootstrap step must normalise the requested label for comparisons"
+    assert (
+        "labelNames.includes(labelLower)" in text
+    ), "Bootstrap step should compare label membership using the normalised value"
 
 
 def test_bootstrap_guard_clears_outputs_on_failure():
