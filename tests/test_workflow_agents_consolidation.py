@@ -175,6 +175,13 @@ def test_bootstrap_summary_includes_scope_and_counts():
     ), "Bootstrap summary must clamp accepted issue output to avoid excessive entries"
 
 
+def test_bootstrap_summary_mentions_truncation_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Scan truncated after ${scanLimit} issues." in text
+    ), "Bootstrap summary must document when the issue scan hits the truncation guard"
+
+
 def test_bootstrap_guard_clears_outputs_on_failure():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
@@ -324,6 +331,13 @@ def test_keepalive_summary_reports_scope_and_activity():
     assert (
         "Evaluated pull requests:" in text
     ), "Keepalive summary should report how many PRs were inspected"
+
+
+def test_keepalive_summary_includes_skip_notice():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "Skip requested via options_json." in text
+    ), "Keepalive summary must log when the job exits early due to options overrides"
 
 
 def test_keepalive_dedupes_scope_configuration():
