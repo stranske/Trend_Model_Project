@@ -26,9 +26,13 @@ jobs:
   sync:
     name: Normalize ChatGPT topics into GitHub issues
     runs-on: ubuntu-latest
+    concurrency:
+      # Queue overlapping runs on the same ref so a prior sync can finish cleanly.
+      group: agent-sync-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
-      issues: write
+      issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -174,13 +178,168 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
-            const topics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
-            if (!Array.isArray(topics) || topics.length === 0) {
-              core.setFailed('No topics to process.');
+            const defaultOutputs = {
+              created_issues: 0,
+              updated_issues: 0,
+              reopened_issues: 0,
+              skipped_issues: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              mutations_performed: 0,
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
+              assigned_elsewhere: 0,
+            };
+            const metrics = {
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              assigned_elsewhere: 0,
+              mutations_performed: 0,
+            };
+            const setOutputs = (overrides = {}) => {
+              const values = { ...defaultOutputs, ...metrics, ...overrides };
+              for (const [key, value] of Object.entries(values)) {
+                core.setOutput(key, String(value));
+              }
+            };
+            const setZeroOutputs = () => {
+              setOutputs();
+            };
+            const publishSummary = async ({
+              createdCount = 0,
+              updatedCount = 0,
+              reopenedCount = 0,
+              skippedCount = 0,
+              duplicateCount = 0,
+              invalidTopicCount = 0,
+              assignedElsewhereCount = 0,
+              mutationCount,
+              notice,
+            } = {}) => {
+              const mutationsPerformed =
+                typeof mutationCount === 'number' ? mutationCount : createdCount + updatedCount;
+              const summaryLines = [
+                `Topics provided: ${metrics.topics_total}`,
+                `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
+                `Deduplicated topics: ${metrics.topics_after_dedup}`,
+                `Topics processed: ${metrics.topics_processed}`,
+                `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
+                `Created issues: ${createdCount}`,
+                `Updated issues: ${updatedCount}`,
+                `Reopened issues: ${reopenedCount}`,
+                `Skipped (no changes): ${skippedCount}`,
+                `Skipped (assigned to other agents): ${assignedElsewhereCount}`,
+                `Duplicate topics skipped: ${duplicateCount}`,
+                `Invalid topics skipped: ${invalidTopicCount}`,
+                `Mutations performed: ${mutationsPerformed}`,
+              ];
+              const summaryText = summaryLines.join('\n');
+              if (notice) core.notice(notice);
+              core.notice(summaryText);
+              core.summary.clear();
+              core.summary.addHeading('Agents issue sync results');
+              for (const line of summaryLines) {
+                core.summary.addRaw(`- ${line}\n`);
+              }
+              await core.summary.write();
+            };
+            if (!fs.existsSync('topics.json')) {
+              setZeroOutputs();
+              await publishSummary({
+                notice: 'topics.json not found – assuming parser short-circuited. Exiting without mutations.',
+              });
+              return;
+            }
+            const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            metrics.topics_total = Array.isArray(rawTopics) ? rawTopics.length : 0;
+            if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
+              setZeroOutputs();
+              await publishSummary({ notice: 'No topics provided. Exiting without mutations.' });
+              return;
+            }
+            const normalizeLabel = (label) => label.trim().toLowerCase();
+            const requiredLabels = new Set(['agents', 'agent:codex']);
+            const isAgentLabel = (label) => {
+              if (typeof label !== 'string') return false;
+              return label.trim().toLowerCase().startsWith('agent:');
+            };
+            const isCodexAgentLabel = (label) => {
+              if (typeof label !== 'string') return false;
+              return label.trim().toLowerCase() === 'agent:codex';
+            };
+            let topicsWithAgentLabels = 0;
+            const topics = rawTopics.filter((topic) => {
+              const labels = Array.isArray(topic.labels) ? topic.labels : [];
+              const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
+              if (!hasRequired) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(`Skipping topic without agent label${preview}.`);
+                return false;
+              }
+              topicsWithAgentLabels += 1;
+              const otherAgentLabels = labels.filter((label) => isAgentLabel(label) && !isCodexAgentLabel(label));
+              if (otherAgentLabels.length) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(
+                  `Skipping topic targeted at other agents${preview}. Labels: ${otherAgentLabels.join(', ')}`,
+                );
+                metrics.topics_skipped_for_other_agents += 1;
+                return false;
+              }
+              return true;
+            });
+            metrics.topics_with_agent_labels = topicsWithAgentLabels;
+            if (!topics.length) {
+              setZeroOutputs();
+              const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
+              const notice = otherAgentSkipCount
+                ? `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`
+                : 'No topics matched agent labels. Exiting without changes.';
+              await publishSummary({
+                notice,
+              });
+              return;
+            }
+            const seenTopics = new Set();
+            const deduped = [];
+            let duplicateCount = 0;
+            for (const topic of topics) {
+              const guidKey = topic.guid ? `guid:${topic.guid.trim().toLowerCase()}` : null;
+              const titleKey = topic.title ? `title:${topic.title.trim().toLowerCase()}` : null;
+              const key = guidKey || titleKey;
+              if (key && seenTopics.has(key)) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(`Skipping duplicate topic${preview}.`);
+                duplicateCount += 1;
+                metrics.duplicate_topics = duplicateCount;
+                continue;
+              }
+              if (key) {
+                seenTopics.add(key);
+              }
+              deduped.push(topic);
+            }
+            metrics.topics_after_dedup = deduped.length;
+            metrics.duplicate_topics = duplicateCount;
+            if (!deduped.length) {
+              setOutputs();
+              await publishSummary({
+                notice: `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
+                duplicateCount,
+              });
               return;
             }
             const { owner, repo } = context.repo;
             const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const escapeSearch = (value) => value.replace(/["\\]/g, (char) => `\\${char}`);
             const canonicalizeNewLabel = (name) => {
               let cleaned = name.trim().toLowerCase();
               cleaned = cleaned.replace(/[_\u2013\u2014]/g, ' ');
@@ -260,29 +419,96 @@ jobs:
               usedColors.add('777777');
               return '777777';
             };
-            const ensureLabel = async (input) => {
-              const trimmed = input.trim();
-              if (!trimmed) return null;
-              const existing = findMatchingLabel(trimmed);
-              if (existing) return existing;
-              const newName = canonicalizeNewLabel(trimmed);
-              const already = findMatchingLabel(newName);
-              if (already) return already;
-              const color = generateColor(newName);
-              try {
-                const created = await github.rest.issues.createLabel({
-                  owner,
-                  repo,
-                  name: newName,
-                  color,
-                  description: `Synthesized from ChatGPT import for ${trimmed}`,
-                });
-                labelsCache.push(created.data);
-                return created.data.name;
-              } catch (e) {
-                core.warning(`Failed to create label for "${trimmed}": ${e.message}`);
-                return null;
+            const labelResolutionCache = new Map();
+            const memoizeLabelResolution = (keys, value) => {
+              for (const key of keys) {
+                if (!key) continue;
+                labelResolutionCache.set(key.toLowerCase(), value);
               }
+            };
+            const classifyTopicLabels = (rawLabels) => {
+              const details = [];
+              const pendingCreates = new Map();
+              const skipped = [];
+              for (const raw of rawLabels || []) {
+                if (typeof raw !== 'string') continue;
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const cacheKey = trimmed.toLowerCase();
+                if (labelResolutionCache.has(cacheKey)) {
+                  const cached = labelResolutionCache.get(cacheKey);
+                  if (cached) {
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const existing = findMatchingLabel(trimmed);
+                if (existing) {
+                  memoizeLabelResolution([trimmed, existing], existing);
+                  details.push({ name: existing, requiresCreation: false });
+                  continue;
+                }
+                const newName = canonicalizeNewLabel(trimmed);
+                const canonicalKey = newName.toLowerCase();
+                if (labelResolutionCache.has(canonicalKey)) {
+                  const cached = labelResolutionCache.get(canonicalKey);
+                  if (cached) {
+                    memoizeLabelResolution([trimmed, newName, cached], cached);
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const already = findMatchingLabel(newName);
+                if (already) {
+                  memoizeLabelResolution([trimmed, newName, already], already);
+                  details.push({ name: already, requiresCreation: false });
+                  continue;
+                }
+                if (!pendingCreates.has(canonicalKey)) {
+                  pendingCreates.set(canonicalKey, {
+                    name: newName,
+                    source: trimmed,
+                    keys: [trimmed, newName],
+                  });
+                } else {
+                  pendingCreates.get(canonicalKey).keys.push(trimmed);
+                }
+                details.push({ name: newName, requiresCreation: true, pendingKey: canonicalKey });
+              }
+              return { details, pendingCreates, skipped };
+            };
+            const ensurePendingLabelCreates = async (pendingCreates) => {
+              const successful = new Set();
+              for (const pending of pendingCreates.values()) {
+                const existing = findMatchingLabel(pending.name);
+                if (existing) {
+                  memoizeLabelResolution([...pending.keys, existing], existing);
+                  successful.add(existing.toLowerCase());
+                  continue;
+                }
+                const color = generateColor(pending.name);
+                try {
+                  const created = await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: pending.name,
+                    color,
+                    description: `Synthesized from ChatGPT import for ${pending.source}`,
+                  });
+                  labelsCache.push(created.data);
+                  const resolvedName = created.data.name || pending.name;
+                  memoizeLabelResolution([...pending.keys, resolvedName], resolvedName);
+                  successful.add(resolvedName.toLowerCase());
+                } catch (e) {
+                  core.warning(`Failed to create label for "${pending.source}": ${e.message}`);
+                  memoizeLabelResolution(pending.keys, null);
+                }
+              }
+              return successful;
             };
             const formatTasks = (text) => {
               if (!text || !text.trim()) return '_Not provided._';
@@ -307,7 +533,8 @@ jobs:
             const ensureContent = (t) => (t && t.trim() ? t.trim() : '_Not provided._');
             const buildBody = (topic) => {
               const lines = [];
-              lines.push(`Topic GUID: ${topic.guid}`, '', '## Why');
+              const guidText = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '_Not provided._';
+              lines.push(`Topic GUID: ${guidText}`, '', '## Why');
               const why =
                 (topic.sections?.why && topic.sections.why.trim()) ||
                 topic.extras?.trim() ||
@@ -318,34 +545,91 @@ jobs:
               lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
               return lines.join('\n');
             };
-            for (const topic of topics) {
-              try {
-                const desired = [];
-                for (const rawLabel of topic.labels || []) {
-                  const resolved = await ensureLabel(rawLabel);
-                  if (resolved) desired.push(resolved);
-                  else core.warning(`Skipped label "${rawLabel}" for ${topic.title}.`);
+            const normalizeSyncFooter = (text) => {
+              if (!text) return '';
+              return text
+                .trim()
+                .replace(
+                  /Synced by \[workflow run\]\([^)]+\)\./gi,
+                  'Synced by [workflow run](RUN_URL_PLACEHOLDER).',
+                );
+            };
+            const labelsEqual = (a, b) => {
+              const clean = (list) =>
+                Array.from(new Set((list || []).map((l) => l.trim()).filter(Boolean))).sort((x, y) =>
+                  x.localeCompare(y, undefined, { sensitivity: 'accent' }),
+                );
+              const left = clean(a);
+              const right = clean(b);
+              if (left.length !== right.length) return false;
+              for (let i = 0; i < left.length; i += 1) {
+                if (left[i].toLowerCase() !== right[i].toLowerCase()) {
+                  return false;
                 }
-                const unique = Array.from(new Set(desired));
+              }
+              return true;
+            };
+            let createdCount = 0;
+            let updatedCount = 0;
+            let reopenedCount = 0;
+            let skippedCount = 0;
+            let invalidTopicCount = 0;
+            let assignedElsewhereCount = 0;
+            for (const topic of deduped) {
+              try {
+                const rawTitle = typeof topic.title === 'string' ? topic.title : '';
+                const title = rawTitle.trim();
+                if (!title) {
+                  invalidTopicCount += 1;
+                  metrics.invalid_topics = invalidTopicCount;
+                  core.warning('Skipping topic without a valid title.');
+                  continue;
+                }
+                metrics.topics_processed += 1;
+                const { details: labelDetails, pendingCreates, skipped } = classifyTopicLabels(topic.labels || []);
+                for (const skippedLabel of skipped) {
+                  core.warning(`Skipped label "${skippedLabel}" for ${title}.`);
+                }
+                const uniqueDesired = Array.from(
+                  new Set(labelDetails.map((detail) => detail.name).filter((name) => typeof name === 'string' && name)),
+                );
                 const body = buildBody(topic);
-                const title = topic.title;
-                const guid = topic.guid;
+                const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
                 let issueNumber = null;
-                let state = 'open';
-                const searchOpen = await github.rest.search.issuesAndPullRequests({
-                  q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
-                  per_page: 1,
-                });
-                if (searchOpen.data.items.length) {
-                  issueNumber = searchOpen.data.items[0].number;
-                } else {
-                  const searchAny = await github.rest.search.issuesAndPullRequests({
-                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                if (guid) {
+                  const escapedGuid = escapeSearch(guid);
+                  const searchOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue is:open`,
                     per_page: 1,
                   });
-                  if (searchAny.data.items.length) {
-                    issueNumber = searchAny.data.items[0].number;
-                    state = searchAny.data.items[0].state;
+                  if (searchOpen.data.items.length) {
+                    issueNumber = searchOpen.data.items[0].number;
+                  } else {
+                    const searchAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchAny.data.items.length) {
+                      issueNumber = searchAny.data.items[0].number;
+                    }
+                  }
+                }
+                if (!issueNumber && title && title.trim()) {
+                  const quotedTitle = escapeSearch(title.trim());
+                  const searchTitleOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue is:open`,
+                    per_page: 1,
+                  });
+                  if (searchTitleOpen.data.items.length) {
+                    issueNumber = searchTitleOpen.data.items[0].number;
+                  } else {
+                    const searchTitleAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchTitleAny.data.items.length) {
+                      issueNumber = searchTitleAny.data.items[0].number;
+                    }
                   }
                 }
                 if (issueNumber) {
@@ -353,31 +637,177 @@ jobs:
                   const current = (issueData.data.labels || [])
                     .map((l) => l.name)
                     .filter(Boolean);
-                  const final = Array.from(new Set([...current, ...unique]));
-                  const payload = { owner, repo, issue_number: issueNumber, title, body, labels: final };
-                  if (issueData.data.state === 'closed') payload.state = 'open';
+                  let final = Array.from(new Set([...current, ...uniqueDesired]));
+                  const needsStateChange = issueData.data.state === 'closed';
+                  const existingTitle = (issueData.data.title || '').trim();
+                  const needsTitle = existingTitle !== title;
+                  const existingBody = (issueData.data.body || '').trim();
+                  const normalizedExistingBody = normalizeSyncFooter(existingBody);
+                  const normalizedDesiredBody = normalizeSyncFooter(body);
+                  const needsBody = normalizedExistingBody !== normalizedDesiredBody;
+                  if (!needsBody && existingBody !== body.trim()) {
+                    core.info(
+                      `Preserving existing sync footer for issue #${issueNumber} to avoid unnecessary run URL churn.`,
+                    );
+                  }
+                  const normalizeAgentLabel = (labelName) => {
+                    if (!labelName) return null;
+                    const trimmed = labelName.trim();
+                    if (!trimmed.toLowerCase().startsWith('agent:')) return null;
+                    return trimmed.toLowerCase();
+                  };
+                  const currentAgentLabels = current
+                    .map((label) => normalizeAgentLabel(label))
+                    .filter((label) => label !== null);
+                  const hasNonCodexAssignment = currentAgentLabels.some(
+                    (label) => label !== 'agent:codex',
+                  );
+                  if (hasNonCodexAssignment) {
+                    core.info(
+                      `Skipping issue #${issueNumber} because it already has an agent assignment (${currentAgentLabels.join(
+                        ', ',
+                      )}).`,
+                    );
+                    skippedCount += 1;
+                    assignedElsewhereCount += 1;
+                    metrics.assigned_elsewhere = assignedElsewhereCount;
+                    continue;
+                  }
+                  const needsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
+                    core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
+                    skippedCount += 1;
+                    continue;
+                  }
+                  let ensuredLabels = uniqueDesired;
+                  if (pendingCreates.size && (needsLabels || !labelsEqual(current, uniqueDesired))) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    ensuredLabels = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) return true;
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                    final = Array.from(new Set([...current, ...ensuredLabels]));
+                  }
+                  const finalNeedsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || finalNeedsLabels)) {
+                    core.info(
+                      `No changes detected for issue #${issueNumber} after label reconciliation; skipping update.`,
+                    );
+                    skippedCount += 1;
+                    continue;
+                  }
+                  const bodyForUpdate = needsBody ? body : issueData.data.body;
+                  const payload = {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    title,
+                    labels: final,
+                  };
+                  if (bodyForUpdate !== undefined && bodyForUpdate !== null) {
+                    payload.body = bodyForUpdate;
+                  }
+                  if (needsStateChange) payload.state = 'open';
                   await github.rest.issues.update(payload);
-                  try {
-                    await github.rest.issues.createComment({
-                      owner,
-                      repo,
-                      issue_number: issueNumber,
-                      body: `Updated by [workflow run](${process.env.RUN_URL}).`,
-                    });
-                  } catch (e) {
-                    core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                  updatedCount += 1;
+                  if (needsStateChange) {
+                    reopenedCount += 1;
+                  }
+                  if (needsTitle || needsBody || needsLabels || needsStateChange) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        body: `Updated by [workflow run](${process.env.RUN_URL}).`,
+                      });
+                    } catch (e) {
+                      core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                    }
                   }
                 } else {
+                  let labelsForCreation = uniqueDesired;
+                  if (pendingCreates.size) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    labelsForCreation = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) {
+                              return true;
+                            }
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                  }
                   const created = await github.rest.issues.create({
                     owner,
                     repo,
                     title,
                     body,
-                    labels: unique,
+                    labels: labelsForCreation,
                   });
                   core.info(`Created issue #${created.data.number} for ${title}.`);
+                  createdCount += 1;
                 }
               } catch (e) {
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
               }
             }
+            let summaryNotice;
+            if (!metrics.topics_processed && invalidTopicCount) {
+              const invalidSummary =
+                metrics.topics_after_dedup > 0
+                  ? `All ${metrics.topics_after_dedup} topics were skipped because they lacked valid titles.`
+                  : 'All topics were skipped because they lacked valid titles.';
+              summaryNotice = invalidSummary;
+            }
+            if (
+              !summaryNotice &&
+              assignedElsewhereCount &&
+              metrics.topics_processed > 0 &&
+              assignedElsewhereCount === metrics.topics_processed &&
+              !createdCount &&
+              !updatedCount
+            ) {
+              const plural = assignedElsewhereCount === 1 ? 'topic was' : 'topics were';
+              summaryNotice = `All ${assignedElsewhereCount} processed ${plural} already assigned to other agents. No mutations performed.`;
+            }
+            const mutationCount = createdCount + updatedCount;
+            metrics.duplicate_topics = duplicateCount;
+            metrics.invalid_topics = invalidTopicCount;
+            metrics.assigned_elsewhere = assignedElsewhereCount;
+            metrics.mutations_performed = mutationCount;
+            setOutputs({
+              created_issues: createdCount,
+              updated_issues: updatedCount,
+              reopened_issues: reopenedCount,
+              skipped_issues: skippedCount,
+            });
+            await publishSummary({
+              createdCount,
+              updatedCount,
+              reopenedCount,
+              skippedCount,
+              duplicateCount,
+              invalidTopicCount,
+              assignedElsewhereCount,
+              mutationCount,
+              notice: summaryNotice,
+            });
+            if (!createdCount && !updatedCount && !reopenedCount) {
+              if (!summaryNotice) {
+                core.notice('No issues required modifications; run completed without mutations.');
+              }
+            }
+
