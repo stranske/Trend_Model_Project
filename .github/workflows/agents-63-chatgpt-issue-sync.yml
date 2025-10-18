@@ -189,6 +189,7 @@ jobs:
               topics_with_agent_labels: 0,
               topics_after_dedup: 0,
               topics_processed: 0,
+              assigned_elsewhere: 0,
             };
             const metrics = {
               topics_total: 0,
@@ -212,6 +213,7 @@ jobs:
               skippedCount = 0,
               duplicateCount = 0,
               invalidTopicCount = 0,
+              assignedElsewhereCount = 0,
               mutationCount,
               notice,
             } = {}) => {
@@ -226,6 +228,7 @@ jobs:
                 `Updated issues: ${updatedCount}`,
                 `Reopened issues: ${reopenedCount}`,
                 `Skipped (no changes): ${skippedCount}`,
+                `Skipped (assigned to other agents): ${assignedElsewhereCount}`,
                 `Duplicate topics skipped: ${duplicateCount}`,
                 `Invalid topics skipped: ${invalidTopicCount}`,
                 `Mutations performed: ${mutationsPerformed}`,
@@ -537,6 +540,7 @@ jobs:
             let reopenedCount = 0;
             let skippedCount = 0;
             let invalidTopicCount = 0;
+            let assignedElsewhereCount = 0;
             for (const topic of deduped) {
               try {
                 const rawTitle = typeof topic.title === 'string' ? topic.title : '';
@@ -630,6 +634,7 @@ jobs:
                       )}).`,
                     );
                     skippedCount += 1;
+                    assignedElsewhereCount += 1;
                     continue;
                   }
                   const needsLabels = !labelsEqual(current, final);
@@ -740,6 +745,7 @@ jobs:
               duplicate_topics: duplicateCount,
               invalid_topics: invalidTopicCount,
               mutations_performed: mutationCount,
+              assigned_elsewhere: assignedElsewhereCount,
             });
             await publishSummary({
               createdCount,
@@ -748,6 +754,7 @@ jobs:
               skippedCount,
               duplicateCount,
               invalidTopicCount,
+              assignedElsewhereCount,
               mutationCount,
               notice: summaryNotice,
             });
