@@ -68,6 +68,13 @@ jobs:
     uses: ./.github/workflows/reusable-18-autofix.yml
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      pr_title: ${{ github.event.pull_request.title }}
+      pr_is_draft: ${{ github.event.pull_request.draft }}
+      pr_labels_json: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+      same_repo: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+      caller_actor: ${{ github.actor }}
 
   debug_gate:
     needs: label_gate
