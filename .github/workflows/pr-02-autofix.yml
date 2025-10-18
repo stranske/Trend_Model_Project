@@ -110,4 +110,15 @@ jobs:
       - name: Confirm condition
         run: echo "probe_condition=true"
       - name: Evaluate reusable guard
-        run: echo "autofix_guard=${{ github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]' && !startsWith(github.event.pull_request.title, 'chore(autofix):') && ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, needs.label_gate.outputs.label) ) }}"
+        env:
+          AUTOFIX_BASE: ${{ github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]' && ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, needs.label_gate.outputs.label) ) }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          base="${AUTOFIX_BASE:-false}"
+          title="${PR_TITLE:-}"
+          if [[ "$title" == chore(autofix):* ]]; then
+            echo "autofix_guard=false"
+          else
+            echo "autofix_guard=${base}"
+          fi

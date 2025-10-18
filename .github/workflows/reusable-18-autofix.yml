@@ -772,29 +772,27 @@ jobs:
           ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if [ -f autofix_report_enriched.json ]; then
             python -c "import json,os;from datetime import datetime,timezone as TZ;meta={'pull_request':os.environ.get('PR_NUMBER'),'timestamp_utc':datetime.now(TZ.utc).strftime('%Y-%m-%dT%H:%M:%SZ')};\nimport pathlib;\ntry: data=json.load(open('autofix_report_enriched.json'));\nexcept Exception: data={};data.update(meta);json.dump(data, open('autofix_report.json','w'), indent=2, sort_keys=True)" || echo '{"error":"merge_failed"}' > autofix_report.json
-          else
-            REPORT_CHANGED="${{ steps.fix_results.outputs.changed }}" \
-            REPORT_REMAINING="${{ steps.fix_results.outputs.remaining_issues }}" \
-            REPORT_NEW="${{ steps.fix_results.outputs.new_issues }}" \
-            REPORT_PR="${{ inputs.pr_number }}" \
-            REPORT_TIMESTAMP="$ts" \
-            python <<EOF
-import json
-import os
-import pathlib
+            else
+              REPORT_CHANGED="${{ steps.fix_results.outputs.changed }}" \
+              REPORT_REMAINING="${{ steps.fix_results.outputs.remaining_issues }}" \
+              REPORT_NEW="${{ steps.fix_results.outputs.new_issues }}" \
+              REPORT_PR="${{ inputs.pr_number }}" \
+              REPORT_TIMESTAMP="$ts" \
+              python -c 'import json
+              import os
+              import pathlib
 
-payload = {
-    "changed": os.getenv("REPORT_CHANGED", ""),
-    "remaining_issues": os.getenv("REPORT_REMAINING", ""),
-    "new_issues": os.getenv("REPORT_NEW", ""),
-    "pull_request": os.getenv("REPORT_PR", ""),
-    "timestamp_utc": os.getenv("REPORT_TIMESTAMP", "")
-}
-pathlib.Path("autofix_report.json").write_text(
-    json.dumps(payload, indent=2, sort_keys=True) + "\n",
-    encoding="utf-8"
-)
-EOF
+              payload = {
+                  "changed": os.getenv("REPORT_CHANGED", ""),
+                  "remaining_issues": os.getenv("REPORT_REMAINING", ""),
+                  "new_issues": os.getenv("REPORT_NEW", ""),
+                  "pull_request": os.getenv("REPORT_PR", ""),
+                  "timestamp_utc": os.getenv("REPORT_TIMESTAMP", "")
+              }
+              pathlib.Path("autofix_report.json").write_text(
+                  json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )'
           fi
           echo "Enriched report ready.";
         env:
