@@ -232,8 +232,16 @@ jobs:
               deduped.push(topic);
             }
             if (!deduped.length) {
-              core.notice('All topics were filtered as duplicates. Exiting without changes.');
-              setZeroOutputs();
+              core.notice(
+                `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
+              );
+              core.setOutput('created_issues', '0');
+              core.setOutput('updated_issues', '0');
+              core.setOutput('reopened_issues', '0');
+              core.setOutput('skipped_issues', '0');
+              core.setOutput('duplicate_topics', String(duplicateCount));
+              core.setOutput('invalid_topics', '0');
+              core.setOutput('mutations_performed', '0');
               return;
             }
             const { owner, repo } = context.repo;
