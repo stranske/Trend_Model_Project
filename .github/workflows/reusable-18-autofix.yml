@@ -625,6 +625,9 @@ jobs:
 
       - name: Build consolidated PR comment
         if: steps.guard.outputs.skip != 'true'
+        env:
+          AUTOFIX_MODE: ${{ steps.fix_results.outputs.mode }}
+          AUTOFIX_CLEAN_LABEL: ${{ inputs.clean_label }}
         uses: ./.github/actions/build-pr-comment
         with:
           output: autofix_pr_comment.md
