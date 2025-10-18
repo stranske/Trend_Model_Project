@@ -507,6 +507,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > **“Maint 46 Post CI summary”** for quick scanning. The pull-
 > request template links here so authors confirm the required check before
 > requesting review.
+
+> 🚨 **Missing Gate? Treat it as a branch-protection incident.** If a freshly
+> opened or rebased pull request fails to list **Gate / gate** under
+> **Required checks**, stop and follow the [branch protection
+> playbook](#branch-protection-playbook). The rule may have been edited or the
+> Gate context renamed—restoring the configuration keeps Maint 46 Post CI in its
+> informational role and ensures new PRs block until Gate turns green.
 >
 > ✍️ **Author checklist.** When you open or update a pull request, confirm the
 > Checks tab shows **Gate / gate** under **Required checks** before requesting
@@ -554,7 +561,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
    - Enable **Require status checks to pass before merging**, then select
      **Gate / gate**. Keep **Health 45 Agents Guard / Enforce agents workflow
      protections** checked so agent-surface edits stay gated. Leave Maint 46 Post
-     CI unchecked—it posts post-merge guidance and must stay informational.
+     CI unchecked—it posts post-merge guidance and must stay informational. If
+     you see Maint 46 Post CI in the selected list, clear it before saving so the
+     branch rule continues to block solely on Gate (and Agents Guard when
+     applicable).
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
 4. **Run the enforcement script locally when needed.**
