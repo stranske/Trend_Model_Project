@@ -227,10 +227,12 @@ jobs:
             new="${CLEAN_NEW:-0}"
             file_list="${CLEAN_FILE_LIST:-}"
           fi
-          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
-          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
-          echo "remaining_issues=${remaining}" >> "$GITHUB_OUTPUT"
-          echo "new_issues=${new}" >> "$GITHUB_OUTPUT"
+          {
+            echo "mode=${mode}"
+            echo "changed=${changed}"
+            echo "remaining_issues=${remaining}"
+            echo "new_issues=${new}"
+          } >> "$GITHUB_OUTPUT"
           if [ -n "$file_list" ]; then
             {
               echo "file_list<<'EOF'"
