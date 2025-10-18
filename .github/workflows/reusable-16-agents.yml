@@ -371,15 +371,13 @@ jobs:
             const summary = core.summary;
             summary.addHeading('Codex Bootstrap', 2);
 
-            const fallbackLabel = 'agent:codex';
-            let raw = process.env.LABEL || '';
-            if (!raw.trim()) {
-              const message = `bootstrap_issues_label not provided; defaulting to ${fallbackLabel}.`;
-              core.notice(message);
-              summary.addRaw(message).addEOL();
-              raw = fallbackLabel;
-            }
+            const clearOutputs = () => {
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+            };
 
+            const raw = process.env.LABEL || '';
             const labels = raw
               .split(',')
               .map((value) => value.trim())
@@ -389,10 +387,8 @@ jobs:
               const message = 'bootstrap_issues_label input must be set to a non-empty label.';
               core.setFailed(message);
               summary.addRaw(message).addEOL();
+              clearOutputs();
               await summary.write();
-              core.setOutput('issue_numbers', '');
-              core.setOutput('issue_numbers_json', '[]');
-              core.setOutput('first_issue', '');
               return;
             }
 
@@ -401,10 +397,8 @@ jobs:
                 'bootstrap_issues_label input must define exactly one label to avoid sweeping unintended issues.';
               core.setFailed(message);
               summary.addRaw(message).addEOL();
+              clearOutputs();
               await summary.write();
-              core.setOutput('issue_numbers', '');
-              core.setOutput('issue_numbers_json', '[]');
-              core.setOutput('first_issue', '');
               return;
             }
 
