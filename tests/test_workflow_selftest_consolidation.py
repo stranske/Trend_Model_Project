@@ -7,6 +7,7 @@ import yaml
 ARCHIVE_LEDGER_PATH = pathlib.Path("ARCHIVE_WORKFLOWS.md")
 WORKFLOW_SYSTEM_DOC = pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md")
 WORKFLOWS_DOC = pathlib.Path("docs/ci/WORKFLOWS.md")
+RUNNER_PLAN_PATH = pathlib.Path("docs/ci/selftest_runner_plan.md")
 
 LEGACY_COMMENT_WRAPPERS = (
     "maint-43-selftest-pr-comment.yml",
@@ -109,6 +110,9 @@ def test_archive_ledgers_comment_wrappers() -> None:
     assert (
         "selftest-runner.yml" in ledger_text
     ), "Archive ledger should reference the consolidated Self-test Runner."
+    assert (
+        "selftest-reusable-ci.yml" in ledger_text
+    ), "Archive ledger should document the retirement of selftest-reusable-ci.yml."
 
 
 def test_workflow_docs_highlight_comment_consolidation() -> None:
@@ -129,6 +133,21 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
         assert (
             wrapper in system_text or wrapper in catalog_text
         ), f"Docs should mention the retirement of {wrapper}."
+
+
+def test_selftest_runner_plan_status_highlights_completion() -> None:
+    """Runner plan should mark Issue #2728 completion and the single workflow."""
+
+    plan_text = _normalize(RUNNER_PLAN_PATH.read_text())
+    assert (
+        "Status (2026-11-15, Issue #2728)" in plan_text
+    ), "Runner plan should flag Issue #2728 completion in the status block."
+    assert (
+        "selftest-runner.yml" in plan_text
+    ), "Runner plan should point to the consolidated self-test workflow."
+    assert (
+        "selftest-reusable-ci.yml" in plan_text
+    ), "Runner plan status should acknowledge the retirement of selftest-reusable-ci.yml."
 
 
 def test_selftest_runner_inputs_cover_variants() -> None:
