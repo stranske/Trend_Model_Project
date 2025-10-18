@@ -119,6 +119,26 @@ def test_keepalive_job_defined_once():
     ], "Reusable workflow must expose a single Codex keepalive job"
 
 
+def test_bootstrap_requires_single_label():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label input must be set to a non-empty label." in text
+    ), "Bootstrap step must fail fast when no label is provided"
+    assert (
+        "bootstrap_issues_label input must define exactly one label" in text
+    ), "Bootstrap step must prevent sweeping multiple labels"
+
+
+def test_bootstrap_filters_by_requested_label():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "labels: label" in text
+    ), "Bootstrap GitHub API call must request only the configured label"
+    assert (
+        "missing required label ${label}" in text
+    ), "Bootstrap script must skip issues that do not carry the requested label"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
