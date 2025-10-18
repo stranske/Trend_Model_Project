@@ -369,12 +369,12 @@ jobs:
         if: ${{ env.MODE != 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
@@ -466,12 +466,12 @@ jobs:
         if: ${{ env.MODE == 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-81 aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-81 aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
             exit 1
           fi
 
