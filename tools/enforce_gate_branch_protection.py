@@ -28,6 +28,7 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 DEFAULT_CONTEXTS = (
     "Gate / gate",
+    "Enforce agents workflow protections",
     "Health 45 Agents Guard / Enforce agents workflow protections",
     "Enforce agents workflow protections",
 )
@@ -157,7 +158,10 @@ def update_status_checks(
     strict: bool,
     api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
-    payload: dict[str, Any] = {"contexts": sorted(contexts), "strict": strict}
+    payload: dict[str, Any] = {
+        "contexts": normalise_contexts(contexts),
+        "strict": strict,
+    }
     response = session.patch(
         _status_checks_url(repo, branch, api_root=api_root),
         json=payload,
@@ -182,7 +186,7 @@ def bootstrap_branch_protection(
     payload: dict[str, Any] = {
         "required_status_checks": {
             "strict": strict,
-            "contexts": sorted(set(contexts)),
+            "contexts": normalise_contexts(contexts),
         },
         "enforce_admins": True,
         "required_pull_request_reviews": None,
@@ -235,8 +239,14 @@ def parse_contexts(values: Iterable[str] | None) -> List[str]:
 
 
 def normalise_contexts(contexts: Sequence[str]) -> List[str]:
-    unique = {context for context in contexts if context}
-    return sorted(unique)
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for context in contexts:
+        if not context or context in seen:
+            continue
+        seen.add(context)
+        ordered.append(context)
+    return ordered
 
 
 def format_contexts(contexts: Sequence[str]) -> str:
@@ -272,8 +282,23 @@ def diff_contexts(
 ) -> tuple[list[str], list[str]]:
     current_set = set(current)
     desired_set = set(desired)
-    to_add = sorted(desired_set - current_set)
-    to_remove = sorted(current_set - desired_set)
+
+    to_add: list[str] = []
+    seen_add: set[str] = set()
+    for context in desired:
+        if context in current_set or context in seen_add:
+            continue
+        seen_add.add(context)
+        to_add.append(context)
+
+    to_remove: list[str] = []
+    seen_remove: set[str] = set()
+    for context in current:
+        if context in desired_set or context in seen_remove:
+            continue
+        seen_remove.add(context)
+        to_remove.append(context)
+
     return to_add, to_remove
 
 
@@ -300,8 +325,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow"
-            " protections'."
+            " 'Gate / gate', 'Enforce agents workflow protections', and 'Health 45"
+            " Agents Guard / Enforce agents workflow protections'."
         ),
     )
     parser.add_argument(
@@ -369,6 +394,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "generated_at": now.isoformat().replace("+00:00", "Z"),
             "changes_applied": False,
             "require_strict": bool(args.require_strict),
+            "no_clean": bool(args.no_clean),
         }
 
     api_root = resolve_api_root(args.api_url)
@@ -404,6 +430,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "strict_unknown": False,
                 }
             )
+            snapshot["to_add"] = list(desired_contexts)
+            snapshot["to_remove"] = []
 
         if args.apply:
             try:
@@ -447,11 +475,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             snapshot.setdefault(
                 "desired", {"strict": True, "contexts": list(desired_contexts)}
             )
+            snapshot.setdefault("to_add", list(desired_contexts))
+            snapshot.setdefault("to_remove", [])
             _write_snapshot(args.snapshot, snapshot)
         return 1
 
     target_contexts = (
-        normalise_contexts(list(current_state.contexts) + list(desired_contexts))
+        normalise_contexts(list(desired_contexts) + list(current_state.contexts))
         if args.no_clean
         else desired_contexts
     )
@@ -464,6 +494,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
         snapshot["strict_unknown"] = strict_is_unknown
         snapshot["require_strict"] = bool(args.require_strict)
+        snapshot["to_add"] = list(to_add)
+        snapshot["to_remove"] = list(to_remove)
 
     print(f"Repository: {args.repo}")
     print(f"Branch:     {args.branch}")

@@ -101,19 +101,28 @@ def test_fetch_status_checks_returns_state() -> None:
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
-    response = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
+    response = DummyResponse(
+        200,
+        {"strict": True, "contexts": ["Gate / gate", "Legacy"]},
+    )
     session = DummySession(response)
 
     state = update_status_checks(
         session,
         "owner/repo",
         "main",
-        contexts=["Gate / gate"],
+        contexts=["Legacy", "Gate / gate", "Gate / gate"],
         strict=True,
     )
 
-    assert session.last_payload == {"contexts": ["Gate / gate"], "strict": True}
-    assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+    assert session.last_payload == {
+        "contexts": ["Legacy", "Gate / gate"],
+        "strict": True,
+    }
+    assert state == StatusCheckState(
+        strict=True,
+        contexts=["Gate / gate", "Legacy"],
+    )
 
 
 def test_update_status_checks_raises_on_failure() -> None:
@@ -265,6 +274,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "branch": "main",
         "contexts": [
             "Gate / gate",
+            "Enforce agents workflow protections",
             "Health 45 Agents Guard / Enforce agents workflow protections",
             "Legacy",
         ],
@@ -272,6 +282,73 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "api_root": "https://api.github.com",
     }
     assert "Update successful." in captured.out
+
+
+def test_main_snapshot_records_no_clean_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection._build_session",
+        lambda _token: object(),
+    )
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.fetch_status_checks",
+        lambda *_args, **_kwargs: StatusCheckState(strict=True, contexts=["Legacy"]),
+    )
+
+    def fake_update(
+        _session: object,
+        repo: str,
+        branch: str,
+        *,
+        contexts: list[str],
+        strict: bool,
+        api_root: str = "",
+    ) -> StatusCheckState:
+        assert contexts == [
+            "Gate / gate",
+            "Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Legacy",
+        ]
+        return StatusCheckState(strict=True, contexts=contexts)
+
+    monkeypatch.setattr(
+        "tools.enforce_gate_branch_protection.update_status_checks",
+        fake_update,
+    )
+
+    snapshot_file = tmp_path / "state.json"
+    exit_code = main(
+        [
+            "--repo",
+            "owner/repo",
+            "--branch",
+            "main",
+            "--apply",
+            "--no-clean",
+            "--snapshot",
+            str(snapshot_file),
+        ]
+    )
+
+    assert exit_code == 0
+    data = json.loads(snapshot_file.read_text())
+    assert data["mode"] == "apply"
+    assert data["no_clean"] is True
+    assert data["changes_applied"] is True
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == []
+    assert data["after"] == {
+        "strict": True,
+        "contexts": [
+            "Gate / gate",
+            "Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Legacy",
+        ],
+    }
 
 
 def test_main_reports_missing_rule_in_dry_run(
@@ -498,6 +575,9 @@ def test_main_writes_snapshot_when_drift_detected(
     assert data["changes_applied"] is False
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
+    assert data["no_clean"] is False
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == ["Legacy"]
     assert "after" not in data
 
 
@@ -555,6 +635,9 @@ def test_main_snapshot_updates_after_apply(
     assert data["changes_applied"] is True
     assert data["strict_unknown"] is False
     assert data["require_strict"] is False
+    assert data["no_clean"] is False
+    assert data["to_add"] == REQUIRED_CONTEXTS
+    assert data["to_remove"] == ["Legacy"]
     assert data["after"] == {"strict": True, "contexts": REQUIRED_CONTEXTS}
 
 
