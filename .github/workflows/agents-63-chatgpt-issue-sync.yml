@@ -351,7 +351,8 @@ jobs:
             const ensureContent = (t) => (t && t.trim() ? t.trim() : '_Not provided._');
             const buildBody = (topic) => {
               const lines = [];
-              lines.push(`Topic GUID: ${topic.guid}`, '', '## Why');
+              const guidText = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '_Not provided._';
+              lines.push(`Topic GUID: ${guidText}`, '', '## Why');
               const why =
                 (topic.sections?.why && topic.sections.why.trim()) ||
                 topic.extras?.trim() ||
@@ -401,21 +402,42 @@ jobs:
                 const unique = Array.from(new Set(desired));
                 const body = buildBody(topic);
                 const title = topic.title;
-                const guid = topic.guid;
+                const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
                 let issueNumber = null;
-                const searchOpen = await github.rest.search.issuesAndPullRequests({
-                  q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
-                  per_page: 1,
-                });
-                if (searchOpen.data.items.length) {
-                  issueNumber = searchOpen.data.items[0].number;
-                } else {
-                  const searchAny = await github.rest.search.issuesAndPullRequests({
-                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                if (guid) {
+                  const searchOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${guid}" in:body is:issue is:open`,
                     per_page: 1,
                   });
-                  if (searchAny.data.items.length) {
-                    issueNumber = searchAny.data.items[0].number;
+                  if (searchOpen.data.items.length) {
+                    issueNumber = searchOpen.data.items[0].number;
+                  } else {
+                    const searchAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${guid}" in:body is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchAny.data.items.length) {
+                      issueNumber = searchAny.data.items[0].number;
+                    }
+                  }
+                }
+                if (!issueNumber && title && title.trim()) {
+                  const escapeSearch = (value) => value.replace(/["\\]/g, (char) => `\\${char}`);
+                  const quotedTitle = escapeSearch(title.trim());
+                  const searchTitleOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue is:open`,
+                    per_page: 1,
+                  });
+                  if (searchTitleOpen.data.items.length) {
+                    issueNumber = searchTitleOpen.data.items[0].number;
+                  } else {
+                    const searchTitleAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchTitleAny.data.items.length) {
+                      issueNumber = searchTitleAny.data.items[0].number;
+                    }
                   }
                 }
                 if (issueNumber) {
