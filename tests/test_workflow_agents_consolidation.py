@@ -150,6 +150,32 @@ def test_bootstrap_filters_on_configured_label():
     ), "Bootstrap step must skip issues lacking the required label"
 
 
+def test_bootstrap_summary_highlights_scope_and_skips():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "summary.addRaw(`Bootstrap label: **${label}**`)" in text
+    ), "Bootstrap summary should surface the resolved label"
+    assert (
+        "summary.addList(\n                accepted.map((issue) => `#${issue.number} – ${(issue.title || 'untitled').trim()}`)" in text
+    ), "Bootstrap summary should enumerate accepted issues when present"
+    assert (
+        "summary.addDetails('Skipped issues'" in text
+    ), "Bootstrap summary should list skipped issue reasons to avoid silent no-ops"
+
+
+def test_keepalive_summary_reports_targets():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "core.summary.addHeading('Codex Keepalive')" in text
+    ), "Keepalive job should continue writing a run summary"
+    assert (
+        "Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}" in text
+    ), "Keepalive summary should expose the deduplicated label set"
+    assert (
+        "Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}" in text
+    ), "Keepalive summary should expose the resolved agent login list"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
