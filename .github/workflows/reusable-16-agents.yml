@@ -413,9 +413,12 @@ jobs:
               skipped.push(message);
             };
 
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
             const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner,
+              repo,
               state: 'open',
               labels: label,
               per_page: 30
@@ -444,9 +447,24 @@ jobs:
             }
 
             if (accepted.length) {
-              summary.addList(
-                accepted.map((issue) => `#${issue.number} – ${(issue.title || 'untitled').trim()}`)
-              );
+              const formatIssue = (issue) => {
+                const title = (issue.title || 'untitled').trim();
+                const number = issue.number;
+                return (
+                  '[#' +
+                  number +
+                  '](https://github.com/' +
+                  owner +
+                  '/' +
+                  repo +
+                  '/issues/' +
+                  number +
+                  ') – ' +
+                  title
+                );
+              };
+
+              summary.addList(accepted.map((issue) => formatIssue(issue)));
             } else {
               summary.addRaw('No eligible issues found.').addEOL();
             }

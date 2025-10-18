@@ -156,7 +156,10 @@ def test_bootstrap_summary_highlights_scope_and_skips():
         "summary.addRaw(`Bootstrap label: **${label}**`)" in text
     ), "Bootstrap summary should surface the resolved label"
     assert (
-        "summary.addList(\n                accepted.map((issue) => `#${issue.number} – ${(issue.title || 'untitled').trim()}`)" in text
+        "const formatIssue = (issue)" in text
+    ), "Bootstrap summary should format accepted issues for display"
+    assert (
+        "summary.addList(accepted.map((issue) => formatIssue(issue)))" in text
     ), "Bootstrap summary should enumerate accepted issues when present"
     assert (
         "summary.addDetails('Skipped issues'" in text
