@@ -66,7 +66,6 @@ jobs:
       contents: write
       pull-requests: write
     uses: ./.github/workflows/reusable-18-autofix.yml
-    secrets: inherit
     with:
       opt_in_label: ${{ needs.label_gate.outputs.label }}
 
