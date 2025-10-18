@@ -841,15 +841,17 @@ jobs:
           changed_value="${CHANGED:-false}"
           same_repo_value="${SAME_REPO:-false}"
           file_list_value="${FILE_LIST:-}"
+          remaining_value="${REMAINING:-0}"
+          new_value="${NEW_ISSUES:-0}"
 
           {
             echo "### Reusable Autofix Summary"
             echo "Loop guard skip: ${guard_value}"
             echo "Mode: ${mode_value}"
-            echo "Applied changes: ${CHANGED:-false}"
-            echo "Same repo: ${SAME_REPO:-false}"
-            echo "Remaining ruff issues: ${REMAINING:-0}"
-            echo "New (non-allowlisted) ruff issues: ${NEW_ISSUES:-0}"
+            echo "Applied changes: ${changed_value}"
+            echo "Same repo: ${same_repo_value}"
+            echo "Remaining ruff issues: ${remaining_value}"
+            echo "New (non-allowlisted) ruff issues: ${new_value}"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$changed_value" = "true" ] && [ "$same_repo_value" != "true" ]; then
