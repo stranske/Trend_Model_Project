@@ -180,10 +180,22 @@ def build_comment(
     trigger_head = os.environ.get("AUTOFIX_TRIGGER_PR_HEAD")
     skip_reason = os.environ.get("AUTOFIX_SKIP_REASON")
 
+    mode_env = (os.environ.get("AUTOFIX_MODE") or "").strip().lower()
+    clean_label_env = (os.environ.get("AUTOFIX_CLEAN_LABEL") or "").strip()
+    if mode_env == "clean":
+        mode_display = "Tests-only cosmetic"
+        if clean_label_env:
+            mode_display = f"{mode_display} (`{clean_label_env}`)"
+    elif mode_env:
+        mode_display = mode_env.replace("_", " ").title()
+    else:
+        mode_display = "Standard"
+
     metrics_rows = [
         "| Metric | Value |",
         "|--------|-------|",
         f"| Status | {status_value} |",
+        f"| Mode | {mode_display} |",
         f"| Changed files | {changed_text} |",
         f"| Remaining issues | {remaining} |",
         f"| New issues | {new} |",

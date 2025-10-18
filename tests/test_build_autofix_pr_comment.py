@@ -144,6 +144,70 @@ def test_build_comment_preserves_multiline_result_block(
     assert "2. Run `git am < autofix.patch`." in result_section
 
 
+def test_build_comment_reports_tests_only_mode(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "changed": True,
+                "classification": {
+                    "total": 0,
+                    "new": 0,
+                    "allowed": 0,
+                },
+            }
+        )
+    )
+
+    monkeypatch.setenv("AUTOFIX_MODE", "clean")
+    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:clean")
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="13",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_MODE", raising=False)
+        monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
+
+    assert "| Mode | Tests-only cosmetic (`autofix:clean`) |" in comment
+
+
+def test_build_comment_reports_tests_only_mode_without_label(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "changed": True,
+                "classification": {
+                    "total": 0,
+                    "new": 0,
+                    "allowed": 0,
+                },
+            }
+        )
+    )
+
+    monkeypatch.setenv("AUTOFIX_MODE", "clean")
+    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "")
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="17",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_MODE", raising=False)
+        monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
+
+    assert "| Mode | Tests-only cosmetic |" in comment
+
+
 def test_build_comment_reports_commit_with_debt(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
