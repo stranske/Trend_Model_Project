@@ -152,16 +152,6 @@ jobs:
             const bootstrap = nested(merged.bootstrap);
             const keepalive = nested(merged.keepalive);
 
-            const bootstrapRaw = toString(
-              merged.bootstrap_issues_label ?? bootstrap.label,
-              DEFAULTS.bootstrap_issues_label
-            );
-            const bootstrapTrimmed = bootstrapRaw.trim();
-            const bootstrapLabel = bootstrapTrimmed || DEFAULTS.bootstrap_issues_label;
-            const bootstrapFallbackUsed = bootstrapTrimmed === '' && bootstrapLabel !== bootstrapRaw;
-            const bootstrapLabelFallbackNotice =
-              'bootstrap_issues_label empty; defaulting to agent:codex.';
-
             const diagnosticModeRaw = toString(merged.diagnostic_mode, DEFAULTS.diagnostic_mode).trim().toLowerCase();
             const diagnosticMode = ['full', 'dry-run'].includes(diagnosticModeRaw) ? diagnosticModeRaw : 'off';
 
@@ -217,7 +207,10 @@ jobs:
               enable_watchdog: toBoolString(merged.enable_watchdog, DEFAULTS.enable_watchdog),
               enable_keepalive: toBoolString(merged.enable_keepalive ?? keepalive.enabled, DEFAULTS.enable_keepalive),
               enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
-              bootstrap_issues_label: bootstrapLabel,
+              bootstrap_issues_label: toString(
+                merged.bootstrap_issues_label ?? bootstrap.label,
+                DEFAULTS.bootstrap_issues_label
+              ),
               draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
               options_json: sanitiseOptions(optionsSource)
             };
@@ -271,10 +264,6 @@ jobs:
               [{ data: 'Parameter', header: true }, { data: 'Value', header: true }],
               ...orderedKeys.map((key) => [key, summarise(outputs[key])])
             ]);
-            if (bootstrapFallbackUsed) {
-              summary.addRaw(bootstrapLabelFallbackNotice).addEOL();
-              core.notice(bootstrapLabelFallbackNotice);
-            }
             await summary.write();
 
   orchestrate:

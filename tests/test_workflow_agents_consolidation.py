@@ -40,14 +40,14 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
-def test_orchestrator_bootstrap_label_fallback_notice():
+def test_orchestrator_bootstrap_label_delegates_fallback():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
-        "bootstrap_issues_label empty; defaulting to agent:codex." in text
-    ), "Orchestrator summary should record when the bootstrap label fallback is applied"
+        "bootstrap_issues_label empty; defaulting to agent:codex." not in text
+    ), "Orchestrator should delegate fallback handling to the reusable workflow"
     assert (
-        "core.notice(bootstrapLabelFallbackNotice);" in text
-    ), "Orchestrator should surface the fallback label notice for operators"
+        "core.notice(bootstrapLabelFallbackNotice);" not in text
+    ), "Orchestrator must avoid emitting fallback notices directly"
 
 
 def test_reusable_agents_workflow_structure():
