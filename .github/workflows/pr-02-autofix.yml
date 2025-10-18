@@ -53,7 +53,7 @@ jobs:
 
   apply:
     needs: label_gate
-    if: github.event.pull_request != null && needs.label_gate.outputs.enabled == 'true'
+    if: github.event.pull_request != null && needs.label_gate.outputs.enabled
     permissions:
       contents: write
       pull-requests: write
