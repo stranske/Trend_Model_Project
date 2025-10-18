@@ -485,6 +485,12 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Required vs informational checks on `phase-2-dev`
 
+| Context | Workflow | Required before merge? | Where it appears |
+| --- | --- | --- | --- |
+| **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
+| **Health 45 Agents Guard** / `agents-guard` | [`health-45-agents-guard.yml`](../../.github/workflows/health-45-agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
+| **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
+
 - **Required before merge.** Gate / `gate` must finish green on every pull
   request into `phase-2-dev`. Branch protection enforces this context and every
   PR shows the check under **Required** in the Checks tab. When you touch
@@ -494,7 +500,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   and posts the aggregated summary comment. It mirrors the reusable CI results
   but does not block merges because it runs post-merge. Treat the Maint 46
   comment as the single source of truth for CI health after a merge—review it to
-  confirm the latest Gate run and reusable jobs stayed green.
+  confirm the latest Gate run and reusable jobs stayed green and that no follow-
+  up remediation is needed.
 
 ## Branch protection playbook
 
