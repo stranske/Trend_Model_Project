@@ -300,7 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate', 'Enforce agents workflow protections', and 'Health 45"
+            " 'Enforce agents workflow protections', 'Gate / gate', and 'Health 45"
             " Agents Guard / Enforce agents workflow protections'."
         ),
     )
