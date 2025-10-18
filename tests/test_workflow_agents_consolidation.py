@@ -36,6 +36,12 @@ def test_agents_orchestrator_inputs_and_uses():
         "bootstrap_issues_label:" in text
     ), "Orchestrator must forward bootstrap label configuration"
     assert (
+        "bootstrap_issues_label not provided; defaulting to agent:codex." in text
+    ), "Orchestrator must log when it falls back to the default Codex label"
+    assert (
+        "const bootstrapLabelCandidate = toString" in text
+    ), "Orchestrator must sanitise the bootstrap label input before dispatch"
+    assert (
         "./.github/workflows/reusable-16-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
 
