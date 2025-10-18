@@ -770,10 +770,45 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f autofix_report_enriched.json ]; then
-            python -c "import json, os; from datetime import datetime, timezone; from pathlib import Path; meta={'pull_request': os.environ.get('PR_NUMBER'), 'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}; path = Path('autofix_report_enriched.json'); data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}; data.update(meta); Path('autofix_report.json').write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
+            python - <<'PY' || echo '{"error":"merge_failed"}' > autofix_report.json
+            import json
+            import os
+            from datetime import datetime, timezone
+            from pathlib import Path
+
+            meta = {
+                "pull_request": os.environ.get("PR_NUMBER"),
+                "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+
+            path = Path("autofix_report_enriched.json")
+            data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            data.update(meta)
+            Path("autofix_report.json").write_text(
+                json.dumps(data, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+          PY
           else
-            ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            REPORT_TIMESTAMP="$ts" python -c "import json, os; from pathlib import Path; payload={'changed': os.getenv('REPORT_CHANGED', ''), 'remaining_issues': os.getenv('REPORT_REMAINING', ''), 'new_issues': os.getenv('REPORT_NEW', ''), 'pull_request': os.getenv('REPORT_PR', ''), 'timestamp_utc': os.getenv('REPORT_TIMESTAMP', '')}; Path('autofix_report.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')" || echo '{"error":"merge_failed"}' > autofix_report.json
+            python - <<'PY' || echo '{"error":"merge_failed"}' > autofix_report.json
+            import json
+            import os
+            from datetime import datetime, timezone
+            from pathlib import Path
+
+            payload = {
+                "changed": os.environ.get("REPORT_CHANGED", ""),
+                "remaining_issues": os.environ.get("REPORT_REMAINING", ""),
+                "new_issues": os.environ.get("REPORT_NEW", ""),
+                "pull_request": os.environ.get("REPORT_PR", ""),
+                "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+
+            Path("autofix_report.json").write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+          PY
           fi
           echo "Enriched report ready."
         env:
@@ -805,13 +840,13 @@ jobs:
           mode_value="${MODE:-standard}"
           guard_value="${GUARD_SKIP:-false}"
           {
-            echo "### Reusable Autofix Summary"
-            echo "Loop guard skip: ${guard_value}"
-            echo "Mode: ${mode_value}"
-            echo "Applied changes: ${CHANGED:-false}"
-            echo "Same repo: ${SAME_REPO:-false}"
-            echo "Remaining ruff issues: ${REMAINING:-0}"
-            echo "New (non-allowlisted) ruff issues: ${NEW_ISSUES:-0}"
+            printf '### Reusable Autofix Summary\n'
+            printf 'Loop guard skip: %s\n' "${guard_value}"
+            printf 'Mode: %s\n' "${mode_value}"
+            printf 'Applied changes: %s\n' "${CHANGED:-false}"
+            printf 'Same repo: %s\n' "${SAME_REPO:-false}"
+            printf 'Remaining ruff issues: %s\n' "${REMAINING:-0}"
+            printf 'New (non-allowlisted) ruff issues: %s\n' "${NEW_ISSUES:-0}"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
