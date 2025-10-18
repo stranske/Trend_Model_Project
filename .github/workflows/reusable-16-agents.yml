@@ -368,7 +368,48 @@ jobs:
           LABEL: ${{ inputs.bootstrap_issues_label }}
         with:
           script: |
-            const label = process.env.LABEL;
+            const summary = core.summary;
+            summary.addHeading('Codex Bootstrap', 2);
+
+            const raw = process.env.LABEL || '';
+            const labels = raw
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            if (!labels.length) {
+              const message = 'bootstrap_issues_label input must be set to a non-empty label.';
+              core.setFailed(message);
+              summary.addRaw(message).addEOL();
+              await summary.write();
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+              return;
+            }
+
+            if (labels.length > 1) {
+              const message =
+                'bootstrap_issues_label input must define exactly one label to avoid sweeping unintended issues.';
+              core.setFailed(message);
+              summary.addRaw(message).addEOL();
+              await summary.write();
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+              return;
+            }
+
+            const label = labels[0];
+            const labelLower = label.toLowerCase();
+
+            const skipped = [];
+            const logSkip = (issue, reason) => {
+              const message = `#${issue.number}: skipped – ${reason}`;
+              core.info(message);
+              skipped.push(message);
+            };
+
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,

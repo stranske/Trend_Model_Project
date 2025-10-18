@@ -40,6 +40,18 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
+def test_agents_orchestrator_bootstrap_label_default():
+    wf = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
+    assert wf.exists(), "agents-70-orchestrator.yml must exist"
+    text = wf.read_text(encoding="utf-8")
+    assert (
+        "bootstrap_issues_label: 'agent:codex'," in text
+    ), "Default bootstrap label must remain agent:codex"
+    assert (
+        "core.notice(`Using default bootstrap label: ${DEFAULTS.bootstrap_issues_label}`);" in text
+    ), "Resolve step should log when falling back to the default label"
+
+
 def test_reusable_agents_workflow_structure():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     assert reusable.exists(), "reusable-16-agents.yml must exist"
@@ -106,6 +118,22 @@ def test_keepalive_job_present():
     ), "Ready issues step must emit issue_numbers_json output"
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
 
+    data = _load_workflow_yaml("reusable-16-agents.yml")
+    jobs = data.get("jobs", {})
+    keepalive_job = jobs.get("keepalive")
+    assert keepalive_job, "Reusable workflow must expose keepalive job"
+    assert (
+        keepalive_job.get("name") == "Codex Keepalive Sweep"
+    ), "Keepalive job must retain its expected display name"
+    keepalive_name_instances = [
+        job.get("name")
+        for job in jobs.values()
+        if isinstance(job, dict) and job.get("name") == "Codex Keepalive Sweep"
+    ]
+    assert (
+        len(keepalive_name_instances) == 1
+    ), "Codex keepalive job name should appear exactly once across jobs"
+
 
 def test_bootstrap_filters_on_configured_label():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
@@ -113,10 +141,39 @@ def test_bootstrap_filters_on_configured_label():
     assert (
         "bootstrap_issues_label input must be set to a non-empty label" in text
     ), "Bootstrap step must fail fast when label is missing"
+    assert (
+        "bootstrap_issues_label input must define exactly one label" in text
+    ), "Bootstrap step must reject multi-label configurations"
     assert "labels: label" in text, "Bootstrap issue query must request the configured label"
     assert (
         "missing required label ${label}" in text
     ), "Bootstrap step must skip issues lacking the required label"
+
+
+def test_bootstrap_summary_highlights_scope_and_skips():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "summary.addRaw(`Bootstrap label: **${label}**`)" in text
+    ), "Bootstrap summary should surface the resolved label"
+    assert (
+        "summary.addList(\n                accepted.map((issue) => `#${issue.number} – ${(issue.title || 'untitled').trim()}`)" in text
+    ), "Bootstrap summary should enumerate accepted issues when present"
+    assert (
+        "summary.addDetails('Skipped issues'" in text
+    ), "Bootstrap summary should list skipped issue reasons to avoid silent no-ops"
+
+
+def test_keepalive_summary_reports_targets():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert (
+        "core.summary.addHeading('Codex Keepalive')" in text
+    ), "Keepalive job should continue writing a run summary"
+    assert (
+        "Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}" in text
+    ), "Keepalive summary should expose the deduplicated label set"
+    assert (
+        "Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}" in text
+    ), "Keepalive summary should expose the resolved agent login list"
 
 
 def test_agents_orchestrator_has_concurrency_defaults():
