@@ -818,12 +818,11 @@ jobs:
               }
             }
 
-            core.summary.addHeading('Codex Keepalive');
-# summary trimmed to concise heading to avoid duplication during revert
- 4bcf3a1e (Revert accidental change to reusable-16-agents.yml to satisfy Health 45 guard)
-            if (triggered.length) {
-              core.summary.addList(triggered);
-            } else {
-              core.summary.addRaw('No unattended Codex tasks detected.');
-            }
-            core.summary.write();
+              core.summary.addHeading('Codex Keepalive');
+              // Summary trimmed to a concise heading to avoid duplication during revert handling.
+              if (triggered.length) {
+                core.summary.addList(triggered);
+              } else {
+                core.summary.addRaw('No unattended Codex tasks detected.');
+              }
+              core.summary.write();
