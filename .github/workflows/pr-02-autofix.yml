@@ -93,3 +93,5 @@ jobs:
     steps:
       - name: Confirm condition
         run: echo "probe_condition=true"
+      - name: Evaluate reusable guard
+        run: echo "autofix_guard=${{ github.event_name == 'pull_request' && github.actor != 'github-actions' && github.actor != 'github-actions[bot]' && !startsWith(github.event.pull_request.title, 'chore(autofix):') && ( !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, needs.label_gate.outputs.label) ) }}"
