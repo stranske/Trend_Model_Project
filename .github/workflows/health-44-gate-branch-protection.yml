@@ -159,6 +159,10 @@ jobs:
                   current = enforcement.get("current")
                   desired = enforcement.get("after") or enforcement.get("desired")
                   summary.write(f"- Mode: `{enforcement.get('mode', 'unknown')}`\n")
+                  if "no_clean" in enforcement:
+                      summary.write(
+                          f"- Cleanup disabled: {bool(enforcement.get('no_clean'))}\n"
+                      )
                   if current is not None:
                       summary.write(f"- Current contexts: {render_contexts(current)}\n")
                   if desired is not None:
@@ -170,6 +174,10 @@ jobs:
                   summary.write("**Verification snapshot**\n\n")
                   current = verification.get("current")
                   desired = verification.get("after") or verification.get("desired")
+                  if "no_clean" in verification:
+                      summary.write(
+                          f"- Cleanup disabled: {bool(verification.get('no_clean'))}\n"
+                      )
                   if current is not None:
                       summary.write(f"- Current contexts: {render_contexts(current)}\n")
                   if desired is not None:

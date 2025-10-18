@@ -375,6 +375,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "generated_at": now.isoformat().replace("+00:00", "Z"),
             "changes_applied": False,
             "require_strict": bool(args.require_strict),
+            "no_clean": bool(args.no_clean),
         }
 
     api_root = resolve_api_root(args.api_url)
