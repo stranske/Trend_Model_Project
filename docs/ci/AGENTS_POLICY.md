@@ -42,6 +42,10 @@ Disrupting any one of them breaks the automation topology.
 
 ## Required checks and status contexts
 
+> 📚 **Cross-reference.** The [Workflow System Overview](./WORKFLOW_SYSTEM.md#required-status-contexts-default-branch)
+> publishes the same status-context table from the topology perspective so both
+> documents stay synchronized when you audit branch protection.
+
 - **Gate** surfaces the status context `gate` and blocks every pull request until
   it reports ✅. The check bundles docs-only detection and kicks off the reusable
   CI matrix.

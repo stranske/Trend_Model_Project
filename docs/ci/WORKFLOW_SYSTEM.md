@@ -431,6 +431,20 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   Agents Guard becomes required whenever a change touches the `agents-*.yml`
   surface (`agents-guard` context). Both checks must appear in branch
   protection.
+
+### Required status contexts (default branch)
+
+Keep this table handy when you need the canonical strings for reviews or branch
+protection audits—it mirrors the
+[Agents Workflow Protection Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts)
+list and references the Health 44 enforcement workflow that captures the JSON
+snapshots for audit trails.
+
+| Check | Status context | Where to verify |
+| --- | --- | --- |
+| **Gate** | `gate` | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml), Checks tab → **Gate / gate**, [Policy quick reference](./AGENTS_POLICY.md#required-checks-and-status-contexts) |
+| **Health 45 Agents Guard** | `agents-guard` | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml), Checks tab (auto-added on `agents-*.yml` diffs), [Policy quick reference](./AGENTS_POLICY.md#required-checks-and-status-contexts) |
+
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
 - **Autofix.** Maint 46 centralizes automated follow-up fixes. Forks upload
