@@ -156,7 +156,7 @@ def _extract_next_link(link_header: str | None) -> str | None:
             continue
         url_part = parts[0]
         params = parts[1:]
-        if any(p == 'rel="next"' for p in params):
+        if any(p.strip() == 'rel="next"' for p in params):
             return url_part.strip("<>")
     return None
 
