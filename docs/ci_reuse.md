@@ -13,7 +13,7 @@ retired and now live only in git history, with verification notes captured in
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
 | Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
 | Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
-| Selftest Runner | `.github/workflows/selftest-runner.yml` | Manual workflow that bundles the reusable CI matrix with publication logic. Modes toggle summary vs comment output and single vs dual-runtime matrices; optional inputs override Python versions, artifact downloads, and comment presentation. |
+| Selftest: Reusables | `.github/workflows/selftest-reusable-ci.yml` | Manual workflow that bundles the reusable CI matrix with publication logic. Modes toggle summary vs comment output and single vs dual-runtime matrices; optional inputs override Python versions, artifact downloads, and comment presentation. |
 
 ## 1. Reusable CI (`reusable-10-ci-python.yml`)
 Consumer example (excerpt from `pr-00-gate.yml`):
@@ -99,7 +99,7 @@ syntax. Each automation path has a bound sized to its typical runtime plus
 headroom (readiness/preflight: 15 minutes, diagnostics: 20 minutes, bootstrap:
 30 minutes, keepalive: 25 minutes).
 
-## 5. Selftest Runner (`selftest-runner.yml`)
+## 5. Selftest: Reusables (`selftest-reusable-ci.yml`)
 Hosts the matrix that validates the reusable CI executor across feature
 combinations (coverage delta, soft gate, metrics, history, classification)
 and publishes the verification results. Dispatch the workflow manually to
