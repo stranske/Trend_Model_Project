@@ -206,6 +206,11 @@ jobs:
             core.setOutput('state', 'success');
             core.setOutput('description', message);
 
+            await core.summary
+              .addHeading('Gate docs-only fast-pass', 3)
+              .addRaw(`${message}\n`)
+              .write();
+
       - name: Clean up legacy docs-only comment
         if: ${{ always() }}
         uses: actions/github-script@v7

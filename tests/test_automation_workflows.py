@@ -236,6 +236,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
             "logs message": r"core\.info\(\s*message\s*\);",
             "includes docs-only fast-pass messaging": r"Gate fast-pass: docs-only change detected; heavy checks skipped\.",
+            "writes step summary": r"core\.summary[\s\S]*?addHeading\(\s*'Gate docs-only fast-pass'",
         }
 
         for label, pattern in expected_patterns.items():
