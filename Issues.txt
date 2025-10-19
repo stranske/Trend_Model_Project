@@ -21,7 +21,7 @@ Gate remains green after fixes.
 
 Implementation Notes
 
-Reuse steps from Issue 7, but restrict pathspecs.
+Reuse steps from the cosmetic autofix workflow, but restrict pathspecs.
 
 2. Post-CI: single source of truth summary with coverage delta
 
