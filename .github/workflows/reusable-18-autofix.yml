@@ -195,7 +195,12 @@ jobs:
         run: |
           set -euo pipefail
           ruff --version
+          echo "[autofix] Normalising imports with Ruff"
+          ruff check --select I --fix --exit-zero .
+          echo "[autofix] Applying Ruff lint fixes"
           ruff check --fix --exit-zero .
+          echo "[autofix] Normalising whitespace with Ruff formatter"
+          ruff format .
 
       - name: Tests-only cosmetic sweep
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
