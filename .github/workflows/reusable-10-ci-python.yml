@@ -285,9 +285,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Use canonical artifact names so downstream workflows (Gate, Post-CI)
-          # can fetch coverage payloads without coordinating prefixes.
-          name: coverage-${{ matrix.python-version }}
+          # Allow callers to prepend an artifact prefix while keeping the default
+          # coverage-<version> naming used by downstream workflows.
+          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
           path: |
             coverage.xml
             coverage.json
