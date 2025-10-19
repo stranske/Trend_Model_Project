@@ -11,7 +11,7 @@ Tasks
 
  Implement one of:
 
-Heartbeat Issue comment: post a timestamped comment to a fixed “Ops Heartbeat” Issue (e.g., #1) on each run.
+Heartbeat Issue comment: post a timestamped comment to a fixed "Ops Heartbeat" Issue (e.g., #1) on each run.
 
 Keepalive action: use a marketplace keepalive step that pings Actions without committing.
 
