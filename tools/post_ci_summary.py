@@ -352,8 +352,17 @@ def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, obje
             continue
 
         if candidate_present == existing_present:
-            existing_state = existing.get("conclusion") or existing.get("status")
-            candidate_state = run.get("conclusion") or run.get("status")
+            existing_state_value = existing.get("conclusion") or existing.get("status")
+            candidate_state_value = run.get("conclusion") or run.get("status")
+
+            existing_state = (
+                str(existing_state_value) if existing_state_value is not None else None
+            )
+            candidate_state = (
+                str(candidate_state_value)
+                if candidate_state_value is not None
+                else None
+            )
 
             if (candidate_state and not existing_state) or (
                 _priority(candidate_state) < _priority(existing_state)
@@ -647,16 +656,14 @@ def build_summary_comment(
         coverage_block.append("\n".join(coverage_delta_lines))
     if coverage_lines:
         coverage_block.append("\n".join(coverage_lines))
-    if coverage_table:
-        if not coverage_block:
-            coverage_block.append("### Coverage Overview")
-        coverage_block.append(coverage_table)
     if coverage_section_clean:
         if not coverage_block:
             coverage_block.append("### Coverage Overview")
         coverage_block.append(coverage_section_clean)
     if docs_only_fast_pass:
-        note = "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        note = (
+            "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        )
         if coverage_block:
             coverage_block.append(note)
         else:
