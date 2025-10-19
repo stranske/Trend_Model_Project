@@ -633,6 +633,11 @@ def build_summary_comment(
     latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
     coverage_delta_lines = _format_coverage_delta_lines(coverage_delta)
+    coverage_table = ""
+    if isinstance(coverage_stats, Mapping):
+        table_value = coverage_stats.get("coverage_table_markdown")
+        if isinstance(table_value, str):
+            coverage_table = table_value.strip()
 
     coverage_block: List[str] = []
     coverage_section_clean = (coverage_section or "").strip()
