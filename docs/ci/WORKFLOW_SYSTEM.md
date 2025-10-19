@@ -7,7 +7,8 @@ contributor experiences on a pull request or on the maintenance calendar:
 
 1. **PR checks** – gatekeeping for every pull request (Gate, PR 02 Autofix).
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
-   the repository clean (Maint 46 Post CI, Maint 45, recurring health checks).
+   the repository clean (Maint 46 Post CI, Maint Keepalive Heartbeat, Maint 45,
+   recurring health checks).
 3. **Issue / agents automation** – orchestrated agent work and issue
    synchronisation (Agents 70 orchestrator plus Agents 63/64 companions).
 4. **Error checking, linting, and testing topology** – reusable workflows that
@@ -300,8 +301,9 @@ and where to watch the result:
    show up under the same pull request for easy comparison with Gate.
 3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
    Gate success signal, aggregates artifacts, and applies any low-risk cleanup.
-  Scheduled maintenance jobs (Maint 45 and Health 40–44) continue to run on
-   their cadence even when no one is watching, keeping the repo healthy.
+  Scheduled maintenance jobs (Maint Keepalive Heartbeat, Maint 45, and Health
+   40–44) continue to run on their cadence even when no one is watching,
+   keeping the repo healthy.
 4. **Issue and agents automation picks up queued work.** Labelled issues flow
    through the Agents 63 bridges into the Agents 70 orchestrator, which may in
    turn call the reusable agents topology or kick additional verification jobs
@@ -329,13 +331,18 @@ fires where” without diving into the full tables:
   - **Where to inspect logs.** Gate: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
     Autofix: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml).
 - **Maintenance & repo health**
-  - **Primary workflows.** `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`,
-    and the health guardrails (`health-40` through `health-44`).
+  - **Primary workflows.** `maint-46-post-ci.yml`, `maint-keepalive.yml`,
+    `maint-45-cosmetic-repair.yml`, and the health guardrails (`health-40`
+    through `health-44`).
   - **Triggers.** Combination of `workflow_run` (Maint 46 watching Gate),
-    recurring schedules, and manual dispatch for Maint 45.
-  - **Purpose.** Keep the default branch stable after merges, surface drift, and
-    enforce branch-protection expectations without waiting for the next PR.
-  - **Where to inspect logs.** Maint 46: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml).
+    recurring schedules (keepalive + health guardrails), and manual dispatch for
+    Maint 45 and ad-hoc keepalive checks.
+  - **Purpose.** Keep the default branch stable after merges, surface drift,
+    maintain a visible heartbeat for scheduled automation, and enforce
+    branch-protection expectations without waiting for the next PR.
+  - **Where to inspect logs.** Maint 46:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml).
+    Maint Keepalive: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml).
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
@@ -427,7 +434,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml`, `pr-02-autofix.yml` | Keep the default branch green by running the gating matrix, autofix sweep, and docs-only short circuit before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`) | `agents-70-orchestrator.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -456,6 +463,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` consolidates
   CI results, uploads artifacts, and applies small, low-risk fixes (for example,
   syncing generated docs or updating the failure tracker).
+- **Maint Keepalive Heartbeat** – `.github/workflows/maint-keepalive.yml` runs
+  on a twice-daily cron (and manual dispatch) to post a timestamped comment to
+  the Ops heartbeat issue via `ACTIONS_BOT_PAT`. The workflow validates that the
+  `OPS_HEARTBEAT_ISSUE` repository variable is set before posting, failing fast
+  if misconfigured so the heartbeat cannot silently stall.
 - **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
   runs on-demand and disables archived workflows still listed as active in the
   Actions UI.
@@ -523,6 +535,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **PR 02 Autofix** (`pr-02-autofix.yml`, PR checks bucket) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | [Autofix runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml) |
 | **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
+| **Maint Keepalive Heartbeat** (`maint-keepalive.yml`, maintenance bucket) | `schedule` (`17 */12 * * *`), `workflow_dispatch` | Post a UTC timestamp heartbeat comment to the configured Ops issue so scheduled automation leaves an observable trace. | ⚪ Scheduled | [Maint Keepalive runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |

@@ -1,0 +1,45 @@
+name: Maint Keepalive Heartbeat
+
+on:
+  schedule:
+    - cron: '17 */12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency: keepalive-${{ github.ref }}
+
+jobs:
+  heartbeat:
+    name: Post heartbeat
+    runs-on: ubuntu-latest
+    env:
+      HEARTBEAT_ISSUE: ${{ vars.OPS_HEARTBEAT_ISSUE }}
+    steps:
+      - name: Validate heartbeat configuration
+        run: |
+          if [ -z "${HEARTBEAT_ISSUE}" ]; then
+            echo "Repository variable OPS_HEARTBEAT_ISSUE is not configured." >&2
+            exit 1
+          fi
+      - name: Capture timestamp
+        id: timestamp
+        run: echo "utc=$(date -u '+%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+      - name: Post heartbeat comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.ACTIONS_BOT_PAT }}
+          issue-number: ${{ env.HEARTBEAT_ISSUE }}
+          body: |
+            :heartbeat: Automated keepalive ping at ${{ steps.timestamp.outputs.utc }} (run ${{ github.run_id }}).
+      - name: Summarize heartbeat
+        run: |
+          {
+            echo "## Keepalive Heartbeat";
+            echo "* Issue: #${HEARTBEAT_ISSUE}";
+            echo "* Timestamp (UTC): ${{ steps.timestamp.outputs.utc }}";
+            echo "* Run ID: ${{ github.run_id }}";
+          } >> "$GITHUB_STEP_SUMMARY"
