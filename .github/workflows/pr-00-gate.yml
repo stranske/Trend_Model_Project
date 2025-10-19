@@ -17,6 +17,7 @@ jobs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
       run_core: ${{ steps.diff.outputs.run_core }}
       reason: ${{ steps.diff.outputs.reason }}
+      docker_changed: ${{ steps.diff.outputs.docker_changed }}
     steps:
       - name: Detect changes via API
         id: diff
@@ -29,6 +30,7 @@ jobs:
               core.setOutput('doc_only', 'false');
               core.setOutput('run_core', 'true');
               core.setOutput('reason', 'non_pr_event');
+              core.setOutput('docker_changed', 'true');
               return;
             }
 
@@ -132,7 +134,39 @@ jobs:
             const hasChanges = changedFiles.length > 0;
             const nonDocFiles = changedFiles.filter(filename => !classify(filename));
 
+            const dockerRelated = filename => {
+              // Treat top-level Docker artefacts, supporting directories, and ignore rules
+              // as Docker-related so the smoke test only runs when these assets change.
+              const normalised = filename.toLowerCase();
+
+              if (normalised === 'dockerfile') {
+                return true;
+              }
+
+              const dockerfileSuffixes = ['/dockerfile', '\\dockerfile'];
+              if (dockerfileSuffixes.some(suffix => normalised.endsWith(suffix))) {
+                return true;
+              }
+
+              if (normalised === '.dockerignore') {
+                return true;
+              }
+
+              const dockerPrefixes = ['docker/', 'docker\\', '.docker/', '.docker\\'];
+              if (dockerPrefixes.some(prefix => normalised.startsWith(prefix))) {
+                return true;
+              }
+
+              const dockerSegments = ['/docker/', '\\docker\\'];
+              if (dockerSegments.some(segment => normalised.includes(segment))) {
+                return true;
+              }
+
+              return false;
+            };
+
             const docOnly = hasChanges ? nonDocFiles.length === 0 : true;
+            const dockerChanged = changedFiles.some(filename => dockerRelated(filename));
 
             let reason = 'code_changes';
             if (!hasChanges) {
@@ -144,6 +178,7 @@ jobs:
             core.setOutput('doc_only', docOnly ? 'true' : 'false');
             core.setOutput('run_core', docOnly ? 'false' : 'true');
             core.setOutput('reason', reason);
+            core.setOutput('docker_changed', dockerChanged ? 'true' : 'false');
 
   core-tests-311:
     name: core tests (3.11)
@@ -166,7 +201,7 @@ jobs:
   docker-smoke:
     name: docker smoke
     needs: detect
-    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
+    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && needs.detect.outputs.docker_changed == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   gate:
@@ -291,6 +326,7 @@ jobs:
           CORE_311="${{ needs.core-tests-311.result || 'skipped' }}"
           CORE_312="${{ needs.core-tests-312.result || 'skipped' }}"
           DOCKER="${{ needs.docker-smoke.result || 'skipped' }}"
+          DOCKER_CHANGED="${{ needs.detect.outputs.docker_changed || 'false' }}"
 
           cat <<EOF >> "$GITHUB_STEP_SUMMARY"
           ### Gate status
@@ -330,9 +366,14 @@ jobs:
             elif [ "${CORE_312}" != "success" ]; then
               STATE="failure"
               DESCRIPTION="core-tests-312 result: ${CORE_312}."
-            elif [ "${DOCKER}" != "success" ]; then
+            elif [ "${DOCKER_CHANGED}" = "true" ] && [ "${DOCKER}" != "success" ]; then
               STATE="failure"
               DESCRIPTION="docker-smoke result: ${DOCKER}."
+            elif [ "${DOCKER_CHANGED}" != "true" ]; then
+              {
+                echo
+                echo "Docker smoke skipped: no Docker-related changes detected."
+              } >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
 
