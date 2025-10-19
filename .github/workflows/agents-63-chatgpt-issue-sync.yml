@@ -266,7 +266,6 @@ jobs:
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
-            const requiredLabels = new Set(['agents', 'agent:codex']);
             const isAgentLabel = (label) => {
               if (typeof label !== 'string') return false;
               return label.trim().toLowerCase().startsWith('agent:');
@@ -278,21 +277,18 @@ jobs:
             let topicsWithAgentLabels = 0;
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
-              const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
-              if (!hasRequired) {
-                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
-                core.info(`Skipping topic without agent label${preview}.`);
-                return false;
-              }
-              topicsWithAgentLabels += 1;
-              const otherAgentLabels = labels.filter((label) => isAgentLabel(label) && !isCodexAgentLabel(label));
-              if (otherAgentLabels.length) {
-                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
-                core.info(
-                  `Skipping topic targeted at other agents${preview}. Labels: ${otherAgentLabels.join(', ')}`,
-                );
-                metrics.topics_skipped_for_other_agents += 1;
-                return false;
+              const agentLabels = labels.filter((label) => isAgentLabel(label));
+              if (agentLabels.length) {
+                topicsWithAgentLabels += 1;
+                const codexLabelTargets = agentLabels.filter((label) => isCodexAgentLabel(label));
+                if (!codexLabelTargets.length) {
+                  const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                  core.info(
+                    `Skipping topic targeted at other agents${preview}. Labels: ${agentLabels.join(', ')}`,
+                  );
+                  metrics.topics_skipped_for_other_agents += 1;
+                  return false;
+                }
               }
               return true;
             });
@@ -302,7 +298,7 @@ jobs:
               const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
               const notice = otherAgentSkipCount
                 ? `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`
-                : 'No topics matched agent labels. Exiting without changes.';
+                : 'No topics were eligible after filtering. Exiting without changes.';
               await publishSummary({
                 notice,
               });

@@ -103,7 +103,9 @@ def _split_numbered_items(text: str) -> list[dict[str, str | list[str] | bool]]:
         else:
             if current is None:
                 continue
-            current["lines"].append(raw_line.rstrip("\n"))
+            lines_field = current.setdefault("lines", [])
+            if isinstance(lines_field, list):
+                lines_field.append(raw_line.rstrip("\n"))
     if current:
         items.append(current)
     if not items:
@@ -203,17 +205,23 @@ def parse_text(
 
     parsed: list[dict[str, object]] = []
     for item in items:
-        raw_lines = list(item["lines"])
+        raw_lines_field = item.get("lines", [])
+        if isinstance(raw_lines_field, list):
+            raw_lines = [str(line) for line in raw_lines_field if line is not None]
+        elif isinstance(raw_lines_field, str):
+            raw_lines = [raw_lines_field]
+        else:
+            raw_lines = []
         labels, sections, extras = _parse_sections(raw_lines)
         data = {
-            "title": item["title"],
+            "title": str(item.get("title", "")).strip(),
             "labels": labels,
             "sections": {key: _join_section(value) for key, value in sections.items()},
             "extras": _join_section(extras),
             "enumerator": item.get("enumerator"),
             "continuity_break": bool(item.get("continuity_break", False)),
         }
-        normalized_title = re.sub(r"\s+", " ", item["title"].strip().lower())
+        normalized_title = re.sub(r"\s+", " ", data["title"].strip().lower())
         data["guid"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, normalized_title))
         parsed.append(data)
     return parsed
@@ -239,7 +247,7 @@ def main() -> None:
         raise
     if not parsed:
         raise SystemExit(4)
-    preview = parsed[0]["title"] if parsed else ""  # defensive
+    preview = str(parsed[0].get("title", "")) if parsed else ""
     OUTPUT_PATH.write_text(json.dumps(parsed, indent=2), encoding="utf-8")
     print(f"Parsed {len(parsed)} topic(s). First title: {preview[:80]}")
 

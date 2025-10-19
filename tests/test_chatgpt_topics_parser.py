@@ -12,6 +12,7 @@ def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str]:
     semantics."""
     tmp = pathlib.Path("input.txt")
     tmp.write_text(text, encoding="utf-8")
+    pathlib.Path("topics.json").unlink(missing_ok=True)
     proc = subprocess.run(
         [sys.executable, str(SCRIPT)],
         capture_output=True,
