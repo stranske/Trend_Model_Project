@@ -3,7 +3,7 @@
 > **2026-11-15 update (Issue #2728):** the manual-only policy implemented here was
 > a temporary safeguard while the consolidated runner stabilized. With the
 > retirement of `selftest-reusable-ci.yml`, the nightly cron on
-> `selftest-runner.yml` returned. This plan is retained for historical context; the
+> `selftest-reusable-ci.yml` returned. This plan is retained for historical context; the
 > current workflow inventory and triggers live in
 > [`docs/ci/WORKFLOWS.md`](WORKFLOWS.md) and the workflow system overview
 > ([`WORKFLOW_SYSTEM.md`](WORKFLOW_SYSTEM.md)).
@@ -17,7 +17,7 @@
 
 ## Acceptance Criteria / Definition of Done
 1. All self-test workflow files trigger exclusively via `workflow_dispatch` and contain no other event triggers or schedules. *(Achieved for the manualization initiative, later relaxed when the nightly schedule was restored.)*
-2. Duplicate or obsolete self-test workflows are removed, with the authoritative set now reduced to the consolidated `selftest-runner.yml` entry point (superseding the earlier `selftest-8X-*` wrappers from Issue #2496).
+2. Duplicate or obsolete self-test workflows are removed, with the authoritative set now reduced to the consolidated `selftest-reusable-ci.yml` entry point (superseding the earlier `selftest-8X-*` wrappers from Issue #2496).
 3. Documentation describing CI workflows (at minimum `docs/ci/WORKFLOWS.md`) includes a note clarifying self-tests are manual examples and not part of automated CI. *(Historical requirement superseded by the current nightly-runner description.)*
 4. Repository search confirms no lingering references to deleted self-test workflows or to automated triggers for self-tests. *(Historical verification step from the manual-only rollout.)*
 5. Required checks (notably `pr-00-gate`) succeed after the workflow adjustments, demonstrating no unintended CI regressions.

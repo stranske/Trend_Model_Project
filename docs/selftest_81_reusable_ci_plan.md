@@ -2,7 +2,7 @@
 
 > **2027-02 Update:** The standalone `selftest-81-reusable-ci.yml` workflow has
 > been retired. The scenario matrix and aggregation logic now live directly in
-> `selftest-runner.yml`. This document is preserved for historical reference in
+> `selftest-reusable-ci.yml`. This document is preserved for historical reference in
 > case earlier implementation notes are required when reviewing prior commits.
 
 ## Scope and Key Constraints
