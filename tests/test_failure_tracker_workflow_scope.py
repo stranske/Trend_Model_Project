@@ -318,7 +318,8 @@ def test_post_comment_job_upserts_single_pr_comment() -> None:
     comment_step = _get_step(job, "Upsert consolidated PR comment")
     script = comment_step.get("with", {}).get("script", "")
 
-    assert "<!-- maint-46-post-ci: DO NOT EDIT -->" in script
+    assert "const anchorPattern = /<!--\\s*maint-46-post-ci:" in script
+    assert "const extractAnchor = (text) =>" in script
     assert "github.rest.issues.updateComment" in script
     assert "github.rest.issues.createComment" in script
 
@@ -332,12 +333,19 @@ def test_post_comment_script_updates_existing_comment(tmp_path: Path) -> None:
         "owner": "stranske",
         "repo": "Trend_Model_Project",
         "pr": 321,
-        "body": "## Automated Status Summary\nUpdated body\n",
+        "body": (
+            "<!-- maint-46-post-ci: pr=321 head=cafebabedead -->\n"
+            "<!-- maint-46-post-ci: DO NOT EDIT -->\n"
+            "## Automated Status Summary\nUpdated body\n"
+        ),
         "comments": [
             {"id": 7001, "body": "Unrelated comment"},
             {
                 "id": 7002,
-                "body": "<!-- maint-46-post-ci: DO NOT EDIT -->\nPrevious summary\n",
+                "body": (
+                    "<!-- maint-46-post-ci: pr=123 head=deadbeefcafe -->\n"
+                    "<!-- maint-46-post-ci: DO NOT EDIT -->\nPrevious summary\n"
+                ),
             },
         ],
     }
@@ -368,7 +376,11 @@ def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> Non
         "owner": "stranske",
         "repo": "Trend_Model_Project",
         "pr": 654,
-        "body": "## Automated Status Summary\nFresh body\n",
+        "body": (
+            "<!-- maint-46-post-ci: pr=654 head=baddadfeed00 -->\n"
+            "<!-- maint-46-post-ci: DO NOT EDIT -->\n"
+            "## Automated Status Summary\nFresh body\n"
+        ),
         "comments": [
             {"id": 8101, "body": "General discussion"},
             {"id": 8102, "body": "Status marker missing"},
