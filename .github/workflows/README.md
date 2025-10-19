@@ -246,11 +246,11 @@ Outputs:
 ### Agents Orchestration (Issue #2466)
 
 ---
-## 7.4 Self-Test Runner & Reusable CI
+## 7.4 Selftest: Reusables & Reusable CI
 
-### Consolidated runner (Issue #2651)
+### Consolidated runner (Issue #2651 & Issue #2814 refresh)
 
-- **Entry point:** Dispatch **Selftest Runner** (`.github/workflows/selftest-runner.yml`) from the Actions tab when you need a
+- **Entry point:** Dispatch **Selftest: Reusables** (`.github/workflows/selftest-reusable-ci.yml`) from the Actions tab when you need a
   comment, workflow summary, or dual-runtime verification. The workflow also runs on a nightly cron (06:30 UTC); only PR and push
   triggers remain disabled after consolidation.
 - **Inputs:**
@@ -266,12 +266,12 @@ Outputs:
   missing or mismatched. This keeps “unknown” outcomes from sneaking through when the reusable matrix changes. The workflow also
   respects the matrix result—any upstream failure bubbles up as an error after the report is posted.
 - **Comment lifecycle:** When `mode: comment` and `post_to: pr-number`, the workflow updates an existing comment marked with
-  `<!-- selftest-runner-comment -->` or creates a new one. Manual reruns therefore refresh the same comment instead of spamming
+  `<!-- selftest-reusable-comment -->` or creates a new one. Manual reruns therefore refresh the same comment instead of spamming
   reviewers.
 - **CLI snippet:**
 
   ```bash
-  gh workflow run "Selftest Runner" \
+  gh workflow run "Selftest: Reusables" \
     --raw-field mode=comment \
     --raw-field post_to=pr-number \
     --raw-field pull_request_number=1234 \
