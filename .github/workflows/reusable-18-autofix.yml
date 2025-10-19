@@ -321,27 +321,27 @@ jobs:
           fi
 
           python - <<'PY' > autofix_report_enriched.json
-import json
-import os
-import sys
+          import json
+          import os
+          import sys
 
-changed = os.environ.get("AUTOFIX_CHANGED", "false").lower() == "true"
-timestamp = os.environ.get("AUTOFIX_TIMESTAMP")
-files = [
-    line.strip()
-    for line in os.environ.get("AUTOFIX_FILE_LIST", "").splitlines()
-    if line.strip()
-]
-payload = {
-    "changed": changed,
-    "classification": {"total": 0, "new": 0, "allowed": 0},
-}
-if timestamp:
-    payload["timestamp"] = timestamp
-if files:
-    payload["files"] = files
-json.dump(payload, sys.stdout)
-PY
+          changed = os.environ.get("AUTOFIX_CHANGED", "false").lower() == "true"
+          timestamp = os.environ.get("AUTOFIX_TIMESTAMP")
+          files = [
+              line.strip()
+              for line in os.environ.get("AUTOFIX_FILE_LIST", "").splitlines()
+              if line.strip()
+          ]
+          payload = {
+              "changed": changed,
+              "classification": {"total": 0, "new": 0, "allowed": 0},
+          }
+          if timestamp:
+              payload["timestamp"] = timestamp
+          if files:
+              payload["files"] = files
+          json.dump(payload, sys.stdout)
+          PY
 
           if [ "$changed_flag" = false ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
