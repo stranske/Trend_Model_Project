@@ -93,6 +93,11 @@ on:
         required: false
         default: 'false'
         type: string
+      dry_run:
+        description: 'Preview mode; skip write actions when true'
+        required: false
+        default: 'false'
+        type: string
       options_json:
         description: 'JSON configuration for optional automation (keepalive sweep, etc)'
         required: false
@@ -366,10 +371,16 @@ jobs:
         uses: actions/github-script@v7
         env:
           LABEL: ${{ inputs.bootstrap_issues_label }}
+          DRY_RUN: ${{ inputs.dry_run }}
         with:
           script: |
             const summary = core.summary;
             summary.addHeading('Codex Bootstrap', 2);
+            const dryRun = (process.env.DRY_RUN || '').trim().toLowerCase() === 'true';
+            summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            if (dryRun) {
+              core.notice('Dry run enabled – bootstrap will not open or update pull requests.');
+            }
 
             const clearOutputs = () => {
               core.setOutput('issue_numbers', '');
@@ -539,6 +550,9 @@ jobs:
             if (truncated) {
               summaryItems.push(`Scan truncated after ${scanLimit} issues.`);
             }
+            if (dryRun && accepted.length) {
+              summaryItems.push('Dry run enabled – bootstrap actions skipped.');
+            }
             summary.addList(summaryItems);
             await summary.write();
 
@@ -547,7 +561,7 @@ jobs:
             core.setOutput('issue_numbers_json', JSON.stringify(numbers));
             core.setOutput('first_issue', numbers.length ? String(numbers[0]) : '');
       - name: Bootstrap First Issue (if any)
-        if: steps.ready.outputs.first_issue != ''
+        if: steps.ready.outputs.first_issue != '' && inputs.dry_run != 'true'
         uses: ./.github/actions/codex-bootstrap-lite
         with:
           issue: ${{ fromJson(steps.ready.outputs.issue_numbers_json)[0] }}
@@ -576,6 +590,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           OPTIONS_JSON: ${{ inputs.options_json }}
+          DRY_RUN: ${{ inputs.dry_run }}
         with:
           github-token: ${{ secrets.service_bot_pat || github.token }}
           script: |
@@ -631,6 +646,7 @@ jobs:
             };
 
             const rawOptions = process.env.OPTIONS_JSON || '{}';
+            const dryRun = (process.env.DRY_RUN || '').trim().toLowerCase() === 'true';
             const options = parseJson(rawOptions, {});
             const summary = core.summary;
 
@@ -645,13 +661,18 @@ jobs:
               ];
             };
 
+            const addHeading = () => {
+              summary.addHeading('Codex Keepalive');
+              summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            };
+
             const keepaliveEnabled = coerceBool(
               options.enable_keepalive ?? options.keepalive_enabled,
               true
             );
             if (!keepaliveEnabled) {
               core.info('Codex keepalive disabled via options_json.');
-              summary.addHeading('Codex Keepalive');
+              addHeading();
               summary.addRaw('Skip requested via options_json.');
               await summary.write();
               return;
@@ -691,8 +712,9 @@ jobs:
             const repo = context.repo.repo;
             const now = Date.now();
             const triggered = [];
+            const previews = [];
             let scanned = 0;
-            summary.addHeading('Codex Keepalive');
+            addHeading();
             summary
               .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
               .addEOL();
@@ -797,18 +819,191 @@ jobs:
                   bodyParts.push('', marker);
                 }
                 const body = bodyParts.join('\n');
-                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
                 const outstanding = checklistComments[0].unchecked;
-                triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding})`);
-                core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}).`);
+                if (dryRun) {
+                  previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
+                  core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
+                } else {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+                  triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding})`);
+                  core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}).`);
+                }
               }
             }
 
-            if (triggered.length) {
-              summary.addDetails('Triggered keepalive comments', summariseList(triggered));
+            if (dryRun) {
+              if (previews.length) {
+                summary.addDetails('Previewed keepalive comments', summariseList(previews));
+              } else {
+                summary.addRaw('No unattended Codex tasks detected (dry run).');
+              }
+              summary.addRaw(`Previewed keepalive count: ${previews.length}`).addEOL();
             } else {
-              summary.addRaw('No unattended Codex tasks detected.');
+              if (triggered.length) {
+                summary.addDetails('Triggered keepalive comments', summariseList(triggered));
+              } else {
+                summary.addRaw('No unattended Codex tasks detected.');
+              }
+              summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
             }
-            summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
             summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
+            await summary.write();
+
+  run-summary:
+    name: Agents Toolkit Run Summary
+    needs:
+      - readiness
+      - preflight
+      - diagnostic
+      - bootstrap-codex
+      - watchdog
+      - keepalive
+      - verify_issue
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Collate job outcomes
+        uses: actions/github-script@v7
+        env:
+          ENABLE_READINESS: ${{ inputs.enable_readiness }}
+          ENABLE_PREFLIGHT: ${{ inputs.enable_preflight }}
+          ENABLE_DIAGNOSTIC: ${{ inputs.enable_diagnostic }}
+          ENABLE_BOOTSTRAP: ${{ inputs.enable_bootstrap }}
+          ENABLE_WATCHDOG: ${{ inputs.enable_watchdog }}
+          ENABLE_KEEPALIVE: ${{ inputs.enable_keepalive }}
+          ENABLE_VERIFY: ${{ inputs.enable_verify_issue }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          BOOTSTRAP_LABEL: ${{ inputs.bootstrap_issues_label }}
+          READINESS_RESULT: ${{ needs.readiness.result || '' }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result || '' }}
+          DIAGNOSTIC_RESULT: ${{ needs.diagnostic.result || '' }}
+          BOOTSTRAP_RESULT: ${{ needs['bootstrap-codex'].result || '' }}
+          WATCHDOG_RESULT: ${{ needs.watchdog.result || '' }}
+          KEEPALIVE_RESULT: ${{ needs.keepalive.result || '' }}
+          VERIFY_RESULT: ${{ needs.verify_issue.result || '' }}
+        with:
+          script: |
+            const toBool = (value) => {
+              const normalised = String(value || '').trim().toLowerCase();
+              return ['true', '1', 'yes', 'on'].includes(normalised);
+            };
+
+            const normaliseStatus = (enabled, result) => {
+              if (!enabled) {
+                return { status: 'Disabled', note: 'Not requested' };
+              }
+
+              const resolved = String(result || '').trim();
+              if (!resolved) {
+                return { status: 'Unknown', note: 'Job did not report a result' };
+              }
+
+              const status = resolved.charAt(0).toUpperCase() + resolved.slice(1);
+              let note = 'Completed';
+              if (resolved.toLowerCase() === 'skipped') {
+                note = 'Condition evaluated to false';
+              } else if (resolved.toLowerCase() === 'cancelled') {
+                note = 'Job cancelled';
+              } else if (resolved.toLowerCase() === 'failure') {
+                note = 'Job reported failure';
+              }
+
+              return { status, note };
+            };
+
+            const dryRun = toBool(process.env.DRY_RUN);
+            const bootstrapLabel = (process.env.BOOTSTRAP_LABEL || '').trim();
+
+            const enabled = {
+              readiness: toBool(process.env.ENABLE_READINESS),
+              preflight: toBool(process.env.ENABLE_PREFLIGHT),
+              diagnostic: toBool(process.env.ENABLE_DIAGNOSTIC),
+              bootstrap: toBool(process.env.ENABLE_BOOTSTRAP),
+              watchdog: toBool(process.env.ENABLE_WATCHDOG),
+              keepalive: toBool(process.env.ENABLE_KEEPALIVE),
+              verify: toBool(process.env.ENABLE_VERIFY)
+            };
+
+            const stages = [
+              {
+                key: 'readiness',
+                label: 'Readiness',
+                enabled: enabled.readiness,
+                result: process.env.READINESS_RESULT,
+                extras: []
+              },
+              {
+                key: 'preflight',
+                label: 'Preflight',
+                enabled: enabled.preflight,
+                result: process.env.PREFLIGHT_RESULT,
+                extras: []
+              },
+              {
+                key: 'diagnostic',
+                label: 'Diagnostic',
+                enabled: enabled.diagnostic,
+                result: process.env.DIAGNOSTIC_RESULT,
+                extras: []
+              },
+              {
+                key: 'bootstrap',
+                label: 'Bootstrap',
+                enabled: enabled.bootstrap,
+                result: process.env.BOOTSTRAP_RESULT,
+                extras: [
+                  bootstrapLabel ? `Label: \`${bootstrapLabel}\`` : null,
+                  dryRun && enabled.bootstrap ? 'Dry run: preview only' : null
+                ].filter(Boolean)
+              },
+              {
+                key: 'watchdog',
+                label: 'Watchdog',
+                enabled: enabled.watchdog,
+                result: process.env.WATCHDOG_RESULT,
+                extras: []
+              },
+              {
+                key: 'keepalive',
+                label: 'Keepalive',
+                enabled: enabled.keepalive,
+                result: process.env.KEEPALIVE_RESULT,
+                extras: [dryRun && enabled.keepalive ? 'Dry run: preview only' : null].filter(Boolean)
+              },
+              {
+                key: 'verify',
+                label: 'Verify Issue',
+                enabled: enabled.verify,
+                result: process.env.VERIFY_RESULT,
+                extras: []
+              }
+            ];
+
+            const summary = core.summary;
+            summary.addHeading('Agents Toolkit Run Summary');
+            summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            if (bootstrapLabel) {
+              summary.addRaw(`Bootstrap label: **${bootstrapLabel}**`).addEOL();
+            }
+
+            const tableRows = stages.map((stage) => {
+              const outcome = normaliseStatus(stage.enabled, stage.result);
+              const notes = [outcome.note, ...stage.extras.filter(Boolean)];
+              return [
+                stage.label,
+                outcome.status,
+                notes.length ? notes.join('<br/>') : '—'
+              ];
+            });
+
+            summary.addTable([
+              [
+                { data: 'Stage', header: true },
+                { data: 'Status', header: true },
+                { data: 'Notes', header: true }
+              ],
+              ...tableRows
+            ]);
+
             await summary.write();

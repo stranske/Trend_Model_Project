@@ -9,6 +9,12 @@ on:
         description: 'JSON payload of orchestrator params'
         required: false
         default: '{}'
+        type: string
+      dry_run:
+        description: 'Preview orchestrator actions without writes'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: write
@@ -42,6 +48,7 @@ jobs:
       bootstrap_issues_label: ${{ steps.resolve.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.resolve.outputs.draft_pr }}
       verify_issue_valid_assignees: ${{ steps.resolve.outputs.verify_issue_valid_assignees }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
       options_json: ${{ steps.resolve.outputs.options_json }}
     steps:
       - name: Resolve dispatch parameters
@@ -49,6 +56,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
+          WORKFLOW_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || '' }}
         with:
           script: |
             const DEFAULT_READINESS_AGENTS = 'copilot,codex';
@@ -71,7 +79,8 @@ jobs:
               bootstrap_issues_label: 'agent:codex',
               draft_pr: 'false',
               diagnostic_mode: 'off',
-              options_json: DEFAULT_OPTIONS_JSON
+              options_json: DEFAULT_OPTIONS_JSON,
+              dry_run: 'false'
             };
 
             const toString = (value, fallback = '') => {
@@ -135,6 +144,10 @@ jobs:
             }
 
             const merged = { ...DEFAULTS, ...user };
+            const workflowDryRun = process.env.WORKFLOW_DRY_RUN;
+            if (workflowDryRun !== undefined && workflowDryRun !== null && workflowDryRun !== '') {
+              merged.dry_run = workflowDryRun;
+            }
 
             const readinessAgents = toCsv(merged.readiness_agents, DEFAULTS.readiness_agents);
             const readinessCustom = toCsv(
@@ -151,6 +164,8 @@ jobs:
 
             const bootstrap = nested(merged.bootstrap);
             const keepalive = nested(merged.keepalive);
+
+            const dryRun = toBoolString(merged.dry_run, DEFAULTS.dry_run);
 
             const diagnosticModeRaw = toString(merged.diagnostic_mode, DEFAULTS.diagnostic_mode).trim().toLowerCase();
             const diagnosticMode = ['full', 'dry-run'].includes(diagnosticModeRaw) ? diagnosticModeRaw : 'off';
@@ -212,6 +227,7 @@ jobs:
                 DEFAULTS.bootstrap_issues_label
               ),
               draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
+              dry_run: dryRun,
               options_json: sanitiseOptions(optionsSource)
             };
 
@@ -234,6 +250,7 @@ jobs:
               'enable_bootstrap',
               'bootstrap_issues_label',
               'draft_pr',
+              'dry_run',
               'options_json'
             ];
 
@@ -290,6 +307,7 @@ jobs:
       bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
       draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
       verify_issue_valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
+      dry_run: ${{ needs.resolve-params.outputs.dry_run }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}
 
   verify-assignment:
