@@ -34,9 +34,7 @@ def test_workflow_slugs_follow_wfv1_prefixes():
 def test_archive_directories_removed():
     assert not (
         WORKFLOW_DIR / "archive"
-    ).exists(), (
-        ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
-    )
+    ).exists(), ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
     legacy_dir = pathlib.Path("Old/.github/workflows")
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
 
@@ -96,7 +94,9 @@ def test_gate_docs_only_branching_logic():
     script_block = ((docs_only_step.get("with") or {}).get("script")) or ""
     assert "core.setOutput('state', 'success')" in script_block
     assert "core.setOutput('description', message)" in script_block
-    assert "Gate fast-pass" in script_block, "Docs-only script must communicate fast-pass message"
+    assert (
+        "Gate fast-pass" in script_block
+    ), "Docs-only script must communicate fast-pass message"
 
 
 def test_inventory_docs_list_all_workflows():
@@ -135,7 +135,7 @@ def test_workflow_names_match_filename_convention():
         name_line = next((line for line in data if line.startswith("name:")), None)
         assert name_line is not None, f"Workflow {path.name} missing name field"
         actual = name_line.split(":", 1)[1].strip()
-        if (actual.startswith("\"") and actual.endswith("\"")) or (
+        if (actual.startswith('"') and actual.endswith('"')) or (
             actual.startswith("'") and actual.endswith("'")
         ):
             actual = actual[1:-1]
@@ -152,7 +152,9 @@ def test_workflow_display_names_are_unique():
         assert display_name, f"Workflow {path.name} missing name field"
         names_to_files.setdefault(display_name, []).append(path.name)
 
-    duplicates = {name: files for name, files in names_to_files.items() if len(files) > 1}
+    duplicates = {
+        name: files for name, files in names_to_files.items() if len(files) > 1
+    }
     assert not duplicates, f"Duplicate workflow display names detected: {duplicates}"
 
 
@@ -187,6 +189,7 @@ EXPECTED_NAMES = {
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
+    "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "pr-00-gate.yml": "Gate",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",

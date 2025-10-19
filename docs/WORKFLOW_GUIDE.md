@@ -110,6 +110,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 2. Monitor failure tracker issues surfaced by `Maint 46 Post CI`; it owns the delegation and auto-heal path end to end.
 3. Use `Health 42 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
+5. Run `Maint 47 Disable Legacy Workflows` after archival sweeps to disable any retired workflows that still appear in the Actions UI.
 
 ## Additional References
 - `.github/workflows/README.md` — Architecture snapshot for the CI + agent stack.
