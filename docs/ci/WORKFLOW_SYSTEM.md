@@ -17,7 +17,7 @@ Each bucket below calls out the canonical workflows, the YAML entry point, and
 the policy guardrails that keep the surface safe. Keep this mental map handy:
 
 ```
-PR checks ──► Gate (+ Agents Guard on protected edits)
+PR checks ──► Gate + Agents Guard (branch protection bundle)
     │                      │
     │                      └──► Reusable CI matrix
     ▼
@@ -59,6 +59,9 @@ the surface polished, and the agents stack orchestrates follow-up work.
 > - Follow [How to change a workflow safely](#how-to-change-a-workflow-safely)
 >   alongside [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you update
 >   `.github/workflows/` so you never bypass the guardrails.
+> - Keep the [How to verify required checks](#how-to-verify-required-checks)
+>   routine handy—it mirrors the policy view and points straight to the
+>   Health 44 snapshots that list the enforced contexts.
 
 ### Contents
 
@@ -527,6 +530,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > - **Health 45 Agents Guard** reports as `agents-guard`. Branch protection
 >   enforces it alongside Gate, and GitHub attaches the check automatically when
 >   a PR touches `agents-*.yml`.
+> - Cross-reference the status strings in
+>   [Agents Workflow Protection Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts)
+>   whenever you draft review notes or open incidents—both docs list the exact
+>   contexts to keep the branch rule consistent.
 > - **Maint 46 Post CI** reports the context `maint-46-post-ci`, but the branch
 >   rule must leave it unchecked so the workflow continues to post only the
 >   informational timeline summary.
@@ -613,7 +620,9 @@ on the correct statuses:
 
 Keep [Agents Workflow Protection Policy](./AGENTS_POLICY.md#how-to-verify-required-checks)
 handy for the enforcement allowlist, status-context reference, and the matching
-verification routine from the policy perspective.
+verification routine from the policy perspective. The policy section mirrors
+this checklist so contributors can jump between the topology view and the
+branch-protection rulebook without re-learning the terminology.
 
 ## Branch protection playbook
 

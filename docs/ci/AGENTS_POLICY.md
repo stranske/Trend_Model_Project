@@ -56,7 +56,8 @@ Disrupting any one of them breaks the automation topology.
   currently enforced on the default branch. Use the Health 44 snapshots to
   confirm `gate` and `agents-guard` stay protected, then cross-check against the
   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
-  UI routine for the pull-request view.
+  UI routine for the pull-request view. That section mirrors these status
+  strings so both documents stay synchronized when you audit branch protection.
 
 ## How to verify required checks
 
@@ -69,7 +70,9 @@ Follow this routine whenever you need to prove the protections are active:
 2. Open a fresh pull request (or refresh an existing one) and confirm the Checks
    tab lists **Gate / gate** under **Required checks**. When the diff touches
    `agents-*.yml`, the UI adds **Health 45 Agents Guard / agents-guard** to the
-   same list automatically.
+   same list automatically. Use the
+   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
+   walkthrough for screenshots and the matching verification language.
 3. If either context disappears, follow the
    [branch protection playbook](./WORKFLOW_SYSTEM.md#branch-protection-playbook)
    from the Workflow System overview, then re-run Health 44 to capture the fixed
