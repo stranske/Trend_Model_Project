@@ -36,7 +36,7 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-11-08) Issue #2656 documentation alignment refresh ensured README.md, CONTRIBUTING.md, `docs/ci/WORKFLOWS.md`, `docs/WORKFLOW_GUIDE.md`, and `docs/ops/codex-bootstrap-facts.md` point historical lookups back to this archive.
 - (2026-11-09) Issue #2656 verification confirmed Agents.md now defers to the archive and reiterates that the orchestrator is the sole automation entry point.
 - (2026-11-10) Issue #2656 documentation sweep scrubbed remaining references to retired consumer wrappers so they are mentioned exclusively in this ledger.
-- (2026-11-11) Issue #2656 follow-up removed the stale `reusable-90-ci-python.yml` reference from `docs/ci-workflow.md` and reiterated that matrix verification now runs through `reusable-10-ci-python.yml` or the consolidated `selftest-runner.yml` workflow.
+- (2026-11-11) Issue #2656 follow-up removed the stale `reusable-90-ci-python.yml` reference from `docs/ci-workflow.md` and reiterated that matrix verification now runs through `reusable-10-ci-python.yml` or the consolidated `selftest-reusable-ci.yml` workflow.
 - (2026-11-12) Issue #2656 completion audit verified README.md, CONTRIBUTING.md, `docs/ci/WORKFLOWS.md`, and `docs/ci/WORKFLOW_SYSTEM.md` all route readers through the overview first, now link directly to the keep vs retire roster anchor, and confirm that references to retired workflows remain confined to this archive.
 - (2026-09-30) Standalone `gate.yml` wrapper deleted (Issue #1657). The subsequent consolidation (Issue #2195) folded the aggregator logic into the single `ci / python` job inside `pr-10-ci-python.yml`; no archived copy retained because the YAML was invalid.
 - (2026-10-05) `autoapprove.yml` and `enable-automerge.yml` permanently retired once `maint-45-merge-manager.yml` proved stable (guard test asserts documentation coverage).
@@ -59,12 +59,12 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 _(Historical note: the `Old/workflows/` directory was removed in Issue #2728; retrieve these YAML files from git history when needed.)_
 - `selftest-83-pr-comment.yml` – originally removed; reintroduced in Issue #2525 as a manual-only maintenance comment helper.
 - `selftest-84-reusable-ci.yml` – initially removed when coverage shifted to the reusable matrix; restored in Issue #2525 as a
-  manual summary wrapper delegating to `selftest-81-reusable-ci.yml` (historical name for the matrix now embedded in `selftest-runner.yml`).
+  manual summary wrapper delegating to `selftest-81-reusable-ci.yml` (historical name for the matrix now embedded in `selftest-reusable-ci.yml`).
 - `selftest-88-reusable-ci.yml` – short-lived experimental matrix retired in 2025, reinstated by Issue #2525 to exercise dual
   runtime scenarios on demand.
 - `selftest-82-pr-comment.yml` – previously deleted PR comment bot; revived in Issue #2525 with workflow_dispatch-only semantics.
 
-_(2026-11-04 update) The Issue #2651 consolidation removed the reinstated wrappers above and replaced them with the single `selftest-runner.yml` entry point. The notes remain for historical tracking only._
+_(2026-11-04 update) The Issue #2651 consolidation removed the reinstated wrappers above and replaced them with the single `selftest-reusable-ci.yml` entry point. The notes remain for historical tracking only._
 
 ## Retired Autofix Wrapper
 - Legacy `pr-02-autofix.yml` (pre-2025) was deleted during the earlier cleanup. As of 2026-02-15 the consolidated `maint-46-post-ci.yml` (previously `maint-32-autofix.yml`) began handling small fixes and trivial failure remediation. In 2026-10 the streamlined PR-facing `pr-02-autofix.yml` workflow was reinstated (Issue #2380) and now delegates to the same reusable composite used by `maint-46-post-ci.yml`.
