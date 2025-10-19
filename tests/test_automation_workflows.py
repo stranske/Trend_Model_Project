@@ -247,6 +247,12 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     msg=f"Docs-only handler script should {label}",
                 )
 
+        self.assertNotRegex(
+            script,
+            r"createComment",
+            msg="Docs-only handler must not recreate the legacy PR comment",
+        )
+
     def test_gate_cleans_up_legacy_docs_only_comment(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
         gate_job = workflow.get("jobs", {}).get("gate", {})
@@ -278,8 +284,10 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         script = (cleanup_step or {}).get("with", {}).get("script", "")
         expected_cleanup_patterns = {
             "defines marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "defines base message": r"const baseMessage\s*=\s*'Gate fast-pass: docs-only change detected; heavy checks skipped\.';",
             "lists pull request comments": r"github\.rest\.issues\.listComments",
             "detects marker comment": r"comment\.body\.includes\(marker\)",
+            "matches legacy prefix": r"return\s+trimmed\.startsWith\(baseMessage\);",
             "removes marker comment": r"github\.rest\.issues\.deleteComment",
         }
 

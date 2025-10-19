@@ -325,7 +325,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     status.
   - Requests `pull-requests: write` and `statuses: write` scopes so the summary
     and status appear with the correct phrasing, and to delete any legacy
-    docs-only comments left by older workflow revisions.
+    docs-only comments left by older workflow revisions. No new PR comment is
+    posted—the docs-only fast pass now lives exclusively in logs and the job
+    summary.
 - **PR 02 Autofix** – `.github/workflows/pr-02-autofix.yml`
   - Opt-in via the `autofix` label only. Runs the same formatters and light
     hygiene steps that Gate would otherwise leave to contributors.

@@ -222,9 +222,9 @@ jobs:
             }
 
             const marker = '<!-- gate-docs-only -->';
-            const legacyBodies = new Set([
-              'Gate fast-pass: docs-only change detected; heavy checks skipped.',
-            ]);
+            const baseMessage =
+              'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            const legacyBodies = new Set([baseMessage]);
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
@@ -243,7 +243,11 @@ jobs:
               }
 
               const trimmed = comment.body.trim();
-              return legacyBodies.has(trimmed);
+              if (legacyBodies.has(trimmed)) {
+                return true;
+              }
+
+              return trimmed.startsWith(baseMessage);
             });
 
             if (!existing) {
