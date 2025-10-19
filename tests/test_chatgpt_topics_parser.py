@@ -7,6 +7,7 @@ import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
+TOPICS_FILENAME = "topics.json"
 
 
 def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str, list[dict]]:

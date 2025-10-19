@@ -274,6 +274,8 @@ jobs:
               return label.trim().toLowerCase().startsWith('agent:');
             };
             let topicsWithAgentLabels = 0;
+            let topicsSkippedForOtherAgents = 0;
+            let topicsSkippedWithoutAgentLabels = 0;
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
               const agentLabels = labels.filter((label) => isAgentLabel(label));
