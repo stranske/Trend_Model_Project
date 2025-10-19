@@ -299,6 +299,7 @@ jobs:
             core.info(`Removed docs-only fast-pass comment ${existing.id}.`);
 
       - name: Download coverage (3.11)
+        id: coverage_311
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
@@ -307,12 +308,31 @@ jobs:
           path: coverage/core-tests-311
 
       - name: Download coverage (3.12)
+        id: coverage_312
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: coverage-3.12
           path: coverage/core-tests-312
+
+      - name: Upload coverage bundle (3.11)
+        if: ${{ steps.coverage_311.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-3.11
+          path: coverage/core-tests-311
+          if-no-files-found: ignore
+          overwrite: true
+
+      - name: Upload coverage bundle (3.12)
+        if: ${{ steps.coverage_312.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-3.12
+          path: coverage/core-tests-312
+          if-no-files-found: ignore
+          overwrite: true
 
       - name: Summarize results
         if: ${{ always() }}
