@@ -158,6 +158,84 @@ highlight the most common entry points:
 - **Investigating a nightly or weekend regression?** Start with the
   [Maintenance & repo health](#maintenance--repo-health) workflows—they collect
   the scheduled hygiene runs and post-merge follow-ups.
+
+### Spotlight: the six guardrails everyone touches
+
+These six workflows are the ones every contributor encounters first. Keep the
+summary below handy when you need to brief a reviewer, triage a failing run, or
+explain why a particular status appears in the Checks tab.
+
+#### Gate (`pr-00-gate.yml`)
+
+- **When it runs.** Every pull request, plus manual dispatch for rehearsals.
+- **What it enforces.** Detects docs-only diffs, orchestrates Python 3.11/3.12
+  CI and the Docker smoke test, publishes coverage bundles, and produces the
+  single required status context (**Gate / gate**).
+- **Merge impact.** Required on every PR; branch protection blocks merges until
+  the `gate` job is green (docs-only fast-pass still reports success).
+
+#### Maint 46 Post CI (`maint-46-post-ci.yml`)
+
+- **When it runs.** Automatically follows every successful Gate run via the
+  `workflow_run` trigger.
+- **What it does.** Posts the canonical CI summary comment, uploads coverage
+  rollups, resolves the failure-tracker issue, and applies small autofix
+  patches when allowed.
+- **Merge impact.** Informational; never required as a status check.
+
+#### Health 41 Repo Health (`health-41-repo-health.yml`)
+
+- **When it runs.** Monday 07:15 UTC on a schedule, or via manual dispatch.
+- **What it does.** Audits stale branches and unassigned issues, publishing the
+  weekly hygiene dashboard in the run summary.
+- **Merge impact.** Informational background signal; does not gate pull
+  requests.
+
+#### Health 42 Actionlint (`health-42-actionlint.yml`)
+
+- **When it runs.** On workflow-file pull requests, pushes to `phase-2-dev`, a
+  Monday cron (05:05 UTC), and manual dispatch.
+- **What it does.** Runs Actionlint with the repository allowlist, annotates PRs
+  via Reviewdog, and uploads SARIF for GitHub code scanning.
+- **Merge impact.** Informational; use the annotations to fix workflow schema
+  errors before Gate runs.
+
+#### Agents 70 Orchestrator (`agents-70-orchestrator.yml`)
+
+- **When it runs.** Every 20 minutes via cron and on manual dispatch.
+- **What it does.** Resolves orchestrator parameters, runs readiness probes,
+  bootstraps agent issues, and coordinates diagnostics/watchdog jobs through the
+  reusable agents workflow.
+- **Merge impact.** Not a PR status, but the automation surface that keeps
+  Codex work flowing; failures usually demand immediate triage.
+
+#### Agents Guard (`agents-guard.yml`)
+
+- **When it runs.** Pull requests touching `agents/**`, `agents-*.yml`, or the
+  guard script, plus label changes via `pull_request_target`.
+- **What it enforces.** Confirms protected workflow edits carry the
+  `agents:allow-change` label, CODEOWNERS approval, and correct guard marker.
+- **Merge impact.** Required **only** when protected files change—the status
+  context (**Agents Guard / Enforce agents workflow protections**) must be green
+  before merge.
+
+### How to re-run only these workflows
+
+- **Gate.** From the PR Checks tab choose **Gate → Re-run jobs → Re-run failed
+  jobs** (or **Re-run all jobs**). CLI alternative: `gh run rerun <gate-run-id>`.
+- **Maint 46 Post CI.** Open the Maint 46 run from the PR timeline and click
+  **Re-run jobs**. It inherits the original Gate artifacts and cannot be
+  dispatched directly.
+- **Health 41 Repo Health.** Actions tab → **Health 41 Repo Health → Run
+  workflow**. CLI: `gh workflow run health-41-repo-health.yml`.
+- **Health 42 Actionlint.** Actions tab → **Health 42 Actionlint → Run
+  workflow** (set `REPORTER` inputs via repository variables). CLI:
+  `gh workflow run health-42-actionlint.yml`.
+- **Agents 70 Orchestrator.** Actions tab → **Agents 70 Orchestrator → Run
+  workflow**, toggling `dry_run` or `params_json` as needed. CLI example:
+  `gh workflow run agents-70-orchestrator.yml --raw-field dry_run=true`.
+- **Agents Guard.** From the PR Checks tab, expand **Agents Guard** and choose
+  **Re-run** after updating labels or reviews.
 - **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
   follow-up issue before you retry. Maint 46 only exits green when both the
