@@ -115,119 +115,175 @@ jobs:
           HAS_ENFORCE_TOKEN: ${{ env.ENFORCE_TOKEN != '' }}
         run: |
           python - <<'PY'
+          from __future__ import annotations
+
           import json
           import os
-          from collections.abc import Iterable
+          from collections.abc import Iterable, Mapping
           from pathlib import Path
 
           snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", ""))
-          summary_path = Path(os.environ.get("GITHUB_STEP_SUMMARY", ""))
+          summary_location = os.environ.get("GITHUB_STEP_SUMMARY", "")
           has_token = os.environ.get("HAS_ENFORCE_TOKEN", "false").lower() == "true"
 
-          if not summary_path:
+          if not summary_location:
               raise SystemExit(0)
 
-          def load_snapshot(name: str):
+          summary_path = Path(summary_location)
+
+          def load_snapshot(name: str) -> Mapping[str, object] | None:
               path = snapshot_dir / f"{name}.json"
               if not path.exists():
                   return None
               with path.open(encoding="utf-8") as handle:
                   return json.load(handle)
 
-          def render_contexts(section):
-              contexts = None
-              if isinstance(section, dict):
-                  contexts = section.get("contexts")
-              elif isinstance(section, str):
-                  contexts = [section]
-              elif isinstance(section, Iterable):
-                  contexts = list(section)
+          def extract_contexts(section: object) -> list[str]:
+              if isinstance(section, Mapping):
+                  raw_contexts = section.get("contexts")
+              else:
+                  raw_contexts = section
 
-              if not contexts:
-                  return "(none)"
+              if isinstance(raw_contexts, str):
+                  contexts = [raw_contexts]
+              elif isinstance(raw_contexts, Iterable) and not isinstance(
+                  raw_contexts, (str, bytes)
+              ):
+                  contexts = list(raw_contexts)
+              else:
+                  contexts = []
 
-              filtered = [str(context).strip() for context in contexts if str(context).strip()]
-              if not filtered:
-                  return "(none)"
+              return [
+                  str(context).strip()
+                  for context in contexts
+                  if str(context).strip()
+              ]
 
-              return ", ".join(filtered)
+          def format_contexts(section: object) -> str:
+              contexts = extract_contexts(section)
+              return ", ".join(contexts) if contexts else "–"
+
+          def bool_status(value: object) -> str:
+              if value is True:
+                  return "✅ True"
+              if value is False:
+                  return "❌ False"
+              if value is None:
+                  return "⚠️ Unknown"
+              return str(value)
+
+          def format_require_up_to_date(snapshot: Mapping[str, object]) -> str:
+              current = None
+              target = None
+
+              current_section = snapshot.get("current")
+              if isinstance(current_section, Mapping):
+                  current = current_section.get("strict")
+
+              for key in ("after", "desired"):
+                  maybe_section = snapshot.get(key)
+                  if isinstance(maybe_section, Mapping):
+                      target = maybe_section.get("strict")
+                      if target is not None:
+                          break
+
+              if target is None or target == current:
+                  return bool_status(current if current is not None else target)
+
+              return f"{bool_status(current)} → {bool_status(target)}"
+
+          def format_status(snapshot: Mapping[str, object]) -> str:
+              parts: list[str] = []
+              error = snapshot.get("error")
+              if error:
+                  parts.append(f"❌ {error}")
+              else:
+                  changes_required = snapshot.get("changes_required")
+                  if changes_required is True:
+                      parts.append("⚠️ Drift detected")
+                  elif changes_required is False:
+                      parts.append("✅ In sync")
+
+                  changes_applied = snapshot.get("changes_applied")
+                  if changes_applied:
+                      parts.append("✅ Changes applied")
+
+                  if snapshot.get("strict_unknown"):
+                      if snapshot.get("require_strict"):
+                          parts.append("⚠️ Require up to date unknown (treated as drift)")
+                      else:
+                          parts.append("⚠️ Require up to date unknown")
+
+                  if snapshot.get("no_clean"):
+                      parts.append("ℹ️ Cleanup disabled")
+
+              return "<br>".join(parts) if parts else "–"
 
           enforcement = load_snapshot("enforcement")
           verification = load_snapshot("verification")
 
-          if enforcement is None and verification is None and not has_token:
+          if enforcement is None and verification is None:
               with summary_path.open("a", encoding="utf-8") as summary:
-                  summary.write("### Gate & Agents Guard branch protection (observer mode)\n\n")
-                  summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; Health 44 ran in observer mode.\n")
-                  summary.write("- Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run the workflow to enable enforcement.\n")
+                  if not has_token:
+                      summary.write("### Gate & Agents Guard branch protection (observer mode)\n\n")
+                      summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; Health 44 ran in observer mode.\n")
+                      summary.write("- Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run the workflow to enable enforcement.\n")
+                  else:
+                      summary.write("### Gate & Agents Guard branch protection\n\n")
+                      summary.write("- Branch protection snapshots are unavailable. Check prior steps for failures.\n")
               raise SystemExit(0)
+
+          rows: list[str] = []
+
+          for label, snapshot in (("Enforcement", enforcement), ("Verification", verification)):
+              if snapshot is None:
+                  if label == "Enforcement" and not has_token:
+                      status = "Skipped (token not configured)"
+                  else:
+                      status = "Snapshot missing"
+                  rows.append(
+                      f"| {label} | – | – | – | – | – | – | {status} |"
+                  )
+                  continue
+
+              mode = snapshot.get("mode", "unknown")
+              current_contexts = format_contexts(snapshot.get("current"))
+              target_contexts = format_contexts(snapshot.get("after") or snapshot.get("desired"))
+              adds = format_contexts(snapshot.get("to_add"))
+              removes = format_contexts(snapshot.get("to_remove"))
+              require_up_to_date = format_require_up_to_date(snapshot)
+              status = format_status(snapshot)
+
+              rows.append(
+                  "| {label} | `{mode}` | {strict} | {current} | {target} | {adds} | {removes} | {status} |".format(
+                      label=label,
+                      mode=mode,
+                      strict=require_up_to_date,
+                      current=current_contexts,
+                      target=target_contexts,
+                      adds=adds,
+                      removes=removes,
+                      status=status,
+                  )
+              )
 
           with summary_path.open("a", encoding="utf-8") as summary:
               summary.write("### Gate & Agents Guard branch protection\n\n")
-
-              if enforcement is not None:
-                  summary.write("**Enforcement snapshot**\n\n")
-                  current = enforcement.get("current")
-                  desired = enforcement.get("after") or enforcement.get("desired")
-                  summary.write(f"- Mode: `{enforcement.get('mode', 'unknown')}`\n")
-                  if "no_clean" in enforcement:
-                      summary.write(
-                          f"- Cleanup disabled: {bool(enforcement.get('no_clean'))}\n"
-                      )
-                  if current is not None:
-                      summary.write(
-                          f"- Before contexts: {render_contexts(current)}\n"
-                      )
-                  if desired is not None:
-                      label = "After" if enforcement.get("after") else "Target"
-                      summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
-                  if "to_add" in enforcement:
-                      summary.write(
-                          f"- Contexts to add: {render_contexts(enforcement.get('to_add') or [])}\n"
-                      )
-                  if "to_remove" in enforcement:
-                      summary.write(
-                          f"- Contexts to remove: {render_contexts(enforcement.get('to_remove') or [])}\n"
-                      )
-                  summary.write(f"- Changes applied: {enforcement.get('changes_applied', False)}\n\n")
-              else:
-                  summary.write("- Enforcement snapshot not available (step skipped or failed).\n\n")
-
-              if verification is not None:
-                  summary.write("**Verification snapshot**\n\n")
-                  current = verification.get("current")
-                  desired = verification.get("after") or verification.get("desired")
-                  summary.write(f"- Mode: `{verification.get('mode', 'unknown')}`\n")
-                  if "no_clean" in verification:
-                      summary.write(
-                          f"- Cleanup disabled: {bool(verification.get('no_clean'))}\n"
-                      )
-                  if current is not None:
-                      summary.write(
-                          f"- Before contexts: {render_contexts(current)}\n"
-                      )
-                  if desired is not None:
-                      label = "After" if verification.get("after") else "Target"
-                      summary.write(f"- {label} contexts: {render_contexts(desired)}\n")
-                  if "to_add" in verification:
-                      summary.write(
-                          f"- Contexts to add: {render_contexts(verification.get('to_add') or [])}\n"
-                      )
-                  if "to_remove" in verification:
-                      summary.write(
-                          f"- Contexts to remove: {render_contexts(verification.get('to_remove') or [])}\n"
-                      )
-                  if "changes_required" in verification:
-                      summary.write(f"- Changes required: {verification.get('changes_required')}\n")
-                  if "strict_unknown" in verification:
-                      summary.write(f"- Strict status unknown: {verification.get('strict_unknown')}\n")
-                  summary.write("\n")
-              else:
-                  summary.write("- Verification snapshot not available (step skipped or failed).\n\n")
+              summary.write(
+                  "| Snapshot | Mode | Require up to date | Current contexts | Target contexts | To add | To remove | Status |\n"
+              )
+              summary.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+              for row in rows:
+                  summary.write(f"{row}\n")
+              summary.write("\n")
 
               if not has_token:
                   summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; enforcement ran in observer mode.\n")
                   summary.write("- Manual fallback: `python tools/enforce_gate_branch_protection.py --repo $GITHUB_REPOSITORY --branch $DEFAULT_BRANCH_NAME --require-strict --check`.\n")
+
+              for label, snapshot in (("Enforcement", enforcement), ("Verification", verification)):
+                  if snapshot and snapshot.get("error"):
+                      summary.write(f"- **{label} error:** `{snapshot['error']}`\n")
           PY
 
       - name: Upload branch protection snapshots
