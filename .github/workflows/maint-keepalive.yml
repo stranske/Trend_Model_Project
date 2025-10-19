@@ -18,11 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HEARTBEAT_ISSUE: ${{ vars.OPS_HEARTBEAT_ISSUE }}
+      HEARTBEAT_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
     steps:
       - name: Validate heartbeat configuration
         run: |
           if [ -z "${HEARTBEAT_ISSUE}" ]; then
             echo "Repository variable OPS_HEARTBEAT_ISSUE is not configured." >&2
+            exit 1
+          fi
+          if [ -z "${HEARTBEAT_TOKEN}" ]; then
+            echo "Secret ACTIONS_BOT_PAT is not configured." >&2
             exit 1
           fi
       - name: Capture timestamp
@@ -31,15 +36,15 @@ jobs:
       - name: Post heartbeat comment
         uses: peter-evans/create-or-update-comment@v4
         with:
-          token: ${{ secrets.ACTIONS_BOT_PAT }}
+          token: ${{ env.HEARTBEAT_TOKEN }}
           issue-number: ${{ env.HEARTBEAT_ISSUE }}
           body: |
-            :heartbeat: Automated keepalive ping at ${{ steps.timestamp.outputs.utc }} (run ${{ github.run_id }}).
+            :heartbeat: Automated keepalive ping at ${{ steps.timestamp.outputs.utc }} — [view run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
       - name: Summarize heartbeat
         run: |
           {
             echo "## Keepalive Heartbeat";
             echo "* Issue: #${HEARTBEAT_ISSUE}";
             echo "* Timestamp (UTC): ${{ steps.timestamp.outputs.utc }}";
-            echo "* Run ID: ${{ github.run_id }}";
+            echo "* Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}";
           } >> "$GITHUB_STEP_SUMMARY"
