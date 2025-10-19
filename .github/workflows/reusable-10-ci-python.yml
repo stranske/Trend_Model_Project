@@ -285,6 +285,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          # Allow callers to prepend an artifact prefix while keeping the default
+          # coverage-<version> naming used by downstream workflows.
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
           path: |
             coverage.xml
