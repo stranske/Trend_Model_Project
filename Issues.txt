@@ -45,7 +45,7 @@ Tasks
  Replace problematic expressions like
 ... || "Selftest Reusables Summary"
 with YAML-safe quoting, e.g.:
-summary_title: ${{ inputs.summary_title != '' && inputs.summary_title || 'Selftest Reusables Summary' }}
+summary_title: "${{ inputs.summary_title != '' && inputs.summary_title || 'Selftest Reusables Summary' }}"
 
  Validate the same pattern for comment_title.
 
