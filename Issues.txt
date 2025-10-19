@@ -38,7 +38,7 @@ Actionlint currently reports errors but does not block merges. If workflows are 
 
 Tasks
 
- Replace deprecated Actionlint settings with fail_level: error.
+ Replace deprecated Actionlint settings with fail-level: error.
 
  Resolve shellcheck/heredoc parse errors flagged in CI scripts and reusables.
 
