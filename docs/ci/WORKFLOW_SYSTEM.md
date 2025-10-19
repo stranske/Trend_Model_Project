@@ -168,10 +168,10 @@ explain why a particular status appears in the Checks tab.
 | Workflow | Primary triggers | Merge impact | Status context / where to look | Quick rerun path |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | **Gate / gate** in PR **Checks → Required** | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`) | `workflow_run` after Gate completes | ❌ Informational follow-up | Timeline comment titled **“Maint 46 Post CI summary”** | Open Maint 46 run from PR timeline → **Re-run jobs** |
+| **Maint 46 Post CI** (`maint-46-post-ci.yml`) | `workflow_run` after Gate completes | ❌ Informational follow-up | Timeline comment titled **“Maint 46 Post CI summary”** (check run context `maint-46-post-ci`, posted after merge) | Open Maint 46 run from PR timeline → **Re-run jobs** |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Workflow-file PRs/pushes, Monday 05:05 UTC cron, manual dispatch | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
-| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
+| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
 | **Agents Guard** (`agents-guard.yml`) | PRs touching `agents/**`, `.github/workflows/agents-*.yml`, guard script; label changes via `pull_request_target` with `agent:` prefix | ✅ Required when protected files change | **Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Agents Guard** → **Re-run** after updating labels/reviews |
 
 
