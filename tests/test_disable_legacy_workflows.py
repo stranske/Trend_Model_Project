@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
     _extract_next_link,
     _normalize_allowlist,
+    WorkflowAPIError,
+    disable_legacy_workflows,
 )
 from tests.test_workflow_naming import EXPECTED_NAMES
 
@@ -25,6 +29,59 @@ def test_canonical_workflow_names_match_expected_mapping() -> None:
     assert CANONICAL_WORKFLOW_NAMES == set(
         EXPECTED_NAMES.values()
     ), "Workflow display-name allowlist drifted; synchronize EXPECTED_NAMES in tests/test_workflow_naming.py."
+
+
+def test_disable_handles_non_disableable_workflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = {
+        "id": 172852138,
+        "name": "Codespaces Prebuilds",
+        "path": "dynamic/codespaces/create_codespaces_prebuilds",
+        "state": "active",
+    }
+
+    def fake_list_all_workflows(
+        base_url: str, headers: dict[str, str]
+    ) -> list[dict[str, object]]:
+        return [target]
+
+    def fake_http_request(
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        data: bytes | None = None,
+    ) -> tuple[bytes, dict[str, str]]:
+        raise WorkflowAPIError(
+            "GitHub API request failed (422 Unprocessable Entity) for"
+            " https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/172852138/disable: "
+            '{"message":"Unable to disable this workflow."}'
+        )
+
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._list_all_workflows",
+        fake_list_all_workflows,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._http_request",
+        fake_http_request,
+        raising=True,
+    )
+
+    summary = disable_legacy_workflows(
+        repository="stranske/Trend_Model_Project",
+        token="dummy-token",
+        dry_run=False,
+        extra_allow=(),
+    )
+
+    assert summary["disabled"] == []
+    assert summary["kept"] == []
+    assert summary["skipped"] == [
+        "(unsupported) Codespaces Prebuilds (create_codespaces_prebuilds)"
+    ]
 
 
 def test_extract_next_link_handles_missing_header() -> None:

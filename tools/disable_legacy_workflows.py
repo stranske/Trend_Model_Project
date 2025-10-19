@@ -243,7 +243,14 @@ def disable_legacy_workflows(
             continue
 
         disable_url = f"{base_url}/{workflow['id']}/disable"
-        _http_request("PUT", disable_url, headers=headers, data=None)
+        try:
+            _http_request("PUT", disable_url, headers=headers, data=b"")
+        except WorkflowAPIError as exc:
+            message = str(exc)
+            if "422" in message and "Unable to disable this workflow" in message:
+                summary["skipped"].append(f"(unsupported) {key}")
+                continue
+            raise
         summary["disabled"].append(key)
 
     return summary
