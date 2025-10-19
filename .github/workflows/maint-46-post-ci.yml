@@ -363,15 +363,48 @@ jobs:
                               return covered_value / total_value * 100.0 if covered_value is not None else None
               return None
 
+          def label_for(base: Path) -> str | None:
+              parts = list(base.parts)
+              # Prefer common runtime folder patterns (e.g. runtimes/<version>).
+              for index, part in enumerate(parts):
+                  if part == "runtimes" and index + 1 < len(parts):
+                      return f"coverage-{parts[index + 1]}"
+              # Fall back to explicit "coverage-<runtime>" directory names.
+              for part in reversed(parts):
+                  if part.startswith("coverage-"):
+                      return part
+              if parts:
+                  return f"coverage-{parts[-1]}"
+              return None
+
+          def discover_payloads(base: Path) -> list[tuple[str, Path]]:
+              if not base.exists():
+                  return []
+              discovered: list[tuple[str, Path]] = []
+              seen_dirs: set[Path] = set()
+
+              def handle(candidate: Path) -> None:
+                  directory = candidate.parent
+                  if directory in seen_dirs:
+                      return
+                  label = label_for(directory)
+                  if label is None:
+                      return
+                  discovered.append((label, directory))
+                  seen_dirs.add(directory)
+
+              for xml_file in base.rglob("coverage.xml"):
+                  handle(xml_file)
+              for json_file in base.rglob("coverage.json"):
+                  handle(json_file)
+              return discovered
+
           job_coverages: dict[str, float] = {}
-          if coverage_root.exists():
-              for child in coverage_root.iterdir():
-                  if not child.is_dir():
-                      continue
-                  coverage_value = read_coverage(child)
-                  if coverage_value is None:
-                      continue
-                  job_coverages[child.name] = round(float(coverage_value), 2)
+          for label, directory in discover_payloads(coverage_root):
+              coverage_value = read_coverage(directory)
+              if coverage_value is None:
+                  continue
+              job_coverages[label] = round(float(coverage_value), 2)
 
           sorted_jobs = sorted(job_coverages.items())
           job_rows: list[dict[str, object]] = []
