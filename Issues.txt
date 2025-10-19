@@ -1,94 +1,259 @@
-1) Docs alignment: WORKFLOW_SYSTEM.md vs AGENTS_POLICY.md
+1. Repair repo-health self-check permissions and drift snapshot
 
-Labels: docs, documentation, workflows, priority: medium, risk:low, status: ready
+Labels: workflows, ci, devops, infra, priority: high, status: ready, risk:low
 
-Why?
-  - Summary
-    - WORKFLOW_SYSTEM.md says Gate is the only required check; AGENTS_POLICY.md says the default branch requires Gate and Agents Guard. Documentation must be consistent and match enforcement.
-
-Tasks
-
-- Pick the authoritative stance: keep Agents Guard required.
-
-- Update docs/ci/WORKFLOW_SYSTEM.md to state the required checks explicitly and reference the Health 44 enforcement job.
-
-- Cross‑link both docs and note the stable status context strings.
-
-- Add a short “How to verify required checks” section that points to Health 44 snapshots.
-
-Acceptance criteria
-
-- Both docs list the same required checks and link to the enforcement workflow file.
-
-- Merged PR updates any diagrams/topologies to show Agents Guard in the merge gate.
-
-
-2) Repository ruleset: verify block on deletion/renames of protected agent workflows
-
-Labels: config, devops, workflows, agents, priority: high, risk:low, status: ready
-
-Why?
-  - Summary
-    - Policy claims a repository ruleset blocks deletion or unsafe edits to the three protected agent workflows (Agents 63 pair + 70 Orchestrator). This is configured outside the repo and needs validation.
+Why
+The repository health check must run reliably to catch label drift, missing protections, and misconfig. It previously requested invalid permissions and could silently fail.
 
 Tasks
 
-- Attempt to delete or rename each protected workflow from a test branch and push.
+ Update .github/workflows/repo-health-self-check.yml to use only supported permissions (e.g., contents: read, issues: write, pull-requests: read, checks: read).
 
-- Expected: push is rejected by the ruleset.
+ Implement a “verify only” path when no admin token is present; log warnings instead of failing.
 
-- If the push succeeds, configure a repository ruleset to block file deletions/renames and restrict edits to CODEOWNERS.
+ If BRANCH_PROTECTION_TOKEN is available, run enforcement then snapshot current settings to an artifact and a single pinned Health issue.
 
-- Document the ruleset name and settings in docs/ci/AGENTS_POLICY.md and add a one‑line verification command/UI path.
+ Ensure the workflow updates one rolling issue instead of opening duplicates.
 
-Acceptance criteria
+Acceptance Criteria
 
-- Proof of failed push for delete/rename attempts (screenshot or link to failed action).
+A manual run completes success with a summary section listing each health probe and its status.
 
-- Policy doc updated with the ruleset name and a quick verification step.
+Missing permissions no longer invalidate the workflow.
 
+Only one rolling “Repo Health” issue is created or updated on failures.
 
-3) Agents 63 Codex Issue Bridge: consider cancel-in-progress: true for per‑issue concurrency
+Implementation Notes
 
-Labels: agents, ci, devops, workflows, enhancement, priority: low, risk:low, status: ready
+Use a stable issue search key (e.g., label health:repo + title prefix [health] repository self-check).
 
-Why?
-  - Summary
-    - agents-63-codex-issue-bridge.yml uses a concurrency group per issue with cancel-in-progress: false. If labels flap, runs queue up.
+Avoid admin scopes on the default token; gate any mutation behind if: env.HAS_ADMIN_TOKEN == 'true'.
 
-Tasks
+2. Fix Actionlint config and make errors gate the build
 
-- Inspect the last 7 days of runs for queue depth/backlog per issue.
+Labels: workflows, ci, lint, priority: high, status: ready, risk:low
 
-- If more than one run is often queued for the same concurrency key, flip cancel-in-progress: true.
-
-- Note the trade‑off in the workflow summary for maintainers.
-
-Acceptance criteria
-
-- Either: the flag is turned on and redundant runs are cancelled; or: evidence is attached showing no backlog and the issue is closed as “no change.”
-
-
-4) Health 44: surface branch‑protection snapshots directly in job summary
-
-Labels: ci, workflows, enhancement, priority: medium, risk:low, status: ready
-
-Why?
-  - Summary
-    - Health 44 already produces JSON snapshots. Make drift visible without downloading artifacts by echoing a minimal table or JSON excerpt into the job summary.
+Why
+Actionlint currently reports errors but does not block merges. If workflows are broken, CI should stop lying.
 
 Tasks
 
-- After snapshot generation, add a step to render a compact list of required checks and branch rule toggles in the step summary.
+ Replace deprecated Actionlint settings with fail-level: error.
 
-- Keep full JSON as an artifact for audit.
+ Resolve shellcheck/heredoc parse errors flagged in CI scripts and reusables.
 
-Acceptance criteria
+ Add an allowlist for known non-fatal warnings to keep the signal clean.
 
-- The Actions UI shows current required checks and any diffs vs previous run in the summary.
+Acceptance Criteria
 
-- Artifact still contains the full JSON.
+Actionlint fails on any future error and passes with current workflows fixed.
 
+CI run shows zero shellcheck parse errors in annotations.
 
+Implementation Notes
 
+Prefer <<-'EOF' heredocs or unindented end tokens to keep shellcheck happy.
 
+Cache the Actionlint binary to reduce run time.
+
+3. Wire coverage artifacts end-to-end (upload, fetch, summarize)
+
+Labels: ci, workflows, tech:coverage, priority: high, status: ready, risk:low
+
+Why
+Post-CI summaries show empty coverage sections because artifact names or paths don’t match between producer and consumer.
+
+Tasks
+
+ In reusable-10-ci-python.yml, upload coverage artifacts as coverage-3.11 and coverage-3.12 (or the canonical names used by Gate).
+
+ In pr-00-gate.yml, download those exact artifact names and store to a consistent path for Post-CI.
+
+ In Post-CI, read coverage files and add a short diff table to the summary.
+
+Acceptance Criteria
+
+A PR with test changes shows non-zero coverage metrics in Post-CI.
+
+Artifact names are consistent across reusable, Gate, and Post-CI.
+
+Implementation Notes
+
+Prefer coverage xml and a tiny Python step to extract overall coverage so JSON and XML both work.
+
+4. Self-test reusables: keep one canonical workflow, remove duplicates
+
+Labels: workflows, refactor, documentation, priority: medium, status: ready, risk:low
+
+Why
+Multiple self-test variants add noise and drift.
+
+Tasks
+
+ Keep a single .github/workflows/selftest-reusable-ci.yml that calls reusables via jobs.<name>.uses.
+
+ Remove or archive older maint-4x-* selftest variants.
+
+ Add docs under docs/ci/SELFTESTS.md explaining the expected matrix and outputs.
+
+Acceptance Criteria
+
+Actions list contains exactly one “Selftest: Reusables” workflow.
+
+Nightly run completes successfully and publishes a small summary.
+
+Implementation Notes
+
+Use strategy.fail-fast: false and a tiny table of results in GITHUB_STEP_SUMMARY.
+
+5. PR Gate: scope Docker smoke to Docker changes
+
+Labels: ci, workflows, enhancement, priority: medium, status: ready, risk:low
+
+Why
+Docker smoke on every non-doc PR wastes minutes. Running it only when needed preserves signal and speed.
+
+Tasks
+
+ Add a changed-files step that sets docker_changed when "Dockerfile", ".docker/**", "docker/**", or ".dockerignore" changed.
+
+ Wrap the Docker smoke job with if: steps.detect.outputs.docker_changed == 'true'.
+
+ Keep doc-only fast-pass logic.
+
+Acceptance Criteria
+
+PRs without Docker changes skip the Docker job.
+
+PRs that touch Docker paths still run the smoke test.
+
+Implementation Notes
+
+Use dorny/paths-filter or a native git diff step.
+
+6. Autofix mode: safe cosmetic fixes and outcome labels
+
+Labels: autofix, ci, workflows, enhancement, priority: medium, status: ready, risk:low
+
+Why
+Autofix should be useful but predictable. Limit it to safe changes and clearly label outcomes.
+
+Tasks
+
+ In reusable-18-autofix.yml, run ruff --fix, import sorting, whitespace normalization.
+
+ Apply labels autofix:applied when changes are committed, else autofix:clean.
+
+ Post a short PR comment listing changed files.
+
+Acceptance Criteria
+
+A demo PR with autofix label shows a single commit of safe cosmetic changes and the outcome label.
+
+No file outside code/tests is touched unless whitelisted.
+
+Implementation Notes
+
+Use git diff --name-only to build the comment.
+
+7. Cosmetic tests fixer: narrow scope to tests/**
+
+Labels: autofix, testing, workflows, priority: low, status: ready, risk:low
+
+Why
+Keeping test noise low speeds PR review. A tests-only autofix mode avoids risky edits elsewhere.
+
+Tasks
+
+ Add a label-gated mode autofix:tests that only targets tests/**.
+
+ Apply import reordering, whitespace fixes, and simple ruff fixes.
+
+ Post a brief summary comment.
+
+Acceptance Criteria
+
+A demo PR with autofix:tests only modifies files under tests/**.
+
+Gate remains green after fixes.
+
+Implementation Notes
+
+Reuse steps from Issue 7, but restrict pathspecs.
+
+8. Post-CI: single source of truth summary with coverage delta
+
+Labels: workflows, ci, tech:coverage, enhancement, priority: medium, status: ready, risk:low
+
+Why
+Gate should be lean; Post-CI should aggregate and present the final story for humans.
+
+Tasks
+
+ Ensure Post-CI triggers only for Gate runs tied to PRs.
+
+ Add a small coverage delta section comparing base vs head when artifacts are present.
+
+ Guarantee only one PR comment exists; updates should edit in place.
+
+Acceptance Criteria
+
+Post-CI posts or updates a single comment per PR containing job table and coverage delta.
+
+No duplicate comments on reruns.
+
+Implementation Notes
+
+Use the PR number and head SHA to compute the edit target.
+
+Use a hidden HTML anchor in the comment body to find and update the prior comment.
+
+9. Docs: CI/agents overview and required checks
+
+Labels: documentation, workflows, infra, priority: low, status: ready, risk:low
+
+Why
+Future you will forget why this all works. A short map prevents archaeology.
+
+Tasks
+
+ Add docs/ci/WORKFLOW_SYSTEM.md explaining PR Gate, Post-CI, Repo Health, Actionlint, Agents Orchestrator, Agents Guard.
+
+ Document required status checks for merge and optional informational checks.
+
+ Link the doc from .github/PULL_REQUEST_TEMPLATE.md.
+
+Acceptance Criteria
+
+New PRs show a link to the doc in the template.
+
+The doc lists each workflow, when it runs, and what blocks merges.
+
+Implementation Notes
+
+Include a tiny “How to re-run only X” section for triage.
+
+10. Maintenance sweep: archive superseded workflows
+
+Labels: workflows, refactor, priority: low, status: ready, risk:low
+
+Why
+Reducing file count reduces cognitive load and run noise.
+
+Tasks
+
+ Move superseded workflows to docs/archive/ARCHIVE_WORKFLOWS.md as bullet links with one-line rationale.
+
+ Remove them from .github/workflows/.
+
+ Verify Actions list is free of near-duplicate entries.
+
+Acceptance Criteria
+
+No duplicate entries for selftests or agent guards appear in Actions.
+
+Archive doc exists and lists moved files.
+
+Implementation Notes
+
+Keep commit messages explicit: chore(workflows): archive <name> in favor of <replacement>.
