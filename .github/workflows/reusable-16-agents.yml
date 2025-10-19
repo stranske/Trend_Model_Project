@@ -875,19 +875,12 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           BOOTSTRAP_LABEL: ${{ inputs.bootstrap_issues_label }}
           READINESS_RESULT: ${{ needs.readiness.result || '' }}
-          READINESS_CONCLUSION: ${{ needs.readiness.conclusion || '' }}
           PREFLIGHT_RESULT: ${{ needs.preflight.result || '' }}
-          PREFLIGHT_CONCLUSION: ${{ needs.preflight.conclusion || '' }}
           DIAGNOSTIC_RESULT: ${{ needs.diagnostic.result || '' }}
-          DIAGNOSTIC_CONCLUSION: ${{ needs.diagnostic.conclusion || '' }}
           BOOTSTRAP_RESULT: ${{ needs['bootstrap-codex'].result || '' }}
-          BOOTSTRAP_CONCLUSION: ${{ needs['bootstrap-codex'].conclusion || '' }}
           WATCHDOG_RESULT: ${{ needs.watchdog.result || '' }}
-          WATCHDOG_CONCLUSION: ${{ needs.watchdog.conclusion || '' }}
           KEEPALIVE_RESULT: ${{ needs.keepalive.result || '' }}
-          KEEPALIVE_CONCLUSION: ${{ needs.keepalive.conclusion || '' }}
           VERIFY_RESULT: ${{ needs.verify_issue.result || '' }}
-          VERIFY_CONCLUSION: ${{ needs.verify_issue.conclusion || '' }}
         with:
           script: |
             const toBool = (value) => {
@@ -895,14 +888,14 @@ jobs:
               return ['true', '1', 'yes', 'on'].includes(normalised);
             };
 
-            const normaliseStatus = (enabled, result, conclusion) => {
+            const normaliseStatus = (enabled, result) => {
               if (!enabled) {
                 return { status: 'Disabled', note: 'Not requested' };
               }
 
-              const resolved = String(result || conclusion || '').trim();
+              const resolved = String(result || '').trim();
               if (!resolved) {
-                return { status: 'Unknown', note: 'Job did not report a conclusion' };
+                return { status: 'Unknown', note: 'Job did not report a result' };
               }
 
               const status = resolved.charAt(0).toUpperCase() + resolved.slice(1);
@@ -937,7 +930,6 @@ jobs:
                 label: 'Readiness',
                 enabled: enabled.readiness,
                 result: process.env.READINESS_RESULT,
-                conclusion: process.env.READINESS_CONCLUSION,
                 extras: []
               },
               {
@@ -945,7 +937,6 @@ jobs:
                 label: 'Preflight',
                 enabled: enabled.preflight,
                 result: process.env.PREFLIGHT_RESULT,
-                conclusion: process.env.PREFLIGHT_CONCLUSION,
                 extras: []
               },
               {
@@ -953,7 +944,6 @@ jobs:
                 label: 'Diagnostic',
                 enabled: enabled.diagnostic,
                 result: process.env.DIAGNOSTIC_RESULT,
-                conclusion: process.env.DIAGNOSTIC_CONCLUSION,
                 extras: []
               },
               {
@@ -961,7 +951,6 @@ jobs:
                 label: 'Bootstrap',
                 enabled: enabled.bootstrap,
                 result: process.env.BOOTSTRAP_RESULT,
-                conclusion: process.env.BOOTSTRAP_CONCLUSION,
                 extras: [
                   bootstrapLabel ? `Label: \`${bootstrapLabel}\`` : null,
                   dryRun && enabled.bootstrap ? 'Dry run: preview only' : null
@@ -972,7 +961,6 @@ jobs:
                 label: 'Watchdog',
                 enabled: enabled.watchdog,
                 result: process.env.WATCHDOG_RESULT,
-                conclusion: process.env.WATCHDOG_CONCLUSION,
                 extras: []
               },
               {
@@ -980,7 +968,6 @@ jobs:
                 label: 'Keepalive',
                 enabled: enabled.keepalive,
                 result: process.env.KEEPALIVE_RESULT,
-                conclusion: process.env.KEEPALIVE_CONCLUSION,
                 extras: [dryRun && enabled.keepalive ? 'Dry run: preview only' : null].filter(Boolean)
               },
               {
@@ -988,7 +975,6 @@ jobs:
                 label: 'Verify Issue',
                 enabled: enabled.verify,
                 result: process.env.VERIFY_RESULT,
-                conclusion: process.env.VERIFY_CONCLUSION,
                 extras: []
               }
             ];
@@ -1001,7 +987,7 @@ jobs:
             }
 
             const tableRows = stages.map((stage) => {
-              const outcome = normaliseStatus(stage.enabled, stage.result, stage.conclusion);
+              const outcome = normaliseStatus(stage.enabled, stage.result);
               const notes = [outcome.note, ...stage.extras.filter(Boolean)];
               return [
                 stage.label,
