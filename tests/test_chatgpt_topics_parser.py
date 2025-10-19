@@ -3,10 +3,10 @@ import os
 import pathlib
 import subprocess
 import sys
-import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
+TOPICS_PATH = pathlib.Path("topics.json")
 
 
 def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str, list[dict]]:
@@ -14,18 +14,20 @@ def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str, list[
     semantics."""
     tmp = pathlib.Path("input.txt")
     tmp.write_text(text, encoding="utf-8")
-    pathlib.Path("topics.json").unlink(missing_ok=True)
+    TOPICS_PATH.unlink(missing_ok=True)
     proc = subprocess.run(
         [sys.executable, str(SCRIPT)],
         capture_output=True,
         text=True,
         env={**os.environ, **(env or {})},
     )
-    return proc.returncode, proc.stdout, proc.stderr
+    return proc.returncode, proc.stdout, proc.stderr, read_topics()
 
 
 def read_topics() -> list[dict]:
-    return json.loads(pathlib.Path("topics.json").read_text(encoding="utf-8"))
+    if not TOPICS_PATH.exists():
+        return []
+    return json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
 
 
 def test_parser_success_basic():
