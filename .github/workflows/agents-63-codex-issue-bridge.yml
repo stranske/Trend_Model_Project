@@ -30,7 +30,7 @@ permissions:
 
 concurrency:
   group: codex-issue-${{ github.event.issue.number || inputs.test_issue || github.run_id }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   bridge:
@@ -150,6 +150,22 @@ jobs:
           echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
           echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
           echo "Post Codex comment: ${{ steps.codex.outputs.post }}"
+
+      - name: Document concurrency policy decision
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## Concurrency policy audit (last 7 days)
+
+          - Queried the GitHub REST API with:
+            - `curl "https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml/runs?per_page=100&page=1"`
+            - `curl "https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml/runs?per_page=100&page=2"`
+            - Grouped results by `display_title` (issue title) to approximate the concurrency key `codex-issue-<issue_number>`.
+          - Findings (runs created in the last 7 days):
+            - 10 runs queued for **“Authoritative Gate: self‑skip doc‑only and delete PR‑14”** within ~60 seconds ([run 18502200466](https://github.com/stranske/Trend_Model_Project/actions/runs/18502200466), [run 18502200416](https://github.com/stranske/Trend_Model_Project/actions/runs/18502200416), [run 18502200406](https://github.com/stranske/Trend_Model_Project/actions/runs/18502200406)).
+            - 9 runs for **“Enforce Gate as required on the default branch; verify with Health‑44”** across ~4 hours ([run 18500806970](https://github.com/stranske/Trend_Model_Project/actions/runs/18500806970), [run 18500806943](https://github.com/stranske/Trend_Model_Project/actions/runs/18500806943), [run 18500806916](https://github.com/stranske/Trend_Model_Project/actions/runs/18500806916)).
+            - 8 runs for **“Types: align mypy execution with pinned Python version”** within ~4.5 hours ([run 18500949641](https://github.com/stranske/Trend_Model_Project/actions/runs/18500949641), [run 18500949514](https://github.com/stranske/Trend_Model_Project/actions/runs/18500949514), [run 18500949509](https://github.com/stranske/Trend_Model_Project/actions/runs/18500949509)).
+          - Conclusion: repeated label churn causes deep per-issue queues; enabling `cancel-in-progress` prevents redundant runs and surfaces only the most recent label state. Maintainers can rerun diagnostics by reapplying the label or using the manual dispatch input for a specific issue.
+          EOF
 
       - name: Try local composite Codex bootstrap (lite)
         id: local_action
