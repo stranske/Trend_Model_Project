@@ -861,6 +861,7 @@ jobs:
       - verify_issue
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Collate job outcomes
         uses: actions/github-script@v7
