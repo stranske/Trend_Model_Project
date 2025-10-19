@@ -6,7 +6,34 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_guard(files=None, labels=None, reviews=None, codeowners=None, protected=None):
+def get_default_marker():
+    script = """
+const path = require('path');
+const { DEFAULT_MARKER } = require(path.resolve(process.cwd(), '.github/scripts/health-45-guard.js'));
+process.stdout.write(DEFAULT_MARKER);
+"""
+
+    completed = subprocess.run(
+        ["node", "-e", script],
+        text=True,
+        capture_output=True,
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    return completed.stdout
+
+
+DEFAULT_MARKER = get_default_marker()
+
+
+def run_guard(
+    files=None,
+    labels=None,
+    reviews=None,
+    codeowners=None,
+    protected=None,
+    marker=None,
+):
     payload = {
         "files": files or [],
         "labels": labels or [],
@@ -15,6 +42,8 @@ def run_guard(files=None, labels=None, reviews=None, codeowners=None, protected=
     }
     if protected is not None:
         payload["protectedPaths"] = protected
+    if marker is not None:
+        payload["marker"] = marker
 
     script = """
 const fs = require('fs');
@@ -56,7 +85,39 @@ def test_deletion_blocks_with_comment():
     assert result["blocked"] is True
     assert any("was deleted" in reason for reason in result["failureReasons"])
     assert "Health 45 Agents Guard" in result["summary"]
-    assert result["commentBody"].startswith("<!-- health-45-agents-guard -->")
+    assert result["commentBody"].startswith(DEFAULT_MARKER)
+
+
+def test_custom_marker_propagates_to_comment():
+    custom_marker = "<!-- custom-guard-marker -->"
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+        marker=custom_marker,
+    )
+
+    assert result["marker"] == custom_marker
+    assert result["commentBody"].startswith(custom_marker)
+
+
+def test_default_marker_added_once():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+    )
+
+    assert result["commentBody"].startswith(DEFAULT_MARKER)
+    assert result["commentBody"].count(DEFAULT_MARKER) == 1
 
 
 def test_rename_blocks_with_guidance():
