@@ -248,7 +248,7 @@ Gate is doing the right things; we just want to ensure the conditional paths rem
 
 Tasks
 
- Verify paths/filter step sets docker_changed correctly for Dockerfile, .docker/**, docker/**.
+ Verify paths-filter step sets docker_changed correctly for Dockerfile, .docker/**, docker/**.
 
  Confirm doc-only PRs skip heavy jobs and post exactly one fast-pass comment.
 
