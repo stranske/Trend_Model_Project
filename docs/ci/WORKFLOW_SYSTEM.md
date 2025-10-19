@@ -251,7 +251,8 @@ explain why a particular status appears in the Checks tab.
 - **Maint 46 Post CI.** Open the Maint 46 run from the PR timeline and click
   **Re-run jobs**. It inherits the original Gate artifacts and cannot be
   dispatched directly; a successful rerun posts a fresh timeline summary with
-  updated coverage links after Gate turns green.
+  updated coverage links after Gate turns green. CLI alternative:
+  `gh run rerun <maint-46-run-id>`.
 - **Health 41 Repo Health.** Actions tab → **Health 41 Repo Health → Run
   workflow**. CLI: `gh workflow run health-41-repo-health.yml`.
 - **Health 42 Actionlint.** Actions tab → **Health 42 Actionlint → Run
@@ -263,7 +264,8 @@ explain why a particular status appears in the Checks tab.
 - **Agents Guard.** From the PR Checks tab, expand **Agents Guard** and choose
   **Re-run** after updating labels or reviews. The guard also re-evaluates label
   changes delivered via `pull_request_target` when the label name begins with
-  `agent:`.
+  `agent:`. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
+  rerun appears under **Actions → Agents Guard**.
 - **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
   follow-up issue before you retry. Maint 46 only exits green when both the
