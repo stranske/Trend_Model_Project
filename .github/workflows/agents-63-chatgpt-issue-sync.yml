@@ -191,6 +191,7 @@ jobs:
               topics_after_dedup: 0,
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
               assigned_elsewhere: 0,
             };
             const metrics = {
@@ -199,6 +200,7 @@ jobs:
               topics_after_dedup: 0,
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
               duplicate_topics: 0,
               invalid_topics: 0,
               assigned_elsewhere: 0,
@@ -232,6 +234,7 @@ jobs:
                 `Deduplicated topics: ${metrics.topics_after_dedup}`,
                 `Topics processed: ${metrics.topics_processed}`,
                 `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
+                `Topics skipped without agent labels: ${metrics.topics_skipped_without_agent_labels}`,
                 `Created issues: ${createdCount}`,
                 `Updated issues: ${updatedCount}`,
                 `Reopened issues: ${reopenedCount}`,
@@ -266,7 +269,6 @@ jobs:
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
-            const requiredLabels = new Set(['agents', 'agent:codex']);
             const isAgentLabel = (label) => {
               if (typeof label !== 'string') return false;
               return label.trim().toLowerCase().startsWith('agent:');
@@ -278,18 +280,19 @@ jobs:
             let topicsWithAgentLabels = 0;
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
-              const hasRequired = labels.some((label) => requiredLabels.has(normalizeLabel(label)));
-              if (!hasRequired) {
+              const agentLabels = labels.filter((label) => isAgentLabel(label));
+              if (!agentLabels.length) {
                 const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
                 core.info(`Skipping topic without agent label${preview}.`);
+                metrics.topics_skipped_without_agent_labels += 1;
                 return false;
               }
               topicsWithAgentLabels += 1;
-              const otherAgentLabels = labels.filter((label) => isAgentLabel(label) && !isCodexAgentLabel(label));
-              if (otherAgentLabels.length) {
+              const codexLabelTargets = agentLabels.filter((label) => isCodexAgentLabel(label));
+              if (!codexLabelTargets.length) {
                 const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
                 core.info(
-                  `Skipping topic targeted at other agents${preview}. Labels: ${otherAgentLabels.join(', ')}`,
+                  `Skipping topic targeted at other agents${preview}. Labels: ${agentLabels.join(', ')}`,
                 );
                 metrics.topics_skipped_for_other_agents += 1;
                 return false;
@@ -300,9 +303,18 @@ jobs:
             if (!topics.length) {
               setZeroOutputs();
               const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
-              const notice = otherAgentSkipCount
-                ? `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`
-                : 'No topics matched agent labels. Exiting without changes.';
+              const noLabelSkipCount = metrics.topics_skipped_without_agent_labels;
+              let notice = 'No topics were eligible after filtering. Exiting without changes.';
+              if (otherAgentSkipCount && noLabelSkipCount) {
+                notice =
+                  `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}) or lacked agent labels (${noLabelSkipCount}). Exiting without changes.`;
+              } else if (otherAgentSkipCount) {
+                notice =
+                  `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`;
+              } else if (noLabelSkipCount) {
+                notice =
+                  `All topics were skipped because they lacked agent labels (${noLabelSkipCount}). Exiting without changes.`;
+              }
               await publishSummary({
                 notice,
               });
