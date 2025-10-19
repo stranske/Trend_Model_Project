@@ -54,9 +54,10 @@ def test_disable_handles_non_disableable_workflow(
         data: bytes | None = None,
     ) -> tuple[bytes, dict[str, str]]:
         raise WorkflowAPIError(
-            "GitHub API request failed (422 Unprocessable Entity) for"
-            " https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/172852138/disable: "
-            '{"message":"Unable to disable this workflow."}'
+            status_code=422,
+            reason="Unprocessable Entity",
+            url="https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/172852138/disable",
+            body='{"message":"Unable to disable this workflow."}',
         )
 
     monkeypatch.setattr(
