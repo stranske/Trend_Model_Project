@@ -109,6 +109,77 @@ jobs:
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
+      - name: Restore previous branch protection snapshots
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          snapshot_dir="${SNAPSHOT_DIR:-gate-branch-protection}"
+          previous_dir="${snapshot_dir}/previous"
+          mkdir -p "${previous_dir}"
+
+          artifact_prefix="${snapshot_dir}-"
+          echo "[summary] Searching for prior artifacts with prefix ${artifact_prefix}"
+          set +e
+          response=$(gh api "repos/${TARGET_REPO}/actions/artifacts" --paginate 2>/dev/null)
+          status=$?
+          set -e
+          if [ ${status} -ne 0 ] || [ -z "${response}" ]; then
+            echo "[summary] Unable to query artifacts; skipping restore"
+            exit 0
+          fi
+
+          artifact_lines=$(printf '%s' "${response}" | jq -r --arg prefix "${artifact_prefix}" --arg run "${TARGET_RUN_ID}" '
+            .artifacts[]? 
+            | select(.expired == false) 
+            | select(.name | startswith($prefix)) 
+            | select((.workflow_run.id | tostring) != $run) 
+            | [.id, .created_at] 
+            | @tsv
+          ')
+
+          if [ -z "${artifact_lines}" ]; then
+            echo "[summary] No previous artifact found"
+            exit 0
+          fi
+
+          latest=$(printf '%s\n' "${artifact_lines}" | sort -k2 | tail -n1)
+          artifact_id=${latest%%$'\t'*}
+          if [ -z "${artifact_id}" ]; then
+            echo "[summary] Unable to determine artifact id"
+            exit 0
+          fi
+
+          tmpdir=$(mktemp -d)
+          echo "[summary] Downloading artifact id ${artifact_id}"
+          if ! gh api "repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip" >"${tmpdir}/artifact.zip"; then
+            echo "[summary] Failed to download artifact ${artifact_id}"
+            rm -rf "${tmpdir}"
+            exit 0
+          fi
+
+          if ! unzip -q "${tmpdir}/artifact.zip" -d "${tmpdir}/unpacked"; then
+            echo "[summary] Failed to unpack artifact ${artifact_id}"
+            rm -rf "${tmpdir}"
+            exit 0
+          fi
+
+          source_dir="${tmpdir}/unpacked/${snapshot_dir}"
+          if [ ! -d "${source_dir}" ]; then
+            echo "[summary] Artifact did not contain ${snapshot_dir}"
+            rm -rf "${tmpdir}"
+            exit 0
+          fi
+
+          rm -f "${previous_dir}/"*.json 2>/dev/null || true
+          cp "${source_dir}/"*.json "${previous_dir}/" 2>/dev/null || true
+          echo "[summary] Restored previous snapshots into ${previous_dir}"
+          rm -rf "${tmpdir}"
+
       - name: Record branch protection summary
         if: always()
         env:
@@ -123,6 +194,7 @@ jobs:
           from pathlib import Path
 
           snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", ""))
+          previous_dir = snapshot_dir / "previous"
           summary_location = os.environ.get("GITHUB_STEP_SUMMARY", "")
           has_token = os.environ.get("HAS_ENFORCE_TOKEN", "false").lower() == "true"
 
@@ -131,8 +203,8 @@ jobs:
 
           summary_path = Path(summary_location)
 
-          def load_snapshot(name: str) -> Mapping[str, object] | None:
-              path = snapshot_dir / f"{name}.json"
+          def load_snapshot(name: str, directory: Path) -> Mapping[str, object] | None:
+              path = directory / f"{name}.json"
               if not path.exists():
                   return None
               with path.open(encoding="utf-8") as handle:
@@ -219,8 +291,81 @@ jobs:
 
               return "<br>".join(parts) if parts else "–"
 
-          enforcement = load_snapshot("enforcement")
-          verification = load_snapshot("verification")
+          enforcement = load_snapshot("enforcement", snapshot_dir)
+          verification = load_snapshot("verification", snapshot_dir)
+          previous_enforcement = (
+              load_snapshot("enforcement", previous_dir)
+              if previous_dir.exists()
+              else None
+          )
+          previous_verification = (
+              load_snapshot("verification", previous_dir)
+              if previous_dir.exists()
+              else None
+          )
+
+          def select_previous_section(snapshot: Mapping[str, object]) -> Mapping[str, object] | None:
+              for key in ("after", "desired", "current"):
+                  candidate = snapshot.get(key)
+                  if isinstance(candidate, Mapping):
+                      return candidate
+              return None
+
+          def format_delta(
+              current_snapshot: Mapping[str, object] | None,
+              previous_snapshot: Mapping[str, object] | None,
+          ) -> str:
+              if previous_snapshot is None:
+                  return "No previous snapshot"
+              if current_snapshot is None:
+                  return "–"
+              if not isinstance(previous_snapshot, Mapping):
+                  return "–"
+              if not isinstance(current_snapshot, Mapping):
+                  return "–"
+
+              current_section = current_snapshot.get("current")
+              if not isinstance(current_section, Mapping):
+                  return "–"
+
+              previous_section = select_previous_section(previous_snapshot)
+              if previous_section is None:
+                  return "–"
+
+              current_contexts = extract_contexts(current_section)
+              previous_contexts = extract_contexts(previous_section)
+              added = [
+                  context
+                  for context in current_contexts
+                  if context not in previous_contexts
+              ]
+              removed = [
+                  context
+                  for context in previous_contexts
+                  if context not in current_contexts
+              ]
+
+              current_strict = current_section.get("strict") if isinstance(current_section, Mapping) else None
+              previous_strict = (
+                  previous_section.get("strict")
+                  if isinstance(previous_section, Mapping)
+                  else None
+              )
+
+              parts: list[str] = []
+              if added:
+                  parts.append("+" + ", ".join(added))
+              if removed:
+                  parts.append("−" + ", ".join(removed))
+              if current_strict != previous_strict:
+                  parts.append(
+                      "Require up to date: {before} → {after}".format(
+                          before=bool_status(previous_strict),
+                          after=bool_status(current_strict),
+                      )
+                  )
+
+              return "; ".join(parts) if parts else "No change"
 
           if enforcement is None and verification is None:
               with summary_path.open("a", encoding="utf-8") as summary:
@@ -235,14 +380,17 @@ jobs:
 
           rows: list[str] = []
 
-          for label, snapshot in (("Enforcement", enforcement), ("Verification", verification)):
+          for label, snapshot, previous_snapshot in (
+              ("Enforcement", enforcement, previous_enforcement),
+              ("Verification", verification, previous_verification),
+          ):
               if snapshot is None:
                   if label == "Enforcement" and not has_token:
                       status = "Skipped (token not configured)"
                   else:
                       status = "Snapshot missing"
                   rows.append(
-                      f"| {label} | – | – | – | – | – | – | {status} |"
+                      f"| {label} | – | – | – | – | – | – | – | {status} |"
                   )
                   continue
 
@@ -253,9 +401,10 @@ jobs:
               removes = format_contexts(snapshot.get("to_remove"))
               require_up_to_date = format_require_up_to_date(snapshot)
               status = format_status(snapshot)
+              delta = format_delta(snapshot, previous_snapshot)
 
               rows.append(
-                  "| {label} | `{mode}` | {strict} | {current} | {target} | {adds} | {removes} | {status} |".format(
+                  "| {label} | `{mode}` | {strict} | {current} | {target} | {adds} | {removes} | {delta} | {status} |".format(
                       label=label,
                       mode=mode,
                       strict=require_up_to_date,
@@ -263,6 +412,7 @@ jobs:
                       target=target_contexts,
                       adds=adds,
                       removes=removes,
+                      delta=delta,
                       status=status,
                   )
               )
@@ -270,9 +420,9 @@ jobs:
           with summary_path.open("a", encoding="utf-8") as summary:
               summary.write("### Gate & Agents Guard branch protection\n\n")
               summary.write(
-                  "| Snapshot | Mode | Require up to date | Current contexts | Target contexts | To add | To remove | Status |\n"
+                  "| Snapshot | Mode | Require up to date | Current contexts | Target contexts | To add | To remove | Δ vs previous run | Status |\n"
               )
-              summary.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+              summary.write("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
               for row in rows:
                   summary.write(f"{row}\n")
               summary.write("\n")
