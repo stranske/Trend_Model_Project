@@ -1,5 +1,7 @@
 # Format: CODE:pattern
-# Lines are passed to actionlint via `-ignore` flags. Keep this list short and
-# document the reason for each entry.
+# Lines are converted to `-ignore=CODE:pattern` arguments by the
+# `Compute actionlint allowlist` workflow step. Keep this list short and
+# document the reason for each entry with an inline comment.
+#
 # Example (uncomment to use):
 # SC2086:Allow unquoted matrix expansion in scripts/ci_*.sh
