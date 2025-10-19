@@ -135,6 +135,8 @@ jobs:
             const nonDocFiles = changedFiles.filter(filename => !classify(filename));
 
             const dockerRelated = filename => {
+              // Treat top-level Docker artefacts, supporting directories, and ignore rules
+              // as Docker-related so the smoke test only runs when these assets change.
               const normalised = filename.toLowerCase();
 
               if (normalised === 'dockerfile') {
