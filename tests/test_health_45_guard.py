@@ -105,6 +105,21 @@ def test_custom_marker_propagates_to_comment():
     assert result["commentBody"].startswith(custom_marker)
 
 
+def test_default_marker_added_once():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+    )
+
+    assert result["commentBody"].startswith(DEFAULT_MARKER)
+    assert result["commentBody"].count(DEFAULT_MARKER) == 1
+
+
 def test_rename_blocks_with_guidance():
     result = run_guard(
         files=[
