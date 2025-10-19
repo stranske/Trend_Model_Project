@@ -42,7 +42,51 @@ Disrupting any one of them breaks the automation topology.
    status as required, so failures block merges.
 4. **Branch protection** – the default branch requires Gate and Agents Guard to
    report success, plus **Require review from Code Owners**. This combination
-   prevents force pushes or merges that sidestep the protections above.
+   prevents force pushes or merges that sidestep the protections above. See
+   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
+   for the verification flow and recovery playbook.
+
+## Required checks and status contexts
+
+> 📚 **Cross-reference.** The [Workflow System Overview](./WORKFLOW_SYSTEM.md#required-status-contexts-default-branch)
+> publishes the same status-context table from the topology perspective so both
+> documents stay synchronized when you audit branch protection.
+
+- **Gate** surfaces the status context `gate` and blocks every pull request until
+  it reports ✅. The check bundles docs-only detection and kicks off the reusable
+  CI matrix.
+- **Health 45 Agents Guard** reports the context `agents-guard`. Branch
+  protection enforces it alongside Gate; GitHub attaches the check automatically
+  whenever a pull request touches `agents-*.yml`, enforcing the label and Code
+  Owner guardrails.
+- **Health 44 Gate Branch Protection** (workflow file:
+  [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml))
+  provides the enforcement audit trail. Its run history exposes
+  `enforcement.json` and `verification.json` artifacts that list the contexts
+  currently enforced on the default branch. Use the Health 44 snapshots to
+  confirm `gate` and `agents-guard` stay protected, then cross-check against the
+  [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
+  UI routine for the pull-request view. That section mirrors these status
+  strings so both documents stay synchronized when you audit branch protection.
+
+## How to verify required checks
+
+Follow this routine whenever you need to prove the protections are active:
+
+1. Visit the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml)
+   and download the `enforcement.json` / `verification.json` artifacts. They
+   enumerate the contexts branch protection enforces—expect `gate` and
+   `agents-guard`.
+2. Open a fresh pull request (or refresh an existing one) and confirm the Checks
+   tab lists **Gate / gate** under **Required checks**. When the diff touches
+   `agents-*.yml`, the UI adds **Health 45 Agents Guard / agents-guard** to the
+   same list automatically. Use the
+   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
+   walkthrough for screenshots and the matching verification language.
+3. If either context disappears, follow the
+   [branch protection playbook](./WORKFLOW_SYSTEM.md#branch-protection-playbook)
+   from the Workflow System overview, then re-run Health 44 to capture the fixed
+   snapshot.
 
 ## Allowlisted change reasons and label process
 Only the following scenarios justify edits. If your proposal does not fit, open
