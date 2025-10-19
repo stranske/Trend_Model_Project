@@ -1,5 +1,7 @@
 // @ts-check
 
+const DEFAULT_MARKER = '<!-- agents-guard-marker -->';
+
 const DEFAULT_PROTECTED_PATHS = [
   '.github/workflows/agents-63-chatgpt-issue-sync.yml',
   '.github/workflows/agents-63-codex-issue-bridge.yml',
@@ -164,7 +166,7 @@ function evaluateGuard({
   codeownersContent = '',
   protectedPaths = DEFAULT_PROTECTED_PATHS,
   labelName = 'agents:allow-change',
-  marker = '<!-- agents-guard-marker -->',
+  marker = DEFAULT_MARKER,
 } = {}) {
   const normalizedLabelName = String(labelName).toLowerCase();
   const protectedSet = new Set(protectedPaths);
@@ -324,6 +326,7 @@ function evaluateGuard({
 }
 
 module.exports = {
+  DEFAULT_MARKER,
   DEFAULT_PROTECTED_PATHS,
   evaluateGuard,
   parseCodeowners,

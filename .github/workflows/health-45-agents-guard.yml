@@ -30,7 +30,6 @@ jobs:
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/health-45-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
-            const marker = '<!-- agents-guard-marker -->';
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
@@ -66,7 +65,9 @@ jobs:
               return require(guardPath);
             }
 
-            const { evaluateGuard } = await loadGuardModule();
+            const guardModule = await loadGuardModule();
+            const { evaluateGuard, DEFAULT_MARKER } = guardModule;
+            const marker = DEFAULT_MARKER || '<!-- agents-guard-marker -->';
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner,
@@ -136,7 +137,10 @@ jobs:
           COMMENT_MARKER: ${{ steps.evaluate.outputs.marker }}
         with:
           script: |
-            const marker = process.env.COMMENT_MARKER;
+            const path = require('path');
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+            const { DEFAULT_MARKER } = require(path.resolve(workspace, '.github/scripts/health-45-guard.js'));
+            const marker = process.env.COMMENT_MARKER || DEFAULT_MARKER;
             const body = Buffer.from(process.env.COMMENT_BODY_B64 || '', 'base64').toString('utf-8');
             if (!body) {
               core.warning('No comment body was provided.');
