@@ -30,7 +30,6 @@ jobs:
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/health-45-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
-            const marker = '<!-- health-45-agents-guard -->';
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
@@ -66,7 +65,9 @@ jobs:
               return require(guardPath);
             }
 
-            const { evaluateGuard } = await loadGuardModule();
+            const guardModule = await loadGuardModule();
+            const { evaluateGuard, DEFAULT_MARKER } = guardModule;
+            const marker = DEFAULT_MARKER || '<!-- agents-guard-marker -->';
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner,
@@ -136,12 +137,33 @@ jobs:
           COMMENT_MARKER: ${{ steps.evaluate.outputs.marker }}
         with:
           script: |
-            const marker = process.env.COMMENT_MARKER;
+            const path = require('path');
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+            const guardPath = path.resolve(workspace, '.github/scripts/health-45-guard.js');
+
+            let defaultMarker = '<!-- agents-guard-marker -->';
+            try {
+              const loaded = require(guardPath);
+              if (loaded && typeof loaded.DEFAULT_MARKER === 'string' && loaded.DEFAULT_MARKER.trim()) {
+                defaultMarker = loaded.DEFAULT_MARKER.trim();
+              }
+            } catch (error) {
+              core.warning(`Failed to load guard marker; using default: ${error.message}`);
+            }
+
+            const marker = (process.env.COMMENT_MARKER || '').trim() || defaultMarker;
+            if (!marker) {
+              core.warning('Resolved guard marker is empty; comment updates may duplicate.');
+            }
             const body = Buffer.from(process.env.COMMENT_BODY_B64 || '', 'base64').toString('utf-8');
             if (!body) {
               core.warning('No comment body was provided.');
               return;
             }
+
+            const markedBody = marker && !body.includes(marker)
+              ? `${marker}\n\n${body}`
+              : body;
 
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
@@ -153,14 +175,16 @@ jobs:
               per_page: 100,
             });
 
-            const alreadyPosted = existingComments.find((comment) => comment.body && comment.body.includes(marker));
+            const alreadyPosted = marker
+              ? existingComments.find((comment) => comment.body && comment.body.includes(marker))
+              : null;
             if (alreadyPosted) {
-              if (alreadyPosted.body !== body) {
+              if (alreadyPosted.body !== markedBody) {
                 await github.rest.issues.updateComment({
                   owner,
                   repo,
                   comment_id: alreadyPosted.id,
-                  body,
+                  body: markedBody,
                 });
               }
               return;
@@ -170,7 +194,7 @@ jobs:
               owner,
               repo,
               issue_number: prNumber,
-              body,
+              body: markedBody,
             });
 
       - name: Fail when guard blocks the pull request
