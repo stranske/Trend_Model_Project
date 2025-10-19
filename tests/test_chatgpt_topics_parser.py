@@ -3,31 +3,36 @@ import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
-TOPICS_PATH = pathlib.Path("topics.json")
+TOPICS_FILENAME = "topics.json"
 
 
 def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str, list[dict]]:
-    """Helper to invoke the parser script in a subprocess for exit code
-    semantics."""
-    tmp = pathlib.Path("input.txt")
-    tmp.write_text(text, encoding="utf-8")
-    TOPICS_PATH.unlink(missing_ok=True)
-    proc = subprocess.run(
-        [sys.executable, str(SCRIPT)],
-        capture_output=True,
-        text=True,
-        env={**os.environ, **(env or {})},
-    )
-    return proc.returncode, proc.stdout, proc.stderr, read_topics()
+    """Helper to invoke the parser script in a subprocess for exit code semantics."""
+
+    extra_env = {**os.environ, **(env or {})}
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = pathlib.Path(tmpdir)
+        input_path = tmp_path / "input.txt"
+        input_path.write_text(text, encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=extra_env,
+            cwd=tmp_path,
+        )
+        topics = read_topics(tmp_path / TOPICS_FILENAME)
+        return proc.returncode, proc.stdout, proc.stderr, topics
 
 
-def read_topics() -> list[dict]:
-    if not TOPICS_PATH.exists():
+def read_topics(path: pathlib.Path) -> list[dict]:
+    if not path.exists():
         return []
-    return json.loads(TOPICS_PATH.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_parser_success_basic():
