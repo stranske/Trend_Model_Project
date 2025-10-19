@@ -60,7 +60,8 @@ flowchart TD
 **Operational details**
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label
   and comment updates). When the label is present it pushes low-risk fixes for same-repo branches or uploads a patch artifact for
-  forks, then updates cleanliness labels (`autofix:clean` / `autofix:debt`).
+  forks, then updates cleanliness labels (`autofix:clean` / `autofix:debt`). Applying the optional `autofix:tests` label
+  restricts automation to the `tests/` tree and adds a dedicated summary comment highlighting the affected files.
 
 ### Maintenance & observability
 

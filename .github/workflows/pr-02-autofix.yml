@@ -16,7 +16,7 @@ permissions:
 
 env:
   AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL != '' && vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
-  AUTOFIX_CLEAN_LABEL: ${{ vars.AUTOFIX_CLEAN_LABEL != '' && vars.AUTOFIX_CLEAN_LABEL || 'autofix:clean' }}
+  AUTOFIX_CLEAN_LABEL: ${{ vars.AUTOFIX_CLEAN_LABEL != '' && vars.AUTOFIX_CLEAN_LABEL || 'autofix:tests' }}
 
 concurrency:
   group: pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}

@@ -112,6 +112,11 @@ Run these quick checks whenever the PR-02 autofix lane changes to confirm Issue�
 2. Introduce a trivial lint (e.g. reorder imports) and confirm the rerun pushes a commit, applies `autofix:applied`, and lists the label in the comment.【F:.github/workflows/reusable-18-autofix.yml†L187-L209】
 3. If the run leaves residual diagnostics, expect `autofix:debt` to accompany either result label.【F:.github/workflows/reusable-18-autofix.yml†L299-L371】
 
+### Tests-only cosmetic sweep
+1. Add the `autofix:tests` label alongside `autofix` to activate the tests-only mode for the run.【F:.github/workflows/pr-02-autofix.yml†L1-L89】【F:.github/workflows/reusable-18-autofix.yml†L13-L210】
+2. Confirm Ruff only operates on paths within `tests/` and the guard fails if non-test files change.【F:.github/workflows/reusable-18-autofix.yml†L210-L270】
+3. Check the automation posts the dedicated tests-only summary comment enumerating the modified test files.【F:.github/workflows/reusable-18-autofix.yml†L780-L842】
+
 ### Label gating sanity check
 1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
 2. Confirm the `apply` job is skipped and no new comments are posted, demonstrating the label gate is working as expected.

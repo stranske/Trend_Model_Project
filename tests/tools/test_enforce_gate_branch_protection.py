@@ -6,9 +6,9 @@ import pytest
 import requests
 
 from tools.enforce_gate_branch_protection import (
+    DEFAULT_CONTEXTS,
     BranchProtectionError,
     BranchProtectionMissingError,
-    DEFAULT_CONTEXTS,
     StatusCheckState,
     diff_contexts,
     fetch_status_checks,
@@ -20,7 +20,6 @@ from tools.enforce_gate_branch_protection import (
     resolve_api_root,
     update_status_checks,
 )
-
 
 REQUIRED_CONTEXTS = list(DEFAULT_CONTEXTS)
 
