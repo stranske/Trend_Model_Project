@@ -144,6 +144,18 @@ def test_workflow_names_match_filename_convention():
     assert not mismatches, f"Workflow name mismatch detected: {mismatches}"
 
 
+def test_workflow_display_names_are_unique():
+    names_to_files: dict[str, list[str]] = {}
+    for path in _workflow_paths():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        display_name = str(data.get("name", "")).strip()
+        assert display_name, f"Workflow {path.name} missing name field"
+        names_to_files.setdefault(display_name, []).append(path.name)
+
+    duplicates = {name: files for name, files in names_to_files.items() if len(files) > 1}
+    assert not duplicates, f"Duplicate workflow display names detected: {duplicates}"
+
+
 def test_chatgpt_issue_sync_workflow_present_and_intact():
     path = WORKFLOW_DIR / "agents-63-chatgpt-issue-sync.yml"
     assert (

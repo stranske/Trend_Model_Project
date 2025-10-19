@@ -5,19 +5,19 @@ This document records the archival and eventual deletion of legacy agent-related
 ## Archived
 
 ### Maintenance sweep (Issue #2823)
-- `ci.yml` → `pr-00-gate.yml` — Gate now fans out to the reusable Python matrix so the standalone CI wrapper is redundant.
-- `docker.yml` → `pr-00-gate.yml` — The Gate workflow’s Docker smoke job replaces the legacy bespoke Docker entry point.
-- `gate.yml` → `pr-00-gate.yml` — Consolidated Gate orchestrator supersedes the historical aggregator wrapper.
-- `docs-only.yml` → `pr-00-gate.yml` — Gate’s docs-only detection and summary comment absorb the bespoke notice workflow.
-- `pr-14-docs-only.yml` → `pr-00-gate.yml` — The numbered docs-only fast path stays removed; Gate enforces the same checks.
-- `pr-status-summary.yml` → `maint-46-post-ci.yml` — Maint 46 now owns the single PR summary comment, eliminating duplicate reporting.
-- `ci-matrix-summary.yml` → `maint-46-post-ci.yml` — Coverage and failure rollups ride the Maint 46 summary instead of the retired matrix helper.
-- `check-failure-tracker.yml` → `maint-46-post-ci.yml` — The post-CI workflow now maintains the failure-tracker issue directly.
-- `repo-health-self-check.yml` → `health-40-repo-selfcheck.yml` — The WFv1 “health 40” refactor replaced the ad-hoc repo self-check job.
-- `repo-health-nightly.yml` → `health-41-repo-health.yml` — Weekly repo-health audits now run under the numbered Health 41 workflow.
-- `ci-signature-guard.yml` → `health-43-ci-signature-guard.yml` — Signature verification moved to the numbered health guard.
-- `agents-47-verify-codex-bootstrap-matrix.yml` → `agents-70-orchestrator.yml` — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
-- `assign-to-agents.yml` → `agents-63-codex-issue-bridge.yml` + `agents-70-orchestrator.yml` — Label-driven bridge and orchestrator now assign Codex issues without the standalone helper.
+- `ci.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — Gate now fans out to the reusable Python matrix so the standalone CI wrapper is redundant.
+- `docker.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — The Gate workflow’s Docker smoke job replaces the legacy bespoke Docker entry point.
+- `gate.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — Consolidated Gate orchestrator supersedes the historical aggregator wrapper.
+- `docs-only.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — Gate’s docs-only detection and summary comment absorb the bespoke notice workflow.
+- `pr-14-docs-only.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — The numbered docs-only fast path stays removed; Gate enforces the same checks.
+- `pr-status-summary.yml` → [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) — Maint 46 now owns the single PR summary comment, eliminating duplicate reporting.
+- `ci-matrix-summary.yml` → [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) — Coverage and failure rollups ride the Maint 46 summary instead of the retired matrix helper.
+- `check-failure-tracker.yml` → [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) — The post-CI workflow now maintains the failure-tracker issue directly.
+- `repo-health-self-check.yml` → [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) — The WFv1 “health 40” refactor replaced the ad-hoc repo self-check job.
+- `repo-health-nightly.yml` → [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) — Weekly repo-health audits now run under the numbered Health 41 workflow.
+- `ci-signature-guard.yml` → [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) — Signature verification moved to the numbered health guard.
+- `agents-47-verify-codex-bootstrap-matrix.yml` → [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
+- `assign-to-agents.yml` → [`agents-63-codex-issue-bridge.yml`](../../.github/workflows/agents-63-codex-issue-bridge.yml) + [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Label-driven bridge and orchestrator now assign Codex issues without the standalone helper.
 
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
