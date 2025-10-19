@@ -95,7 +95,7 @@ jobs:
             mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
           fi
 
-          actionlint -color never "${extra_args[@]}"
+          actionlint -no-color "${extra_args[@]}"
 
       - name: Publish lint summary
         if: always()
