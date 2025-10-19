@@ -211,7 +211,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "gate job must publish a legacy commit status so branch protection resolves",
         )
 
-    def test_gate_docs_only_handler_uses_marker(self) -> None:
+    def test_gate_docs_only_handler_reports_fast_pass(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
         gate_job = workflow.get("jobs", {}).get("gate", {})
         self.assertTrue(gate_job, "Gate workflow must define gate job")
@@ -232,14 +232,11 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(script, "Docs-only handler should include inline script")
 
         expected_patterns = {
-            "declares docs-only marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
-            "queries existing comments": r"existingComments\.find",
-            "checks existing comment marker": r"comment\.body\.includes\(\s*marker\s*\)",
-            "creates marker comment": r"github\.rest\.issues\.createComment",
-            "updates marker comment when needed": r"github\.rest\.issues\.updateComment",
+            "sets state output": r"core\.setOutput\(\s*'state',\s*'success'\s*\);",
             "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
-            "uses marker payload": r"const targetBody\s*=\s*`\$\{marker}\\n\$\{message}`;",
-            "includes fast-pass messaging": r"Gate fast-pass: docs-only change detected; heavy checks skipped\.",
+            "logs message": r"core\.info\(\s*message\s*\);",
+            "includes docs-only fast-pass messaging": r"Gate fast-pass: docs-only change detected; heavy checks skipped\.",
+            "writes step summary": r"core\.summary[\s\S]*?addHeading\(\s*'Gate docs-only fast-pass'",
         }
 
         for label, pattern in expected_patterns.items():
@@ -250,7 +247,13 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                     msg=f"Docs-only handler script should {label}",
                 )
 
-    def test_gate_removes_stale_docs_only_marker(self) -> None:
+        self.assertNotRegex(
+            script,
+            r"createComment",
+            msg="Docs-only handler must not recreate the legacy PR comment",
+        )
+
+    def test_gate_cleans_up_legacy_docs_only_comment(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
         gate_job = workflow.get("jobs", {}).get("gate", {})
         self.assertTrue(gate_job, "Gate workflow must define gate job")
@@ -261,28 +264,30 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 step
                 for step in steps
                 if isinstance(step, dict)
-                and step.get("name") == "Remove stale docs-only marker"
+                and step.get("name") == "Clean up legacy docs-only comment"
             ),
             None,
         )
 
         self.assertIsNotNone(
             cleanup_step,
-            "Gate workflow should clean up docs-only marker comments when code changes are present",
+            "Gate workflow should remove legacy docs-only comments to stay idempotent",
         )
 
         condition = (cleanup_step or {}).get("if", "")
-        self.assertIn(
-            "needs.detect.outputs.doc_only != 'true'",
+        self.assertEqual(
             condition,
-            "Cleanup step should only run when the change is not docs-only",
+            "${{ always() }}",
+            "Cleanup step should always run so legacy comments get purged promptly",
         )
 
         script = (cleanup_step or {}).get("with", {}).get("script", "")
         expected_cleanup_patterns = {
             "defines marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
+            "defines base message": r"const baseMessage\s*=\s*'Gate fast-pass: docs-only change detected; heavy checks skipped\.';",
             "lists pull request comments": r"github\.rest\.issues\.listComments",
             "detects marker comment": r"comment\.body\.includes\(marker\)",
+            "matches legacy prefix": r"return\s+trimmed\.startsWith\(baseMessage\);",
             "removes marker comment": r"github\.rest\.issues\.deleteComment",
         }
 
