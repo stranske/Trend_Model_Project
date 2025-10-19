@@ -10,10 +10,13 @@ Owner: @codex-maintainer
 
 ## Task Checklist
 - [x] Harden selftest-reusable-ci.yml defaults and validate execution logic
-- [ ] Verify workflow_dispatch run uploads expected artifacts *(pending manual run)*
-- [ ] Confirm nightly cron success *(awaiting scheduled execution)*
+- [ ] Verify workflow_dispatch run uploads expected artifacts *(pending manual GitHub Actions run)*
+- [ ] Confirm nightly cron success *(awaiting scheduled execution post-merge)*
 
 ## Acceptance Criteria Status
 - [ ] Manual workflow_dispatch run succeeded with artifacts *(requires GitHub Actions run)*
 - [ ] Nightly cron run succeeded *(will be monitored post-merge)*
 - [x] Per-scenario results summarized via GITHUB_STEP_SUMMARY
+
+## Notes
+- Local environment cannot dispatch GitHub workflows; manual validation will be requested from maintainers once changes land.
