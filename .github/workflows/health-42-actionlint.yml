@@ -100,7 +100,7 @@ jobs:
             mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
           fi
 
-          actionlint "${extra_args[@]}" 2>&1 \
+          actionlint -color never "${extra_args[@]}" \
             | reviewdog -f=actionlint \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
