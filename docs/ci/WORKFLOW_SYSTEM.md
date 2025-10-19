@@ -185,11 +185,13 @@ explain why a particular status appears in the Checks tab.
 
 #### Maint 46 Post CI (`maint-46-post-ci.yml`)
 
-- **When it runs.** Automatically follows every successful Gate run via the
-  `workflow_run` trigger.
-- **What it does.** Posts the canonical CI summary comment, uploads coverage
-  rollups, resolves the failure-tracker issue, and applies small autofix
-  patches when allowed.
+- **When it runs.** Follows every Gate completion (success **or** failure) via
+  the `workflow_run` trigger and inherits Gate's artifacts for context.
+- **What it does.** Posts the canonical CI summary comment on successful Gate
+  runs, uploads coverage rollups, resolves the failure-tracker issue, and
+  applies small autofix patches when allowed. On failing Gate runs it still
+  captures diagnostics and links the blocking run so triage has a single
+  thread.
 - **Merge impact.** Informational; never required as a status check.
 
 #### Health 41 Repo Health (`health-41-repo-health.yml`)
