@@ -100,17 +100,23 @@ jobs:
             mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
           fi
 
-          tmpfile="$(mktemp)"
+          tmpdir="$(mktemp -d)"
+          sarif_path="${tmpdir}/actionlint.sarif"
+
           lint_status=0
-          if ! actionlint -format sarif "${extra_args[@]}" >"${tmpfile}"; then
+          if ! actionlint -color never -format sarif "${extra_args[@]}" >"${sarif_path}"; then
             lint_status=$?
           fi
 
+          if [ "$lint_status" -ne 0 ]; then
+            echo '::group::actionlint (text output)'
+            actionlint -color never "${extra_args[@]}" || true
+            echo '::endgroup::'
+          fi
+
           rd_status=0
-          if ! cat "${tmpfile}" \
+          if ! cat "${sarif_path}" \
             | reviewdog -f=sarif \
-          actionlint -color never "${extra_args[@]}" \
-            | reviewdog -f=actionlint \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
@@ -119,7 +125,7 @@ jobs:
             rd_status=$?
           fi
 
-          rm -f "${tmpfile}"
+          rm -rf "${tmpdir}"
 
           if [ "$lint_status" -ne 0 ]; then
             exit "$lint_status"

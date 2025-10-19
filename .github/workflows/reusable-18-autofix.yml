@@ -194,8 +194,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          targets=()
+          for path in src tests; do
+            if [ -d "$path" ]; then
+              targets+=("$path")
+            fi
+          done
+          if [ ${#targets[@]} -eq 0 ]; then
+            echo "[autofix] No src/ or tests/ directories detected; skipping safe sweep."
+            exit 0
+          fi
+          printf '[autofix] Target directories: %s\n' "${targets[*]}"
           ruff --version
-          ruff check --fix --exit-zero .
+          echo "[autofix] Normalising imports with Ruff"
+          ruff check --select I --fix --exit-zero "${targets[@]}"
+          echo "[autofix] Applying Ruff lint fixes"
+          ruff check --fix --exit-zero "${targets[@]}"
+          echo "[autofix] Normalising whitespace with Ruff formatter"
+          ruff format "${targets[@]}"
 
       - name: Tests-only cosmetic sweep
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
@@ -252,10 +268,99 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Autofix
+      - name: Summarise safe sweep results
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
         id: autofix
-        uses: ./.github/actions/autofix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB || true)
+          changed_flag=false
+          file_list_payload=""
+          if [ ${#changed_paths[@]} -gt 0 ]; then
+            changed_flag=true
+            allowed_prefixes=("src/" "tests/")
+            disallowed=()
+            for path in "${changed_paths[@]}"; do
+              if [[ -z "$path" ]]; then
+                continue
+              fi
+              allowed=false
+              for prefix in "${allowed_prefixes[@]}"; do
+                if [[ "$path" == "$prefix"* ]]; then
+                  allowed=true
+                  break
+                fi
+              done
+              if [ "$allowed" = false ]; then
+                disallowed+=("$path")
+              fi
+            done
+            if [ ${#disallowed[@]} -gt 0 ]; then
+              {
+                echo "[autofix] ERROR: safe sweep produced changes outside allowed directories:" >&2
+                printf '  - %s\n' "${disallowed[@]}" >&2
+              }
+              exit 1
+            fi
+            file_list_payload=$(printf '%s\n' "${changed_paths[@]}" | sort -u)
+          fi
+
+          AUTOFIX_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          export AUTOFIX_TIMESTAMP
+          if [ "$changed_flag" = true ]; then
+            export AUTOFIX_CHANGED=true
+            if [ -n "$file_list_payload" ]; then
+              export AUTOFIX_FILE_LIST="$file_list_payload"
+            else
+              unset AUTOFIX_FILE_LIST || true
+            fi
+          else
+            export AUTOFIX_CHANGED=false
+            unset AUTOFIX_FILE_LIST || true
+          fi
+
+          python - <<'PY' > autofix_report_enriched.json
+          import json
+          import os
+          import sys
+
+          changed = os.environ.get("AUTOFIX_CHANGED", "false").lower() == "true"
+          timestamp = os.environ.get("AUTOFIX_TIMESTAMP")
+          files = [
+              line.strip()
+              for line in os.environ.get("AUTOFIX_FILE_LIST", "").splitlines()
+              if line.strip()
+          ]
+          payload = {
+              "changed": changed,
+              "classification": {"total": 0, "new": 0, "allowed": 0},
+          }
+          if timestamp:
+              payload["timestamp"] = timestamp
+          if files:
+              payload["files"] = files
+          json.dump(payload, sys.stdout)
+          PY
+
+          if [ "$changed_flag" = false ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
+            echo "new_issues=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
+          echo "new_issues=0" >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list_payload" ]; then
+            {
+              echo "file_list<<'EOF'"
+              printf '%s\n' "$file_list_payload"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
 
       - name: Consolidate fix mode outputs
         if: steps.guard.outputs.skip != 'true'
@@ -269,6 +374,7 @@ jobs:
           AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
           AUTO_REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
           AUTO_NEW: ${{ steps.autofix.outputs.new_issues }}
+          AUTO_FILE_LIST: ${{ steps.autofix.outputs.file_list }}
         run: |
           set -euo pipefail
           mode="standard"
@@ -282,6 +388,8 @@ jobs:
             remaining="${CLEAN_REMAINING:-0}"
             new="${CLEAN_NEW:-0}"
             file_list="${CLEAN_FILE_LIST:-}"
+          else
+            file_list="${AUTO_FILE_LIST:-}"
           fi
           {
             echo "mode=${mode}"
@@ -506,6 +614,7 @@ jobs:
             const debtLabel = 'autofix:debt';
             const patchLabel = 'autofix:patch';
             const testsOnlyLabel = 'autofix:tests-only';
+            const cleanLabel = 'autofix:clean';
             const cleanInputLabel = (process.env.CLEAN_INPUT_LABEL || '').trim();
 
             async function addLabel(label) {
@@ -567,6 +676,9 @@ jobs:
             if (changed && !sameRepo) {
               desired.add(patchLabel);
             }
+            if (!changed) {
+              desired.add(cleanLabel);
+            }
             if ((process.env.MODE || '').toLowerCase() === 'clean') {
               desired.add(testsOnlyLabel);
               if (cleanInputLabel) {
@@ -578,7 +690,7 @@ jobs:
               await addLabel(label);
             }
 
-            const managed = [appliedLabel, debtLabel, patchLabel, testsOnlyLabel];
+            const managed = [appliedLabel, debtLabel, patchLabel, testsOnlyLabel, cleanLabel];
             for (const label of managed) {
               if (!desired.has(label)) {
                 await removeLabel(label);
@@ -733,6 +845,38 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
               core.info('Created new tests-only summary comment.');
+            }
+
+      - name: Upsert safe sweep file summary comment
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true' && steps.fix_results.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
+            if (!prNumber) {
+              core.info('No pull request number available; skipping safe sweep summary comment.');
+              return;
+            }
+            const marker = '<!-- autofix-file-summary -->';
+            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            if (!filesRaw.length) {
+              core.info('No files recorded for safe sweep summary; skipping comment.');
+              return;
+            }
+            const header = 'Autofix updated these files:';
+            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const body = bodyLines.join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing safe sweep summary comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              core.info('Created new safe sweep summary comment.');
             }
 
       - name: Regression detector (same-repo)

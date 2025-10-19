@@ -1,6 +1,6 @@
 # Consolidated Self-Test Runner Plan
 
-> **Status (2026-11-15, Issue #2728):** Completed. `selftest-runner.yml` is now the
+> **Status (2026-11-15, Issue #2728):** Completed. `selftest-reusable-ci.yml` is now the
 > sole self-test workflow and runs on the nightly 06:30 UTC cron as well as
 > `workflow_dispatch`. The legacy wrappers (`maint-43-selftest-pr-comment.yml`,
 > `maint-44-selftest-reusable-ci.yml`, `maint-48-selftest-reusable-ci.yml`,
@@ -22,7 +22,7 @@
 - Coordinate rollout so the consolidated runner is available in parallel until parity is demonstrated, then remove the legacy workflow files in a single follow-up PR.
 
 ## Acceptance Criteria / Definition of Done
-1. A single workflow file (e.g., `.github/workflows/selftest-runner.yml`) defines a matrix that covers all former self-test entry points, including:
+1. A single workflow file (e.g., `.github/workflows/selftest-reusable-ci.yml`) defines a matrix that covers all former self-test entry points, including:
    - PR comment-triggered self-tests with optional PR number override.
    - Reusable CI workflow for other repos/jobs that currently import `selftest-reusable-ci.yml` variants.
    - Manual dispatch with inputs for custom titles, rationale, and target ref.
@@ -34,7 +34,7 @@
 ## Initial Task Checklist
 - [x] Audit the existing self-test workflows to catalogue triggers, inputs, outputs, and dependent jobs.
 - [x] Design the consolidated workflow matrix, mapping each legacy use case to a matrix entry or conditional branch.
-- [x] Draft the new `.github/workflows/selftest-runner.yml` with reusable inputs and shared job logic.
+- [x] Draft the new `.github/workflows/selftest-reusable-ci.yml` with reusable inputs and shared job logic.
 - [x] Implement any supporting composite actions or scripts needed to share logic between matrix entries.
 - [x] Update documentation (`docs/ci/WORKFLOW_SYSTEM.md`, `docs/ci/WORKFLOWS.md`, etc.) to reflect the new runner and migration guidance.
 - [x] Run targeted tests (e.g., `pytest tests/test_workflow_selftest_consolidation.py`) to validate helper logic.

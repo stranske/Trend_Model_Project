@@ -54,7 +54,7 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Self-test runner should be the only active workflow."""
+    """Selftest: Reusables should be the only active workflow."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
@@ -114,7 +114,10 @@ def test_archive_ledgers_comment_wrappers() -> None:
     ), "Archive ledger should reference the consolidated self-test workflow."
     assert (
         "selftest-reusable-ci.yml" in ledger_text
-    ), "Archive ledger should document the retirement of selftest-reusable-ci.yml."
+    ), "Archive ledger should reference the consolidated Selftest: Reusables workflow."
+    assert (
+        "Issue #2814" in ledger_text or "Issue #2814" in ledger_text
+    ), "Archive ledger should acknowledge the reinstatement tracked by Issue #2814."
 
 
 def test_workflow_docs_highlight_comment_consolidation() -> None:
@@ -138,7 +141,7 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
 
 
 def test_selftest_runner_plan_status_highlights_completion() -> None:
-    """Runner plan should mark Issue #2728 completion and the single workflow."""
+    """Runner plan should mark consolidation completion and spotlight the single workflow."""
 
     plan_text = _normalize(RUNNER_PLAN_PATH.read_text())
     assert (
@@ -168,7 +171,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     primary_schedule = schedule_entries[0]
     assert (
         primary_schedule.get("cron") == "30 6 * * *"
-    ), "Self-test runner nightly cron drifted; update docs/tests with intentional changes."
+    ), "Selftest: Reusables nightly cron drifted; update docs/tests with intentional changes."
 
     workflow_dispatch = triggers.get("workflow_dispatch") or {}
     inputs = workflow_dispatch.get("inputs", {})
