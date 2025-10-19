@@ -109,6 +109,8 @@ jobs:
           rd_status=0
           if ! cat "${tmpfile}" \
             | reviewdog -f=sarif \
+          actionlint -color never "${extra_args[@]}" \
+            | reviewdog -f=actionlint \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
