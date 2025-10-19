@@ -26,7 +26,14 @@ process.stdout.write(DEFAULT_MARKER);
 DEFAULT_MARKER = get_default_marker()
 
 
-def run_guard(files=None, labels=None, reviews=None, codeowners=None, protected=None):
+def run_guard(
+    files=None,
+    labels=None,
+    reviews=None,
+    codeowners=None,
+    protected=None,
+    marker=None,
+):
     payload = {
         "files": files or [],
         "labels": labels or [],
@@ -35,6 +42,8 @@ def run_guard(files=None, labels=None, reviews=None, codeowners=None, protected=
     }
     if protected is not None:
         payload["protectedPaths"] = protected
+    if marker is not None:
+        payload["marker"] = marker
 
     script = """
 const fs = require('fs');
@@ -77,6 +86,23 @@ def test_deletion_blocks_with_comment():
     assert any("was deleted" in reason for reason in result["failureReasons"])
     assert "Health 45 Agents Guard" in result["summary"]
     assert result["commentBody"].startswith(DEFAULT_MARKER)
+
+
+def test_custom_marker_propagates_to_comment():
+    custom_marker = "<!-- custom-guard-marker -->"
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+        marker=custom_marker,
+    )
+
+    assert result["marker"] == custom_marker
+    assert result["commentBody"].startswith(custom_marker)
 
 
 def test_rename_blocks_with_guidance():
