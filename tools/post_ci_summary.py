@@ -352,8 +352,17 @@ def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, obje
             continue
 
         if candidate_present == existing_present:
-            existing_state = existing.get("conclusion") or existing.get("status")
-            candidate_state = run.get("conclusion") or run.get("status")
+            existing_state_value = existing.get("conclusion") or existing.get("status")
+            candidate_state_value = run.get("conclusion") or run.get("status")
+
+            existing_state = (
+                str(existing_state_value) if existing_state_value is not None else None
+            )
+            candidate_state = (
+                str(candidate_state_value)
+                if candidate_state_value is not None
+                else None
+            )
 
             if (candidate_state and not existing_state) or (
                 _priority(candidate_state) < _priority(existing_state)
@@ -423,6 +432,24 @@ def _format_jobs_table(rows: Sequence[JobRecord]) -> List[str]:
             f"| {record.name} | {_badge(record.state)} {state_display} | {link} |"
         )
     return header + body
+
+
+def _format_percent(value: Any) -> str | None:
+    try:
+        return f"{float(value):.2f}%"
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_delta_pp(value: Any, *, signed: bool = True) -> str | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not signed:
+        return f"{abs(number):.2f} pp"
+    sign = "+" if number > 0 else ""
+    return f"{sign}{number:.2f} pp"
 
 
 def _collect_required_segments(
@@ -538,31 +565,17 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
     if not isinstance(stats, Mapping):
         return []
 
-    def fmt_percent(value: Any) -> str | None:
-        try:
-            return f"{float(value):.2f}%"
-        except (TypeError, ValueError):
-            return None
-
-    def fmt_delta(value: Any) -> str | None:
-        try:
-            number = float(value)
-        except (TypeError, ValueError):
-            return None
-        sign = "+" if number > 0 else ""
-        return f"{sign}{number:.2f} pp"
-
     lines: List[str] = []
-    avg_latest = fmt_percent(stats.get("avg_latest"))
-    avg_delta = fmt_delta(stats.get("avg_delta"))
+    avg_latest = _format_percent(stats.get("avg_latest"))
+    avg_delta = _format_delta_pp(stats.get("avg_delta"))
     avg_parts = [
         part for part in (avg_latest, f"Δ {avg_delta}" if avg_delta else None) if part
     ]
     if avg_parts:
         lines.append(f"- Coverage (jobs): {' | '.join(avg_parts)}")
 
-    worst_latest = fmt_percent(stats.get("worst_latest"))
-    worst_delta = fmt_delta(stats.get("worst_delta"))
+    worst_latest = _format_percent(stats.get("worst_latest"))
+    worst_delta = _format_delta_pp(stats.get("worst_delta"))
     worst_parts = [
         part
         for part in (worst_latest, f"Δ {worst_delta}" if worst_delta else None)
@@ -577,13 +590,37 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
     return lines
 
 
-def _coverage_table(stats: Mapping[str, object] | None) -> str:
-    if not isinstance(stats, Mapping):
-        return ""
-    table = stats.get("coverage_table_markdown")
-    if isinstance(table, str):
-        return table.strip()
-    return ""
+def _format_coverage_delta_lines(
+    delta: Mapping[str, object] | None,
+) -> List[str]:
+    if not isinstance(delta, Mapping):
+        return []
+
+    head_value = _format_percent(delta.get("current"))
+    baseline_value = _format_percent(delta.get("baseline"))
+    delta_value = _format_delta_pp(delta.get("delta"))
+    drop_value = _format_delta_pp(delta.get("drop"), signed=False)
+    threshold_value = _format_delta_pp(delta.get("threshold"), signed=False)
+
+    parts: List[str] = []
+    if head_value:
+        parts.append(f"head {head_value}")
+    if baseline_value:
+        parts.append(f"base {baseline_value}")
+    elif str(delta.get("status")) == "no-baseline":
+        parts.append("base — (no baseline)")
+    if delta_value:
+        parts.append(f"Δ {delta_value}")
+    if drop_value:
+        parts.append(f"drop {drop_value}")
+    if threshold_value:
+        parts.append(f"threshold {threshold_value}")
+
+    status = str(delta.get("status") or "").strip()
+    if status:
+        parts.append(f"status {status}")
+
+    return [f"- Coverage delta: {' | '.join(parts)}"] if parts else []
 
 
 def build_summary_comment(
@@ -592,6 +629,7 @@ def build_summary_comment(
     head_sha: str | None,
     coverage_stats: Mapping[str, object] | None,
     coverage_section: str | None,
+    coverage_delta: Mapping[str, object] | None,
     required_groups_env: str | None,
 ) -> str:
     deduped_runs = _dedupe_runs(runs)
@@ -603,12 +641,20 @@ def build_summary_comment(
     required_segments = _collect_required_segments(deduped_runs, groups)
     latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
-    coverage_table = _coverage_table(coverage_stats)
+    coverage_delta_lines = _format_coverage_delta_lines(coverage_delta)
+    coverage_table = ""
+    if isinstance(coverage_stats, Mapping):
+        table_value = coverage_stats.get("coverage_table_markdown")
+        if isinstance(table_value, str):
+            coverage_table = table_value.strip()
 
     coverage_block: List[str] = []
     coverage_section_clean = (coverage_section or "").strip()
-    if coverage_lines:
+    if coverage_lines or coverage_delta_lines:
         coverage_block.append("### Coverage Overview")
+    if coverage_delta_lines:
+        coverage_block.append("\n".join(coverage_delta_lines))
+    if coverage_lines:
         coverage_block.append("\n".join(coverage_lines))
     if coverage_table:
         if not coverage_block:
@@ -619,7 +665,9 @@ def build_summary_comment(
             coverage_block.append("### Coverage Overview")
         coverage_block.append(coverage_section_clean)
     if docs_only_fast_pass:
-        note = "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        note = (
+            "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        )
         if coverage_block:
             coverage_block.append(note)
         else:
@@ -670,6 +718,7 @@ def main() -> None:
     head_sha = os.environ.get("HEAD_SHA") or None
     coverage_stats = _load_json_from_env(os.environ.get("COVERAGE_STATS"))
     coverage_section = os.environ.get("COVERAGE_SECTION")
+    coverage_delta = _load_json_from_env(os.environ.get("COVERAGE_DELTA"))
     required_groups_env = os.environ.get("REQUIRED_JOB_GROUPS_JSON")
 
     body = build_summary_comment(
@@ -677,6 +726,7 @@ def main() -> None:
         head_sha=head_sha,
         coverage_stats=coverage_stats,
         coverage_section=coverage_section,
+        coverage_delta=coverage_delta,
         required_groups_env=required_groups_env,
     )
 
