@@ -200,7 +200,9 @@ explain why a particular status appears in the Checks tab.
   runs, uploads coverage rollups, resolves the failure-tracker issue, and
   applies small autofix patches when allowed. On failing Gate runs it still
   captures diagnostics and links the blocking run so triage has a single
-  thread.
+  thread. When rerun after a fixed Gate, Maint 46 republishes the summary
+  comment and refreshes the attached coverage bundle so reviewers always have
+  the latest snapshot in one place.
 - **Merge impact.** Informational; never required as a status check.
 
 #### Health 41 Repo Health (`health-41-repo-health.yml`)
@@ -248,7 +250,8 @@ explain why a particular status appears in the Checks tab.
   jobs** (or **Re-run all jobs**). CLI alternative: `gh run rerun <gate-run-id>`.
 - **Maint 46 Post CI.** Open the Maint 46 run from the PR timeline and click
   **Re-run jobs**. It inherits the original Gate artifacts and cannot be
-  dispatched directly.
+  dispatched directly; a successful rerun posts a fresh timeline summary with
+  updated coverage links after Gate turns green.
 - **Health 41 Repo Health.** Actions tab → **Health 41 Repo Health → Run
   workflow**. CLI: `gh workflow run health-41-repo-health.yml`.
 - **Health 42 Actionlint.** Actions tab → **Health 42 Actionlint → Run
