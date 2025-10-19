@@ -772,43 +772,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python <<'PY' || { echo '{"error":"merge_failed"}' > autofix_report.json; }
-            import json
-            import os
-            from datetime import datetime, timezone
-            from pathlib import Path
-
-            def load_enriched() -> dict | None:
-                path = Path('autofix_report_enriched.json')
-                if not path.exists():
-                    return None
-                try:
-                    data = json.loads(path.read_text(encoding='utf-8'))
-                except json.JSONDecodeError:
-                    return None
-                return data if isinstance(data, dict) else None
-
-            report = load_enriched()
-            if report is not None:
-                report.update({
-                    'pull_request': os.environ.get('PR_NUMBER'),
-                    'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                })
-            else:
-                files = [line.strip() for line in os.environ.get('REPORT_FILE_LIST', '').splitlines() if line.strip()]
-                report = {
-                    'mode': os.environ.get('REPORT_MODE', ''),
-                    'changed': os.environ.get('REPORT_CHANGED', ''),
-                    'remaining_issues': os.environ.get('REPORT_REMAINING', ''),
-                    'new_issues': os.environ.get('REPORT_NEW', ''),
-                    'file_list': files,
-                }
-
-            Path('autofix_report.json').write_text(
-                json.dumps(report, indent=2, sort_keys=True) + '\n',
-                encoding='utf-8',
-            )
-            PY
+          python .github/scripts/autofix_emit_report.py || { echo '{"error":"merge_failed"}' > autofix_report.json; }
           echo "Enriched report ready."
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
