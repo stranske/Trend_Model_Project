@@ -30,8 +30,8 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     pass before merges. Branch protection blocks the default branch until this
     check succeeds; treat the gate status as the final merge blocker. It fans
     out to the Python 3.11/3.12 test lanes and the Docker smoke job.
-  - `Health 45 Agents Guard / Enforce agents workflow protections` (defined in
-    [`.github/workflows/health-45-agents-guard.yml`](.github/workflows/health-45-agents-guard.yml))
+  - `Agents Guard / Enforce agents workflow protections` (defined in
+    [`.github/workflows/agents-guard.yml`](.github/workflows/agents-guard.yml))
     must pass whenever a pull request touches `agents-*.yml` workflows. The
     guard enforces CODEOWNERS coverage, label requirements, and review policy
     before allowing protected automation changes to merge.
@@ -196,7 +196,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 ### Required GitHub checks
 
-Branch protection requires the `Gate / gate` and `Health 45 Agents Guard / Enforce agents workflow protections` workflows to succeed on every pull request and enforces GitHub's "Require branches to be up to date" option. Gate fans out to the Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review. Health 45 only runs when agent workflows change; if you trip it, address the guard's review/label feedback before requesting approval.
+Branch protection requires the `Gate / gate` and `Agents Guard / Enforce agents workflow protections` workflows to succeed on every pull request and enforces GitHub's "Require branches to be up to date" option. Gate fans out to the Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review. Agents Guard only runs when agent workflows change; if you trip it, address the guard's review/label feedback before requesting approval.
 
 ### Pinned Mypy
 The CI now pins mypy via `MYPY_VERSION` in `.github/workflows/autofix-versions.env`. Local scripts consume this env to avoid version drift. If you see differing results, ensure the env file includes the same version and re-run:
