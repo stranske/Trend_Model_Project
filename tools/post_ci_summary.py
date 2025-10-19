@@ -577,6 +577,15 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
     return lines
 
 
+def _coverage_table(stats: Mapping[str, object] | None) -> str:
+    if not isinstance(stats, Mapping):
+        return ""
+    table = stats.get("coverage_table_markdown")
+    if isinstance(table, str):
+        return table.strip()
+    return ""
+
+
 def build_summary_comment(
     *,
     runs: Sequence[Mapping[str, object]],
@@ -594,12 +603,17 @@ def build_summary_comment(
     required_segments = _collect_required_segments(deduped_runs, groups)
     latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
+    coverage_table = _coverage_table(coverage_stats)
 
     coverage_block: List[str] = []
     coverage_section_clean = (coverage_section or "").strip()
     if coverage_lines:
         coverage_block.append("### Coverage Overview")
         coverage_block.append("\n".join(coverage_lines))
+    if coverage_table:
+        if not coverage_block:
+            coverage_block.append("### Coverage Overview")
+        coverage_block.append(coverage_table)
     if coverage_section_clean:
         if not coverage_block:
             coverage_block.append("### Coverage Overview")
