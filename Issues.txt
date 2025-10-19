@@ -167,7 +167,7 @@ Docker smoke on every non-doc PR wastes minutes. Running it only when needed pre
 
 Tasks
 
- Add a changed-files step that sets docker_changed when Dockerfile, .docker/**, or docker/** changed.
+ Add a changed-files step that sets docker_changed when "Dockerfile", ".docker/**", "docker/**", or ".dockerignore" changed.
 
  Wrap the Docker smoke job with if: steps.detect.outputs.docker_changed == 'true'.
 
