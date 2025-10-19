@@ -11,8 +11,7 @@ on:
       - 'agents/**'
       - '.github/workflows/agents-*.yml'
       - '.github/scripts/agents-guard.js'
-    paths-ignore:
-      - 'agents/**/__snapshots__/**'
+      - '!agents/**/__snapshots__/**'
   pull_request_target:
     types:
       - labeled
