@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def get_default_marker():
     script = """
 const path = require('path');
-const { DEFAULT_MARKER } = require(path.resolve(process.cwd(), '.github/scripts/health-45-guard.js'));
+const { DEFAULT_MARKER } = require(path.resolve(process.cwd(), '.github/scripts/agents-guard.js'));
 process.stdout.write(DEFAULT_MARKER);
 """
 
@@ -49,7 +49,7 @@ def run_guard(
 const fs = require('fs');
 const path = require('path');
 const input = JSON.parse(fs.readFileSync(0, 'utf-8'));
-const { evaluateGuard } = require(path.resolve(process.cwd(), '.github/scripts/health-45-guard.js'));
+const { evaluateGuard } = require(path.resolve(process.cwd(), '.github/scripts/agents-guard.js'));
 const result = evaluateGuard(input);
 process.stdout.write(JSON.stringify(result));
 """
@@ -84,7 +84,7 @@ def test_deletion_blocks_with_comment():
 
     assert result["blocked"] is True
     assert any("was deleted" in reason for reason in result["failureReasons"])
-    assert "Health 45 Agents Guard" in result["summary"]
+    assert "Agents Guard" in result["summary"]
     assert result["commentBody"].startswith(DEFAULT_MARKER)
 
 
@@ -191,7 +191,7 @@ def test_label_and_codeowner_approval_passes():
     )
 
     assert result["blocked"] is False
-    assert result["summary"] == "Health 45 Agents Guard passed."
+    assert result["summary"] == "Agents Guard passed."
 
 
 def test_unprotected_file_is_ignored():

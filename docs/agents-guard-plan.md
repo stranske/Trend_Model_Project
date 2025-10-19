@@ -1,22 +1,22 @@
-# Health 45 Agents Guard – Planning Notes
+# Agents Guard – Planning Notes
 
 ## Scope and Key Constraints
-- Implement a `.github/workflows/health-45-agents-guard.yml` workflow that runs on `pull_request_target` events limited to changes inside `.github/workflows/agents-*.yml`.
+- Implement a `.github/workflows/agents-guard.yml` workflow that runs on `pull_request` events scoped via `paths` plus label-driven `pull_request_target` events for `agent:*` labels.
 - Workflow must execute from the default branch context and use only `contents: read` and `pull-requests: write` permissions; no additional scopes or secrets.
 - Guarded files: both "Agents 63" workflow files and the "Orchestrator" workflow/file (exact filenames to be confirmed from repository history). Deletions, renames, or missing files must cause a failure.
 - Modifications to guarded files are allowed only when the PR has the `agents:allow-change` label **and** at least one CODEOWNER approval.
-- The workflow should post a single, human-friendly failure comment explaining how to proceed, avoiding duplicate comments across runs.
+- The workflow should post a single, human-friendly failure comment explaining how to proceed, avoiding duplicate comments across runs by using a per-PR concurrency group.
 - The failure should block merging by marking the status check as failed, and the check must be added to the repository’s required status checks list.
 - Solution must rely on GitHub API interactions available in GitHub Actions and should remain compatible with forks (no write access to repo contents beyond comments).
 
 ## Acceptance Criteria / Definition of Done
-1. Workflow triggers only for PRs that touch `.github/workflows/agents-*.yml` files.
+1. Workflow triggers only for PRs that touch `.github/workflows/agents-*.yml` files or carry an `agent:*` label.
 2. Workflow fails immediately with an explanatory comment if any guarded file is deleted or renamed in a PR.
 3. Workflow fails with an explanatory comment when guarded files are modified without the `agents:allow-change` label.
 4. Workflow fails with an explanatory comment when guarded files are modified without at least one CODEOWNER approval, even if the label is present.
 5. Workflow passes when guarded files are modified, the `agents:allow-change` label is present, and at least one CODEOWNER approval exists.
 6. Failure comment appears only once per PR and includes guidance on resolving each guard condition.
-7. Repository owners can add the workflow’s status check to required checks without additional configuration.
+7. Repository owners can add the workflow’s status check to required checks without additional configuration and see only a single guard status.
 
 ## Initial Task Checklist
 - [x] Inventory the exact filenames for the "Agents 63" workflows and the orchestrator to ensure the guard targets the correct paths.
