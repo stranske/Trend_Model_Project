@@ -1,98 +1,265 @@
-1. Cosmetic tests fixer: narrow scope to tests/**
+1. Fix keepalive so scheduled runs don’t stall
 
-Labels: autofix, testing, workflows, priority: low, status: ready, risk:low
+Labels: workflows, devops, infra, priority: high, status: ready, risk:low
 
 Why
-Keeping test noise low speeds PR review. A tests-only autofix mode avoids risky edits elsewhere.
+Scheduled workflows can silently pause when there’s no write-activity or when a guard/permission neuters the job. Keepalive must create lightweight repo activity or a durable “heartbeat” so cron stays hot.
 
 Tasks
 
- Add a label-gated mode autofix:tests that only targets tests/**.
+ Add a minimal keepalive job (cron + dispatch) with actions: write and contents: read.
 
- Apply import reordering, whitespace fixes, and simple ruff fixes.
+ Implement one of:
 
- Post a brief summary comment.
+Heartbeat Issue comment: post a timestamped comment to a fixed “Ops Heartbeat” Issue (e.g., #1) on each run.
+
+Keepalive action: use a marketplace keepalive step that pings Actions without committing.
+
+ Ensure no if: guard accidentally restricts scheduled events.
+
+ Add concurrency: keepalive-${{ github.ref }} to prevent stacked runs.
 
 Acceptance Criteria
 
-A demo PR with autofix:tests only modifies files under tests/**.
+Two consecutive days show successful event: schedule runs.
 
-Gate remains green after fixes.
+The chosen heartbeat mechanism leaves a visible trace (comment or run log) per schedule.
+
+No “Invalid workflow file” or permission errors appear.
 
 Implementation Notes
 
-Reuse steps from the cosmetic autofix workflow, but restrict pathspecs.
+If using comments, use a fine-grained PAT ACTIONS_BOT_PAT with repo+issues to avoid throttling.
 
-2. Post-CI: single source of truth summary with coverage delta
+Place the workflow under .github/workflows/maint-keepalive.yml; cron e.g. 17 */12 * * *.
 
-Labels: workflows, ci, tech:coverage, enhancement, priority: medium, status: ready, risk:low
+2. Repair selftest-reusable-ci.yml expression/quoting so it runs
+
+Labels: workflows, ci, testing, priority: high, status: ready, risk:low
 
 Why
-Gate should be lean; Post-CI should aggregate and present the final story for humans.
+The reusable self-test is currently invalid due to expression quoting on default titles, preventing the matrix sanity check from executing.
 
 Tasks
 
- Ensure Post-CI triggers only for Gate runs tied to PRs.
+ Replace problematic expressions like
+... || "Selftest Reusables Summary"
+with YAML-safe quoting, e.g.:
+summary_title: ${{ inputs.summary_title != '' && inputs.summary_title || 'Selftest Reusables Summary' }}
 
- Add a small coverage delta section comparing base vs head when artifacts are present.
+ Validate the same pattern for comment_title.
 
- Guarantee only one PR comment exists; updates should edit in place.
+ Confirm jobs.<name>.uses is used (not step-level uses), matrix expands, and summary/artifacts publish.
 
 Acceptance Criteria
 
-Post-CI posts or updates a single comment per PR containing job table and coverage delta.
+A manual workflow_dispatch run completes success and uploads the expected self-test artifacts.
 
-No duplicate comments on reruns.
+Nightly cron run succeeds at least once.
 
 Implementation Notes
 
-Use the PR number and head SHA to compute the edit target.
+Keep strategy.fail-fast: false to surface all reusable failures in one run.
 
-Use a hidden HTML anchor in the comment body to find and update the prior comment.
+Summarize per-scenario results via GITHUB_STEP_SUMMARY.
 
-3. Docs: CI/agents overview and required checks
+3. Remove invalid permission from repo-health-self-check.yml and make verify/enforce modes safe
 
-Labels: documentation, workflows, infra, priority: low, status: ready, risk:low
+Labels: workflows, devops, infra, priority: high, status: ready, risk:low
 
 Why
-Future you will forget why this all works. A short map prevents archaeology.
+The file was previously invalid due to an unsupported permissions key. Health checks must run in read-only mode by default and optionally enforce with an admin PAT.
 
 Tasks
 
- Add docs/ci/WORKFLOW_SYSTEM.md explaining PR Gate, Post-CI, Repo Health, Actionlint, Agents Orchestrator, Agents Guard.
+ Delete any unsupported permission keys (e.g., administration).
 
- Document required status checks for merge and optional informational checks.
+ Default to verify-only: handle 403s gracefully and report warnings.
 
- Link the doc from .github/PULL_REQUEST_TEMPLATE.md.
+ If BRANCH_PROTECTION_TOKEN is present, enable enforce-then-verify path.
+
+ Write or update exactly one rolling “Repo Health” Issue when checks fail.
 
 Acceptance Criteria
 
-New PRs show a link to the doc in the template.
+Manual and scheduled runs complete without “Invalid workflow file.”
 
-The doc lists each workflow, when it runs, and what blocks merges.
+On failure, a single “Repo Health” Issue is created or updated; no duplicates.
+
+With PAT configured, branch protection settings are enforced then verified.
 
 Implementation Notes
 
-Include a tiny “How to re-run only X” section for triage.
+Use a stable search key: title prefix [health] + label health:repo.
 
-4. Maintenance sweep: archive superseded workflows
+Emit a JSON snapshot artifact of current checks for drift tracking.
 
-Labels: workflows, refactor, priority: low, status: ready, risk:low
+4. Actionlint: fail on real errors and fix heredoc/shellcheck complaints
+
+Labels: workflows, ci, lint, priority: high, status: ready, risk:low
 
 Why
-Reducing file count reduces cognitive load and run noise.
+Actionlint currently reports errors but may not gate merges. Workflows with bad heredocs or shell errors should stop the line.
 
 Tasks
 
-- [x] Move superseded workflows to docs/archive/ARCHIVE_WORKFLOWS.md as bullet links with one-line rationale.
-- [x] Remove them from .github/workflows/.
-- [x] Verify Actions list is free of near-duplicate entries.
+ Set Actionlint to fail on errors (e.g., fail_level: error).
+
+ Fix heredocs: use <<-'EOF' or unindented end tokens across scripts.
+
+ Resolve flagged shellcheck issues in reusable-18-autofix.yml and any cosmetic-repair steps.
+
+ Keep a short allowlist for known, non-actionable warnings.
 
 Acceptance Criteria
 
-- [x] No duplicate entries for selftests or agent guards appear in Actions.
-- [x] Archive doc exists and lists moved files.
+A clean run shows zero Actionlint errors.
+
+Introducing a deliberate syntax error makes the job fail red.
 
 Implementation Notes
 
-Keep commit messages explicit: chore(workflows): archive <name> in favor of <replacement>.
+Cache the binary to keep the job fast.
+
+Add paths: filters so Actionlint only runs when workflow files change or on a scheduled repo sweep.
+
+5. Wire coverage artifacts end-to-end so Post-CI shows numbers
+
+Labels: ci, workflows, tech:coverage, priority: medium, status: ready, risk:low
+
+Why
+Coverage appears empty in Post-CI because artifact names/paths don’t line up between the reusable, Gate, and the aggregator.
+
+Tasks
+
+ In reusable-10-ci-python.yml, upload explicit artifacts: coverage-3.11, coverage-3.12 (or your canonical names).
+
+ In pr-00-gate.yml, download those exact names and re-upload normalized bundles if needed.
+
+ In Post-CI, parse coverage and show a short summary table.
+
+Acceptance Criteria
+
+A PR modifying tests displays non-zero coverage in the Post-CI comment.
+
+Artifact names match across all three workflows.
+
+Implementation Notes
+
+Generate coverage.xml; parse overall percent in a tiny Python step for robustness across runners.
+
+6. Restore soft coverage guard with a single rolling Issue and daily updates
+
+Labels: workflows, tech:coverage, ci, priority: medium, status: ready, risk:low
+
+Why
+Previously the repo had a soft guard that opened one Issue when coverage dropped below baseline and appended daily updates to the same thread to avoid clutter. We want that back.
+
+Tasks
+
+ Create a scheduled workflow maint-coverage-guard.yml (daily).
+
+ Read latest coverage from artifacts or coverage-summary.json.
+
+ If coverage < baseline, open or update one Issue [coverage] baseline breach with:
+
+Current %, baseline %, delta, top changed files.
+
+Append a new dated entry; do not open new Issues.
+
+ When coverage recovers above baseline for N days, post a “recovered” note and close the Issue.
+
+Acceptance Criteria
+
+On drop below baseline, exactly one Issue exists and daily comments append with timestamps.
+
+When recovered, the Issue auto-closes after the configured recovery window.
+
+Implementation Notes
+
+Identify the rolling Issue via label health:coverage + fixed title prefix.
+
+Baseline can live in repo vars or a tracked file (e.g., ci/coverage-baseline.json).
+
+Never fail the build; this is a soft guard.
+
+7. Agents orchestrator: dedupe keepalive step and lock bootstrap labels
+
+Labels: agents, workflows, enhancement, priority: medium, status: ready, risk:low
+
+Why
+Redundant keepalive entries and overly broad bootstrap can create noise and wasted runs.
+
+Tasks
+
+ Ensure the orchestrator defines one keepalive job.
+
+ Gate bootstrap strictly by bootstrap_issues_label (default agent:codex).
+
+ Add concurrency: orchestrator-${{ github.ref }} to avoid overlaps.
+
+Acceptance Criteria
+
+A scheduled run shows one keepalive job and bootstrap only touches issues with the configured label.
+
+No duplicate orchestrator jobs appear for the same schedule tick.
+
+Implementation Notes
+
+Expose a dry_run input so manual dispatch can preview actions without writes.
+
+8. Codex “conveyor belt”: finish one labeled Issue, push, PR, merge on green, continue
+
+Labels: agents, workflows, automation, priority: medium, status: ready, risk:medium
+
+Why
+You asked for hands-off progression: pick next status: ready + agent:codex Issue, create work branch, run Codex, open/refresh PR, merge after Gate is green, then repeat.
+
+Tasks
+
+ Dispatcher (cron + dispatch): pick next eligible Issue, create codex/issue-<num> branch, fire a repository_dispatch with {issue, branch} payload.
+
+ Worker (on repository_dispatch): run Codex steps, commit, push, open/refresh PR with labels agent:codex,autofix.
+
+ Conveyor (on workflow_run of Gate): if Gate success and PR head matches codex/issue-*, merge with squash, delete branch, close the Issue, then redispatch Dispatcher.
+
+ Use ACTIONS_BOT_PAT for pushes and dispatch so downstream workflows fire.
+
+Acceptance Criteria
+
+With two small “ready” issues in queue, the belt processes the first to merge, then automatically starts on the second.
+
+If Gate fails, PR remains open and the belt stops until green.
+
+Implementation Notes
+
+Required checks: Gate must be a required status in branch protection.
+
+Add concurrency: codex-belt on Worker to prevent parallel runs.
+
+Guard selection strictly by labels agent:codex and status:ready to avoid surprises.
+
+9. PR Gate: keep Docker smoke conditional and doc-only fast-pass intact
+
+Labels: ci, workflows, enhancement, priority: low, status: ready, risk:low
+
+Why
+Gate is doing the right things; we just want to ensure the conditional paths remain stable and cheap.
+
+Tasks
+
+ Verify paths/filter step sets docker_changed correctly for Dockerfile, .docker/**, docker/**.
+
+ Confirm doc-only PRs skip heavy jobs and post exactly one fast-pass comment.
+
+ Ensure artifact handoff to Post-CI still occurs when tests run.
+
+Acceptance Criteria
+
+Non-Docker code PRs skip the Docker smoke.
+
+Doc-only PR shows a single fast-pass summary and green Gate.
+
+Implementation Notes
+
+Consider dorny/paths-filter@v3 to keep the detection step simple and reliable.
