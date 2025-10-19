@@ -10,7 +10,8 @@ SCRIPT_PATH = ROOT / ".github" / "scripts" / "render_cosmetic_summary.py"
 
 _spec = importlib.util.spec_from_file_location("render_cosmetic_summary", SCRIPT_PATH)
 _module = importlib.util.module_from_spec(_spec)
-assert _spec and _spec.loader  # quiet type checkers
+if not (_spec and _spec.loader):
+    raise ImportError(f"Could not load spec or loader for {SCRIPT_PATH}")
 _spec.loader.exec_module(_module)  # type: ignore[attr-defined]
 
 build_summary_lines = _module.build_summary_lines
