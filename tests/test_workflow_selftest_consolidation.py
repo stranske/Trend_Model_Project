@@ -25,7 +25,7 @@ def _normalize(text: str) -> str:
 
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_DIR = pathlib.Path("Old/workflows")
-RUNNER_PATH = WORKFLOW_DIR / "selftest-runner.yml"
+RUNNER_PATH = WORKFLOW_DIR / "selftest-reusable-ci.yml"
 
 
 def _read_workflow(path: pathlib.Path) -> dict:
@@ -52,12 +52,12 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Self-test runner should be the only active workflow."""
+    """Selftest: Reusables should be the only active workflow."""
 
     selftest_workflows = sorted(
         path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
     )
-    expected = ["selftest-runner.yml"]
+    expected = ["selftest-reusable-ci.yml"]
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
@@ -108,11 +108,11 @@ def test_archive_ledgers_comment_wrappers() -> None:
         "Maint 46 Post CI" in ledger_text
     ), "Archive ledger should point readers to the Maint 46 Post CI summary path."
     assert (
-        "selftest-runner.yml" in ledger_text
-    ), "Archive ledger should reference the consolidated Self-test Runner."
-    assert (
         "selftest-reusable-ci.yml" in ledger_text
-    ), "Archive ledger should document the retirement of selftest-reusable-ci.yml."
+    ), "Archive ledger should reference the consolidated Selftest: Reusables workflow."
+    assert (
+        "Issue #2814" in ledger_text or "Issue #2814" in ledger_text
+    ), "Archive ledger should acknowledge the reinstatement tracked by Issue #2814."
 
 
 def test_workflow_docs_highlight_comment_consolidation() -> None:
@@ -125,9 +125,9 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
         assert (
             "Maint 46 Post CI" in doc_text
         ), "Docs should explain Maint 46 Post CI as the canonical comment path."
-        assert (
-            "selftest-runner.yml" in doc_text
-        ), "Docs should reference the manual Self-test Runner entry point."
+    assert (
+        "selftest-reusable-ci.yml" in doc_text
+    ), "Docs should reference the manual Selftest: Reusables entry point."
 
     for wrapper in LEGACY_COMMENT_WRAPPERS:
         assert (
@@ -136,18 +136,18 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
 
 
 def test_selftest_runner_plan_status_highlights_completion() -> None:
-    """Runner plan should mark Issue #2728 completion and the single workflow."""
+    """Runner plan should mark consolidation completion and spotlight the single workflow."""
 
     plan_text = _normalize(RUNNER_PLAN_PATH.read_text())
     assert (
         "Status (2026-11-15, Issue #2728)" in plan_text
     ), "Runner plan should flag Issue #2728 completion in the status block."
     assert (
-        "selftest-runner.yml" in plan_text
+        "selftest-reusable-ci.yml" in plan_text
     ), "Runner plan should point to the consolidated self-test workflow."
     assert (
         "selftest-reusable-ci.yml" in plan_text
-    ), "Runner plan status should acknowledge the retirement of selftest-reusable-ci.yml."
+    ), "Runner plan status should highlight the consolidated self-test workflow."
 
 
 def test_selftest_runner_inputs_cover_variants() -> None:
@@ -156,7 +156,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     data = _read_workflow(RUNNER_PATH)
     triggers = _resolve_triggers(data)
 
-    assert triggers, "selftest-runner.yml is missing trigger definitions."
+    assert triggers, "selftest-reusable-ci.yml is missing trigger definitions."
     assert set(triggers) == {
         "schedule",
         "workflow_dispatch",
@@ -169,7 +169,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     primary_schedule = schedule_entries[0]
     assert (
         primary_schedule.get("cron") == "30 6 * * *"
-    ), "Self-test runner nightly cron drifted; update docs/tests with intentional changes."
+    ), "Selftest: Reusables nightly cron drifted; update docs/tests with intentional changes."
 
     workflow_dispatch = triggers.get("workflow_dispatch") or {}
     inputs = workflow_dispatch.get("inputs", {})
@@ -180,7 +180,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
         field = inputs.get(field_name)
         assert (
             field is not None
-        ), f"Missing `{field_name}` input on selftest-runner.yml."
+        ), f"Missing `{field_name}` input on selftest-reusable-ci.yml."
         assert (
             field.get("type", "choice") == "choice"
         ), f"`{field_name}` should remain a choice input."
@@ -214,7 +214,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
 
     jobs = data.get("jobs", {})
     scenario_job = jobs.get("scenario") or {}
-    assert scenario_job, "selftest-runner.yml must declare the scenario job."
+    assert scenario_job, "selftest-reusable-ci.yml must declare the scenario job."
     assert (
         scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
     ), "Runner should delegate execution to reusable-10-ci-python.yml."
@@ -399,7 +399,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     jobs = data.get("jobs", {})
     publish = jobs.get("publish-results") or {}
 
-    assert publish, "selftest-runner.yml should retain the publish-results job."
+    assert publish, "selftest-reusable-ci.yml should retain the publish-results job."
     assert set(publish.get("needs", [])) == {
         "scenario",
         "aggregate",
@@ -478,7 +478,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     for expected_snippet in (
         "Verification table output missing",
         "Failure count output missing",
-        "Selftest runner reported",
+        "Selftest: Reusables reported",
         "Selftest matrix completed with status",
     ):
         assert (
@@ -494,7 +494,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     for snippet in (
         "Verification table output missing",
         "Failure count output missing",
-        "Selftest runner reported",
+        "Selftest: Reusables reported",
         "Selftest matrix completed with status",
     ):
         assert (
@@ -628,7 +628,7 @@ def test_archived_selftest_inventory() -> None:
 def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         RUNNER_PATH.exists()
-    ), "selftest-runner.yml is missing from .github/workflows/"
+    ), "selftest-reusable-ci.yml is missing from .github/workflows/"
 
     data = _read_workflow(RUNNER_PATH)
     jobs = data.get("jobs", {})

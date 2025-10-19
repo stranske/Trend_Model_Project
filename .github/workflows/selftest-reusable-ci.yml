@@ -1,4 +1,4 @@
-name: Selftest Runner
+name: "Selftest: Reusables"
 
 on:
   schedule:
@@ -40,11 +40,11 @@ on:
       summary_title:
         description: 'Heading used in the workflow summary block.'
         required: false
-        default: 'Selftest Runner Summary'
+        default: "Selftest Reusables Summary"
       comment_title:
         description: 'Heading rendered at the top of the posted comment.'
         required: false
-        default: 'Selftest Runner Comment'
+        default: "Selftest Reusables Comment"
       python_versions:
         description: >-
           JSON array of Python versions forwarded to the reusable CI executor.
@@ -304,8 +304,8 @@ jobs:
       POST_TO: ${{ (github.event_name == 'workflow_dispatch' && inputs.post_to) || 'none' }}
       ENABLE_HISTORY: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
       PR_NUMBER: ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
-      SUMMARY_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.summary_title != '' && inputs.summary_title) || 'Selftest Runner Summary' }}
-      COMMENT_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.comment_title != '' && inputs.comment_title) || 'Selftest Runner Comment' }}
+      SUMMARY_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.summary_title != '' && inputs.summary_title) || "Selftest Reusables Summary" }}
+      COMMENT_TITLE: ${{ (github.event_name == 'workflow_dispatch' && inputs.comment_title != '' && inputs.comment_title) || "Selftest Reusables Comment" }}
       REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason) || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test') || 'nightly verification' }}
       WORKFLOW_RESULT: ${{ needs.scenario.result }}
       VERIFICATION_TABLE: ${{ needs.aggregate.outputs.verification_table }}
@@ -369,17 +369,17 @@ jobs:
         if: ${{ env.MODE != 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-reusable-ci aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-reusable-ci aggregate job." >&2
             exit 1
           fi
 
           if [ "${FAILURE_COUNT}" != "0" ]; then
-            echo "Selftest runner reported ${FAILURE_COUNT} mismatch(es)." >&2
+            echo "Selftest: Reusables reported ${FAILURE_COUNT} mismatch(es)." >&2
             exit 1
           fi
 
@@ -392,7 +392,7 @@ jobs:
         if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
         uses: actions/github-script@v7
         env:
-          MARKER: '<!-- selftest-runner-comment -->'
+          MARKER: '<!-- selftest-reusable-ci-comment -->'
           TABLE: ${{ env.VERIFICATION_TABLE }}
           FAILURES: ${{ env.FAILURE_COUNT }}
           RESULT: ${{ env.WORKFLOW_RESULT }}
@@ -403,7 +403,7 @@ jobs:
           PR_NUMBER: ${{ env.PR_NUMBER }}
         with:
           script: |
-            const marker = process.env.MARKER || '<!-- selftest-runner-comment -->';
+            const marker = process.env.MARKER || '<!-- selftest-reusable-ci-comment -->';
             const prRaw = (process.env.PR_NUMBER || '').trim();
             const prNumber = Number.parseInt(prRaw, 10);
             if (!Number.isInteger(prNumber)) {
@@ -412,7 +412,7 @@ jobs:
             }
 
             const mode = (process.env.MODE || 'comment').trim();
-            const title = (process.env.COMMENT_TITLE || 'Selftest Runner Comment').trim() || 'Selftest Runner Comment';
+            const title = (process.env.COMMENT_TITLE || 'Selftest: Reusables Comment').trim() || 'Selftest: Reusables Comment';
             const reason = (process.env.REASON || '').trim();
             const table = process.env.TABLE && process.env.TABLE.trim() ? process.env.TABLE : '*No verification table available.*';
             const failureRaw = process.env.FAILURES;
@@ -466,17 +466,17 @@ jobs:
         if: ${{ env.MODE == 'comment' }}
         run: |
           if [ -z "${VERIFICATION_TABLE}" ]; then
-            echo "::error::Verification table output missing from selftest-runner aggregate job." >&2
+            echo "::error::Verification table output missing from selftest-reusable-ci aggregate job." >&2
             exit 1
           fi
 
           if [ -z "${FAILURE_COUNT}" ]; then
-            echo "::error::Failure count output missing from selftest-runner aggregate job." >&2
+            echo "::error::Failure count output missing from selftest-reusable-ci aggregate job." >&2
             exit 1
           fi
 
           if [ "${FAILURE_COUNT}" != "0" ]; then
-            echo "Selftest runner reported ${FAILURE_COUNT} mismatch(es)." >&2
+            echo "Selftest: Reusables reported ${FAILURE_COUNT} mismatch(es)." >&2
             exit 1
           fi
 

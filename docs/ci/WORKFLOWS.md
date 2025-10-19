@@ -79,13 +79,13 @@ flowchart TD
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **Selftest Runner** | `.github/workflows/selftest-runner.yml` | `schedule` (06:30 UTC), `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Consolidated self-test workflow containing the verification matrix plus publication logic. Modes toggle summary vs. comment output and single vs. dual-runtime Python coverage; optional inputs control PR targeting, artifact downloads, headings, reasons, and explicit Python version overrides. |
+| **Selftest: Reusables** | `.github/workflows/selftest-reusable-ci.yml` | `schedule` (06:30 UTC), `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Consolidated self-test workflow containing the verification matrix plus publication logic. Modes toggle summary vs. comment output and single vs. dual-runtime Python coverage; optional inputs control PR targeting, artifact downloads, headings, reasons, and explicit Python version overrides. |
 
-`selftest-runner.yml` now handles both the nightly rehearsal (cron at 06:30 UTC) and manual dispatch flows. Supply `python_versions` (JSON) to widen the interpreter matrix, choose `mode: dual-runtime` to exercise 3.11 + 3.12, and provide a `reason` string to annotate the run summary. Maint 46 Post CI remains the default Gate follow-up comment, so the retired wrappers (`maint-43-selftest-pr-comment.yml`, `pr-20-selftest-pr-comment.yml`, `selftest-pr-comment.yml`) live only in the archive. Use the Selftest Runner comment mode when you need an additional manual annotation.
+`selftest-reusable-ci.yml` now handles both the nightly rehearsal (cron at 06:30 UTC) and manual dispatch flows. Supply `python_versions` (JSON) to widen the interpreter matrix, choose `mode: dual-runtime` to exercise 3.11 + 3.12, and provide a `reason` string to annotate the run summary. Maint 46 Post CI remains the default Gate follow-up comment, so the retired wrappers (`maint-43-selftest-pr-comment.yml`, `pr-20-selftest-pr-comment.yml`, `selftest-pr-comment.yml`) live only in the archive. Use the Selftest: Reusables comment mode when you need an additional manual annotation, and see [SELFTESTS.md](SELFTESTS.md) for the scenario matrix and artifact expectations.
 
 When running the consolidated runner choose a `mode` (`summary`, `comment`, or `dual-runtime`) and pair it with the desired
 `post_to` target. Comment mode requires setting `post_to: pr-number` and providing `pull_request_number`; the workflow validates
-the value and updates a single deduplicated comment marked `<!-- selftest-runner-comment -->`. Toggle `enable_history: true`
+the value and updates a single deduplicated comment marked `<!-- selftest-reusable-ci-comment -->`. Toggle `enable_history: true`
 when you need to download the `selftest-report` artifact emitted by the reusable matrix for local inspection.
 
 ### Agents & automation
@@ -297,7 +297,7 @@ Manual-only status means maintainers should review the Actions list during that 
 
 | Workflow | Notes |
 |----------|-------|
-| `selftest-runner.yml` (`Selftest Runner`) | Nightly cron plus manual dispatch surface for the self-test matrix. Inputs toggle comment vs. summary publishing, dual-runtime coverage, optional artifact downloads, PR targeting, headings, reasons, and explicit interpreter overrides. |
+| `selftest-reusable-ci.yml` (`Selftest: Reusables`) | Nightly cron plus manual dispatch surface for the self-test matrix. Inputs toggle comment vs. summary publishing, dual-runtime coverage, optional artifact downloads, PR targeting, headings, reasons, and explicit interpreter overrides. |
 
 > Self-test workflows are reference exercises for maintainers. They are quiet by design—trigger them via `workflow_dispatch` (or, for wrappers, specify the PR number/inputs) whenever you need a fresh artifact inventory check or to validate reusable CI changes. Expect no automated executions in the Actions history.
 

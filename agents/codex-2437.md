@@ -2,9 +2,9 @@
 
 # Scope & Constraints
 
-> _Update 2026-11-04:_ Issue #2651 consolidated the self-test wrappers into `selftest-runner.yml`. _Update 2027-02:_ The reusable matrix is now part of `selftest-runner.yml`; retain these notes for historical reference when reviewing earlier commits.
+> _Update 2026-11-04:_ Issue #2651 consolidated the self-test wrappers into `selftest-reusable-ci.yml`. _Update 2027-02:_ The reusable matrix is now part of `selftest-reusable-ci.yml`; retain these notes for historical reference when reviewing earlier commits.
 
-- Limit updates to the historical self-test workflows documented in issue #2437: `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-80-pr-comment.yml`, and `selftest-81-reusable-ci.yml`. The active entry point is `selftest-runner.yml`.
+- Limit updates to the historical self-test workflows documented in issue #2437: `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-82-pr-comment.yml`, `selftest-80-pr-comment.yml`, and `selftest-81-reusable-ci.yml`. The active entry point is `selftest-reusable-ci.yml`.
 - Preserve each workflow's ability to run via `workflow_dispatch` and, where already present, optional scheduled triggers (weekly cadence preferred for drift detection).
 - Avoid touching unrelated workflows or altering job logic beyond the trigger configuration; no behavioural regression in reusable components.
 - Ensure repository automation policies (branch protections, required checks) remain satisfied—self-tests must not start automatically on `pull_request` or generic `push` events.
