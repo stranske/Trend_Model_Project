@@ -94,10 +94,9 @@ def test_gate_docs_only_branching_logic():
     ), "Docs-only step must run only for doc-only changes"
 
     script_block = ((docs_only_step.get("with") or {}).get("script")) or ""
-    assert "<!-- gate-docs-only -->" in script_block, "Docs-only comment marker missing"
-    assert (
-        "Gate fast-pass" in script_block
-    ), "Docs-only script must communicate fast-pass message"
+    assert "core.setOutput('state', 'success')" in script_block
+    assert "core.setOutput('description', message)" in script_block
+    assert "Gate fast-pass" in script_block, "Docs-only script must communicate fast-pass message"
 
 
 def test_inventory_docs_list_all_workflows():

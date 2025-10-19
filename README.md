@@ -647,5 +647,5 @@ Install the optional pre-push hook:
 ```
 This prevents accidental pushes that fail the CI style checks.
 
-Gate (our required PR workflow) now detects documentation-only diffs internally. When a pull request only touches Markdown, `docs/`, or `assets/` paths, the heavy Python and Docker jobs are skipped while Gate posts the standard "docs-only" notice and reports success within seconds. All other changes continue to fan out to the full test matrix.
+Gate (our required PR workflow) now detects documentation-only diffs internally. When a pull request only touches Markdown, `docs/`, or `assets/` paths, the heavy Python and Docker jobs are skipped while Gate records the standard "docs-only" notice in the job summary and reports success within seconds. All other changes continue to fan out to the full test matrix.
 

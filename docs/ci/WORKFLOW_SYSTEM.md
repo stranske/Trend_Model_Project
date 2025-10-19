@@ -320,10 +320,12 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Gate** – `.github/workflows/pr-00-gate.yml`
   - Required on every pull request. Detects docs-only diffs (Markdown anywhere,
     the entire `docs/` tree, and `assets/`) and skips the heavier Python and
-    Docker matrices when nothing executable changed. Gate owns the short skip
-    comment (`<!-- gate-docs-only -->`) and publishes the final combined status.
-  - Requests `pull-requests: write` and `statuses: write` scopes so the comment
-    and status appear with the correct phrasing.
+    Docker matrices when nothing executable changed. Gate logs the short skip
+    notice and adds it to the step summary while publishing the final combined
+    status.
+  - Requests `pull-requests: write` and `statuses: write` scopes so the summary
+    and status appear with the correct phrasing, and to delete any legacy
+    docs-only comments left by older workflow revisions.
 - **PR 02 Autofix** – `.github/workflows/pr-02-autofix.yml`
   - Opt-in via the `autofix` label only. Runs the same formatters and light
     hygiene steps that Gate would otherwise leave to contributors.

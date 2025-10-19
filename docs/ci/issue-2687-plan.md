@@ -9,7 +9,7 @@
 
 ## Acceptance Criteria / Definition of Done
 1. `.github/workflows/pr-14-docs-only.yml` is removed from the repository (or verified absent) and protected by a regression guard so the file cannot reappear.
-2. Gate workflow detects docs-only changes, posts a single skip notice comment, and marks the overall required status as successful without running heavy jobs.
+2. Gate workflow detects docs-only changes, surfaces a single skip notice via logs/step summary, and marks the overall required status as successful without running heavy jobs.
 3. Non-docs-only changes still trigger the full Gate job matrix, with no regressions in required check names or status reporting.
 4. `docs/ci/WORKFLOW_SYSTEM.md` (or equivalent primary CI documentation) is updated to describe the consolidated docs-only fast path behavior.
 5. Automated tests cover both the absence of the PR-14 workflow file and the Gate docs-only branching logic (unit or integration as appropriate).
@@ -17,7 +17,7 @@
 
 ## Initial Task Checklist
 - [x] Audit `.github/workflows/` to confirm the legacy `pr-14-docs-only.yml` file status and identify any lingering references.
-- [x] Extend Gate workflow (or its helpers) to short-circuit heavy jobs when `docs_only` is detected while still emitting a single tagged skip comment.
+- [x] Extend Gate workflow (or its helpers) to short-circuit heavy jobs when `docs_only` is detected while still surfacing a single skip notice in logs/summary.
 - [x] Add or update automated tests that enforce the absence of the deprecated workflow file and validate docs-only detection logic.
 - [x] Refresh `docs/ci/WORKFLOW_SYSTEM.md` to document the consolidated Gate docs-only fast path and removal of PR-14 workflow.
 - [x] Run targeted CI/tests (e.g., Gate workflow via PR, focused pytest modules) to demonstrate docs-only fast pass and regular execution paths.
