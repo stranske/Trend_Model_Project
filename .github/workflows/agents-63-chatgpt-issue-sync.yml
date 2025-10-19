@@ -191,6 +191,7 @@ jobs:
               topics_after_dedup: 0,
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
               assigned_elsewhere: 0,
             };
             const metrics = {
@@ -199,6 +200,7 @@ jobs:
               topics_after_dedup: 0,
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
               duplicate_topics: 0,
               invalid_topics: 0,
               assigned_elsewhere: 0,
@@ -232,6 +234,7 @@ jobs:
                 `Deduplicated topics: ${metrics.topics_after_dedup}`,
                 `Topics processed: ${metrics.topics_processed}`,
                 `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
+                `Topics skipped without agent labels: ${metrics.topics_skipped_without_agent_labels}`,
                 `Created issues: ${createdCount}`,
                 `Updated issues: ${updatedCount}`,
                 `Reopened issues: ${reopenedCount}`,
