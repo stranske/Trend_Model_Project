@@ -270,37 +270,20 @@ jobs:
               if (typeof label !== 'string') return false;
               return label.trim().toLowerCase().startsWith('agent:');
             };
-            const isCodexAgentLabel = (label) => {
-              if (typeof label !== 'string') return false;
-              return label.trim().toLowerCase() === 'agent:codex';
-            };
             let topicsWithAgentLabels = 0;
             const topics = rawTopics.filter((topic) => {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
               const agentLabels = labels.filter((label) => isAgentLabel(label));
               if (agentLabels.length) {
                 topicsWithAgentLabels += 1;
-                const codexLabelTargets = agentLabels.filter((label) => isCodexAgentLabel(label));
-                if (!codexLabelTargets.length) {
-                  const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
-                  core.info(
-                    `Skipping topic targeted at other agents${preview}. Labels: ${agentLabels.join(', ')}`,
-                  );
-                  metrics.topics_skipped_for_other_agents += 1;
-                  return false;
-                }
               }
               return true;
             });
             metrics.topics_with_agent_labels = topicsWithAgentLabels;
             if (!topics.length) {
               setZeroOutputs();
-              const otherAgentSkipCount = metrics.topics_skipped_for_other_agents;
-              const notice = otherAgentSkipCount
-                ? `All topics were skipped because they request other agent assignments (${otherAgentSkipCount}). Exiting without changes.`
-                : 'No topics were eligible after filtering. Exiting without changes.';
               await publishSummary({
-                notice,
+                notice: 'No topics were eligible after filtering. Exiting without changes.',
               });
               return;
             }
