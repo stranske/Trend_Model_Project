@@ -22,8 +22,8 @@ Disrupting any one of them breaks the automation topology.
 1. **CODEOWNERS review** – `.github/CODEOWNERS` lists the three workflows under
    maintainer ownership. GitHub will not merge a change without Code Owner
    approval and branch protection keeps the requirement enabled.
-2. **Repository ruleset** – the default-branch ruleset blocks deletion and
-   renames for:
+2. **Repository ruleset** – the default-branch ruleset (named
+   `Tests Pass to Merge`, ruleset ID `7880490`) blocks deletion and renames for:
    - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
    - `.github/workflows/agents-63-codex-issue-bridge.yml`
    - `.github/workflows/agents-70-orchestrator.yml`
@@ -77,3 +77,20 @@ When one of these scenarios applies:
 
 Document any exception in the linked issue so future investigations have a
 single source of truth.
+
+## Quick ruleset verification
+
+- **UI path** – `Settings → Code security and analysis → Rulesets → Tests Pass to
+  Merge`.
+- **API check** – run
+
+  ```bash
+  curl -s https://api.github.com/repos/stranske/Trend_Model_Project/rulesets/7880490 \
+    | jq '{name, enforcement, scope: .conditions.ref_name.include,
+           file_rules: [.rules[] | select(.type == "restrict_file_updates")]
+           }'
+  ```
+
+  The `file_rules` array must list the three workflow paths above with both
+  **block deletions** and **block renames** enabled. Raise an incident if the
+  ruleset is disabled or the array is empty.
