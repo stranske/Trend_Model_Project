@@ -106,59 +106,7 @@ Implementation Notes
 
 Use strategy.fail-fast: false and a tiny table of results in GITHUB_STEP_SUMMARY.
 
-5. Agents guard: merge redundant guard rails into one
-
-Labels: agents, workflows, devops, priority: medium, status: ready, risk:low
-
-Why
-Redundant guard workflows for agents create maintenance overhead.
-
-Tasks
-
- Create a unified agents-guard.yml that triggers on PRs touching agents/** or labeled agent:*.
-
- Remove older guard variants and reference the unified one from docs.
-
- Validate it only checks required files and labels, then posts one concise result.
-
-Acceptance Criteria
-
-One guard workflow enforces agent hygiene on PRs and passes on unaffected PRs.
-
-No duplicate agent guard runs on any PR.
-
-Implementation Notes
-
-Use paths and paths-ignore to scope checks.
-
-Add a concurrency group per PR to avoid duplicate comments.
-
-6. Agents orchestrator: dedupe keepalive and lock bootstrap label
-
-Labels: agents, workflows, enhancement, priority: medium, status: ready, risk:low
-
-Why
-The orchestrator should not run redundant jobs, and bootstrap should respect explicit labels.
-
-Tasks
-
- Ensure exactly one keepalive job exists in agents-70-orchestrator.yml.
-
- Gate bootstrap by bootstrap_issues_label defaulting to agent:codex.
-
- Confirm schedule and workflow_dispatch inputs still work.
-
-Acceptance Criteria
-
-Scheduled run shows one keepalive job and bootstrap only touches labeled issues.
-
-Orchestrator run summary lists readiness, preflight, watchdog without duplication.
-
-Implementation Notes
-
-Add a “dry run” input to preview actions without writes.
-
-7. PR Gate: scope Docker smoke to Docker changes
+5. PR Gate: scope Docker smoke to Docker changes
 
 Labels: ci, workflows, enhancement, priority: medium, status: ready, risk:low
 
@@ -183,7 +131,7 @@ Implementation Notes
 
 Use dorny/paths-filter or a native git diff step.
 
-8. Autofix mode: safe cosmetic fixes and outcome labels
+6. Autofix mode: safe cosmetic fixes and outcome labels
 
 Labels: autofix, ci, workflows, enhancement, priority: medium, status: ready, risk:low
 
@@ -208,7 +156,7 @@ Implementation Notes
 
 Use git diff --name-only to build the comment.
 
-9. Cosmetic tests fixer: narrow scope to tests/**
+7. Cosmetic tests fixer: narrow scope to tests/**
 
 Labels: autofix, testing, workflows, priority: low, status: ready, risk:low
 
@@ -233,7 +181,7 @@ Implementation Notes
 
 Reuse steps from Issue 08, but restrict pathspecs.
 
-10. Post-CI: single source of truth summary with coverage delta
+8. Post-CI: single source of truth summary with coverage delta
 
 Labels: workflows, ci, tech:coverage, enhancement, priority: medium, status: ready, risk:low
 
@@ -260,7 +208,7 @@ Use the PR number and head SHA to compute the edit target.
 
 Use a hidden HTML anchor in the comment body to find and update the prior comment.
 
-11. Docs: CI/agents overview and required checks
+9. Docs: CI/agents overview and required checks
 
 Labels: documentation, workflows, infra, priority: low, status: ready, risk:low
 
@@ -285,7 +233,7 @@ Implementation Notes
 
 Include a tiny “How to re-run only X” section for triage.
 
-12. Maintenance sweep: archive superseded workflows
+10. Maintenance sweep: archive superseded workflows
 
 Labels: workflows, refactor, priority: low, status: ready, risk:low
 
