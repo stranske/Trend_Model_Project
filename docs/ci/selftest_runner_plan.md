@@ -5,7 +5,7 @@
 > `workflow_dispatch`. The legacy wrappers (`maint-43-selftest-pr-comment.yml`,
 > `maint-44-selftest-reusable-ci.yml`, `maint-48-selftest-reusable-ci.yml`,
 > `selftest-pr-comment.yml`, `selftest-reusable-ci.yml`) exist only in git history
-> with their rationale captured in [`ARCHIVE_WORKFLOWS.md`](../../ARCHIVE_WORKFLOWS.md).
+> with their rationale captured in [`ARCHIVE_WORKFLOWS.md`](../archive/ARCHIVE_WORKFLOWS.md).
 > Guardrails in `tests/test_workflow_selftest_consolidation.py` enforce this
 > single-entry inventory.
 >

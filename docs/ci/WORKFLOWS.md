@@ -8,7 +8,7 @@ automation routes through that workflow; retired shims are preserved solely in
 the archival ledger for historical reference.
 
 > ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
-> verification notes live in [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md).
+> verification notes live in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md).
 
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
 bucket-level summary, the [keep vs retire roster](WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire), and policy checklist. Return
@@ -110,7 +110,7 @@ when you need to download the `selftest-report` artifact emitted by the reusable
 ## Archived workflows
 
 Workflows removed during the consolidation now live only in git history. Refer
-to [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) for the authoritative
+to [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md) for the authoritative
 ledger of retired entries, the keep vs retire roster, and verification notes.
 When a workflow is decommissioned, strip it from the tables above and append a
 dated note to the archive so contributors can trace why it moved and which
