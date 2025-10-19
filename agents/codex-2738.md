@@ -27,10 +27,14 @@
 4. Record verification details (e.g., API responses, command snippets) either within the documentation appendix or linked artifacts so reviewers can reproduce the checks.
 5. Obtain review sign-off confirming that ruleset protections align with policy and that documentation is complete.
 
-## Initial Task Checklist
-- [ ] Enumerate current protected workflows and confirm file paths.
-- [ ] Create a throwaway branch and attempt to delete each protected workflow; capture the push rejection evidence.
-- [ ] Repeat with file rename attempts to validate rename protection.
-- [ ] If enforcement fails, adjust the repository ruleset (UI/API) to block deletions/renames and restrict edits to CODEOWNERS, then retest.
-- [ ] Summarize verification steps, ruleset metadata, and evidence references in `docs/ci/AGENTS_POLICY.md`.
+## Task Checklist & Status
+- [x] Enumerate current protected workflows and confirm file paths.
+- [x] Query repository rulesets to determine existing protections and enforcement status.
+- [ ] Attempt deletes on each protected workflow from a throwaway branch; capture rejection evidence. _(Blocked: repository ruleset currently disabled, so enforcement cannot be validated yet.)_
+- [ ] Attempt renames on each protected workflow from a throwaway branch; capture rejection evidence. _(Blocked pending rule reactivation.)_
+- [ ] Adjust the repository ruleset (UI/API) to block deletions/renames and restrict edits to CODEOWNERS, then retest. _(Requires maintainer/admin access to GitHub rulesets.)_
+- [x] Summarize verification steps, ruleset metadata, and evidence references in `docs/ci/AGENTS_POLICY.md`.
 - [ ] Share collected logs/screenshots in Issue #2738 for historical record.
+
+## Progress Log
+- **2025-09-05** – Used the public REST API to list repository rulesets. Confirmed `Tests Pass to Merge` (ID `7880490`) is disabled and lacks `restrict_file_updates` entries, so deletion/rename protection is inactive. Captured command output in `docs/ci/agents_ruleset_verification.md` for reproducibility.

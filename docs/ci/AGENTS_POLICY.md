@@ -23,13 +23,19 @@ Disrupting any one of them breaks the automation topology.
    maintainer ownership. GitHub will not merge a change without Code Owner
    approval and branch protection keeps the requirement enabled.
 2. **Repository ruleset** – the default-branch ruleset (named
-   `Tests Pass to Merge`, ruleset ID `7880490`) blocks deletion and renames for:
+   `Tests Pass to Merge`, ruleset ID `7880490`) is the enforcement surface for
+   deleting or renaming these workflows. The rule **must** include a
+   `restrict_file_updates` block with the following paths and both
+   "Block deletions" and "Block renames" toggled on:
    - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
    - `.github/workflows/agents-63-codex-issue-bridge.yml`
    - `.github/workflows/agents-70-orchestrator.yml`
 
-   Maintainers can bypass in emergencies; everyone else receives an immediate
-   push rejection.
+   > **2025-09-05 status:** the ruleset is currently **disabled** with no
+   > `restrict_file_updates` entries. Reactivate it in the GitHub UI or via the
+   > REST API before attempting verification pushes. Maintainers can bypass the
+   > rule in emergencies once it is active; everyone else should receive an
+   > immediate push rejection.
 3. **Agents Guard workflow** – `health-45-agents-guard.yml` (surfaced as the
    "Agents Critical Guard" check) fails when these files change without the
    required label or when paths disappear. Gate branch protection lists the
@@ -81,16 +87,21 @@ single source of truth.
 ## Quick ruleset verification
 
 - **UI path** – `Settings → Code security and analysis → Rulesets → Tests Pass to
-  Merge`.
+  Merge`. Confirm the ruleset is `Active`, then expand the `Restrict file
+  updates` section to verify the three workflow paths, with both "Block
+  deletions" and "Block renames" toggled on.
 - **API check** – run
 
   ```bash
-  curl -s https://api.github.com/repos/stranske/Trend_Model_Project/rulesets/7880490 \
+  curl -s "https://api.github.com/repos/stranske/Trend_Model_Project/rulesets/7880490" \
     | jq '{name, enforcement, scope: .conditions.ref_name.include,
-           file_rules: [.rules[] | select(.type == "restrict_file_updates")]
+           file_rules: [(.rules[] | select(.type == "restrict_file_updates"))]
            }'
   ```
 
-  The `file_rules` array must list the three workflow paths above with both
-  **block deletions** and **block renames** enabled. Raise an incident if the
-  ruleset is disabled or the array is empty.
+  The JSON must report `"enforcement": "active"` and a `file_rules` array whose
+  `parameters` include the three workflow paths with `block_deletions` and
+  `block_renames` set to `true`. If the ruleset is disabled or missing the file
+  rules, coordinate with a repository admin to restore protection before
+  running destructive push tests. Verification output is logged in
+  `docs/ci/agents_ruleset_verification.md`.
