@@ -5,7 +5,7 @@ reusable composites plus a set of manual self-tests. These building blocks
 underpin the Gate workflow, maintenance jobs, and Codex automation. Treat the
 orchestrator as the single entry point for agents; legacy consumer wrappers were
 retired and now live only in git history, with verification notes captured in
-[ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md).
+[ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
@@ -112,7 +112,7 @@ titles plus dispatch reason can be customised to document ad-hoc runs.
 1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
 2. Pin versions or branch references explicitly; do not rely on floating defaults.
 3. When adopting the agents toolkit, point automation at `agents-70-orchestrator.yml`. Historical consumer wrappers were removed;
-   consult [ARCHIVE_WORKFLOWS.md](../ARCHIVE_WORKFLOWS.md) only if you need the retirement log.
+   consult [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md) only if you need the retirement log.
 
 ## Customisation Points
 | Area | How to Extend | Notes |

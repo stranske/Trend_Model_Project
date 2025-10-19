@@ -9,7 +9,7 @@ sheet, and bucket reference inside that guide make it trivial for new contributo
 The document also explains how Gate, Maint 46, and the agents orchestrator collaborate, and the
 [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) section outlines the guardrail and approval
 sequence for edits. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
-per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md) if you need the historical
+per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md) if you need the historical
 ledger of retired workflows.
 
 ## CI & Automation

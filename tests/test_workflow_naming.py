@@ -35,7 +35,7 @@ def test_archive_directories_removed():
     assert not (
         WORKFLOW_DIR / "archive"
     ).exists(), (
-        ".github/workflows/archive/ should be removed (tracked in ARCHIVE_WORKFLOWS.md)"
+        ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
     )
     legacy_dir = pathlib.Path("Old/.github/workflows")
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"

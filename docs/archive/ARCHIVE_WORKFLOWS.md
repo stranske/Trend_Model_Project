@@ -1,8 +1,23 @@
-# Archived GitHub Workflows (updated 2026-11-12)
+# Archived GitHub Workflows (updated 2027-02-15)
 
 This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
 
 ## Archived
+
+### Maintenance sweep (Issue #2823)
+- `ci.yml` → `pr-00-gate.yml` — Gate now fans out to the reusable Python matrix so the standalone CI wrapper is redundant.
+- `docker.yml` → `pr-00-gate.yml` — The Gate workflow’s Docker smoke job replaces the legacy bespoke Docker entry point.
+- `gate.yml` → `pr-00-gate.yml` — Consolidated Gate orchestrator supersedes the historical aggregator wrapper.
+- `docs-only.yml` → `pr-00-gate.yml` — Gate’s docs-only detection and summary comment absorb the bespoke notice workflow.
+- `pr-14-docs-only.yml` → `pr-00-gate.yml` — The numbered docs-only fast path stays removed; Gate enforces the same checks.
+- `pr-status-summary.yml` → `maint-46-post-ci.yml` — Maint 46 now owns the single PR summary comment, eliminating duplicate reporting.
+- `ci-matrix-summary.yml` → `maint-46-post-ci.yml` — Coverage and failure rollups ride the Maint 46 summary instead of the retired matrix helper.
+- `check-failure-tracker.yml` → `maint-46-post-ci.yml` — The post-CI workflow now maintains the failure-tracker issue directly.
+- `repo-health-self-check.yml` → `health-40-repo-selfcheck.yml` — The WFv1 “health 40” refactor replaced the ad-hoc repo self-check job.
+- `repo-health-nightly.yml` → `health-41-repo-health.yml` — Weekly repo-health audits now run under the numbered Health 41 workflow.
+- `ci-signature-guard.yml` → `health-43-ci-signature-guard.yml` — Signature verification moved to the numbered health guard.
+- `agents-47-verify-codex-bootstrap-matrix.yml` → `agents-70-orchestrator.yml` — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
+- `assign-to-agents.yml` → `agents-63-codex-issue-bridge.yml` + `agents-70-orchestrator.yml` — Label-driven bridge and orchestrator now assign Codex issues without the standalone helper.
 
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
@@ -15,7 +30,7 @@ This document records the archival and eventual deletion of legacy agent-related
 - **Comment wrappers retired (Issue #2720)**: The redundant PR comment helpers `maint-43-selftest-pr-comment.yml`, `pr-20-selftest-pr-comment.yml`, and `selftest-pr-comment.yml` were deleted once the consolidated runner and Maint 46 Post CI summary proved stable. Historical references now live exclusively in this ledger; rely on the `Selftest: Reusables` workflow comment mode or Maint 46 summary for PR annotations.
 - **Historical note (2026-11-15, Issue #2728)**: `selftest-reusable-ci.yml` was previously removed in favour of scheduling `selftest-runner.yml` directly. The nightly cron continued to run through the runner’s summary mode until the Issue #2814 consolidation restored the reusable entry point.
 - **2025-10-19 disablement (Issue #2728)**: Legacy workflow entries (`selftest-pr-comment.yml`, `maint-43-selftest-pr-comment.yml`, `maint-44-selftest-reusable-ci.yml`, `maint-48-selftest-reusable-ci.yml`, `pr-20-selftest-pr-comment.yml`) were manually disabled via `gh workflow disable` so that, among self-test workflows, only the **Selftest Runner** remains visible in the Actions UI.
-- **Issue #2814 consolidation (2026-12-09)**: `selftest-runner.yml` was superseded by `selftest-reusable-ci.yml`, restoring the canonical workflow name “Selftest: Reusables,” keeping the nightly cron at `30 6 * * *`, and trimming the run summary down to a compact matrix table in `GITHUB_STEP_SUMMARY`. Documentation now points to [`docs/ci/SELFTESTS.md`](docs/ci/SELFTESTS.md) and [`docs/ci/issue-2814-plan.md`](docs/ci/issue-2814-plan.md) for scenario details and completion evidence.
+- **Issue #2814 consolidation (2026-12-09)**: `selftest-runner.yml` was superseded by `selftest-reusable-ci.yml`, restoring the canonical workflow name “Selftest: Reusables,” keeping the nightly cron at `30 6 * * *`, and trimming the run summary down to a compact matrix table in `GITHUB_STEP_SUMMARY`. Documentation now points to [`docs/ci/SELFTESTS.md`](../ci/SELFTESTS.md) and [`docs/ci/issue-2814-plan.md`](../ci/issue-2814-plan.md) for scenario details and completion evidence.
 
 ## Removed Legacy Files (Cleanup PR for Issue #1259)
 All deprecated agent automation workflows were deleted from `.github/workflows/` on 2025-09-21 once the stabilization window for the reusable equivalents closed. Historical copies formerly lived under `.github/workflows/archive/` but that directory was removed on 2026-10-07 as part of the Issue #1669 cleanup. Retrieve any prior YAML from git history when needed.
@@ -44,10 +59,10 @@ All deprecated agent automation workflows were deleted from `.github/workflows/`
 - (2026-10-05) Remaining stub archives under `Old/.github/workflows/` were deleted; historical copies are available via git history and the references below.
 - (2026-10-07) `.github/workflows/archive/` removed entirely; Issue #1669 ledger (this file) is now the canonical index for prior workflow names.
 - (2026-10-08) Issue #1669 verification sweep confirmed both archive directories remain absent and no additional workflows required archival.
-- (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in [`docs/ci/WORKFLOW_SYSTEM.md`](docs/ci/WORKFLOW_SYSTEM.md).
+- (2026-10-09) Follow-up audit reran the guard suite and filesystem checks; `.github/workflows/archive/` and `Old/.github/workflows/` remain deleted with inventory logged in [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md).
 - (2026-10-10) Latest verification re-ran the workflow guard tests and filesystem sweep—no archived directories reappeared.
 - (2026-10-14) Issue #2463 confirmed the standalone `agent-watchdog.yml` workflow remains removed and documentation now directs contributors to the orchestrator `enable_watchdog` toggle.
-- (2026-11-18) Guard consolidation removed `health-45-agents-guard.yml` and `agents-critical-guard.yml`, replacing both with the unified [`agents-guard.yml`](.github/workflows/agents-guard.yml) workflow so protected surfaces stay enforced without duplicate guard contexts.
+- (2026-11-18) Guard consolidation removed `health-45-agents-guard.yml` and `agents-critical-guard.yml`, replacing both with the unified [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) workflow so protected surfaces stay enforced without duplicate guard contexts.
 - (2026-10-13) Issue #2494 revalidated that `agent-watchdog.yml` stays deleted, recorded the orchestrator manual-dispatch watchdog run, and refreshed contributor docs to reference the orchestrator-only path.
 - (2026-10-12) Issue #2378 relocated the remaining self-test wrappers to `Old/workflows/` (`maint-90-selftest.yml`, `reusable-99-selftest.yml`) and updated docs to reference their archival home.
 
@@ -84,10 +99,10 @@ If a regression is traced to consolidation:
 | Monitor assigner/watchdog telemetry and add readiness probing only if gap resurfaces | TBD | P3 |
 
 ## Verification Checklist
-- [x] Archive index maintained: `ARCHIVE_WORKFLOWS.md`
+- [x] Archive index maintained: `docs/archive/ARCHIVE_WORKFLOWS.md`
 - [x] Stub headers inserted in original workflows marking ARCHIVED status
 - [x] Replacements confirmed operational (`agents-70-orchestrator.yml` present; legacy wrappers retired)
-- [x] 2026-10-08 audit logged (see "Verification log" in [`docs/ci/WORKFLOW_SYSTEM.md`](docs/ci/WORKFLOW_SYSTEM.md))
+- [x] 2026-10-08 audit logged (see "Verification log" in [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md))
 
 ---
 Generated as part of workflow hygiene initiative.

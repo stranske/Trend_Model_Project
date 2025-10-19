@@ -38,7 +38,7 @@ remain true after the cleanup.
   - 20-minute cron plus manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
   - Calls `.github/workflows/reusable-16-agents.yml` for the actual implementation.
-- **Legacy consumer wrappers:** Former manual shims remain retired. Their history and verification notes are tracked in [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md); automation must call the orchestrator instead.
+- **Legacy consumer wrappers:** Former manual shims remain retired. Their history and verification notes are tracked in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md); automation must call the orchestrator instead.
 - **Reusable composite:** `.github/workflows/reusable-16-agents.yml`
   - Provides readiness probes, Codex bootstrap, verification, and watchdog jobs.
   - Exposes Markdown + JSON summaries for downstream tooling.
