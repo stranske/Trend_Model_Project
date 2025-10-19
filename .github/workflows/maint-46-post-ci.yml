@@ -41,6 +41,7 @@ jobs:
       runs: ${{ steps.gather.outputs.runs }}
       coverage_stats: ${{ steps.coverage_stats.outputs.stats_json }}
       coverage_section: ${{ steps.coverage_summary.outputs.body }}
+      coverage_delta: ${{ steps.coverage_stats.outputs.delta_json }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -298,6 +299,7 @@ jobs:
 
           record_path = find_one('coverage-trend.json')
           history_path = find_one('coverage-trend-history.ndjson')
+          delta_path = find_one('coverage-delta.json')
 
           def load_record(path: Path | None) -> dict[str, object] | None:
               if not path:
@@ -378,9 +380,19 @@ jobs:
 
           print(json.dumps(stats))
           Path('coverage-stats.json').write_text(json.dumps(stats), encoding='utf-8')
+
+          delta_payload = load_record(delta_path)
+          if delta_payload is not None:
+              Path('coverage-delta-output.json').write_text(
+                  json.dumps(delta_payload),
+                  encoding='utf-8',
+              )
           PY
           if [ -f coverage-stats.json ]; then
             printf 'stats_json=%s\n' "$(cat coverage-stats.json)" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f coverage-delta-output.json ]; then
+            printf 'delta_json=%s\n' "$(cat coverage-delta-output.json)" >> "$GITHUB_OUTPUT"
           fi
       - name: Prepare summary body
         id: prep
@@ -391,6 +403,7 @@ jobs:
           HEAD_SHA: ${{ steps.gather.outputs.head_sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json }}
+          COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json }}
           REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
       - name: Persist summary preview
         run: |
@@ -1439,6 +1452,19 @@ jobs:
           if repository and run_id:
               artifact_url = f"{server}/{repository}/actions/runs/{run_id}?check_suite_focus=true#artifacts"
 
+          pr_number = os.environ.get("PR_NUMBER", "").strip()
+          head_sha = os.environ.get("HEAD_SHA", "").strip()
+          head_token = head_sha[:12] if head_sha else ""
+          anchor_fields: list[str] = []
+          if pr_number:
+              anchor_fields.append(f"pr={pr_number}")
+          if head_token:
+              anchor_fields.append(f"head={head_token}")
+          if not anchor_fields:
+              anchor_fields.append("anchor")
+          anchor_marker = f"<!-- maint-46-post-ci: {' '.join(anchor_fields)} -->"
+          legacy_marker = "<!-- maint-46-post-ci: DO NOT EDIT -->"
+
           def build_entry(prefix_key: str, title: str, result: str | None) -> Dict[str, Any]:
               env = os.environ
               ran = parse_bool(env.get(f"{prefix_key}_RAN"))
@@ -1463,7 +1489,6 @@ jobs:
                   if skip_reason:
                       status = f"{status} ({skip_reason})"
               notes: List[str] = []
-              pr_number = os.environ.get("PR_NUMBER", "").strip()
               if patch and pr_number:
                   if artifact_url:
                       notes.append(
@@ -1512,7 +1537,6 @@ jobs:
               )
 
           if autopatch_present:
-              pr_number = os.environ.get("PR_NUMBER", "").strip()
               table_lines.extend(
                   [
                       "",
@@ -1523,7 +1547,7 @@ jobs:
                   ]
               )
 
-          sections: List[str] = ["<!-- maint-46-post-ci: DO NOT EDIT -->"]
+          sections: List[str] = [anchor_marker, legacy_marker]
           if prefix:
               sections.append(prefix.strip())
           sections.append("")
@@ -1542,20 +1566,56 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
-            const marker = '<!-- maint-46-post-ci: DO NOT EDIT -->';
             const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
             const pr = Number('${{ needs.context.outputs.pr }}');
             if (!pr) {
               core.warning('PR number missing; skipping comment update.');
               return;
             }
+            const anchorPattern = /<!--\s*maint-46-post-ci:([^>]*)-->/i;
+            const extractAnchor = (text) => {
+              if (!text) {
+                return null;
+              }
+              const match = text.match(anchorPattern);
+              if (!match) {
+                return null;
+              }
+              const content = match[1] || '';
+              const prMatch = content.match(/pr=([0-9]+)/i);
+              const headMatch = content.match(/head=([0-9a-f]+)/i);
+              return {
+                raw: match[0],
+                pr: prMatch ? prMatch[1] : null,
+                head: headMatch ? headMatch[1] : null,
+              };
+            };
+            const targetAnchor = extractAnchor(body);
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr,
               per_page: 100,
             });
-            const existing = comments.find(comment => comment.body && comment.body.includes(marker));
+            let existing = null;
+            if (targetAnchor) {
+              existing = comments.find(comment => {
+                const info = extractAnchor(comment.body || '');
+                if (!info) {
+                  return false;
+                }
+                if (targetAnchor.pr && info.pr && info.pr !== targetAnchor.pr) {
+                  return false;
+                }
+                if (targetAnchor.head && info.head && info.head !== targetAnchor.head) {
+                  return false;
+                }
+                return true;
+              });
+            }
+            if (!existing) {
+              existing = comments.find(comment => (comment.body || '').includes('<!-- maint-46-post-ci:'));
+            }
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

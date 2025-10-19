@@ -56,12 +56,21 @@ def test_build_summary_comment_renders_expected_sections(
         "history_len": 12,
     }
     coverage_section = "Extra metrics here"
+    coverage_delta = {
+        "current": 91.23,
+        "baseline": 92.0,
+        "delta": -0.77,
+        "drop": 0.77,
+        "threshold": 1.0,
+        "status": "alert",
+    }
 
     body = build_summary_comment(
         runs=sample_runs,
         head_sha="abc123",
         coverage_stats=coverage_stats,
         coverage_section=coverage_section,
+        coverage_delta=coverage_delta,
         required_groups_env=json.dumps(
             [
                 {"label": "core tests (3.11)", "patterns": [r"^core tests \(3\.11\)$"]},
@@ -91,6 +100,10 @@ def test_build_summary_comment_renders_expected_sections(
     assert "Coverage (worst job): 83.11%" in body
     assert "Δ -0.77 pp" in body
     assert "Δ +1.02 pp" in body
+    assert "Coverage delta: head 91.23%" in body
+    assert "base 92.00%" in body
+    assert "threshold 1.00 pp" in body
+    assert "status alert" in body
     assert coverage_section in body
 
 
@@ -100,6 +113,7 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
         head_sha=None,
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
@@ -139,6 +153,7 @@ def test_docs_only_fast_pass_includes_context() -> None:
         head_sha="deadbeef",
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
@@ -177,6 +192,7 @@ def test_docs_only_note_requires_all_heavy_jobs_skipped() -> None:
         head_sha="c0ffee",
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
@@ -215,12 +231,21 @@ def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
         "history_len": 7,
     }
     coverage_section = "Supplementary coverage details."
+    coverage_delta = {
+        "current": 88.0,
+        "baseline": 89.0,
+        "delta": -1.0,
+        "drop": 1.0,
+        "threshold": 1.0,
+        "status": "alert",
+    }
 
     body = build_summary_comment(
         runs=runs,
         head_sha="baddad",
         coverage_stats=coverage_stats,
         coverage_section=coverage_section,
+        coverage_delta=coverage_delta,
         required_groups_env=None,
     )
 
@@ -230,13 +255,22 @@ def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
     assert "Docs-only change detected; heavy checks skipped." in body
 
     coverage_header_index = lines.index("### Coverage Overview")
+    coverage_delta_index = next(
+        i for i, line in enumerate(lines) if line.startswith("- Coverage delta:")
+    )
     coverage_jobs_index = next(
         i for i, line in enumerate(lines) if line.startswith("- Coverage (jobs):")
     )
     coverage_section_index = lines.index(coverage_section)
     note_index = lines.index(note)
 
-    assert coverage_header_index < coverage_jobs_index < coverage_section_index < note_index
+    assert (
+        coverage_header_index
+        < coverage_delta_index
+        < coverage_jobs_index
+        < coverage_section_index
+        < note_index
+    )
 def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     flaky_job = {
         "name": "main / flaky-suite",
@@ -262,6 +296,7 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
         head_sha="abc123",
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
@@ -307,6 +342,7 @@ def test_coverage_section_handles_snippet_without_stats() -> None:
         head_sha=None,
         coverage_stats=None,
         coverage_section=snippet,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
@@ -333,6 +369,7 @@ def test_build_summary_comment_handles_irregular_run_data() -> None:
         head_sha="def456",
         coverage_stats={},
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=json.dumps(
             [
                 {
@@ -358,6 +395,7 @@ def test_build_summary_comment_defaults_on_invalid_required_groups(
         head_sha="deadbeef",
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env="{not-json}",
     )
 
@@ -408,6 +446,7 @@ def test_required_groups_follow_renamed_jobs() -> None:
         head_sha="ff00aa",
         coverage_stats=None,
         coverage_section=None,
+        coverage_delta=None,
         required_groups_env=None,
     )
 
