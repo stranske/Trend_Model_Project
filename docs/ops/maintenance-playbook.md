@@ -90,7 +90,7 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 
 ## Manual self-test runner
 
-1. **Pick the right mode** — dispatch `selftest-runner.yml` and choose `summary`,
+1. **Pick the right mode** — dispatch `selftest-reusable-ci.yml` and choose `summary`,
    `comment`, or `dual-runtime` depending on whether you want a workflow
    summary-only run, a PR comment, or a dual Python matrix. Supply the optional
    `python_versions` override when you need interpreters outside the defaults.
