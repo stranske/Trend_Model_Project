@@ -121,7 +121,7 @@ Implementation Notes
 
 Cache the binary to keep the job fast.
 
-Add paths: filters so Actionlint only runs when workflow files change or on a scheduled repo sweep.
+Add paths filters so Actionlint only runs when workflow files change or on a scheduled repo sweep.
 
 5. Wire coverage artifacts end-to-end so Post-CI shows numbers
 
