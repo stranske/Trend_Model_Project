@@ -13,11 +13,12 @@ Owner: @codex-maintainer
   - Confirmed `${{ jobs.scenarios.uses }}` continues to point at the reusable workflow and retains the `fail-fast: false` matrix strategy.
   - Ensured the publish job still uploads the `selftest-report` artifact and appends scenario details to `$GITHUB_STEP_SUMMARY`.
 - [ ] Verify workflow_dispatch run uploads expected artifacts *(pending manual GitHub Actions run)*
+  - [ ] Coordinate maintainer-triggered dispatch once branch is ready for validation.
 - [ ] Confirm nightly cron success *(awaiting scheduled execution post-merge)*
 
 ## Acceptance Criteria Status
-- [ ] Manual workflow_dispatch run succeeded with artifacts *(requires GitHub Actions run)*
-- [ ] Nightly cron run succeeded *(will be monitored post-merge)*
+- [ ] Manual workflow_dispatch run succeeded with artifacts *(awaiting maintainer-run; see Run Tracking)*
+- [ ] Nightly cron run succeeded *(monitor after merge; see Run Tracking)*
 - [x] Per-scenario results summarized via GITHUB_STEP_SUMMARY
 
 ## Validation Plan
@@ -28,3 +29,14 @@ Owner: @codex-maintainer
 ## Notes
 - Local environment cannot dispatch GitHub workflows; manual validation will be requested from maintainers once changes land.
 - Follow up with SRE to verify the first cron completion after deployment and update the checklist accordingly.
+
+## Run Tracking
+| Path | Status | Run link / ID | Notes |
+| ---- | ------ | ------------- | ----- |
+| `workflow_dispatch` | Pending | _TBD_ | Requires maintainer dispatch; prepared validation checklist above to execute immediately once triggered. |
+| Nightly cron | Pending | _Next available schedule_ | Monitor post-merge and capture first successful run ID for records. |
+
+## Next Steps
+- Draft maintainer request for manual dispatch including validation checklist and artifact expectations.
+- Capture run metadata (run ID, artifact links, summary screenshot) once execution completes and update the acceptance criteria and table above.
+- Schedule follow-up reminder to confirm the first cron run after merge and record outcome in **Run Tracking**.
