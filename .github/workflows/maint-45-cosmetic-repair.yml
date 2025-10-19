@@ -171,33 +171,7 @@ jobs:
             echo "### Cosmetic repair summary"
             echo
             if [ -f "$summary_file" ]; then
-              python - <<'PYCODE'
-              import json
-              from pathlib import Path
-
-              data = json.loads(Path(".cosmetic-repair-summary.json").read_text(encoding="utf-8"))
-              status = data.get("status", "unknown")
-              print(f"- Status: **{status}**")
-              changed = data.get("changed_files") or []
-              if changed:
-                  print(f"- Changed files ({len(changed)}):")
-                  for path in changed:
-                      print(f"  - `{path}`")
-              else:
-                  print("- No file changes detected.")
-              pr_url = data.get("pr_url")
-              if pr_url:
-                  print(f"- PR: {pr_url}")
-              instructions = data.get("instructions") or []
-              if instructions:
-                  print("- Instructions processed:")
-                  for entry in instructions:
-                      kind = entry.get("kind", "unknown")
-                      path = entry.get("path", "?")
-                      guard = entry.get("guard", "")
-                      extra = f" ({guard})" if guard else ""
-                      print(f"  - `{kind}` → `{path}`{extra}")
-              PYCODE
+              python .github/scripts/render_cosmetic_summary.py "$summary_file"
             else
               git status --short || true
             fi
