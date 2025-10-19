@@ -17,7 +17,7 @@ on:
       clean_label:
         description: 'Label enabling tests-only cosmetic mode'
         required: false
-        default: 'autofix:clean'
+        default: 'autofix:tests'
         type: string
       pr_number:
         description: 'Pull request number'
