@@ -54,6 +54,7 @@ ci/autofix/history.json
 ci/autofix/diagnostics.json
 *.txt
 !/.github/signature-fixtures/basic_hash.txt
+!.github/actionlint-allowlist.txt
 
 # Python package build artifacts
 *.egg-info/

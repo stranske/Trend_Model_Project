@@ -24,15 +24,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compute actionlint allowlist
+        id: allowlist
+        shell: bash
+        run: |
+          python - <<'PY' '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT"
+          import shlex
+          import sys
+          from pathlib import Path
+
+
+          def load_entries(path: Path) -> list[str]:
+              if not path.is_file():
+                  return []
+              entries: list[str] = []
+              for raw in path.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  entries.append(line)
+              return entries
+
+
+          entries = load_entries(Path(sys.argv[1]))
+          flag_str = ' '.join(shlex.join(['-ignore', entry]) for entry in entries)
+          with Path(sys.argv[2]).open('a', encoding='utf-8') as handle:
+              handle.write(f'flags={flag_str}\n')
+          PY
+
       - name: Run actionlint via reviewdog
         id: actionlint
         uses: reviewdog/action-actionlint@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          actionlint_flags: ${{ steps.allowlist.outputs.flags }}
           reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
           filter_mode: nofilter
           level: warning
-          fail_on_error: true
+          fail_level: error
 
       - name: Publish lint summary
         if: always()

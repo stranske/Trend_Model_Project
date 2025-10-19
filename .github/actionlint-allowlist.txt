@@ -1,0 +1,5 @@
+# Format: CODE:pattern
+# Lines are passed to actionlint via `-ignore` flags. Keep this list short and
+# document the reason for each entry.
+# Example (uncomment to use):
+# SC2086:Allow unquoted matrix expansion in scripts/ci_*.sh
