@@ -285,7 +285,7 @@ jobs:
               return true;
             });
             metrics.topics_with_agent_labels = topicsWithAgentLabels;
-                notice: 'No topics available to process. Exiting without changes.',
+            if (!topics.length) {
               setZeroOutputs();
               await publishSummary({
                 notice: 'No topics were eligible after filtering. Exiting without changes.',
