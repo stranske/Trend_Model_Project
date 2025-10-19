@@ -243,7 +243,7 @@ def disable_legacy_workflows(
             continue
 
         disable_url = f"{base_url}/{workflow['id']}/disable"
-        _http_request("PUT", disable_url, headers=headers, data=b"")
+        _http_request("PUT", disable_url, headers=headers, data=None)
         summary["disabled"].append(key)
 
     return summary
