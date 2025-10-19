@@ -848,3 +848,175 @@ jobs:
             }
             summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
             await summary.write();
+
+  run-summary:
+    name: Agents Toolkit Run Summary
+    needs:
+      - readiness
+      - preflight
+      - diagnostic
+      - bootstrap-codex
+      - watchdog
+      - keepalive
+      - verify_issue
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collate job outcomes
+        uses: actions/github-script@v7
+        env:
+          ENABLE_READINESS: ${{ inputs.enable_readiness }}
+          ENABLE_PREFLIGHT: ${{ inputs.enable_preflight }}
+          ENABLE_DIAGNOSTIC: ${{ inputs.enable_diagnostic }}
+          ENABLE_BOOTSTRAP: ${{ inputs.enable_bootstrap }}
+          ENABLE_WATCHDOG: ${{ inputs.enable_watchdog }}
+          ENABLE_KEEPALIVE: ${{ inputs.enable_keepalive }}
+          ENABLE_VERIFY: ${{ inputs.enable_verify_issue }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          BOOTSTRAP_LABEL: ${{ inputs.bootstrap_issues_label }}
+          READINESS_RESULT: ${{ needs.readiness.result || '' }}
+          READINESS_CONCLUSION: ${{ needs.readiness.conclusion || '' }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result || '' }}
+          PREFLIGHT_CONCLUSION: ${{ needs.preflight.conclusion || '' }}
+          DIAGNOSTIC_RESULT: ${{ needs.diagnostic.result || '' }}
+          DIAGNOSTIC_CONCLUSION: ${{ needs.diagnostic.conclusion || '' }}
+          BOOTSTRAP_RESULT: ${{ needs['bootstrap-codex'].result || '' }}
+          BOOTSTRAP_CONCLUSION: ${{ needs['bootstrap-codex'].conclusion || '' }}
+          WATCHDOG_RESULT: ${{ needs.watchdog.result || '' }}
+          WATCHDOG_CONCLUSION: ${{ needs.watchdog.conclusion || '' }}
+          KEEPALIVE_RESULT: ${{ needs.keepalive.result || '' }}
+          KEEPALIVE_CONCLUSION: ${{ needs.keepalive.conclusion || '' }}
+          VERIFY_RESULT: ${{ needs.verify_issue.result || '' }}
+          VERIFY_CONCLUSION: ${{ needs.verify_issue.conclusion || '' }}
+        with:
+          script: |
+            const toBool = (value) => {
+              const normalised = String(value || '').trim().toLowerCase();
+              return ['true', '1', 'yes', 'on'].includes(normalised);
+            };
+
+            const normaliseStatus = (enabled, result, conclusion) => {
+              if (!enabled) {
+                return { status: 'Disabled', note: 'Not requested' };
+              }
+
+              const resolved = String(result || conclusion || '').trim();
+              if (!resolved) {
+                return { status: 'Unknown', note: 'Job did not report a conclusion' };
+              }
+
+              const status = resolved.charAt(0).toUpperCase() + resolved.slice(1);
+              let note = 'Completed';
+              if (resolved.toLowerCase() === 'skipped') {
+                note = 'Condition evaluated to false';
+              } else if (resolved.toLowerCase() === 'cancelled') {
+                note = 'Job cancelled';
+              } else if (resolved.toLowerCase() === 'failure') {
+                note = 'Job reported failure';
+              }
+
+              return { status, note };
+            };
+
+            const dryRun = toBool(process.env.DRY_RUN);
+            const bootstrapLabel = (process.env.BOOTSTRAP_LABEL || '').trim();
+
+            const enabled = {
+              readiness: toBool(process.env.ENABLE_READINESS),
+              preflight: toBool(process.env.ENABLE_PREFLIGHT),
+              diagnostic: toBool(process.env.ENABLE_DIAGNOSTIC),
+              bootstrap: toBool(process.env.ENABLE_BOOTSTRAP),
+              watchdog: toBool(process.env.ENABLE_WATCHDOG),
+              keepalive: toBool(process.env.ENABLE_KEEPALIVE),
+              verify: toBool(process.env.ENABLE_VERIFY)
+            };
+
+            const stages = [
+              {
+                key: 'readiness',
+                label: 'Readiness',
+                enabled: enabled.readiness,
+                result: process.env.READINESS_RESULT,
+                conclusion: process.env.READINESS_CONCLUSION,
+                extras: []
+              },
+              {
+                key: 'preflight',
+                label: 'Preflight',
+                enabled: enabled.preflight,
+                result: process.env.PREFLIGHT_RESULT,
+                conclusion: process.env.PREFLIGHT_CONCLUSION,
+                extras: []
+              },
+              {
+                key: 'diagnostic',
+                label: 'Diagnostic',
+                enabled: enabled.diagnostic,
+                result: process.env.DIAGNOSTIC_RESULT,
+                conclusion: process.env.DIAGNOSTIC_CONCLUSION,
+                extras: []
+              },
+              {
+                key: 'bootstrap',
+                label: 'Bootstrap',
+                enabled: enabled.bootstrap,
+                result: process.env.BOOTSTRAP_RESULT,
+                conclusion: process.env.BOOTSTRAP_CONCLUSION,
+                extras: [
+                  bootstrapLabel ? `Label: \`${bootstrapLabel}\`` : null,
+                  dryRun && enabled.bootstrap ? 'Dry run: preview only' : null
+                ].filter(Boolean)
+              },
+              {
+                key: 'watchdog',
+                label: 'Watchdog',
+                enabled: enabled.watchdog,
+                result: process.env.WATCHDOG_RESULT,
+                conclusion: process.env.WATCHDOG_CONCLUSION,
+                extras: []
+              },
+              {
+                key: 'keepalive',
+                label: 'Keepalive',
+                enabled: enabled.keepalive,
+                result: process.env.KEEPALIVE_RESULT,
+                conclusion: process.env.KEEPALIVE_CONCLUSION,
+                extras: [dryRun && enabled.keepalive ? 'Dry run: preview only' : null].filter(Boolean)
+              },
+              {
+                key: 'verify',
+                label: 'Verify Issue',
+                enabled: enabled.verify,
+                result: process.env.VERIFY_RESULT,
+                conclusion: process.env.VERIFY_CONCLUSION,
+                extras: []
+              }
+            ];
+
+            const summary = core.summary;
+            summary.addHeading('Agents Toolkit Run Summary');
+            summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            if (bootstrapLabel) {
+              summary.addRaw(`Bootstrap label: **${bootstrapLabel}**`).addEOL();
+            }
+
+            const tableRows = stages.map((stage) => {
+              const outcome = normaliseStatus(stage.enabled, stage.result, stage.conclusion);
+              const notes = [outcome.note, ...stage.extras.filter(Boolean)];
+              return [
+                stage.label,
+                outcome.status,
+                notes.length ? notes.join('<br/>') : '—'
+              ];
+            });
+
+            summary.addTable([
+              [
+                { data: 'Stage', header: true },
+                { data: 'Status', header: true },
+                { data: 'Notes', header: true }
+              ],
+              ...tableRows
+            ]);
+
+            await summary.write();
