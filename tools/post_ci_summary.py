@@ -656,6 +656,10 @@ def build_summary_comment(
         coverage_block.append("\n".join(coverage_delta_lines))
     if coverage_lines:
         coverage_block.append("\n".join(coverage_lines))
+    if coverage_table:
+        if not coverage_block:
+            coverage_block.append("### Coverage Overview")
+        coverage_block.append(coverage_table)
     if coverage_section_clean:
         if not coverage_block:
             coverage_block.append("### Coverage Overview")
