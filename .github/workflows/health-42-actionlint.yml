@@ -82,15 +82,10 @@ jobs:
         shell: bash
         run: echo "$HOME/.cache/actionlint" >> "$GITHUB_PATH"
 
-      - name: Setup reviewdog
-        uses: reviewdog/action-setup@v1
-
-      - name: Run actionlint via reviewdog
+      - name: Run actionlint
         id: actionlint
         shell: bash
         env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPORTER: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
           ALLOWLIST_FILE: ${{ steps.allowlist.outputs.args_file }}
         run: |
           set -euo pipefail
@@ -140,6 +135,5 @@ jobs:
             {
               echo '## maint-36 actionlint'
               echo "- Outcome: ${{ steps.actionlint.outcome }}"
-              echo "- Reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
