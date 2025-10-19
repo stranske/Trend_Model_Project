@@ -162,7 +162,7 @@ def test_build_comment_reports_tests_only_mode(
     )
 
     monkeypatch.setenv("AUTOFIX_MODE", "clean")
-    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:clean")
+    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:tests")
 
     try:
         comment = comment_builder.build_comment(
@@ -173,7 +173,7 @@ def test_build_comment_reports_tests_only_mode(
         monkeypatch.delenv("AUTOFIX_MODE", raising=False)
         monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
 
-    assert "| Mode | Tests-only cosmetic (`autofix:clean`) |" in comment
+    assert "| Mode | Tests-only cosmetic (`autofix:tests`) |" in comment
 
 
 def test_build_comment_reports_tests_only_mode_without_label(
