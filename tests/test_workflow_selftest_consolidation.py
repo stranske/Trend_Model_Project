@@ -4,7 +4,7 @@ import pathlib
 
 import yaml
 
-ARCHIVE_LEDGER_PATH = pathlib.Path("ARCHIVE_WORKFLOWS.md")
+ARCHIVE_LEDGER_PATH = pathlib.Path("docs/archive/ARCHIVE_WORKFLOWS.md")
 WORKFLOW_SYSTEM_DOC = pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md")
 WORKFLOWS_DOC = pathlib.Path("docs/ci/WORKFLOWS.md")
 RUNNER_PLAN_PATH = pathlib.Path("docs/ci/selftest_runner_plan.md")

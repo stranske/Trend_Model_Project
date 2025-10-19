@@ -84,17 +84,14 @@ Reducing file count reduces cognitive load and run noise.
 
 Tasks
 
- Move superseded workflows to docs/archive/ARCHIVE_WORKFLOWS.md as bullet links with one-line rationale.
-
- Remove them from .github/workflows/.
-
- Verify Actions list is free of near-duplicate entries.
+- [x] Move superseded workflows to docs/archive/ARCHIVE_WORKFLOWS.md as bullet links with one-line rationale.
+- [x] Remove them from .github/workflows/.
+- [x] Verify Actions list is free of near-duplicate entries.
 
 Acceptance Criteria
 
-No duplicate entries for selftests or agent guards appear in Actions.
-
-Archive doc exists and lists moved files.
+- [x] No duplicate entries for selftests or agent guards appear in Actions.
+- [x] Archive doc exists and lists moved files.
 
 Implementation Notes
 

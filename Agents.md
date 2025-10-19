@@ -7,7 +7,7 @@ YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 
 Manual consumer wrappers were fully retired once the orchestrator became the
 sole automation entry point. They linger only in git history alongside the
-ledger notes in [ARCHIVE_WORKFLOWS.md](ARCHIVE_WORKFLOWS.md), which documents
+ledger notes in [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md), which documents
 their removal and the consolidated keep vs retire roster.
 
 ## Demo pipeline (maintenance / CI)

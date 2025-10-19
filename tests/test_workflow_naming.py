@@ -35,7 +35,7 @@ def test_archive_directories_removed():
     assert not (
         WORKFLOW_DIR / "archive"
     ).exists(), (
-        ".github/workflows/archive/ should be removed (tracked in ARCHIVE_WORKFLOWS.md)"
+        ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
     )
     legacy_dir = pathlib.Path("Old/.github/workflows")
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
@@ -142,6 +142,18 @@ def test_workflow_names_match_filename_convention():
         if actual != expected:
             mismatches[path.name] = actual
     assert not mismatches, f"Workflow name mismatch detected: {mismatches}"
+
+
+def test_workflow_display_names_are_unique():
+    names_to_files: dict[str, list[str]] = {}
+    for path in _workflow_paths():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        display_name = str(data.get("name", "")).strip()
+        assert display_name, f"Workflow {path.name} missing name field"
+        names_to_files.setdefault(display_name, []).append(path.name)
+
+    duplicates = {name: files for name, files in names_to_files.items() if len(files) > 1}
+    assert not duplicates, f"Duplicate workflow display names detected: {duplicates}"
 
 
 def test_chatgpt_issue_sync_workflow_present_and_intact():

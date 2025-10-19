@@ -45,6 +45,6 @@ The same data is written to `GITHUB_STEP_SUMMARY` as a Markdown table so the Act
 
 ## Maintenance Notes
 
-- This document replaces the legacy self-test workflow guidance that referenced `selftest-runner.yml` and the `maint-4x` wrappers. Historical context remains in [`ARCHIVE_WORKFLOWS.md`](../../ARCHIVE_WORKFLOWS.md).
+- This document replaces the legacy self-test workflow guidance that referenced `selftest-runner.yml` and the `maint-4x` wrappers. Historical context remains in [`ARCHIVE_WORKFLOWS.md`](../archive/ARCHIVE_WORKFLOWS.md).
 - The reusable workflow contract lives in `.github/workflows/reusable-10-ci-python.yml`. Update the scenario expectations here whenever the reusable job starts producing additional artifacts.
 - Keep the artifact prefixes stable (`sf-<scenario>-...`) so verification logic continues to match expected uploads.
