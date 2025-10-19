@@ -1,162 +1,4 @@
-1. Repair repo-health self-check permissions and drift snapshot
-
-Labels: workflows, ci, devops, infra, priority: high, status: ready, risk:low
-
-Why
-The repository health check must run reliably to catch label drift, missing protections, and misconfig. It previously requested invalid permissions and could silently fail.
-
-Tasks
-
- Update .github/workflows/repo-health-self-check.yml to use only supported permissions (e.g., contents: read, issues: write, pull-requests: read, checks: read).
-
- Implement a “verify only” path when no admin token is present; log warnings instead of failing.
-
- If BRANCH_PROTECTION_TOKEN is available, run enforcement then snapshot current settings to an artifact and a single pinned Health issue.
-
- Ensure the workflow updates one rolling issue instead of opening duplicates.
-
-Acceptance Criteria
-
-A manual run completes success with a summary section listing each health probe and its status.
-
-Missing permissions no longer invalidate the workflow.
-
-Only one rolling “Repo Health” issue is created or updated on failures.
-
-Implementation Notes
-
-Use a stable issue search key (e.g., label health:repo + title prefix [health] repository self-check).
-
-Avoid admin scopes on the default token; gate any mutation behind if: env.HAS_ADMIN_TOKEN == 'true'.
-
-2. Fix Actionlint config and make errors gate the build
-
-Labels: workflows, ci, lint, priority: high, status: ready, risk:low
-
-Why
-Actionlint currently reports errors but does not block merges. If workflows are broken, CI should stop lying.
-
-Tasks
-
- Replace deprecated Actionlint settings with fail-level: error.
-
- Resolve shellcheck/heredoc parse errors flagged in CI scripts and reusables.
-
- Add an allowlist for known non-fatal warnings to keep the signal clean.
-
-Acceptance Criteria
-
-Actionlint fails on any future error and passes with current workflows fixed.
-
-CI run shows zero shellcheck parse errors in annotations.
-
-Implementation Notes
-
-Prefer <<-'EOF' heredocs or unindented end tokens to keep shellcheck happy.
-
-Cache the Actionlint binary to reduce run time.
-
-3. Wire coverage artifacts end-to-end (upload, fetch, summarize)
-
-Labels: ci, workflows, tech:coverage, priority: high, status: ready, risk:low
-
-Why
-Post-CI summaries show empty coverage sections because artifact names or paths don’t match between producer and consumer.
-
-Tasks
-
- In reusable-10-ci-python.yml, upload coverage artifacts as coverage-3.11 and coverage-3.12 (or the canonical names used by Gate).
-
- In pr-00-gate.yml, download those exact artifact names and store to a consistent path for Post-CI.
-
- In Post-CI, read coverage files and add a short diff table to the summary.
-
-Acceptance Criteria
-
-A PR with test changes shows non-zero coverage metrics in Post-CI.
-
-Artifact names are consistent across reusable, Gate, and Post-CI.
-
-Implementation Notes
-
-Prefer coverage xml and a tiny Python step to extract overall coverage so JSON and XML both work.
-
-4. Self-test reusables: keep one canonical workflow, remove duplicates
-
-Labels: workflows, refactor, documentation, priority: medium, status: ready, risk:low
-
-Why
-Multiple self-test variants add noise and drift.
-
-Tasks
-
- Keep a single .github/workflows/selftest-reusable-ci.yml that calls reusables via jobs.<name>.uses.
-
- Remove or archive older maint-4x-* selftest variants.
-
- Add docs under docs/ci/SELFTESTS.md explaining the expected matrix and outputs.
-
-Acceptance Criteria
-
-Actions list contains exactly one “Selftest: Reusables” workflow.
-
-Nightly run completes successfully and publishes a small summary.
-
-Implementation Notes
-
-Use strategy.fail-fast: false and a tiny table of results in GITHUB_STEP_SUMMARY.
-
-5. PR Gate: scope Docker smoke to Docker changes
-
-Labels: ci, workflows, enhancement, priority: medium, status: ready, risk:low
-
-Why
-Docker smoke on every non-doc PR wastes minutes. Running it only when needed preserves signal and speed.
-
-Tasks
-
- Add a changed-files step that sets docker_changed when "Dockerfile", ".docker/**", "docker/**", or ".dockerignore" changed.
-
- Wrap the Docker smoke job with if: steps.detect.outputs.docker_changed == 'true'.
-
- Keep doc-only fast-pass logic.
-
-Acceptance Criteria
-
-PRs without Docker changes skip the Docker job.
-
-PRs that touch Docker paths still run the smoke test.
-
-Implementation Notes
-
-Use dorny/paths-filter or a native git diff step.
-
-6. Autofix mode: safe cosmetic fixes and outcome labels
-
-Labels: autofix, ci, workflows, enhancement, priority: medium, status: ready, risk:low
-
-Why
-Autofix should be useful but predictable. Limit it to safe changes and clearly label outcomes.
-
-Tasks
-
- In reusable-18-autofix.yml, run ruff --fix, import sorting, whitespace normalization.
-
- Apply labels autofix:applied when changes are committed, else autofix:clean.
-
- Post a short PR comment listing changed files.
-
-Acceptance Criteria
-
-A demo PR with autofix label shows a single commit of safe cosmetic changes and the outcome label.
-
-No file outside code/tests is touched unless whitelisted.
-
-Implementation Notes
-
-Use git diff --name-only to build the comment.
-
-7. Cosmetic tests fixer: narrow scope to tests/**
+1. Cosmetic tests fixer: narrow scope to tests/**
 
 Labels: autofix, testing, workflows, priority: low, status: ready, risk:low
 
@@ -181,7 +23,7 @@ Implementation Notes
 
 Reuse steps from Issue 7, but restrict pathspecs.
 
-8. Post-CI: single source of truth summary with coverage delta
+2. Post-CI: single source of truth summary with coverage delta
 
 Labels: workflows, ci, tech:coverage, enhancement, priority: medium, status: ready, risk:low
 
@@ -208,7 +50,7 @@ Use the PR number and head SHA to compute the edit target.
 
 Use a hidden HTML anchor in the comment body to find and update the prior comment.
 
-9. Docs: CI/agents overview and required checks
+3. Docs: CI/agents overview and required checks
 
 Labels: documentation, workflows, infra, priority: low, status: ready, risk:low
 
@@ -233,7 +75,7 @@ Implementation Notes
 
 Include a tiny “How to re-run only X” section for triage.
 
-10. Maintenance sweep: archive superseded workflows
+4. Maintenance sweep: archive superseded workflows
 
 Labels: workflows, refactor, priority: low, status: ready, risk:low
 
