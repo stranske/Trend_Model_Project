@@ -17,9 +17,9 @@ Each bucket below calls out the canonical workflows, the YAML entry point, and
 the policy guardrails that keep the surface safe. Keep this mental map handy:
 
 ```
-PR checks ──► Reusable CI matrix
-    │              │
-    │              └──► Error checking, linting, testing topology
+PR checks ──► Gate (+ Agents Guard on protected edits)
+    │                      │
+    │                      └──► Reusable CI matrix
     ▼
 Maintenance & repo health ──► Issue / agents automation
 ```
@@ -420,9 +420,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ## Policy
 
-- **Required checks.** Gate is mandatory on every PR. Health 45 Agents Guard
-  becomes required whenever a change touches the `agents-*.yml` surface. Both
-  checks must appear in branch protection.
+- **Required checks.** Gate is mandatory on every PR (`gate` context). Health 45
+  Agents Guard becomes required whenever a change touches the `agents-*.yml`
+  surface (`agents-guard` context). Both checks must appear in branch
+  protection.
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
 - **Autofix.** Maint 46 centralizes automated follow-up fixes. Forks upload
@@ -492,18 +493,21 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Required vs informational checks on `phase-2-dev`
 
-> **Quick reference.** Gate / `gate` is the single status GitHub must block on
-> before merge. Maint 46 Post CI publishes an informational timeline comment
-> **after** Gate succeeds and the PR lands. Health 45 Agents Guard only becomes
-> required on PRs that touch `agents-*.yml`, keeping protected automation gated
-> without widening the branch rule for every change. Every new pull request into
+> **Quick reference.** Gate / `gate` must finish green on every pull request
+> before merge. Health 45 Agents Guard / `agents-guard` auto-attaches as a
+> second required status whenever a PR touches `agents-*.yml`, keeping the
+> protected automation gated without widening the branch rule for every change.
+> Maint 46 Post CI publishes an informational timeline comment **after** Gate
+> succeeds and the PR lands. Every new pull request into
 > `phase-2-dev` should show **Gate / gate** under **Required checks**—treat a
 > missing Gate status as an incident and follow the branch-protection
 > playbook. Maintainers should continue to find Maint 46 exclusively as the
 > post-merge timeline summary.
 
 > 📌 **Definition of done for branch protection.**
-> - Gate / `gate` remains the sole required status for `phase-2-dev` before merge.
+> - Gate / `gate` remains required on every pull request before merge.
+> - Health 45 Agents Guard / `agents-guard` auto-attaches as an additional
+>   required status whenever a pull request touches `agents-*.yml`.
 > - Maint 46 Post CI stays informational and surfaces only as the post-merge timeline summary.
 > - Branch protection rules keep Maint 46 unchecked while retaining the automatic Health 45 Agents Guard enforcement on agents-surface PRs.
 
@@ -531,10 +535,12 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > confirm it posted as the informational roll-up.
 
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
-> **Required** heading for every PR into `phase-2-dev`. Seeing Gate as the sole
-> required status is expected—Maint 46 Post CI never appears in that list
-> because it runs only after merge. Maintainers reviewing follow-up CI should
-> scroll to the Maint 46 Post CI timeline comment after merge—it links back to
+> **Required** heading for every PR into `phase-2-dev`. On standard changes, Gate
+> is the only required status; when a PR touches `agents-*.yml`, GitHub adds
+> **Health 45 Agents Guard / agents-guard** to the same list automatically.
+> Maint 46 Post CI never appears in that list because it runs only after merge.
+> Maintainers reviewing follow-up CI should scroll to the Maint 46 Post CI
+> timeline comment after merge—it links back to
 > the successful Gate run, aggregates the reusable CI matrix, and is titled
 > **“Maint 46 Post CI summary”** for quick scanning. The pull-request template
 > links here so authors confirm the required check before requesting review. If
@@ -565,7 +571,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 > **Health 45 Agents Guard** to the required list automatically.
 
 > 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows Gate as
-> the sole required status and that it is green (or actively running). After the
+> the required statuses—**Gate / gate** on every PR and **Health 45 Agents
+> Guard / agents-guard** on protected edits—and that they are green (or actively
+> running). After the
 > merge lands, locate the **Maint 46 Post CI summary** comment in the timeline to
 > confirm the informational roll-up posted and links back to the passing Gate
 > run—no branch-protection changes are needed for Maint 46 because it must stay
@@ -582,6 +590,25 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   comment as the single source of truth for CI health after a merge—review it to
   confirm the latest Gate run and reusable jobs stayed green and that no follow-
   up remediation is needed.
+
+### How to verify required checks
+
+Use this quick routine when you need proof that branch protection still blocks
+on the correct statuses:
+
+1. Open the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml)
+   and download the `enforcement.json` / `verification.json` snapshots. They
+   list the enforced contexts—expect `gate` and, when applicable, `agents-guard`.
+2. Cross-check the snapshots against the Checks tab on a fresh pull request.
+   GitHub should always show **Gate / gate** under **Required checks** and add
+   **Health 45 Agents Guard / agents-guard** automatically when you touch
+   `agents-*.yml`.
+3. If the contexts drift, follow the [branch protection playbook](#branch-protection-playbook)
+   to restore enforcement, then re-run Health 44 to capture the remediation
+   snapshot.
+
+Keep [Agents Workflow Protection Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts)
+handy for the allowlist and guardrails that sit behind these requirements.
 
 ## Branch protection playbook
 

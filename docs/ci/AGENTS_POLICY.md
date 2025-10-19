@@ -36,7 +36,24 @@ Disrupting any one of them breaks the automation topology.
    status as required, so failures block merges.
 4. **Branch protection** – the default branch requires Gate and Agents Guard to
    report success, plus **Require review from Code Owners**. This combination
-   prevents force pushes or merges that sidestep the protections above.
+   prevents force pushes or merges that sidestep the protections above. See
+   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
+   for the verification flow and recovery playbook.
+
+## Required checks and status contexts
+
+- **Gate** surfaces the status context `gate` and blocks every pull request until
+  it reports ✅. The check bundles docs-only detection and kicks off the reusable
+  CI matrix.
+- **Health 45 Agents Guard** reports the context `agents-guard`. GitHub attaches
+  it automatically when a pull request touches `agents-*.yml`, enforcing the
+  label and Code Owner guardrails.
+- **Health 44 Gate Branch Protection** provides the enforcement audit trail. Its
+  run history exposes `enforcement.json` and `verification.json` artifacts that
+  list the contexts currently enforced on the default branch. Use the Health 44
+  snapshots to confirm `gate` (and `agents-guard` when applicable) stay
+  protected, then cross-check against the [Workflow System Overview](./WORKFLOW_SYSTEM.md)
+  UI routine for the pull-request view.
 
 ## Allowlisted change reasons and label process
 Only the following scenarios justify edits. If your proposal does not fit, open
