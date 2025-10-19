@@ -8,6 +8,11 @@
 > with their rationale captured in [`ARCHIVE_WORKFLOWS.md`](../../ARCHIVE_WORKFLOWS.md).
 > Guardrails in `tests/test_workflow_selftest_consolidation.py` enforce this
 > single-entry inventory.
+>
+> **Update (Issue #2814):** The active workflow now lives at
+> `selftest-reusable-ci.yml`, which reuses the same triggers and inputs,
+> delegates each scenario to `reusable-10-ci-python.yml`, and publishes a compact
+> matrix summary described in [`docs/ci/SELFTESTS.md`](SELFTESTS.md).
 
 ## Scope and Key Constraints
 - Replace the existing collection of self-test GitHub Actions workflows with a single parameterized runner that can reproduce all current automation entry points (PR comment trigger, reusable CI job, main pipeline, etc.).

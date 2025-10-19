@@ -135,7 +135,9 @@ def test_workflow_names_match_filename_convention():
         name_line = next((line for line in data if line.startswith("name:")), None)
         assert name_line is not None, f"Workflow {path.name} missing name field"
         actual = name_line.split(":", 1)[1].strip()
-        if actual.startswith(("'", '"')) and actual.endswith(("'", '"')) and len(actual) >= 2:
+        if (actual.startswith("\"") and actual.endswith("\"")) or (
+            actual.startswith("'") and actual.endswith("'")
+        ):
             actual = actual[1:-1]
         if actual != expected:
             mismatches[path.name] = actual

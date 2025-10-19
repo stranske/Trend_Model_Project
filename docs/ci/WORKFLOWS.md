@@ -79,13 +79,13 @@ flowchart TD
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **Selftest: Reusables** | `.github/workflows/selftest-reusable-ci.yml` | `schedule` (06:30 UTC), `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Consolidated self-test workflow containing the verification matrix plus publication logic. Modes toggle summary vs. comment output and single vs. dual-runtime Python coverage; optional inputs control PR targeting, artifact downloads, headings, reasons, and explicit Python version overrides. |
+| **Selftest: Reusables** | `.github/workflows/selftest-reusable-ci.yml` | `schedule` (06:30 UTC), `workflow_dispatch` | `contents: read`, `actions: read`, `pull-requests: write` | No | Canonical self-test workflow that fans out to `reusable-10-ci-python.yml` for six scenarios, uploads a compact verification report, and supports summary/comment/dual-runtime modes. Inputs control PR targeting, artifact retrieval, headings, reasons, and explicit Python version overrides. |
 
-`selftest-reusable-ci.yml` now handles both the nightly rehearsal (cron at 06:30 UTC) and manual dispatch flows. Supply `python_versions` (JSON) to widen the interpreter matrix, choose `mode: dual-runtime` to exercise 3.11 + 3.12, and provide a `reason` string to annotate the run summary. Maint 46 Post CI remains the default Gate follow-up comment, so the retired wrappers (`maint-43-selftest-pr-comment.yml`, `pr-20-selftest-pr-comment.yml`, `selftest-pr-comment.yml`) live only in the archive. Use the Selftest: Reusables comment mode when you need an additional manual annotation, and see [SELFTESTS.md](SELFTESTS.md) for the scenario matrix and artifact expectations.
+`selftest-reusable-ci.yml` now handles both the nightly rehearsal (cron at 06:30 UTC) and manual dispatch flows. Supply `python_versions` (JSON) to widen the interpreter matrix, choose `mode: dual-runtime` to exercise 3.11 + 3.12, and provide a `reason` string to annotate the run summary. Maint 46 Post CI remains the default Gate follow-up comment, so the retired wrappers (`maint-43-selftest-pr-comment.yml`, `pr-20-selftest-pr-comment.yml`, `selftest-pr-comment.yml`) live only in the archive. Use the Selftest: Reusables comment mode when you need an additional manual annotation. See [`docs/ci/SELFTESTS.md`](SELFTESTS.md) for scenario details and artifact expectations.
 
-When running the consolidated runner choose a `mode` (`summary`, `comment`, or `dual-runtime`) and pair it with the desired
+When running the consolidated workflow choose a `mode` (`summary`, `comment`, or `dual-runtime`) and pair it with the desired
 `post_to` target. Comment mode requires setting `post_to: pr-number` and providing `pull_request_number`; the workflow validates
-the value and updates a single deduplicated comment marked `<!-- selftest-reusable-ci-comment -->`. Toggle `enable_history: true`
+the value and updates a single deduplicated comment marked `<!-- selftest-reusable-comment -->`. Toggle `enable_history: true`
 when you need to download the `selftest-report` artifact emitted by the reusable matrix for local inspection.
 
 ### Agents & automation
