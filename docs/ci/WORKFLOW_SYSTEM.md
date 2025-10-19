@@ -175,13 +175,17 @@ explain why a particular status appears in the Checks tab.
 | **Agents Guard** (`agents-guard.yml`) | PRs touching `agents/**`, `.github/workflows/agents-*.yml`, guard script; label changes via `pull_request_target` with `agent:` prefix | ✅ Required when protected files change | **Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Agents Guard** → **Re-run** after updating labels/reviews |
 
 
-> ℹ️ **Merge-gating recap.** Only **Gate / gate** blocks every pull request by
-> default. **Agents Guard / Enforce agents workflow protections** auto-attaches
-> as a second required status whenever protected agents files change. Maint 46
-> Post CI, Repo Health, Actionlint, and Agents 70 Orchestrator are informational
-> follow-ups. Cross-reference the [Agents Workflow Protection
-> Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts) for the
-> enforcement rationale behind the required checks.
+> ℹ️ **Merge-gating recap.**
+> - **Gate / gate** blocks every pull request by default—expect it under
+>   **Checks → Required** for all PRs.
+> - **Agents Guard / Enforce agents workflow protections** auto-attaches as a
+>   second required status whenever protected agents files change.
+> - Maint 46 Post CI, Repo Health, Actionlint, and Agents 70 Orchestrator stay
+>   informational follow-ups: expect Maint 46 as a timeline summary comment
+>   after merge, and the remaining workflows under the Actions tab.
+> - Cross-reference the [Agents Workflow Protection
+>   Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts) for the
+>   enforcement rationale behind the required checks.
 
 #### Gate (`pr-00-gate.yml`)
 
