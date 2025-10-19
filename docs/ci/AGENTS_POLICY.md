@@ -36,10 +36,9 @@ Disrupting any one of them breaks the automation topology.
    > REST API before attempting verification pushes. Maintainers can bypass the
    > rule in emergencies once it is active; everyone else should receive an
    > immediate push rejection.
-3. **Agents Guard workflow** – `health-45-agents-guard.yml` (surfaced as the
-   "Agents Critical Guard" check) fails when these files change without the
-   required label or when paths disappear. Gate branch protection lists the
-   status as required, so failures block merges.
+3. **Agents Guard workflow** – `agents-guard.yml` fails when these files change
+   without the required label or when paths disappear. Gate branch protection
+   lists the status as required, so failures block merges.
 4. **Branch protection** – the default branch requires Gate and Agents Guard to
    report success, plus **Require review from Code Owners**. This combination
    prevents force pushes or merges that sidestep the protections above. See
@@ -55,16 +54,17 @@ Disrupting any one of them breaks the automation topology.
 - **Gate** surfaces the status context `gate` and blocks every pull request until
   it reports ✅. The check bundles docs-only detection and kicks off the reusable
   CI matrix.
-- **Health 45 Agents Guard** reports the context `agents-guard`. Branch
-  protection enforces it alongside Gate; GitHub attaches the check automatically
-  whenever a pull request touches `agents-*.yml`, enforcing the label and Code
-  Owner guardrails.
+- **Agents Guard** surfaces the required status check **Agents Guard / Enforce
+  agents workflow protections**. Branch protection enforces it alongside Gate;
+  GitHub attaches the check automatically whenever a pull request touches
+  `agents-*.yml`, enforcing the label and Code Owner guardrails.
 - **Health 44 Gate Branch Protection** (workflow file:
   [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml))
   provides the enforcement audit trail. Its run history exposes
   `enforcement.json` and `verification.json` artifacts that list the contexts
   currently enforced on the default branch. Use the Health 44 snapshots to
-  confirm `gate` and `agents-guard` stay protected, then cross-check against the
+  confirm **Gate / gate** and **Agents Guard / Enforce agents workflow
+  protections** stay protected, then cross-check against the
   [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
   UI routine for the pull-request view. That section mirrors these status
   strings so both documents stay synchronized when you audit branch protection.
@@ -75,12 +75,12 @@ Follow this routine whenever you need to prove the protections are active:
 
 1. Visit the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml)
    and download the `enforcement.json` / `verification.json` artifacts. They
-   enumerate the contexts branch protection enforces—expect `gate` and
-   `agents-guard`.
+  enumerate the contexts branch protection enforces—expect **Gate / gate** and
+  **Agents Guard / Enforce agents workflow protections**.
 2. Open a fresh pull request (or refresh an existing one) and confirm the Checks
    tab lists **Gate / gate** under **Required checks**. When the diff touches
-   `agents-*.yml`, the UI adds **Health 45 Agents Guard / agents-guard** to the
-   same list automatically. Use the
+   `agents-*.yml`, the UI adds **Agents Guard / Enforce agents workflow
+   protections** to the same list automatically. Use the
    [Workflow System Overview](./WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
    walkthrough for screenshots and the matching verification language.
 3. If either context disappears, follow the

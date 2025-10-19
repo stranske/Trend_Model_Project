@@ -1,24 +1,37 @@
-name: Health 45 Agents Guard
+name: Agents Guard
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - reopened
       - synchronize
+      - ready_for_review
+    paths:
+      - 'agents/**'
+      - '.github/workflows/agents-*.yml'
+      - '.github/scripts/agents-guard.js'
+      - '!agents/**/__snapshots__/**'
+  pull_request_target:
+    types:
       - labeled
       - unlabeled
-      - ready_for_review
-  workflow_dispatch: {}
 
 permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: agents-guard-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   guard:
+    if: >-
+      ${{ github.event_name == 'pull_request' || startsWith(github.event.label.name || '', 'agent:') }}
     name: Enforce agents workflow protections
     runs-on: ubuntu-latest
+
     steps:
       - name: Evaluate protected file changes
         id: evaluate
@@ -28,7 +41,7 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-            const guardRelativePath = '.github/scripts/health-45-guard.js';
+            const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
@@ -129,6 +142,7 @@ jobs:
             for (const warning of result.warnings || []) {
               core.warning(warning);
             }
+
       - name: Post guard failure comment
         if: steps.evaluate.outputs.blocked == 'true'
         uses: actions/github-script@v7
@@ -139,7 +153,7 @@ jobs:
           script: |
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-            const guardPath = path.resolve(workspace, '.github/scripts/health-45-guard.js');
+            const guardPath = path.resolve(workspace, '.github/scripts/agents-guard.js');
 
             let defaultMarker = '<!-- agents-guard-marker -->';
             try {
@@ -202,45 +216,3 @@ jobs:
         run: |
           echo "${{ steps.evaluate.outputs.summary }}"
           exit 1
-
-  publish-stable-contexts:
-    name: Publish stable status contexts
-    runs-on: ubuntu-latest
-    needs: guard
-    permissions:
-      checks: write
-      contents: read
-    steps:
-      - name: Create stable status contexts
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Two canonical contexts to satisfy branch protection rules that
-            // may reference either the raw job name or a composite label.
-            const contexts = [
-              'Enforce agents workflow protections',
-              'Health 45 Agents Guard / Enforce agents workflow protections'
-            ];
-
-            const { owner, repo } = context.repo;
-            const sha = context.payload.pull_request?.head?.sha || process.env.GITHUB_SHA;
-
-            for (const ctx of contexts) {
-              try {
-                await github.rest.checks.create({
-                  owner,
-                  repo,
-                  name: ctx,
-                  head_sha: sha,
-                  status: 'completed',
-                  conclusion: 'success',
-                  output: {
-                    title: ctx,
-                    summary: 'Stable status context emitted by Health 45 guard to satisfy branch protection.',
-                  },
-                });
-                core.info(`Published stable context: ${ctx}`);
-              } catch (err) {
-                core.warning(`Failed to publish context ${ctx}: ${err.message}`);
-              }
-            }
