@@ -408,8 +408,14 @@ jobs:
                   continue
               job_coverages[label] = round(float(coverage_value), 2)
 
+          coverage_prefix = 'coverage-'
+
+          def runtime_from(name: str) -> str:
+              prefix = coverage_prefix
+              return name[len(prefix):] if name.startswith(prefix) else name
+
           def natural_sort_key(name: str) -> tuple[tuple[int, object], ...]:
-              runtime = name[9:] if name.startswith('coverage-') else name
+              runtime = runtime_from(name)
               parts = re.split(r'(\d+)', runtime)
               key: list[tuple[int, object]] = []
               for part in parts:
@@ -441,13 +447,13 @@ jobs:
           reference_value: float | None = None
           if sorted_jobs:
               reference_key, reference_value = sorted_jobs[0]
-              diff_reference = reference_key[9:] if reference_key.startswith('coverage-') else reference_key
+              diff_reference = runtime_from(reference_key)
               table_lines = [
                   f"| Runtime | Coverage | Δ vs {diff_reference} |",
                   "| --- | --- | --- |",
               ]
               for index, (name, value) in enumerate(sorted_jobs):
-                  label = name[9:] if name.startswith('coverage-') else name
+                  label = runtime_from(name)
                   if index == 0 or reference_value is None:
                       delta_value = None
                       delta_display = '—'
