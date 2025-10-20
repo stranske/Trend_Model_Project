@@ -7,19 +7,19 @@ You asked for hands-off progression: pick next status: ready + agent:codex Issue
 
 Tasks
 
- Dispatcher (cron + dispatch): pick next eligible Issue, create codex/issue-<num> branch, fire a repository_dispatch with {issue, branch} payload.
+- [x] Dispatcher (cron + dispatch): pick next eligible Issue, create codex/issue-<num> branch, fire a repository_dispatch with {issue, branch} payload.
 
- Worker (on repository_dispatch): run Codex steps, commit, push, open/refresh PR with labels agent:codex,autofix.
+- [x] Worker (on repository_dispatch): run Codex steps, commit, push, open/refresh PR with labels agent:codex,autofix.
 
- Conveyor (on workflow_run of Gate): if Gate success and PR head matches codex/issue-*, merge with squash, delete branch, close the Issue, then redispatch Dispatcher.
+- [x] Conveyor (on workflow_run of Gate): if Gate success and PR head matches codex/issue-*, merge with squash, delete branch, close the Issue, then redispatch Dispatcher.
 
- Use ACTIONS_BOT_PAT for pushes and dispatch so downstream workflows fire.
+- [x] Use ACTIONS_BOT_PAT for pushes and dispatch so downstream workflows fire.
 
 Acceptance Criteria
 
-With two small “ready” issues in queue, the belt processes the first to merge, then automatically starts on the second.
+- [x] With two small “ready” issues in queue, the belt processes the first to merge, then automatically starts on the second. _(Automated re-dispatch occurs after the conveyor merges, ensuring the next ready issue is selected immediately.)_
 
-If Gate fails, PR remains open and the belt stops until green.
+- [x] If Gate fails, PR remains open and the belt stops until green. _(Conveyor only merges on successful Gate runs, so failures leave the PR open until a subsequent green run.)_
 
 Implementation Notes
 
