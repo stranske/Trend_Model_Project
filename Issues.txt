@@ -1,55 +1,176 @@
-1. Codex “conveyor belt”: finish one labeled Issue, push, PR, merge on green, continue
+1) PR Gate unification: one reusable CI, one coverage publisher, Gate as the single entry
 
-Labels: agents, workflows, automation, priority: medium, status: ready, risk:medium
+Suggested title: PR Gate: unify CI signals and coverage into one reusable job, keep Docker/doc fast-paths
+Labels: ci, workflows, priority: high, risk: low, testing 
+GitHub
 
-Why
-You asked for hands-off progression: pick next status: ready + agent:codex Issue, create work branch, run Codex, open/refresh PR, merge after Gate is green, then repeat.
+Why:
+Gate already orchestrates matrix Python CI and conditional Docker plus a docs-only fast-pass. Coverage and status reporting still bounce between Gate and Post-CI, which invites drift. Centralizing CI signals and the coverage artifact in a single reusable job makes Gate authoritative and simplifies Post-CI to read-only summaries. 
+GitHub
 
-Tasks
+Task List:
 
-- [x] Dispatcher (cron + dispatch): pick next eligible Issue, create codex/issue-<num> branch, fire a repository_dispatch with {issue, branch} payload.
+Fold ruff, type checks, pytest + coverage, and artifact upload into reusable-10-ci-python.yml, producing a single, stable coverage artifact path.
 
-- [x] Worker (on repository_dispatch): run Codex steps, commit, push, open/refresh PR with labels agent:codex,autofix.
+Keep Gate’s change classifiers: docs-only fast-pass, Docker-only smoke. Ensure those paths still short-circuit heavy jobs.
 
-- [x] Conveyor (on workflow_run of Gate): if Gate success and PR head matches codex/issue-*, merge with squash, delete branch, close the Issue, then redispatch Dispatcher.
+Remove any second publisher of coverage from other workflows; make Post-CI read coverage only.
 
-- [x] Use ACTIONS_BOT_PAT for pushes and dispatch so downstream workflows fire.
+Ensure Gate emits one commit status (“Gate / gate”) that branch protection can require. 
+GitHub
 
-Acceptance Criteria
+Acceptance Criteria:
 
-- [x] With two small “ready” issues in queue, the belt processes the first to merge, then automatically starts on the second. _(Automated re-dispatch occurs after the conveyor merges, ensuring the next ready issue is selected immediately.)_
+One CI job publishes coverage; Post-CI never repackages it.
 
-- [x] If Gate fails, PR remains open and the belt stops until green. _(Conveyor only merges on successful Gate runs, so failures leave the PR open until a subsequent green run.)_
+Gate’s job summary shows lint, type check, tests, and coverage lines.
 
-Implementation Notes
+Docker smoke runs only when Docker-relevant paths change; docs-only PRs fast-pass.
 
-Required checks: Gate must be a required status in branch protection.
+Branch protection can require “Gate / gate” exclusively. 
+GitHub
 
-Add concurrency: codex-belt on Worker to prevent parallel runs.
+Implementation Notes:
 
-Guard selection strictly by labels agent:codex and status:ready to avoid surprises.
+Keep artifact name and folder deterministic (e.g., artifacts/coverage/coverage.xml, coverage.json).
 
-2. PR Gate: keep Docker smoke conditional and doc-only fast-pass intact
+Gate should pass only a minimal matrix (e.g., py311, py312) to the reusable CI for speed.
 
-Labels: ci, workflows, enhancement, priority: low, status: ready, risk:low
+2) Autofix: single opt-in path from Post-CI; retire duplicate Autofix entry point
 
-Why
-Gate is doing the right things; we just want to ensure the conditional paths remain stable and cheap.
+Suggested title: Autofix: one path triggered from Post-CI on autofix label; retire duplicate PR workflow
+Labels: workflows, ci, autofix, priority: medium, risk: low 
+GitHub
 
-Tasks
+Why:
+You have two places that try to “do small hygiene fixes.” That’s how you get mysterious commits and finger-pointing. Make Post-CI the only invoker of the reusable autofix and delete the standalone PR autofix workflow, or vice versa. Pick one brain. 
+GitHub
 
- Verify paths-filter step sets docker_changed correctly for Dockerfile, .docker/**, docker/**.
+Task List:
 
- Confirm doc-only PRs skip heavy jobs and post exactly one fast-pass comment.
+Wire maint-46-post-ci.yml to call the reusable autofix job only when the PR has autofix (and optionally autofix:clean).
 
- Ensure artifact handoff to Post-CI still occurs when tests run.
+Remove the separate Autofix workflow file that duplicates behavior.
 
-Acceptance Criteria
+Normalize the label name in code and docs to one string (autofix:clean recommended) and drop fallbacks.
 
-Non-Docker code PRs skip the Docker smoke.
+Post a concise summary comment listing files touched and checks re-run.
 
-Doc-only PR shows a single fast-pass summary and green Gate.
+Acceptance Criteria:
 
-Implementation Notes
+Exactly one workflow path can perform autofix in PRs.
 
-Consider dorny/paths-filter@v3 to keep the detection step simple and reliable.
+The chosen path is gated by an opt-in label and produces a single summarizing comment.
+
+No duplicate “fix” commits for the same PR event.
+
+Implementation Notes:
+
+Use workflow_call with explicit inputs for dry-run and allowed file globs.
+
+Keep the diff surface intentionally small: formatting, trivial lints, import order.
+
+3) Agents control plane: Orchestrator only; workers callable; stronger Guard patterns
+
+Suggested title: Agents: Orchestrator is the only scheduler; belt workers workflow_call only; expand Guard
+Labels: agents, automation, workflows, priority: medium, risk: medium 
+GitHub
+
+Why:
+The Orchestrator is already your control plane. Multiple worker cron schedules are redundant and increase run noise. Centralize scheduling in Orchestrator and treat dispatcher/worker/conveyor as callable plumbing. Strengthen Agents Guard to match any agents-*.yml change, not just a hand-picked list. 
+GitHub
+
+Task List:
+
+Remove all on: schedule from belt/dispatcher/worker/conveyor workflows; expose them via workflow_call with typed inputs.
+
+Update Orchestrator to call the belt jobs with explicit parameters and short circuit when no labeled work exists.
+
+Expand Agents Guard from explicit filenames to glob: .github/workflows/agents-*.yml, requiring agents:allow-change to proceed.
+
+Add a single “keepalive” mechanism inside Orchestrator rather than per-worker.
+
+Acceptance Criteria:
+
+Only Orchestrator runs on a schedule; all other agent workflows show “callable only.”
+
+Agents Guard blocks edits to any agents workflow unless the allow-label is present.
+
+Run volume drops meaningfully, with no loss of function (workers still execute when called).
+
+Implementation Notes:
+
+Pass a “dry-run vs live” flag and a “max parallel” cap into workers from Orchestrator to avoid surprise storms.
+
+4) Branch-protection hardening around Gate
+
+Suggested title: Branch protection: require “Gate / gate” and verify via repo-health check
+Labels: ci, devops, infra, health:repo, priority: medium, risk: low 
+GitHub
+
+Why:
+Gate already emits a stable status. Enforce it in branch protection, and add a weekly repo-health assertion that the protection config still requires that check. This prevents quiet regressions when someone toggles required checks or renames statuses. 
+GitHub
+
+Task List:
+
+Set required status checks on the default branch to include exactly “Gate / gate.”
+
+In the repo-health workflow, add a step that reads branch protection and fails if the required check list drifts.
+
+Summarize the current protection config in the run output for auditability.
+
+Acceptance Criteria:
+
+Merges are blocked unless Gate is green.
+
+Health job fails with a clear message if “Gate / gate” is not required or is renamed.
+
+Weekly run summary shows branch protection details.
+
+Implementation Notes:
+
+Use the REST API endpoint for branch protection and filter on the required status checks array.
+
+5) Extract inline JS to .github/scripts/ and document the target layout
+
+Suggested title: Shrink YAML, grow scripts: move logic into .github/scripts/ and document the target layout
+Labels: documentation, docs, workflows, priority: medium, risk: low 
+GitHub
+
+Why:
+You’re already using script files for some guardrails. Do the same for Gate’s change-detection, comment dedupe, and coverage normalization so it’s testable and reusable. Also, capture the target workflow layout in docs so future edits don’t re-invent chaos. 
+GitHub
+
+Task List:
+
+Create .github/scripts/ and extract:
+
+detect-changes.js for doc-only and docker path logic
+
+comment-dedupe.js for PR summary updates
+
+coverage-normalize.js for post-processing artifacts
+
+Add unit tests for these scripts using Node + a tiny harness.
+
+Add docs/ci/WORKFLOWS.md describing the target layout, including PR checks, autofix path, agents control plane, and health checks. Link to each workflow file.
+
+Update any actions/github-script steps to import and call these scripts.
+
+Acceptance Criteria:
+
+No long inline JS blobs remain in YAML.
+
+Scripts have at least smoke tests.
+
+A single docs/ci/WORKFLOWS.md page shows the “target layout” diagram and links.
+
+Actionlint and CI are green after the refactor. 
+GitHub
+
+Implementation Notes:
+
+Keep script exports minimal, prefer pure functions.
+
+Use the same summary section titles as current Issues for consistency.
