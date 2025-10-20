@@ -151,6 +151,9 @@ def test_bootstrap_requires_single_label():
     assert (
         "bootstrap_issues_label must define exactly one label" in text
     ), "Bootstrap step must prevent sweeping multiple labels"
+    assert (
+        "Received multiple entries:" in text
+    ), "Bootstrap guard should surface which labels triggered the failure"
 
 
 def test_bootstrap_label_fallback_emits_notice():
