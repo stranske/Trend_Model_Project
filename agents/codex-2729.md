@@ -8,7 +8,7 @@
 
 ## How to configure branch protection in GitHub
 - [ ] Follow [GitHub's branch protection guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches).
-- [ ] Require **Gate / gate** as a status check and keep **Agents Guard / Enforce agents workflow protections** enforced for protected workflow edits.
+- [ ] Require **Gate / gate** as a status check and keep **Health 45 Agents Guard / Enforce agents workflow protections** enforced for protected workflow edits.
 
 ## Reference documentation
 - See [docs/ci/WORKFLOW_SYSTEM.md](../docs/ci/WORKFLOW_SYSTEM.md#required-vs-informational-checks-on-phase-2-dev) for full workflow details.

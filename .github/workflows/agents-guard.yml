@@ -1,4 +1,4 @@
-name: Agents Guard
+name: Health 45 Agents Guard
 
 on:
   pull_request:

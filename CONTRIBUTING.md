@@ -19,7 +19,7 @@ post-processing workflow:
 
 Start every automation change by reviewing the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md) and the canonical [Workflow Catalog](docs/ci/WORKFLOWS.md). The overview explains the buckets, merge policy, and guardrails from [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely), while the catalog lists the active vs. retired workflows, triggers, permissions, and contributor guardrails.
 
-- Passing the Gate check (and the Agents Guard check when agent workflows
+- Passing the Gate check (and the Health 45 Agents Guard check when agent workflows
   change) is required to merge to the default branch. Branch protection also
   enables GitHub's "Require branches to be up to date" toggle, so refresh your
   branch with the latest default-branch commits before merging if either check
@@ -30,8 +30,8 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     pass before merges. Branch protection blocks the default branch until this
     check succeeds; treat the gate status as the final merge blocker. It fans
     out to the Python 3.11/3.12 test lanes and the Docker smoke job.
-  - `Agents Guard / Enforce agents workflow protections` (defined in
-    [`.github/workflows/agents-guard.yml`](.github/workflows/agents-guard.yml))
+   - `Health 45 Agents Guard / Enforce agents workflow protections` (defined in
+      [`.github/workflows/agents-guard.yml`](.github/workflows/agents-guard.yml))
     must pass whenever a pull request touches `agents-*.yml` workflows. The
     guard enforces CODEOWNERS coverage, label requirements, and review policy
     before allowing protected automation changes to merge.
@@ -197,7 +197,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 ### Required GitHub checks
 
-Branch protection requires the `Gate / gate` and `Agents Guard / Enforce agents workflow protections` workflows to succeed on every pull request and enforces GitHub's "Require branches to be up to date" option. Gate fans out to the Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review. Agents Guard only runs when agent workflows change; if you trip it, address the guard's review/label feedback before requesting approval.
+Branch protection requires the `Gate / gate` and `Health 45 Agents Guard / Enforce agents workflow protections` workflows to succeed on every pull request and enforces GitHub's "Require branches to be up to date" option. Gate fans out to the Python 3.11, Python 3.12, and Docker smoke jobs, so investigate any failure in those legs before asking for review. Health 45 Agents Guard only runs when agent workflows change; if you trip it, address the guard's review/label feedback before requesting approval.
 
 ### Pinned Mypy
 The CI now pins mypy via `MYPY_VERSION` in `.github/workflows/autofix-versions.env`. Local scripts consume this env to avoid version drift. If you see differing results, ensure the env file includes the same version and re-run:

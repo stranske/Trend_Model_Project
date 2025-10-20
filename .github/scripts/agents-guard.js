@@ -259,9 +259,9 @@ function evaluateGuard({
     : '';
   const summary = blocked
     ? (plainFirstReason
-      ? `Agents Guard blocked this PR: ${plainFirstReason}`
-      : 'Agents Guard blocked this PR.')
-    : 'Agents Guard passed.';
+      ? `Health 45 Agents Guard blocked this PR: ${plainFirstReason}`
+      : 'Health 45 Agents Guard blocked this PR.')
+    : 'Health 45 Agents Guard passed.';
 
   let commentBody = null;
   let instructions = [];
@@ -286,7 +286,7 @@ function evaluateGuard({
 
     commentBody = [
       marker,
-      '**Agents Guard** stopped this pull request.',
+  '**Health 45 Agents Guard** stopped this pull request.',
       '',
       '**What we found**',
       ...failureReasons.map((reason) => `- ${reason}`),

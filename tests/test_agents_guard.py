@@ -83,7 +83,7 @@ def test_deletion_blocks_with_comment():
 
     assert result["blocked"] is True
     assert any("was deleted" in reason for reason in result["failureReasons"])
-    assert "Agents Guard" in result["summary"]
+    assert "Health 45 Agents Guard" in result["summary"]
     assert result["commentBody"].startswith(DEFAULT_MARKER)
 
 
@@ -190,7 +190,7 @@ def test_label_and_codeowner_approval_passes():
     )
 
     assert result["blocked"] is False
-    assert result["summary"] == "Agents Guard passed."
+    assert result["summary"] == "Health 45 Agents Guard passed."
 
 
 def test_unprotected_file_is_ignored():
