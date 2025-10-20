@@ -12,7 +12,7 @@ Owner: @codex-maintainer
 - [x] Harden selftest-reusable-ci.yml defaults and validate execution logic
   - Confirmed `${{ jobs.scenarios.uses }}` continues to point at the reusable workflow and retains the `fail-fast: false` matrix strategy.
   - Ensured the publish job still uploads the `selftest-report` artifact and appends scenario details to `$GITHUB_STEP_SUMMARY`.
-  - Re-installed `actionlint` (v1.7.8) locally and re-ran `/root/.local/share/mise/installs/go/1.23.8/bin/actionlint .github/workflows/selftest-reusable-ci.yml` to confirm the workflow parses successfully (2025-02-14).
+  - Re-installed `actionlint` (v1.7.8) locally and re-ran `/root/.local/share/mise/installs/go/1.23.8/bin/actionlint .github/workflows/selftest-reusable-ci.yml` to confirm the workflow parses successfully (2025-02-14 and 2025-10-20).
 - [ ] Verify workflow_dispatch run uploads expected artifacts *(pending manual GitHub Actions run)*
   - [ ] Coordinate maintainer-triggered dispatch once branch is ready for validation.
   - [x] Drafted maintainer request snippet for the manual dispatch (see **Maintainer Outreach**).
@@ -37,6 +37,7 @@ Owner: @codex-maintainer
 
 ## Local Validation Evidence
 - 2025-02-14: Installed `actionlint` (v1.7.8) via `go install` and executed `/root/.local/share/mise/installs/go/1.23.8/bin/actionlint .github/workflows/selftest-reusable-ci.yml` (no findings).
+- 2025-10-20: Re-synced `actionlint` (v1.7.8) using `go install` and reran `/root/.local/share/mise/installs/go/1.23.8/bin/actionlint .github/workflows/selftest-reusable-ci.yml` after the latest quoting review (no findings).
 
 ## Run Tracking
 | Path | Status | Run link / ID | Notes |
@@ -45,7 +46,7 @@ Owner: @codex-maintainer
 | Nightly cron | Pending | _Next available schedule_ | Will monitor after merge once manual verification establishes baseline. |
 
 ## Next Steps
-- Draft maintainer request for manual dispatch including validation checklist and artifact expectations.
+- Draft maintainer request for manual dispatch including validation checklist and artifact expectations. *(Ready – see **Maintainer Outreach**; awaiting send once branch is queued for validation.)*
 - Capture run metadata (run ID, artifact links, summary screenshot) once execution completes and update the acceptance criteria and table above.
 - Schedule follow-up reminder to confirm the first cron run after merge and record outcome in **Run Tracking**.
 
