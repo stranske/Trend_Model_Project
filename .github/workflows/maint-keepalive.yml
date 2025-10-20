@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
-  issues: write
 
 concurrency: keepalive-${{ github.ref }}
 
@@ -26,6 +24,10 @@ jobs:
             echo "Repository variable OPS_HEARTBEAT_ISSUE is not configured." >&2
             exit 1
           fi
+          if ! [[ "${HEARTBEAT_ISSUE}" =~ ^[0-9]+$ ]]; then
+            echo "OPS_HEARTBEAT_ISSUE must be a numeric issue number." >&2
+            exit 1
+          fi
           if [ -z "${HEARTBEAT_TOKEN}" ]; then
             echo "Secret ACTIONS_BOT_PAT is not configured." >&2
             exit 1
@@ -34,8 +36,8 @@ jobs:
         id: timestamp
         run: echo "utc=$(date -u '+%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
       - name: Post heartbeat comment
-        # v4.0.2 commit SHA: 5e7e7e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e
-        uses: peter-evans/create-or-update-comment@5e7e7e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e
+        # v4.0.0 commit SHA: 71345be0265236311c031f5c7866368bd1eff043
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
         with:
           token: ${{ env.HEARTBEAT_TOKEN }}
           issue-number: ${{ env.HEARTBEAT_ISSUE }}
