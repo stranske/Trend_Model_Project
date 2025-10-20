@@ -19,7 +19,9 @@ if not SCRIPT_PATH.exists():
 
 @pytest.fixture(scope="module")
 def build_summary_lines() -> Callable[[dict[str, Any]], list[str]]:
-    spec = importlib.util.spec_from_file_location("render_cosmetic_summary", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "render_cosmetic_summary", SCRIPT_PATH
+    )
     if not (spec and spec.loader):
         raise ImportError(f"Could not load spec or loader for {SCRIPT_PATH}")
 
@@ -45,7 +47,10 @@ def test_build_summary_lines_with_changes_and_instructions(build_summary_lines) 
     assert "Changed files" in lines[1] and "2" in lines[1]
     assert any("alpha.py" in line for line in lines)
     assert any("beta.py" in line for line in lines)
-    assert any(line.startswith("- PR:") and "https://example.com/pr/1" in line for line in lines)
+    assert any(
+        line.startswith("- PR:") and "https://example.com/pr/1" in line
+        for line in lines
+    )
     assert any("Instructions processed" in line for line in lines)
     assert any("delete" in line and "foo.txt" in line for line in lines)
     assert any("format" in line and "bar.py" in line for line in lines)

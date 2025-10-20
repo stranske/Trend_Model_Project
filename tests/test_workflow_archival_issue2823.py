@@ -20,7 +20,10 @@ SUPERSEDED_WORKFLOWS: dict[str, tuple[str, ...]] = {
     "repo-health-nightly.yml": ("health-41-repo-health.yml",),
     "ci-signature-guard.yml": ("health-43-ci-signature-guard.yml",),
     "agents-47-verify-codex-bootstrap-matrix.yml": ("agents-70-orchestrator.yml",),
-    "assign-to-agents.yml": ("agents-63-codex-issue-bridge.yml", "agents-70-orchestrator.yml"),
+    "assign-to-agents.yml": (
+        "agents-63-codex-issue-bridge.yml",
+        "agents-70-orchestrator.yml",
+    ),
 }
 
 
