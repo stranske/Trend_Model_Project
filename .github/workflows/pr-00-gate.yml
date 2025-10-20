@@ -17,7 +17,7 @@ jobs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
       run_core: ${{ steps.diff.outputs.run_core }}
       reason: ${{ steps.diff.outputs.reason }}
-      docker_changed: ${{ steps.diff.outputs.docker_changed }}
+      docker_changed: ${{ steps.docker_paths.outputs.docker || steps.diff.outputs.docker_changed }}
     steps:
       - name: Detect changes via API
         id: diff
@@ -180,6 +180,23 @@ jobs:
             core.setOutput('reason', reason);
             core.setOutput('docker_changed', dockerChanged ? 'true' : 'false');
 
+      - name: Detect Docker-related changes via paths filter
+        if: github.event_name == 'pull_request'
+        id: docker_paths
+        uses: dorny/paths-filter@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          filters: |
+            docker:
+              - 'Dockerfile'
+              - '**/[Dd]ockerfile'
+              - '**/[Dd]ockerfile.*'
+              - '.dockerignore'
+              - 'docker/**'
+              - '.docker/**'
+
   core-tests-311:
     name: core tests (3.11)
     needs: detect
@@ -240,14 +257,117 @@ jobs:
             core.info(message);
             core.setOutput('state', 'success');
             core.setOutput('description', message);
+            const marker = '<!-- gate-docs-only -->';
+            const commentBody = `${message}\n\n${marker}`;
+            core.setOutput('comment_body', commentBody);
 
             await core.summary
               .addHeading('Gate docs-only fast-pass', 3)
               .addRaw(`${message}\n`)
               .write();
 
-      - name: Clean up legacy docs-only comment
-        if: ${{ always() }}
+      - name: Ensure docs-only fast-pass comment
+        if: needs.detect.outputs.doc_only == 'true'
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.info('Not a pull_request event; skipping comment management.');
+              return;
+            }
+
+            const commentBody = process.env.COMMENT_BODY;
+            if (!commentBody) {
+              core.setFailed('Docs-only comment body is missing.');
+              return;
+            }
+
+            const marker = '<!-- gate-docs-only -->';
+            const baseMessage = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            let target = null;
+            const duplicates = [];
+            for (const comment of comments) {
+              if (typeof comment.body !== 'string') {
+                continue;
+              }
+
+              const body = comment.body;
+              const trimmed = body.trim();
+              const hasMarker = body.includes(marker);
+              const isLegacy = trimmed === baseMessage || trimmed.startsWith(baseMessage);
+
+              if (!hasMarker && !isLegacy) {
+                continue;
+              }
+
+              if (!target) {
+                target = { comment, hasMarker };
+                continue;
+              }
+
+              if (!target.hasMarker && hasMarker) {
+                duplicates.push(target.comment);
+                target = { comment, hasMarker };
+              } else {
+                duplicates.push(comment);
+              }
+            }
+
+            const desired = commentBody.trim();
+            let targetId = target?.comment?.id;
+
+            if (targetId) {
+              const current = typeof target.comment.body === 'string' ? target.comment.body.trim() : '';
+              if (current === desired) {
+                core.info(`Existing docs-only comment ${targetId} is up to date.`);
+              } else {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: targetId,
+                  body: commentBody,
+                });
+                core.info(`Updated docs-only comment ${targetId}.`);
+              }
+            } else {
+              const created = await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: commentBody,
+              });
+              targetId = created.data.id;
+              core.info(`Created docs-only comment ${targetId}.`);
+            }
+
+            for (const duplicate of duplicates) {
+              if (!duplicate || duplicate.id === targetId) {
+                continue;
+              }
+
+              await github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: duplicate.id,
+              });
+              core.info(`Removed duplicate docs-only comment ${duplicate.id}.`);
+            }
+
+      - name: Remove docs-only fast-pass comment when not needed
+        if: needs.detect.outputs.doc_only != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -268,7 +388,7 @@ jobs:
               per_page: 100,
             });
 
-            const existing = comments.find(comment => {
+            const targets = comments.filter(comment => {
               if (typeof comment.body !== 'string') {
                 return false;
               }
@@ -285,18 +405,19 @@ jobs:
               return trimmed.startsWith(baseMessage);
             });
 
-            if (!existing) {
+            if (targets.length === 0) {
               core.info('No docs-only fast-pass comment found to remove.');
               return;
             }
 
-            await github.rest.issues.deleteComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: existing.id,
-            });
-
-            core.info(`Removed docs-only fast-pass comment ${existing.id}.`);
+            for (const comment of targets) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              core.info(`Removed docs-only fast-pass comment ${comment.id}.`);
+            }
 
       - name: Download coverage (3.11)
         id: coverage_311
