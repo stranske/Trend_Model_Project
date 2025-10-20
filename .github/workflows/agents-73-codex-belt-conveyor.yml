@@ -156,7 +156,7 @@ jobs:
               }
             }
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex belt conveyor after Gate success.' });
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex Belt Conveyor after Gate success.' });
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
