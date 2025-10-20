@@ -392,7 +392,7 @@ jobs:
             const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
             const raw = process.env.LABEL || '';
             const trimmed = raw
-              .split(',')
+              .split(/[,\n]/)
               .map((value) => value.trim())
               .filter(Boolean);
 
@@ -413,21 +413,22 @@ jobs:
             const unique = dedupeLabels(trimmed);
             const dedupeReduced = unique.length === 1 && trimmed.length > 1;
 
-            let labels = unique;
-            let fallbackUsed = false;
-            if (!labels.length) {
-              labels = [{ raw: fallbackLabel, lower: fallbackLabel.toLowerCase() }];
-              fallbackUsed = true;
-            }
-
-            if (labels.length > 1) {
+            if (unique.length > 1) {
+              const provided = unique.map((entry) => `\`${entry.raw}\``).join(', ');
               const message =
-                'bootstrap_issues_label input must define exactly one label to avoid sweeping unintended issues.';
+                `bootstrap_issues_label must define exactly one label. Received multiple entries: ${provided}`;
               core.setFailed(message);
               summary.addRaw(message).addEOL();
               clearOutputs();
               await summary.write();
               return;
+            }
+
+            let labels = unique;
+            let fallbackUsed = false;
+            if (!labels.length) {
+              labels = [{ raw: fallbackLabel, lower: fallbackLabel.toLowerCase() }];
+              fallbackUsed = true;
             }
 
             const label = labels[0].raw;
@@ -925,7 +926,7 @@ jobs:
               verify: toBool(process.env.ENABLE_VERIFY)
             };
 
-            const stages = [
+            const rawStages = [
               {
                 key: 'readiness',
                 label: 'Readiness',
@@ -979,6 +980,23 @@ jobs:
                 extras: []
               }
             ];
+
+            const stages = [];
+            const seen = new Map();
+            for (const stage of rawStages) {
+              if (!seen.has(stage.key)) {
+                seen.set(stage.key, stages.length);
+                stages.push({ ...stage, extras: [...stage.extras] });
+                continue;
+              }
+
+              const existingIndex = seen.get(stage.key);
+              const existing = stages[existingIndex];
+              existing.enabled = existing.enabled || stage.enabled;
+              existing.result = existing.result || stage.result;
+              const mergedExtras = new Set([...(existing.extras || []), ...(stage.extras || [])]);
+              existing.extras = Array.from(mergedExtras).filter(Boolean);
+            }
 
             const summary = core.summary;
             summary.addHeading('Agents Toolkit Run Summary');
