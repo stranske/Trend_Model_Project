@@ -23,9 +23,9 @@ jobs:
         id: read_signature
         run: |
           {
-            echo "jobs_json<<EOF"
+            echo "jobs_json<<'EOF'"
             cat .github/signature-fixtures/basic_jobs.json
-            echo "EOF"
+            echo 'EOF'
             echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)"
           } >> "$GITHUB_OUTPUT"
       - name: Verify signature (composite action)
@@ -42,7 +42,7 @@ jobs:
           fi
           ref_name="${ref_name:-phase-2-dev}"
 
-          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
           ## Maint 40 CI Signature Guard
 
           Review the [CI signature guard docs](https://github.com/${GITHUB_REPOSITORY}/blob/${ref_name}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures)
