@@ -318,7 +318,11 @@ jobs:
           # Allow callers to prepend an artifact prefix while keeping the default
           # coverage-<version> naming used by downstream workflows.
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
-          path: coverage/runtimes/${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            coverage.json
+            pytest-junit.xml
+            coverage/runtimes/${{ matrix.python-version }}
           if-no-files-found: warn
           retention-days: 7
 
