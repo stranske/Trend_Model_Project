@@ -22,8 +22,20 @@ jobs:
     name: workflow lint (maint-36)
     runs-on: ubuntu-latest
     env:
-      ACTIONLINT_VERSION: '1.7.1'
+      ACTIONLINT_VERSION: '1.7.3'
+      REVIEWDOG_VERSION: '0.21.0'
+      REPORTER: ${{ steps.set-reporter.outputs.reporter }}
     steps:
+      - name: Compute REPORTER value
+        id: set-reporter
+        run: |
+          if [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
+            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "reporter=github-pr-review" >> $GITHUB_OUTPUT
+          else
+            echo "reporter=github-check" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/checkout@v4
 
       - name: Compute actionlint allowlist
@@ -78,15 +90,40 @@ jobs:
             | tar -xz -C "$HOME/.cache/actionlint" actionlint
           chmod +x "$HOME/.cache/actionlint/actionlint"
 
-      - name: Add actionlint to PATH
+      - name: Restore cached reviewdog
+        id: reviewdog-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/reviewdog
+          key: reviewdog-${{ runner.os }}-${{ env.REVIEWDOG_VERSION }}
+
+      - name: Install reviewdog
+        if: steps.reviewdog-cache.outputs.cache-hit != 'true'
         shell: bash
-        run: echo "$HOME/.cache/actionlint" >> "$GITHUB_PATH"
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/reviewdog"
+          curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/v${REVIEWDOG_VERSION}/install.sh \
+            | sh -s -- -b "$HOME/.cache/reviewdog" "v${REVIEWDOG_VERSION}"
+
+      - name: Add linters to PATH
+        shell: bash
+        run: |
+          echo "$HOME/.cache/actionlint" >> "$GITHUB_PATH"
+          echo "$HOME/.cache/reviewdog" >> "$GITHUB_PATH"
+
+      - name: Show tool versions
+        shell: bash
+        run: |
+          actionlint -version
+          reviewdog -version
 
       - name: Run actionlint
         id: actionlint
         shell: bash
         env:
           ALLOWLIST_FILE: ${{ steps.allowlist.outputs.args_file }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -96,27 +133,26 @@ jobs:
           fi
 
           tmpdir="$(mktemp -d)"
-          sarif_path="${tmpdir}/actionlint.sarif"
+          lint_output="${tmpdir}/actionlint.txt"
 
           lint_status=0
-          if ! actionlint -color never -format sarif "${extra_args[@]}" >"${sarif_path}"; then
+          if ! actionlint -color never "${extra_args[@]}" >"${lint_output}"; then
             lint_status=$?
           fi
 
           if [ "$lint_status" -ne 0 ]; then
             echo '::group::actionlint (text output)'
-            actionlint -color never "${extra_args[@]}" || true
+            cat "${lint_output}"
             echo '::endgroup::'
           fi
 
           rd_status=0
-          if ! cat "${sarif_path}" \
-            | reviewdog -f=sarif \
+          if ! reviewdog -f=actionlint \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
               -level="warning" \
-              -fail-level="error"; then
+              -fail-level="error" <"${lint_output}"; then
             rd_status=$?
           fi
 

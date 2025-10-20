@@ -311,6 +311,8 @@ def test_build_comment_includes_meta_line(
         pr_number="101",
     )
 
-    meta_line = "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
+    meta_line = (
+        "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
+    )
     assert meta_line in comment
     assert comment.splitlines()[1] == meta_line

@@ -351,7 +351,9 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         steps = detect_job.get("steps", [])
         diff_step = next((step for step in steps if step.get("id") == "diff"), None)
-        self.assertIsNotNone(diff_step, "Detect job must use diff step to classify changes")
+        self.assertIsNotNone(
+            diff_step, "Detect job must use diff step to classify changes"
+        )
 
         script = (diff_step or {}).get("with", {}).get("script", "")
         self.assertTrue(script, "Diff step must embed classifier script")
@@ -421,7 +423,9 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 self.assertIsInstance(path_value, str)
                 version_suffix = name_value.split("-", 1)[-1]
                 normalized_suffix = version_suffix.replace(".", "")
-                expected_token = f"core-tests-{normalized_suffix}" if normalized_suffix else ""
+                expected_token = (
+                    f"core-tests-{normalized_suffix}" if normalized_suffix else ""
+                )
                 self.assertTrue(
                     expected_token and expected_token in path_value,
                     "Coverage download paths should include the normalized python version suffix",
