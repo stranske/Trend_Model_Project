@@ -24,17 +24,16 @@ jobs:
     env:
       ACTIONLINT_VERSION: '1.7.3'
       REVIEWDOG_VERSION: '0.21.0'
-      REPORTER: ${{ steps.set-reporter.outputs.reporter }}
     steps:
       - name: Compute REPORTER value
         id: set-reporter
         run: |
           if [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
-            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> $GITHUB_OUTPUT
+            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "reporter=github-pr-review" >> $GITHUB_OUTPUT
+            echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
           else
-            echo "reporter=github-check" >> $GITHUB_OUTPUT
+            echo "reporter=github-check" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v4
 
@@ -42,7 +41,8 @@ jobs:
         id: allowlist
         shell: bash
         run: |
-          python - <<'PY' '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT"
+          set -euo pipefail
+          python - '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT" <<'PY'
           import sys
           from pathlib import Path
 
@@ -103,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.cache/reviewdog"
-          curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/v${REVIEWDOG_VERSION}/install.sh \
+          curl -sSL "https://raw.githubusercontent.com/reviewdog/reviewdog/v${REVIEWDOG_VERSION}/install.sh" \
             | sh -s -- -b "$HOME/.cache/reviewdog" "v${REVIEWDOG_VERSION}"
 
       - name: Add linters to PATH
@@ -123,6 +123,7 @@ jobs:
         shell: bash
         env:
           ALLOWLIST_FILE: ${{ steps.allowlist.outputs.args_file }}
+          REPORTER: ${{ steps.set-reporter.outputs.reporter }}
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -132,11 +133,13 @@ jobs:
             mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
           fi
 
+          extra_args+=("-no-color")
+
           tmpdir="$(mktemp -d)"
           lint_output="${tmpdir}/actionlint.txt"
 
           lint_status=0
-          if ! actionlint -color never "${extra_args[@]}" >"${lint_output}"; then
+          if ! actionlint "${extra_args[@]}" >"${lint_output}"; then
             lint_status=$?
           fi
 
@@ -166,10 +169,15 @@ jobs:
 
       - name: Publish lint summary
         if: always()
+        env:
+          REPORTER: ${{ steps.set-reporter.outputs.reporter }}
         run: |
           if [ -n "${{ steps.actionlint.outcome }}" ]; then
             {
               echo '## maint-36 actionlint'
               echo "- Outcome: ${{ steps.actionlint.outcome }}"
+              if [ -n "${REPORTER}" ]; then
+                echo "- Reporter: ${REPORTER}"
+              fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi

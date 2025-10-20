@@ -348,7 +348,7 @@ jobs:
           DOCKER="${{ needs.docker-smoke.result || 'skipped' }}"
           DOCKER_CHANGED="${{ needs.detect.outputs.docker_changed || 'false' }}"
 
-          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
           ### Gate status
           | Job | Result |
           | --- | ------ |

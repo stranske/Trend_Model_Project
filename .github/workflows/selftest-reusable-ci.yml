@@ -140,14 +140,14 @@ jobs:
       - name: Append run metadata to summary
         run: |
           {
-            echo '## Self-Test Execution Overview'
-            echo 'Workflow result: ${{ needs.scenarios.result }}'
-            echo 'Triggered via: '${TRIGGER_EVENT}
+            echo "## Self-Test Execution Overview"
+            echo "Workflow result: ${{ needs.scenarios.result }}"
+            echo "Triggered via: ${TRIGGER_EVENT}"
             if [ -n "${RUN_REASON}" ]; then
-              echo 'Run reason: '${RUN_REASON}
+              echo "Run reason: ${RUN_REASON}"
             fi
-            echo 'Requested python-versions: '${REQUESTED_PYTHONS}
-            echo 'Scenarios: '${SCENARIO_LIST}
+            echo "Requested python-versions: ${REQUESTED_PYTHONS}"
+            echo "Scenarios: ${SCENARIO_LIST}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Capture workflow run id
