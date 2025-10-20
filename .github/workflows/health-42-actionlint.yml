@@ -169,10 +169,15 @@ jobs:
 
       - name: Publish lint summary
         if: always()
+        env:
+          REPORTER: ${{ steps.set-reporter.outputs.reporter }}
         run: |
           if [ -n "${{ steps.actionlint.outcome }}" ]; then
             {
               echo '## maint-36 actionlint'
               echo "- Outcome: ${{ steps.actionlint.outcome }}"
+              if [ -n "${REPORTER}" ]; then
+                echo "- Reporter: ${REPORTER}"
+              fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi
