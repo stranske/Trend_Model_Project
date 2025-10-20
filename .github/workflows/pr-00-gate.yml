@@ -17,7 +17,7 @@ jobs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
       run_core: ${{ steps.diff.outputs.run_core }}
       reason: ${{ steps.diff.outputs.reason }}
-      docker_changed: ${{ steps.docker_paths.outputs.docker || steps.diff.outputs.docker_changed }}
+      docker_changed: ${{ steps.docker_paths.outputs.docker == 'true' || steps.diff.outputs.docker_changed == 'true' }}
     steps:
       - name: Detect changes via API
         id: diff
