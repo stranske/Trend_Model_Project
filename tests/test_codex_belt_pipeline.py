@@ -63,7 +63,7 @@ def test_worker_keeps_concurrency_and_pat_guard():
     assert concurrency.get("group") == "codex-belt"
     assert concurrency.get("cancel-in-progress") is False
 
-    events = workflow.get("on") or workflow.get(True) or {}  # type: ignore[index]
+    events = workflow.get("on") or {}  # type: ignore[index]
     repo_dispatch = events.get("repository_dispatch") or {}
     types = repo_dispatch.get("types") or []
     assert "codex-belt.work" in types
