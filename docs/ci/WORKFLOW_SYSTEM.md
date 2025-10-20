@@ -435,7 +435,7 @@ status updates:
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml`, `pr-02-autofix.yml` | Keep the default branch green by running the gating matrix, autofix sweep, and docs-only short circuit before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
-| Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`) | `agents-70-orchestrator.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
+| Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
@@ -485,8 +485,22 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Issue / agents automation
 - **Agents 70 Orchestrator** – `.github/workflows/agents-70-orchestrator.yml`
-  remains the single dispatch surface for every consumer workflow. Agents 61/62
-  shims stay retired.
+  remains the configuration/control surface (readiness checks, bootstrap,
+  diagnostics, keepalive). Agents 61/62 shims stay retired.
+- **Agents 71 Codex Belt Dispatcher** – `.github/workflows/agents-71-codex-belt-dispatcher.yml`
+  scans for open issues labelled `agent:codex` + `status:ready`, creates or
+  refreshes the deterministic `codex/issue-*` branch, marks the issue
+  `status:in-progress`, and fires a `repository_dispatch` for the worker using
+  `ACTIONS_BOT_PAT` so downstream workflows trigger.
+- **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml`
+  re-validates labels, ensures the branch diverges from the base (injecting an
+  empty commit when needed), opens or updates the automation PR, applies labels
+  (`agent:codex`, `autofix`, `from:codex`), assigns the connector accounts, and
+  posts the `@codex start` activation comment.
+- **Agents 73 Codex Belt Conveyor** – `.github/workflows/agents-73-codex-belt-conveyor.yml`
+  listens for successful Gate runs on `codex/issue-*` branches, squash merges,
+  deletes the branch, closes the source issue (removing `status:in-progress`),
+  drops audit breadcrumbs, and re-dispatches the belt dispatcher.
 - **Agents 63 Codex Issue Bridge** – `.github/workflows/agents-63-codex-issue-bridge.yml`
   turns labelled issues into branches and bootstrap PRs.
 - **Agents 63 ChatGPT Issue Sync** – `.github/workflows/agents-63-chatgpt-issue-sync.yml`

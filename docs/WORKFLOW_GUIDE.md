@@ -2,8 +2,9 @@
 
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
-remains the required merge check, and **Agents 70 Orchestrator is the sole automation entry point** for Codex readiness and
-bootstrap runs. For the executive summary of buckets, required checks, and automation roles, begin with
+remains the required merge check, while **Agents 70 Orchestrator** continues to drive readiness/bootstrap and the
+**Agents 71–73 Codex Belt** automates the queue → branch → PR → merge conveyor for labeled Codex issues. For the executive
+summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
 If you need the quick roster of which workflows stay active, which ones retired, and the policy guardrails that bind them,
@@ -19,7 +20,7 @@ operational detail for the kept set.
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-02-autofix.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
-| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
+| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
 | `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
@@ -58,6 +59,9 @@ _Additional opt-in utilities_
 ### Agents & Issues
 - **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
 - **`agents-63-codex-issue-bridge.yml`** — Label-driven helper that seeds Codex bootstrap PRs and can automatically comment `@codex start`.
+- **`agents-71-codex-belt-dispatcher.yml`** — Cron + manual dispatcher that selects the next `agent:codex` + `status:ready` issue, prepares the deterministic `codex/issue-*` branch, labels the source issue as in-progress, and repository-dispatches the worker.
+- **`agents-72-codex-belt-worker.yml`** — Repository-dispatch consumer that re-validates labels, ensures the branch diverges from the base (empty commit when needed), and opens or refreshes the Codex automation PR with labels, assignees, and activation comment.
+- **`agents-73-codex-belt-conveyor.yml`** — Gate follower that squash-merges successful belt PRs, deletes the branch, closes the originating issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue keeps moving.
 - **`agents-63-chatgpt-issue-sync.yml`** — Manual issue fan-out that mirrors curated topic lists into GitHub issues.
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
 
@@ -90,7 +94,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
-- Use **Agents 70 Orchestrator** for every automation task (readiness checks, Codex bootstrap, diagnostics, keepalive). No other entry points remain; historical consumer shims are documented in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md) for reference only, and the Agent task issue template now auto-labels issues (`agents`, `agent:codex`) so the issue bridge can open the branch/PR before the orchestrator run kicks in.
+- Use **Agents 70 Orchestrator** for readiness checks, Codex bootstrap, diagnostics, and keepalive sweeps. The **Agents 71–73 Codex Belt** now owns the queue automation loop—dispatcher selects issues, worker opens/refreshes the PR, conveyor merges after Gate, and the dispatcher is re-triggered. Historical consumer shims remain retired (see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md)), and the Agent task issue template still auto-labels issues (`agents`, `agent:codex`) so the bridge can open the branch/PR before the belt takes over.
 - Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
