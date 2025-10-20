@@ -338,7 +338,7 @@ jobs:
           MATCHED: ${{ needs.verify-assignment.outputs.matched_assignee }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
           ## Agent issue verification
           * Issue: [#${ISSUE_NUMBER}](https://github.com/${REPOSITORY}/issues/${ISSUE_NUMBER})
           * Status: ${STATUS}
