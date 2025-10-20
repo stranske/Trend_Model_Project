@@ -69,7 +69,8 @@ jobs:
                 'docfx',
                 'antora-playbook',
               ]);
-              const basename = normalised.split('/').pop();
+              const normalizedWithSlashes = normalised.replace(/\/g, '/');
+              const basename = normalizedWithSlashes.split('/').pop();
               if (basename) {
                 const nameWithoutExt = basename.includes('.')
                   ? basename.slice(0, basename.lastIndexOf('.'))
@@ -135,8 +136,8 @@ jobs:
             const nonDocFiles = changedFiles.filter(filename => !classify(filename));
 
             const dockerRelated = filename => {
-              // Treat top-level Docker artefacts, supporting directories, and ignore rules
-              // as Docker-related so the smoke test only runs when these assets change.
+              // Treat Docker artefacts, supporting directories, and ignore rules as
+              // Docker-related so the smoke test only runs when these assets change.
               const normalised = filename.toLowerCase();
 
               if (normalised === 'dockerfile') {
@@ -145,6 +146,12 @@ jobs:
 
               const dockerfileSuffixes = ['/dockerfile', '\\dockerfile'];
               if (dockerfileSuffixes.some(suffix => normalised.endsWith(suffix))) {
+                return true;
+              }
+
+              const normalizedWithSlashes = normalised.replace(/\/g, '/');
+              const basename = normalizedWithSlashes.split('/').pop();
+              if (basename && basename.startsWith('dockerfile')) {
                 return true;
               }
 
@@ -157,7 +164,12 @@ jobs:
                 return true;
               }
 
-              const dockerSegments = ['/docker/', '\\docker\\'];
+              const dockerSegments = [
+                '/docker/',
+                '\\docker\\',
+                '/.docker/',
+                '\\.docker\\',
+              ];
               if (dockerSegments.some(segment => normalised.includes(segment))) {
                 return true;
               }
@@ -191,11 +203,15 @@ jobs:
           filters: |
             docker:
               - 'Dockerfile'
+              - 'Dockerfile.*'
               - '**/[Dd]ockerfile'
               - '**/[Dd]ockerfile.*'
               - '.dockerignore'
+              - '**/.dockerignore'
               - 'docker/**'
+              - '**/docker/**'
               - '.docker/**'
+              - '**/.docker/**'
 
   core-tests-311:
     name: core tests (3.11)
