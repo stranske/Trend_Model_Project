@@ -334,7 +334,24 @@ jobs:
             local target="coverage/runtimes/${version}"
 
             rm -rf "${target}"
-            mv "$source" "${target}"
+            mkdir -p "${target}"
+
+            local canonical="${source}/coverage/runtimes/${version}"
+            local legacy="${source}/runtimes/${version}"
+            local root_version="${source}/${version}"
+
+            if [ -d "${canonical}" ]; then
+              cp -R "${canonical}/." "${target}/"
+            elif [ -d "${legacy}" ]; then
+              cp -R "${legacy}/." "${target}/"
+            elif [ -d "${root_version}" ]; then
+              cp -R "${root_version}/." "${target}/"
+            else
+              cp -R "${source}/." "${target}/"
+            fi
+
+            # Remove the original download to avoid leaking intermediate layouts.
+            rm -rf "${source}"
           }
 
           normalize "coverage/core-tests-311" "3.11"
