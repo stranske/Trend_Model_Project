@@ -23,6 +23,7 @@ LEGACY_COMMENT_WRAPPER_STEMS = tuple(
 def _normalize(text: str) -> str:
     return text.replace("\u00a0", " ")
 
+
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_DIR = pathlib.Path("Old/workflows")
 SELFTEST_WORKFLOW = WORKFLOW_DIR / "selftest-reusable-ci.yml"
@@ -131,8 +132,8 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
             "Maint 46 Post CI" in doc_text
         ), "Docs should explain Maint 46 Post CI as the canonical comment path."
         assert (
-        SELFTEST_WORKFLOW_NAME in doc_text
-    ), "Docs should reference the canonical self-test workflow."
+            SELFTEST_WORKFLOW_NAME in doc_text
+        ), "Docs should reference the canonical self-test workflow."
 
     for wrapper in LEGACY_COMMENT_WRAPPERS:
         assert (
@@ -347,8 +348,8 @@ def test_selftest_runner_jobs_contract() -> None:
     assert (
         "'[\"3.11\"]'" in aggregate_python
     ), "Aggregate job should fall back to the default 3.11 matrix."
-    assert (
-        env.get("RUN_REASON")
+    assert env.get(
+        "RUN_REASON"
     ), "Aggregate job should capture the run reason for summaries."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
@@ -428,8 +429,7 @@ def test_selftest_runner_publish_job_contract() -> None:
         if key not in {"contents", "actions", "pull-requests"}
     )
     assert not unexpected_permissions, (
-        "publish should not request extra permissions: "
-        f"{unexpected_permissions}."
+        "publish should not request extra permissions: " f"{unexpected_permissions}."
     )
 
     required_env = {
@@ -563,9 +563,9 @@ def test_selftest_triggers_are_manual_only() -> None:
             f"{workflow_file.name} should expose a nightly schedule in addition to "
             "workflow_dispatch."
         )
-        assert trigger_keys <= allowed_triggers, (
-            f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
-        )
+        assert (
+            trigger_keys <= allowed_triggers
+        ), f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
 
 
 def test_selftest_dispatch_reason_input() -> None:
@@ -616,15 +616,15 @@ def test_archived_selftest_inventory() -> None:
     )
 
     ledger_text = _normalize(ARCHIVE_LEDGER_PATH.read_text())
-    assert "Historical copies of `maint-90-selftest.yml`" in ledger_text, (
-        "Archive ledger should document where to find the retired self-test wrappers."
-    )
-    assert "Old/workflows" in ledger_text, (
-        "Archive ledger should mention the former archive directory so contributors know it was removed."
-    )
-    assert "#2728" in ledger_text, (
-        "Archive ledger must reference the consolidation issue that removed the residual files."
-    )
+    assert (
+        "Historical copies of `maint-90-selftest.yml`" in ledger_text
+    ), "Archive ledger should document where to find the retired self-test wrappers."
+    assert (
+        "Old/workflows" in ledger_text
+    ), "Archive ledger should mention the former archive directory so contributors know it was removed."
+    assert (
+        "#2728" in ledger_text
+    ), "Archive ledger must reference the consolidation issue that removed the residual files."
 
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
@@ -691,6 +691,8 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     assert (
         verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}"
     ), "Verification step should read python version overrides from the aggregate env."
+
+
 def _collect_comment_wrapper_variants(
     directory: pathlib.Path,
 ) -> dict[str, set[str]]:
