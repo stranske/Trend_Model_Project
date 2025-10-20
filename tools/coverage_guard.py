@@ -160,13 +160,29 @@ def github_request(
         req.add_header("Content-Type", "application/json")
     try:
         with request.urlopen(req) as resp:
-            text = resp.read().decode("utf-8") if resp.length != 0 else ""
-            body = json.loads(text) if text else None
+            payload = resp.read()
+            text = payload.decode("utf-8", "replace") if payload else ""
+            if not text:
+                return None, resp.headers
+            try:
+                body = json.loads(text)
+            except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+                print(
+                    "GitHub API response was not valid JSON; skipping update.",
+                    file=sys.stderr,
+                )
+                raise CoverageGuardError("GitHub API returned invalid JSON") from exc
             return body, resp.headers
     except error.HTTPError as exc:  # pragma: no cover - network failure
         details = exc.read().decode("utf-8", "ignore")
         print(
             f"GitHub API request failed: {exc.code} {exc.reason}: {details}",
+            file=sys.stderr,
+        )
+        raise CoverageGuardError("GitHub API request failed") from exc
+    except error.URLError as exc:  # pragma: no cover - network failure
+        print(
+            f"GitHub API connection error: {getattr(exc, 'reason', exc)}",
             file=sys.stderr,
         )
         raise CoverageGuardError("GitHub API request failed") from exc
@@ -392,86 +408,93 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("GITHUB_TOKEN is required", file=sys.stderr)
         return 1
 
-    config = load_baseline(args.baseline_path)
-    if args.recovery_days is not None and args.recovery_days > 0:
-        config = BaselineConfig(
-            baseline=config.baseline,
-            warn_drop=config.warn_drop,
-            recovery_days=args.recovery_days,
-        )
+    try:
+        config = load_baseline(args.baseline_path)
+        if args.recovery_days is not None and args.recovery_days > 0:
+            config = BaselineConfig(
+                baseline=config.baseline,
+                warn_drop=config.warn_drop,
+                recovery_days=args.recovery_days,
+            )
 
-    snapshot = load_snapshot(args.trend_path, config)
-    if snapshot is None:
-        print("No coverage snapshot available; skipping issue update.")
-        return 0
+        snapshot = load_snapshot(args.trend_path, config)
+        if snapshot is None:
+            print("No coverage snapshot available; skipping issue update.")
+            return 0
 
-    coverage_data = load_json(args.coverage_path)
-    top_files = compute_top_files(coverage_data, args.top_limit)
+        coverage_data = load_json(args.coverage_path)
+        top_files = compute_top_files(coverage_data, args.top_limit)
 
-    issue, metadata = ensure_issue(args.repo, token, config, args.issue_title, args.label)
-    issue_number = int(issue["number"])
-    is_open = issue.get("state") == "open"
+        issue, metadata = ensure_issue(args.repo, token, config, args.issue_title, args.label)
+        issue_number = int(issue["number"])
+        is_open = issue.get("state") == "open"
 
-    today = dt.datetime.utcnow().date()
-    below_baseline = snapshot.current < snapshot.baseline
-    run_url = args.run_url or os.environ.get("COVERAGE_RUN_URL", "")
+        today = dt.datetime.utcnow().date()
+        below_baseline = snapshot.current < snapshot.baseline
+        run_url = args.run_url or os.environ.get("COVERAGE_RUN_URL", "")
 
-    recovery_count = _to_int(metadata.get("recovery")) or 0
-    last_status = str(metadata.get("last_status") or "none")
+        recovery_count = _to_int(metadata.get("recovery")) or 0
+        last_status = str(metadata.get("last_status") or "none")
 
-    if below_baseline:
-        if issue.get("state") != "open":
-            update_issue(args.repo, token, issue_number, state="open")
-            issue["state"] = "open"
-            print(f"Reopened coverage guard issue #{issue_number}")
-        metadata.update({"recovery": 0, "last_status": "below", "last_updated": today.isoformat()})
+        if below_baseline:
+            if issue.get("state") != "open":
+                update_issue(args.repo, token, issue_number, state="open")
+                issue["state"] = "open"
+                print(f"Reopened coverage guard issue #{issue_number}")
+            metadata.update({"recovery": 0, "last_status": "below", "last_updated": today.isoformat()})
+            body = compose_issue_body(config, metadata)
+            update_issue(args.repo, token, issue_number, body=body)
+            comment = build_update_comment(
+                snapshot,
+                config,
+                below_baseline=True,
+                date=today,
+                run_url=run_url,
+                recovery_progress=None,
+                top_files=top_files,
+            )
+            post_comment(args.repo, token, issue_number, comment)
+            print(f"Posted coverage drop update to issue #{issue_number}")
+            return 0
+
+        # Coverage at or above baseline
+        if not is_open:
+            print(
+                f"Coverage is at or above baseline and issue #{issue_number} is already closed; no update needed.",
+            )
+            return 0
+
+        recovery = recovery_count + 1 if last_status == "above" or last_status == "recovery" else 1
+        metadata.update({"recovery": recovery, "last_status": "above", "last_updated": today.isoformat()})
         body = compose_issue_body(config, metadata)
         update_issue(args.repo, token, issue_number, body=body)
+
+        progress = f"{recovery}/{config.recovery_days} days above baseline"
         comment = build_update_comment(
             snapshot,
             config,
-            below_baseline=True,
+            below_baseline=False,
             date=today,
             run_url=run_url,
-            recovery_progress=None,
+            recovery_progress=progress,
             top_files=top_files,
         )
         post_comment(args.repo, token, issue_number, comment)
-        print(f"Posted coverage drop update to issue #{issue_number}")
+        print(f"Posted recovery update to issue #{issue_number} (streak {recovery})")
+
+        if recovery >= config.recovery_days and is_open:
+            recovered_comment = build_recovered_comment(snapshot, config, today)
+            post_comment(args.repo, token, issue_number, recovered_comment)
+            update_issue(args.repo, token, issue_number, state="closed")
+            print(f"Closed coverage guard issue #{issue_number} after recovery streak")
+
         return 0
-
-    # Coverage at or above baseline
-    if not is_open:
-        print(
-            f"Coverage is at or above baseline and issue #{issue_number} is already closed; no update needed.",
-        )
+    except CoverageGuardError as exc:
+        print(f"Coverage guard encountered an error: {exc}", file=sys.stderr)
         return 0
-
-    recovery = recovery_count + 1 if last_status == "above" or last_status == "recovery" else 1
-    metadata.update({"recovery": recovery, "last_status": "above", "last_updated": today.isoformat()})
-    body = compose_issue_body(config, metadata)
-    update_issue(args.repo, token, issue_number, body=body)
-
-    progress = f"{recovery}/{config.recovery_days} days above baseline"
-    comment = build_update_comment(
-        snapshot,
-        config,
-        below_baseline=False,
-        date=today,
-        run_url=run_url,
-        recovery_progress=progress,
-        top_files=top_files,
-    )
-    post_comment(args.repo, token, issue_number, comment)
-    print(f"Posted recovery update to issue #{issue_number} (streak {recovery})")
-
-    if recovery >= config.recovery_days and is_open:
-        recovered_comment = build_recovered_comment(snapshot, config, today)
-        post_comment(args.repo, token, issue_number, recovered_comment)
-        update_issue(args.repo, token, issue_number, state="closed")
-        print(f"Closed coverage guard issue #{issue_number} after recovery streak")
-
-    return 0
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Unexpected error running coverage guard: {exc!r}", file=sys.stderr)
+        return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point

@@ -88,6 +88,6 @@ jobs:
           python tools/coverage_guard.py \
             --repo "${{ github.repository }}" \
             --trend-path coverage_artifacts/trend/coverage-trend.json \
-            --coverage-path coverage_artifacts/payload/coverage.json \
+            --coverage-path coverage_artifacts/payload/coverage/runtimes/3.11/coverage.json \
             --baseline-path config/coverage-baseline.json \
             --run-url "${{ steps.discover.outputs.run_url }}"
