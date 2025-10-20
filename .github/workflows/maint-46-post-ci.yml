@@ -409,7 +409,8 @@ jobs:
               job_coverages[label] = round(float(coverage_value), 2)
 
           def natural_sort_key(name: str) -> tuple[tuple[int, object], ...]:
-              runtime = name[9:] if name.startswith('coverage-') else name
+              prefix = 'coverage-'
+              runtime = name[len(prefix):] if name.startswith(prefix) else name
               parts = re.split(r'(\d+)', runtime)
               key: list[tuple[int, object]] = []
               for part in parts:
