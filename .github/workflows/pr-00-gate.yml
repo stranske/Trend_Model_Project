@@ -69,7 +69,7 @@ jobs:
                 'docfx',
                 'antora-playbook',
               ]);
-              const normalizedWithSlashes = normalised.replace(/\/g, '/');
+              const normalizedWithSlashes = normalised.replace(/\//g, '/');
               const basename = normalizedWithSlashes.split('/').pop();
               if (basename) {
                 const nameWithoutExt = basename.includes('.')
@@ -149,7 +149,7 @@ jobs:
                 return true;
               }
 
-              const normalizedWithSlashes = normalised.replace(/\/g, '/');
+              const normalizedWithSlashes = normalised.replace(/\//g, '/');
               const basename = normalizedWithSlashes.split('/').pop();
               if (basename && basename.startsWith('dockerfile')) {
                 return true;
