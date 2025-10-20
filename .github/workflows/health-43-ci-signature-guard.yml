@@ -23,9 +23,9 @@ jobs:
         id: read_signature
         run: |
           {
-            echo "jobs_json<<'EOF'"
+            echo "jobs_json<<EOF"
             cat .github/signature-fixtures/basic_jobs.json
-            echo 'EOF'
+            echo "EOF"
             echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)"
           } >> "$GITHUB_OUTPUT"
       - name: Verify signature (composite action)
