@@ -259,15 +259,15 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
-        cleanup_step = next(
-            (
-                step
-                for step in steps
-                if isinstance(step, dict)
-                and step.get("name") == "Clean up legacy docs-only comment"
-            ),
-            None,
+        cleanup_step = None
+        cleanup_names = (
+            "Clean up legacy docs-only comment",
+            "Remove docs-only fast-pass comment when not needed",
         )
+        for step in steps:
+            if isinstance(step, dict) and step.get("name") in cleanup_names:
+                cleanup_step = step
+                break
 
         self.assertIsNotNone(
             cleanup_step,
@@ -275,10 +275,16 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
         condition = (cleanup_step or {}).get("if", "")
+        cleanup_step_name = (cleanup_step or {}).get("name")
+        expected_condition = (
+            "${{ always() }}"
+            if cleanup_step_name == "Clean up legacy docs-only comment"
+            else "needs.detect.outputs.doc_only != 'true'"
+        )
         self.assertEqual(
             condition,
-            "${{ always() }}",
-            "Cleanup step should always run so legacy comments get purged promptly",
+            expected_condition,
+            "Cleanup step condition should reflect docs-only lifecycle handling",
         )
 
         script = (cleanup_step or {}).get("with", {}).get("script", "")
