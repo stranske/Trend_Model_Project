@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate and Agents Guard workflows."""
+"""Ensure the default branch requires the Gate and Health 45 Agents Guard workflows."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 DEFAULT_CONTEXTS = (
     "Gate / gate",
-    "Agents Guard / Enforce agents workflow protections",
+    "Health 45 Agents Guard / Enforce agents workflow protections",
 )
 
 
@@ -303,7 +303,7 @@ def diff_contexts(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Ensure the default branch requires the Gate and Agents Guard workflow"
+            "Ensure the default branch requires the Gate and Health 45 Agents Guard workflow"
             " status checks."
         ),
     )
@@ -323,8 +323,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate', 'Enforce agents workflow protections', and 'Health 45"
-            " Agents Guard / Enforce agents workflow protections'."
+            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow protections'."
         ),
     )
     parser.add_argument(

@@ -3,8 +3,9 @@
 Use this page as the canonical reference for CI workflow naming, inventory, and
 local guardrails. It consolidates the requirements from Issues #2190, #2202,
 and #2466. Gate remains the required merge check for every pull request, and
-**Agents 70 Orchestrator is the sole supported automation entry point**. All
-automation routes through that workflow; retired shims are preserved solely in
+**Agents 70 Orchestrator** continues to drive readiness/bootstrap while the
+**Agents 71–73 Codex Belt** automates the queue → branch → PR → merge conveyor.
+Automation routes through these workflows; retired shims are preserved solely in
 the archival ledger for historical reference.
 
 > ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
@@ -76,8 +77,8 @@ flowchart TD
 | **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: write`, `actions: write` | No | Summarises label coverage and branch-protection visibility, downgrading unauthorized or rate-limited branch checks to warnings while updating the `[health] repository self-check failed` tracker when problems persist. |
 | **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
 | **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
-| **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate and Agents Guard remain required on the default branch; optionally enforces policy when a PAT is configured. |
-| **Agents Guard** | `.github/workflows/agents-guard.yml` | `pull_request`, `pull_request_target` (agents workflow edits or agent-labelled PRs) | `contents: read`, `pull-requests: write` | No | Consolidated guard enforcing protected workflow policies with per-PR concurrency to avoid duplicate comments. |
+| **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate and Health 45 Agents Guard remain required on the default branch; optionally enforces policy when a PAT is configured. |
+| **Health 45 Agents Guard** | `.github/workflows/agents-guard.yml` | `pull_request`, `pull_request_target` (label toggles) | `contents: read`, `pull-requests: write` | No | Consolidated guard that runs on every PR and only blocks when protected workflow policies are violated. |
 
 ### Self-tests & experiments
 
@@ -97,6 +98,9 @@ when you need to download the `selftest-report` artifact emitted by the reusable
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Agents 70 Orchestrator** | `.github/workflows/agents-70-orchestrator.yml` | Cron (`*/20 * * * *`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Single supported entry point dispatching readiness, bootstrap, diagnostics, verification, and keepalive routines. |
+| **Agents 71 Codex Belt Dispatcher** | `.github/workflows/agents-71-codex-belt-dispatcher.yml` | Cron (`*/30 * * * *`), `workflow_dispatch` | `contents: write`, `issues: write`, `actions: write` | No | Selects `agent:codex` + `status:ready` issues, prepares the `codex/issue-*` branch, labels the issue in-progress, and repository-dispatches the worker with `ACTIONS_BOT_PAT`. |
+| **Agents 72 Codex Belt Worker** | `.github/workflows/agents-72-codex-belt-worker.yml` | `repository_dispatch` (`codex-belt.work`), `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write`, `actions: write` | No | Re-validates labels, ensures the branch diverges from the base, opens or refreshes the automation PR, applies labels/assignees, and posts the `@codex start` command. |
+| **Agents 73 Codex Belt Conveyor** | `.github/workflows/agents-73-codex-belt-conveyor.yml` | `workflow_run` (`Gate`, completed) | `contents: write`, `pull-requests: write`, `issues: write`, `actions: write` | No | After Gate success on `codex/issue-*` branches, squash merges, deletes the branch, closes the issue, comments audit breadcrumbs, and re-dispatches the belt dispatcher. |
 | **Agents 63 Codex Issue Bridge** | `.github/workflows/agents-63-codex-issue-bridge.yml` | `issues`, `workflow_dispatch` | `contents: write`, `pull-requests: write`, `issues: write` | No | Label-driven helper that seeds Codex bootstrap PRs and can auto-comment `@codex start`. |
 | **Agents 64 Verify Agent Assignment** | `.github/workflows/agents-64-verify-agent-assignment.yml` | `workflow_call`, `workflow_dispatch` | `issues: read` | No | Reusable issue-verification helper consumed by the orchestrator and available for ad-hoc checks. |
 | **Agents 63 ChatGPT Issue Sync** | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` | `contents: read`, `issues: write` | No | Manual sync that turns curated topic lists (e.g. `Issues.txt`) into labelled GitHub issues. |
@@ -130,7 +134,7 @@ lockstep and remain the single sources of truth for keep vs retire decisions.
   |--------|--------------|-------|-------|
   | `pr-` | `10–19` | Pull-request gates | `pr-00-gate.yml` is the primary orchestrator; use remaining slots for future gate helpers as needed.
   | `maint-` | `00–49` and `90s` | Scheduled/background maintenance | Low numbers for repo hygiene, 30s/40s for post-CI and guards, 90 for self-tests calling reusable matrices.
-  | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` handles automation cadences.
+  | `agents-` | `70s` | Agent bootstrap/orchestration | `agents-70-orchestrator.yml` plus the Agents 71–73 Codex Belt (dispatcher/worker/conveyor) handle automation cadences.
   | `reusable-` | `10–29` | Composite workflows invoked by others | Lower slots (10s/20s) host shared CI, autofix, and agents toolkit workflows.
 
 - Match the `name:` field to the filename rendered in Title Case
@@ -160,7 +164,7 @@ lockstep and remain the single sources of truth for keep vs retire decisions.
 | `maint-coverage-guard.yml` (`Maint Coverage Guard`) | `.github/workflows/maint-coverage-guard.yml` | Cron, manual | `contents: read`, `actions: read`, `issues: write` | No | Downloads the most recent Gate coverage payloads and trend file, compares against the baseline, and raises failures when coverage drops below the guard thresholds. |
 | `health-40-repo-selfcheck.yml` (`Health 40 Repo Selfcheck`) | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron, manual | `contents: read`, `issues: write`, `actions: write` | No | Repo health pulse that surfaces missing labels or branch-protection visibility gaps, warns on unauthorized branch visibility, and maintains the `[health] repository self-check failed` tracker issue. |
 | `health-44-gate-branch-protection.yml` (`Health 44 Gate Branch Protection`) | `.github/workflows/health-44-gate-branch-protection.yml` | Hourly cron, manual | `contents: read`, `pull-requests: read`; optional PAT via `BRANCH_PROTECTION_TOKEN` | No | Applies branch-protection policy checks using `tools/enforce_gate_branch_protection.py`; skips gracefully when the PAT is not configured. |
-| `agents-guard.yml` (`Agents Guard`) | `.github/workflows/agents-guard.yml` | `pull_request` / `pull_request_target` for guarded agents workflows or PRs labelled `agent:*` | `contents: read`, `pull-requests: write` | No | Unified guard that enforces label + CODEOWNER policies and blocks deletions or renames while avoiding duplicate status posts. |
+| `agents-guard.yml` (`Health 45 Agents Guard`) | `.github/workflows/agents-guard.yml` | `pull_request` / `pull_request_target` for guarded agents workflows or PRs labelled `agent:*` | `contents: read`, `pull-requests: write` | No | Unified guard that enforces label + CODEOWNER policies and blocks deletions or renames while avoiding duplicate status posts. |
 | `health-42-actionlint.yml` (`Health 42 Actionlint`) | `.github/workflows/health-42-actionlint.yml` | `pull_request`, weekly cron, manual | `contents: read`, `pull-requests: write`, `checks: write` | No | Sole workflow-lint gate (actionlint via reviewdog). |
 | `health-43-ci-signature-guard.yml` (`Health 43 CI Signature Guard`) | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for `pr-00-gate.yml`. |
 | `agents-63-chatgpt-issue-sync.yml` (`Agents 63 ChatGPT Issue Sync`) | `.github/workflows/agents-63-chatgpt-issue-sync.yml` | `workflow_dispatch` (manual) | `contents: read`, `issues: write` | No | Fans out curated topic lists (e.g. `Issues.txt`) into labeled GitHub issues. ⚠️ Repository policy: do not remove without a functionally equivalent replacement. |

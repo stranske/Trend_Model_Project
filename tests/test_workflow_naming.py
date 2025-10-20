@@ -176,11 +176,14 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 
 EXPECTED_NAMES = {
-    "agents-guard.yml": "Agents Guard",
+    "agents-guard.yml": "Health 45 Agents Guard",
     "agents-63-codex-issue-bridge.yml": "Agents 63 Codex Issue Bridge",
     "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
+    "agents-71-codex-belt-dispatcher.yml": "Agents 71 Codex Belt Dispatcher",
+    "agents-72-codex-belt-worker.yml": "Agents 72 Codex Belt Worker",
+    "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
     "pr-02-autofix.yml": "PR 02 Autofix",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-41-repo-health.yml": "Health 41 Repo Health",

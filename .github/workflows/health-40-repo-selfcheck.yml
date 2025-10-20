@@ -86,7 +86,6 @@ jobs:
             --apply \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Enforce agents workflow protections" \
             --context "Health 45 Agents Guard / Enforce agents workflow protections" \
             --no-clean
 
@@ -102,7 +101,6 @@ jobs:
             --require-strict \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Enforce agents workflow protections" \
             --context "Health 45 Agents Guard / Enforce agents workflow protections" \
             --no-clean \
             --snapshot repo-health-branch-protection.json

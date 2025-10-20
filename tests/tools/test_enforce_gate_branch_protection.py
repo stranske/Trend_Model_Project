@@ -36,9 +36,7 @@ class DummyResponse(requests.Response):
 
 
 class DummySession(requests.Session):
-    def __init__(
-        self, response: DummyResponse | Sequence[DummyResponse]
-    ) -> None:
+    def __init__(self, response: DummyResponse | Sequence[DummyResponse]) -> None:
         super().__init__()
         if isinstance(response, Sequence):
             responses = list(response)
@@ -319,7 +317,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "branch": "main",
         "contexts": [
             "Gate / gate",
-            "Agents Guard / Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
             "Legacy",
         ],
         "strict": True,
@@ -352,7 +350,7 @@ def test_main_snapshot_records_no_clean_flag(
     ) -> StatusCheckState:
         assert contexts == [
             "Gate / gate",
-            "Agents Guard / Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
             "Legacy",
         ]
         return StatusCheckState(strict=True, contexts=contexts)
@@ -387,7 +385,7 @@ def test_main_snapshot_records_no_clean_flag(
         "strict": True,
         "contexts": [
             "Gate / gate",
-            "Agents Guard / Enforce agents workflow protections",
+            "Health 45 Agents Guard / Enforce agents workflow protections",
             "Legacy",
         ],
     }

@@ -55,7 +55,7 @@ jobs:
         run: |
           if [ -z "${ENFORCE_TOKEN}" ]; then
             echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
-            echo "The verification step will still fail if Gate or Agents Guard is not required on the default branch."
+            echo "The verification step will still fail if Gate or Health 45 Agents Guard is not required on the default branch."
           elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             echo "BRANCH_PROTECTION_TOKEN detected but pull_request events run in dry-run mode."
             echo "Schedule and workflow_dispatch events will apply the desired configuration."
@@ -73,7 +73,6 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --apply \
             --context "Gate / gate" \
-            --context "Enforce agents workflow protections" \
             --context "Health 45 Agents Guard / Enforce agents workflow protections" \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
@@ -89,7 +88,6 @@ jobs:
             --check \
             --require-strict \
             --context "Gate / gate" \
-            --context "Enforce agents workflow protections" \
             --context "Health 45 Agents Guard / Enforce agents workflow protections" \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
@@ -104,7 +102,6 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --check \
             --context "Gate / gate" \
-            --context "Enforce agents workflow protections" \
             --context "Health 45 Agents Guard / Enforce agents workflow protections" \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
@@ -370,11 +367,11 @@ jobs:
           if enforcement is None and verification is None:
               with summary_path.open("a", encoding="utf-8") as summary:
                   if not has_token:
-                      summary.write("### Gate & Agents Guard branch protection (observer mode)\n\n")
+                      summary.write("### Gate & Health 45 Agents Guard branch protection (observer mode)\n\n")
                       summary.write("- `BRANCH_PROTECTION_TOKEN` is not configured; Health 44 ran in observer mode.\n")
                       summary.write("- Configure `BRANCH_PROTECTION_TOKEN` with an admin-scoped token, then re-run the workflow to enable enforcement.\n")
                   else:
-                      summary.write("### Gate & Agents Guard branch protection\n\n")
+                      summary.write("### Gate & Health 45 Agents Guard branch protection\n\n")
                       summary.write("- Branch protection snapshots are unavailable. Check prior steps for failures.\n")
               raise SystemExit(0)
 
@@ -418,7 +415,7 @@ jobs:
               )
 
           with summary_path.open("a", encoding="utf-8") as summary:
-              summary.write("### Gate & Agents Guard branch protection\n\n")
+              summary.write("### Gate & Health 45 Agents Guard branch protection\n\n")
               summary.write(
                   "| Snapshot | Mode | Require up to date | Current contexts | Target contexts | To add | To remove | Δ vs previous run | Status |\n"
               )

@@ -1,0 +1,198 @@
+# Closes the loop: merge successful Codex belt PRs, tidy branches and issues,
+# and immediately nudge the dispatcher for the next item in the queue.
+name: Agents 73 Codex Belt Conveyor
+
+on:
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: codex-belt-conveyor
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote merged Codex belt PR
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+    steps:
+      - name: Ensure ACTIONS_BOT_PAT is configured
+        run: |
+          if [ -z "$ACTIONS_BOT_PAT" ]; then
+            echo '::error::ACTIONS_BOT_PAT secret is required for conveyor actions.'
+            exit 1
+          fi
+
+      - name: Summarise workflow run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const summary = core.summary;
+            summary
+              .addHeading('Codex Belt Conveyor')
+              .addTable([
+                [
+                  { data: 'Workflow', header: true },
+                  { data: 'Run ID', header: true },
+                  { data: 'Conclusion', header: true }
+                ],
+                [run.name || 'Gate', String(run.id), run.conclusion || '(unknown)']
+              ])
+              .write();
+
+      - name: Extract PR context
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const pr = Array.isArray(run.pull_requests) ? run.pull_requests[0] : null;
+            if (!pr) {
+              core.info('No pull request attached to this workflow run.');
+              core.setOutput('continue', 'false');
+              return;
+            }
+            const branch = pr.head_branch || '';
+            const match = branch.match(/^codex\/issue-(\d+)$/);
+            if (!match) {
+              core.info(`Head branch ${branch} does not match codex/issue-<n>; skipping.`);
+              core.setOutput('continue', 'false');
+              return;
+            }
+            core.setOutput('continue', 'true');
+            core.setOutput('branch', branch);
+            core.setOutput('issue', match[1]);
+            core.setOutput('pr', String(pr.number));
+            core.setOutput('head_sha', pr.head_sha || '');
+
+      - name: Stop when no matching branch
+        if: ${{ steps.ctx.outputs.continue != 'true' }}
+        run: echo 'Workflow run not associated with a codex belt branch.'
+
+      - name: Fetch PR details
+        if: ${{ steps.ctx.outputs.continue == 'true' }}
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (data.state !== 'open') {
+              core.info(`PR #${prNumber} state is ${data.state}; skipping.`);
+              core.setOutput('continue', 'false');
+              return;
+            }
+            if (data.draft) {
+              core.info(`PR #${prNumber} is draft; skipping auto-merge.`);
+              core.setOutput('continue', 'false');
+              return;
+            }
+            core.setOutput('continue', 'true');
+            core.setOutput('base', data.base && data.base.ref ? data.base.ref : '');
+            core.summary.addRaw(`Ready to merge PR #${prNumber} (base ${data.base.ref}).`).write();
+
+      - name: Merge PR with squash
+        if: ${{ steps.pr.outputs.continue == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' });
+            } catch (error) {
+              core.setFailed(`Failed to merge PR #${prNumber}: ${error.message}`);
+            }
+
+      - name: Delete branch after merge
+        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const branch = '${{ steps.ctx.outputs.branch }}';
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
+            } catch (error) {
+              core.warning(`Failed to delete branch ${branch}: ${error.message}`);
+            }
+
+      - name: Close source issue
+        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.update({ owner, repo, issue_number: issue, state: 'closed' });
+            } catch (error) {
+              core.warning(`Failed to close issue #${issue}: ${error.message}`);
+            }
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:in-progress' });
+            } catch (error) {
+              if (error.status !== 404) {
+                core.warning(`Failed to remove status:in-progress: ${error.message}`);
+              }
+            }
+            try {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex Belt Conveyor after Gate success.' });
+            } catch (error) {
+              core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
+            }
+
+      - name: Leave merge confirmation on PR
+        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue}.` });
+            } catch (error) {
+              core.warning(`Failed to comment on PR #${prNumber}: ${error.message}`);
+            }
+
+      - name: Re-dispatch dispatcher
+        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const ref = repoInfo.default_branch || 'main';
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'agents-71-codex-belt-dispatcher.yml',
+                ref,
+              });
+            } catch (error) {
+              core.warning(`Failed to trigger dispatcher: ${error.message}`);
+            }
+            core.summary.addRaw('Dispatcher re-triggered for next issue.').write();

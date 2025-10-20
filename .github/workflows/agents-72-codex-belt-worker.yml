@@ -1,0 +1,305 @@
+# Executes the Codex belt worker: validates the queued issue, ensures the
+# codex/issue-<n> branch exists, and opens or refreshes the automation PR.
+name: Agents 72 Codex Belt Worker
+
+on:
+  repository_dispatch:
+    types:
+      - codex-belt.work
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number'
+        required: true
+        type: string
+      branch:
+        description: 'Branch to prepare (codex/issue-<n>)'
+        required: true
+        type: string
+      base:
+        description: 'Base branch (defaults to repository default)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: codex-belt
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Prepare Codex automation PR
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+    steps:
+      - name: Ensure ACTIONS_BOT_PAT is configured
+        run: |
+          if [ -z "$ACTIONS_BOT_PAT" ]; then
+            echo '::error::ACTIONS_BOT_PAT secret is required for worker actions.'
+            exit 1
+          fi
+
+      - name: Resolve worker context
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const payload = context.payload.client_payload || {};
+            const isDispatch = context.eventName === 'repository_dispatch';
+            const inputs = context.payload.inputs || {};
+
+            const issueRaw = isDispatch ? payload.issue : inputs.issue;
+            const branchRaw = isDispatch ? payload.branch : inputs.branch;
+            const baseRaw = isDispatch ? payload.base : inputs.base;
+
+            const issue = Number(issueRaw || 0);
+            const branch = String(branchRaw || '').trim();
+            const base = String(baseRaw || '').trim();
+            const source = isDispatch ? (payload.source || 'dispatch') : 'manual';
+
+            if (!issue) {
+              core.setFailed('Worker missing issue number.');
+              return;
+            }
+            if (!branch) {
+              core.setFailed('Worker missing branch name.');
+              return;
+            }
+            if (!branch.startsWith('codex/issue-')) {
+              core.warning(`Unexpected branch naming: ${branch}`);
+            }
+
+            core.setOutput('issue', String(issue));
+            core.setOutput('branch', branch);
+            core.setOutput('base', base);
+            core.setOutput('source', source);
+            core.summary
+              .addHeading('Codex Belt Worker')
+              .addTable([[{ data: 'Issue', header: true }, { data: 'Branch', header: true }, { data: 'Source', header: true }], [`#${issue}`, branch, source]])
+              .write();
+
+      - name: Determine default branch
+        id: base
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const supplied = '${{ steps.ctx.outputs.base }}'.trim();
+            if (supplied) {
+              core.setOutput('branch', supplied);
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.repos.get({ owner, repo });
+            core.setOutput('branch', data.default_branch || 'main');
+
+      - name: Re-verify issue labels
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+
+            const labelNames = Array.isArray(data.labels) ? data.labels.map((l) => String(l.name || '')) : [];
+            const hasCodex = labelNames.some((name) => name === 'agent:codex');
+            if (!hasCodex) {
+              core.setFailed(`Issue #${issue} no longer carries the agent:codex label.`);
+              return;
+            }
+            const hasReady = labelNames.some((name) => name === 'status:ready');
+            const hasInProgress = labelNames.some((name) => name === 'status:in-progress');
+            core.setOutput('has_ready', hasReady ? 'true' : 'false');
+            core.setOutput('has_in_progress', hasInProgress ? 'true' : 'false');
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.branch }}
+          token: ${{ env.ACTIONS_BOT_PAT }}
+          fetch-depth: 0
+
+      - name: Ensure branch exists remotely
+        run: |
+          set -euo pipefail
+          branch="${{ steps.ctx.outputs.branch }}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Confirmed origin/$branch exists."
+          else
+            echo "::error::Expected branch $branch on origin." >&2
+            exit 1
+          fi
+
+      - name: Create placeholder commit when branch matches base
+        env:
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+        run: |
+          set -euo pipefail
+          branch="${{ steps.ctx.outputs.branch }}"
+          base="${BASE_BRANCH}"
+          git fetch origin "$base"
+          upstream_sha=$(git rev-parse "origin/$base")
+          head_sha=$(git rev-parse HEAD)
+          if [ "$upstream_sha" = "$head_sha" ]; then
+            git config user.name "stranske-automation-bot"
+            git config user.email "stranske-automation-bot@users.noreply.github.com"
+            git commit --allow-empty -m "chore(codex): initialize belt run for issue #${{ steps.ctx.outputs.issue }}"
+            git push origin "$branch"
+          else
+            echo "Branch already diverged from $base; skipping placeholder commit."
+          fi
+
+      - name: Ensure issue labels reflect in-progress state
+        if: ${{ steps.verify.outputs.has_in_progress != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] });
+            } catch (error) {
+              core.warning(`Failed to set status:in-progress: ${error.message}`);
+            }
+
+      - name: Remove residual status:ready label
+        if: ${{ steps.verify.outputs.has_ready == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' });
+            } catch (error) {
+              if (error.status !== 404) {
+                core.warning(`Failed to remove status:ready: ${error.message}`);
+              }
+            }
+
+      - name: Open or refresh Codex PR
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const branch = '${{ steps.ctx.outputs.branch }}';
+            const base = '${{ steps.base.outputs.branch }}';
+            const { owner, repo } = context.repo;
+
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue}`;
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: issueData } = await github.rest.issues.get({ owner, repo, issue_number: issue });
+              issueTitle = issueData.title || '';
+              issueBody = issueData.body || '';
+            } catch (error) {
+              core.warning(`Unable to read issue #${issue}: ${error.message}`);
+            }
+
+            const header = `### Source Issue #${issue}: ${issueTitle}`;
+            const quoted = (issueBody || '').split('\n').map((line) => `> ${line}`).join('\n');
+            const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+
+            // Attempt to reuse an existing PR first
+            let prNumber = null;
+            try {
+              const { data: prs } = await github.rest.pulls.list({ owner, repo, head: `${owner}:${branch}`, state: 'open' });
+              const existing = prs.find((p) => p.head && p.head.ref === branch);
+              if (existing) {
+                prNumber = existing.number;
+                await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body });
+              }
+            } catch (error) {
+              core.warning(`Failed to search for existing PR: ${error.message}`);
+            }
+
+            if (!prNumber) {
+              try {
+                const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base, title: `Codex belt for #${issue}`, body });
+                prNumber = pr.number;
+              } catch (error) {
+                core.setFailed(`Failed to open pull request: ${error.status || '?'} ${error.message}`);
+                return;
+              }
+            }
+
+            core.setOutput('number', String(prNumber));
+            core.summary.addRaw(`Prepared PR #${prNumber} targeting \`${base}\`.`).write();
+
+      - name: Apply automation labels
+        if: ${{ steps.pr.outputs.number }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const { owner, repo } = context.repo;
+            const labels = ['agent:codex', 'autofix', 'from:codex'];
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+            } catch (error) {
+              core.warning(`Failed to label PR #${prNumber}: ${error.message}`);
+            }
+
+      - name: Ensure PR assignees include automation
+        if: ${{ steps.pr.outputs.number }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+            for (const target of [prNumber, issue]) {
+              try {
+                await github.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees });
+              } catch (error) {
+                core.warning(`Failed to assign #${target}: ${error.message}`);
+              }
+            }
+
+      - name: Post activation comment
+        if: ${{ steps.pr.outputs.number }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const { owner, repo } = context.repo;
+            const message = '@codex start\n\nAutomated belt worker prepared this PR. Please continue implementing the requested changes.';
+            try {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: message });
+            } catch (error) {
+              core.warning(`Failed to post Codex command on PR #${prNumber}: ${error.message}`);
+            }
+
+      - name: Sync issue comment with PR link
+        if: ${{ steps.pr.outputs.number }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body: `Opened PR #${prNumber} via Codex belt worker.` });
+            } catch (error) {
+              core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
+            }
