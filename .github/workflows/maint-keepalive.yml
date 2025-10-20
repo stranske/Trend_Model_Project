@@ -34,7 +34,8 @@ jobs:
         id: timestamp
         run: echo "utc=$(date -u '+%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
       - name: Post heartbeat comment
-        uses: peter-evans/create-or-update-comment@v4
+        # v4.0.2 commit SHA: 5e7e7e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e
+        uses: peter-evans/create-or-update-comment@5e7e7e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e
         with:
           token: ${{ env.HEARTBEAT_TOKEN }}
           issue-number: ${{ env.HEARTBEAT_ISSUE }}
