@@ -34,6 +34,7 @@ Owner: @codex-maintainer
 - Local environment cannot dispatch GitHub workflows; manual validation was captured from the successful maintainer-triggered run and will be re-requested only if additional verification is required.
 - Follow up with SRE to verify the first cron completion after deployment and update the checklist accordingly.
 - Added local tooling notes below to document the environment used for syntax validation.
+- 2025-10-20: Queried <https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/selftest-reusable-ci.yml/runs?event=schedule> (no runs yet); scheduled another check right after the next cron window.
 
 ## Remote Validation Evidence
 - 2025-10-17: Workflow run [#18596535108](https://github.com/stranske/Trend_Model_Project/actions/runs/18596535108) (`workflow_dispatch`, branch `phase-2-dev`) concluded successfully and produced the `selftest-report` artifact alongside the reusable coverage artifacts.
@@ -48,12 +49,13 @@ Owner: @codex-maintainer
 | Path | Status | Run link / ID | Notes |
 | ---- | ------ | ------------- | ----- |
 | `workflow_dispatch` | ✅ Completed (2025-10-17) | [#18596535108](https://github.com/stranske/Trend_Model_Project/actions/runs/18596535108) | Successful manual dispatch captured: run concluded `success`, emitted scenario summaries, and uploaded `selftest-report` plus auxiliary coverage artifacts. |
-| Nightly cron | Pending | _Next available schedule_ | Will monitor after merge once manual verification establishes baseline. |
+| Nightly cron | Pending | _Next available schedule_ | 2025-10-20: Queried GitHub API for scheduled runs (none recorded yet); re-check after the upcoming 06:30 UTC window to capture the first successful cron execution. |
 
 ## Next Steps
 - Keep the maintainer outreach template available for future reruns if regressions surface or additional verification is requested.
 - Capture run metadata (run ID, artifact links, summary screenshot) for the first successful nightly cron execution and update the acceptance criteria and tracker once available.
 - Schedule follow-up reminder to confirm the first cron run after merge and record outcome in **Run Tracking**.
+- Log another API query immediately after the next cron slot if no run appears, so the evidence trail reflects each monitoring attempt.
 
 ## Maintainer Outreach
 *Template retained for future reruns if required.*
