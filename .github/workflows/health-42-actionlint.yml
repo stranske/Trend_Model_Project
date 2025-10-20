@@ -41,7 +41,8 @@ jobs:
         id: allowlist
         shell: bash
         run: |
-          python - <<'PY' '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT"
+          set -euo pipefail
+          python - '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT" <<'PY'
           import sys
           from pathlib import Path
 
