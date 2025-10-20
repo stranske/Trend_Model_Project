@@ -159,7 +159,8 @@ def test_docs_only_fast_pass_includes_context() -> None:
 
     assert "Docs-only change detected; heavy checks skipped." in body
     assert (
-        "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in body
+        "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
+        in body
     )
     assert "| Gate / core tests (3.11) | ⏭️ skipped |" in body
     assert "| Gate / core tests (3.12) | ⏭️ skipped |" in body
@@ -271,6 +272,8 @@ def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
         < coverage_section_index
         < note_index
     )
+
+
 def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     flaky_job = {
         "name": "main / flaky-suite",

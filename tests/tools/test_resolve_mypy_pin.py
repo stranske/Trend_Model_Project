@@ -70,7 +70,9 @@ def test_resolve_pin_warns_when_no_pin_available(tmp_path: Path) -> None:
     ) in result.notices
 
 
-def test_main_writes_to_github_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_writes_to_github_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         """
@@ -93,7 +95,9 @@ def test_main_writes_to_github_output(tmp_path: Path, monkeypatch: pytest.Monkey
     assert output_file.read_text(encoding="utf-8").strip() == "python-version=3.12"
 
 
-def test_main_reports_toml_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_toml_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("invalid = [unclosed", encoding="utf-8")
 

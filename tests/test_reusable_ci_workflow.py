@@ -62,33 +62,52 @@ def test_artifact_names_normalized() -> None:
         raise AssertionError(f"Expected step `{name}` to exist")
 
     coverage_step = _step("Upload coverage artifact")
-    assert coverage_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}"
+    assert (
+        coverage_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}"
+    )
     assert coverage_step["with"]["retention-days"] == 7
 
     metrics_step = _step("Upload metrics artifact")
     assert metrics_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}ci-metrics"
 
     history_step = _step("Upload metrics history artifact")
-    assert history_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}metrics-history"
+    assert (
+        history_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}metrics-history"
+    )
 
     classification_step = _step("Upload classification artifact")
-    assert classification_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}classification"
+    assert (
+        classification_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}classification"
+    )
 
     coverage_trend_step = _step("Upload coverage trend artifact")
-    assert coverage_trend_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-trend"
+    assert (
+        coverage_trend_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}coverage-trend"
+    )
 
     coverage_summary_step = _step("Upload coverage summary artifact")
-    assert coverage_summary_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-summary"
+    assert (
+        coverage_summary_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}coverage-summary"
+    )
 
     delta_step = _step("Upload coverage delta artifact")
-    assert delta_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-delta"
+    assert (
+        delta_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-delta"
+    )
 
 
 def test_workflow_uses_shared_mypy_pin_helper() -> None:
     workflow = _load_workflow()
     steps = workflow["jobs"]["tests"]["steps"]
 
-    resolve_step = next(step for step in steps if step.get("name") == "Resolve mypy python pin")
+    resolve_step = next(
+        step for step in steps if step.get("name") == "Resolve mypy python pin"
+    )
 
     run_block = resolve_step.get("run", "")
     assert "python tools/resolve_mypy_pin.py" in run_block
