@@ -22,7 +22,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: agents-orchestrator-${{ github.ref }}
+  group: orchestrator-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

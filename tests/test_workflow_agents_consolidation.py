@@ -40,6 +40,20 @@ def test_agents_orchestrator_inputs_and_uses():
     ), "Orchestrator must call the reusable agents workflow"
 
 
+def test_agents_orchestrator_exposes_dry_run_toggle():
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    assert "dry_run:" in text, "Orchestrator must expose a dry_run input"
+    assert (
+        "github.event.inputs.dry_run" in text
+    ), "Manual dispatch dry_run input must be wired into the resolver"
+    assert (
+        "dry_run: ${{ needs.resolve-params.outputs.dry_run }}" in text
+    ), "Reusable workflow invocation must forward the resolved dry_run flag"
+    assert (
+        "dry_run: dryRun" in text
+    ), "Resolve step should surface the computed dry_run flag in its outputs table"
+
+
 def test_orchestrator_bootstrap_label_delegates_fallback():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
@@ -135,8 +149,11 @@ def test_bootstrap_requires_single_label():
         "bootstrap_issues_label not provided; defaulting to agent:codex." in text
     ), "Bootstrap step must record when it falls back to the default label"
     assert (
-        "bootstrap_issues_label input must define exactly one label" in text
+        "bootstrap_issues_label must define exactly one label" in text
     ), "Bootstrap step must prevent sweeping multiple labels"
+    assert (
+        "Received multiple entries:" in text
+    ), "Bootstrap guard should surface which labels triggered the failure"
 
 
 def test_bootstrap_label_fallback_emits_notice():
@@ -233,12 +250,23 @@ def test_bootstrap_guard_clears_outputs_on_failure():
     ), "Bootstrap guard should invoke the output clearing helper before exiting early"
 
 
+def test_run_summary_dedupes_stage_entries():
+    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    assert "const seen = new Map();" in text, "Run summary should track encountered stages"
+    assert (
+        "if (!seen.has(stage.key))" in text
+    ), "Run summary must only record the first instance of each stage"
+    assert (
+        "existing.extras = Array.from(mergedExtras).filter(Boolean);" in text
+    ), "Run summary should merge extras when deduplicating stages"
+
+
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
     concurrency = data.get("concurrency") or {}
     assert (
-        concurrency.get("group") == "agents-orchestrator-${{ github.ref }}"
+        concurrency.get("group") == "orchestrator-${{ github.ref }}"
     ), "Orchestrator must serialize runs per ref"
     assert (
         concurrency.get("cancel-in-progress") is True
