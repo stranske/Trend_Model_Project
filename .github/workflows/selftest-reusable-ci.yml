@@ -326,10 +326,8 @@ jobs:
       POST_TO: ${{ (github.event_name == 'workflow_dispatch' && inputs.post_to) || 'none' }}
       ENABLE_HISTORY: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
       PR_NUMBER: ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
-      SUMMARY_TITLE: "${{ (github.event_name == 'workflow_dispatch' && inputs.summary_title != '' && inputs.summary_title)
-        || 'Selftest: Reusables Summary' }}"
-      COMMENT_TITLE: "${{ (github.event_name == 'workflow_dispatch' && inputs.comment_title != '' && inputs.comment_title)
-        || 'Selftest: Reusables Comment' }}"
+      SUMMARY_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.summary_title != '' && github.event.inputs.summary_title || 'Selftest: Reusables Summary' }}"
+      COMMENT_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.comment_title != '' && github.event.inputs.comment_title || 'Selftest: Reusables Comment' }}"
       REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason)
         || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test')
         || 'nightly verification' }}
