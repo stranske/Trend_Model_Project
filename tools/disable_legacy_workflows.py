@@ -95,6 +95,22 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
 class WorkflowAPIError(RuntimeError):
     """Raised when the GitHub API call fails."""
 
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        reason: str,
+        url: str,
+        body: str,
+    ) -> None:
+        super().__init__(
+            f"GitHub API request failed ({status_code} {reason}) for {url}: {body}"
+        )
+        self.status_code = status_code
+        self.reason = reason
+        self.url = url
+        self.body = body
+
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -143,7 +159,10 @@ def _http_request(
     except urllib.error.HTTPError as exc:  # pragma: no cover - exercised via tests
         body = exc.read().decode("utf-8", errors="replace")
         raise WorkflowAPIError(
-            f"GitHub API request failed ({exc.code} {exc.reason}) for {url}: {body}"
+            status_code=exc.code,
+            reason=str(exc.reason or ""),
+            url=url,
+            body=body,
         ) from exc
 
 
@@ -243,7 +262,16 @@ def disable_legacy_workflows(
             continue
 
         disable_url = f"{base_url}/{workflow['id']}/disable"
-        _http_request("PUT", disable_url, headers=headers, data=None)
+        try:
+            _http_request("PUT", disable_url, headers=headers, data=None)
+        except WorkflowAPIError as exc:
+            if (
+                exc.status_code == 422
+                and "unable to disable this workflow" in exc.body.lower()
+            ):
+                summary["skipped"].append(f"(unsupported) {key}")
+                continue
+            raise
         summary["disabled"].append(key)
 
     return summary
