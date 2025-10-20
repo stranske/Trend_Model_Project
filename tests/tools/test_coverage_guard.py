@@ -167,4 +167,3 @@ def test_build_recovered_comment_announces_closure() -> None:
     assert "Coverage recovered above baseline" in message
     assert "4 consecutive days" in message
     assert "Closing this issue" in message
-

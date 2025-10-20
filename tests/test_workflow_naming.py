@@ -176,7 +176,7 @@ def test_chatgpt_issue_sync_workflow_present_and_intact():
 
 
 EXPECTED_NAMES = {
-    "agents-guard.yml": "Agents Guard",
+    "agents-guard.yml": "Health 45 Agents Guard",
     "agents-63-codex-issue-bridge.yml": "Agents 63 Codex Issue Bridge",
     "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",

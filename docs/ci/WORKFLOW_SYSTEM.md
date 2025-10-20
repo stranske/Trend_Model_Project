@@ -18,7 +18,7 @@ Each bucket below calls out the canonical workflows, the YAML entry point, and
 the policy guardrails that keep the surface safe. Keep this mental map handy:
 
 ```
-PR checks ──► Gate + Agents Guard (branch protection bundle)
+PR checks ──► Gate + Health 45 Agents Guard (branch protection bundle)
     │                      │
     │                      └──► Reusable CI matrix
     ▼
@@ -34,7 +34,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
 > [AGENTS_POLICY.md](./AGENTS_POLICY.md) whenever you are evaluating workflow
 > edits—the policy spells out the guardrails, while this page traces the
 > topology those guardrails protect. Both documents now call out the required
-> **Gate / gate** and **Agents Guard / Enforce agents workflow protections**
+> **Gate / gate** and **Health 45 Agents Guard / Enforce agents workflow protections**
 > contexts and link back to the enforcement workflow
 > [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml)
 > so you can verify branch protection without guessing.
@@ -92,7 +92,7 @@ the surface polished, and the agents stack orchestrates follow-up work.
   protected on a schedule or by manual dispatch.
 - **Agents automation** consumes labelled issues and protected workflow edits,
   using the orchestrator to coordinate downstream jobs and guards such as the
-  Agents Guard.
+  Health 45 Agents Guard.
 - **Reusable lint/test/topology workflows** execute only when called; they
   provide the shared matrix for Gate, Maint 46, and manual reruns so contributors
   see the same results regardless of entry point.
@@ -135,7 +135,7 @@ return after a break:
    to see how post-merge hygiene is reported. Treat that summary comment as the
    canonical “state of CI” dashboard after every merge.
 4. **Practice finding the agents guardrails** by visiting the
-   [Agents Guard history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
+  [Health 45 Agents Guard history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
    and reading a recent run summary. It confirms how the label and review gates
    manifest in CI when protected files change.
 5. **Walk through a dry-run change**: open this document, the Workflow Catalog,
@@ -173,14 +173,15 @@ explain why a particular status appears in the Checks tab.
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Workflow-file PRs/pushes, Monday 05:05 UTC cron, manual dispatch | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
-| **Agents Guard** (`agents-guard.yml`) | PRs touching `agents/**`, `.github/workflows/agents-*.yml`, guard script; label changes via `pull_request_target` with `agent:` prefix | ✅ Required when protected files change | **Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Agents Guard** → **Re-run** after updating labels/reviews |
+| **Health 45 Agents Guard** (`agents-guard.yml`) | Every pull request (`pull_request`); label changes via `pull_request_target` (labels starting with `agent:`) | ✅ Required status (fails only when protected workflow policies are violated) | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 
 
 > ℹ️ **Merge-gating recap.**
 > - **Gate / gate** blocks every pull request by default—expect it under
 >   **Checks → Required** for all PRs.
-> - **Agents Guard / Enforce agents workflow protections** auto-attaches as a
->   second required status whenever protected agents files change.
+- **Health 45 Agents Guard / Enforce agents workflow protections** now runs on every
+  pull request and only turns the status red when protected agents files change
+  without the required guardrails.
 > - Maint 46 Post CI, Repo Health, Actionlint, and Agents 70 Orchestrator stay
 >   informational follow-ups: expect Maint 46 as a timeline summary comment
 >   after merge, and the remaining workflows under the Actions tab.
@@ -236,15 +237,17 @@ explain why a particular status appears in the Checks tab.
 - **Merge impact.** Not a PR status, but the automation surface that keeps
   Codex work flowing; failures usually demand immediate triage.
 
-#### Agents Guard (`agents-guard.yml`)
+#### Health 45 Agents Guard (`agents-guard.yml`)
 
-- **When it runs.** Pull requests touching `agents/**`, `agents-*.yml`, or the
-  guard script, plus label changes via `pull_request_target` (labels must start
-  with `agent:`—for example `agents:allow-change`).
+- **When it runs.** Every pull request (`pull_request`) plus label changes via
+  `pull_request_target` (labels beginning with `agent:`—for example
+  `agents:allow-change`).
 - **What it enforces.** Confirms protected workflow edits carry the
-  `agents:allow-change` label, CODEOWNERS approval, and correct guard marker.
-- **Merge impact.** Required **only** when protected files change—the status
-  context (**Agents Guard / Enforce agents workflow protections**) must be green before merge.
+  `agents:allow-change` label, CODEOWNERS approval, and the correct guard
+  marker. When no protected files are in scope, the job exits cleanly.
+- **Merge impact.** Required on every PR; the status context (**Health 45
+  Agents Guard / Enforce agents workflow protections**) stays green unless a
+  protected change violates the guard policy.
 - **Where to read the policy.** The [Agents Workflow Protection
   Policy](./AGENTS_POLICY.md) mirrors these requirements and documents the
   branch-protection setup that keeps the guard enforced.
@@ -266,11 +269,11 @@ explain why a particular status appears in the Checks tab.
 - **Agents 70 Orchestrator.** Actions tab → **Agents 70 Orchestrator → Run
   workflow**, toggling `dry_run` or `params_json` as needed. CLI example:
   `gh workflow run agents-70-orchestrator.yml --raw-field dry_run=true`.
-- **Agents Guard.** From the PR Checks tab, expand **Agents Guard** and choose
+- **Health 45 Agents Guard.** From the PR Checks tab, expand **Health 45 Agents Guard** and choose
   **Re-run** after updating labels or reviews. The guard also re-evaluates label
   changes delivered via `pull_request_target` when the label name begins with
   `agent:`. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
-  rerun appears under **Actions → Agents Guard**.
+  rerun appears under **Actions → Health 45 Agents Guard**.
 - **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
   follow-up issue before you retry. Maint 46 only exits green when both the
@@ -307,7 +310,7 @@ and where to watch the result:
 4. **Issue and agents automation picks up queued work.** Labelled issues flow
    through the Agents 63 bridges into the Agents 70 orchestrator, which may in
    turn call the reusable agents topology or kick additional verification jobs
-   such as the Agents Guard.
+  such as the Health 45 Agents Guard.
 5. **Manual investigations reuse the topology.** When contributors need to
    rerun linting, typing, or container checks locally, they can dispatch the
    `selftest-reusable-ci.yml` workflow or call the reusable CI entries directly,
@@ -357,7 +360,7 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml).
     Agents 63 bridge:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml).
-    Agents Guard:
+  Health 45 Agents Guard:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
@@ -384,7 +387,7 @@ enforces the guardrail so you know where to confirm compliance:
 | --- | --- | --- |
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Maint 46. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Maint 46 only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Maint 46 summary comment, Health dashboard history, and Maint 45 run permissions. |
-| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Agents Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Agents Guard, and repository label configuration. |
+| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Health 45 Agents Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
 
 ### Observability surfaces by bucket
@@ -414,7 +417,7 @@ status updates:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml)
     reveals downstream dispatch history and the inputs supplied by labelled
     issues.
-  - *Agents Guard status.* Inspect
+  - *Health 45 Agents Guard status.* Inspect
     [agents-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
     whenever a protected YAML edit lands; it should be green before merge.
   - *Agents 63 bridge logs.* These runs attach trace logs showing which issues
@@ -513,7 +516,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 64 Assignment Verifier** – `.github/workflows/agents-64-verify-agent-assignment.yml`
   audits that orchestrated work is assigned correctly and feeds the orchestrator.
 - **Guardrail** – The orchestrator and both `agents-63-*` workflows are locked
-  down by CODEOWNERS, branch protection, the Agents Guard check, and a
+  down by CODEOWNERS, branch protection, the Health 45 Agents Guard check, and a
   repository ruleset. See [Agents Workflow Protection Policy](./AGENTS_POLICY.md)
   for the change allowlist and override procedure.
 
@@ -562,7 +565,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
 | **Health 43 CI Signature Guard** (`health-43-ci-signature-guard.yml`, maintenance bucket) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-43-ci-signature-guard.yml) |
-| **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Ensure Gate and Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
+| **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Ensure Gate and Health 45 Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/20 * * * *`), `workflow_dispatch` | Fan out consumer automation and dispatch work. | ⚪ Critical surface (triage immediately if red) | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
 | **Agents 63 Codex Issue Bridge** (`agents-63-codex-issue-bridge.yml`, agents bucket) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ⚪ Critical surface (automation intake) | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
@@ -578,7 +581,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 - **Required checks.** Gate is mandatory on every PR (`gate` context). Agents Guard
   becomes required whenever a change touches the `agents-*.yml`
-  surface (status check **Agents Guard / Enforce agents workflow protections**).
+  surface (status check **Health 45 Agents Guard / Enforce agents workflow protections**).
   Both checks must appear in branch protection.
 
 ### Required status contexts (default branch)
@@ -592,7 +595,7 @@ snapshots for audit trails.
 | Check | Status context | Where to verify |
 | --- | --- | --- |
 | **Gate** | `gate` | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml), Checks tab → **Gate / gate**, [Policy quick reference](./AGENTS_POLICY.md#required-checks-and-status-contexts) |
-| **Agents Guard** | `Agents Guard / Enforce agents workflow protections` | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml), Checks tab (auto-added on `agents-*.yml` diffs), [Policy quick reference](./AGENTS_POLICY.md#required-checks-and-status-contexts) |
+| **Health 45 Agents Guard** | `Health 45 Agents Guard / Enforce agents workflow protections` | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml), Checks tab (auto-added on `agents-*.yml` diffs), [Policy quick reference](./AGENTS_POLICY.md#required-checks-and-status-contexts) |
 
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
@@ -603,7 +606,7 @@ snapshots for audit trails.
   (`gate`). Health 44 resolves the current default branch via the REST API and
   either enforces or verifies the rule (requires a `BRANCH_PROTECTION_TOKEN`
   secret with admin scope for enforcement). When agent workflows are in play,
-  the rule also enforces **Agents Guard / Enforce agents workflow protections**
+  the rule also enforces **Health 45 Agents Guard / Enforce agents workflow protections**
   so protected files stay gated. Maint 46 Post CI always runs after Gate turns
   green, posting the consolidated summary comment as the informational "state of
   CI" snapshot—it is intentionally *not* configured as a required status check.
@@ -654,7 +657,7 @@ snapshots for audit trails.
 - Gate badge in `README.md` and branch protection both show as required for the default branch.
 - New pull requests list **Gate / gate** under **Required checks**; missing the
   entry is an incident that requires running the branch-protection playbook.
-- **Agents Guard / Enforce agents workflow protections** appears as a required
+- **Health 45 Agents Guard / Enforce agents workflow protections** appears as a required
   check whenever protected workflows change and reports ✅ in the latest run.
 - Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
 - Gate runs and passes on docs-only PRs and appears as a required check.
@@ -688,7 +691,7 @@ snapshots for audit trails.
 | Context | Workflow | Required before merge? | Where it appears |
 | --- | --- | --- | --- |
 | **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
-| **Agents Guard** / `Agents Guard / Enforce agents workflow protections` | [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
+| **Health 45 Agents Guard** / `Health 45 Agents Guard / Enforce agents workflow protections` | [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
 | **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
 
 > 🆔 **Status context names to copy exactly.**
@@ -714,7 +717,7 @@ snapshots for audit trails.
 
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
 > **Required** heading for every PR into `phase-2-dev`. Branch protection also
-> enforces **Agents Guard / Enforce agents workflow protections**, so
+> enforces **Health 45 Agents Guard / Enforce agents workflow protections**, so
 > when a PR touches `agents-*.yml` GitHub adds that context to the required list
 > automatically.
 > Maint 46 Post CI never appears in that list because it runs only after merge.
@@ -732,7 +735,7 @@ snapshots for audit trails.
 1. Open the pull request and expand the **Checks** tab.
 2. Confirm the **Required** subsection lists **Gate / gate** with either the
    ✅ (passing) or ⏳ (pending) indicator. If the PR touches `agents-*.yml`, also
-   look for **Agents Guard / Enforce agents workflow protections** automatically
+  look for **Health 45 Agents Guard / Enforce agents workflow protections** automatically
    appended to the same list.
 3. Return to the **Conversation** tab after merge to locate the
    **Maint 46 Post CI summary** timeline comment. It includes links back to the
@@ -748,11 +751,11 @@ snapshots for audit trails.
 > ✍️ **Author checklist.** When you open or update a pull request, confirm the
 > Checks tab shows **Gate / gate** under **Required checks** before requesting
 > review. If you edited any `agents-*.yml` files, also verify GitHub added
-> **Agents Guard / Enforce agents workflow protections** to the
+> **Health 45 Agents Guard / Enforce agents workflow protections** to the
 > required list automatically.
 
 > 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows Gate as
-> the required statuses—**Gate / gate** on every PR and **Agents Guard / Enforce agents workflow protections** on protected edits—and that they are green (or actively
+> the required statuses—**Gate / gate** on every PR and **Health 45 Agents Guard / Enforce agents workflow protections** on protected edits—and that they are green (or actively
 > running). After the
 > merge lands, locate the **Maint 46 Post CI summary** comment in the timeline to
 > confirm the informational roll-up posted and links back to the passing Gate
@@ -780,10 +783,10 @@ on the correct statuses:
 1. Open the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml)
    and download the `enforcement.json` / `verification.json` snapshots. They
    list the enforced contexts—expect **Gate / gate** and, when applicable,
-   **Agents Guard / Enforce agents workflow protections**.
+  **Health 45 Agents Guard / Enforce agents workflow protections**.
 2. Cross-check the snapshots against the Checks tab on a fresh pull request.
    GitHub should always show **Gate / gate** under **Required checks** and add
-   **Agents Guard / Enforce agents workflow protections** automatically when you touch
+  **Health 45 Agents Guard / Enforce agents workflow protections** automatically when you touch
    `agents-*.yml`.
 3. If the contexts drift, follow the [branch protection playbook](#branch-protection-playbook)
    to restore enforcement, then re-run Health 44 to capture the remediation
@@ -817,7 +820,7 @@ branch-protection rulebook without re-learning the terminology.
    - Enable **Require status checks to pass before merging**, then select
      **Gate / gate**. Use the filter box to type `gate` so the correct context is
      highlighted, then click the entry until a check mark appears. Keep
-     **Agents Guard / Enforce agents workflow protections** checked so
+  **Health 45 Agents Guard / Enforce agents workflow protections** checked so
      agent-surface edits stay gated. Leave Maint 46 Post CI unchecked—it posts
      post-merge guidance and must stay informational. If you see Maint 46 Post CI
      in the selected list, clear it before saving so the branch rule continues to
@@ -841,14 +844,14 @@ branch-protection rulebook without re-learning the terminology.
      mirroring the script output and writes a step summary when it runs in
      observer mode.
    - In GitHub settings, confirm that **Gate / gate** appears under required
-     status checks, with **Agents Guard / Enforce agents workflow protections**
+  status checks, with **Health 45 Agents Guard / Enforce agents workflow protections**
      retained for agent-surface enforcement. Maint 46 Post CI is intentionally
      absent—it publishes the summary comment after merge and remains
      informational.
    - From the command line, run
      `gh api repos/<owner>/<repo>/branches/<default-branch>/protection/required_status_checks/contexts`
      to list the enforced contexts; expect **Gate / gate** and, when applicable,
-     **Agents Guard / Enforce agents workflow protections**. Capture the JSON
+  **Health 45 Agents Guard / Enforce agents workflow protections**. Capture the JSON
      output when filing incident reports.
 6. **Trigger Health 44 on demand.**
    - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>`

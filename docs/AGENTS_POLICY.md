@@ -30,7 +30,7 @@ reintroduced; the orchestrator surface replaced them entirely.
    settings (**Settings → Code security and analysis → Rulesets → New ruleset →
    Branch**). Capture screenshots of the configuration in the incident log so
    auditors can confirm the guardrail is in place.
-3. **CI guardrail** – the `Agents Guard` check (see
+3. **CI guardrail** – the `Health 45 Agents Guard` check (see
    `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
    deletes, or renames a protected file without the required label and
    approvals. The check documents override steps and prevents merges unless a
@@ -44,7 +44,7 @@ reintroduced; the orchestrator surface replaced them entirely.
    the protected workflows.
 2. A maintainer with admin access temporarily adjusts the repository ruleset
    (or applies a bypass) via **Settings → Code security and analysis → Rulesets**
-   and, if required, toggles the `Agents Guard` status check in branch
+   and, if required, toggles the `Health 45 Agents Guard` status check in branch
    protection.
 3. Apply and review the change in a dedicated pull request. Code Owner approval
    remains required even when a maintainer performs the edits.
@@ -55,7 +55,7 @@ reintroduced; the orchestrator surface replaced them entirely.
 ## Verification checklist
 
 - The default branch protection lists **Require review from Code Owners** and
-   includes the files above. The `Agents Guard` status check is marked as
+   includes the files above. The `Health 45 Agents Guard` status check is marked as
    required.
 - The repository ruleset shows the three workflows in its “Protected file
   patterns” section with **Block deletion** and **Block rename** enabled.

@@ -252,7 +252,9 @@ def test_bootstrap_guard_clears_outputs_on_failure():
 
 def test_run_summary_dedupes_stage_entries():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
-    assert "const seen = new Map();" in text, "Run summary should track encountered stages"
+    assert (
+        "const seen = new Map();" in text
+    ), "Run summary should track encountered stages"
     assert (
         "if (!seen.has(stage.key))" in text
     ), "Run summary must only record the first instance of each stage"
