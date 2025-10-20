@@ -281,6 +281,36 @@ jobs:
           print(f"Coverage {rate:.2f}% meets minimum {target:.2f}%")
           PY
 
+      - name: Stage coverage artifact layout
+        if: always()
+        run: |
+          set -euo pipefail
+          runtime="${{ matrix.python-version }}"
+          base_dir="coverage/runtimes/${runtime}"
+
+          mkdir -p "${base_dir}"
+
+          copied=0
+          if [ -f coverage.xml ]; then
+            cp coverage.xml "${base_dir}/coverage.xml"
+            copied=1
+          fi
+
+          if [ -f coverage.json ]; then
+            cp coverage.json "${base_dir}/coverage.json"
+            copied=1
+          fi
+
+          if [ -f pytest-junit.xml ]; then
+            cp pytest-junit.xml "${base_dir}/pytest-junit.xml"
+            copied=1
+          fi
+
+          if [ "${copied}" -eq 0 ]; then
+            rm -rf "${base_dir}"
+            echo "No coverage payloads found; skipping staging."
+          fi
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -292,6 +322,7 @@ jobs:
             coverage.xml
             coverage.json
             pytest-junit.xml
+            coverage/runtimes/${{ matrix.python-version }}
           if-no-files-found: warn
           retention-days: 7
 

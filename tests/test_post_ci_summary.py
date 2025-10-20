@@ -54,6 +54,12 @@ def test_build_summary_comment_renders_expected_sections(
         "worst_latest": 83.11,
         "worst_delta": 1.02,
         "history_len": 12,
+        "coverage_table_markdown": (
+            "| Runtime | Coverage | Δ vs 3.11 |\n"
+            "| --- | --- | --- |\n"
+            "| 3.11 | 91.23% | — |\n"
+            "| 3.12 | 91.00% | -0.23 pp |"
+        ),
     }
     coverage_section = "Extra metrics here"
     coverage_delta = {
@@ -104,6 +110,8 @@ def test_build_summary_comment_renders_expected_sections(
     assert "base 92.00%" in body
     assert "threshold 1.00 pp" in body
     assert "status alert" in body
+    assert "| Runtime | Coverage | Δ vs 3.11 |" in body
+    assert "| 3.12 | 91.00% | -0.23 pp |" in body
     assert coverage_section in body
 
 

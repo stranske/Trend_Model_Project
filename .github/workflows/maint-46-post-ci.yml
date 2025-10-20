@@ -295,6 +295,7 @@ jobs:
           set -euo pipefail
           python <<'PY'
           import json
+          import re
           from pathlib import Path
           import xml.etree.ElementTree as ET
 
@@ -407,7 +408,33 @@ jobs:
                   continue
               job_coverages[label] = round(float(coverage_value), 2)
 
-          sorted_jobs = sorted(job_coverages.items())
+          def natural_sort_key(name: str) -> tuple[tuple[int, object], ...]:
+              runtime = name[9:] if name.startswith('coverage-') else name
+              parts = re.split(r'(\d+)', runtime)
+              key: list[tuple[int, object]] = []
+              for part in parts:
+                  if not part:
+                      continue
+                  if part.isdigit():
+                      key.append((0, int(part)))
+                  else:
+                      key.append((1, part))
+              return tuple(key)
+
+          preferred_reference = None
+          if job_coverages:
+              if 'coverage-3.11' in job_coverages:
+                  preferred_reference = 'coverage-3.11'
+              else:
+                  preferred_reference = min(job_coverages, key=natural_sort_key)
+
+          sorted_jobs = sorted(
+              job_coverages.items(),
+              key=lambda item: (
+                  0 if preferred_reference and item[0] == preferred_reference else 1,
+                  natural_sort_key(item[0]),
+              ),
+          )
           job_rows: list[dict[str, object]] = []
           table_lines: list[str] = []
           diff_reference: str | None = None
