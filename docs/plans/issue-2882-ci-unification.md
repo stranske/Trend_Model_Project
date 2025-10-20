@@ -13,8 +13,10 @@
 - [ ] Branch protection relies solely on the `Gate / gate` status, whose summary clearly surfaces lint, typing, testing, and coverage metrics.
 
 ## Task Checklist
-- [ ] Normalize reusable Python CI outputs by editing `.github/workflows/reusable-10-ci-python.yml` to bundle lint/type/test results with coverage under `artifacts/coverage`, generate summary JSON, and upload a deterministically named artifact.
-- [ ] Integrate reusable outputs into Gate by updating `.github/workflows/pr-00-gate.yml` to call the workflow with the minimal matrix, parse the summaries for the job output, and preserve docs-only and Docker-only short-circuit paths.
-- [ ] Streamline Post-CI coverage handling by adjusting `.github/workflows/maint-46-post-ci.yml` to download the Gate artifact and teaching `.github/workflows/maint-coverage-guard.yml` (and related jobs) to locate or gracefully skip when the bundle is missing.
-- [ ] Confirm branch protection setup so that only `Gate / gate` is required, updating operational documentation if needed to describe the coverage artifact path and workflow changes.
-- [ ] Add optional safeguards by incorporating workflow assertions (e.g., via `actions/github-script`) to fail early on missing artifacts or summary parsing errors and documenting new validation steps for CI maintenance.
+- [ ] Bundle lint, type, test, and coverage outputs under `artifacts/coverage` within `.github/workflows/reusable-10-ci-python.yml` so downstream jobs can consume a deterministic payload.
+- [ ] Emit structured summaries (e.g., JSON) from the reusable workflow that capture pass/fail details for linting, typing, testing, and coverage metrics.
+- [ ] Update `.github/workflows/pr-00-gate.yml` to invoke the reusable workflow with the minimal Python matrix required for Gate.
+- [ ] Render the reusable workflow summaries inside the Gate job output while keeping docs-only and Docker-change short-circuit logic intact.
+- [ ] Adjust `.github/workflows/maint-46-post-ci.yml` to download the Gate-produced coverage bundle instead of generating a replacement artifact.
+- [ ] Teach `.github/workflows/maint-coverage-guard.yml` (and related scheduled jobs) to locate the new artifact layout and skip gracefully when coverage data is unavailable.
+- [ ] Validate branch protection expectations and document any operational updates, including artifact paths and new safeguards or assertions added to the workflows.
