@@ -36,23 +36,39 @@ class DummyResponse(requests.Response):
 
 
 class DummySession(requests.Session):
-    def __init__(self, response: DummyResponse) -> None:
+    def __init__(
+        self, response: DummyResponse | Sequence[DummyResponse]
+    ) -> None:
         super().__init__()
-        self._response = response
+        if isinstance(response, Sequence):
+            responses = list(response)
+            if not responses:
+                raise ValueError("DummySession requires at least one response")
+            self._responses = list(responses)
+        else:
+            self._responses = [response]
+        self._response_index = 0
         self.last_payload: dict | None = None
 
+    def _next_response(self) -> requests.Response:
+        if self._response_index < len(self._responses):
+            response = self._responses[self._response_index]
+            self._response_index += 1
+            return response
+        return self._responses[-1]
+
     def get(self, *_args: object, **_kwargs: object) -> requests.Response:
-        return self._response
+        return self._next_response()
 
     def patch(self, *_args: object, **_kwargs: object) -> requests.Response:
         json_payload = _kwargs.get("json")
         self.last_payload = json_payload if isinstance(json_payload, dict) else None
-        return self._response
+        return self._next_response()
 
     def put(self, *_args: object, **_kwargs: object) -> requests.Response:
         json_payload = _kwargs.get("json")
         self.last_payload = json_payload if isinstance(json_payload, dict) else None
-        return self._response
+        return self._next_response()
 
 
 def test_parse_contexts_defaults_to_required_contexts() -> None:
@@ -97,6 +113,36 @@ def test_fetch_status_checks_returns_state() -> None:
     session = DummySession(response)
     state = fetch_status_checks(session, "owner/repo", "main")
     assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+
+
+def test_fetch_status_checks_handles_forbidden_with_branch_fallback() -> None:
+    status_response = DummyResponse(403)
+    branch_response = DummyResponse(
+        200,
+        {
+            "protection": {
+                "enabled": True,
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": ["Gate / gate", "Extra"],
+                },
+            }
+        },
+    )
+    session = DummySession([status_response, branch_response])
+
+    state = fetch_status_checks(session, "owner/repo", "main")
+
+    assert state == StatusCheckState(strict=True, contexts=["Extra", "Gate / gate"])
+
+
+def test_fetch_status_checks_forbidden_without_branch_access_raises() -> None:
+    status_response = DummyResponse(403)
+    branch_response = DummyResponse(404)
+    session = DummySession([status_response, branch_response])
+
+    with pytest.raises(BranchProtectionMissingError):
+        fetch_status_checks(session, "owner/repo", "main")
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:

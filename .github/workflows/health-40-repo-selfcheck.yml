@@ -227,6 +227,18 @@ jobs:
               ? `${branchDetail} (HTTP status: ${branchHttpStatus})`
               : branchDetail;
 
+            const privilegedMode = privilegedChecksUsed
+              ? 'enforce+verify'
+              : privilegedChecksSkipped
+              ? 'verify-only'
+              : 'unknown';
+
+            const privilegedDetail = privilegedChecksUsed
+              ? 'Admin token configured; enforcement and verification both executed.'
+              : privilegedChecksSkipped
+              ? 'Admin token not configured; running in verify-only mode with the default GITHUB_TOKEN.'
+              : 'Admin token availability could not be determined; review workflow logs.';
+
             const checks = [
               {
                 key: 'labels',
@@ -270,6 +282,19 @@ jobs:
                 token: tokenDescriptor,
               },
               {
+                key: 'privileged',
+                title: 'Privileged enforcement',
+                status: privilegedChecksUsed
+                  ? 'pass'
+                  : privilegedChecksSkipped
+                  ? 'info'
+                  : 'warn',
+                detail: privilegedDetail,
+                mode: privilegedMode,
+                privilegedChecksUsed,
+                privilegedChecksSkipped,
+              },
+              {
                 key: 'default-branch',
                 title: 'Default branch',
                 status: 'info',
@@ -300,6 +325,7 @@ jobs:
             core.setOutput('default_branch', defaultBranch);
             core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
             core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
+            core.setOutput('privileged_checks_mode', privilegedMode);
             core.setOutput('branch_protection_status', branchStatus);
             core.setOutput('branch_protection_note', branchNote);
             core.setOutput('branch_protection_token', tokenDescriptor);
@@ -316,6 +342,7 @@ jobs:
           DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
           PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
           PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
+          PRIVILEGED_MODE: ${{ steps.collect.outputs.privileged_checks_mode }}
           BRANCH_STATUS: ${{ steps.collect.outputs.branch_protection_status }}
           BRANCH_NOTE: ${{ steps.collect.outputs.branch_protection_note }}
           MISSING_LABELS: ${{ steps.collect.outputs.missing_labels }}
@@ -333,6 +360,7 @@ jobs:
           default_branch = os.environ.get('DEFAULT_BRANCH') or ''
           privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
           privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
+          privileged_mode = (os.environ.get('PRIVILEGED_MODE') or '').strip()
           branch_status = (os.environ.get('BRANCH_STATUS') or '').strip()
           branch_note = os.environ.get('BRANCH_NOTE') or ''
           missing_labels = json.loads(os.environ.get('MISSING_LABELS') or '[]')
@@ -372,9 +400,21 @@ jobs:
               lines.append('')
               lines.append(f'*Default branch:* `{default_branch}`')
 
+          if not privileged_mode:
+              if privileged_used:
+                  privileged_mode = 'enforce+verify'
+              elif privileged_skipped:
+                  privileged_mode = 'verify-only'
+              else:
+                  privileged_mode = 'unknown'
+
           if branch_token:
               lines.append('')
               lines.append(f'*Branch protection probe token:* `{branch_token}`')
+
+          if privileged_mode:
+              lines.append('')
+              lines.append(f'*Privileged enforcement mode:* `{privileged_mode}`')
 
           if branch_http_status:
               lines.append('')
@@ -421,6 +461,7 @@ jobs:
               'privileged_checks': {
                   'skipped': privileged_skipped,
                   'used': privileged_used,
+                  'mode': privileged_mode,
                   'status': branch_status,
                   'note': branch_note,
                   'fetch_error': branch_fetch_error,
@@ -482,6 +523,9 @@ jobs:
                       message = f"{message} Latest response: {response_detail}"
                   fix_items.append(message)
 
+          if any(check.get('key') == 'privileged' and check.get('status') == 'warn' for check in findings):
+              fix_items.append('- [ ] Investigate privileged enforcement token availability; mode reported as unknown.')
+
           if not fix_items:
               fix_items.append('- [x] No action required — repo health checks are green.')
 
@@ -490,6 +534,7 @@ jobs:
               f'*Run timestamp:* `{timestamp}`' if timestamp else None,
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
               f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
               '',
               '### Checks',
@@ -521,6 +566,7 @@ jobs:
               f'*Run timestamp:* `{timestamp}`' if timestamp else None,
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
               f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
               '',
               '## Checks',
@@ -553,6 +599,7 @@ jobs:
               handle.write('\nCOMMENT\n')
               handle.write(f"has_errors={'true' if error_findings else 'false'}\n")
               handle.write(f"has_warnings={'true' if findings and not error_findings else 'false'}\n")
+              handle.write(f"privileged_mode={privileged_mode}\n")
               handle.write('issue_body<<ISSUE\n')
               handle.write(issue_body)
               handle.write('\nISSUE\n')
@@ -609,12 +656,21 @@ jobs:
               privileged = summary.get('privileged_checks') or {}
               token_name = privileged.get('token')
               http_status = privileged.get('http_status')
+              mode = privileged.get('mode')
+              if not mode:
+                  if privileged.get('used'):
+                      mode = 'enforce+verify'
+                  elif privileged.get('skipped'):
+                      mode = 'verify-only'
               if token_name:
                   lines.append('')
                   lines.append(f'*Branch protection probe token:* `{token_name}`')
               if http_status:
                   lines.append('')
                   lines.append(f'*Branch protection probe HTTP status:* `{http_status}`')
+              if mode:
+                  lines.append('')
+                  lines.append(f'*Privileged enforcement mode:* `{mode}`')
 
               checks = summary.get('checks') or []
               if checks:
