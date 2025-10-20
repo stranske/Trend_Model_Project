@@ -316,12 +316,53 @@ jobs:
           name: coverage-3.12
           path: coverage/core-tests-312
 
+      - name: Normalize coverage runtimes
+        if: ${{ steps.coverage_311.outcome == 'success' || steps.coverage_312.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+
+          normalize() {
+            local source="$1"
+            local version="$2"
+
+            if [ ! -d "$source" ]; then
+              echo "Coverage payload for ${version} not found at ${source}; skipping."
+              return 0
+            fi
+
+            mkdir -p coverage/runtimes
+            local target="coverage/runtimes/${version}"
+
+            rm -rf "${target}"
+            mkdir -p "${target}"
+
+            local canonical="${source}/coverage/runtimes/${version}"
+            local legacy="${source}/runtimes/${version}"
+            local root_version="${source}/${version}"
+
+            if [ -d "${canonical}" ]; then
+              cp -R "${canonical}/." "${target}/"
+            elif [ -d "${legacy}" ]; then
+              cp -R "${legacy}/." "${target}/"
+            elif [ -d "${root_version}" ]; then
+              cp -R "${root_version}/." "${target}/"
+            else
+              cp -R "${source}/." "${target}/"
+            fi
+
+            # Remove the original download to avoid leaking intermediate layouts.
+            rm -rf "${source}"
+          }
+
+          normalize "coverage/core-tests-311" "3.11"
+          normalize "coverage/core-tests-312" "3.12"
+
       - name: Upload coverage bundle (3.11)
         if: ${{ steps.coverage_311.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-3.11
-          path: coverage/core-tests-311
+          path: coverage/runtimes/3.11
           if-no-files-found: ignore
           overwrite: true
 
@@ -330,7 +371,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-3.12
-          path: coverage/core-tests-312
+          path: coverage/runtimes/3.12
           if-no-files-found: ignore
           overwrite: true
 
