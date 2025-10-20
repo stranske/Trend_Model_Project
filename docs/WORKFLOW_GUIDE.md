@@ -17,7 +17,7 @@ operational detail for the kept set.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-02-autofix.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
@@ -45,6 +45,7 @@ _Optional label-gated helper_
 
 ### Maintenance & Repo Health
 - **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and owns the CI failure-tracker issue/label lifecycle.
+- **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTIONS_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
 - **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured.

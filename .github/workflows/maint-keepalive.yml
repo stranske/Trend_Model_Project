@@ -1,0 +1,53 @@
+name: Maint Keepalive Heartbeat
+
+on:
+  schedule:
+    - cron: '17 */12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: keepalive-${{ github.ref }}
+
+jobs:
+  heartbeat:
+    name: Post heartbeat
+    runs-on: ubuntu-latest
+    env:
+      HEARTBEAT_ISSUE: ${{ vars.OPS_HEARTBEAT_ISSUE }}
+      HEARTBEAT_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+    steps:
+      - name: Validate heartbeat configuration
+        run: |
+          if [ -z "${HEARTBEAT_ISSUE}" ]; then
+            echo "Repository variable OPS_HEARTBEAT_ISSUE is not configured." >&2
+            exit 1
+          fi
+          if ! [[ "${HEARTBEAT_ISSUE}" =~ ^[0-9]+$ ]]; then
+            echo "OPS_HEARTBEAT_ISSUE must be a numeric issue number." >&2
+            exit 1
+          fi
+          if [ -z "${HEARTBEAT_TOKEN}" ]; then
+            echo "Secret ACTIONS_BOT_PAT is not configured." >&2
+            exit 1
+          fi
+      - name: Capture timestamp
+        id: timestamp
+        run: echo "utc=$(date -u '+%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+      - name: Post heartbeat comment
+        # v4.0.0 commit SHA: 71345be0265236311c031f5c7866368bd1eff043
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
+        with:
+          token: ${{ env.HEARTBEAT_TOKEN }}
+          issue-number: ${{ env.HEARTBEAT_ISSUE }}
+          body: |
+            :heartbeat: Automated keepalive ping at ${{ steps.timestamp.outputs.utc }} — [view run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+      - name: Summarize heartbeat
+        run: |
+          {
+            echo "## Keepalive Heartbeat";
+            echo "* Issue: #${HEARTBEAT_ISSUE}";
+            echo "* Timestamp (UTC): ${{ steps.timestamp.outputs.utc }}";
+            echo "* Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}";
+          } >> "$GITHUB_STEP_SUMMARY"
