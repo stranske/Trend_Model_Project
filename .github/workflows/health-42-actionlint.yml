@@ -133,7 +133,7 @@ jobs:
             mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
           fi
 
-          extra_args+=("-color" "never" "-fail-level" "error")
+          extra_args+=("-no-color")
 
           tmpdir="$(mktemp -d)"
           lint_output="${tmpdir}/actionlint.txt"
