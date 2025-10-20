@@ -136,3 +136,35 @@ def test_build_update_comment_formats_metrics() -> None:
     assert "Top changed files" in comment
     assert "src/a.py" in comment
 
+
+def test_build_update_comment_handles_missing_files() -> None:
+    snapshot = cg.CoverageSnapshot(current=86.0, baseline=85.0, delta=1.0)
+    config = cg.BaselineConfig(baseline=85.0, warn_drop=1.0, recovery_days=3)
+    today = dt.date(2025, 1, 1)
+
+    comment = cg.build_update_comment(
+        snapshot,
+        config,
+        below_baseline=False,
+        date=today,
+        run_url="",
+        recovery_progress="1/3 days above baseline",
+        top_files=[],
+    )
+
+    assert "2025-01-01" in comment
+    assert "Status: At or above baseline" in comment
+    assert "Top changed files unavailable" in comment
+
+
+def test_build_recovered_comment_announces_closure() -> None:
+    snapshot = cg.CoverageSnapshot(current=86.0, baseline=85.0, delta=1.0)
+    config = cg.BaselineConfig(baseline=85.0, warn_drop=1.0, recovery_days=4)
+    today = dt.date(2025, 1, 4)
+
+    message = cg.build_recovered_comment(snapshot, config, today)
+
+    assert "Coverage recovered above baseline" in message
+    assert "4 consecutive days" in message
+    assert "Closing this issue" in message
+
