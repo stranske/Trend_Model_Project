@@ -78,7 +78,7 @@ flowchart TD
 | **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
 | **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
 | **Health 44 Gate Branch Protection** | `.github/workflows/health-44-gate-branch-protection.yml` | Cron (`0 6 * * *`), `workflow_dispatch` | `contents: read`, `pull-requests: read`; optional `BRANCH_PROTECTION_TOKEN` | No | Verifies Gate and Health 45 Agents Guard remain required on the default branch; optionally enforces policy when a PAT is configured. |
-| **Health 45 Agents Guard** | `.github/workflows/agents-guard.yml` | `pull_request`, `pull_request_target` (agents workflow edits or agent-labelled PRs) | `contents: read`, `pull-requests: write` | No | Consolidated guard enforcing protected workflow policies with per-PR concurrency to avoid duplicate comments. |
+| **Health 45 Agents Guard** | `.github/workflows/agents-guard.yml` | `pull_request`, `pull_request_target` (label toggles) | `contents: read`, `pull-requests: write` | No | Consolidated guard that runs on every PR and only blocks when protected workflow policies are violated. |
 
 ### Self-tests & experiments
 

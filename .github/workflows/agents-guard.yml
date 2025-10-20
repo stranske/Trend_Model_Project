@@ -7,11 +7,6 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-    paths:
-      - 'agents/**'
-      - '.github/workflows/agents-*.yml'
-      - '.github/scripts/agents-guard.js'
-      - '!agents/**/__snapshots__/**'
   pull_request_target:
     types:
       - labeled
@@ -27,8 +22,6 @@ concurrency:
 
 jobs:
   guard:
-    if: >-
-      ${{ github.event_name == 'pull_request' || startsWith(github.event.label.name || '', 'agent:') }}
     name: Enforce agents workflow protections
     runs-on: ubuntu-latest
 

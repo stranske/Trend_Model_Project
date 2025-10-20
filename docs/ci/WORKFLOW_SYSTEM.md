@@ -173,14 +173,15 @@ explain why a particular status appears in the Checks tab.
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Workflow-file PRs/pushes, Monday 05:05 UTC cron, manual dispatch | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
-| **Health 45 Agents Guard** (`agents-guard.yml`) | PRs touching `agents/**`, `.github/workflows/agents-*.yml`, guard script; label changes via `pull_request_target` with `agent:` prefix | ✅ Required when protected files change | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
+| **Health 45 Agents Guard** (`agents-guard.yml`) | Every pull request (`pull_request`); label changes via `pull_request_target` (labels starting with `agent:`) | ✅ Required status (fails only when protected workflow policies are violated) | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 
 
 > ℹ️ **Merge-gating recap.**
 > - **Gate / gate** blocks every pull request by default—expect it under
 >   **Checks → Required** for all PRs.
-> - **Health 45 Agents Guard / Enforce agents workflow protections** auto-attaches as a
->   second required status whenever protected agents files change.
+- **Health 45 Agents Guard / Enforce agents workflow protections** now runs on every
+  pull request and only turns the status red when protected agents files change
+  without the required guardrails.
 > - Maint 46 Post CI, Repo Health, Actionlint, and Agents 70 Orchestrator stay
 >   informational follow-ups: expect Maint 46 as a timeline summary comment
 >   after merge, and the remaining workflows under the Actions tab.
@@ -238,13 +239,15 @@ explain why a particular status appears in the Checks tab.
 
 #### Health 45 Agents Guard (`agents-guard.yml`)
 
-- **When it runs.** Pull requests touching `agents/**`, `agents-*.yml`, or the
-  guard script, plus label changes via `pull_request_target` (labels must start
-  with `agent:`—for example `agents:allow-change`).
+- **When it runs.** Every pull request (`pull_request`) plus label changes via
+  `pull_request_target` (labels beginning with `agent:`—for example
+  `agents:allow-change`).
 - **What it enforces.** Confirms protected workflow edits carry the
-  `agents:allow-change` label, CODEOWNERS approval, and correct guard marker.
-- **Merge impact.** Required **only** when protected files change—the status
-  context (**Health 45 Agents Guard / Enforce agents workflow protections**) must be green before merge.
+  `agents:allow-change` label, CODEOWNERS approval, and the correct guard
+  marker. When no protected files are in scope, the job exits cleanly.
+- **Merge impact.** Required on every PR; the status context (**Health 45
+  Agents Guard / Enforce agents workflow protections**) stays green unless a
+  protected change violates the guard policy.
 - **Where to read the policy.** The [Agents Workflow Protection
   Policy](./AGENTS_POLICY.md) mirrors these requirements and documents the
   branch-protection setup that keeps the guard enforced.
