@@ -116,8 +116,8 @@ jobs:
         with:
           github-token: ${{ steps.branch-token.outputs.token || github.token }}
           script: |
-            const core = require('@actions/core');
-
+            // `core` is provided by actions/github-script's execution environment.
+            // Avoid re-declaring it (causes "Identifier 'core' has already been declared").
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
