@@ -188,6 +188,8 @@ jobs:
     with:
       python-version: '3.11'
       marker: "not quarantine and not slow"
+      enable-soft-gate: true
+      artifact-prefix: 'core311-'
 
   core-tests-312:
     name: core tests (3.12)
