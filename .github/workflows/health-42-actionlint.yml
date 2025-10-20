@@ -24,8 +24,18 @@ jobs:
     env:
       ACTIONLINT_VERSION: '1.7.3'
       REVIEWDOG_VERSION: '0.21.0'
-      REPORTER: ${{ vars.HEALTH42_REPORTER != '' && vars.HEALTH42_REPORTER || (github.event_name == 'pull_request' && 'github-pr-review' || 'github-check') }}
+      REPORTER: ${{ steps.set-reporter.outputs.reporter }}
     steps:
+      - name: Compute REPORTER value
+        id: set-reporter
+        run: |
+          if [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
+            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "reporter=github-pr-review" >> $GITHUB_OUTPUT
+          else
+            echo "reporter=github-check" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/checkout@v4
 
       - name: Compute actionlint allowlist
