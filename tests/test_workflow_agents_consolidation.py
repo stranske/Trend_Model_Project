@@ -135,7 +135,7 @@ def test_bootstrap_requires_single_label():
         "bootstrap_issues_label not provided; defaulting to agent:codex." in text
     ), "Bootstrap step must record when it falls back to the default label"
     assert (
-        "bootstrap_issues_label input must define exactly one label" in text
+        "bootstrap_issues_label must define exactly one label" in text
     ), "Bootstrap step must prevent sweeping multiple labels"
 
 
@@ -238,7 +238,7 @@ def test_agents_orchestrator_has_concurrency_defaults():
 
     concurrency = data.get("concurrency") or {}
     assert (
-        concurrency.get("group") == "agents-orchestrator-${{ github.ref }}"
+        concurrency.get("group") == "orchestrator-${{ github.ref }}"
     ), "Orchestrator must serialize runs per ref"
     assert (
         concurrency.get("cancel-in-progress") is True
