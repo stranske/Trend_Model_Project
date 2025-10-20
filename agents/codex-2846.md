@@ -18,6 +18,7 @@ Owner: @codex-maintainer
   - [x] Coordinate maintainer-triggered dispatch once branch is ready for validation. *(Completed via the successful run above; outreach retained for future follow-ups if re-validation is needed.)*
 - [ ] Confirm nightly cron success *(awaiting scheduled execution post-merge)*
   - [ ] Schedule follow-up reminder after manual dispatch completes to capture the first successful cron evidence.
+  - [ ] 2025-10-20 00:34 UTC: Queried `https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/selftest-reusable-ci.yml/runs?event=schedule&per_page=5` via `curl` (response `total_count: 0` – no cron runs recorded yet); next poll planned immediately after the upcoming 06:30 UTC window.
 
 ## Acceptance Criteria Status
 - [x] Manual workflow_dispatch run succeeded with artifacts *(Run [#18596535108](https://github.com/stranske/Trend_Model_Project/actions/runs/18596535108) completed successfully with `selftest-report` artifact and summary output.)*
@@ -49,7 +50,7 @@ Owner: @codex-maintainer
 | Path | Status | Run link / ID | Notes |
 | ---- | ------ | ------------- | ----- |
 | `workflow_dispatch` | ✅ Completed (2025-10-17) | [#18596535108](https://github.com/stranske/Trend_Model_Project/actions/runs/18596535108) | Successful manual dispatch captured: run concluded `success`, emitted scenario summaries, and uploaded `selftest-report` plus auxiliary coverage artifacts. |
-| Nightly cron | Pending | _Next available schedule_ | 2025-10-20: Queried GitHub API for scheduled runs (none recorded yet); re-check after the upcoming 06:30 UTC window to capture the first successful cron execution. |
+| Nightly cron | Pending | _Next available schedule_ | 2025-10-20 00:34 UTC: `curl …?event=schedule&per_page=5` returned `total_count: 0`; re-check queued for the first window after 06:30 UTC to capture the inaugural cron execution. |
 
 ## Next Steps
 - Keep the maintainer outreach template available for future reruns if regressions surface or additional verification is requested.
