@@ -103,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.cache/reviewdog"
-          curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh \
+          curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/v${REVIEWDOG_VERSION}/install.sh \
             | sh -s -- -b "$HOME/.cache/reviewdog" "v${REVIEWDOG_VERSION}"
 
       - name: Add linters to PATH
