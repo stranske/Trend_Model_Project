@@ -18,6 +18,24 @@ import yaml
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
 
 
+def _normalise_keys(node: Any) -> Any:
+    if isinstance(node, dict):
+        normalised: dict[str, Any] = {}
+        for key, value in node.items():
+            match key:
+                case bool() as boolean:
+                    key_str = "on" if boolean else str(boolean).lower()
+                case str() as text:
+                    key_str = text
+                case other:
+                    key_str = str(other)
+            normalised[key_str] = _normalise_keys(value)
+        return normalised
+    if isinstance(node, list):
+        return [_normalise_keys(item) for item in node]
+    return node
+
+
 def _load_workflow(slug: str) -> dict[str, Any]:
     path = WORKFLOW_ROOT / slug
     raw = path.read_text(encoding="utf-8")
@@ -25,7 +43,7 @@ def _load_workflow(slug: str) -> dict[str, Any]:
     assert isinstance(
         data, dict
     ), f"Workflow {slug} should load into a mapping structure"
-    return data
+    return _normalise_keys(data)
 
 
 def _step_runs_command(step: dict[str, Any], needle: str) -> bool:
@@ -63,7 +81,7 @@ def test_worker_keeps_concurrency_and_pat_guard():
     assert concurrency.get("group") == "codex-belt"
     assert concurrency.get("cancel-in-progress") is False
 
-    events = workflow.get("on") or {}  # type: ignore[index]
+    events = workflow.get("on") or {}
     repo_dispatch = events.get("repository_dispatch") or {}
     types = repo_dispatch.get("types") or []
     assert "codex-belt.work" in types
