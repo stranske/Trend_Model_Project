@@ -136,26 +136,23 @@ jobs:
           extra_args+=("-no-color")
 
           tmpdir="$(mktemp -d)"
-          lint_output="${tmpdir}/actionlint.txt"
+          oneline_output="${tmpdir}/actionlint.oneline"
 
           lint_status=0
-          if ! actionlint "${extra_args[@]}" >"${lint_output}"; then
+          if ! actionlint "${extra_args[@]}" -oneline >"${oneline_output}"; then
             lint_status=$?
-          fi
-
-          if [ "$lint_status" -ne 0 ]; then
             echo '::group::actionlint (text output)'
-            cat "${lint_output}"
+            actionlint "${extra_args[@]}" || true
             echo '::endgroup::'
           fi
 
           rd_status=0
-          if ! reviewdog -f=actionlint \
+          if ! reviewdog -efm="%t:%f:%l:%c: %m" \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
               -level="warning" \
-              -fail-level="error" <"${lint_output}"; then
+              -fail-level="error" <"${oneline_output}"; then
             rd_status=$?
           fi
 
