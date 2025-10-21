@@ -36,18 +36,15 @@ enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `core-tests-311` | core tests (3.11) | Runs Ruff, Mypy, and pytest against Python 3.11 via `reusable-10-ci-python.yml`. | `coverage-3.11` (coverage data and pytest junit XML). | Fails fast on lint/type/test issues; publishes coverage for Maint 46 Post CI rollups. |
-| `core-tests-312` | core tests (3.12) | Reuses the Python composite for the 3.12 matrix leg. | `coverage-3.12` (coverage data and pytest junit XML). | Keeps the repo aligned with the future default Python runtime. |
+| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage-3.11`, `gate-coverage-3.12`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage artifacts live under `artifacts/coverage/runtimes/<python>` for downstream consumers. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
-| `gate` | gate | Downloads successful coverage artifacts and renders the pull-request summary table. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
+| `gate` | gate | Downloads the reusable CI coverage bundle, renders lint/type/test/coverage results, and posts the commit status. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
 
 ```mermaid
 flowchart TD
-    pr00["pr-00-gate.yml"] --> core311["core tests (3.11)\ncoverage-3.11 artifact"]
-    pr00 --> core312["core tests (3.12)\ncoverage-3.12 artifact"]
+    pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.11 + 3.12 matrix\n gate-coverage-* artifacts"]
     pr00 --> dockerSmoke["docker smoke\nimage build logs"]
-    core311 --> gate["gate aggregator\nreviews artifacts"]
-    core312 --> gate
+    pythonCi --> gate["gate aggregator\nreviews artifacts"]
     dockerSmoke --> gate
     gate --> status["Required Gate status\nblocks/permits merge"]
 ```
@@ -154,7 +151,7 @@ lockstep and remain the single sources of truth for keep vs retire decisions.
 | `pr-00-gate.yml` (`Gate`) | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `statuses: write` | **Yes** | Composite orchestrator that chains the reusable CI and Docker smoke jobs and enforces that every leg succeeds. |
 
 **Operational details**
-- **Gate** – Permissions: `contents: read`, `pull-requests: write`, `statuses: write` (via the default `GITHUB_TOKEN`). Secrets: relies on the provided token only. The `detect_doc_only` job classifies Markdown/`docs/`/`assets/` changes, skips the heavy CI legs when appropriate, records the docs-only notice in logs and the step summary, and otherwise surfaces `core tests (3.11)`, `core tests (3.12)`, `docker smoke`, and the aggregator `gate` job. Each run also purges legacy docs-only PR comments so the conversation stays clean even after the workflow update.
+- **Gate** – Permissions: `contents: read`, `pull-requests: write`, `statuses: write` (via the default `GITHUB_TOKEN`). Secrets: relies on the provided token only. The `detect` job classifies Markdown/`docs/`/`assets/` changes, skips the heavy CI legs when appropriate, records the docs-only notice in logs and the step summary, and otherwise fans out to the `python ci` matrix job plus `docker smoke` before the aggregator `gate` job renders the combined summary. Each run also purges legacy docs-only PR comments so the conversation stays clean even after the workflow update.
 
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
