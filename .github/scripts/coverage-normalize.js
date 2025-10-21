@@ -250,8 +250,18 @@ function findFirst(root, predicate) {
   return null;
 }
 
+/**
+ * Writes a JSON value to a file. Throws if writing fails.
+ * @param {string} pathname
+ * @param {any} value
+ */
 function writeJson(pathname, value) {
-  fs.writeFileSync(pathname, JSON.stringify(value), 'utf8');
+  try {
+    fs.writeFileSync(pathname, JSON.stringify(value), 'utf8');
+  } catch (error) {
+    console.error(`Failed to write JSON to ${pathname}:`, error);
+    throw error;
+  }
 }
 
 async function computeCoverageStats({
