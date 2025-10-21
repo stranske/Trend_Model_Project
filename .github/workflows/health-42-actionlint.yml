@@ -147,6 +147,8 @@ jobs:
           fi
 
           rd_status=0
+          # The error format pattern below maps output fields as follows:
+          # %t: type, %f: file, %l: line, %c: column, %m: message
           if ! reviewdog -efm="%t:%f:%l:%c: %m" \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
