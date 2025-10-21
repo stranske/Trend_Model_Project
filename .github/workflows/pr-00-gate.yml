@@ -223,7 +223,9 @@ jobs:
       primary-python-version: '3.11'
       marker: "not quarantine and not slow"
       enable-soft-gate: true
-      artifact-prefix: ''
+      # Use the shared gate- prefix so downstream Maint workflows can locate the
+      # coverage artifacts without special-casing runtime names.
+      artifact-prefix: 'gate-'
 
   core-tests-312:
     name: core-tests-312
@@ -235,7 +237,7 @@ jobs:
       primary-python-version: '3.11'
       marker: "not quarantine and not slow"
       enable-soft-gate: true
-      artifact-prefix: ''
+      artifact-prefix: 'gate-'
 
   docker-smoke:
     name: docker smoke
@@ -446,7 +448,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.11
+          name: gate-coverage-3.11
           path: gate_artifacts/core-tests-311
 
       - name: Download coverage (3.12)
@@ -454,7 +456,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.12
+          name: gate-coverage-3.12
           path: gate_artifacts/core-tests-312
 
       - name: Summarize results
@@ -488,10 +490,15 @@ jobs:
           if base.exists():
               for path in sorted(base.rglob("**/summary.json")):
                   try:
+                      job_name = path.relative_to(base).parts[0]
+                  except (ValueError, IndexError):
+                      job_name = "unknown"
+                  try:
                       data = json.loads(path.read_text(encoding="utf-8"))
                   except json.JSONDecodeError:
                       continue
                   if isinstance(data, dict):
+                      data.setdefault("job_name", job_name)
                       records.append(data)
 
           def emoji(outcome: str) -> str:
@@ -510,13 +517,18 @@ jobs:
                   return "unknown"
               return outcome.replace("_", " ")
 
-          def aggregate_status(entries: list[tuple[str, str]]) -> tuple[str, str]:
-              priority = {"failure": 0, "timed_out": 1, "cancelled": 2, "success": 3, "skipped": 4, "pending": 5}
+          PRIORITY = {"failure": 0, "timed_out": 1, "cancelled": 2, "success": 3, "skipped": 4, "pending": 5}
+
+          def pick_best(outcomes: list[str]) -> str:
               best = "pending"
-              for _, outcome in entries:
+              for outcome in outcomes:
                   candidate = outcome or "pending"
-                  if priority.get(candidate, 99) < priority.get(best, 99):
+                  if PRIORITY.get(candidate, 99) < PRIORITY.get(best, 99):
                       best = candidate
+              return best
+
+          def aggregate_status(entries: list[tuple[str, str]]) -> tuple[str, str]:
+              best = pick_best([outcome for _, outcome in entries])
               groups: list[str] = []
               for runtime, outcome in sorted(entries):
                   groups.append(f"{runtime}: {friendly(outcome)}")
@@ -558,9 +570,11 @@ jobs:
               test_entries: list[tuple[str, str]] = []
               coverage_entries: list[tuple[str, str]] = []
               coverage_percents: list[str] = []
+              job_results: dict[str, list[str]] = {}
 
               for record in sorted(records, key=lambda item: str(item.get("python_version", ""))):
                   runtime = str(record.get("python_version", "unknown"))
+                  job_name = str(record.get("job_name") or runtime)
                   checks = record.get("checks") if isinstance(record.get("checks"), dict) else {}
                   lint = normalize(
                       checks.get("lint", {}).get("outcome")
@@ -591,6 +605,7 @@ jobs:
                   type_entries.append((runtime, typing))
                   test_entries.append((runtime, tests))
                   coverage_entries.append((runtime, coverage_min))
+                  job_results.setdefault(job_name, []).extend([lint, typing, tests, coverage_min])
 
                   coverage_info = record.get("coverage") if isinstance(record.get("coverage"), dict) else {}
                   percent = coverage_info.get("percent") if isinstance(coverage_info, dict) else None
@@ -626,9 +641,10 @@ jobs:
               lines.append("")
               lines.append("| Job | Result |")
               lines.append("| --- | --- |")
-              entries = [("core-tests-311", lint_status), ("core-tests-312", lint_status), ("docker-smoke", docker_result)]
-              for job_name, result in entries:
+              for job_name, outcomes in sorted(job_results.items()):
+                  result = pick_best(outcomes)
                   lines.append(f"| {job_name} | {friendly(result)} |")
+              lines.append(f"| docker-smoke | {friendly(docker_result)} |")
 
               lines.append("")
               lines.append(f"- Lint: {emoji(lint_status)} {friendly(lint_status)} ({lint_detail})")
