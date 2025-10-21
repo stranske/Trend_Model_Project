@@ -595,44 +595,8 @@ jobs:
         with:
           github-token: ${{ secrets.service_bot_pat || github.token }}
           script: |
-            const parseJson = (raw, fallback) => {
-              if (!raw || typeof raw !== 'string') {
-                return fallback;
-              }
-              try {
-                return JSON.parse(raw);
-              } catch (error) {
-                core.warning(`Invalid options_json supplied to keepalive: ${error.message}`);
-                return fallback;
-              }
-            };
-
-            const coerceBool = (value, fallback) => {
-              if (typeof value === 'boolean') {
-                return value;
-              }
-              if (typeof value === 'string') {
-                const normalized = value.trim().toLowerCase();
-                if (normalized === 'true') {
-                  return true;
-                }
-                if (normalized === 'false') {
-                  return false;
-                }
-              }
-              return fallback;
-            };
-
-            const coerceNumber = (value, fallback, { min } = { min: 0 }) => {
-              if (value === null || value === undefined) {
-                return fallback;
-              }
-              const num = Number(value);
-              if (!Number.isFinite(num) || num <= (min ?? 0)) {
-                return fallback;
-              }
-              return num;
-            };
+            const { runKeepalive } = require('./scripts/keepalive-runner.js');
+            await runKeepalive({ core, github, context, env: process.env });
 
             const dedupe = (values) => {
               const seen = new Set();
