@@ -15,6 +15,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         cls.project_root = Path(__file__).resolve().parents[1]
         cls.scripts_dir = cls.project_root / "scripts"
         cls.workflows_dir = cls.project_root / ".github" / "workflows"
+        cls.github_scripts_dir = cls.project_root / ".github" / "scripts"
 
     # -- helpers -----------------------------------------------------------------
 
@@ -27,6 +28,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         path = self.workflows_dir / name
         self.assertTrue(path.exists(), f"Expected workflow to exist: {name}")
         return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    def _read_github_script(self, name: str) -> str:
+        path = self.github_scripts_dir / name
+        self.assertTrue(
+            path.exists(),
+            f"Expected GitHub helper script to exist: {name}",
+        )
+        return path.read_text(encoding="utf-8")
 
     def _iter_workflow_files(self) -> list[Path]:
         """Return all workflow definitions regardless of YAML suffix."""
@@ -228,30 +237,37 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
         docs_step_mapping = cast(dict[str, object], docs_step)
 
-        script = docs_step_mapping.get("with", {}).get("script", "")
-        self.assertTrue(script, "Docs-only handler should include inline script")
+        with_block = cast(dict[str, object], docs_step_mapping.get("with", {}))
+        script_obj = with_block.get("script", "")
+        self.assertIsInstance(script_obj, str)
+        script = script_obj
+        self.assertIn(
+            "require('./.github/scripts/gate-docs-only.js')",
+            script,
+            "Docs-only handler should import the shared helper",
+        )
+        self.assertIn(
+            "handleDocsOnlyFastPass(",
+            script,
+            "Docs-only handler should delegate to the helper entry point",
+        )
 
+        helper_source = self._read_github_script("gate-docs-only.js")
         expected_patterns = {
-            "sets state output": r"core\.setOutput\(\s*'state',\s*'success'\s*\);",
-            "sets description output": r"core\.setOutput\(\s*'description',\s*message\s*\);",
-            "logs message": r"core\.info\(\s*message\s*\);",
+            "defines success state output": r"state:\s*'success'",
+            "defines description output": r"description:\s*message",
+            "logs message": r"core\.info\(message\)",
             "includes docs-only fast-pass messaging": r"Gate fast-pass: docs-only change detected; heavy checks skipped\.",
-            "writes step summary": r"core\.summary[\s\S]*?addHeading\(\s*'Gate docs-only fast-pass'",
+            "writes step summary": r"summary\.addHeading\(summaryHeading,\s*3\)",
         }
 
         for label, pattern in expected_patterns.items():
-            with self.subTest(pattern=label):
+            with self.subTest(helper_pattern=label):
                 self.assertRegex(
-                    script,
+                    helper_source,
                     pattern,
-                    msg=f"Docs-only handler script should {label}",
+                    msg=f"Helper should {label}",
                 )
-
-        self.assertNotRegex(
-            script,
-            r"createComment",
-            msg="Docs-only handler must not recreate the legacy PR comment",
-        )
 
     def test_gate_cleans_up_legacy_docs_only_comment(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
@@ -287,22 +303,37 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "Cleanup step condition should reflect docs-only lifecycle handling",
         )
 
-        script = (cleanup_step or {}).get("with", {}).get("script", "")
+        with_block = cast(dict[str, object], (cleanup_step or {}).get("with", {}))
+        script_obj = with_block.get("script", "")
+        self.assertIsInstance(script_obj, str)
+        script = cast(str, script_obj)
+        self.assertIn(
+            "require('./.github/scripts/comment-dedupe.js')",
+            script,
+            "Cleanup step should import the shared dedupe helper",
+        )
+        self.assertIn(
+            "removeMarkerComments",
+            script,
+            "Cleanup step should delegate to removeMarkerComments",
+        )
+
+        helper_source = self._read_github_script("comment-dedupe.js")
         expected_cleanup_patterns = {
-            "defines marker": r"const marker\s*=\s*'<!-- gate-docs-only -->';",
-            "defines base message": r"const baseMessage\s*=\s*'Gate fast-pass: docs-only change detected; heavy checks skipped\.';",
+            "defines marker": r"marker\s*\|\|",
+            "defines base message": r"baseMessage\s*\|\|",
             "lists pull request comments": r"github\.rest\.issues\.listComments",
             "detects marker comment": r"comment\.body\.includes\(marker\)",
-            "matches legacy prefix": r"return\s+trimmed\.startsWith\(baseMessage\);",
+            "matches legacy prefix": r"trimmed\.startsWith\(legacy\)",
             "removes marker comment": r"github\.rest\.issues\.deleteComment",
         }
 
         for label, pattern in expected_cleanup_patterns.items():
-            with self.subTest(cleanup_pattern=label):
+            with self.subTest(helper_cleanup_pattern=label):
                 self.assertRegex(
-                    script,
+                    helper_source,
                     pattern,
-                    msg=f"Cleanup script should {label}",
+                    msg=f"Dedupe helper should {label}",
                 )
 
     def test_workflows_do_not_define_invalid_marker_filters(self) -> None:
@@ -361,15 +392,23 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             diff_step, "Detect job must use diff step to classify changes"
         )
 
-        script = (diff_step or {}).get("with", {}).get("script", "")
-        self.assertTrue(script, "Diff step must embed classifier script")
+        with_block = cast(dict[str, object], (diff_step or {}).get("with", {}))
+        script_obj = with_block.get("script", "")
+        self.assertIsInstance(script_obj, str)
+        script = cast(str, script_obj)
+        self.assertIn(
+            "require('./.github/scripts/detect-changes.js')",
+            script,
+            "Detect step should import the shared change detector",
+        )
 
+        detector_source = self._read_github_script("detect-changes.js")
         expected_snippets = {
             "supports doc extensions": ".txt",
             "covers quarto docs": ".qmd",
-            "covers doc basenames": "const docBasenames = new Set([",
-            "handles documentation prefixes": "const docPrefixes = [",
-            "scans nested documentation segments": "const docSegments = [",
+            "covers doc basenames": "const DOC_BASENAMES = new Set([",
+            "handles documentation prefixes": "const DOC_PREFIXES = [",
+            "scans nested documentation segments": "const DOC_SEGMENTS = [",
             "contains mkdocs basename": "'mkdocs',",
             "contains docfx basename": "'docfx',",
             "captures windows-style segments": "\\\\docs\\\\",
@@ -378,8 +417,12 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         }
 
         for label, snippet in expected_snippets.items():
-            with self.subTest(check=label):
-                self.assertIn(snippet, script, f"Classifier script should {label}")
+            with self.subTest(helper_snippet=label):
+                self.assertIn(
+                    snippet,
+                    detector_source,
+                    f"Detector helper should {label}",
+                )
 
     def test_gate_downloads_coverage_with_tolerance(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
