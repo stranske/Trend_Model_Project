@@ -367,6 +367,9 @@ jobs:
       trigger_reason: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_head: ${{ needs.context.outputs.head_sha }}
       dry_run: ${{ needs.context.outputs.same_repo != 'true' }}
+      # NOTE: The commit_prefix parameter was previously sourced from the environment variable COMMIT_PREFIX.
+      # It is now sourced from the repository variable AUTOFIX_COMMIT_PREFIX.
+      # Please update any documentation or migration guides to reflect this change.
       commit_prefix: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
       allowed_file_globs: |
         src/**
