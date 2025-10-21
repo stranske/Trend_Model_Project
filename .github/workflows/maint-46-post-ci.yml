@@ -1111,6 +1111,7 @@ jobs:
       trigger_class: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_reason: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_head: ${{ needs.context.outputs.head_sha }}
+      dry_run: ${{ needs.context.outputs.same_repo != 'true' }}
       allowed_file_globs: |
         src/**
         tests/**

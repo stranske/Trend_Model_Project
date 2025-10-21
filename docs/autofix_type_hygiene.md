@@ -125,7 +125,7 @@ Run these quick checks whenever the Maint 46 autofix lane changes to confirm Is
 To replicate Issue #2724’s acceptance criteria end-to-end:
 
 1. Push a same-repo branch that intentionally violates a simple Ruff rule (for example, add trailing whitespace to a Python file).
-2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix:clean` unless overridden in repository variables).
+2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix:clean`).
 3. Observe the **Maint 46 Post CI** workflow run; once complete it should:
    - Install Ruff, apply the safe `ruff check --fix --exit-zero` sweep, and commit cosmetic fixes back to the branch.【F:.github/workflows/reusable-18-autofix.yml†L231-L575】
    - Apply the `autofix:applied` label (and remove any stale `autofix:clean`) when the commit lands.【F:.github/workflows/reusable-18-autofix.yml†L520-L575】【F:.github/workflows/reusable-18-autofix.yml†L675-L785】

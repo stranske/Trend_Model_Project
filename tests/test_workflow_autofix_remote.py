@@ -102,3 +102,7 @@ def test_autofix_opt_in_label_normalized_to_clean() -> None:
         small_with["clean_label"].count("autofix:clean") == 1
         and "autofix:clean" in small_with["clean_label"]
     ), "Clean label should mirror the opt-in label"
+    assert (
+        small_with["dry_run"]
+        == "${{ needs.context.outputs.same_repo != 'true' }}"
+    ), "Small fixes job must forward an explicit dry_run toggle for fork safety"

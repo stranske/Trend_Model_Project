@@ -482,7 +482,7 @@ jobs:
           fi
 
       - name: Commit changes (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -492,7 +492,7 @@ jobs:
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           set -euo pipefail
@@ -515,7 +515,7 @@ jobs:
           exit 1
 
       - name: Prepare commit summary (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
