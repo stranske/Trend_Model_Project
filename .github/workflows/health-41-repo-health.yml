@@ -162,6 +162,86 @@ jobs:
               summary.addRaw('All open issues have at least one assignee ✅', true);
             }
 
+            const expectedContextsByBranch = new Map();
+            expectedContextsByBranch.set(defaultBranch, ['Gate / gate']);
+
+            const expectedContexts = expectedContextsByBranch.get(defaultBranch) ?? [];
+            const branchProtectionResult = {
+              contexts: [],
+              strict: null,
+              source: 'branches',
+            };
+
+            try {
+              const protection = await github.rest.repos.getBranchProtection({
+                ...context.repo,
+                branch: defaultBranch,
+              });
+
+              const contexts = protection.data?.required_status_checks?.contexts;
+              if (Array.isArray(contexts)) {
+                branchProtectionResult.contexts = contexts.map(value => `${value}`);
+              }
+              if (typeof protection.data?.required_status_checks?.strict === 'boolean') {
+                branchProtectionResult.strict = protection.data.required_status_checks.strict;
+              }
+              branchProtectionResult.source = 'branchProtection';
+            } catch (error) {
+              core.warning(`Falling back to branch metadata for protection details: ${error.message}`);
+              const branch = await github.rest.repos.getBranch({
+                ...context.repo,
+                branch: defaultBranch,
+              });
+              const contexts = branch.data?.protection?.required_status_checks?.contexts;
+              if (Array.isArray(contexts)) {
+                branchProtectionResult.contexts = contexts.map(value => `${value}`);
+              }
+            }
+
+            const uniqueContexts = Array.from(new Set(branchProtectionResult.contexts.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+            const expectedSorted = [...expectedContexts].sort((a, b) => a.localeCompare(b));
+            const missing = expectedSorted.filter(contextName => !uniqueContexts.includes(contextName));
+            const unexpected = uniqueContexts.filter(contextName => !expectedSorted.includes(contextName));
+
+            summary.addHeading('Default branch protection', 2);
+            summary.addTable([
+              [
+                { data: 'Property', header: true },
+                { data: 'Value', header: true },
+              ],
+              ['Branch', defaultBranch],
+              ['Source', branchProtectionResult.source],
+              ['Expected contexts', expectedContexts.length > 0 ? expectedContexts.join(', ') : '–'],
+              ['Required contexts', uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–'],
+              ['Required “up to date”', branchProtectionResult.strict === null ? 'unknown' : String(branchProtectionResult.strict)],
+            ]);
+
+            let branchProtectionFailure = null;
+            if (missing.length > 0 || unexpected.length > 0) {
+              const problems = [];
+              if (missing.length > 0) {
+                problems.push(`missing contexts: ${missing.join(', ')}`);
+              }
+              if (unexpected.length > 0) {
+                problems.push(`unexpected contexts: ${unexpected.join(', ')}`);
+              }
+              const failurePrefix = `Branch protection drift detected for ${defaultBranch}`;
+              summary.addRaw(`❌ ${failurePrefix} — ${problems.join('; ')}`, true);
+
+              if (missing.includes('Gate / gate')) {
+                branchProtectionFailure = `Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Update branch protection to restore Gate.`;
+              } else {
+                branchProtectionFailure = `${failurePrefix} (${problems.join('; ')}).`;
+              }
+            } else {
+              summary.addRaw('✅ Branch protection contexts match the expected configuration.', true);
+            }
+
             await summary.write();
+
+            if (branchProtectionFailure) {
+              core.setFailed(branchProtectionFailure);
+              return;
+            }
 
             core.info('Repository health summary written to workflow run.');
