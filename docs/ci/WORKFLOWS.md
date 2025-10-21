@@ -74,33 +74,42 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 ## Maint Post-CI Summary & Failure Handling
 
-* [`maint-46-post-ci`](../../.github/workflows/maint-46-post-ci.yml) consumes the completed Gate run, normalises coverage artifacts with `.github/scripts/coverage-normalize.js`, publishes the consolidated PR summary, and manages failure tracker issues.
-* [`maint-coverage-guard`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
+* [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) consumes the completed Gate run, normalises coverage artifacts with `.github/scripts/coverage-normalize.js`, publishes the consolidated PR summary, and manages failure tracker issues.
+* [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
 
 The summary workflow updates its PR comment via `.github/scripts/comment-dedupe.js`, ensuring a single authoritative status thread per pull request.
 
-## Autofix & Cosmetic Repair
+## Autofix & Maintenance
 
-* [`reusable-18-autofix`](../../.github/workflows/reusable-18-autofix.yml) provides the shared jobs used by autofix callers to stage, classify, and report automatic fixes.
-* [`maint-45-cosmetic-repair`](../../.github/workflows/maint-45-cosmetic-repair.yml) invokes the reusable autofix pipeline on a schedule to keep cosmetic issues in check.
-* [`maint-keepalive`](../../.github/workflows/maint-keepalive.yml) ensures Codex/autofix configuration stays fresh and pings for outstanding tasks.
+* [`reusable-18-autofix.yml`](../../.github/workflows/reusable-18-autofix.yml) provides the shared jobs used by autofix callers to stage, classify, and report automatic fixes.
+* [`maint-45-cosmetic-repair.yml`](../../.github/workflows/maint-45-cosmetic-repair.yml) invokes the reusable autofix pipeline on a schedule to keep cosmetic issues in check.
+* [`maint-47-disable-legacy-workflows.yml`](../../.github/workflows/maint-47-disable-legacy-workflows.yml) sweeps the repository to make sure archived GitHub workflows remain disabled in the Actions UI.
+* [`maint-keepalive.yml`](../../.github/workflows/maint-keepalive.yml) ensures Codex/autofix configuration stays fresh and pings for outstanding tasks.
 
 ## Agents Control Plane
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
-* [`agents-70-orchestrator`](../../.github/workflows/agents-70-orchestrator.yml) and [`agents-73-codex-belt-conveyor`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) manage task distribution.
-* [`agents-71-codex-belt-dispatcher`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) and [`agents-72-codex-belt-worker`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
-* [`agents-guard`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
+* [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) and [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) manage task distribution.
+* [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) and [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
+* [`agents-63-codex-issue-bridge.yml`](../../.github/workflows/agents-63-codex-issue-bridge.yml) hydrates Codex bootstrap pull requests from labelled issues and can seed the primer comment.
+* [`agents-63-chatgpt-issue-sync.yml`](../../.github/workflows/agents-63-chatgpt-issue-sync.yml) turns curated topic lists into triaged GitHub issues via the shared parsing helpers.
+* [`agents-64-verify-agent-assignment.yml`](../../.github/workflows/agents-64-verify-agent-assignment.yml) validates that labelled issues retain an approved agent assignee and publishes the verification outputs.
+* [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
+* [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) is the composite invoked by the orchestrator to run readiness, bootstrap, diagnostics, keepalive, and watchdog passes.
 
 ## Repository Health Checks
 
 Scheduled health jobs keep the automation ecosystem aligned:
 
-* [`health-40-repo-selfcheck`](../../.github/workflows/health-40-repo-selfcheck.yml) synthesises a repo-wide self-check report.
-* [`health-41-repo-health`](../../.github/workflows/health-41-repo-health.yml) compiles dependency and hygiene signals.
-* [`health-42-actionlint`](../../.github/workflows/health-42-actionlint.yml) enforces workflow syntax quality.
-* [`health-43-ci-signature-guard`](../../.github/workflows/health-43-ci-signature-guard.yml) verifies signed workflow runs when required.
-* [`health-44-gate-branch-protection`](../../.github/workflows/health-44-gate-branch-protection.yml) ensures branch protection stays aligned with Gate expectations.
+* [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) synthesises a repo-wide self-check report.
+* [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) compiles dependency and hygiene signals.
+* [`health-42-actionlint.yml`](../../.github/workflows/health-42-actionlint.yml) enforces workflow syntax quality.
+* [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) verifies signed workflow runs when required.
+* [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml) ensures branch protection stays aligned with Gate expectations.
 
 Together these workflows define the CI surface area referenced by the Gate and Maint Post-CI jobs, keeping the automation stack observable, testable, and easier to evolve.
+
+## Self-test Harness
+
+* [`selftest-reusable-ci.yml`](../../.github/workflows/selftest-reusable-ci.yml) exercises `reusable-10-ci-python.yml` across curated scenarios, publishing summaries or PR comments so maintainers can validate reusable changes before they ship.
