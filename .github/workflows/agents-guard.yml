@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
 
 concurrency:
   group: agents-guard-${{ github.event.pull_request.number || github.run_id }}
@@ -205,6 +206,53 @@ jobs:
               issue_number: prNumber,
               body: markedBody,
             });
+
+      - name: Report agents guard commit status
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          BLOCKED: ${{ steps.evaluate.outputs.blocked || 'false' }}
+          SUMMARY: ${{ steps.evaluate.outputs.summary }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pullRequest = context.payload.pull_request;
+            const sha = pullRequest?.head?.sha || context.sha;
+
+            if (!sha) {
+              core.info('Head SHA unavailable; skipping commit status update.');
+              return;
+            }
+
+            const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
+            const summary = process.env.SUMMARY || '';
+            let state = blocked ? 'failure' : 'success';
+            let description = summary || (blocked
+              ? 'Health 45 Agents Guard blocked this pull request.'
+              : 'Health 45 Agents Guard passed.');
+
+            if (description.length > 140) {
+              description = `${description.slice(0, 137)}...`;
+            }
+
+            const targetUrl = process.env.TARGET_URL || `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'Health 45 Agents Guard / Enforce agents workflow protections',
+                description,
+                target_url: targetUrl,
+              });
+              core.info(`Updated Health 45 Agents Guard commit status to ${state}.`);
+            } catch (error) {
+              core.warning(`Failed to update Health 45 Agents Guard commit status: ${error.message}`);
+            }
 
       - name: Fail when guard blocks the pull request
         if: steps.evaluate.outputs.blocked == 'true'
