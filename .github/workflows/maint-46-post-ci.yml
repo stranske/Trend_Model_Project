@@ -896,7 +896,7 @@ jobs:
       caller_actor: ${{ needs.context.outputs.actor }}
       opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
       clean_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
-      commit_prefix: ${{ env.COMMIT_PREFIX }}
+      commit_prefix: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
       applied_label: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
       patch_label: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
       trigger_conclusion: ${{ github.event.workflow_run.conclusion }}
@@ -1128,7 +1128,7 @@ jobs:
       - name: Locate patch artifact
         id: patch_artifact
         if: >-
-          needs.small-fixes.outputs.patch_available == 'true' ||
+          contains(toJSON(needs['small-fixes'].outputs), '"patch_available":"true"') ||
           needs.fix-failing-checks.outputs.patch_available == 'true'
         uses: actions/github-script@v7
         env:
@@ -1171,37 +1171,18 @@ jobs:
           HEAD_SHA: ${{ needs.summarize.outputs.head_sha }}
           PR_NUMBER: ${{ needs.context.outputs.pr }}
           PATCH_URL: ${{ steps.patch_artifact.outputs.result }}
-          SMALL_RESULT: ${{ needs.small-fixes.result }}
-          SMALL_RAN: ${{ needs.small-fixes.outputs.ran }}
-          SMALL_CHANGED: ${{ needs.small-fixes.outputs.changed }}
-          SMALL_REMAINING: ${{ needs.small-fixes.outputs.remaining }}
-          SMALL_NEW: ${{ needs.small-fixes.outputs.new }}
-          SMALL_PATCH: ${{ needs.small-fixes.outputs.patch_available }}
-          SMALL_SKIP: ${{ needs.small-fixes.outputs.skip_reason }}
-          SMALL_TRIGGER_CONCLUSION: ${{ needs.small-fixes.outputs.trigger_conclusion }}
-          SMALL_TRIGGER_CLASS: ${{ needs.small-fixes.outputs.trigger_class }}
-          SMALL_TRIGGER_REASON: ${{ needs.small-fixes.outputs.trigger_reason }}
-          SMALL_TRIGGER_HEAD: ${{ needs.small-fixes.outputs.trigger_head }}
-          SMALL_MODE: ${{ needs.small-fixes.outputs.mode }}
-          SMALL_FILE_LIST: ${{ needs.small-fixes.outputs.file_list }}
+          SMALL_RESULT: ${{ needs['small-fixes'].result }}
+          SMALL_OUTPUTS_JSON: ${{ toJSON(needs['small-fixes'].outputs) }}
           SMALL_LABEL_PRESENT: ${{ needs.context.outputs.has_opt_in }}
           SMALL_SKIP_CONTEXT: ${{ needs.context.outputs.autofix_skip_reason }}
           FIX_RESULT: ${{ needs.fix-failing-checks.result }}
-          FIX_RAN: ${{ needs.fix-failing-checks.outputs.ran }}
-          FIX_CHANGED: ${{ needs.fix-failing-checks.outputs.changed }}
-          FIX_REMAINING: ${{ needs.fix-failing-checks.outputs.remaining }}
-          FIX_NEW: ${{ needs.fix-failing-checks.outputs.new }}
-          FIX_PATCH: ${{ needs.fix-failing-checks.outputs.patch_available }}
-          FIX_SKIP: ${{ needs.fix-failing-checks.outputs.skip_reason }}
-          FIX_TRIGGER_CONCLUSION: ${{ needs.fix-failing-checks.outputs.trigger_conclusion }}
-          FIX_TRIGGER_CLASS: ${{ needs.fix-failing-checks.outputs.trigger_class }}
-          FIX_TRIGGER_REASON: ${{ needs.fix-failing-checks.outputs.trigger_reason }}
-          FIX_TRIGGER_HEAD: ${{ needs.fix-failing-checks.outputs.trigger_head }}
+          FIX_OUTPUTS_JSON: ${{ toJSON(needs.fix-failing-checks.outputs) }}
           FAIL_JOB_NAMES: ${{ needs.context.outputs.failing_jobs }}
         run: |
           python <<'PY'
           from __future__ import annotations
 
+          import json
           import os
           import pathlib
           import re
@@ -1219,16 +1200,36 @@ jobs:
               prefix = parts[0].rstrip()
               suffix = (footer + parts[1]).strip()
 
-          def parse_bool(value: str | None) -> bool:
+          def load_outputs(prefix: str) -> Dict[str, Any]:
+              raw = os.environ.get(f"{prefix}_OUTPUTS_JSON") or ""
+              if not raw:
+                  return {}
+              try:
+                  parsed = json.loads(raw)
+              except json.JSONDecodeError:
+                  return {}
+              return parsed if isinstance(parsed, dict) else {}
+
+          outputs_cache = {key: load_outputs(key) for key in ("SMALL", "FIX")}
+          env = os.environ
+
+          def parse_bool(value: Any) -> bool:
+              if isinstance(value, bool):
+                  return value
               if value is None:
                   return False
-              return value.strip().lower() == "true"
+              return str(value).strip().lower() == "true"
 
-          def parse_int(value: str | None) -> int:
-              if value is None or not value.strip():
+          def parse_int(value: Any) -> int:
+              if value is None:
+                  return 0
+              if isinstance(value, (int, float)):
+                  return int(value)
+              text = str(value).strip()
+              if not text:
                   return 0
               try:
-                  return int(float(value.strip()))
+                  return int(float(text))
               except ValueError:
                   return 0
 
@@ -1265,17 +1266,17 @@ jobs:
           legacy_marker = "<!-- maint-46-post-ci: DO NOT EDIT -->"
 
           def build_entry(prefix_key: str, title: str, result: str | None) -> Dict[str, Any]:
-              env = os.environ
-              ran = parse_bool(env.get(f"{prefix_key}_RAN"))
-              changed = parse_bool(env.get(f"{prefix_key}_CHANGED"))
-              remaining = parse_int(env.get(f"{prefix_key}_REMAINING"))
-              new = parse_int(env.get(f"{prefix_key}_NEW"))
-              patch = parse_bool(env.get(f"{prefix_key}_PATCH"))
-              skip_raw = env.get(f"{prefix_key}_SKIP")
-              trigger_conclusion = (env.get(f"{prefix_key}_TRIGGER_CONCLUSION") or "").strip()
-              trigger_class = (env.get(f"{prefix_key}_TRIGGER_CLASS") or "").strip()
-              trigger_reason = (env.get(f"{prefix_key}_TRIGGER_REASON") or "").strip()
-              trigger_head = (env.get(f"{prefix_key}_TRIGGER_HEAD") or "").strip()
+              output_data = outputs_cache.get(prefix_key, {})
+              ran = parse_bool(output_data.get("ran"))
+              changed = parse_bool(output_data.get("changed"))
+              remaining = parse_int(output_data.get("remaining"))
+              new = parse_int(output_data.get("new"))
+              patch = parse_bool(output_data.get("patch_available"))
+              skip_raw = output_data.get("skip_reason")
+              trigger_conclusion = str(output_data.get("trigger_conclusion") or "").strip()
+              trigger_class = str(output_data.get("trigger_class") or "").strip()
+              trigger_reason = str(output_data.get("trigger_reason") or "").strip()
+              trigger_head = str(output_data.get("trigger_head") or "").strip()
               skip_reason = clean_reason(skip_raw)
               job_result = (result or "").lower()
               if job_result == "skipped" and not skip_reason and not ran:
@@ -1354,9 +1355,12 @@ jobs:
                   ]
               )
 
-          small_files_raw = os.environ.get("SMALL_FILE_LIST") or ""
+          small_outputs = outputs_cache.get("SMALL", {})
+          small_files_raw = small_outputs.get("file_list") or ""
+          if isinstance(small_files_raw, list):
+              small_files_raw = "\n".join(str(item) for item in small_files_raw)
           small_files = [line.strip() for line in small_files_raw.splitlines() if line.strip()]
-          small_mode = (os.environ.get("SMALL_MODE") or "").strip().lower()
+          small_mode = str(small_outputs.get("mode") or "").strip().lower()
           files_block: List[str] = []
           header = "### Files touched"
           if small_mode == "clean":
@@ -1370,7 +1374,8 @@ jobs:
 
           fail_jobs_raw = os.environ.get("FAIL_JOB_NAMES") or ""
           fail_jobs = [item.strip() for item in fail_jobs_raw.split(',') if item.strip()]
-          fix_ran = parse_bool(env.get("FIX_RAN"))
+          fix_outputs = outputs_cache.get("FIX", {})
+          fix_ran = parse_bool(fix_outputs.get("ran"))
           checks_block: List[str] = ["### Checks re-run", ""]
           if fix_ran or fail_jobs:
               if fail_jobs:
