@@ -221,19 +221,33 @@ async function upsertAnchoredComment({
   anchorPattern = /<!--\s*maint-46-post-ci:([^>]*)-->/i,
   fallbackMarker = '<!-- maint-46-post-ci:',
 }) {
-  const pr = Number(prNumber || 0);
-  if (!Number.isFinite(pr) || pr <= 0) {
-    warn(core, 'PR number missing; skipping comment update.');
-    return;
-  }
-
   let commentBody = body;
   if (!commentBody && commentPath) {
-    commentBody = fs.readFileSync(commentPath, 'utf8');
+    try {
+      commentBody = fs.readFileSync(commentPath, 'utf8');
+    } catch (error) {
+      warn(core, `Failed to read comment body from ${commentPath}: ${error?.message || error}`);
+    }
   }
   commentBody = trim(commentBody);
   if (!commentBody) {
     warn(core, 'Comment body empty; skipping update.');
+    return;
+  }
+
+  let pr = Number(prNumber || 0);
+  if (!Number.isFinite(pr) || pr <= 0) {
+    const anchorMeta = extractAnchoredMetadata(commentBody, anchorPattern);
+    if (anchorMeta?.pr) {
+      const parsed = Number(anchorMeta.pr);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        pr = parsed;
+      }
+    }
+  }
+
+  if (!Number.isFinite(pr) || pr <= 0) {
+    warn(core, 'PR number missing; skipping comment update.');
     return;
   }
 

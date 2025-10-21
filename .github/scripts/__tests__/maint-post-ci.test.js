@@ -14,6 +14,8 @@ const {
   resolveFailureIssuesForRecoveredPR,
   autoHealFailureIssues,
   snapshotFailureIssues,
+  applyCiFailureLabel,
+  removeCiFailureLabel,
 } = require('../maint-post-ci');
 
 function createCore() {
@@ -341,4 +343,54 @@ test('snapshotFailureIssues writes artifact snapshot', async () => {
     process.chdir(originalCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('applyCiFailureLabel adds label and ignores duplicates', async () => {
+  const core = createCore();
+  const context = { repo: { owner: 'octo', repo: 'demo' } };
+  let callCount = 0;
+  const github = {
+    rest: {
+      issues: {
+        addLabels: async payload => {
+          callCount += 1;
+          if (callCount > 1) {
+            const error = new Error('duplicate');
+            error.status = 422;
+            throw error;
+          }
+          assert.equal(payload.issue_number, 99);
+        },
+      },
+    },
+  };
+
+  await applyCiFailureLabel({ github, context, core, prNumber: '99' });
+  await applyCiFailureLabel({ github, context, core, prNumber: '99' });
+  assert.equal(callCount, 2);
+});
+
+test('removeCiFailureLabel removes label and ignores missing labels', async () => {
+  const core = createCore();
+  const context = { repo: { owner: 'octo', repo: 'demo' } };
+  let callCount = 0;
+  const github = {
+    rest: {
+      issues: {
+        removeLabel: async payload => {
+          callCount += 1;
+          if (callCount > 1) {
+            const error = new Error('missing');
+            error.status = 404;
+            throw error;
+          }
+          assert.equal(payload.issue_number, 99);
+        },
+      },
+    },
+  };
+
+  await removeCiFailureLabel({ github, context, core, prNumber: '99' });
+  await removeCiFailureLabel({ github, context, core, prNumber: '99' });
+  assert.equal(callCount, 2);
 });

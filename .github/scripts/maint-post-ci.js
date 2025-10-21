@@ -814,6 +814,51 @@ async function snapshotFailureIssues({ github, context, core }) {
   core.info(`Snapshot written with ${issues.length} open failure issues.`);
 }
 
+function parsePullNumber(value) {
+  const pr = Number(value || 0);
+  return Number.isFinite(pr) && pr > 0 ? pr : null;
+}
+
+async function applyCiFailureLabel({ github, context, core, prNumber }) {
+  const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
+  if (!pr) {
+    core.info('No PR number detected; skipping ci-failure label application.');
+    return;
+  }
+
+  const { owner, repo } = context.repo;
+  try {
+    await github.rest.issues.addLabels({ owner, repo, issue_number: pr, labels: ['ci-failure'] });
+    core.info(`Applied ci-failure label to PR #${pr}.`);
+  } catch (error) {
+    if (error?.status === 422) {
+      core.info(`ci-failure label already present on PR #${pr}.`);
+    } else {
+      throw error;
+    }
+  }
+}
+
+async function removeCiFailureLabel({ github, context, core, prNumber }) {
+  const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
+  if (!pr) {
+    core.info('No PR number detected; skipping ci-failure label removal.');
+    return;
+  }
+
+  const { owner, repo } = context.repo;
+  try {
+    await github.rest.issues.removeLabel({ owner, repo, issue_number: pr, name: 'ci-failure' });
+    core.info(`Removed ci-failure label from PR #${pr}.`);
+  } catch (error) {
+    if (error?.status === 404) {
+      core.info(`ci-failure label not present on PR #${pr}.`);
+    } else {
+      throw error;
+    }
+  }
+}
+
 module.exports = {
   discoverWorkflowRuns,
   propagateGateCommitStatus,
@@ -824,4 +869,6 @@ module.exports = {
   resolveFailureIssuesForRecoveredPR,
   autoHealFailureIssues,
   snapshotFailureIssues,
+  applyCiFailureLabel,
+  removeCiFailureLabel,
 };
