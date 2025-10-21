@@ -24,6 +24,21 @@ This guide helps diagnose why labeling an issue with `agent:codex` did **not** c
 | Activation comment missing | Suppression token present or suppression env/input set | Remove `[codex-suppress-activate]` or unset suppression vars |
 | Marker exists but PR missing | Marker written in manual mode before PR made | Open a draft PR from the branch; re-run labeling |
 
+## Frequently Asked Questions
+
+### Why does a GitHub link in a Codex summary comment only offer “Copy patch”/“Copy git apply”? Where did “Update branch” go?
+
+Recent summary comments pin file references to the exact commit that Codex analyzed (for example `https://github.com/<org>/<repo>/blob/<sha>/path/to/file#L123`).
+When you open that permalink, GitHub renders the single-commit view, whose toolbar focuses on patch export helpers such as **Copy patch** and **Copy git apply**.
+The **Update branch** button is only available on the main pull request page (Conversation/Files Changed tabs), so it disappears in commit-scoped views.
+
+To update the branch:
+
+1. Click the pull request number in the header breadcrumb or replace the commit hash in the URL with `pull/<number>` to return to the PR view.
+2. Use the **Update branch** button from that page if it is offered.
+
+This behavior is a GitHub UI constraint rather than a Codex workflow regression, and no action is needed unless you intend to update the branch.
+
 ## Token & Permission Matrix
 
 | Scenario | SERVICE_BOT_PAT | Behavior |

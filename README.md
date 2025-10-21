@@ -41,7 +41,7 @@ Pull requests trigger an automated formatting + light type hygiene pass:
 
 If the workflow makes changes it auto-commits a `chore(autofix): ...` patch onto the PR branch. See `docs/autofix_type_hygiene.md` for details, extension steps, and troubleshooting.
 
-The PR runner lives in `.github/workflows/pr-02-autofix.yml` while post-CI follow-up continues to run via `maint-46-post-ci.yml`, both delegating to the shared reusable autofix composite.
+Post-CI follow-up continues to run via `maint-46-post-ci.yml`, delegating to the shared reusable autofix composite.
 
 
 

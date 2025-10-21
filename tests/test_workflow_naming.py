@@ -184,7 +184,6 @@ EXPECTED_NAMES = {
     "agents-71-codex-belt-dispatcher.yml": "Agents 71 Codex Belt Dispatcher",
     "agents-72-codex-belt-worker.yml": "Agents 72 Codex Belt Worker",
     "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
-    "pr-02-autofix.yml": "PR 02 Autofix",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",

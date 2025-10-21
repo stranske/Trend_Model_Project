@@ -1,16 +1,16 @@
-# Issue #2820 – Tests-only cosmetic autofix
+# Issue #2820 – Clean-mode cosmetic autofix
 
 _Last reviewed: 2025-10-19_
 
 ## Scope & Key Constraints
-- Introduce a label-gated `autofix:tests` mode that reuses the existing cosmetic autofix workflow while constraining edits to `tests/**`.
-- Keep the standard `autofix` behaviour unchanged and allow maintainers to opt into the scoped mode by applying the additional label.
+- Introduce a label-gated `autofix:clean` mode that reuses the existing cosmetic autofix workflow while constraining edits to `tests/**`.
+- Keep the default Maint 46 behaviour unchanged when the label is absent while allowing maintainers to opt into the scoped `autofix:clean` mode.
 - Reuse Ruff import sorting, lint fixes, and formatting without widening rule coverage beyond the current workflow defaults.
 - Maintain present automation ergonomics (status comments, label management, artifact handling) and ensure runs abort if non-test paths are touched.
 - Preserve green Gate status after the new mode is exercised.
 
 ## Acceptance Criteria / Definition of Done
-1. [x] A demo PR with the `autofix:tests` label shows automation modifying only files beneath `tests/**`.
+1. [x] A demo PR with the `autofix:clean` label shows automation modifying only files beneath `tests/**`.
 2. [x] The workflow performs import reordering, whitespace normalisation, and simple Ruff fixes exclusively within the scoped files.
 3. [x] Automation posts a succinct tests-only summary comment enumerating the modified files when changes are applied.
 4. [x] Gate completes successfully after the changes.
@@ -19,7 +19,7 @@ _Last reviewed: 2025-10-19_
 _All acceptance criteria met._
 
 ## Task Checklist
-- [x] Review `.github/workflows/pr-02-autofix.yml` and `.github/workflows/reusable-18-autofix.yml` to wire the `autofix:tests` label through trigger and guard logic.
+- [x] Review `.github/workflows/maint-46-post-ci.yml` and `.github/workflows/reusable-18-autofix.yml` to wire the `autofix:clean` label through trigger and guard logic.
 - [x] Restrict Ruff invocations to `tests/` when the tests-only mode is active and abort if the diff contains non-test files.
 - [x] Extend `scripts/build_autofix_pr_comment.py` and regression tests to highlight the tests-only mode in the consolidated status comment.
 - [x] Document request/verification steps for the scoped sweep in contributor hygiene and CI workflow references.
