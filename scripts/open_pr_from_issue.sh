@@ -45,7 +45,16 @@ TMPFILE=$(mktemp)
     echo
   fi
   echo "—"
-  echo "(After opening the PR, comment with \`@codex start\`.)"
+  echo "Next steps for the PR author:"
+  echo "- Comment \`@codex start\` so Codex drafts the plan."
+  echo "- After Codex replies with the checklist, post the execution command below to begin delivery and enable keepalive."
+  echo
+  echo "Execution command (copy into a standalone PR comment):"
+  echo '\`\`\`markdown'
+  echo '@codex plan-and-execute'
+  echo
+  echo 'Codex, please execute the approved plan and keep the checklist updated.'
+  echo '\`\`\`'
 } >"$TMPFILE"
 
 # Create the PR as the current user

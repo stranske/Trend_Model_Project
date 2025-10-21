@@ -223,15 +223,14 @@ jobs:
             const message = [
               `Opened PR #${prNumber} to engage Codex.`,
               '',
-              'Comment with `@codex start`, then paste the helper text below so Codex can draft the scope, acceptance criteria, and starter task list for you.',
+              'Next steps for the PR author:',
+              '1. Comment `@codex start` (posted automatically when possible) so Codex drafts the plan.',
+              '2. After Codex replies with the checklist, post the execution command below to kick off delivery and enable keepalive nudge checks.',
               '',
               '```markdown',
-              '@codex start',
+              '@codex plan-and-execute',
               '',
-              'Codex, please derive and propose:',
-              '- Scope / key constraints',
-              '- Acceptance criteria / definition of done',
-              '- Initial task checklist to iterate through',
+              'Codex, please execute the approved plan and keep the checklist updated.',
               '```',
               '',
               'Issue context (optional: copy into the PR body if needed):',
@@ -300,7 +299,7 @@ jobs:
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.`;
+            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.\n\n---\n\nOnce the plan is posted, comment the snippet below to start execution and enable keepalive:\n\nThe following block should be pasted as a separate PR comment:\n\n\u0060\u0060\u0060markdown\n@codex plan-and-execute\n\nCodex, please execute the approved plan and keep the checklist updated.\n\u0060\u0060\u0060`;
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot post invite.'); return; }
             await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
@@ -381,7 +380,7 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. To engage Codex, the PR author must comment:\n\n\`@codex start\`` });
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. Comment \`@codex start\` to request the plan. After Codex replies, follow the instructions posted on the source issue to begin execution.` });
 
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
@@ -413,7 +412,18 @@ jobs:
               const message = [
                 `Opened PR #${prNumber} to engage Codex.`,
                 '',
-                'Copy/paste the snippet below into the PR description if needed, then comment `@codex start` when you are ready for Codex to work:',
+                'Next steps for the PR author:',
+                '- Comment `@codex start` (auto-posted when possible) so Codex drafts the plan.',
+                '- After Codex replies with the checklist, post the execution command below to begin delivery and enable keepalive.',
+                '',
+                'Execution command (copy into a standalone PR comment):',
+                '```markdown',
+                '@codex plan-and-execute',
+                '',
+                'Codex, please execute the approved plan and keep the checklist updated.',
+                '```',
+                '',
+                'Issue context (optional: copy into the PR description):',
                 '',
                 '```markdown',
                 snippet,
