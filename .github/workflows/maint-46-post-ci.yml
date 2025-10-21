@@ -1409,11 +1409,16 @@ jobs:
             const fs = require('fs');
             const { upsertSummaryComment } = require('./.github/scripts/comment-dedupe.js');
             const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
+            const issueNumberRaw = '${{ needs.context.outputs.pr }}';
+            if (!issueNumberRaw || isNaN(Number(issueNumberRaw))) {
+              core.setFailed(`Invalid or missing PR number: "${issueNumberRaw}". Skipping comment update.`);
+              return;
+            }
             await upsertSummaryComment({
               github,
               context,
               core,
-              issueNumber: '${{ needs.context.outputs.pr }}',
+              issueNumber: issueNumberRaw,
               body,
             });
   failure-tracker:
