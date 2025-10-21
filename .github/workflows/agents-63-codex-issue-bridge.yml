@@ -382,7 +382,12 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. Comment \`@codex start\` to request the plan. Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching. After Codex replies, follow the instructions posted on the source issue to begin execution.` });
+            const codexPromptMsg = [
+              "PR created. Comment `@codex start` to request the plan.",
+              "Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with `- [ ]` checklists so keepalive keeps watching.",
+              "After Codex replies, follow the instructions posted on the source issue to begin execution."
+            ].join(' ');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg });
 
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
