@@ -53,7 +53,9 @@ TMPFILE=$(mktemp)
   echo '\`\`\`markdown'
   echo '@codex plan-and-execute'
   echo
-  echo 'Codex, please execute the approved plan and keep the checklist updated.'
+  echo 'Codex, reuse the scope, acceptance criteria, and task list from the source issue.'
+  echo 'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.'
+  echo 'Work through the tasks, checking them off only after each acceptance criterion is satisfied.'
   echo '\`\`\`'
 } >"$TMPFILE"
 
