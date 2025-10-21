@@ -703,7 +703,10 @@ jobs:
               description = `Gate workflow concluded with ${conclusion}.`;
             }
 
-            const trimmed = description.length > 140 ? `${description.slice(0, 137)}...` : description;
+            const MAX_DESCRIPTION_LENGTH = 140;
+            const trimmed = description.length > MAX_DESCRIPTION_LENGTH
+              ? `${description.slice(0, MAX_DESCRIPTION_LENGTH - 3)}...`
+              : description;
             const runId = context.payload?.workflow_run?.id || context.runId;
             const baseUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
             const targetUrl = process.env.GATE_RUN_URL || `${baseUrl.replace(/\/$/, '')}/${owner}/${repo}/actions/runs/${runId}`;
