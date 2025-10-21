@@ -39,7 +39,9 @@ def _raw_entries(summary: dict) -> list[str]:
 
 def _details(summary: dict, title_prefix: str) -> dict | None:
     for entry in summary["entries"]:
-        if entry.get("type") == "details" and entry.get("title", "").startswith(title_prefix):
+        if entry.get("type") == "details" and entry.get("title", "").startswith(
+            title_prefix
+        ):
             return entry
     return None
 
@@ -91,7 +93,10 @@ def test_keepalive_dedupes_configuration() -> None:
     labels_line = next(line for line in raw if line.startswith("Target labels:"))
     logins_line = next(line for line in raw if line.startswith("Agent logins:"))
     assert _extract_marked_values(labels_line) == ["agent:codex", "agent:triage"]
-    assert _extract_marked_values(logins_line) == ["chatgpt-codex-connector", "helper-bot"]
+    assert _extract_marked_values(logins_line) == [
+        "chatgpt-codex-connector",
+        "helper-bot",
+    ]
 
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [505]
@@ -99,3 +104,22 @@ def test_keepalive_dedupes_configuration() -> None:
 
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and any("#505" in entry for entry in details["items"])
+
+
+def test_keepalive_waits_for_recent_command() -> None:
+    data = _run_scenario("command_pending")
+    summary = data["summary"]
+
+    created = data["created_comments"]
+    assert [item["issue_number"] for item in created] == [707]
+
+    info_logs = data["logs"]["info"]
+    assert any(
+        "#606: skipped – waiting for Codex response to the latest command (5.0 minutes < 10)."
+        == message
+        for message in info_logs
+    )
+
+    raw = _raw_entries(summary)
+    assert "Triggered keepalive count: 1" in raw
+    assert "Evaluated pull requests: 2" in raw

@@ -49,6 +49,7 @@ results/
 !/.github/signature-fixtures/basic_jobs.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
+!tests/fixtures/keepalive/*.json
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 ci/autofix/diagnostics.json
