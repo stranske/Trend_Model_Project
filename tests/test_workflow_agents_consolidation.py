@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
+KEEPALIVE_HELPER = Path("scripts/keepalive-runner.js")
 
 
 def _load_workflow_yaml(name: str) -> dict:
@@ -119,8 +120,9 @@ def test_keepalive_job_present():
     assert (
         "enable_keepalive" in text
     ), "Keepalive job must document enable_keepalive option"
+    helper = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert (
-        "<!-- codex-keepalive -->" in text
+        "<!-- codex-keepalive -->" in helper
     ), "Keepalive marker must be retained for duplicate suppression"
     assert (
         "issue_numbers_json" in text
@@ -131,13 +133,16 @@ def test_keepalive_job_present():
 def test_keepalive_job_defined_once():
     data = _load_workflow_yaml("reusable-16-agents.yml")
     jobs = data.get("jobs", {})
-    keepalive_jobs = [
-        (name, job.get("name"))
-        for name, job in jobs.items()
-        if isinstance(job, dict)
-        and isinstance(job.get("name"), str)
-        and "Codex Keepalive" in job.get("name")
-    ]
+    keepalive_jobs = []
+    for name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        job_name = job.get("name")
+        if not isinstance(job_name, str):
+            continue
+        if "Codex Keepalive" not in job_name:
+            continue
+        keepalive_jobs.append((name, job_name))
     assert keepalive_jobs == [
         ("keepalive", "Codex Keepalive Sweep")
     ], "Reusable workflow must expose a single Codex keepalive job"
@@ -376,7 +381,7 @@ def test_reusable_watchdog_job_gated_by_flag():
 
 
 def test_keepalive_summary_reports_scope_and_activity():
-    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert "Target labels:" in text, "Keepalive summary should list the label scope"
     assert (
         "Agent logins:" in text
@@ -396,16 +401,16 @@ def test_keepalive_summary_reports_scope_and_activity():
 
 
 def test_keepalive_summary_includes_skip_notice():
-    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert (
         "Skip requested via options_json." in text
     ), "Keepalive summary must log when the job exits early due to options overrides"
 
 
 def test_keepalive_dedupes_scope_configuration():
-    text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
+    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert (
-        "const dedupe =" in text
+        "const dedupe =" in text or "function dedupe(" in text
     ), "Keepalive script should define a dedupe helper for repeated inputs"
     assert (
         "targetLabels = dedupe(targetLabels)" in text
