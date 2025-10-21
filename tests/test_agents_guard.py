@@ -31,6 +31,7 @@ def run_guard(
     reviews=None,
     codeowners=None,
     protected=None,
+    author=None,
     marker=None,
 ):
     payload = {
@@ -41,6 +42,8 @@ def run_guard(
     }
     if protected is not None:
         payload["protectedPaths"] = protected
+    if author is not None:
+        payload["authorLogin"] = author
     if marker is not None:
         payload["marker"] = marker
 
@@ -191,6 +194,25 @@ def test_label_and_codeowner_approval_passes():
 
     assert result["blocked"] is False
     assert result["summary"] == "Health 45 Agents Guard passed."
+
+
+def test_codeowner_author_counts_as_approval():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "modified",
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=CODEOWNERS_SAMPLE,
+        author="stranske",
+    )
+
+    assert result["blocked"] is False
+    assert result["hasCodeownerApproval"] is True
+    assert result["authorIsCodeowner"] is True
 
 
 def test_unprotected_file_is_ignored():

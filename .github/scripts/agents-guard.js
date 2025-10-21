@@ -166,6 +166,7 @@ function evaluateGuard({
   codeownersContent = '',
   protectedPaths = DEFAULT_PROTECTED_PATHS,
   labelName = 'agents:allow-change',
+  authorLogin = '',
   marker = DEFAULT_MARKER,
 } = {}) {
   const normalizedLabelName = String(labelName).toLowerCase();
@@ -229,7 +230,10 @@ function evaluateGuard({
     }
   }
 
-  const hasCodeownerApproval = [...codeownerLogins].some((login) => approvedLogins.has(login));
+  const normalizedAuthor = authorLogin ? String(authorLogin).toLowerCase() : '';
+  const authorIsCodeowner = normalizedAuthor && codeownerLogins.has(normalizedAuthor);
+  const hasExternalApproval = [...codeownerLogins].some((login) => approvedLogins.has(login));
+  const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
 
   const needsLabel = modifiedProtectedPaths.size > 0 && !hasAllowLabel;
   const needsApproval = modifiedProtectedPaths.size > 0 && !hasCodeownerApproval;
@@ -315,6 +319,7 @@ function evaluateGuard({
     warnings,
     hasAllowLabel,
     hasCodeownerApproval,
+  authorIsCodeowner,
     needsLabel,
     needsApproval,
     modifiedProtectedPaths: [...modifiedProtectedPaths],

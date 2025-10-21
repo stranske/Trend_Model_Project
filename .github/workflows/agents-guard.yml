@@ -37,6 +37,7 @@ jobs:
             const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
             const prNumber = context.payload.pull_request.number;
+            const authorLogin = context.payload.pull_request.user && context.payload.pull_request.user.login;
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
             const labelName = 'agents:allow-change';
@@ -121,6 +122,7 @@ jobs:
               codeownersContent,
               protectedPaths,
               labelName,
+              authorLogin,
               marker,
             });
 
