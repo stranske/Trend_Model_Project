@@ -49,7 +49,7 @@ Flow:
 | `agent:codex` / `agent:copilot` | Marks automation-owned issues and PRs | Agent labeler |
 | `from:codex` / `from:copilot` | Origin marker for automation PRs | Agent labeler |
 | `autofix` / `autofix:applied` | Track PR autofix results | Autofix workflow |
-| `autofix:tests` / `autofix:tests-only` | Opt-in label that restricts cosmetic sweeps to `tests/**` and the status label applied when that mode runs | Autofix workflow |
+| `autofix:clean` / `autofix:clean-only` | Opt-in label that restricts cosmetic sweeps to `tests/**` and the status label applied when that mode runs | Maint 46 Post CI |
 | `ci-failure` | Pins the rolling CI dashboard issue | Maint 46 Post CI |
 | Area labels | Scope classification for review routing | Path labeler |
 

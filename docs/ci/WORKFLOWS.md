@@ -56,13 +56,13 @@ flowchart TD
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **PR 02 Autofix** | `.github/workflows/pr-02-autofix.yml` | `pull_request` (including label updates) | `contents: write`, `pull-requests: write` | **No** – runs only when the `autofix` label (or override) is present. | Delegates to `reusable-18-autofix.yml` to apply or upload safe formatting fixes. |
+| **PR 02 Autofix** *(retired)* | — | — | — | — | Superseded by the Maint 46 Post CI follower; opt-in autofix now runs after Gate completes. |
 
 **Operational details**
 - **Autofix** – Permissions: `contents: write`, `pull-requests: write`. Secrets: inherits `GITHUB_TOKEN` (sufficient for label
-  and comment updates). When the label is present it pushes low-risk fixes for same-repo branches or uploads a patch artifact for
-  forks, then updates cleanliness labels (`autofix:clean` / `autofix:debt`). Applying the optional `autofix:tests` label
-  restricts automation to the `tests/` tree and adds a dedicated summary comment highlighting the affected files.
+  and comment updates). When the label is present Maint 46 pushes low-risk fixes for same-repo branches or uploads a patch
+  artifact for forks, then updates cleanliness labels (`autofix:clean` / `autofix:debt`). Applying the optional `autofix:clean`
+  label restricts automation to the `tests/` tree and adds a dedicated summary comment highlighting the affected files.
 
 ### Maintenance & observability
 
@@ -111,7 +111,7 @@ when you need to download the `selftest-report` artifact emitted by the reusable
 | --- | --- | --- | --- | --- | --- |
 | **Reusable CI** | `.github/workflows/reusable-10-ci-python.yml` | `workflow_call` | Inherits caller permissions | No | Python lint/type/test reusable consumed by Gate and downstream repositories. |
 | **Reusable Docker Smoke** | `.github/workflows/reusable-12-ci-docker.yml` | `workflow_call` | Inherits caller permissions | No | Docker build + smoke reusable consumed by Gate and external callers. |
-| **Reusable 18 Autofix** | `.github/workflows/reusable-18-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness shared by `pr-02-autofix.yml` and `maint-46-post-ci.yml`. |
+| **Reusable 18 Autofix** | `.github/workflows/reusable-18-autofix.yml` | `workflow_call` | `contents: write`, `pull-requests: write` | No | Autofix harness invoked by `maint-46-post-ci.yml` for opt-in hygiene sweeps. |
 | **Reusable 16 Agents** | `.github/workflows/reusable-16-agents.yml` | `workflow_call` | `contents: write`, `pull-requests: write`, `issues: write`; optional `service_bot_pat` | No | Sole agents composite implementing readiness, bootstrap, diagnostics, keepalive, and watchdog jobs for all callers. |
 
 ## Archived workflows
@@ -295,7 +295,7 @@ Manual-only status means maintainers should review the Actions list during that 
 | Workflow | Consumed by | Notes |
 |----------|-------------|-------|
 | `reusable-16-agents.yml` (`Reusable 16 Agents`) | `agents-70-orchestrator.yml`, downstream repositories | Implements readiness, bootstrap, diagnostics, keepalive, and watchdog jobs.
-| `reusable-18-autofix.yml` (`Reusable 18 Autofix`) | `maint-46-post-ci.yml`, `pr-02-autofix.yml` | Autofix harness used both by the PR-time autofix workflow and the post-CI maintenance listener.
+| `reusable-18-autofix.yml` (`Reusable 18 Autofix`) | `maint-46-post-ci.yml` | Autofix harness used by the post-CI maintenance listener for label-gated hygiene sweeps.
 | `reusable-10-ci-python.yml` (`Reusable CI`) | Gate, downstream repositories | Single source for Python lint/type/test coverage runs.
 | `reusable-12-ci-docker.yml` (`Reusable Docker Smoke`) | Gate, downstream repositories | Docker build + smoke reusable consumed by Gate and external callers.
 

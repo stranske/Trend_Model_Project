@@ -1,10 +1,11 @@
 # Autofix Centralization Plan
 
 ## Scope and Key Constraints
+(Update: the standalone `pr-02-autofix` wrapper described here has since been retired. Maint 46 Post CI now runs the autofix composite exclusively.)
 - Consolidate all automated write operations that touch contributor pull requests into the `maint-46-post-ci` workflow, ensuring it remains the single authority for hygiene updates.
 - Maintain fork safety: avoid force pushes to contributor branches when the PR source resides in a fork; instead, rely on downloadable patch artifacts delivered through workflow summaries and PR comments.
 - Preserve existing loop guards and safety checks within the `maint-46-post-ci` workflow to prevent infinite retries or repeated patch uploads.
-- For the pre-CI `pr-02-autofix` workflow, enforce opt-in behaviour via an `autofix` label and guarantee only one in-flight run per pull request by using GitHub Actions concurrency controls.
+- For the former pre-CI `pr-02-autofix` workflow, enforce opt-in behaviour via an `autofix` label and guarantee only one in-flight run per pull request by using GitHub Actions concurrency controls. *(Superseded by Maint 46 Post CI.)*
 - Update documentation in `docs/ci/WORKFLOW_SYSTEM.md` to reflect the centralized autofix policy, fork-specific behaviour, and opt-in gating requirements.
 
 ## Acceptance Criteria / Definition of Done

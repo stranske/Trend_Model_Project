@@ -35,11 +35,9 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     must pass whenever a pull request touches `agents-*.yml` workflows. The
     guard enforces CODEOWNERS coverage, label requirements, and review policy
     before allowing protected automation changes to merge.
-- **Autofix lane** – The
-  [Autofix workflow](.github/workflows/pr-02-autofix.yml) runs on every
-  non-draft PR event. Drafts are ignored unless you opt in by adding the
-  `autofix` label; convert the PR back to draft (and drop the label) to
-  pause automation, then mark it ready when you want autofix to resume.
+- **Autofix lane** – Maintainers trigger autofix via the post-CI follower.
+  Opt in by adding the `autofix` label; the sweep runs once Gate finishes
+  and is handled by `maint-46-post-ci.yml`.
 - **Maint 46 Post-CI follower** – When Gate finishes, the
   [`maint-46-post-ci.yml`](.github/workflows/maint-46-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
