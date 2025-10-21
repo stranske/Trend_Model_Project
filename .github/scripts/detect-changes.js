@@ -129,7 +129,7 @@ function isDockerRelated(filename) {
   }
 
   const base = basenameWithoutExtension(filename);
-  if (base.startsWith('dockerfile')) {
+  if (normalizeCase(base).startsWith('dockerfile')) {
     return true;
   }
 
