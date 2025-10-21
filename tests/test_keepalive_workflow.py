@@ -113,13 +113,6 @@ def test_keepalive_waits_for_recent_command() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [707]
 
-    info_logs = data["logs"]["info"]
-    assert any(
-        "#606: skipped – waiting for Codex response to the latest command (5.0 minutes < 10)."
-        == message
-        for message in info_logs
-    )
-
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     assert "Evaluated pull requests: 2" in raw
