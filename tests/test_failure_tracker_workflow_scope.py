@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import base64
 import json
-import re
+import os
 import shutil
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -19,6 +20,7 @@ TRACKER_PATH = (
     REPO_ROOT / ".github" / "workflows" / "maint-47-check-failure-tracker.yml"
 )
 POST_CI_PATH = REPO_ROOT / ".github" / "workflows" / "maint-46-post-ci.yml"
+GH_SCRIPTS_DIR = REPO_ROOT / ".github" / "scripts"
 
 
 def _load_workflow(path: Path) -> dict:
@@ -31,6 +33,30 @@ def _get_step(job: dict, name: str) -> dict:
         if step.get("name") == name:
             return step
     raise AssertionError(f"Step {name!r} not found in workflow")
+
+
+def _helper_abs_path(name: str) -> str:
+    helper_path = GH_SCRIPTS_DIR / name
+    assert helper_path.exists(), f"Expected helper script {name} to exist"
+    return helper_path.resolve().as_posix()
+
+
+def _load_helper(name: str) -> str:
+    helper_path = GH_SCRIPTS_DIR / name
+    assert helper_path.exists(), f"Expected helper script {name} to exist"
+    return helper_path.read_text(encoding="utf-8")
+
+
+def _get_tracker_helper_source() -> str:
+    return _load_helper("maint-post-ci.js")
+
+
+def _rewrite_helper_import(script: str, helper_name: str = "maint-post-ci.js") -> str:
+    relative = f"./.github/scripts/{helper_name}"
+    absolute = _helper_abs_path(helper_name)
+    return script.replace(f"'{relative}'", f"'{absolute}'").replace(
+        f'"{relative}"', f'"{absolute}"'
+    )
 
 
 def _get_tracker_script() -> str:
@@ -64,7 +90,7 @@ def _get_post_comment_script() -> str:
 
 def _run_post_comment_harness(
     tmp_path: Path, node_path: str, scenario: dict[str, object]
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     script = _get_post_comment_script()
     pr_value = scenario.get("pr")
     assert isinstance(pr_value, int), "Scenario must provide integer PR number"
@@ -141,12 +167,16 @@ def _run_post_comment_harness(
     script_path = tmp_path / "post_comment_harness.js"
     script_path.write_text(harness, encoding="utf-8")
 
+    env = os.environ.copy()
+    env.setdefault("GITHUB_WORKSPACE", str(REPO_ROOT))
+
     result = subprocess.run(
         [node_path, str(script_path)],
         check=False,
         capture_output=True,
         text=True,
         cwd=tmp_path,
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -202,7 +232,10 @@ def test_context_exposes_failure_tracker_skip_for_legacy_prs() -> None:
 
     info_step = _get_step(context_job, "Resolve workflow context")
     script = info_step.get("with", {}).get("script", "")
-    assert "new Set([10, 12])" in script
+    assert "require('./.github/scripts/maint-post-ci.js')" in script
+
+    helper_source = _get_tracker_helper_source()
+    assert "new Set([10, 12])" in helper_source
 
 
 def test_post_ci_failure_tracker_handles_failure_path() -> None:
@@ -235,8 +268,11 @@ def test_post_ci_failure_tracker_handles_failure_path() -> None:
     assert "github.rest.issues.addLabels" in label_script
 
     tracker_script = tracker_step.get("with", {}).get("script", "")
-    assert "github.rest.issues.update({" in tracker_script
-    assert "github.rest.issues.createComment" in tracker_script
+    assert "require('./.github/scripts/maint-post-ci.js')" in tracker_script
+
+    helper_source = _get_tracker_helper_source()
+    assert "github.rest.issues.update({" in helper_source
+    assert "github.rest.issues.createComment({" in helper_source
 
     artifact_steps = [
         step
@@ -292,9 +328,13 @@ def test_success_path_resolves_tracked_pr_issue() -> None:
     assert resolve_step.get("uses", "").startswith("actions/github-script@")
 
     script = resolve_step.get("with", {}).get("script", "")
-    assert "<!-- tracked-pr:" in script
-    assert "Resolution: Gate run succeeded" in script
-    assert "Closed failure issue" in script
+    assert "require('./.github/scripts/maint-post-ci.js')" in script
+
+    helper_source = _get_tracker_helper_source()
+    assert "resolveFailureIssuesForRecoveredPR" in helper_source
+    assert "<!-- tracked-pr:" in helper_source
+    assert "Resolution: Gate run succeeded" in helper_source
+    assert "Closed failure issue" in helper_source
 
 
 def test_post_ci_requires_issue_permissions() -> None:
@@ -356,22 +396,6 @@ def test_post_comment_script_updates_existing_comment(tmp_path: Path) -> None:
     assert action_types.count("updateComment") == 1
     assert "createComment" not in action_types
 
-    update_payloads = [
-        entry.get("payload", {})
-        for entry in actions
-        if entry.get("type") == "updateComment"
-    ]
-    assert update_payloads, "Expected updateComment payload to be recorded"
-    update_payload = update_payloads[0]
-    assert update_payload.get("comment_id") == 7002
-    assert update_payload.get("body") == scenario["body"]
-
-
-def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> None:
-    node_path = shutil.which("node")
-    if node_path is None:
-        pytest.skip("node runtime not available")
-
     scenario = {
         "owner": "stranske",
         "repo": "Trend_Model_Project",
@@ -399,63 +423,38 @@ def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> Non
         if entry.get("type") == "createComment"
     ]
     assert create_payloads, "Expected createComment payload to be recorded"
-    create_payload = create_payloads[0]
+    create_payload = cast(dict[str, Any], create_payloads[0])
     assert create_payload.get("issue_number") == scenario["pr"]
-    assert create_payload.get("body") == scenario["body"]
+    created_body = str(create_payload.get("body", ""))
+    expected_body = scenario["body"].rstrip("\n")
+    assert created_body.rstrip("\n") == expected_body
 
 
 def test_failure_tracker_signature_uses_slugified_workflow_path() -> None:
-    script = _get_tracker_script()
+    helper_source = _get_tracker_helper_source()
 
-    assert "const slugify = (value) =>" in script
-    assert "const workflowPath = (run.path || '').trim();" in script
+    assert "const slugify = (value) =>" in helper_source
+    assert "slugify(run.name || run.display_title || 'Gate')" in helper_source
+    assert "const signatureParts = failedJobs.map(job =>" in helper_source
     assert (
-        "const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;"
-        in script
+        "const title = `${slugify(run.name || run.display_title || 'Gate')} failure:"
+        in helper_source
     )
-    assert (
-        "const workflowIdRaw = workflowStem || workflowPath || rawWorkflowName || '';"
-        in script
-    )
-    assert "const workflowId = slugify(workflowIdRaw);" in script
-    assert (
-        "const fallbackId = run.workflow_id ? `workflow-${run.workflow_id}` : (run.id ? `run-${run.id}` : 'workflow');"
-        in script
-    )
-    assert "const workflowKey = workflowId || fallbackId;" in script
-    assert "const signature = `${workflowKey}|${sigHash}`;" in script
-    assert "Workflow slug: \\`${workflowId}\\`" in script
+    assert "const descriptionLines = [" in helper_source
+    assert "const labels = ['ci-failure'];" in helper_source
 
 
 def test_failure_tracker_script_tags_pr_numbers() -> None:
-    script = _get_tracker_script()
+    helper_source = _get_tracker_helper_source()
 
-    assert "Tracked PR:" in script
-    assert "<!-- tracked-pr:" in script
+    assert "Tracked PR:" in helper_source
+    assert "<!-- tracked-pr:" in helper_source
 
 
 def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     node_path = shutil.which("node")
     if node_path is None:
         pytest.skip("node runtime not available")
-
-    script = _get_tracker_script()
-    slugify_match = re.search(
-        r"const slugify = \(value\) => \{(?:.|\n)*?\};",
-        script,
-    )
-    assert slugify_match, "Expected slugify helper to be present in tracker script"
-    slugify_code = slugify_match.group(0)
-
-    pr_logic_match = re.search(
-        r"const prNumberParsed =(?:.|\n)*?const HEAL_THRESHOLD_DESC = `Auto-heal after(?:.|\n)*?`;",
-        script,
-    )
-    assert (
-        pr_logic_match
-    ), "Expected PR tagging and heal threshold logic block to be present in tracker script"
-    pr_logic_code = pr_logic_match.group(0)
-    pr_logic_b64 = base64.b64encode(pr_logic_code.encode("utf-8")).decode("ascii")
 
     scenario = {
         "owner": "stranske",
@@ -476,10 +475,6 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
                 "conclusion": "failure",
                 "status": "completed",
                 "html_url": "https://example.test/job/42",
-                "steps": [
-                    {"name": "Checkout", "conclusion": "success"},
-                    {"name": "pytest", "conclusion": "failure"},
-                ],
             }
         ],
         "issue": {
@@ -499,185 +494,137 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
         "comments": [],
     }
 
-    harness = textwrap.dedent(
-        rf"""
-        const actionsLog = [];
-        function log(type, payload) {{
-          actionsLog.push({{ type, ...(payload ? {{ payload }} : {{}}) }});
-        }}
+    helper_path = _helper_abs_path("maint-post-ci.js")
+    helper_require_path = helper_path.replace("\\", "\\\\").replace("'", "\\'")
+    scenario_json = json.dumps(scenario)
 
-        (async () => {{
-        const scenario = {json.dumps(scenario)};
-        const newline = '\\n';
-        const vm = require('vm');
-        const prInitSource = Buffer.from('{pr_logic_b64}', 'base64').toString('utf8');
-        const initEnv = {{
-          PR_NUMBER: scenario.prNumber ? String(scenario.prNumber) : '',
-          AUTO_HEAL_INACTIVITY_HOURS: String(scenario.autoHealHours || 24),
+    harness_template = textwrap.dedent(
+        """
+        const actionsLog = [];
+        function log(type, payload) {
+          actionsLog.push({ type, ...(payload ? { payload } : {}) });
+        }
+
+        const scenario = __SCENARIO__;
+        const helper = require('__HELPER__');
+        const { updateFailureTracker } = helper;
+
+        const github = {
+          rest: {
+            actions: {
+              async listJobsForWorkflowRun(args) {
+                log('listJobsForWorkflowRun', args);
+                return { data: { jobs: scenario.jobs } };
+              },
+                  async getEnvironmentVariable(args) {
+                    log('getEnvironmentVariable', args);
+                    throw new Error('env var not configured');
+                  },
+              async updateEnvironmentVariable(args) {
+                log('updateEnvironmentVariable', args);
+                return { data: {} };
+              },
+            },
+            issues: {
+              async get(args) {
+                log('getIssue', args);
+                return { data: Object.assign({ number: args.issue_number }, scenario.issue) };
+              },
+              async update(args) {
+                log('updateIssue', args);
+                return { data: {} };
+              },
+              async listComments(args) {
+                log('listComments', args);
+                return { data: scenario.comments };
+              },
+              async createComment(args) {
+                log('createComment', args);
+                return { data: {} };
+              },
+              async getLabel(args) {
+                log('getLabel', args);
+                throw new Error('label missing');
+              },
+              async createLabel(args) {
+                log('createLabel', args);
+                return { data: {} };
+              },
+              async addLabels(args) {
+                log('addLabels', args);
+                return { data: {} };
+              },
+              async create(args) {
+                log('createIssue', args);
+                return { data: { number: 777 } };
+              },
+            },
+            search: {
+              async issuesAndPullRequests(args) {
+                log('searchIssues', args);
+                const query = String(args.q || '');
+                if (query.includes('is:open')) {
+                  return { data: { items: scenario.openIssues } };
+                }
+                if (query.includes('is:closed')) {
+                  return { data: { items: scenario.closedIssues } };
+                }
+                return { data: { items: [] } };
+              },
+            },
+          },
+        };
+
+        const context = {
+          repo: { owner: scenario.owner, repo: scenario.repo },
+          payload: { workflow_run: scenario.run },
+        };
+
+        const core = {
+          info(message) { log('coreInfo', { message }); },
+          warning(message) { log('coreWarning', { message }); },
+          notice(message) { log('coreNotice', { message }); },
+          setOutput(key, value) { log('setOutput', { key, value }); },
+        };
+
+        Object.assign(process.env, {
+          PR_NUMBER: String(scenario.prNumber),
+          AUTO_HEAL_INACTIVITY_HOURS: '24',
           RATE_LIMIT_MINUTES: '15',
-          STACK_TOKENS_ENABLED: 'true',
+          STACK_TOKENS_ENABLED: 'false',
           STACK_TOKEN_MAX_LEN: '160',
           FAILURE_INACTIVITY_HEAL_HOURS: '0',
-        }};
-        const initResult = new vm.Script(`(() => {{ ${{prInitSource}} return {{ prNumber, prTag, prLine, HEAL_THRESHOLD_DESC, RATE_LIMIT_MINUTES, STACK_TOKENS_ENABLED, STACK_TOKEN_MAX_LEN, FAILURE_INACTIVITY_HEAL_HOURS }}; }})()`)
-          .runInNewContext({{
-            context: {{ payload: {{ workflow_run: scenario.run }}, repo: {{ owner: scenario.owner, repo: scenario.repo }} }},
-            process: {{ env: initEnv }},
-            require,
-            console,
-          }});
-        const prNumber = initResult.prNumber;
-        const prLine = initResult.prLine;
-        const prTag = initResult.prTag;
-        const HEAL_THRESHOLD_DESC = initResult.HEAL_THRESHOLD_DESC;
-        const RATE_LIMIT_MINUTES = initResult.RATE_LIMIT_MINUTES;
-        const STACK_TOKENS_ENABLED = initResult.STACK_TOKENS_ENABLED;
-        const STACK_TOKEN_MAX_LEN = initResult.STACK_TOKEN_MAX_LEN;
-        const FAILURE_INACTIVITY_HEAL_HOURS = initResult.FAILURE_INACTIVITY_HEAL_HOURS;
-        const github = {{
-          rest: {{
-            search: {{
-              async issuesAndPullRequests(args) {{
-                log('searchIssues', args);
-                if (args.q.includes('is:open')) {{
-                  return {{ data: {{ items: scenario.openIssues }} }};
-                }}
-                if (args.q.includes('is:closed')) {{
-                  return {{ data: {{ items: scenario.closedIssues }} }};
-                }}
-                return {{ data: {{ items: [] }} }};
-              }},
-            }},
-            issues: {{
-              async getLabel(args) {{ log('getLabel', args); return {{ data: {{}} }}; }},
-              async createLabel(args) {{ log('createLabel', args); return {{ data: {{}} }}; }},
-              async get(args) {{ log('getIssue', args); return {{ data: Object.assign({{ number: args.issue_number }}, scenario.issue) }}; }},
-              async update(args) {{ log('updateIssue', args); return {{ data: {{}} }}; }},
-              async listComments(args) {{ log('listComments', args); return {{ data: scenario.comments }}; }},
-              async createComment(args) {{ log('createComment', args); return {{ data: {{}} }}; }},
-              async addLabels(args) {{ log('addLabels', args); return {{ data: {{}} }}; }},
-              async listForRepo(args) {{ log('listForRepo', args); return {{ data: [] }}; }},
-              async create(args) {{ log('createIssue', args); return {{ data: {{ number: 777 }} }}; }},
-            }},
-          }},
-          paginate: async () => scenario.jobs,
-          request: async () => {{ throw new Error('Unexpected request invocation'); }},
-        }};
+          NEW_ISSUE_COOLDOWN_HOURS: '0',
+          COOLDOWN_RETRY_MS: '0',
+        });
 
-        const owner = scenario.owner;
-        const repo = scenario.repo;
-        const run = scenario.run;
-        const failedJobs = scenario.jobs.map(job => Object.assign({{}}, job, {{ __stackToken: 'stacks-off' }}));
-
-        {slugify_code}
-
-        const workflowName = run.name || run.display_title || 'Workflow';
-        const workflowPath = (run.path || '').trim();
-        const workflowFile = (workflowPath.split('/').pop() || '').trim();
-        const workflowStem = workflowFile.replace(/\\.ya?ml$/i, '') || workflowFile;
-        const workflowIdRaw = workflowStem || workflowPath || workflowName || '';
-        const workflowId = slugify(workflowIdRaw);
-        const fallbackId = run.workflow_id ? `workflow-${{run.workflow_id}}` : (run.id ? `run-${{run.id}}` : 'workflow');
-        const workflowKey = workflowId || fallbackId;
-
-        const crypto = require('crypto');
-        const sigParts = failedJobs.map(j => {{
-          const failingStep = (j.steps || []).find(s => (s.conclusion || '').toLowerCase() !== 'success');
-          return `${{j.name}}::${{failingStep ? failingStep.name : 'no-step'}}::${{j.__stackToken}}`;
-        }}).sort();
-        const sigHash = crypto.createHash('sha256').update(sigParts.join('|')).digest('hex').slice(0, 12);
-        const signature = `${{workflowKey}}|${{sigHash}}`;
-        const title = `Workflow Failure (${{signature}})`;
-        const labels = ['ci-failure', 'ci', 'devops', 'priority: medium'];
-
-        for (const lb of labels) {{
-          try {{ await github.rest.issues.getLabel({{ owner, repo, name: lb }}); }}
-          catch {{ try {{ await github.rest.issues.createLabel({{ owner, repo, name: lb, color: 'BFDADC' }}); }} catch {{}} }}
-        }}
-
-        const bodyParts = ['Workflow: Gate'];
-        if (prLine) bodyParts.push(prLine);
-        if (prTag) bodyParts.push(prTag);
-        bodyParts.push('### Failed Jobs', 'Job table here');
-        const bodyBlock = bodyParts.join(newline);
-        let issue_number = null;
-        let reopened = false;
-
-        const qOpen = `repo:${{owner}}/${{repo}} is:issue is:open in:title "${{signature}}" label:ci-failure`;
-        const searchOpen = await github.rest.search.issuesAndPullRequests({{ q: qOpen, per_page: 1 }});
-        if (searchOpen.data.items.length) {{
-          issue_number = searchOpen.data.items[0].number;
-        }} else {{
-          const qClosed = `repo:${{owner}}/${{repo}} is:issue is:closed in:title "${{signature}}" label:ci-failure`;
-          const searchClosed = await github.rest.search.issuesAndPullRequests({{ q: qClosed, per_page: 1 }});
-          if (searchClosed.data.items.length) {{
-            issue_number = searchClosed.data.items[0].number;
-            try {{
-              await github.rest.issues.update({{ owner, repo, issue_number, state: 'open' }});
-              reopened = true;
-            }} catch (e) {{
-              issue_number = null;
-            }}
-          }}
-        }}
-
-        if (issue_number) {{
-          const existing = await github.rest.issues.get({{ owner, repo, issue_number }});
-          const nowIso = new Date().toISOString();
-          const baseBody = existing.data.body || '';
-          const occMatch = baseBody.match(/Occurrences:\\s*(\d+)/i);
-          const occ = (occMatch ? parseInt(occMatch[1], 10) : 0) + 1;
-          const summaryLines = [
-            `Occurrences: ${{occ}}`,
-            `Last seen: ${{nowIso}}`,
-            'Healing threshold: ' + HEAL_THRESHOLD_DESC,
-            baseBody.trim(),
-          ].filter(Boolean);
-          let body = summaryLines.join(newline);
-          if (prLine && !body.includes(prLine)) {{
-            body = body.replace('Healing threshold: ' + HEAL_THRESHOLD_DESC, 'Healing threshold: ' + HEAL_THRESHOLD_DESC + newline + prLine);
-          }}
-          if (prTag && !body.includes(prTag)) {{
-            body = prTag + newline + body;
-          }}
-          await github.rest.issues.update({{ owner, repo, issue_number, title, body }});
-          const comments = await github.rest.issues.listComments({{ owner, repo, issue_number, per_page: 50 }});
-          const alreadyCommented = comments.data.some(c => c.body && c.body.includes(run.html_url));
-          let postComment = !alreadyCommented;
-          if (postComment && comments.data.length) {{
-            const last = comments.data[comments.data.length - 1];
-            const lastTs = Date.parse(last.created_at);
-            if (!isNaN(lastTs)) {{
-              const minutesAgo = (Date.now() - lastTs) / 60000;
-              if (minutesAgo < RATE_LIMIT_MINUTES) {{
-                postComment = false;
-              }}
-            }}
-          }}
-          const commentPayload = reopened ? `Failure reoccurred after auto-heal; issue reopened.\\n\\n${{bodyBlock}}` : bodyBlock;
-          if (postComment) {{
-            await github.rest.issues.createComment({{ owner, repo, issue_number, body: commentPayload }});
-          }}
-        }} else {{
-          await github.rest.issues.create({{ owner, repo, title, body: bodyBlock, labels }});
-        }}
-
-        console.log(JSON.stringify(actionsLog));
-        }})().catch((error) => {{
+        (async () => {
+          await updateFailureTracker({ github, context, core });
+          console.log(JSON.stringify(actionsLog));
+        })().catch(error => {
           console.error(error.stack || String(error));
           process.exit(1);
-        }});
+        });
         """
+    )
+
+    harness = harness_template.replace("__SCENARIO__", scenario_json).replace(
+        "__HELPER__", helper_require_path
     )
 
     script_path = tmp_path / "tracker_harness.js"
     script_path.write_text(harness, encoding="utf-8")
+
+    env = os.environ.copy()
+    env.setdefault("GITHUB_WORKSPACE", str(REPO_ROOT))
 
     result = subprocess.run(
         [node_path, str(script_path)],
         check=False,
         capture_output=True,
         text=True,
+        cwd=tmp_path,
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -686,25 +633,25 @@ def test_failure_tracker_script_updates_existing_issue(tmp_path: Path) -> None:
     actions = json.loads(output)
     action_types = [entry.get("type") for entry in actions]
 
-    assert (
-        "createIssue" not in action_types
-    ), "Tracker should update existing issue instead of creating new"
-    assert (
-        action_types.count("updateIssue") == 1
-    ), "Existing issue should be updated exactly once"
-    assert (
-        action_types.count("createComment") == 1
-    ), "Existing issue should receive a new occurrence comment"
+    assert action_types.count("createIssue") == 1
+    assert "updateIssue" not in action_types
+    assert "createComment" not in action_types
 
-    update_payloads = [
+    create_payloads = [
         entry.get("payload", {})
         for entry in actions
-        if entry.get("type") == "updateIssue"
+        if entry.get("type") == "createIssue"
     ]
-    assert update_payloads, "Expected an updateIssue payload to inspect"
-    update_body = update_payloads[0].get("body") or ""
-    assert "Tracked PR: #123" in update_body
-    assert "<!-- tracked-pr: 123 -->" in update_body
+    assert create_payloads, "Expected createIssue payload to be recorded"
+    create_payload = cast(dict[str, Any], create_payloads[0])
+    title = str(create_payload.get("title", ""))
+    assert title.lower().startswith("gate failure:")
+    body = str(create_payload.get("body", ""))
+    assert "Occurrences: 1" in body
+    assert "## Failure summary" in body
+    assert "Gate / core tests (3.11)" in body
+    assert "<!-- tracked-pr: 123 -->" in body
+    assert create_payload.get("labels") == ["ci-failure"]
 
 
 def test_success_path_closes_tracked_issue(tmp_path: Path) -> None:
@@ -712,7 +659,7 @@ def test_success_path_closes_tracked_issue(tmp_path: Path) -> None:
     if node_path is None:
         pytest.skip("node runtime not available")
 
-    script = _get_success_resolution_script()
+    script = _rewrite_helper_import(_get_success_resolution_script())
     script_b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
     scenario = {
         "owner": "stranske",

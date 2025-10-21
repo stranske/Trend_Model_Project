@@ -92,11 +92,21 @@ def test_gate_docs_only_branching_logic():
     ), "Docs-only step must run only for doc-only changes"
 
     script_block = ((docs_only_step.get("with") or {}).get("script")) or ""
-    assert "core.setOutput('state', 'success')" in script_block
-    assert "core.setOutput('description', message)" in script_block
-    assert (
-        "Gate fast-pass" in script_block
-    ), "Docs-only script must communicate fast-pass message"
+    assert "require('./.github/scripts/gate-docs-only.js')" in script_block
+    assert "handleDocsOnlyFastPass" in script_block
+
+    helper_path = pathlib.Path(".github/scripts/gate-docs-only.js")
+    assert helper_path.exists(), "gate-docs-only helper script must exist"
+    helper_source = helper_path.read_text(encoding="utf-8")
+    expected_snippets = {
+        "state output": "state: 'success'",
+        "description output": "description: message",
+        "fast-pass message": "Gate fast-pass: docs-only change detected; heavy checks skipped.",
+    }
+    for label, snippet in expected_snippets.items():
+        assert (
+            snippet in helper_source
+        ), f"Docs-only helper script should define {label}"
 
 
 def test_inventory_docs_list_all_workflows():

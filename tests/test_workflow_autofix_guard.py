@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
+GITHUB_SCRIPTS = pathlib.Path(".github/scripts")
 
 
 def _load_yaml(name: str) -> Dict[str, Any]:
@@ -42,6 +43,7 @@ def _guarded_follow_up_steps(
 
 
 WORKFLOW_FILE = "maint-46-post-ci.yml"
+HELPER_FILE = "maint-post-ci.js"
 
 
 def test_autofix_workflow_uses_repo_commit_prefix() -> None:
@@ -58,11 +60,25 @@ def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     assert not missing, f"Reusable autofix steps missing guard condition: {missing}"
 
 
-def _extract_trivial_keywords(script: str) -> set[str]:
-    match = re.search(r"TRIVIAL_KEYWORDS\s*\|\|\s*'([^']+)'", script)
+def _load_helper(name: str) -> str:
+    helper_path = GITHUB_SCRIPTS / name
+    assert helper_path.exists(), f"Expected helper script to exist: {name}"
+    return helper_path.read_text(encoding="utf-8")
+
+
+def _extract_trivial_keywords(source: str) -> set[str]:
+    patterns = (
+        r"TRIVIAL_KEYWORDS\s*\|\|\s*'([^']+)'",
+        r"AUTOFIX_TRIVIAL_KEYWORDS\s*\|\|\s*'([^']+)'",
+    )
+    match = None
+    for pattern in patterns:
+        match = re.search(pattern, source)
+        if match:
+            break
     if not match:
         raise AssertionError(
-            "Default TRIVIAL_KEYWORDS clause missing from autofix workflow"
+            "Default AUTOFIX_TRIVIAL_KEYWORDS clause missing from autofix helper"
         )
     return {token.strip() for token in match.group(1).split(",") if token.strip()}
 
@@ -73,7 +89,10 @@ def test_autofix_trivial_keywords_cover_lint_type_and_tests() -> None:
         step for step in data["jobs"]["context"]["steps"] if step.get("id") == "failure"
     )
     script = failure_step["with"]["script"]
-    keywords = _extract_trivial_keywords(script)
+    assert "require('./.github/scripts/maint-post-ci.js')" in script
+
+    helper_source = _load_helper(HELPER_FILE)
+    keywords = _extract_trivial_keywords(helper_source)
     expected = {"lint", "mypy", "test"}
     missing = expected.difference(keywords)
     assert not missing, f"Autofix trivial keywords missing expected tokens: {missing}"

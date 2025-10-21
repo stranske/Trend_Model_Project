@@ -19,178 +19,19 @@ jobs:
       reason: ${{ steps.diff.outputs.reason }}
       docker_changed: ${{ steps.docker_paths.outputs.docker == 'true' || steps.diff.outputs.docker_changed == 'true' }}
     steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
       - name: Detect changes via API
         id: diff
         uses: actions/github-script@v7
         with:
           script: |
-            const eventName = context.eventName;
-
-            if (eventName !== 'pull_request') {
-              core.setOutput('doc_only', 'false');
-              core.setOutput('run_core', 'true');
-              core.setOutput('reason', 'non_pr_event');
-              core.setOutput('docker_changed', 'true');
-              return;
-            }
-
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-              per_page: 100,
-            });
-
-            const classify = filename => {
-              const normalised = filename.toLowerCase();
-
-              const docExtensions = [
-                '.md',
-                '.mdx',
-                '.markdown',
-                '.rst',
-                '.txt',
-                '.qmd',
-                '.adoc',
-              ];
-              if (docExtensions.some(ext => normalised.endsWith(ext))) {
-                return true;
-              }
-
-              const docBasenames = new Set([
-                'readme',
-                'changelog',
-                'contributing',
-                'code_of_conduct',
-                'code-of-conduct',
-                'security',
-                'guidelines',
-                'mkdocs',
-                'docfx',
-                'antora-playbook',
-              ]);
-              const normalizedWithSlashes = normalised.replace(/\//g, '/');
-              const basename = normalizedWithSlashes.split('/').pop();
-              if (basename) {
-                const nameWithoutExt = basename.includes('.')
-                  ? basename.slice(0, basename.lastIndexOf('.'))
-                  : basename;
-                if (docBasenames.has(nameWithoutExt)) {
-                  return true;
-                }
-              }
-
-              const docPrefixes = [
-                'docs/',
-                'docs\\',
-                'docs_',
-                'doc/',
-                'doc\\',
-                'assets/docs/',
-                'assets/docs\\',
-                'documentation/',
-                'documentation\\',
-                'guides/',
-                'handbook/',
-                'manual/',
-              ];
-              if (docPrefixes.some(prefix => normalised.startsWith(prefix))) {
-                return true;
-              }
-
-              const docSegments = [
-                '/docs/',
-                '/doc/',
-                '/documentation/',
-                '/manual/',
-                '/design-docs/',
-                '/handbook/',
-                '/guide/',
-                '/guides/',
-                '/adr/',
-                '/rfcs/',
-                '/specs/',
-                '/notes/',
-                '\\docs\\',
-                '\\doc\\',
-                '\\documentation\\',
-                '\\manual\\',
-                '\\design-docs\\',
-                '\\handbook\\',
-                '\\guide\\',
-                '\\guides\\',
-                '\\adr\\',
-                '\\rfcs\\',
-                '\\specs\\',
-                '\\notes\\',
-              ];
-              if (docSegments.some(segment => normalised.includes(segment))) {
-                return true;
-              }
-
-              return false;
-            };
-
-            const changedFiles = files.map(file => file.filename);
-            const hasChanges = changedFiles.length > 0;
-            const nonDocFiles = changedFiles.filter(filename => !classify(filename));
-
-            const dockerRelated = filename => {
-              // Treat Docker artefacts, supporting directories, and ignore rules as
-              // Docker-related so the smoke test only runs when these assets change.
-              const normalised = filename.toLowerCase();
-
-              if (normalised === 'dockerfile') {
-                return true;
-              }
-
-              const dockerfileSuffixes = ['/dockerfile', '\\dockerfile'];
-              if (dockerfileSuffixes.some(suffix => normalised.endsWith(suffix))) {
-                return true;
-              }
-
-              const normalizedWithSlashes = normalised.replace(/\//g, '/');
-              const basename = normalizedWithSlashes.split('/').pop();
-              if (basename && basename.startsWith('dockerfile')) {
-                return true;
-              }
-
-              if (normalised === '.dockerignore') {
-                return true;
-              }
-
-              const dockerPrefixes = ['docker/', 'docker\\', '.docker/', '.docker\\'];
-              if (dockerPrefixes.some(prefix => normalised.startsWith(prefix))) {
-                return true;
-              }
-
-              const dockerSegments = [
-                '/docker/',
-                '\\docker\\',
-                '/.docker/',
-                '\\.docker\\',
-              ];
-              if (dockerSegments.some(segment => normalised.includes(segment))) {
-                return true;
-              }
-
-              return false;
-            };
-
-            const docOnly = hasChanges ? nonDocFiles.length === 0 : true;
-            const dockerChanged = changedFiles.some(filename => dockerRelated(filename));
-
-            let reason = 'code_changes';
-            if (!hasChanges) {
-              reason = 'no_changes';
-            } else if (docOnly) {
-              reason = 'docs_only';
-            }
-
-            core.setOutput('doc_only', docOnly ? 'true' : 'false');
-            core.setOutput('run_core', docOnly ? 'false' : 'true');
-            core.setOutput('reason', reason);
-            core.setOutput('docker_changed', dockerChanged ? 'true' : 'false');
+            const { detectChanges } = require('./.github/scripts/detect-changes.js');
+            await detectChanges({ github, context, core });
 
       - name: Detect Docker-related changes via paths filter
         if: github.event_name == 'pull_request'
@@ -259,6 +100,12 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
       - name: Handle docs-only change
         if: needs.detect.outputs.doc_only == 'true'
         id: docs_only
@@ -267,182 +114,46 @@ jobs:
           REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
         with:
           script: |
-            const reason = process.env.REASON || 'docs_only';
-
-            let message;
-            if (!reason || reason === 'docs_only') {
-              message = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
-            } else if (reason === 'no_changes') {
-              message = 'Gate fast-pass: no changes detected; heavy checks skipped.';
-            } else {
-              message = `Gate fast-pass: docs-only change detected; heavy checks skipped. Reason: ${reason}.`;
-            }
-
-            core.info(message);
-            core.setOutput('state', 'success');
-            core.setOutput('description', message);
-            const marker = '<!-- gate-docs-only -->';
-            const commentBody = `${message}\n\n${marker}`;
-            core.setOutput('comment_body', commentBody);
-
-            await core.summary
-              .addHeading('Gate docs-only fast-pass', 3)
-              .addRaw(`${message}\n`)
-              .write();
+            const { handleDocsOnlyFastPass } = require('./.github/scripts/gate-docs-only.js');
+            await handleDocsOnlyFastPass({ core, reason: process.env.REASON });
 
       - name: Ensure docs-only fast-pass comment
         if: needs.detect.outputs.doc_only == 'true'
         uses: actions/github-script@v7
         env:
           COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
-              core.info('Not a pull_request event; skipping comment management.');
-              return;
-            }
-
-            const commentBody = process.env.COMMENT_BODY;
-            if (!commentBody) {
-              core.setFailed('Docs-only comment body is missing.');
-              return;
-            }
-
-            const marker = '<!-- gate-docs-only -->';
-            const baseMessage = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const issue_number = context.payload.pull_request.number;
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number,
-              per_page: 100,
+            const { ensureMarkerComment } = require('./.github/scripts/comment-dedupe.js');
+            const { DEFAULT_MARKER, BASE_MESSAGE } = require('./.github/scripts/gate-docs-only.js');
+            await ensureMarkerComment({
+              github,
+              context,
+              core,
+              commentBody: process.env.COMMENT_BODY,
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessage: process.env.BASE_MESSAGE || BASE_MESSAGE,
             });
-
-            let target = null;
-            const duplicates = [];
-            for (const comment of comments) {
-              if (typeof comment.body !== 'string') {
-                continue;
-              }
-
-              const body = comment.body;
-              const trimmed = body.trim();
-              const hasMarker = body.includes(marker);
-              const isLegacy = trimmed === baseMessage || trimmed.startsWith(baseMessage);
-
-              if (!hasMarker && !isLegacy) {
-                continue;
-              }
-
-              if (!target) {
-                target = { comment, hasMarker };
-                continue;
-              }
-
-              if (!target.hasMarker && hasMarker) {
-                duplicates.push(target.comment);
-                target = { comment, hasMarker };
-              } else {
-                duplicates.push(comment);
-              }
-            }
-
-            const desired = commentBody.trim();
-            let targetId = target?.comment?.id;
-
-            if (targetId) {
-              const current = typeof target.comment.body === 'string' ? target.comment.body.trim() : '';
-              if (current === desired) {
-                core.info(`Existing docs-only comment ${targetId} is up to date.`);
-              } else {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: targetId,
-                  body: commentBody,
-                });
-                core.info(`Updated docs-only comment ${targetId}.`);
-              }
-            } else {
-              const created = await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number,
-                body: commentBody,
-              });
-              targetId = created.data.id;
-              core.info(`Created docs-only comment ${targetId}.`);
-            }
-
-            for (const duplicate of duplicates) {
-              if (!duplicate || duplicate.id === targetId) {
-                continue;
-              }
-
-              await github.rest.issues.deleteComment({
-                owner,
-                repo,
-                comment_id: duplicate.id,
-              });
-              core.info(`Removed duplicate docs-only comment ${duplicate.id}.`);
-            }
 
       - name: Remove docs-only fast-pass comment when not needed
         if: needs.detect.outputs.doc_only != 'true'
         uses: actions/github-script@v7
+        env:
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
-              core.info('Not a pull_request event; nothing to clean up.');
-              return;
-            }
-
-            const marker = '<!-- gate-docs-only -->';
-            const baseMessage =
-              'Gate fast-pass: docs-only change detected; heavy checks skipped.';
-            const legacyBodies = new Set([baseMessage]);
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              per_page: 100,
+            const { removeMarkerComments } = require('./.github/scripts/comment-dedupe.js');
+            const { DEFAULT_MARKER, BASE_MESSAGE } = require('./.github/scripts/gate-docs-only.js');
+            await removeMarkerComments({
+              github,
+              context,
+              core,
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
             });
-
-            const targets = comments.filter(comment => {
-              if (typeof comment.body !== 'string') {
-                return false;
-              }
-
-              if (comment.body.includes(marker)) {
-                return true;
-              }
-
-              const trimmed = comment.body.trim();
-              if (legacyBodies.has(trimmed)) {
-                return true;
-              }
-
-              return trimmed.startsWith(baseMessage);
-            });
-
-            if (targets.length === 0) {
-              core.info('No docs-only fast-pass comment found to remove.');
-              return;
-            }
-
-            for (const comment of targets) {
-              await github.rest.issues.deleteComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: comment.id,
-              });
-              core.info(`Removed docs-only fast-pass comment ${comment.id}.`);
-            }
-
       - name: Download coverage (3.11)
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
         continue-on-error: true
