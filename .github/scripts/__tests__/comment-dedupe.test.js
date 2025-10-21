@@ -7,6 +7,8 @@ const {
   selectMarkerComment,
   extractAnchoredMetadata,
   findAnchoredComment,
+  ensureMarkerComment,
+  removeMarkerComments,
 } = require('../comment-dedupe');
 
 test('selectMarkerComment prefers marker comment', () => {
@@ -51,4 +53,83 @@ test('findAnchoredComment matches anchor metadata first', () => {
     targetAnchor: { pr: '9', head: 'zzz' },
   });
   assert.equal(missingAnchor.id, 1);
+});
+
+test('ensureMarkerComment updates marker comment and prunes duplicates', async () => {
+  const actions = [];
+  const comments = [
+    { id: 1, body: 'Gate fast-pass message\n<!-- gate-docs-only -->' },
+    { id: 2, body: 'Gate fast-pass message' },
+  ];
+  const github = {
+    paginate: async () => comments,
+    rest: {
+      issues: {
+        listComments: async () => ({ data: comments }),
+        updateComment: async ({ comment_id, body }) => {
+          actions.push({ type: 'update', id: comment_id, body });
+        },
+        createComment: async () => {
+          throw new Error('createComment should not be called');
+        },
+        deleteComment: async ({ comment_id }) => {
+          actions.push({ type: 'delete', id: comment_id });
+        },
+      },
+    },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'test', repo: 'repo' },
+    payload: { pull_request: { number: 42 } },
+  };
+
+  await ensureMarkerComment({
+    github,
+    context,
+    core: null,
+    commentBody: 'Updated message\n<!-- gate-docs-only -->',
+    marker: '<!-- gate-docs-only -->',
+    baseMessage: 'Gate fast-pass message',
+  });
+
+  assert.deepEqual(actions, [
+    { type: 'update', id: 1, body: 'Updated message\n<!-- gate-docs-only -->' },
+    { type: 'delete', id: 2 },
+  ]);
+});
+
+test('removeMarkerComments deletes marker and legacy comments', async () => {
+  const deleted = [];
+  const comments = [
+    { id: 1, body: 'Gate fast-pass message\n<!-- gate-docs-only -->' },
+    { id: 2, body: 'Gate fast-pass message' },
+    { id: 3, body: 'Unrelated comment' },
+  ];
+  const github = {
+    paginate: async () => comments,
+    rest: {
+      issues: {
+        listComments: async () => ({ data: comments }),
+        deleteComment: async ({ comment_id }) => {
+          deleted.push(comment_id);
+        },
+      },
+    },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'test', repo: 'repo' },
+    payload: { pull_request: { number: 42 } },
+  };
+
+  await removeMarkerComments({
+    github,
+    context,
+    core: null,
+    marker: '<!-- gate-docs-only -->',
+    baseMessages: ['Gate fast-pass message'],
+  });
+
+  assert.deepEqual(deleted, [1, 2]);
 });
