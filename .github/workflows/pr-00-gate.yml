@@ -108,58 +108,52 @@ jobs:
           REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
         with:
           script: |
-            const reason = process.env.REASON || 'docs_only';
+            const path = require('path');
+            const { handleDocsOnlyFastPass } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/gate-docs-only'));
 
-            let message;
-            if (!reason || reason === 'docs_only') {
-              message = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
-            } else if (reason === 'no_changes') {
-              message = 'Gate fast-pass: no changes detected; heavy checks skipped.';
-            } else {
-              message = `Gate fast-pass: docs-only change detected; heavy checks skipped. Reason: ${reason}.`;
-            }
-
-            core.info(message);
-            core.setOutput('state', 'success');
-            core.setOutput('description', message);
-            const marker = '<!-- gate-docs-only -->';
-            const commentBody = `${message}\n\n${marker}`;
-            core.setOutput('comment_body', commentBody);
-
-            await core.summary
-              .addHeading('Gate docs-only fast-pass', 3)
-              .addRaw(`${message}\n`)
-              .write();
+            await handleDocsOnlyFastPass({
+              core,
+              reason: process.env.REASON,
+            });
 
       - name: Ensure docs-only fast-pass comment
         if: needs.detect.outputs.doc_only == 'true'
         uses: actions/github-script@v7
         env:
           COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
         with:
           script: |
-            const { ensureMarkerComment } = require('./.github/scripts/comment-dedupe');
+            const path = require('path');
+            const { ensureMarkerComment } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/comment-dedupe'));
+            const { BASE_MESSAGE, DEFAULT_MARKER } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/gate-docs-only'));
             await ensureMarkerComment({
               github,
               context,
               core,
               commentBody: process.env.COMMENT_BODY,
-              marker: '<!-- gate-docs-only -->',
-              baseMessage: 'Gate fast-pass: docs-only change detected; heavy checks skipped.',
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessage: process.env.BASE_MESSAGE || BASE_MESSAGE,
             });
 
       - name: Remove docs-only fast-pass comment when not needed
         if: needs.detect.outputs.doc_only != 'true'
         uses: actions/github-script@v7
+        env:
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
         with:
           script: |
-            const { removeMarkerComments } = require('./.github/scripts/comment-dedupe');
+            const path = require('path');
+            const { removeMarkerComments } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/comment-dedupe'));
+            const { BASE_MESSAGE, DEFAULT_MARKER } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/gate-docs-only'));
             await removeMarkerComments({
               github,
               context,
               core,
-              marker: '<!-- gate-docs-only -->',
-              baseMessages: ['Gate fast-pass: docs-only change detected; heavy checks skipped.'],
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
             });
 
       - name: Download coverage (3.11)
