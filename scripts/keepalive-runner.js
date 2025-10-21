@@ -189,8 +189,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
-      if (latestCommandTs > lastAgentTs) {
-        core.info(`#${prNumber}: skipped – waiting for Codex response to the latest command.`);
+      const minutesSinceCommand = (now - latestCommandTs) / 60000;
+      if (latestCommandTs > lastAgentTs && minutesSinceCommand < idleMinutes) {
+        core.info(`#${prNumber}: skipped – waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes}).`);
         continue;
       }
 
