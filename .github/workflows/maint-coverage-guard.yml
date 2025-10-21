@@ -63,7 +63,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: core311-coverage-trend
+          name: gate-coverage-trend
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -73,7 +73,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: core311-coverage-3.11
+          name: gate-coverage-3.11
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/payload
           github-token: ${{ secrets.GITHUB_TOKEN }}

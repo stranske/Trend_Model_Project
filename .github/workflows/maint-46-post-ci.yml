@@ -225,7 +225,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: coverage-summary
+          name: gate-coverage-summary
           run-id: ${{ steps.gather.outputs.ci_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: artifacts/coverage-summary
@@ -246,7 +246,7 @@ jobs:
         continue-on-error: true
         with:
           run-id: ${{ steps.gather.outputs.ci_run_id }}
-          pattern: 'coverage-3.*'
+          pattern: 'gate-coverage-3.*'
           path: summary_artifacts/coverage-runtimes
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
