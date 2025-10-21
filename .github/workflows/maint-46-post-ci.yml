@@ -884,13 +884,73 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const path = require('path');
-            const { upsertAnchoredComment } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/comment-dedupe'));
+            const workspaceRoots = [
+              process.env.GITHUB_WORKSPACE,
+              process.cwd(),
+            ].filter(Boolean);
+
+            const anchorPattern = /<!--\s*maint-46-post-ci:([^>]*)-->/i;
+            const extractAnchor = (text) => {
+              if (typeof text !== 'string') {
+                return null;
+              }
+              const match = text.match(anchorPattern);
+              return match ? match[1] : null;
+            };
+
+            let helpers = null;
+            for (const root of workspaceRoots) {
+              try {
+                helpers = require(path.join(root, '.github', 'scripts', 'comment-dedupe'));
+                break;
+              } catch (error) {
+                if (!error || error.code !== 'MODULE_NOT_FOUND') {
+                  throw error;
+                }
+              }
+            }
+
+            if (!helpers) {
+              helpers = require('./.github/scripts/comment-dedupe');
+            }
+
+            const fs = require('fs');
+            const commentPath = process.env.COMMENT_PATH;
+            let commentBody = '';
+            if (commentPath) {
+              try {
+                commentBody = fs.readFileSync(commentPath, 'utf8');
+              } catch (error) {
+                core.warning(`Failed to read consolidated comment body: ${error}`);
+              }
+            }
+
+            let prNumber = process.env.PR_NUMBER;
+            if (!prNumber) {
+              const anchor = extractAnchor(commentBody);
+              if (anchor) {
+                const prMatch = anchor.match(/pr=([0-9]+)/i);
+                if (prMatch) {
+                  prNumber = prMatch[1];
+                }
+              }
+            }
+
+            if (!prNumber) {
+              core.warning('PR number missing; skipping comment update.');
+              return;
+            }
+
+            const { upsertAnchoredComment } = helpers;
+            // Helper contract: github.rest.issues.updateComment / github.rest.issues.createComment invoked inside comment-dedupe utilities.
             await upsertAnchoredComment({
               github,
               context,
               core,
-              prNumber: process.env.PR_NUMBER,
-              commentPath: process.env.COMMENT_PATH,
+              prNumber,
+              commentPath,
+              body: commentBody,
+              anchorPattern,
             });
   failure-tracker:
     name: Update failure tracker

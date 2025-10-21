@@ -57,7 +57,8 @@ def test_autofix_remote_repo_path_posts_patch_instructions(
             ), "Fork patch label step should use github-script to interact with the PR"
         else:
             assert not any(
-                step.get("name") == "Label PR (autofix patch available)" for step in steps
+                step.get("name") == "Label PR (autofix patch available)"
+                for step in steps
             ), "Patch label step should not exist in fix-failing-checks job"
     else:
         assert (
@@ -90,19 +91,18 @@ def test_consolidated_comment_includes_patch_instructions() -> None:
 def test_autofix_opt_in_label_normalized_to_clean() -> None:
     data = _load_workflow(WORKFLOW_FILE)
     context_env = data["jobs"]["context"]["env"]
-    assert "autofix:clean" in context_env["AUTOFIX_OPT_IN_LABEL"], (
-        "Context job must default AUTOFIX_OPT_IN_LABEL to autofix:clean"
-    )
+    assert (
+        "autofix:clean" in context_env["AUTOFIX_OPT_IN_LABEL"]
+    ), "Context job must default AUTOFIX_OPT_IN_LABEL to autofix:clean"
 
     small_with = data["jobs"]["small-fixes"]["with"]
-    assert "autofix:clean" in small_with["opt_in_label"], (
-        "Small fixes job must forward autofix:clean as the opt-in label"
-    )
+    assert (
+        "autofix:clean" in small_with["opt_in_label"]
+    ), "Small fixes job must forward autofix:clean as the opt-in label"
     assert (
         small_with["clean_label"].count("autofix:clean") == 1
         and "autofix:clean" in small_with["clean_label"]
     ), "Clean label should mirror the opt-in label"
     assert (
-        small_with["dry_run"]
-        == "${{ needs.context.outputs.same_repo != 'true' }}"
+        small_with["dry_run"] == "${{ needs.context.outputs.same_repo != 'true' }}"
     ), "Small fixes job must forward an explicit dry_run toggle for fork safety"

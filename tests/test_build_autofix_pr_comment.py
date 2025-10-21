@@ -128,7 +128,10 @@ def test_build_comment_includes_trigger_metadata(
         monkeypatch.delenv("AUTOFIX_TRIGGER_PR_HEAD", raising=False)
 
     assert "| Trigger | failure (trivial) |" in comment
-    assert "<!-- autofix-meta: conclusion=failure reason=retry head=feature/demo -->" in comment
+    assert (
+        "<!-- autofix-meta: conclusion=failure reason=retry head=feature/demo -->"
+        in comment
+    )
 
 
 def test_build_comment_includes_skip_reason(

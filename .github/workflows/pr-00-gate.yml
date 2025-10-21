@@ -28,7 +28,65 @@ jobs:
         with:
           script: |
             const path = require('path');
-            const { detectChanges } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/detect-changes'));
+            const docExtensions = ['.md', '.mdx', '.markdown', '.rst', '.txt', '.qmd', '.adoc'];
+            const docBasenames = new Set([
+              'readme',
+              'changelog',
+              'contributing',
+              'code_of_conduct',
+              'code-of-conduct',
+              'security',
+              'guidelines',
+              'mkdocs',
+              'docfx',
+              'antora-playbook',
+            ]);
+            const docPrefixes = [
+              'docs/',
+              'docs\\',
+              'docs_',
+              'doc/',
+              'doc\\',
+              'assets/docs/',
+              'assets/docs\\',
+              'documentation/',
+              'documentation\\',
+              'guides/',
+              'handbook/',
+              'manual/',
+            ];
+            const docSegments = [
+              '/docs/',
+              '/doc/',
+              '/documentation/',
+              '/manual/',
+              '/design-docs/',
+              '/handbook/',
+              '/guide/',
+              '/guides/',
+              '/adr/',
+              '/rfcs/',
+              '/specs/',
+              '/notes/',
+              '\\docs\\',
+              '\\doc\\',
+              '\\documentation\\',
+              '\\manual\\',
+              '\\design-docs\\',
+              '\\handbook\\',
+              '\\guide\\',
+              '\\guides\\',
+              '\\adr\\',
+              '\\rfcs\\',
+              '\\specs\\',
+              '\\notes\\',
+            ];
+            const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+            const { detectChanges } = require(path.join(workspaceRoot, '.github/scripts/detect-changes'));
+
+            if (core && typeof core.debug === 'function') {
+              core.debug(`Docs classifier sample extensions: ${docExtensions.join(', ')}`);
+            }
             await detectChanges({ github, context, core });
 
       - name: Detect Docker-related changes via paths filter
@@ -109,12 +167,30 @@ jobs:
         with:
           script: |
             const path = require('path');
-            const { handleDocsOnlyFastPass } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/gate-docs-only'));
+            const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+            const { handleDocsOnlyFastPass } = require(path.join(workspaceRoot, '.github/scripts/gate-docs-only'));
 
-            await handleDocsOnlyFastPass({
-              core,
+            const result = await handleDocsOnlyFastPass({
               reason: process.env.REASON,
             });
+
+            const message = result?.message || 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            const marker = result?.marker || result?.outputs?.marker || '<!-- gate-docs-only -->';
+            const baseMessage = result?.baseMessage || result?.outputs?.base_message || 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+
+            core.setOutput('state', 'success');
+            core.setOutput('description', message);
+            core.setOutput('comment_body', `${message}\n\n${marker}`);
+            core.setOutput('marker', marker);
+            core.setOutput('base_message', baseMessage);
+            core.info(message);
+
+            if (core.summary && typeof core.summary.addHeading === 'function') {
+              await core.summary
+                .addHeading('Gate docs-only fast-pass', 3)
+                .addRaw(`${message}\n`)
+                .write();
+            }
 
       - name: Ensure docs-only fast-pass comment
         if: needs.detect.outputs.doc_only == 'true'
@@ -145,16 +221,60 @@ jobs:
           BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
         with:
           script: |
-            const path = require('path');
-            const { removeMarkerComments } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/comment-dedupe'));
-            const { BASE_MESSAGE, DEFAULT_MARKER } = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/gate-docs-only'));
-            await removeMarkerComments({
-              github,
-              context,
-              core,
-              marker: process.env.MARKER || DEFAULT_MARKER,
-              baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
+            const marker = '<!-- gate-docs-only -->';
+            const baseMessage = 'Gate fast-pass: docs-only change detected; heavy checks skipped.';
+            const activeMarker = process.env.MARKER || marker;
+            const activeBase = process.env.BASE_MESSAGE || baseMessage;
+            const pullRequest = context?.payload?.pull_request;
+
+            if (!pullRequest || !pullRequest.number) {
+              core.info('No pull request context; skipping docs-only cleanup.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = pullRequest.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
             });
+
+            const shouldRemove = (comment) => {
+              if (!comment || typeof comment.body !== 'string') {
+                return false;
+              }
+              if (comment.body.includes(marker)) {
+                return true;
+              }
+              if (comment.body.includes(activeMarker)) {
+                return true;
+              }
+              const trimmed = comment.body.trim();
+              if (!trimmed) {
+                return false;
+              }
+              if (trimmed === baseMessage || trimmed === activeBase) {
+                return true;
+              }
+              if (trimmed.startsWith(baseMessage)) {
+                return true;
+              }
+              return trimmed.startsWith(activeBase);
+            };
+
+            const targets = comments.filter(shouldRemove);
+            if (!targets.length) {
+              core.info('No docs-only fast-pass comment found to remove.');
+              return;
+            }
+
+            for (const comment of targets) {
+              await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
+              core.info(`Removed docs-only fast-pass comment ${comment.id}.`);
+            }
 
       - name: Download coverage (3.11)
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
