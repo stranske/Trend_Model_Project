@@ -142,7 +142,7 @@ jobs:
           if ! actionlint "${extra_args[@]}" -oneline >"${oneline_output}"; then
             lint_status=$?
             echo '::group::actionlint (text output)'
-            actionlint "${extra_args[@]}" || true
+            cat "${oneline_output}"
             echo '::endgroup::'
           fi
 
