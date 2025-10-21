@@ -19,6 +19,9 @@ jobs:
       reason: ${{ steps.diff.outputs.reason }}
       docker_changed: ${{ steps.docker_paths.outputs.docker == 'true' || steps.diff.outputs.docker_changed == 'true' }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Detect changes via API
         id: diff
         uses: actions/github-script@v7
@@ -95,6 +98,9 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Handle docs-only change
         if: needs.detect.outputs.doc_only == 'true'
         id: docs_only
