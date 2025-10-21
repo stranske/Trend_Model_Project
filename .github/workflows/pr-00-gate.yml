@@ -28,65 +28,8 @@ jobs:
         with:
           script: |
             const path = require('path');
-            const docExtensions = ['.md', '.mdx', '.markdown', '.rst', '.txt', '.qmd', '.adoc'];
-            const docBasenames = new Set([
-              'readme',
-              'changelog',
-              'contributing',
-              'code_of_conduct',
-              'code-of-conduct',
-              'security',
-              'guidelines',
-              'mkdocs',
-              'docfx',
-              'antora-playbook',
-            ]);
-            const docPrefixes = [
-              'docs/',
-              'docs\\',
-              'docs_',
-              'doc/',
-              'doc\\',
-              'assets/docs/',
-              'assets/docs\\',
-              'documentation/',
-              'documentation\\',
-              'guides/',
-              'handbook/',
-              'manual/',
-            ];
-            const docSegments = [
-              '/docs/',
-              '/doc/',
-              '/documentation/',
-              '/manual/',
-              '/design-docs/',
-              '/handbook/',
-              '/guide/',
-              '/guides/',
-              '/adr/',
-              '/rfcs/',
-              '/specs/',
-              '/notes/',
-              '\\docs\\',
-              '\\doc\\',
-              '\\documentation\\',
-              '\\manual\\',
-              '\\design-docs\\',
-              '\\handbook\\',
-              '\\guide\\',
-              '\\guides\\',
-              '\\adr\\',
-              '\\rfcs\\',
-              '\\specs\\',
-              '\\notes\\',
-            ];
             const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
             const { detectChanges } = require(path.join(workspaceRoot, '.github/scripts/detect-changes'));
-
-            if (core && typeof core.debug === 'function') {
-              core.debug(`Docs classifier sample extensions: ${docExtensions.join(', ')}`);
-            }
             await detectChanges({ github, context, core });
 
       - name: Detect Docker-related changes via paths filter

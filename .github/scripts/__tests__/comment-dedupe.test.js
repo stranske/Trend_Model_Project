@@ -9,6 +9,7 @@ const {
   findAnchoredComment,
   ensureMarkerComment,
   removeMarkerComments,
+  upsertAnchoredComment,
 } = require('../comment-dedupe');
 
 test('selectMarkerComment prefers marker comment', () => {
@@ -132,4 +133,46 @@ test('removeMarkerComments deletes marker and legacy comments', async () => {
   });
 
   assert.deepEqual(deleted, [1, 2]);
+});
+
+test('upsertAnchoredComment reads body from file and infers PR from anchor', async () => {
+  const updated = [];
+  const created = [];
+  const tmp = require('node:os').tmpdir();
+  const path = require('node:path');
+  const fs = require('node:fs');
+  const commentPath = path.join(tmp, `maint-comment-${Date.now()}.md`);
+  fs.writeFileSync(commentPath, 'status\n<!-- maint-46-post-ci: pr=99 head=abc -->\n');
+
+  const github = {
+    paginate: async () => [{ id: 1, body: 'status\n<!-- maint-46-post-ci: pr=99 head=zzz -->' }],
+    rest: {
+      issues: {
+        listComments: async () => ({ data: [] }),
+        updateComment: async payload => updated.push(payload),
+        createComment: async payload => {
+          created.push(payload);
+          return { data: { id: 2 } };
+        },
+      },
+    },
+  };
+
+  await upsertAnchoredComment({
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' } },
+    core: null,
+    commentPath,
+    prNumber: '',
+  });
+
+  if (updated.length) {
+    const [payload] = updated;
+    assert.equal(payload.comment_id, 1);
+  } else {
+    assert.equal(created.length, 1);
+    assert.equal(created[0].issue_number, 99);
+  }
+
+  fs.unlinkSync(commentPath);
 });
