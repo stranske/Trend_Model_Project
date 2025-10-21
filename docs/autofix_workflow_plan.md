@@ -1,7 +1,7 @@
 # Autofix Workflow Implementation Plan
 
 ## Scope
-- Introduce a guarded `autofix` GitHub Actions workflow that runs on pull requests.
+- Introduce a guarded `autofix:clean` GitHub Actions workflow that runs on pull requests.
 - Limit automation to formatting with `ruff format` and a conservative, explicitly curated subset of Ruff autofix rules.
 - Ensure the workflow can land changes automatically on same-repo branches while providing a follow-up PR for forks.
 - Keep main CI behaviour unchanged aside from consuming any autofix edits when they are present.
@@ -13,10 +13,10 @@
 - Guard against autofix loops by detecting bot-authored commits with the configured prefix.
 
 ## Acceptance Criteria
-- Workflow is named `autofix` and triggers on `pull_request` events.
+- Workflow is named `autofix:clean` and triggers on `pull_request` events.
 - Executes `ruff format .` followed by `ruff check --fix --unsafe-fixes` scoped to the safe rule list.
 - If diffs remain, commits them back to same-repo branches or opens a labelled follow-up PR for forks.
-- Always adds the `autofix` label and toggles `autofix:applied`, `autofix:clean`, `autofix:debt` based on whether fixes landed and if diagnostics remain.
+- Always adds the `autofix:clean` label and toggles `autofix:applied`, `autofix:clean`, `autofix:debt` based on whether fixes landed and if diagnostics remain.
 - Main CI continues to run non-fixing `ruff check` and fails when violations persist (no changes required in this repo because the Gate workflow already enforces it through the reusable CI jobs).
 
 ## Initial Task Checklist

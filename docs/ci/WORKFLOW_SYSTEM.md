@@ -5,7 +5,7 @@ pieces interlock so contributors can land changes without tripping the
 guardrails. Automation shows up in four canonical buckets that mirror what a
 contributor experiences on a pull request or on the maintenance calendar:
 
-1. **PR checks** – gatekeeping for every pull request (Gate, PR 02 Autofix).
+1. **PR checks** – gatekeeping for every pull request (Gate with Maint 46 handling opt-in autofix follow-up).
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
   the repository clean (Maint 46 Post CI, Maint Coverage Guard, Maint Keepalive
   Heartbeat, Maint 45, recurring health checks).
@@ -84,9 +84,10 @@ the surface polished, and the agents stack orchestrates follow-up work.
 
 ### How the buckets interact in practice
 
-- **Gate and PR 02 Autofix** are the first responders on every pull request.
+- **Gate and Maint 46** are the first responders on every pull request.
   Gate decides whether to fan out into the reusable CI topology, while Autofix
-  runs the optional clean-up sweep when the label is applied.
+  runs the optional clean-up sweep via Maint 46 when the label is applied and
+  the opt-in guard passes.
 - **Maint 46 Post CI** wakes up after a successful Gate run and aggregates the
   results, while the remaining maintenance workflows keep the default branch
   protected on a schedule or by manual dispatch.
@@ -301,10 +302,10 @@ and where to watch the result:
    calls the reusable lint/test topology. You can watch progress in the
    [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)
    and follow the linked reusable job logs from the Checks tab.
-2. **Autofix (optional).** If reviewers add the `autofix` label, the PR 02
-   Autofix workflow runs fixers via the reusable autofix entry point. Its logs
-   show up under the same pull request for easy comparison with Gate.
-3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
+2. **Autofix (optional).** If reviewers add the `autofix:clean` label, Maint 46 Post
+   CI fans out to `reusable-18-autofix.yml` after Gate succeeds. Its logs show
+   up under the same pull request for easy comparison with Gate.
+3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
    Gate success signal, aggregates artifacts, and applies any low-risk cleanup.
   Scheduled maintenance jobs (Maint Keepalive Heartbeat, Maint 45, and Health
    40–44) continue to run on their cadence even when no one is watching,
@@ -326,15 +327,15 @@ new contributors or track down where a particular check originated.
 Use this cheat sheet when you need the quickest possible answer about “what
 fires where” without diving into the full tables:
 
-- **PR checks (Gate + PR 02 Autofix)**
-  - **Primary workflows.** `pr-00-gate.yml`, `pr-02-autofix.yml` under
+- **PR checks (Gate + Maint 46 opt-in autofix)**
+  - **Primary workflows.** `pr-00-gate.yml` under
     `.github/workflows/`.
   - **Triggers.** `pull_request`, with Gate also running in
     `pull_request_target` for fork visibility. Autofix is label-gated.
   - **Purpose.** Guard every PR, detect docs-only diffs, and offer an optional
-    autofix sweep before reviewers spend time on hygiene nits.
+    autofix sweep via Maint 46 before reviewers spend time on hygiene nits.
   - **Where to inspect logs.** Gate: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
-    Autofix: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml).
+    Autofix: handled by Maint 46 Post CI after Gate completes.
 - **Maintenance & repo health**
   - **Primary workflows.** `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
     `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, and the health guardrails (`health-40`
@@ -404,7 +405,7 @@ status updates:
   - *Gate workflow run.* The Checks tab links to
     [pr-00-gate.yml history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml),
     which exposes reusable job logs and uploaded artifacts for failing runs.
-  - *Autofix artifacts.* When the `autofix` label is applied, the workflow
+  - *Autofix artifacts.* When the `autofix:clean` label is applied, the workflow
     uploads the formatted patch or commit diff for reviewers to inspect before
     merging.
 - **Maintenance & repo health**
@@ -438,7 +439,7 @@ status updates:
 
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
-| PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml`, `pr-02-autofix.yml` | Keep the default branch green by running the gating matrix, autofix sweep, and docs-only short circuit before reviewers waste time. |
+| PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
@@ -459,10 +460,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     docs-only comments left by older workflow revisions. No new PR comment is
     posted—the docs-only fast pass now lives exclusively in logs and the job
     summary.
-- **PR 02 Autofix** – `.github/workflows/pr-02-autofix.yml`
-  - Opt-in via the `autofix` label only. Runs the same formatters and light
-    hygiene steps that Gate would otherwise leave to contributors.
-  - When enabled, it must cancel duplicates to avoid fighting with Maint 46.
+- **Maint 46 Post CI Autofix** – `.github/workflows/maint-46-post-ci.yml`
+  - Opt-in via the `autofix:clean` label. Runs the same formatters and light hygiene
+    steps that Gate would otherwise leave to contributors, then posts the
+    consolidated status comment.
 
 ### Maintenance & repo health
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` consolidates
@@ -504,7 +505,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml`
   re-validates labels, ensures the branch diverges from the base (injecting an
   empty commit when needed), opens or updates the automation PR, applies labels
-  (`agent:codex`, `autofix`, `from:codex`), assigns the connector accounts, and
+  (`agent:codex`, `autofix:clean`, `from:codex`), assigns the connector accounts, and
   posts the `@codex start` activation comment.
 - **Agents 73 Codex Belt Conveyor** – `.github/workflows/agents-73-codex-belt-conveyor.yml`
   listens for successful Gate runs on `codex/issue-*` branches, squash merges,
@@ -530,8 +531,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   image and exercises the smoke tests Gate otherwise short-circuits for
   docs-only changes.
 - **Reusable Agents** – `reusable-16-agents.yml` powers orchestrated dispatch.
-- **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for PR 02
-  Autofix and Maint 46.
+- **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for Maint 46.
 - **Selftest: Reusables** – `selftest-reusable-ci.yml` is the consolidated entry
   point. It runs nightly via cron (06:30 UTC) to rehearse the reusable matrix
   and accepts manual dispatches for summary/comment publication. Inputs:
@@ -557,7 +557,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
-| **PR 02 Autofix** (`pr-02-autofix.yml`, PR checks bucket) | `pull_request` (label gated) | Run optional fixers when the `autofix` label is present. | ⚪ Optional | [Autofix runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-02-autofix.yml) |
+| **Maint 46 Post CI** (`maint-46-post-ci.yml`, Gate follower) | `workflow_run` (Gate) | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Maint 46 runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
 | **Maint Keepalive Heartbeat** (`maint-keepalive.yml`, maintenance bucket) | `schedule` (`17 */12 * * *`), `workflow_dispatch` | Post a UTC timestamp heartbeat comment (with run URL) to the configured Ops issue so scheduled automation leaves an observable trace; fails fast if the Ops issue variable or PAT are missing. | ⚪ Scheduled | [Maint Keepalive runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
@@ -602,8 +602,8 @@ snapshots for audit trails.
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
 - **Autofix.** Maint 46 centralizes automated follow-up fixes. Forks upload
-  patch artifacts instead of pushing. Pre-CI autofix (`pr-02-autofix.yml`) must
-  stay label-gated and cancel duplicates while Gate runs.
+  patch artifacts instead of pushing. The dedicated pre-CI runner was retired;
+  opt-in labels trigger Maint 46 after Gate succeeds.
 - **Branch protection.** The default branch must require the Gate status context
   (`gate`). Health 44 resolves the current default branch via the REST API and
   either enforces or verifies the rule (requires a `BRANCH_PROTECTION_TOKEN`
@@ -622,13 +622,13 @@ snapshots for audit trails.
   `matrix.python-version == steps.mypy-pin.outputs.python-version`. Ruff and
   pytest still execute across the full matrix.
 - **Automation labels.** Keep the labels used by automation available:
-  `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix`,
+  `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix:clean`,
   `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`,
   `agents`, and `agent:codex`.
 
 ## Final topology (keep vs retire)
 
-- **Keep.** `pr-00-gate.yml`, `pr-02-autofix.yml`, `maint-45-cosmetic-repair.yml`,
+- **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   `maint-46-post-ci.yml`, `maint-coverage-guard.yml`, health 40/41/42/43/44,
   agents 70/63, `agents-guard.yml`, reusable 10/12/16/18, and
   `selftest-reusable-ci.yml`.
