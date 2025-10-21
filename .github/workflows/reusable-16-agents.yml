@@ -646,6 +646,14 @@ jobs:
               return unique;
             };
 
+            const normaliseLogin = (value) => {
+              const raw = String(value || '').trim().toLowerCase();
+              if (!raw) {
+                return '';
+              }
+              return raw.replace(/\[bot\]$/i, '');
+            };
+
             const rawOptions = process.env.OPTIONS_JSON || '{}';
             const dryRun = (process.env.DRY_RUN || '').trim().toLowerCase() === 'true';
             const options = parseJson(rawOptions, {});
@@ -702,7 +710,7 @@ jobs:
             const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
             let agentLogins = String(agentSource)
               .split(',')
-              .map((value) => value.trim().toLowerCase())
+              .map((value) => normaliseLogin(value))
               .filter(Boolean);
             if (!agentLogins.length) {
               agentLogins = ['chatgpt-codex-connector'];
@@ -761,7 +769,7 @@ jobs:
                 }
 
                 const botComments = comments
-                  .filter((comment) => agentLogins.includes((comment.user?.login || '').toLowerCase()))
+                  .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login || '')))
                   .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
                 if (!botComments.length) {
                   core.info(`#${prNumber}: skipped – Codex has not commented yet.`);
