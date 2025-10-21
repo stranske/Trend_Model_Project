@@ -1,6 +1,6 @@
 # Automated Autofix & Type Hygiene Pipeline
 
-This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests. The post-CI follower `maint-46-post-ci.yml` invokes the reusable composite whenever a PR opts in via the `autofix` label.
+This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests. The post-CI follower `maint-46-post-ci.yml` invokes the reusable composite whenever a PR opts in via the `autofix:clean` label.
 
 ## What It Does (Scope)
 1. Code formatting & style
@@ -98,12 +98,12 @@ Open a focused PR (or issue) for:
 Run these quick checks whenever the Maint 46 autofix lane changes to confirm Issue #2649’s safeguards remain in place:
 
 ### Same-repo opt-in
-1. Open a branch in the main repository with a deliberate lint issue (for example, reorder an import) and add the `autofix` label.
+1. Open a branch in the main repository with a deliberate lint issue (for example, reorder an import) and add the `autofix:clean` label.
 2. Verify the **Maint 46 Post CI** follower triggers exactly one `apply` job once Gate succeeds and cancels any superseded runs when you push extra commits or re-run the workflow from the UI.
 3. Confirm the comment updated in place under the `<!-- autofix-status: DO NOT EDIT -->` marker shows the applied commit link and an "Autofix result" section.
 
 ### Fork opt-in
-1. From a fork, open a PR with the `autofix` label and a trivially fixable lint issue.
+1. From a fork, open a PR with the `autofix:clean` label and a trivially fixable lint issue.
 2. Ensure the workflow uploads an `autofix-patch-pr-<number>` artifact, applies the `autofix:patch` label, and the status comment explains how to apply the patch locally.
 3. Download and apply the patch with `git am` to confirm it replays cleanly, then push manually to complete the fix.
 
@@ -113,19 +113,19 @@ Run these quick checks whenever the Maint 46 autofix lane changes to confirm Is
 3. If the run leaves residual diagnostics, expect `autofix:debt` to accompany either result label.【F:.github/workflows/reusable-18-autofix.yml†L632-L785】
 
 ### Tests-only cosmetic sweep
-1. Add the `autofix:clean` label alongside `autofix` to activate the tests-only mode for the run.【F:.github/workflows/reusable-18-autofix.yml†L6-L334】
+1. Ensure the `autofix:clean` label is present to activate the tests-only mode for the run.【F:.github/workflows/reusable-18-autofix.yml†L6-L334】
 2. Confirm Ruff only operates on paths within `tests/` and the guard fails if non-test files change.【F:.github/workflows/reusable-18-autofix.yml†L277-L360】
 3. Check the automation posts the dedicated tests-only summary comment enumerating the modified test files.【F:.github/workflows/reusable-18-autofix.yml†L899-L964】
 
 ### Label gating sanity check
-1. Remove the `autofix` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
+1. Remove the `autofix:clean` label (or open a fresh PR without it) and trigger the workflow via the **Re-run** button.
 2. Confirm the `apply` job is skipped and no new comments are posted, demonstrating the label gate is working as expected.
 
 ### Demo PR verification (acceptance scenario)
 To replicate Issue #2724’s acceptance criteria end-to-end:
 
 1. Push a same-repo branch that intentionally violates a simple Ruff rule (for example, add trailing whitespace to a Python file).
-2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix` unless overridden in repository variables).
+2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix:clean` unless overridden in repository variables).
 3. Observe the **Maint 46 Post CI** workflow run; once complete it should:
    - Install Ruff, apply the safe `ruff check --fix --exit-zero` sweep, and commit cosmetic fixes back to the branch.【F:.github/workflows/reusable-18-autofix.yml†L231-L575】
    - Apply the `autofix:applied` label (and remove any stale `autofix:clean`) when the commit lands.【F:.github/workflows/reusable-18-autofix.yml†L520-L575】【F:.github/workflows/reusable-18-autofix.yml†L675-L785】

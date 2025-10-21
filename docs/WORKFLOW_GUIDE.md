@@ -42,7 +42,7 @@ The active roster below mirrors the **Keep** list in the [Workflow System Overvi
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
 
 _Optional label-gated helper_
-- **`maint-46-post-ci.yml`** — Opt-in autofix follower (apply only when the `autofix` label is present) delegating to the reusable autofix composite after Gate completes.
+- **`maint-46-post-ci.yml`** — Opt-in autofix follower (apply only when the `autofix:clean` label is present) delegating to the reusable autofix composite after Gate completes.
 
 ### Maintenance & Repo Health
 - **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and owns the CI failure-tracker issue/label lifecycle.

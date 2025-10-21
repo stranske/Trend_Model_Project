@@ -4,7 +4,7 @@ _Last reviewed: 2025-10-19_
 
 ## Scope & Key Constraints
 - Introduce a label-gated `autofix:clean` mode that reuses the existing cosmetic autofix workflow while constraining edits to `tests/**`.
-- Keep the standard `autofix` behaviour unchanged and allow maintainers to opt into the scoped mode by applying the additional label.
+- Keep the default Maint 46 behaviour unchanged when the label is absent while allowing maintainers to opt into the scoped `autofix:clean` mode.
 - Reuse Ruff import sorting, lint fixes, and formatting without widening rule coverage beyond the current workflow defaults.
 - Maintain present automation ergonomics (status comments, label management, artifact handling) and ensure runs abort if non-test paths are touched.
 - Preserve green Gate status after the new mode is exercised.

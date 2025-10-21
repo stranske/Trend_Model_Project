@@ -693,7 +693,7 @@ jobs:
       autofix_skip: ${{ steps.autofix_guard.outputs.skip }}
       autofix_skip_reason: ${{ steps.autofix_guard.outputs.reason }}
     env:
-      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
       AUTOFIX_PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
       AUTOFIX_TRIVIAL_KEYWORDS: ${{ vars.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test' }}
       AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
@@ -831,7 +831,7 @@ jobs:
                   .filter(label => label && typeof label.name === 'string')
                   .map(label => label.name)
               : [];
-            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix:clean';
             const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
             result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
             result.has_patch_label = labels.includes(patchLabel) ? 'true' : 'false';
@@ -1102,8 +1102,8 @@ jobs:
       pr_labels_json: ${{ needs.context.outputs.labels_json }}
       same_repo: ${{ needs.context.outputs.same_repo == 'true' }}
       caller_actor: ${{ needs.context.outputs.actor }}
-      opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
-      clean_label: ${{ vars.AUTOFIX_CLEAN_LABEL || 'autofix:clean' }}
+      opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
+      clean_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
       commit_prefix: ${{ env.COMMIT_PREFIX }}
       applied_label: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
       patch_label: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
@@ -1565,11 +1565,15 @@ jobs:
           small_files = [line.strip() for line in small_files_raw.splitlines() if line.strip()]
           small_mode = (os.environ.get("SMALL_MODE") or "").strip().lower()
           files_block: List[str] = []
+          header = "### Files touched"
+          if small_mode == "clean":
+              header += " (clean mode)"
+          files_block.append(header)
+          files_block.append("")
           if small_files:
-              header = "### Files touched"
-              if small_mode == "clean":
-                  header += " (clean mode)"
-              files_block = [header, "", *[f"- `{path}`" for path in small_files]]
+              files_block.extend(f"- `{path}`" for path in small_files)
+          else:
+              files_block.append("- None")
 
           fail_jobs_raw = os.environ.get("FAIL_JOB_NAMES") or ""
           fail_jobs = [item.strip() for item in fail_jobs_raw.split(',') if item.strip()]

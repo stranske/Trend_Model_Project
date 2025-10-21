@@ -7,7 +7,7 @@
 > can trace where each guarantee lives today.
 
 ## Scope / Key Constraints
-- Limit automation to pull requests that explicitly opt in via the configurable `autofix` label so routine PR events do not trigger unintended pushes; Maint 46 only calls the reusable job when the label is present and the loop guard permits a run.【F:.github/workflows/maint-46-post-ci.yml†L808-L858】【F:.github/workflows/maint-46-post-ci.yml†L1083-L1130】
+- Limit automation to pull requests that explicitly opt in via the configurable `autofix:clean` label so routine PR events do not trigger unintended pushes; Maint 46 only calls the reusable job when the label is present and the loop guard permits a run.【F:.github/workflows/maint-46-post-ci.yml†L808-L858】【F:.github/workflows/maint-46-post-ci.yml†L1083-L1130】
 - Keep the Maint 46 entry point as a thin wrapper around `reusable-18-autofix.yml`, ensuring all business logic flows through the reusable workflow for a single source of truth.【F:.github/workflows/maint-46-post-ci.yml†L1083-L1177】【F:.github/workflows/reusable-18-autofix.yml†L1-L137】
 - Enforce a shared `maint-46-post-ci-${{ ... }}` concurrency group so only one run per pull request can execute at a time and new events cancel superseded jobs.【F:.github/workflows/maint-46-post-ci.yml†L8-L20】【F:.github/workflows/reusable-18-autofix.yml†L95-L114】
 - Preserve the existing permission set (`contents: write`, `pull-requests: write`) while making fork-safe decisions about how fixes are delivered to contributors.【F:.github/workflows/maint-46-post-ci.yml†L22-L28】【F:.github/workflows/reusable-18-autofix.yml†L91-L214】

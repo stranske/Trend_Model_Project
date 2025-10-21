@@ -7,7 +7,7 @@ on:
       opt_in_label:
         description: 'Label to opt-in when PR is draft'
         required: false
-        default: 'autofix'
+        default: 'autofix:clean'
         type: string
       commit_prefix:
         description: 'Commit message prefix'

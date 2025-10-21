@@ -48,8 +48,7 @@ Flow:
 |-------|---------|--------|
 | `agent:codex` / `agent:copilot` | Marks automation-owned issues and PRs | Agent labeler |
 | `from:codex` / `from:copilot` | Origin marker for automation PRs | Agent labeler |
-| `autofix` / `autofix:applied` | Track PR autofix results | Autofix workflow |
-| `autofix:clean` / `autofix:clean-only` | Opt-in label that restricts cosmetic sweeps to `tests/**` and the status label applied when that mode runs | Maint 46 Post CI |
+| `autofix:clean` | Opt-in label gating Maint 46 Post CI. Automation also applies `autofix:applied`, `autofix:debt`, `autofix:patch`, and `autofix:clean-only` to describe the outcome. | Maint 46 Post CI |
 | `ci-failure` | Pins the rolling CI dashboard issue | Maint 46 Post CI |
 | Area labels | Scope classification for review routing | Path labeler |
 
@@ -59,7 +58,7 @@ Flow:
 | Name | Type | Req | Purpose | Notes |
 |------|------|-----|---------|-------|
 | `SERVICE_BOT_PAT` | Secret | Rec | Allows automation to push branches and leave comments | `repo` scope |
-| `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Overrides the default autofix opt-in label | Defaults internal |
+| `AUTOFIX_OPT_IN_LABEL` | Var | Opt | Overrides the default autofix opt-in label | Defaults to `autofix:clean` |
 | `OPS_HEALTH_ISSUE` | Var | Req | Issue number for repo-health updates | Repo health jobs skip updates when unset |
 
 All other jobs rely on the default `GITHUB_TOKEN` permissions noted in the
@@ -72,7 +71,7 @@ workflow files.
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
-| `maint-46-post-ci.yml` | workflow_run (`Gate`) | Consolidated Gate follower for summaries, hygiene autofix, and trivial failure remediation once CI passes.
+| `maint-46-post-ci.yml` | workflow_run (`Gate`) | Consolidated Gate follower for summaries, hygiene autofix, and trivial failure remediation once CI passes. Requires the `autofix:clean` label for the small hygiene sweep.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
 | `maint-keepalive.yml` | schedule (17 */12 * * *), workflow_dispatch | Posts an Ops heartbeat comment with a UTC timestamp so scheduled runs leave an observable trace.
@@ -89,7 +88,7 @@ workflow files.
 | `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
-| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by `maint-46-post-ci.yml` and `pr-02-autofix.yml`. |
+| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by `maint-46-post-ci.yml`. |
 
 ---
 ## 5. Adopt Reusable Workflows

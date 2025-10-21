@@ -300,7 +300,7 @@ and where to watch the result:
    calls the reusable lint/test topology. You can watch progress in the
    [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)
    and follow the linked reusable job logs from the Checks tab.
-2. **Autofix (optional).** If reviewers add the `autofix` label, Maint 46 Post
+2. **Autofix (optional).** If reviewers add the `autofix:clean` label, Maint 46 Post
    CI fans out to `reusable-18-autofix.yml` after Gate succeeds. Its logs show
    up under the same pull request for easy comparison with Gate.
 3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
@@ -403,7 +403,7 @@ status updates:
   - *Gate workflow run.* The Checks tab links to
     [pr-00-gate.yml history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml),
     which exposes reusable job logs and uploaded artifacts for failing runs.
-  - *Autofix artifacts.* When the `autofix` label is applied, the workflow
+  - *Autofix artifacts.* When the `autofix:clean` label is applied, the workflow
     uploads the formatted patch or commit diff for reviewers to inspect before
     merging.
 - **Maintenance & repo health**
@@ -459,7 +459,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     posted—the docs-only fast pass now lives exclusively in logs and the job
     summary.
 - **Maint 46 Post CI Autofix** – `.github/workflows/maint-46-post-ci.yml`
-  - Opt-in via the `autofix` label. Runs the same formatters and light hygiene
+  - Opt-in via the `autofix:clean` label. Runs the same formatters and light hygiene
     steps that Gate would otherwise leave to contributors, then posts the
     consolidated status comment.
 
@@ -503,7 +503,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml`
   re-validates labels, ensures the branch diverges from the base (injecting an
   empty commit when needed), opens or updates the automation PR, applies labels
-  (`agent:codex`, `autofix`, `from:codex`), assigns the connector accounts, and
+  (`agent:codex`, `autofix:clean`, `from:codex`), assigns the connector accounts, and
   posts the `@codex start` activation comment.
 - **Agents 73 Codex Belt Conveyor** – `.github/workflows/agents-73-codex-belt-conveyor.yml`
   listens for successful Gate runs on `codex/issue-*` branches, squash merges,
@@ -555,7 +555,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`, Gate follower) | `workflow_run` (Gate) | Run optional fixers when the `autofix` label is present and post Gate summaries. | ⚪ Optional | [Maint 46 runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
+| **Maint 46 Post CI** (`maint-46-post-ci.yml`, Gate follower) | `workflow_run` (Gate) | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Maint 46 runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
 | **Maint Keepalive Heartbeat** (`maint-keepalive.yml`, maintenance bucket) | `schedule` (`17 */12 * * *`), `workflow_dispatch` | Post a UTC timestamp heartbeat comment (with run URL) to the configured Ops issue so scheduled automation leaves an observable trace; fails fast if the Ops issue variable or PAT are missing. | ⚪ Scheduled | [Maint Keepalive runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
@@ -620,7 +620,7 @@ snapshots for audit trails.
   `matrix.python-version == steps.mypy-pin.outputs.python-version`. Ruff and
   pytest still execute across the full matrix.
 - **Automation labels.** Keep the labels used by automation available:
-  `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix`,
+  `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix:clean`,
   `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`,
   `agents`, and `agent:codex`.
 
