@@ -13,6 +13,11 @@ on:
         required: false
         default: '[]'
         type: string
+      primary-python-version:
+        description: Preferred Python runtime that should publish soft-gate artifacts when enabled.
+        required: false
+        default: '3.11'
+        type: string
       marker:
         description: Optional pytest marker expression.
         required: false
@@ -215,12 +220,16 @@ jobs:
           python tools/resolve_mypy_pin.py
 
       - name: Ruff (lint)
+        id: ruff
+        continue-on-error: true
         run: |
           set -euo pipefail
           ruff check --output-format github .
 
       - name: Mypy (type check)
+        id: mypy
         if: ${{ inputs.run-mypy && steps.mypy-pin.outputs.python-version != '' && matrix.python-version == steps.mypy-pin.outputs.python-version }}
+        continue-on-error: true
         run: |
           set -euo pipefail
           args=()
@@ -243,6 +252,8 @@ jobs:
             pytest-${{ runner.os }}-
 
       - name: Pytest (unit tests with coverage)
+        id: pytest
+        continue-on-error: true
         env:
           PYTEST_MARKER: ${{ inputs.marker }}
         run: |
@@ -258,7 +269,9 @@ jobs:
           pytest "${args[@]}"
 
       - name: Enforce coverage minimum
+        id: coverage_min
         if: ${{ inputs['coverage-min'] != '' }}
+        continue-on-error: true
         run: |
           python - <<'PY'
           import sys
@@ -286,8 +299,9 @@ jobs:
         run: |
           set -euo pipefail
           runtime="${{ matrix.python-version }}"
-          base_dir="coverage/runtimes/${runtime}"
+          base_dir="artifacts/coverage/runtimes/${runtime}"
 
+          rm -rf "${base_dir}"
           mkdir -p "${base_dir}"
 
           copied=0
@@ -311,6 +325,90 @@ jobs:
             echo "No coverage payloads found; skipping staging."
           fi
 
+      - name: Record CI summary
+        if: always()
+        id: ci-summary
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
+          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
+          COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          runtime = os.environ.get("PYTHON_VERSION", "unknown")
+          base_dir = Path("artifacts/coverage/runtimes") / runtime
+          base_dir.mkdir(parents=True, exist_ok=True)
+
+          def normalize(value: str | None) -> str:
+              return (value or "skipped").lower()
+
+          summary: dict[str, object] = {
+              "python_version": runtime,
+              "checks": {
+                  "lint": {"tool": "ruff", "outcome": normalize(os.environ.get("RUFF_OUTCOME"))},
+                  "type_check": {"tool": "mypy", "outcome": normalize(os.environ.get("MYPY_OUTCOME"))},
+                  "tests": {"tool": "pytest", "outcome": normalize(os.environ.get("PYTEST_OUTCOME"))},
+                  "coverage_minimum": {
+                      "tool": "threshold",
+                      "outcome": normalize(os.environ.get("COVERAGE_MIN_OUTCOME")),
+                  },
+              },
+              "artifacts": {
+                  "coverage_xml": xml_path.exists(),
+                  "coverage_json": json_path.exists(),
+                  "pytest_junit": (base_dir / "pytest-junit.xml").exists(),
+              },
+          }
+
+          coverage_value: float | None = None
+          xml_path = base_dir / "coverage.xml"
+          json_path = base_dir / "coverage.json"
+
+          if xml_path.exists():
+              try:
+                  rate = ET.parse(xml_path).getroot().get("line-rate")
+                  if rate is not None:
+                      coverage_value = float(rate) * 100.0
+              except ET.ParseError:
+                  coverage_value = None
+          if coverage_value is None and json_path.exists():
+              try:
+                  data = json.loads(json_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = None
+              if isinstance(data, dict):
+                  totals = data.get("totals")
+                  if isinstance(totals, dict):
+                      percent = totals.get("percent_covered")
+                      if isinstance(percent, (int, float)):
+                          coverage_value = float(percent)
+
+          if coverage_value is not None:
+              summary["coverage"] = {
+                  "percent": round(float(coverage_value), 2),
+                  "source": "coverage.json" if json_path.exists() else "coverage.xml",
+              }
+
+          summary_path = base_dir / "summary.json"
+          summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+          index_path = Path("artifacts/coverage/index.ndjson")
+          index_path.parent.mkdir(parents=True, exist_ok=True)
+          with index_path.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(summary) + "\n")
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  handle.write(f"summary_path={summary_path}\n")
+          PY
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -322,9 +420,45 @@ jobs:
             coverage.xml
             coverage.json
             pytest-junit.xml
-            coverage/runtimes/${{ matrix.python-version }}
+            artifacts/coverage
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Finalize check results
+        if: always()
+        env:
+          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
+          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
+          COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          failures=()
+
+          record_outcome() {
+            local label="$1"
+            local outcome="$2"
+            if [ -z "${outcome}" ] || [ "${outcome}" = 'success' ] || [ "${outcome}" = 'skipped' ]; then
+              return 0
+            fi
+            if [ "${outcome}" = 'cancelled' ]; then
+              failures+=("${label} cancelled")
+              return 0
+            fi
+            failures+=("${label} ${outcome}")
+          }
+
+          record_outcome "ruff" "${RUFF_OUTCOME}"
+          record_outcome "mypy" "${MYPY_OUTCOME}"
+          record_outcome "pytest" "${PYTEST_OUTCOME}"
+          if [ "${{ inputs['coverage-min'] != '' }}" = 'true' ]; then
+            record_outcome "coverage minimum" "${COVERAGE_MIN_OUTCOME}"
+          fi
+
+          if [ "${#failures[@]}" -gt 0 ]; then
+            printf 'CI checks failed: %s\n' "${failures[*]}" >&2
+            exit 1
+          fi
 
       - name: Build CI metrics payload
         if: ${{ inputs['enable-metrics'] || inputs['enable-history'] || inputs['enable-classification'] }}
@@ -395,7 +529,7 @@ jobs:
           retention-days: 7
 
       - name: Generate coverage trend summary
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
           python tools/coverage_trend.py \
             --coverage-xml coverage.xml \
@@ -408,7 +542,7 @@ jobs:
             --minimum ${{ inputs['coverage-min'] }}
 
       - name: Annotate coverage trend record
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
           python - <<'PY'
           import json
@@ -425,7 +559,7 @@ jobs:
           PY
 
       - name: Append coverage trend history
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
           python scripts/coverage_history_append.py
         env:
@@ -433,7 +567,7 @@ jobs:
           RECORD_PATH: coverage-trend.json
 
       - name: Upload coverage summary artifact
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
@@ -442,7 +576,7 @@ jobs:
           retention-days: 7
 
       - name: Upload coverage trend artifact
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
@@ -451,7 +585,7 @@ jobs:
           retention-days: 7
 
       - name: Upload coverage trend history artifact
-        if: ${{ inputs['enable-soft-gate'] }}
+        if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history

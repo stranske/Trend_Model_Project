@@ -13,15 +13,14 @@ Each refresh includes:
 * Head commit SHA and a roll-up of the most recent workflow runs that were
   queried for the PR head commit.
 * A required-check summary derived from the Gate job list. The default patterns
-  track the three fan-out jobs (`core tests (3.11)`, `core tests (3.12)`,
-  `docker smoke`) plus the `gate` aggregator so reviewers can see which leg
-  failed.
+  track the fan-out jobs (`python ci`, `docker smoke`) plus the `gate`
+  aggregator so reviewers can see which leg failed.
 * A job-by-job table covering the latest Gate run, complete with badge emojis
   indicating state and deep links to the workflow/job logs. Failing rows are
   bolded for quick scanning.
 * Coverage headline metrics – latest averages, worst-job coverage, and deltas
   vs the previous recorded run when history is available – along with any
-  Markdown snippet published as the `coverage-summary` artifact.
+  Markdown snippet published as the `gate-coverage-summary` artifact.
 
 The helper stores the rendered Markdown as
 `summary_artifacts/summary_preview.md` so maintainers can inspect the message

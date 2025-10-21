@@ -47,6 +47,7 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
 
     assert call_inputs.get("python-version", {}).get("default") == "3.11"
     assert call_inputs.get("python-versions", {}).get("default") == "[]"
+    assert call_inputs.get("primary-python-version", {}).get("default") == "3.11"
     assert dispatch_inputs.get("python-version", {}).get("default") == "3.11"
     assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.11"]'
 
