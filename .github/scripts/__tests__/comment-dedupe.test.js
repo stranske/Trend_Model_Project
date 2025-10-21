@@ -1,0 +1,54 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  selectMarkerComment,
+  extractAnchoredMetadata,
+  findAnchoredComment,
+} = require('../comment-dedupe');
+
+test('selectMarkerComment prefers marker comment', () => {
+  const comments = [
+    { id: 1, body: 'Irrelevant' },
+    { id: 2, body: 'Gate fast-pass message' },
+    { id: 3, body: 'Gate fast-pass message\n<!-- gate-docs-only -->' },
+    { id: 4, body: 'Gate fast-pass message (legacy)' },
+  ];
+  const { target, duplicates } = selectMarkerComment(comments, {
+    marker: '<!-- gate-docs-only -->',
+    baseMessage: 'Gate fast-pass message',
+  });
+  assert.equal(target.id, 3);
+  assert.deepEqual(duplicates.map(item => item.id), [2, 4]);
+});
+
+test('extractAnchoredMetadata parses pr and head', () => {
+  const body = 'status\n<!-- maint-46-post-ci: pr=123 head=abc123 -->';
+  const anchor = extractAnchoredMetadata(body, /<!--\s*maint-46-post-ci:([^>]*)-->/i);
+  assert.equal(anchor.pr, '123');
+  assert.equal(anchor.head, 'abc123');
+});
+
+test('findAnchoredComment matches anchor metadata first', () => {
+  const comments = [
+    { id: 1, body: 'First <!-- maint-46-post-ci: pr=1 head=aaa -->' },
+    { id: 2, body: 'Second <!-- maint-46-post-ci: pr=2 head=bbb -->' },
+    { id: 3, body: 'Fallback <!-- maint-46-post-ci:' },
+  ];
+  const anchor = { pr: '2', head: 'bbb' };
+  const result = findAnchoredComment(comments, {
+    anchorPattern: /<!--\s*maint-46-post-ci:([^>]*)-->/i,
+    fallbackMarker: '<!-- maint-46-post-ci:',
+    targetAnchor: anchor,
+  });
+  assert.equal(result.id, 2);
+
+  const missingAnchor = findAnchoredComment(comments, {
+    anchorPattern: /<!--\s*maint-46-post-ci:([^>]*)-->/i,
+    fallbackMarker: '<!-- maint-46-post-ci:',
+    targetAnchor: { pr: '9', head: 'zzz' },
+  });
+  assert.equal(missingAnchor.id, 1);
+});
