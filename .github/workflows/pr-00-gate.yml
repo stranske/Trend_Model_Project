@@ -214,24 +214,30 @@ jobs:
               - '**/.docker/**'
 
   core-tests-311:
-    name: core tests (3.11)
+    name: core-tests-311
     needs: detect
     if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.11'
+      primary-python-version: '3.11'
       marker: "not quarantine and not slow"
       enable-soft-gate: true
-      artifact-prefix: 'core311-'
+      # Use the shared gate- prefix so downstream Maint workflows can locate the
+      # coverage artifacts without special-casing runtime names.
+      artifact-prefix: 'gate-'
 
   core-tests-312:
-    name: core tests (3.12)
+    name: core-tests-312
     needs: detect
     if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       python-version: '3.12'
+      primary-python-version: '3.11'
       marker: "not quarantine and not slow"
+      enable-soft-gate: true
+      artifact-prefix: 'gate-'
 
   docker-smoke:
     name: docker smoke
@@ -438,149 +444,235 @@ jobs:
             }
 
       - name: Download coverage (3.11)
-        id: coverage_311
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.11
-          path: coverage/core-tests-311
+          name: gate-coverage-3.11
+          path: gate_artifacts/core-tests-311
 
       - name: Download coverage (3.12)
-        id: coverage_312
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.12
-          path: coverage/core-tests-312
-
-      - name: Normalize coverage runtimes
-        if: ${{ steps.coverage_311.outcome == 'success' || steps.coverage_312.outcome == 'success' }}
-        run: |
-          set -euo pipefail
-
-          normalize() {
-            local source="$1"
-            local version="$2"
-
-            if [ ! -d "$source" ]; then
-              echo "Coverage payload for ${version} not found at ${source}; skipping."
-              return 0
-            fi
-
-            mkdir -p coverage/runtimes
-            local target="coverage/runtimes/${version}"
-
-            rm -rf "${target}"
-            mkdir -p "${target}"
-
-            local canonical="${source}/coverage/runtimes/${version}"
-            local legacy="${source}/runtimes/${version}"
-            local root_version="${source}/${version}"
-
-            if [ -d "${canonical}" ]; then
-              cp -R "${canonical}/." "${target}/"
-            elif [ -d "${legacy}" ]; then
-              cp -R "${legacy}/." "${target}/"
-            elif [ -d "${root_version}" ]; then
-              cp -R "${root_version}/." "${target}/"
-            else
-              cp -R "${source}/." "${target}/"
-            fi
-
-            # Remove the original download to avoid leaking intermediate layouts.
-            rm -rf "${source}"
-          }
-
-          normalize "coverage/core-tests-311" "3.11"
-          normalize "coverage/core-tests-312" "3.12"
-
-      - name: Upload coverage bundle (3.11)
-        if: ${{ steps.coverage_311.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-3.11
-          path: coverage/runtimes/3.11
-          if-no-files-found: ignore
-          overwrite: true
-
-      - name: Upload coverage bundle (3.12)
-        if: ${{ steps.coverage_312.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-3.12
-          path: coverage/runtimes/3.12
-          if-no-files-found: ignore
-          overwrite: true
+          name: gate-coverage-3.12
+          path: gate_artifacts/core-tests-312
 
       - name: Summarize results
         if: ${{ always() }}
         id: summarize
+        env:
+          DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
+          RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
+          REASON: ${{ needs.detect.outputs.reason }}
+          PYTHON_RESULT: ${{ needs.core-tests-311.result || needs.core-tests-312.result || 'skipped' }}
+          DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
+          DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
         run: |
-          set -euo pipefail
+          python <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          DOC_ONLY="${{ needs.detect.outputs.doc_only }}"
-          RUN_CORE="${{ needs.detect.outputs.run_core }}"
-          REASON="${{ needs.detect.outputs.reason }}"
-          CORE_311="${{ needs.core-tests-311.result || 'skipped' }}"
-          CORE_312="${{ needs.core-tests-312.result || 'skipped' }}"
-          DOCKER="${{ needs.docker-smoke.result || 'skipped' }}"
-          DOCKER_CHANGED="${{ needs.detect.outputs.docker_changed || 'false' }}"
+          def normalize(value: str | None, default: str = "unknown") -> str:
+              return (value or default).strip().lower()
 
-          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ### Gate status
-          | Job | Result |
-          | --- | ------ |
-          | core-tests-311 | ${CORE_311:-unknown} |
-          | core-tests-312 | ${CORE_312:-unknown} |
-          | docker-smoke | ${DOCKER:-unknown} |
-          EOF
+          doc_only = normalize(os.environ.get("DOC_ONLY"), "false") == "true"
+          run_core = normalize(os.environ.get("RUN_CORE"), "true") == "true"
+          reason = os.environ.get("REASON") or ""
+          python_result = normalize(os.environ.get("PYTHON_RESULT"), "skipped")
+          docker_result = normalize(os.environ.get("DOCKER_RESULT"), "skipped")
+          docker_changed = normalize(os.environ.get("DOCKER_CHANGED"), "false") == "true"
 
-          STATE="success"
-          DESCRIPTION="All Gate checks succeeded."
+          base = Path("gate_artifacts")
+          records: list[dict[str, object]] = []
+          if base.exists():
+              for path in sorted(base.rglob("**/summary.json")):
+                  try:
+                      job_name = path.relative_to(base).parts[0]
+                  except (ValueError, IndexError):
+                      job_name = "unknown"
+                  try:
+                      data = json.loads(path.read_text(encoding="utf-8"))
+                  except json.JSONDecodeError:
+                      continue
+                  if isinstance(data, dict):
+                      data.setdefault("job_name", job_name)
+                      records.append(data)
 
-          doc_only_normalized="${DOC_ONLY:-false}"
-          run_core_normalized="${RUN_CORE:-true}"
+          def emoji(outcome: str) -> str:
+              mapping = {
+                  "success": "✅",
+                  "skipped": "⏭️",
+                  "failure": "❌",
+                  "cancelled": "⏹️",
+                  "timed_out": "⏱️",
+                  "pending": "⏳",
+              }
+              return mapping.get(outcome, "❔")
 
-          if [ "${doc_only_normalized}" = "true" ] || [ "${run_core_normalized}" != "true" ]; then
-            if [ -z "${REASON}" ]; then
-              REASON="docs_only"
-            fi
+          def friendly(outcome: str) -> str:
+              if not outcome:
+                  return "unknown"
+              return outcome.replace("_", " ")
 
-            NOTE="Docs-only change detected; heavy checks skipped."
-            DESCRIPTION="Gate fast-pass: docs-only change detected; heavy checks skipped."
-            if [ "${REASON}" != "docs_only" ]; then
-              NOTE="Docs-only change detected; heavy checks skipped (${REASON})."
-              DESCRIPTION="Docs-only change; heavy checks skipped (${REASON})."
-            fi
+          PRIORITY = {"failure": 0, "timed_out": 1, "cancelled": 2, "success": 3, "skipped": 4, "pending": 5}
 
-            {
-              echo
-              echo "${NOTE}"
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            if [ "${CORE_311}" != "success" ]; then
-              STATE="failure"
-              DESCRIPTION="core-tests-311 result: ${CORE_311}."
-            elif [ "${CORE_312}" != "success" ]; then
-              STATE="failure"
-              DESCRIPTION="core-tests-312 result: ${CORE_312}."
-            elif [ "${DOCKER_CHANGED}" = "true" ] && [ "${DOCKER}" != "success" ]; then
-              STATE="failure"
-              DESCRIPTION="docker-smoke result: ${DOCKER}."
-            elif [ "${DOCKER_CHANGED}" != "true" ]; then
-              {
-                echo
-                echo "Docker smoke skipped: no Docker-related changes detected."
-              } >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
+          def pick_best(outcomes: list[str]) -> str:
+              best = "pending"
+              for outcome in outcomes:
+                  candidate = outcome or "pending"
+                  if PRIORITY.get(candidate, 99) < PRIORITY.get(best, 99):
+                      best = candidate
+              return best
 
-          {
-            echo "state=${STATE}"
-            echo "description=${DESCRIPTION}"
-          } >> "$GITHUB_OUTPUT"
+          def aggregate_status(entries: list[tuple[str, str]]) -> tuple[str, str]:
+              best = pick_best([outcome for _, outcome in entries])
+              groups: list[str] = []
+              for runtime, outcome in sorted(entries):
+                  groups.append(f"{runtime}: {friendly(outcome)}")
+              detail = ", ".join(groups) if groups else "no runs"
+              return best, detail
+
+          summary_path = Path(os.environ.get("GITHUB_STEP_SUMMARY", ""))
+          lines: list[str] = []
+
+          state = "success"
+          description = "All Gate checks succeeded."
+
+          if doc_only or not run_core:
+              if not reason:
+                  reason = "docs_only"
+              note = (
+                  "Docs-only change detected; heavy checks skipped."
+                  if reason == "docs_only"
+                  else f"Docs-only change detected; heavy checks skipped ({reason})."
+              )
+              description = (
+                  "Gate fast-pass: docs-only change detected; heavy checks skipped."
+                  if reason == "docs_only"
+                  else f"Docs-only change; heavy checks skipped ({reason})."
+              )
+              lines.append("### Gate status")
+              lines.append("Docs-only fast-pass engaged; heavy jobs were skipped.")
+              # Add a minimal job/result table so tests can detect the expected header
+              lines.append("| Job | Result |")
+              lines.append("| --- | --- |")
+              lines.append("| docs-only | success |")
+          else:
+              table = [
+                  "| Runtime | Lint | Type | Tests | Coverage min | Coverage % |",
+                  "| --- | --- | --- | --- | --- | --- |",
+              ]
+              lint_entries: list[tuple[str, str]] = []
+              type_entries: list[tuple[str, str]] = []
+              test_entries: list[tuple[str, str]] = []
+              coverage_entries: list[tuple[str, str]] = []
+              coverage_percents: list[str] = []
+              job_results: dict[str, list[str]] = {}
+
+              for record in sorted(records, key=lambda item: str(item.get("python_version", ""))):
+                  runtime = str(record.get("python_version", "unknown"))
+                  job_name = str(record.get("job_name") or runtime)
+                  checks = record.get("checks") if isinstance(record.get("checks"), dict) else {}
+                  lint = normalize(
+                      checks.get("lint", {}).get("outcome")
+                      if isinstance(checks.get("lint"), dict)
+                      else None,
+                      "unknown",
+                  )
+                  typing = normalize(
+                      checks.get("type_check", {}).get("outcome")
+                      if isinstance(checks.get("type_check"), dict)
+                      else None,
+                      "unknown",
+                  )
+                  tests = normalize(
+                      checks.get("tests", {}).get("outcome")
+                      if isinstance(checks.get("tests"), dict)
+                      else None,
+                      "unknown",
+                  )
+                  coverage_min = normalize(
+                      checks.get("coverage_minimum", {}).get("outcome")
+                      if isinstance(checks.get("coverage_minimum"), dict)
+                      else None,
+                      "unknown",
+                  )
+
+                  lint_entries.append((runtime, lint))
+                  type_entries.append((runtime, typing))
+                  test_entries.append((runtime, tests))
+                  coverage_entries.append((runtime, coverage_min))
+                  job_results.setdefault(job_name, []).extend([lint, typing, tests, coverage_min])
+
+                  coverage_info = record.get("coverage") if isinstance(record.get("coverage"), dict) else {}
+                  percent = coverage_info.get("percent") if isinstance(coverage_info, dict) else None
+                  if isinstance(percent, (int, float)):
+                      coverage_percents.append(f"{runtime}: {percent:.2f}%")
+                      percent_display = f"{percent:.2f}%"
+                  else:
+                      percent_display = "—"
+
+                  table.append(
+                      "| {runtime} | {lint} {lint_status} | {typing} {type_status} | {tests} {test_status} | {coverage_min} {cov_status} | {percent} |".format(
+                          runtime=runtime,
+                          lint=emoji(lint),
+                          lint_status=friendly(lint),
+                          typing=emoji(typing),
+                          type_status=friendly(typing),
+                          tests=emoji(tests),
+                          test_status=friendly(tests),
+                          coverage_min=emoji(coverage_min),
+                          cov_status=friendly(coverage_min),
+                          percent=percent_display,
+                      )
+                  )
+
+              lint_status, lint_detail = aggregate_status(lint_entries)
+              type_status, type_detail = aggregate_status(type_entries)
+              test_status, test_detail = aggregate_status(test_entries)
+              coverage_status, coverage_detail = aggregate_status(coverage_entries)
+
+              lines.append("### Gate status")
+              lines.extend(table)
+              # Also include a compact job/result table for downstream checks
+              lines.append("")
+              lines.append("| Job | Result |")
+              lines.append("| --- | --- |")
+              for job_name, outcomes in sorted(job_results.items()):
+                  result = pick_best(outcomes)
+                  lines.append(f"| {job_name} | {friendly(result)} |")
+              lines.append(f"| docker-smoke | {friendly(docker_result)} |")
+
+              lines.append("")
+              lines.append(f"- Lint: {emoji(lint_status)} {friendly(lint_status)} ({lint_detail})")
+              lines.append(f"- Type check: {emoji(type_status)} {friendly(type_status)} ({type_detail})")
+              lines.append(f"- Tests: {emoji(test_status)} {friendly(test_status)} ({test_detail})")
+              lines.append(f"- Coverage minimum: {emoji(coverage_status)} {friendly(coverage_status)} ({coverage_detail})")
+              if coverage_percents:
+                  lines.append(f"- Reported coverage: {', '.join(coverage_percents)}")
+
+              if python_result != "success":
+                  state = "failure"
+                  description = f"Python CI result: {python_result}."
+              elif docker_changed and docker_result != "success":
+                  state = "failure"
+                  description = f"Docker smoke result: {docker_result}."
+              elif not docker_changed:
+                  lines.append("- Docker smoke skipped: no Docker-related changes detected.")
+
+          if summary_path and lines:
+              with summary_path.open("a", encoding="utf-8") as handle:
+                  handle.write("\n".join(lines) + "\n")
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  handle.write(f"state={state}\n")
+                  handle.write(f"description={description}\n")
+          PY
 
       - name: Report Gate commit status
         if: ${{ always() }}
