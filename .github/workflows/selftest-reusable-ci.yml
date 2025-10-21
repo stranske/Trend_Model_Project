@@ -164,132 +164,20 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const { owner, repo } = context.repo;
-            const runId = context.runId;
+            const { normalizeCoverageArtifacts } = require('./.github/scripts/coverage-normalize');
 
-            function parsePythonVersions(raw) {
-              const fallback = ['3.11'];
-              if (!raw || !raw.trim()) {
-                return fallback;
-              }
-              try {
-                const parsed = JSON.parse(raw.trim());
-                if (Array.isArray(parsed) && parsed.length) {
-                  return parsed.map(String);
-                }
-              } catch (error) {
-                core.warning(`Unable to parse python_versions input (${raw}); falling back to ${fallback.join(', ')}`);
-              }
-              return fallback;
-            }
-
-            const pythonVersions = parsePythonVersions(process.env.PYTHON_VERSIONS);
-            const scenarioNames = (process.env.SCENARIO_LIST || '')
-              .split(',')
-              .map((value) => value.trim())
-              .filter(Boolean);
-
-            function expectedArtifactsFor(scenario) {
-              const prefix = (suffix) => `sf-${scenario}-${suffix}`;
-              const base = pythonVersions.map((version) => prefix(`coverage-${version}`));
-              switch (scenario) {
-                case 'minimal':
-                  return base;
-                case 'metrics_only':
-                  return [...base, prefix('ci-metrics')];
-                case 'metrics_history':
-                  return [...base, prefix('ci-metrics'), prefix('metrics-history')];
-                case 'classification_only':
-                  return [...base, prefix('classification')];
-                case 'coverage_delta':
-                  return [...base, prefix('coverage-delta')];
-                case 'full_soft_gate':
-                  return [
-                    ...base,
-                    prefix('ci-metrics'),
-                    prefix('metrics-history'),
-                    prefix('classification'),
-                    prefix('coverage-delta'),
-                    prefix('coverage-summary'),
-                    prefix('coverage-trend'),
-                    prefix('coverage-trend-history'),
-                  ];
-                default:
-                  core.warning(`Unknown scenario '${scenario}' encountered; treating as minimal.`);
-                  return base;
-              }
-            }
-
-            const artifactNames = await github.paginate(
-              github.rest.actions.listWorkflowRunArtifacts,
-              { owner, repo, run_id: runId, per_page: 100 },
-              (response) => response.data.map((artifact) => artifact.name)
-            );
-            const nameSet = new Set(artifactNames);
-
-            const jobs = await github.paginate(
-              github.rest.actions.listJobsForWorkflowRun,
-              { owner, repo, run_id: runId, per_page: 100 },
-              (response) => response.data
+            const result = await normalizeCoverageArtifacts(
+              { github, context, core },
+              {
+                pythonVersionsRaw: process.env.PYTHON_VERSIONS,
+                scenarioListRaw: process.env.SCENARIO_LIST,
+              },
             );
 
-            const matrixJobs = jobs.filter((job) => job.name && job.name.startsWith('Scenario - '));
-            const jobStatusByScenario = Object.fromEntries(
-              matrixJobs.map((job) => {
-                const scenarioName = job.name.replace('Scenario - ', '').trim();
-                const status = job.conclusion === 'success'
-                  ? '✅'
-                  : job.conclusion === 'failure'
-                    ? '❌'
-                    : 'ℹ️';
-                return [scenarioName, status];
-              })
-            );
+            core.setOutput('table', result.table);
+            core.setOutput('failures', String(result.failures));
 
-            const rows = ['| Scenario | Status | Missing | Unexpected |', '|---|---|---|---|'];
-            const summary = [];
-            let failures = 0;
-
-            const expectedUniverse = new Set();
-            scenarioNames.forEach((scenario) => {
-              expectedArtifactsFor(scenario).forEach((name) => expectedUniverse.add(name));
-            });
-
-            for (const scenario of scenarioNames) {
-              const expected = expectedArtifactsFor(scenario);
-              const missing = expected.filter((name) => !nameSet.has(name));
-              const prefix = `sf-${scenario}-`;
-              const actual = artifactNames.filter((name) => name.startsWith(prefix));
-              const unexpected = actual.filter((name) => !expected.includes(name));
-              const ok = missing.length === 0 && unexpected.length === 0 && jobStatusByScenario[scenario] === '✅';
-              if (!ok) {
-                failures += 1;
-              }
-              rows.push(
-                `| ${scenario} | ${jobStatusByScenario[scenario] || 'ℹ️'} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} |`
-              );
-              summary.push({ scenario, status: jobStatusByScenario[scenario] || 'unknown', missing, unexpected, ok });
-            }
-
-            const stray = artifactNames.filter((name) => name.startsWith('sf-') && !expectedUniverse.has(name));
-            if (stray.length) {
-              rows.push(`| (stray) | ❌ | (n/a) | ${stray.join('<br>')} |`);
-              summary.push({ scenario: '_stray_', status: 'unexpected', missing: [], unexpected: stray, ok: false });
-              failures += 1;
-            }
-
-            const table = rows.join('\n');
-            core.setOutput('table', table);
-            core.setOutput('failures', String(failures));
-
-            const report = {
-              run_id: runId,
-              python_versions: pythonVersions,
-              scenarios: summary,
-              artifact_count: artifactNames.length,
-              failures,
-            };
-            fs.writeFileSync('selftest-report.json', JSON.stringify(report, null, 2));
+            fs.writeFileSync('selftest-report.json', JSON.stringify(result.report, null, 2));
 
       - name: Append verification table
         run: |

@@ -1754,73 +1754,10 @@ jobs:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
+            const { upsertSummaryComment } = require('./.github/scripts/comment-dedupe');
             const body = fs.readFileSync('maint_post_ci_comment.md', 'utf8');
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            if (!pr) {
-              core.warning('PR number missing; skipping comment update.');
-              return;
-            }
-            const anchorPattern = /<!--\s*maint-46-post-ci:([^>]*)-->/i;
-            const extractAnchor = (text) => {
-              if (!text) {
-                return null;
-              }
-              const match = text.match(anchorPattern);
-              if (!match) {
-                return null;
-              }
-              const content = match[1] || '';
-              const prMatch = content.match(/pr=([0-9]+)/i);
-              const headMatch = content.match(/head=([0-9a-f]+)/i);
-              return {
-                raw: match[0],
-                pr: prMatch ? prMatch[1] : null,
-                head: headMatch ? headMatch[1] : null,
-              };
-            };
-            const targetAnchor = extractAnchor(body);
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr,
-              per_page: 100,
-            });
-            let existing = null;
-            if (targetAnchor) {
-              existing = comments.find(comment => {
-                const info = extractAnchor(comment.body || '');
-                if (!info) {
-                  return false;
-                }
-                if (targetAnchor.pr && info.pr && info.pr !== targetAnchor.pr) {
-                  return false;
-                }
-                if (targetAnchor.head && info.head && info.head !== targetAnchor.head) {
-                  return false;
-                }
-                return true;
-              });
-            }
-            if (!existing) {
-              existing = comments.find(comment => (comment.body || '').includes('<!-- maint-46-post-ci:'));
-            }
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-              core.info('Updated existing consolidated status comment.');
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr,
-                body,
-              });
-              core.info('Created consolidated status comment.');
-            }
+            const prNumber = Number('${{ needs.context.outputs.pr }}');
+            await upsertSummaryComment({ github, context, core }, { body, prNumber });
   failure-tracker:
     name: Update failure tracker
     needs: context
