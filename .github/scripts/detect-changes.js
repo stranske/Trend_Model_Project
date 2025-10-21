@@ -65,51 +65,49 @@ const DOC_SEGMENTS = [
   '\\notes\\',
 ];
 
-const DOCKER_SUFFIXES = ['/dockerfile', '\\dockerfile'];
 const DOCKER_PREFIXES = ['docker/', 'docker\\', '.docker/', '.docker\\'];
 const DOCKER_SEGMENTS = ['/docker/', '\\docker\\', '/.docker/', '\\.docker\\'];
+const DOCKERFILE_SUFFIXES = ['/dockerfile', '\\dockerfile'];
 
-function normalisePath(value) {
-  return String(value || '').toLowerCase();
+function normalizeCase(value) {
+  return (value || '').toLowerCase();
 }
 
-function toForwardSlashes(value) {
-  return value.replace(/\\/g, '/');
+function normalizeSlashes(value) {
+  return normalizeCase(value).replace(/\\/g, '/');
 }
 
-function basename(value) {
-  const normalised = toForwardSlashes(value);
-  const parts = normalised.split('/');
-  return parts[parts.length - 1] || '';
-}
-
-function stripExtension(name) {
-  if (!name.includes('.')) {
-    return name;
+function basenameWithoutExtension(filename) {
+  const normalized = normalizeSlashes(filename);
+  const parts = normalized.split('/');
+  const base = parts.length ? parts[parts.length - 1] : normalized;
+  if (!base) {
+    return '';
   }
-  return name.slice(0, name.lastIndexOf('.'));
+  const lastDot = base.lastIndexOf('.');
+  return lastDot === -1 ? base : base.slice(0, lastDot);
 }
 
-function isDocFile(filename) {
-  const normalised = normalisePath(filename);
+function isDocumentationFile(filename) {
+  const normalized = normalizeCase(filename);
+  if (!normalized) {
+    return false;
+  }
 
-  if (DOC_EXTENSIONS.some((ext) => normalised.endsWith(ext))) {
+  if (DOC_EXTENSIONS.some(ext => normalized.endsWith(ext))) {
     return true;
   }
 
-  const base = basename(normalised);
-  if (base) {
-    const withoutExt = stripExtension(base);
-    if (DOC_BASENAMES.has(withoutExt)) {
-      return true;
-    }
-  }
-
-  if (DOC_PREFIXES.some((prefix) => normalised.startsWith(prefix))) {
+  const base = basenameWithoutExtension(filename);
+  if (base && DOC_BASENAMES.has(base)) {
     return true;
   }
 
-  if (DOC_SEGMENTS.some((segment) => normalised.includes(segment))) {
+  if (DOC_PREFIXES.some(prefix => normalized.startsWith(prefix))) {
+    return true;
+  }
+
+  if (DOC_SEGMENTS.some(segment => normalized.includes(segment))) {
     return true;
   }
 
@@ -117,63 +115,70 @@ function isDocFile(filename) {
 }
 
 function isDockerRelated(filename) {
-  const normalised = normalisePath(filename);
-  if (normalised === 'dockerfile') {
+  const normalized = normalizeCase(filename);
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized === 'dockerfile') {
     return true;
   }
 
-  if (DOCKER_SUFFIXES.some((suffix) => normalised.endsWith(suffix))) {
+  if (DOCKERFILE_SUFFIXES.some(suffix => normalized.endsWith(suffix))) {
     return true;
   }
 
-  const base = basename(normalised);
-  if (base && base.startsWith('dockerfile')) {
+  const base = basenameWithoutExtension(filename);
+  if (normalizeCase(base).startsWith('dockerfile')) {
     return true;
   }
 
-  if (normalised === '.dockerignore') {
+  if (normalized === '.dockerignore') {
     return true;
   }
 
-  if (DOCKER_PREFIXES.some((prefix) => normalised.startsWith(prefix))) {
+  if (DOCKER_PREFIXES.some(prefix => normalized.startsWith(prefix))) {
     return true;
   }
 
-  if (DOCKER_SEGMENTS.some((segment) => normalised.includes(segment))) {
+  if (DOCKER_SEGMENTS.some(segment => normalized.includes(segment))) {
     return true;
   }
 
   return false;
 }
 
-async function detectChanges({ github, context, core }) {
-  const eventName = context.eventName;
-  if (eventName !== 'pull_request') {
-    core.setOutput('doc_only', 'false');
-    core.setOutput('run_core', 'true');
-    core.setOutput('reason', 'non_pr_event');
-    core.setOutput('docker_changed', 'true');
-    return {
-      docOnly: false,
-      runCore: true,
-      reason: 'non_pr_event',
-      dockerChanged: true,
-    };
+async function listChangedFiles({ github, context }) {
+  const pull = context?.payload?.pull_request;
+  const number = pull?.number;
+  if (!github || !context || !number) {
+    return [];
   }
-
-  const files = await github.paginate(github.rest.pulls.listFiles, {
+  const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
     owner: context.repo.owner,
     repo: context.repo.repo,
-    pull_number: context.payload.pull_request.number,
+    pull_number: number,
     per_page: 100,
   });
+  const files = [];
+  for await (const page of iterator) {
+    if (Array.isArray(page.data)) {
+      for (const item of page.data) {
+        if (item && typeof item.filename === 'string') {
+          files.push(item.filename);
+        }
+      }
+    }
+  }
+  return files;
+}
 
-  const changedFiles = files.map((file) => file.filename);
+function classifyChanges(filenames) {
+  const changedFiles = Array.from(new Set(filenames.filter(Boolean)));
   const hasChanges = changedFiles.length > 0;
-  const nonDocFiles = changedFiles.filter((filename) => !isDocFile(filename));
+  const nonDocFiles = changedFiles.filter(filename => !isDocumentationFile(filename));
   const docOnly = hasChanges ? nonDocFiles.length === 0 : true;
-  const dockerChanged = changedFiles.some((filename) => isDockerRelated(filename));
-
+  const dockerChanged = changedFiles.some(filename => isDockerRelated(filename));
   let reason = 'code_changes';
   if (!hasChanges) {
     reason = 'no_changes';
@@ -181,21 +186,70 @@ async function detectChanges({ github, context, core }) {
     reason = 'docs_only';
   }
 
-  core.setOutput('doc_only', docOnly ? 'true' : 'false');
-  core.setOutput('run_core', docOnly ? 'false' : 'true');
-  core.setOutput('reason', reason);
-  core.setOutput('docker_changed', dockerChanged ? 'true' : 'false');
+  return {
+    changedFiles,
+    hasChanges,
+    nonDocFiles,
+    docOnly,
+    dockerChanged,
+    reason,
+  };
+}
+
+async function detectChanges({ github, context, core, files, fetchFiles } = {}) {
+  const eventName = context?.eventName;
+  if (eventName !== 'pull_request') {
+    const outputs = {
+      doc_only: 'false',
+      run_core: 'true',
+      reason: 'non_pr_event',
+      docker_changed: 'true',
+    };
+    if (core) {
+      for (const [key, value] of Object.entries(outputs)) {
+        core.setOutput(key, value);
+      }
+    }
+    return { outputs, details: null };
+  }
+
+  let changedFiles = Array.isArray(files) ? files : null;
+  if (!changedFiles) {
+    if (typeof fetchFiles === 'function') {
+      changedFiles = await fetchFiles();
+    } else {
+      changedFiles = await listChangedFiles({ github, context });
+    }
+  }
+
+  const { docOnly, dockerChanged, reason } = classifyChanges(changedFiles);
+  const outputs = {
+    doc_only: docOnly ? 'true' : 'false',
+    run_core: docOnly ? 'false' : 'true',
+    reason,
+    docker_changed: dockerChanged ? 'true' : 'false',
+  };
+
+  if (core) {
+    for (const [key, value] of Object.entries(outputs)) {
+      core.setOutput(key, value);
+    }
+  }
 
   return {
-    docOnly,
-    runCore: !docOnly,
-    reason,
-    dockerChanged,
+    outputs,
+    details: {
+      changedFiles,
+      docOnly,
+      dockerChanged,
+      reason,
+    },
   };
 }
 
 module.exports = {
   detectChanges,
-  isDocFile,
+  classifyChanges,
+  isDocumentationFile,
   isDockerRelated,
 };

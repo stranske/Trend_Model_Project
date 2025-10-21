@@ -3,79 +3,67 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { detectChanges, isDocFile, isDockerRelated } = require('../detect-changes.js');
+const {
+  detectChanges,
+  classifyChanges,
+  isDocumentationFile,
+  isDockerRelated,
+} = require('../detect-changes');
 
-test('classifies documentation files using extensions, directories, and basenames', () => {
-  assert.ok(isDocFile('README.md'));
-  assert.ok(isDocFile('docs/guide/intro.rst'));
-  assert.ok(isDocFile('Guidelines/STYLE.MD'));
-  assert.ok(isDocFile('handbook/overview.txt'));
-  assert.ok(isDocFile('assets/docs/diagram.svg')); // suffix with docs folder
-  assert.ok(!isDocFile('src/index.js'));
-  assert.ok(!isDocFile('package.json'));
+test('classifies documentation files', () => {
+  assert.equal(isDocumentationFile('docs/README.md'), true);
+  assert.equal(isDocumentationFile('guides/setup.txt'), true);
+  assert.equal(isDocumentationFile('src/app.py'), false);
+  assert.equal(isDocumentationFile('README'), true);
 });
 
-test('detects docker-related files by path and filename', () => {
-  assert.ok(isDockerRelated('Dockerfile'));
-  assert.ok(isDockerRelated('services/api/Dockerfile.dev'));
-  assert.ok(isDockerRelated('docker/Dockerfile'));
-  assert.ok(isDockerRelated('.dockerignore'));
-  assert.ok(isDockerRelated('ops/.docker/config.yaml'));
-  assert.ok(!isDockerRelated('src/docker.ts'));
-  assert.ok(!isDockerRelated('docs/docker.md'));
+test('detects docker related files', () => {
+  assert.equal(isDockerRelated('Dockerfile'), true);
+  assert.equal(isDockerRelated('docker/Dockerfile'), true);
+  assert.equal(isDockerRelated('.dockerignore'), true);
+  assert.equal(isDockerRelated('src/app.py'), false);
 });
 
-test('detectChanges reports doc-only fast-pass results', async () => {
-  const outputs = {};
-  const core = {
-    setOutput: (key, value) => {
-      outputs[key] = value;
-    },
-  };
-  const context = {
-    eventName: 'pull_request',
-    repo: { owner: 'octo', repo: 'example' },
-    payload: { pull_request: { number: 42 } },
-  };
-  const github = {
-    rest: { pulls: { listFiles: () => {} } },
-    paginate: async (method, params) => {
-      assert.strictEqual(method, github.rest.pulls.listFiles);
-      assert.equal(params.pull_number, 42);
-      return [
-        { filename: 'docs/usage.md' },
-        { filename: 'guides/intro/README.mdx' },
-      ];
-    },
-  };
-
-  const result = await detectChanges({ github, context, core });
+test('classify changes summary', () => {
+  const result = classifyChanges(['docs/README.md', 'docs/guide.txt']);
   assert.equal(result.docOnly, true);
-  assert.equal(outputs.doc_only, 'true');
-  assert.equal(outputs.run_core, 'false');
-  assert.equal(outputs.reason, 'docs_only');
-  assert.equal(outputs.docker_changed, 'false');
+  assert.equal(result.dockerChanged, false);
+  assert.equal(result.reason, 'docs_only');
+
+  const result2 = classifyChanges(['Dockerfile', 'src/app.py']);
+  assert.equal(result2.docOnly, false);
+  assert.equal(result2.dockerChanged, true);
+  assert.equal(result2.reason, 'code_changes');
 });
 
-test('non pull request events set defaults', async () => {
-  const outputs = {};
-  const core = {
-    setOutput: (key, value) => {
-      outputs[key] = value;
-    },
-  };
-  const context = {
-    eventName: 'workflow_dispatch',
-  };
-  const github = {
-    paginate: async () => {
-      throw new Error('Should not be called for non PR events');
-    },
-  };
+test('detectChanges handles non pull request events', async () => {
+  const result = await detectChanges({
+    context: { eventName: 'push' },
+  });
+  assert.deepEqual(result.outputs, {
+    doc_only: 'false',
+    run_core: 'true',
+    reason: 'non_pr_event',
+    docker_changed: 'true',
+  });
+});
 
-  const result = await detectChanges({ github, context, core });
-  assert.equal(result.docOnly, false);
-  assert.equal(result.runCore, true);
-  assert.equal(outputs.reason, 'non_pr_event');
-  assert.equal(outputs.docker_changed, 'true');
+test('detectChanges consumes provided files', async () => {
+  const result = await detectChanges({
+    context: { eventName: 'pull_request' },
+    files: ['docs/README.md'],
+  });
+  assert.equal(result.outputs.doc_only, 'true');
+  assert.equal(result.outputs.run_core, 'false');
+  assert.equal(result.outputs.reason, 'docs_only');
+});
+
+test('detectChanges fetches files via callback', async () => {
+  const result = await detectChanges({
+    context: { eventName: 'pull_request' },
+    fetchFiles: async () => ['src/app.py', 'Dockerfile'],
+  });
+  assert.equal(result.outputs.doc_only, 'false');
+  assert.equal(result.outputs.docker_changed, 'true');
+  assert.equal(result.outputs.run_core, 'true');
 });

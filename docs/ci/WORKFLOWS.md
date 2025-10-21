@@ -2,6 +2,61 @@
 
 This page captures the target layout for the automation that protects pull requests, heals small issues, and keeps the repository health checks aligned. Each section links directly to the workflow definitions so future changes can trace how the pieces fit together.
 
+> ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
+> verification notes live in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md).
+
+## Target layout
+
+```mermaid
+flowchart LR
+    gate["Gate\n.pr-00-gate.yml"] --> maint46["Maint 46 Post CI\n.maint-46-post-ci.yml"]
+    gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
+    maint46 --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
+    agents70 --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
+    maint46 --> healthGuard["Health checks\n.health-4x-*.yml"]
+```
+
+- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before posting the commit status summary.
+- **Autofix path:** [Maint 46 Post CI](../../.github/workflows/maint-46-post-ci.yml) consumes Gate artifacts and, when labels permit, calls [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) for hygiene pushes or patch uploads.
+- **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor).
+- **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), and [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml) workflows provide scheduled drift detection and enforcement snapshots.
+
+Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
+bucket-level summary, the [keep vs retire roster](WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire), and policy checklist. Return
+here for the detailed trigger, permission, and operational notes per workflow.
+
+## CI & agents quick catalog
+
+The tables below capture the **active** workflows, their triggers, required
+scopes, and whether they block merges. Retired entries move to the
+[archived roster](#archived-workflows) once deleted so contributors can locate
+history without confusing it with the live inventory.
+
+### Required merge gate
+
+| Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
+
+#### Gate job map
+
+Use this map when triaging Gate failures. It illustrates the jobs that run on
+every pull request, which artifacts each produces, and how the final `gate`
+enforcement step evaluates their results.
+
+| Job ID | Display name | Purpose | Artifacts / outputs | Notes |
+| --- | --- | --- | --- | --- |
+| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage-3.11`, `gate-coverage-3.12`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage artifacts live under `artifacts/coverage/runtimes/<python>` for downstream consumers. |
+| `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
+| `gate` | gate | Downloads the reusable CI coverage bundle, renders lint/type/test/coverage results, and posts the commit status. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
+
+```mermaid
+flowchart TD
+    pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.11 + 3.12 matrix\n gate-coverage-* artifacts"]
+    pr00 --> dockerSmoke["docker smoke\nimage build logs"]
+    pythonCi --> gate["gate aggregator\nreviews artifacts"]
+    dockerSmoke --> gate
+    gate --> status["Required Gate status\nblocks/permits merge"]
 ```
 pull_request ──▶ Gate ──▶ Maint Post-CI summary
                     │              │

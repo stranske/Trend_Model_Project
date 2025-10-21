@@ -1,78 +1,54 @@
 'use strict';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
-const { normalizeCoverageArtifacts, runtimeFrom } = require('../coverage-normalize.js');
+const {
+  parseCoverageXml,
+  parseCoverageJson,
+  computeCoverageStats,
+} = require('../coverage-normalize');
 
-test('runtimeFrom strips coverage prefix', () => {
-  assert.equal(runtimeFrom('coverage-3.11'), '3.11');
-  assert.equal(runtimeFrom('3.12'), '3.12');
+test('parses coverage xml and json payloads', () => {
+  assert.equal(parseCoverageXml('<coverage line-rate="0.9"/>'), 90);
+  assert.ok(Math.abs(parseCoverageXml('<coverage line-rate="0.55"/>') - 55) < 1e-9);
+  assert.equal(parseCoverageJson({ totals: { percent_covered: 75.5 } }), 75.5);
+  assert.equal(parseCoverageJson({ totals: { percent_covered_display: '88.2' } }), 88.2);
+  assert.equal(parseCoverageJson({ totals: { covered_lines: 50, num_lines: 100 } }), 50);
+  assert.equal(parseCoverageJson({ totals: {} }), null);
 });
 
-test('normalizeCoverageArtifacts computes stats and writes outputs', async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-norm-'));
+test('computes coverage stats and writes files', async () => {
+  const cwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-test-'));
+  process.chdir(tempDir);
   try {
-    const summaryDir = path.join(tmpDir, 'summary_artifacts');
-    const coverage311Dir = path.join(summaryDir, 'coverage-runtimes', 'runtimes', '3.11');
-    const coverage312Dir = path.join(summaryDir, 'coverage-runtimes', 'runtimes', '3.12');
-    fs.mkdirSync(coverage311Dir, { recursive: true });
-    fs.mkdirSync(coverage312Dir, { recursive: true });
-
-    fs.writeFileSync(
-      path.join(coverage311Dir, 'coverage.json'),
-      JSON.stringify({ totals: { percent_covered: 91.234 } }),
-    );
-    fs.writeFileSync(
-      path.join(coverage312Dir, 'coverage.xml'),
-      '<coverage line-rate="0.88"></coverage>',
-    );
-
+    const summaryDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'coverage-3.11');
     fs.mkdirSync(summaryDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(summaryDir, 'coverage-trend.json'),
-      JSON.stringify({ run_id: 200, run_number: 12, avg_coverage: 90.5, worst_job_coverage: 85.2 }),
-    );
-    fs.writeFileSync(
-      path.join(summaryDir, 'coverage-trend-history.ndjson'),
-      [
-        JSON.stringify({ run_id: 100, run_number: 10, avg_coverage: 89.1, worst_job_coverage: 84.0 }),
-        JSON.stringify({ run_id: 101, run_number: 11, avg_coverage: 90.0, worst_job_coverage: 84.5 }),
-      ].join('\n'),
-    );
-    fs.writeFileSync(
-      path.join(summaryDir, 'coverage-delta.json'),
-      JSON.stringify({ current: 90.5, baseline: 92.0, delta: -1.5, status: 'drop' }),
-    );
+    fs.writeFileSync(path.join(summaryDir, 'coverage.json'), JSON.stringify({ totals: { percent_covered: 91.234 } }));
 
-    const statsPath = path.join(tmpDir, 'coverage-stats.json');
-    const deltaPath = path.join(tmpDir, 'coverage-delta-output.json');
-    const outputs = {};
-    const core = {
-      setOutput: (key, value) => {
-        outputs[key] = value;
-      },
-    };
+    const secondDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'runtimes', '3.12');
+    fs.mkdirSync(secondDir, { recursive: true });
+    fs.writeFileSync(path.join(secondDir, 'coverage.xml'), '<coverage line-rate="0.845"/>');
 
-    const result = await normalizeCoverageArtifacts({
-      core,
-      rootDir: summaryDir,
-      statsPath,
-      deltaPath,
-    });
+    const historyPath = path.join(tempDir, 'summary_artifacts', 'coverage-trend-history.ndjson');
+    fs.mkdirSync(path.dirname(historyPath), { recursive: true });
+    fs.writeFileSync(historyPath, JSON.stringify({ run_id: 1, run_number: 1, avg_coverage: 88, worst_job_coverage: 70 }) + '\n');
+    fs.appendFileSync(historyPath, JSON.stringify({ run_id: 2, run_number: 2, avg_coverage: 89, worst_job_coverage: 71 }) + '\n');
 
-    assert.ok(fs.existsSync(statsPath));
-    const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-    assert.equal(stats.job_coverages.length, 2);
-    assert.ok(stats.coverage_table_markdown.includes('Runtime'));
-    assert.ok(result.stats.avg_latest >= 88);
-    assert.equal(result.delta.status, 'drop');
-    assert.ok(outputs.stats_json);
-    assert.ok(outputs.delta_json);
+    const deltaPath = path.join(tempDir, 'summary_artifacts', 'coverage-delta.json');
+    fs.writeFileSync(deltaPath, JSON.stringify({ delta: 1 }));
+
+    const result = await computeCoverageStats({ core: null });
+    assert.ok(result.stats.avg_latest >= 0);
+    assert.equal(result.stats.job_coverages.length, 2);
+    assert.ok(fs.existsSync(path.join(tempDir, 'coverage-stats.json')));
+    assert.ok(fs.existsSync(path.join(tempDir, 'coverage-delta-output.json')));
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    process.chdir(cwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });

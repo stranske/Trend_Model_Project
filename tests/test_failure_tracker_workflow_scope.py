@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import shutil
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -64,7 +66,7 @@ def _get_post_comment_script() -> str:
 
 def _run_post_comment_harness(
     tmp_path: Path, node_path: str, scenario: dict[str, object]
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     script = _get_post_comment_script()
     pr_value = scenario.get("pr")
     assert isinstance(pr_value, int), "Scenario must provide integer PR number"
@@ -141,12 +143,16 @@ def _run_post_comment_harness(
     script_path = tmp_path / "post_comment_harness.js"
     script_path.write_text(harness, encoding="utf-8")
 
+    env = os.environ.copy()
+    env.setdefault("GITHUB_WORKSPACE", str(REPO_ROOT))
+
     result = subprocess.run(
         [node_path, str(script_path)],
         check=False,
         capture_output=True,
         text=True,
         cwd=tmp_path,
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -362,7 +368,7 @@ def test_post_comment_script_updates_existing_comment(tmp_path: Path) -> None:
         if entry.get("type") == "updateComment"
     ]
     assert update_payloads, "Expected updateComment payload to be recorded"
-    update_payload = update_payloads[0]
+    update_payload = cast(dict[str, Any], update_payloads[0])
     assert update_payload.get("comment_id") == 7002
     assert update_payload.get("body") == scenario["body"]
 
@@ -399,7 +405,7 @@ def test_post_comment_script_creates_comment_when_missing(tmp_path: Path) -> Non
         if entry.get("type") == "createComment"
     ]
     assert create_payloads, "Expected createComment payload to be recorded"
-    create_payload = create_payloads[0]
+    create_payload = cast(dict[str, Any], create_payloads[0])
     assert create_payload.get("issue_number") == scenario["pr"]
     assert create_payload.get("body") == scenario["body"]
 

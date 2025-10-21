@@ -277,7 +277,6 @@ jobs:
               });
               core.info(`Removed docs-only fast-pass comment ${comment.id}.`);
             }
-
       - name: Download coverage (3.11)
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
         continue-on-error: true
