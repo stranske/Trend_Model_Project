@@ -140,15 +140,15 @@ runs:
 
           if (prMode === 'invite') {
             // Do not create PR; ask the human to open it so they are the author
-            const suggestion = `${header}
-
-Source: ${issueUrl}
-
-${quoted}
-
-—
-(After opening the PR, comment with \`@codex start\` to request the plan. Once Codex replies, comment \`@codex plan-and-execute\` as a separate message.
-In that comment, remind Codex to reuse the scope, acceptance criteria, and task list from the issue, post them as markdown checklists, and keep updating them until everything is complete.)`;
+            const suggestion = [
+              header,
+              `Source: ${issueUrl}`,
+              quoted,
+              '—',
+              'After opening the PR, comment with `@codex start` to request the plan.',
+              'Once Codex replies, comment `@codex plan-and-execute` as a separate message.',
+              'In that comment, remind Codex to reuse the scope, acceptance criteria, and task list from the issue, post them as markdown checklists, and keep updating them until everything is complete.'
+            ].join('\n\n');
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${baseBranch}...${branch}?expand=1`;
             try {
               await github.rest.issues.createComment({
@@ -183,11 +183,21 @@ In that comment, remind Codex to reuse the scope, acceptance criteria, and task 
           const postCodex = /^true$/i.test(process.env.POST_CODEX || 'true');
           if (postCodex) {
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+              const instruction = [
+                cmd,
+                '',
+                'Please create commits on this branch, run tests, and keep the PR updated.'
+              ].join('\n');
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: instruction });
             } catch (e) { core.warning(`Comment failed: ${e.message}`); }
           } else {
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: `PR created. Comment \`@codex start\` to request the plan. Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching. After Codex replies, follow the instructions on the linked issue comment to begin execution.` });
+              const manualPrompt = [
+                'PR created. Comment `@codex start` to request the plan.',
+                'Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with `- [ ]` checklists so keepalive keeps watching.',
+                'After Codex replies, follow the instructions on the linked issue comment to begin execution.'
+              ].join(' ');
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: manualPrompt });
             } catch (e) { core.warning(`Instruction comment failed: ${e.message}`); }
           }
 
