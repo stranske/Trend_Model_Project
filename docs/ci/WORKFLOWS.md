@@ -11,6 +11,22 @@ the archival ledger for historical reference.
 > ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
 > verification notes live in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md).
 
+## Target layout
+
+```mermaid
+flowchart LR
+    gate["Gate\n.pr-00-gate.yml"] --> maint46["Maint 46 Post CI\n.maint-46-post-ci.yml"]
+    gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
+    maint46 --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
+    agents70 --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
+    maint46 --> healthGuard["Health checks\n.health-4x-*.yml"]
+```
+
+- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before posting the commit status summary.
+- **Autofix path:** [Maint 46 Post CI](../../.github/workflows/maint-46-post-ci.yml) consumes Gate artifacts and, when labels permit, calls [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) for hygiene pushes or patch uploads.
+- **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor).
+- **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), and [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml) workflows provide scheduled drift detection and enforcement snapshots.
+
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
 bucket-level summary, the [keep vs retire roster](WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire), and policy checklist. Return
 here for the detailed trigger, permission, and operational notes per workflow.
