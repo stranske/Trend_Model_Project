@@ -70,7 +70,7 @@ flowchart TD
 | **Maint Coverage Guard** | `.github/workflows/maint-coverage-guard.yml` | `schedule` (`45 6 * * *`), `workflow_dispatch` | `contents: read`, `actions: read`, `issues: write` | No | Pulls the latest Gate coverage payload and trend artifact, compares them to `config/coverage-baseline.json`, and fails when coverage slips outside the configured guard rails. |
 | **Maint Keepalive Heartbeat** | `.github/workflows/maint-keepalive.yml` | Cron (`17 */12 * * *`), `workflow_dispatch` | `contents: read`, `actions: write`, `issues: write` | No | Keepalive job that posts a UTC timestamp comment (with run link) to the configured Ops heartbeat issue via `ACTIONS_BOT_PAT`; fails fast when the issue variable or PAT is missing. |
 | **Maint 45 Cosmetic Repair** | `.github/workflows/maint-45-cosmetic-repair.yml` | `workflow_dispatch` | `contents: write`, `pull-requests: write` | No | Manual pytest + guardrail fixer that opens a labelled PR when drift is detected. |
-| **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch and unassigned-issue sweep. |
+| **Health 41 Repo Health** | `.github/workflows/health-41-repo-health.yml` | Monday cron (`15 7 * * 1`), `workflow_dispatch` | `contents: read`, `issues: read` | No | Weekly stale-branch, unassigned-issue, and branch-protection drift sweep. |
 | **Health 40 Repo Selfcheck** | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron (`20 6 * * 1`), `workflow_dispatch` | `contents: read`, `issues: write`, `actions: write` | No | Summarises label coverage and branch-protection visibility, downgrading unauthorized or rate-limited branch checks to warnings while updating the `[health] repository self-check failed` tracker when problems persist. |
 | **Health 42 Actionlint** | `.github/workflows/health-42-actionlint.yml` | `pull_request`, `push` to `phase-2-dev` (workflow edits), weekly cron, `workflow_dispatch` | `contents: read`, `pull-requests: write`, `checks: write` | No | Workflow-lint gate using `actionlint` via reviewdog. |
 | **Health 43 CI Signature Guard** | `.github/workflows/health-43-ci-signature-guard.yml` | `push`/`pull_request` targeting `phase-2-dev` | Defaults (`contents: read`) | No | Validates the signed job manifest for Gate. |
@@ -156,7 +156,7 @@ lockstep and remain the single sources of truth for keep vs retire decisions.
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 |----------|------|------------|-------------|-----------|---------|
-| `health-41-repo-health.yml` (`Health 41 Repo Health`) | `.github/workflows/health-41-repo-health.yml` | Weekly cron, manual | `contents: read`, `issues: read` | No | Reports stale branches & unassigned issues. |
+| `health-41-repo-health.yml` (`Health 41 Repo Health`) | `.github/workflows/health-41-repo-health.yml` | Weekly cron, manual | `contents: read`, `issues: read` | No | Reports stale branches, unassigned issues, and default-branch protection context drift. |
 | `maint-46-post-ci.yml` (`Maint 46 Post CI`) | `.github/workflows/maint-46-post-ci.yml` | `workflow_run` (Gate) | `contents: write`, `pull-requests: write`, `issues: write`, `checks: read`, `actions: read` | No | Consolidated follower that posts Gate summaries, applies low-risk autofix commits, and owns CI failure-tracker updates. |
 | `maint-coverage-guard.yml` (`Maint Coverage Guard`) | `.github/workflows/maint-coverage-guard.yml` | Cron, manual | `contents: read`, `actions: read`, `issues: write` | No | Downloads the most recent Gate coverage payloads and trend file, compares against the baseline, and raises failures when coverage drops below the guard thresholds. |
 | `health-40-repo-selfcheck.yml` (`Health 40 Repo Selfcheck`) | `.github/workflows/health-40-repo-selfcheck.yml` | Weekly cron, manual | `contents: read`, `issues: write`, `actions: write` | No | Repo health pulse that surfaces missing labels or branch-protection visibility gaps, warns on unauthorized branch visibility, and maintains the `[health] repository self-check failed` tracker issue. |
@@ -172,7 +172,7 @@ lockstep and remain the single sources of truth for keep vs retire decisions.
 - **Remedies:**
   1. Confirm the repository setting **Settings → Actions → General → Workflow permissions** grants the default token _Read access to contents and metadata_. The repo-health jobs use only read scopes.
    2. If the default token still cannot read branch protection, rerun **Health 44 Gate Branch Protection** with a `BRANCH_PROTECTION_TOKEN` that has `repo` scope. The verification step will surface the current policy and unblock Health 40 on the next scheduled run.
-  3. Escalate to a repository admin if neither step restores access—the repo-health jobs cannot self-grant elevated scopes.
+   3. Escalate to a repository admin if neither step restores access—the repo-health jobs cannot self-grant elevated scopes.
 
 ### CI failure rollup issue
 
