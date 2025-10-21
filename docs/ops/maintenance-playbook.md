@@ -8,9 +8,9 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 ## health-41-repo-health.yml
 
 1. **Open the run summary** — the weekly sweep writes a single report that
-   lists stale branches (older than the configured threshold) and open issues
-   without assignees. The heading `Repository health weekly sweep` marks the
-   latest results.
+   lists stale branches (older than the configured threshold), open issues
+   without assignees, and the default-branch protection state. The heading
+   `Repository health weekly sweep` marks the latest results.
 2. **Handle stale branches** — follow the table entries to prune abandoned
    branches or push a fresh commit if the branch is still active. The table is
    capped at 20 rows; the summary includes an overflow note when additional
@@ -18,7 +18,13 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
 3. **Triage unassigned issues** — assign an owner or update labels for the
    surfaced issues so they no longer show up in the next run. Issues are sorted
    by oldest activity first.
-4. **Adjust the threshold if needed** — update the repository variable
+4. **Restore branch protection when drift appears** — failures call out the
+   default branch explicitly when `Gate / gate` is no longer required. Navigate
+   to **Settings → Branches → Branch protection rules**, edit the default-branch
+   rule, and re-add the Gate status check (plus any other missing contexts).
+   Re-run the workflow once protection is restored to confirm the summary turns
+   green.
+5. **Adjust the threshold if needed** — update the repository variable
    `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
    Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
