@@ -230,7 +230,9 @@ jobs:
               '```markdown',
               '@codex plan-and-execute',
               '',
-              'Codex, please execute the approved plan and keep the checklist updated.',
+              'Codex, reuse the scope, acceptance criteria, and task list from the source issue.',
+              'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
+              'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
               '```',
               '',
               'Issue context (optional: copy into the PR body if needed):',
@@ -299,7 +301,7 @@ jobs:
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.\n\n---\n\nOnce the plan is posted, comment the snippet below to start execution and enable keepalive:\n\nThe following block should be pasted as a separate PR comment:\n\n\u0060\u0060\u0060markdown\n@codex plan-and-execute\n\nCodex, please execute the approved plan and keep the checklist updated.\n\u0060\u0060\u0060`;
+            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.\n\n---\n\nOnce the plan is posted, comment the snippet below to start execution and enable keepalive:\n\nThe following block should be pasted as a separate PR comment:\n\n\u0060\u0060\u0060markdown\n@codex plan-and-execute\n\nCodex, reuse the scope, acceptance criteria, and task list from the source issue.\nPost those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.\nWork through the tasks, checking them off only after each acceptance criterion is satisfied.\n\u0060\u0060\u0060`;
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot post invite.'); return; }
             await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
@@ -380,7 +382,12 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `PR created. Comment \`@codex start\` to request the plan. After Codex replies, follow the instructions posted on the source issue to begin execution.` });
+            const codexPromptMsg = [
+              "PR created. Comment `@codex start` to request the plan.",
+              "Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with `- [ ]` checklists so keepalive keeps watching.",
+              "After Codex replies, follow the instructions posted on the source issue to begin execution."
+            ].join(' ');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg });
 
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
@@ -420,7 +427,9 @@ jobs:
                 '```markdown',
                 '@codex plan-and-execute',
                 '',
-                'Codex, please execute the approved plan and keep the checklist updated.',
+                'Codex, reuse the scope, acceptance criteria, and task list from the source issue.',
+                'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
+                'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
                 '```',
                 '',
                 'Issue context (optional: copy into the PR description):',
