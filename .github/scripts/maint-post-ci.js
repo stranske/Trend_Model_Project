@@ -819,7 +819,7 @@ function parsePullNumber(value) {
   return Number.isFinite(pr) && pr > 0 ? pr : null;
 }
 
-async function applyCiFailureLabel({ github, context, core, prNumber }) {
+async function applyCiFailureLabel({ github, context, core, prNumber, label }) {
   const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
   if (!pr) {
     core.info('No PR number detected; skipping ci-failure label application.');
@@ -827,19 +827,20 @@ async function applyCiFailureLabel({ github, context, core, prNumber }) {
   }
 
   const { owner, repo } = context.repo;
+  const targetLabel = label || 'ci-failure';
   try {
-    await github.rest.issues.addLabels({ owner, repo, issue_number: pr, labels: ['ci-failure'] });
-    core.info(`Applied ci-failure label to PR #${pr}.`);
+    await github.rest.issues.addLabels({ owner, repo, issue_number: pr, labels: [targetLabel] });
+    core.info(`Applied ${targetLabel} label to PR #${pr}.`);
   } catch (error) {
     if (error?.status === 422) {
-      core.info(`ci-failure label already present on PR #${pr}.`);
+      core.info(`${targetLabel} label already present on PR #${pr}.`);
     } else {
       throw error;
     }
   }
 }
 
-async function removeCiFailureLabel({ github, context, core, prNumber }) {
+async function removeCiFailureLabel({ github, context, core, prNumber, label }) {
   const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
   if (!pr) {
     core.info('No PR number detected; skipping ci-failure label removal.');
@@ -847,12 +848,13 @@ async function removeCiFailureLabel({ github, context, core, prNumber }) {
   }
 
   const { owner, repo } = context.repo;
+  const targetLabel = label || 'ci-failure';
   try {
-    await github.rest.issues.removeLabel({ owner, repo, issue_number: pr, name: 'ci-failure' });
-    core.info(`Removed ci-failure label from PR #${pr}.`);
+    await github.rest.issues.removeLabel({ owner, repo, issue_number: pr, name: targetLabel });
+    core.info(`Removed ${targetLabel} label from PR #${pr}.`);
   } catch (error) {
     if (error?.status === 404) {
-      core.info(`ci-failure label not present on PR #${pr}.`);
+      core.info(`${targetLabel} label not present on PR #${pr}.`);
     } else {
       throw error;
     }
