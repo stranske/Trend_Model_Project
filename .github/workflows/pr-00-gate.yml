@@ -249,7 +249,8 @@ jobs:
     name: gate
     needs:
       - detect
-      - python-ci
+      - core-tests-311
+      - core-tests-312
       - docker-smoke
     if: ${{ always() }}
     runs-on: ubuntu-latest
