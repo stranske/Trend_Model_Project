@@ -35,11 +35,9 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     must pass whenever a pull request touches `agents-*.yml` workflows. The
     guard enforces CODEOWNERS coverage, label requirements, and review policy
     before allowing protected automation changes to merge.
-- **Autofix lane** – The
-  [Autofix workflow](.github/workflows/pr-02-autofix.yml) runs on every
-  non-draft PR event. Drafts are ignored unless you opt in by adding the
-  `autofix` label; convert the PR back to draft (and drop the label) to
-  pause automation, then mark it ready when you want autofix to resume.
+- **Autofix lane** – Maintainers trigger autofix via the post-CI follower.
+  Opt in by adding the `autofix:clean` label; the sweep runs once Gate finishes
+  and is handled by `maint-46-post-ci.yml`.
 - **Maint 46 Post-CI follower** – When Gate finishes, the
   [`maint-46-post-ci.yml`](.github/workflows/maint-46-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
@@ -116,13 +114,13 @@ The CI style job pins versions in `.github/workflows/autofix-versions.env`. Alwa
 
 ### Pull Request Autofix Workflow
 
-Every pull request triggers the `autofix` GitHub workflow. It performs a very small, deterministic cleanup pass so reviewers do not need to chase trivial nits:
+Pull requests labelled `autofix:clean` trigger the Maint 46 Post CI workflow. It performs a very small, deterministic cleanup pass so reviewers do not need to chase trivial nits:
 
 - Formats Python files with `ruff format` (no Black/isort/docformatter sweep).
 - Runs `ruff check --fix --unsafe-fixes` limited to `F401`, `F841`, and the safe `E1/E2/E3/E4/E7/W1/W2/W3` families.
 - Re-runs `ruff check --output-format json` to record any remaining diagnostics.
-- Applies the changes directly to the PR branch when the source repository matches this repo; otherwise it pushes a follow-up branch and opens an `autofix` PR.
-- Updates labels on the originating PR: `autofix` always, `autofix:applied` when edits land, and either `autofix:clean` or `autofix:debt` depending on whether Ruff still reports issues.
+- Applies the changes directly to the PR branch when the source repository matches this repo; otherwise it uploads a patch artifact and sets the `autofix:patch` label so fork contributors can apply the diff manually.
+- Updates labels on the originating PR: `autofix:clean` when no diff is required, `autofix:applied` when edits land, and `autofix:debt` when Ruff still reports issues.
 
 What the workflow **will not** do:
 

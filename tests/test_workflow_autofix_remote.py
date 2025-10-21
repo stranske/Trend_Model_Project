@@ -24,7 +24,11 @@ def _step_by_name(steps: Iterable[Dict[str, Any]], name: str) -> Dict[str, Any]:
 
 
 def _job_steps(data: Dict[str, Any], job: str) -> Iterable[Dict[str, Any]]:
-    return data["jobs"][job]["steps"]
+    job_def = data["jobs"][job]
+    steps = job_def.get("steps")
+    if steps is None:
+        raise KeyError("steps")
+    return steps
 
 
 @pytest.mark.parametrize(
@@ -38,20 +42,28 @@ def test_autofix_remote_repo_path_posts_patch_instructions(
     job: str, changed_step: str
 ) -> None:
     data = _load_workflow(WORKFLOW_FILE)
-    steps = _job_steps(data, job)
+    job_def = data["jobs"][job]
 
-    if job == "small-fixes":
-        label_step = _step_by_name(steps, "Label PR (autofix patch available)")
-        condition = label_step.get("if", "")
-        assert "same_repo != 'true'" in condition
-        assert f"steps.{changed_step}.outputs.changed == 'true'" in condition
-        assert label_step.get("uses", "").startswith(
-            "actions/github-script@"
-        ), "Fork patch label step should use github-script to interact with the PR"
+    steps = job_def.get("steps")
+
+    if steps is not None:
+        if job == "small-fixes":
+            label_step = _step_by_name(steps, "Label PR (autofix patch available)")
+            condition = label_step.get("if", "")
+            assert "same_repo != 'true'" in condition
+            assert f"steps.{changed_step}.outputs.changed == 'true'" in condition
+            assert label_step.get("uses", "").startswith(
+                "actions/github-script@"
+            ), "Fork patch label step should use github-script to interact with the PR"
+        else:
+            assert not any(
+                step.get("name") == "Label PR (autofix patch available)" for step in steps
+            ), "Patch label step should not exist in fix-failing-checks job"
     else:
-        assert not any(
-            step.get("name") == "Label PR (autofix patch available)" for step in steps
-        ), "Patch label step should not exist in fix-failing-checks job"
+        assert (
+            job_def.get("uses") == "./.github/workflows/reusable-18-autofix.yml"
+        ), "Small fixes job should invoke the reusable autofix workflow"
+        return
 
     summary_step = _step_by_name(steps, "Summary")
     run_script = summary_step.get("run", "")
@@ -75,20 +87,22 @@ def test_consolidated_comment_includes_patch_instructions() -> None:
     assert "Patch artifact:" in script
 
 
-def test_pr02_autofix_is_label_gated_and_cancels_duplicates() -> None:
-    data = _load_workflow("pr-02-autofix.yml")
-    concurrency = data.get("concurrency", {})
-
-    assert (
-        concurrency.get("group")
-        == "pr-02-autofix-${{ github.event.pull_request.number || github.run_id }}"
+def test_autofix_opt_in_label_normalized_to_clean() -> None:
+    data = _load_workflow(WORKFLOW_FILE)
+    context_env = data["jobs"]["context"]["env"]
+    assert "autofix:clean" in context_env["AUTOFIX_OPT_IN_LABEL"], (
+        "Context job must default AUTOFIX_OPT_IN_LABEL to autofix:clean"
     )
-    assert concurrency.get("cancel-in-progress") is True
 
-    job = data["jobs"]["apply"]
-    condition = job.get("if", "")
-
-    assert "github.event.pull_request" in condition
-    assert "contains(" in condition
-    assert "vars.AUTOFIX_OPT_IN_LABEL" in condition
-    assert "github.event.action == 'labeled'" in condition
+    small_with = data["jobs"]["small-fixes"]["with"]
+    assert "autofix:clean" in small_with["opt_in_label"], (
+        "Small fixes job must forward autofix:clean as the opt-in label"
+    )
+    assert (
+        small_with["clean_label"].count("autofix:clean") == 1
+        and "autofix:clean" in small_with["clean_label"]
+    ), "Clean label should mirror the opt-in label"
+    assert (
+        small_with["dry_run"]
+        == "${{ needs.context.outputs.same_repo != 'true' }}"
+    ), "Small fixes job must forward an explicit dry_run toggle for fork safety"

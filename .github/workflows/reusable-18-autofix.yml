@@ -7,7 +7,7 @@ on:
       opt_in_label:
         description: 'Label to opt-in when PR is draft'
         required: false
-        default: 'autofix'
+        default: 'autofix:clean'
         type: string
       commit_prefix:
         description: 'Commit message prefix'
@@ -15,9 +15,9 @@ on:
         default: 'chore(autofix):'
         type: string
       clean_label:
-        description: 'Label enabling tests-only cosmetic mode'
+        description: 'Label enabling clean cosmetic mode'
         required: false
-        default: 'autofix:tests'
+        default: 'autofix:clean'
         type: string
       pr_number:
         description: 'Pull request number'
@@ -47,13 +47,53 @@ on:
         description: 'Workflow caller actor'
         required: true
         type: string
+      applied_label:
+        description: 'Label applied when autofix commits land'
+        required: false
+        default: 'autofix:applied'
+        type: string
+      patch_label:
+        description: 'Label applied when patch artifacts are uploaded'
+        required: false
+        default: 'autofix:patch'
+        type: string
+      trigger_conclusion:
+        description: 'Upstream workflow conclusion for auditing'
+        required: false
+        default: ''
+        type: string
+      trigger_class:
+        description: 'Trigger classification (e.g. trivial-failure)'
+        required: false
+        default: ''
+        type: string
+      trigger_reason:
+        description: 'Human readable trigger reason'
+        required: false
+        default: ''
+        type: string
+      trigger_head:
+        description: 'Head SHA associated with the trigger'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Skip committing and pushing changes'
+        required: false
+        default: false
+        type: boolean
+      allowed_file_globs:
+        description: 'Newline-separated file globs permitted for autofix edits'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: pr-02-autofix-${{ inputs.pr_number || github.run_id }}
+  group: reusable-18-autofix-${{ inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -63,6 +103,19 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     if: ${{ true }}
+    outputs:
+      ran: ${{ steps.finalize.outputs.ran }}
+      changed: ${{ steps.finalize.outputs.changed }}
+      remaining: ${{ steps.finalize.outputs.remaining }}
+      new: ${{ steps.finalize.outputs.new }}
+      mode: ${{ steps.finalize.outputs.mode }}
+      patch_available: ${{ steps.finalize.outputs.patch_available }}
+      skip_reason: ${{ steps.finalize.outputs.skip_reason }}
+      trigger_conclusion: ${{ steps.finalize.outputs.trigger_conclusion }}
+      trigger_class: ${{ steps.finalize.outputs.trigger_class }}
+      trigger_reason: ${{ steps.finalize.outputs.trigger_reason }}
+      trigger_head: ${{ steps.finalize.outputs.trigger_head }}
+      file_list: ${{ steps.finalize.outputs.file_list }}
     env:
       PR_NUMBER: ${{ inputs.pr_number }}
       PR_HEAD_REF: ${{ inputs.pr_head_ref }}
@@ -72,6 +125,14 @@ jobs:
       SAME_REPO: ${{ inputs.same_repo }}
       CALLER_ACTOR: ${{ inputs.caller_actor }}
       OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+      APPLIED_LABEL: ${{ inputs.applied_label }}
+      PATCH_LABEL: ${{ inputs.patch_label }}
+      TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
+      TRIGGER_CLASS: ${{ inputs.trigger_class }}
+      TRIGGER_REASON: ${{ inputs.trigger_reason }}
+      TRIGGER_HEAD: ${{ inputs.trigger_head }}
+      ALLOWED_FILE_GLOBS: ${{ inputs.allowed_file_globs }}
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Set commit prefix env
         id: prefix
@@ -151,7 +212,7 @@ jobs:
               core.warning(`Failed to ensure autofix label: ${error.message}`);
             }
 
-      - name: Detect tests-only clean mode
+      - name: Detect clean mode
         if: steps.guard.outputs.skip != 'true'
         id: clean_mode
         uses: actions/github-script@v7
@@ -164,7 +225,7 @@ jobs:
             }
             const label = "${{ inputs.clean_label }}";
             const hasLabel = Array.isArray(pr.labels) && pr.labels.some((labelInfo) => labelInfo.name === label);
-            core.info(`Tests-only clean mode enabled: ${hasLabel}`);
+            core.info(`Clean mode enabled: ${hasLabel}`);
             core.setOutput('enabled', hasLabel ? 'true' : 'false');
 
       - name: Install Ruff for safe sweep
@@ -213,13 +274,13 @@ jobs:
           echo "[autofix] Normalising whitespace with Ruff formatter"
           ruff format "${targets[@]}"
 
-      - name: Tests-only cosmetic sweep
+      - name: Clean cosmetic sweep
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
         id: clean_autofix
         shell: bash
         run: |
           set -euo pipefail
-          echo "[autofix-clean] Running tests-only cosmetic sweep"
+          echo "[autofix-clean] Running clean cosmetic sweep"
           if [ ! -d tests ]; then
             echo "[autofix-clean] No tests/ directory detected; skipping"
             {
@@ -279,15 +340,26 @@ jobs:
           file_list_payload=""
           if [ ${#changed_paths[@]} -gt 0 ]; then
             changed_flag=true
-            allowed_prefixes=("src/" "tests/")
+            allowed_patterns=()
+            while IFS= read -r raw; do
+              trimmed="${raw#${raw%%[![:space:]]*}}"
+              trimmed="${trimmed%${trimmed##*[![:space:]]}}"
+              if [ -n "$trimmed" ]; then
+                allowed_patterns+=("$trimmed")
+              fi
+            done <<<"${ALLOWED_FILE_GLOBS}"
+            if [ ${#allowed_patterns[@]} -eq 0 ]; then
+              allowed_patterns=("src/**" "tests/**")
+            fi
+            shopt -s nullglob globstar
             disallowed=()
             for path in "${changed_paths[@]}"; do
               if [[ -z "$path" ]]; then
                 continue
               fi
               allowed=false
-              for prefix in "${allowed_prefixes[@]}"; do
-                if [[ "$path" == "$prefix"* ]]; then
+              for pattern in "${allowed_patterns[@]}"; do
+                if [[ "$path" == $pattern ]]; then
                   allowed=true
                   break
                 fi
@@ -298,7 +370,7 @@ jobs:
             done
             if [ ${#disallowed[@]} -gt 0 ]; then
               {
-                echo "[autofix] ERROR: safe sweep produced changes outside allowed directories:" >&2
+                echo "[autofix] ERROR: safe sweep produced changes outside allowed globs:" >&2
                 printf '  - %s\n' "${disallowed[@]}" >&2
               }
               exit 1
@@ -410,7 +482,7 @@ jobs:
           fi
 
       - name: Commit changes (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -420,7 +492,7 @@ jobs:
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           set -euo pipefail
@@ -443,7 +515,7 @@ jobs:
           exit 1
 
       - name: Prepare commit summary (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
@@ -451,14 +523,16 @@ jobs:
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
           CLEAN_LABEL: ${{ inputs.clean_label }}
+          APPLIED_LABEL: ${{ env.APPLIED_LABEL }}
         shell: bash
         run: |
           if [ -n "$COMMIT_SHA" ]; then
             url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
             short_sha=$(printf '%.12s' "$COMMIT_SHA")
-            labels="\`autofix:applied\`"
+            applied_label="${APPLIED_LABEL:-autofix:applied}"
+            labels="\`${applied_label}\`"
             if [ "$MODE" = "clean" ]; then
-              labels="$labels, \`autofix:tests-only\`"
+              labels="$labels, \`autofix:clean-only\`"
               if [ -n "${CLEAN_LABEL}" ]; then
                 labels="$labels, \`${CLEAN_LABEL}\`"
               fi
@@ -469,7 +543,7 @@ jobs:
             {
               echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
               if [ "$MODE" = "clean" ]; then
-                echo "Tests-only cosmetic autofix commit: [${short_sha}]($url)"
+                echo "Clean-mode cosmetic autofix commit: [${short_sha}]($url)"
               else
                 echo "Autofix commit: [${short_sha}]($url)"
               fi
@@ -501,6 +575,7 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
         with:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || '0');
@@ -509,7 +584,8 @@ jobs:
               return;
             }
             const baseLabel = process.env.OPT_IN_LABEL;
-            const labels = [baseLabel, 'autofix:patch'];
+            const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
+            const labels = [baseLabel, patchLabel];
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -533,13 +609,15 @@ jobs:
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
           CLEAN_LABEL: ${{ inputs.clean_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
         shell: bash
         run: |
           url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
           name="autofix-patch-pr-$PR_NUMBER"
-          labels="\`autofix:patch\`"
+          patch_label="${PATCH_LABEL:-autofix:patch}"
+          labels="\`${patch_label}\`"
           if [ "$MODE" = "clean" ]; then
-            labels="$labels, \`autofix:tests-only\`"
+            labels="$labels, \`autofix:clean-only\`"
             if [ -n "${CLEAN_LABEL}" ]; then
               labels="$labels, \`${CLEAN_LABEL}\`"
             fi
@@ -550,7 +628,7 @@ jobs:
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             if [ "$MODE" = "clean" ]; then
-              echo "Tests-only cosmetic patch: [${name}](${url})"
+              echo "Clean-mode cosmetic patch: [${name}](${url})"
             else
               echo "Patch ready: [${name}](${url})"
             fi
@@ -573,7 +651,7 @@ jobs:
           CLEAN_LABEL: ${{ inputs.clean_label }}
         run: |
           if [ "$MODE" = "clean" ]; then
-            labels="\`autofix:tests-only\`"
+            labels="\`autofix:clean-only\`"
             if [ -n "${CLEAN_LABEL}" ]; then
               labels="$labels, \`${CLEAN_LABEL}\`"
             fi
@@ -586,7 +664,7 @@ jobs:
           {
             echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
             if [ "$MODE" = "clean" ]; then
-              echo "Tests-only cosmetic sweep found no changes."
+              echo "Clean-mode cosmetic sweep found no changes."
             else
               echo "No changes required."
             fi
@@ -604,6 +682,8 @@ jobs:
           MODE: ${{ steps.fix_results.outputs.mode }}
           CLEAN_INPUT_LABEL: ${{ inputs.clean_label }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          APPLIED_LABEL: ${{ inputs.applied_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
         with:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || '0');
@@ -614,10 +694,10 @@ jobs:
             const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
             const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
             const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
-            const appliedLabel = 'autofix:applied';
+            const appliedLabel = (process.env.APPLIED_LABEL || 'autofix:applied').trim() || 'autofix:applied';
             const debtLabel = 'autofix:debt';
-            const patchLabel = 'autofix:patch';
-            const testsOnlyLabel = 'autofix:tests-only';
+            const patchLabel = (process.env.PATCH_LABEL || 'autofix:patch').trim() || 'autofix:patch';
+            const cleanOnlyLabel = 'autofix:clean-only';
             const cleanLabel = 'autofix:clean';
             const cleanInputLabel = (process.env.CLEAN_INPUT_LABEL || '').trim();
 
@@ -630,7 +710,7 @@ jobs:
                   labels: [label],
                 });
               } catch (error) {
-                if (error.status === 404 && label === testsOnlyLabel) {
+                if (error.status === 404 && label === cleanOnlyLabel) {
                   core.info(`Label ${label} missing; attempting to create it.`);
                   try {
                     await github.rest.issues.createLabel({
@@ -638,7 +718,7 @@ jobs:
                       repo: context.repo.repo,
                       name: label,
                       color: 'D4C5F9',
-                      description: 'Autofix tests-only cosmetic sweep',
+                      description: 'Autofix clean cosmetic sweep',
                     });
                     await github.rest.issues.addLabels({
                       owner: context.repo.owner,
@@ -684,7 +764,7 @@ jobs:
               desired.add(cleanLabel);
             }
             if ((process.env.MODE || '').toLowerCase() === 'clean') {
-              desired.add(testsOnlyLabel);
+              desired.add(cleanOnlyLabel);
               if (cleanInputLabel) {
                 desired.add(cleanInputLabel);
               }
@@ -694,7 +774,7 @@ jobs:
               await addLabel(label);
             }
 
-            const managed = [appliedLabel, debtLabel, patchLabel, testsOnlyLabel, cleanLabel];
+            const managed = [appliedLabel, debtLabel, patchLabel, cleanOnlyLabel, cleanLabel];
             for (const label of managed) {
               if (!desired.has(label)) {
                 await removeLabel(label);
@@ -816,7 +896,7 @@ jobs:
               console.log('Created new autofix status comment.');
             }
 
-      - name: Upsert tests-only file summary comment
+      - name: Upsert clean-mode file summary comment
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true'
         uses: actions/github-script@v7
         env:
@@ -827,7 +907,7 @@ jobs:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
             if (!prNumber) {
-              core.info('No pull request number available; skipping tests-only summary comment.');
+              core.info('No pull request number available; skipping clean-mode summary comment.');
               return;
             }
             const marker = '<!-- autofix-clean-summary -->';
@@ -838,17 +918,17 @@ jobs:
             }
             const cleanLabel = (process.env.CLEAN_LABEL || '').trim();
             const labelSuffix = cleanLabel ? ` (\`${cleanLabel}\`)` : '';
-            const header = `Tests-only cosmetic autofix${labelSuffix} updated these files:`;
+            const header = `Clean-mode cosmetic autofix${labelSuffix} updated these files:`;
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
             const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
             if (existing) {
               await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
-              core.info('Updated existing tests-only summary comment.');
+              core.info('Updated existing clean-mode summary comment.');
             } else {
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
-              core.info('Created new tests-only summary comment.');
+              core.info('Created new clean-mode summary comment.');
             }
 
       - name: Upsert safe sweep file summary comment
@@ -979,4 +1059,65 @@ jobs:
               [ -z "$file" ] && continue
               echo "- \`$file\`" >> "$GITHUB_STEP_SUMMARY"
             done
+          fi
+
+      - name: Finalize outputs
+        id: finalize
+        if: always()
+        env:
+          GUARD_SKIP: ${{ steps.guard.outputs.skip }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CHANGED: ${{ steps.fix_results.outputs.changed }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+          SAME_REPO: ${{ steps.same_repo.outputs.same }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
+          TRIGGER_CLASS: ${{ inputs.trigger_class }}
+          TRIGGER_REASON: ${{ inputs.trigger_reason }}
+          TRIGGER_HEAD: ${{ inputs.trigger_head }}
+        run: |
+          set -euo pipefail
+          skip_flag="${GUARD_SKIP:-false}"
+          ran="true"
+          if [ "$skip_flag" = "true" ]; then
+            ran="false"
+          fi
+          changed="${CHANGED:-false}"
+          remaining="${REMAINING:-0}"
+          new_issues="${NEW_ISSUES:-0}"
+          mode_value="${MODE:-standard}"
+          file_list="${FILE_LIST:-}"
+          same_repo="${SAME_REPO:-false}"
+          dry_run="${DRY_RUN:-false}"
+          patch="false"
+          if [ "$changed" = "true" ]; then
+            if [ "$same_repo" != "true" ] || [ "$dry_run" = "true" ]; then
+              patch="true"
+            fi
+          fi
+          skip_reason=""
+          if [ "$skip_flag" = "true" ]; then
+            skip_reason="loop-guard"
+          fi
+          {
+            echo "ran=${ran}"
+            echo "changed=${changed}"
+            echo "remaining=${remaining}"
+            echo "new=${new_issues}"
+            echo "mode=${mode_value}"
+            echo "patch_available=${patch}"
+            echo "skip_reason=${skip_reason}"
+            echo "trigger_conclusion=${TRIGGER_CONCLUSION}"
+            echo "trigger_class=${TRIGGER_CLASS}"
+            echo "trigger_reason=${TRIGGER_REASON}"
+            echo "trigger_head=${TRIGGER_HEAD}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list" ]; then
+            {
+              echo "file_list<<'EOF'"
+              printf '%s\n' "$file_list"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
           fi

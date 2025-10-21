@@ -17,7 +17,7 @@ operational detail for the kept set.
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-02-autofix.yml` |
+| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
@@ -42,7 +42,7 @@ The active roster below mirrors the **Keep** list in the [Workflow System Overvi
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
 
 _Optional label-gated helper_
-- **`pr-02-autofix.yml`** — Opt-in autofix runner (apply only when the `autofix` label is present) delegating to the reusable autofix composite. Leave disabled for standard PRs.
+- **`maint-46-post-ci.yml`** — Opt-in autofix follower (apply only when the `autofix:clean` label is present) delegating to the reusable autofix composite after Gate completes.
 
 ### Maintenance & Repo Health
 - **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and owns the CI failure-tracker issue/label lifecycle.
@@ -69,7 +69,7 @@ _Additional opt-in utilities_
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
 - **`reusable-16-agents.yml`** — Reusable agent automation stack.
-- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
+- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml`.
 
 ### Self-tests
 - **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
@@ -84,7 +84,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml` and `pr-02-autofix.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 

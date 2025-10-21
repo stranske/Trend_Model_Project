@@ -737,6 +737,7 @@ jobs:
       pr: ${{ steps.info.outputs.pr }}
       head_ref: ${{ steps.info.outputs.head_ref }}
       head_sha: ${{ steps.info.outputs.head_sha }}
+      title: ${{ steps.info.outputs.title }}
       same_repo: ${{ steps.info.outputs.same_repo }}
       loop_skip: ${{ steps.info.outputs.loop_skip }}
       small_eligible: ${{ steps.info.outputs.small_eligible }}
@@ -751,6 +752,7 @@ jobs:
       all_safe: ${{ steps.info.outputs.all_safe }}
       has_opt_in: ${{ steps.info.outputs.has_opt_in }}
       has_patch_label: ${{ steps.info.outputs.has_patch_label }}
+      labels_json: ${{ steps.info.outputs.labels_json }}
       is_draft: ${{ steps.info.outputs.is_draft }}
       run_conclusion: ${{ steps.info.outputs.run_conclusion }}
       actor: ${{ steps.info.outputs.actor }}
@@ -762,8 +764,10 @@ jobs:
       failing_count: ${{ steps.failure.outputs.count }}
       failure_incomplete: ${{ steps.failure.outputs.incomplete }}
       failure_has_jobs: ${{ steps.failure.outputs.has_jobs }}
+      autofix_skip: ${{ steps.autofix_guard.outputs.skip }}
+      autofix_skip_reason: ${{ steps.autofix_guard.outputs.reason }}
     env:
-      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix' }}
+      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
       AUTOFIX_PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
       AUTOFIX_TRIVIAL_KEYWORDS: ${{ vars.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test' }}
       AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
@@ -901,10 +905,17 @@ jobs:
                   .filter(label => label && typeof label.name === 'string')
                   .map(label => label.name)
               : [];
-            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix';
+            const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix:clean';
             const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
             result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
             result.has_patch_label = labels.includes(patchLabel) ? 'true' : 'false';
+            try {
+              result.labels_json = JSON.stringify(labels);
+            } catch (error) {
+              core.warning(`Failed to serialise label list: ${error}`);
+              result.labels_json = '[]';
+            }
+            result.title = pr.title || '';
 
             try {
               const commit = await github.rest.repos.getCommit({ owner, repo, ref: result.head_sha });
@@ -960,7 +971,7 @@ jobs:
               const allSafe = unsafeFiles.length === 0;
               const limitFiles = Number(process.env.AUTOFIX_MAX_FILES || 40);
               const limitChanges = Number(process.env.AUTOFIX_MAX_CHANGES || 800);
-              const baseEligible = pr.draft ? labels.includes(optLabel) : true;
+              const baseEligible = labels.includes(optLabel);
               const safeEligible = baseEligible && safeFiles.length > 0 && safeFiles.length <= limitFiles && safeChanges <= limitChanges;
               result.small_eligible = safeEligible ? 'true' : 'false';
               result.file_count = String(totalFiles);
@@ -1052,52 +1063,72 @@ jobs:
               hasJobs: 'true',
             });
 
-  small-fixes:
-    name: Small hygiene fixes
-    needs: context
-    if: |
-      needs.context.outputs.found == 'true' &&
-      needs.context.outputs.loop_skip != 'true' &&
-      needs.context.outputs.small_eligible == 'true' &&
-      (
-        github.event.workflow_run.conclusion == 'success' ||
-        (
-          github.event.workflow_run.conclusion == 'failure' &&
-          needs.context.outputs.trivial_failure == 'true' &&
-          needs.context.outputs.failure_incomplete != 'true' &&
-          needs.context.outputs.failure_has_jobs == 'true'
-        )
-      ) &&
-      github.event.workflow_run.conclusion != 'cancelled' &&
-      github.event.workflow_run.conclusion != 'timed_out' &&
-      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
-    runs-on: ubuntu-latest
-    env:
-      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
-      PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
-      AUTOFIX_TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-      AUTOFIX_TRIGGER_CLASS: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
-      AUTOFIX_TRIGGER_PR_HEAD: ${{ needs.context.outputs.head_sha }}
-      AUTOFIX_TRIGGER_REASON: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
-    outputs:
-      ran: ${{ steps.capture.outputs.ran }}
-      changed: ${{ steps.capture.outputs.changed }}
-      remaining: ${{ steps.capture.outputs.remaining }}
-      new: ${{ steps.capture.outputs.new }}
-      patch_available: ${{ steps.capture.outputs.patch_available }}
-      skip_reason: ${{ steps.capture.outputs.skip_reason }}
-      trigger_conclusion: ${{ steps.capture.outputs.trigger_conclusion }}
-      trigger_class: ${{ steps.capture.outputs.trigger_class }}
-      trigger_reason: ${{ steps.capture.outputs.trigger_reason }}
-      trigger_head: ${{ steps.capture.outputs.trigger_head }}
-    steps:
-      - name: Autofix path summary
+      - name: Evaluate autofix rerun guard
+        id: autofix_guard
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.info.outputs.pr }}
+          HEAD_SHA: ${{ steps.info.outputs.head_sha }}
+          SAME_REPO: ${{ steps.info.outputs.same_repo }}
+          HAS_PATCH_LABEL: ${{ steps.info.outputs.has_patch_label }}
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            const headSha = (process.env.HEAD_SHA || '').toLowerCase();
+            const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
+            const hasPatchLabel = (process.env.HAS_PATCH_LABEL || '').toLowerCase() === 'true';
+            const markerPrefix = '<!-- autofix-meta:';
+
+            const setOutputs = (skip, reason = '') => {
+              core.setOutput('skip', skip ? 'true' : 'false');
+              core.setOutput('reason', reason);
+            };
+
+            if (!prNumber || !headSha) {
+              setOutputs(false);
+              return;
+            }
+
+            if (sameRepo || !hasPatchLabel) {
+              setOutputs(false);
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            for (const comment of comments) {
+              const body = comment.body || '';
+              if (!body.includes(markerPrefix)) {
+                continue;
+              }
+              const match = body.match(/<!--\s*autofix-meta:[^>]*head=([0-9a-f]+)/i);
+              if (!match) {
+                continue;
+              }
+              const storedHead = (match[1] || '').toLowerCase();
+              if (storedHead && storedHead === headSha) {
+                core.info(`Autofix patch already generated for commit ${headSha}; skipping rerun.`);
+                setOutputs(true, 'duplicate-patch');
+                return;
+              }
+            }
+
+            setOutputs(false);
+
+      - name: Log autofix candidate summary
+        if: steps.info.outputs.found == 'true'
         shell: bash
         env:
-          SAFE_COUNT: ${{ needs.context.outputs.safe_file_count }}
-          UNSAFE_COUNT: ${{ needs.context.outputs.unsafe_file_count }}
-          SAFE_PATHS: ${{ needs.context.outputs.safe_paths }}
-          UNSAFE_PATHS: ${{ needs.context.outputs.unsafe_paths }}
+          SAFE_COUNT: ${{ steps.info.outputs.safe_file_count }}
+          UNSAFE_COUNT: ${{ steps.info.outputs.unsafe_file_count }}
+          SAFE_PATHS: ${{ steps.info.outputs.safe_paths }}
+          UNSAFE_PATHS: ${{ steps.info.outputs.unsafe_paths }}
         run: |
           set -euo pipefail
           echo "Safe autofix file count: ${SAFE_COUNT:-0}"
@@ -1115,267 +1146,50 @@ jobs:
             echo "(none)"
           fi
 
-      - name: Determine rerun eligibility
-        id: rerun
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const prNumber = Number('${{ needs.context.outputs.pr }}');
-            const headSha = ('${{ needs.context.outputs.head_sha }}' || '').toLowerCase();
-            const sameRepo = '${{ needs.context.outputs.same_repo }}' === 'true';
-            const hasPatchLabel = '${{ needs.context.outputs.has_patch_label }}' === 'true';
-            const markerPrefix = '<!-- autofix-meta:';
-
-            const setSkip = (reason) => {
-              core.setOutput('skip', 'true');
-              if (reason) {
-                core.exportVariable('AUTOFIX_SKIP_REASON', reason);
-              }
-            };
-
-            core.exportVariable('AUTOFIX_SKIP_REASON', '');
-
-            if (!prNumber || !headSha) {
-              core.setOutput('skip', 'false');
-              return;
-            }
-
-            if (sameRepo || !hasPatchLabel) {
-              core.setOutput('skip', 'false');
-              return;
-            }
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
-
-            let storedHead = '';
-            for (const comment of comments) {
-              const body = comment.body || '';
-              if (!body.includes(markerPrefix)) {
-                continue;
-              }
-              const match = body.match(/<!--\s*autofix-meta:[^>]*head=([0-9a-f]+)/i);
-              if (match) {
-                storedHead = match[1].toLowerCase();
-                break;
-              }
-            }
-
-            if (storedHead && storedHead === headSha) {
-              core.info(`Autofix patch already generated for commit ${headSha}; skipping rerun.`);
-              setSkip('duplicate-patch');
-            } else {
-              core.setOutput('skip', 'false');
-            }
-
-      - name: Checkout workflow repository
-        if: steps.rerun.outputs.skip != 'true'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Load formatter pins
-        if: steps.rerun.outputs.skip != 'true'
-        run: |
-          set -euo pipefail
-          pin_file=".github/workflows/autofix-versions.env"
-          if [ ! -f "$pin_file" ]; then
-            echo "::error::Missing $pin_file" >&2
-            exit 1
-          fi
-          # shellcheck source=/dev/null
-          source "$pin_file"
-          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
-            if [ -z "${!var:-}" ]; then
-              echo "::error::Missing ${var} in $pin_file" >&2
-              exit 1
-            fi
-          done
-          cat "$pin_file" >> "$GITHUB_ENV"
-      - name: Apply autofix and deliver changes
-        id: apply
-        if: steps.rerun.outputs.skip != 'true'
-        uses: ./.github/actions/apply-autofix
-        with:
-          head_ref: ${{ needs.context.outputs.head_ref }}
-          same_repo: ${{ needs.context.outputs.same_repo }}
-          commit_prefix: ${{ env.COMMIT_PREFIX }}
-          pr: ${{ needs.context.outputs.pr }}
-          safe_paths: ${{ needs.context.outputs.safe_paths }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          github_token: ${{ github.token }}
-
-      - name: Label PR (autofix applied)
-        if: steps.rerun.outputs.skip != 'true' && steps.apply.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const label = process.env.APPLIED_LABEL || 'autofix:applied';
-            try {
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
-            } catch (error) {
-              core.warning(`Failed to add label: ${error.message}`);
-            }
-      - name: Label PR (autofix patch available)
-        if: steps.rerun.outputs.skip != 'true' && steps.apply.outputs.changed == 'true' && needs.context.outputs.same_repo != 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const label = process.env.PATCH_LABEL || 'autofix:patch';
-            try {
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
-            } catch (error) {
-              core.warning(`Failed to add patch label: ${error.message}`);
-            }
-      - name: Manage clean/debt labels
-        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const remaining = Number("${{ steps.apply.outputs.remaining_issues || '0' }}") || 0;
-            const cleanLabel = 'autofix:clean';
-            const debtLabel = 'autofix:debt';
-            const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
-            const want = remaining === 0 ? cleanLabel : debtLabel;
-            const drop = remaining === 0 ? debtLabel : cleanLabel;
-            try {
-              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, name: drop }).catch(() => {});
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [want] });
-              await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, name: patchLabel }).catch(() => {});
-            } catch (error) {
-              core.warning(`Label management warning: ${error.message}`);
-            }
-
-      - name: Update residual history (same-repo)
-        if: |
-          steps.rerun.outputs.skip != 'true' &&
-          needs.context.outputs.same_repo == 'true' &&
-          hashFiles('.github/actions/update-residual-history/action.yml') != ''
-        uses: ./.github/actions/update-residual-history
-
-      - name: Upload autofix history artifact (same-repo)
-        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: autofix-history-pr-${{ needs.context.outputs.pr }}
-          path: ci/autofix/history.json
-          if-no-files-found: ignore
-
-      - name: Generate trend sparkline (same-repo)
-        if: steps.rerun.outputs.skip != 'true' && needs.context.outputs.same_repo == 'true'
-        shell: bash
-        run: |
-          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
-          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
-
-      - name: Emit JSON report
-        if: always()
-        shell: bash
-        env:
-          PR_NUMBER: ${{ needs.context.outputs.pr }}
-          CHANGED: ${{ steps.apply.outputs.changed }}
-          REMAINING: ${{ steps.apply.outputs.remaining_issues }}
-          NEW_ISSUES: ${{ steps.apply.outputs.new_issues }}
-        run: |
-          set -euo pipefail
-          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          if [ -f autofix_report_enriched.json ]; then
-            if python scripts/merge_autofix_report.py \
-              --input autofix_report_enriched.json \
-              --output autofix_report.json \
-              --pr-number "${PR_NUMBER}" \
-              --timestamp "${ts}"; then
-              :
-            else
-              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-                "${CHANGED}" \
-                "${REMAINING}" \
-                "${NEW_ISSUES}" \
-                "${PR_NUMBER}" \
-                "${ts}" > autofix_report.json
-            fi
-          else
-            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-              "${CHANGED}" \
-              "${REMAINING}" \
-              "${NEW_ISSUES}" \
-              "${PR_NUMBER}" \
-              "${ts}" > autofix_report.json
-          fi
-          echo "Enriched report ready."
-
-      - name: Upload JSON report
-        uses: actions/upload-artifact@v4
-        with:
-          name: autofix-report-pr-${{ needs.context.outputs.pr }}
-          path: autofix_report.json
-
-      - name: Summary
-        if: always()
-        run: |
-          {
-            echo "### Small fixes"
-            echo "PR: #${{ needs.context.outputs.pr }}"
-            echo "Files considered: ${{ needs.context.outputs.file_count }} (safe paths: ${{ needs.context.outputs.safe_paths }})"
-            echo "Changes applied: ${{ steps.apply.outputs.changed }}"
-            echo "Remaining ruff issues: ${{ steps.apply.outputs.remaining_issues }}"
-            if [ "${{ steps.apply.outputs.changed }}" = "true" ] && [ "${{ needs.context.outputs.same_repo }}" != "true" ]; then
-              patch_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}?check_suite_focus=true#artifacts"
-              echo "Patch artifact: ${patch_url}"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Capture job summary
-        id: capture
-        if: always()
-        run: |
-          set -euo pipefail
-          changed="${APPLY_CHANGED:-false}"
-          remaining="${APPLY_REMAINING:-0}"
-          new_issues="${APPLY_NEW:-0}"
-          skip_flag="${RERUN_SKIP:-}"
-          same_repo="${SAME_REPO:-false}"
-          ran="false"
-          if [ "${skip_flag}" != "true" ]; then
-            ran="true"
-          fi
-          patch="false"
-          if [ "${ran}" = "true" ] && [ "${changed}" = "true" ] && [ "${same_repo}" != "true" ]; then
-            patch="true"
-          fi
-          {
-            echo "ran=${ran}"
-            echo "changed=${changed:-false}"
-            echo "remaining=${remaining:-0}"
-            echo "new=${new_issues:-0}"
-            echo "patch_available=${patch}"
-            echo "skip_reason=${AUTOFIX_SKIP_REASON:-}"
-            echo "trigger_conclusion=${AUTOFIX_TRIGGER_CONCLUSION:-}"
-            echo "trigger_class=${AUTOFIX_TRIGGER_CLASS:-}"
-            echo "trigger_reason=${AUTOFIX_TRIGGER_REASON:-}"
-            echo "trigger_head=${AUTOFIX_TRIGGER_PR_HEAD:-}"
-          } >> "$GITHUB_OUTPUT"
-        env:
-          APPLY_CHANGED: ${{ steps.apply.outputs.changed }}
-          APPLY_REMAINING: ${{ steps.apply.outputs.remaining_issues }}
-          APPLY_NEW: ${{ steps.apply.outputs.new_issues }}
-          RERUN_SKIP: ${{ steps.rerun.outputs.skip }}
-          SAME_REPO: ${{ needs.context.outputs.same_repo }}
-          AUTOFIX_SKIP_REASON: ${{ env.AUTOFIX_SKIP_REASON }}
-          AUTOFIX_TRIGGER_CONCLUSION: ${{ env.AUTOFIX_TRIGGER_CONCLUSION }}
-          AUTOFIX_TRIGGER_CLASS: ${{ env.AUTOFIX_TRIGGER_CLASS }}
-          AUTOFIX_TRIGGER_REASON: ${{ env.AUTOFIX_TRIGGER_REASON }}
-          AUTOFIX_TRIGGER_PR_HEAD: ${{ env.AUTOFIX_TRIGGER_PR_HEAD }}
+  small-fixes:
+    name: Small hygiene fixes
+    needs: context
+    if: |
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.loop_skip != 'true' &&
+      needs.context.outputs.small_eligible == 'true' &&
+      needs.context.outputs.has_opt_in == 'true' &&
+      needs.context.outputs.autofix_skip != 'true' &&
+      (
+        github.event.workflow_run.conclusion == 'success' ||
+        (
+          github.event.workflow_run.conclusion == 'failure' &&
+          needs.context.outputs.trivial_failure == 'true' &&
+          needs.context.outputs.failure_incomplete != 'true' &&
+          needs.context.outputs.failure_has_jobs == 'true'
+        )
+      ) &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'timed_out' &&
+      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+    uses: ./.github/workflows/reusable-18-autofix.yml
+    with:
+      pr_number: ${{ fromJSON(needs.context.outputs.pr) }}
+      pr_head_ref: ${{ needs.context.outputs.head_ref }}
+      pr_title: ${{ needs.context.outputs.title }}
+      pr_is_draft: ${{ needs.context.outputs.is_draft == 'true' }}
+      pr_labels_json: ${{ needs.context.outputs.labels_json }}
+      same_repo: ${{ needs.context.outputs.same_repo == 'true' }}
+      caller_actor: ${{ needs.context.outputs.actor }}
+      opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
+      clean_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
+      commit_prefix: ${{ env.COMMIT_PREFIX }}
+      applied_label: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+      patch_label: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
+      trigger_conclusion: ${{ github.event.workflow_run.conclusion }}
+      trigger_class: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+      trigger_reason: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
+      trigger_head: ${{ needs.context.outputs.head_sha }}
+      dry_run: ${{ needs.context.outputs.same_repo != 'true' }}
+      allowed_file_globs: |
+        src/**
+        tests/**
+    secrets: inherit
 
   fix-failing-checks:
     name: Fix failing checks
@@ -1650,6 +1464,10 @@ jobs:
           SMALL_TRIGGER_CLASS: ${{ needs.small-fixes.outputs.trigger_class }}
           SMALL_TRIGGER_REASON: ${{ needs.small-fixes.outputs.trigger_reason }}
           SMALL_TRIGGER_HEAD: ${{ needs.small-fixes.outputs.trigger_head }}
+          SMALL_MODE: ${{ needs.small-fixes.outputs.mode }}
+          SMALL_FILE_LIST: ${{ needs.small-fixes.outputs.file_list }}
+          SMALL_LABEL_PRESENT: ${{ needs.context.outputs.has_opt_in }}
+          SMALL_SKIP_CONTEXT: ${{ needs.context.outputs.autofix_skip_reason }}
           FIX_RESULT: ${{ needs.fix-failing-checks.result }}
           FIX_RAN: ${{ needs.fix-failing-checks.outputs.ran }}
           FIX_CHANGED: ${{ needs.fix-failing-checks.outputs.changed }}
@@ -1661,6 +1479,7 @@ jobs:
           FIX_TRIGGER_CLASS: ${{ needs.fix-failing-checks.outputs.trigger_class }}
           FIX_TRIGGER_REASON: ${{ needs.fix-failing-checks.outputs.trigger_reason }}
           FIX_TRIGGER_HEAD: ${{ needs.fix-failing-checks.outputs.trigger_head }}
+          FAIL_JOB_NAMES: ${{ needs.context.outputs.failing_jobs }}
         run: |
           python <<'PY'
           from __future__ import annotations
@@ -1743,6 +1562,14 @@ jobs:
               job_result = (result or "").lower()
               if job_result == "skipped" and not skip_reason and not ran:
                   skip_reason = "not applicable"
+              if prefix_key == "SMALL":
+                  label_present = parse_bool(env.get("SMALL_LABEL_PRESENT"))
+                  if not skip_reason and not label_present:
+                      skip_reason = "requires `autofix` label"
+                  if not skip_reason:
+                      context_skip = env.get("SMALL_SKIP_CONTEXT")
+                      if context_skip:
+                          skip_reason = context_skip
               status: str
               if ran:
                   status = "✅ completed" if changed else "✅ no changes"
@@ -1809,11 +1636,43 @@ jobs:
                   ]
               )
 
+          small_files_raw = os.environ.get("SMALL_FILE_LIST") or ""
+          small_files = [line.strip() for line in small_files_raw.splitlines() if line.strip()]
+          small_mode = (os.environ.get("SMALL_MODE") or "").strip().lower()
+          files_block: List[str] = []
+          header = "### Files touched"
+          if small_mode == "clean":
+              header += " (clean mode)"
+          files_block.append(header)
+          files_block.append("")
+          if small_files:
+              files_block.extend(f"- `{path}`" for path in small_files)
+          else:
+              files_block.append("- None")
+
+          fail_jobs_raw = os.environ.get("FAIL_JOB_NAMES") or ""
+          fail_jobs = [item.strip() for item in fail_jobs_raw.split(',') if item.strip()]
+          fix_ran = parse_bool(env.get("FIX_RAN"))
+          checks_block: List[str] = ["### Checks re-run", ""]
+          if fix_ran or fail_jobs:
+              if fail_jobs:
+                  checks_block.extend(f"- {job}" for job in fail_jobs)
+              else:
+                  checks_block.append("- Gate checks re-triggered (names unavailable)")
+          else:
+              checks_block.append("- None (Gate succeeded)")
+
           sections: List[str] = [anchor_marker, legacy_marker]
           if prefix:
               sections.append(prefix.strip())
           sections.append("")
           sections.extend(table_lines)
+          if files_block:
+              sections.append("")
+              sections.extend(files_block)
+          if checks_block:
+              sections.append("")
+              sections.extend(checks_block)
           if suffix:
               sections.append("")
               sections.append(suffix)

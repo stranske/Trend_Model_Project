@@ -108,6 +108,45 @@ def test_build_comment_includes_result_block(
     assert "Labels: `autofix:applied`" in comment
 
 
+def test_build_comment_includes_trigger_metadata(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = {"changed": True, "classification": {"total": 1, "new": 0}}
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps(report))
+
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CONCLUSION", "failure")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_CLASS", "trivial")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_REASON", "retry")
+    monkeypatch.setenv("AUTOFIX_TRIGGER_PR_HEAD", "feature/demo")
+    try:
+        comment = comment_builder.build_comment(report_path=report_path)
+    finally:
+        monkeypatch.delenv("AUTOFIX_TRIGGER_CONCLUSION", raising=False)
+        monkeypatch.delenv("AUTOFIX_TRIGGER_CLASS", raising=False)
+        monkeypatch.delenv("AUTOFIX_TRIGGER_REASON", raising=False)
+        monkeypatch.delenv("AUTOFIX_TRIGGER_PR_HEAD", raising=False)
+
+    assert "| Trigger | failure (trivial) |" in comment
+    assert "<!-- autofix-meta: conclusion=failure reason=retry head=feature/demo -->" in comment
+
+
+def test_build_comment_includes_skip_reason(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = {"changed": False, "classification": {"total": 0, "new": 0}}
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps(report))
+
+    monkeypatch.setenv("AUTOFIX_SKIP_REASON", "loop guard")
+    try:
+        comment = comment_builder.build_comment(report_path=report_path)
+    finally:
+        monkeypatch.delenv("AUTOFIX_SKIP_REASON", raising=False)
+
+    assert "| Skip reason | loop guard |" in comment
+
+
 def test_build_comment_preserves_multiline_result_block(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -162,7 +201,7 @@ def test_build_comment_reports_tests_only_mode(
     )
 
     monkeypatch.setenv("AUTOFIX_MODE", "clean")
-    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:tests")
+    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:clean")
 
     try:
         comment = comment_builder.build_comment(
@@ -173,7 +212,7 @@ def test_build_comment_reports_tests_only_mode(
         monkeypatch.delenv("AUTOFIX_MODE", raising=False)
         monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
 
-    assert "| Mode | Tests-only cosmetic (`autofix:tests`) |" in comment
+    assert "| Mode | Clean-mode cosmetic (`autofix:clean`) |" in comment
 
 
 def test_build_comment_reports_tests_only_mode_without_label(
@@ -205,7 +244,7 @@ def test_build_comment_reports_tests_only_mode_without_label(
         monkeypatch.delenv("AUTOFIX_MODE", raising=False)
         monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
 
-    assert "| Mode | Tests-only cosmetic |" in comment
+    assert "| Mode | Clean-mode cosmetic |" in comment
 
 
 def test_build_comment_reports_commit_with_debt(
