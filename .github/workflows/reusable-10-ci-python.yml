@@ -345,6 +345,10 @@ jobs:
           base_dir = Path("artifacts/coverage/runtimes") / runtime
           base_dir.mkdir(parents=True, exist_ok=True)
 
+          xml_path = base_dir / "coverage.xml"
+          json_path = base_dir / "coverage.json"
+          coverage_value: float | None = None
+
           def normalize(value: str | None) -> str:
               return (value or "skipped").lower()
 
@@ -365,10 +369,6 @@ jobs:
                   "pytest_junit": (base_dir / "pytest-junit.xml").exists(),
               },
           }
-
-          coverage_value: float | None = None
-          xml_path = base_dir / "coverage.xml"
-          json_path = base_dir / "coverage.json"
 
           if xml_path.exists():
               try:

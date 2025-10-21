@@ -421,13 +421,22 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 self.assertIsInstance(inputs, dict)
                 name_value = inputs.get("name")
                 self.assertIsInstance(name_value, str)
+                valid_prefixes = ("coverage-", "gate-coverage-")
                 self.assertTrue(
-                    name_value.startswith("coverage-"),
-                    "Coverage artifact names should follow coverage-<version> naming",
+                    any(name_value.startswith(prefix) for prefix in valid_prefixes),
+                    "Coverage artifact names should use coverage-<version> or gate-coverage-<version>",
                 )
                 path_value = inputs.get("path")
                 self.assertIsInstance(path_value, str)
-                version_suffix = name_value.split("-", 1)[-1]
+
+                version_suffix = None
+                for prefix in valid_prefixes:
+                    if name_value.startswith(prefix):
+                        version_suffix = name_value[len(prefix) :]
+                        break
+
+                if version_suffix is None:
+                    self.fail("Coverage artifact names must include a version suffix")
                 normalized_suffix = version_suffix.replace(".", "")
                 expected_token = (
                     f"core-tests-{normalized_suffix}" if normalized_suffix else ""
