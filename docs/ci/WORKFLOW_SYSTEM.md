@@ -214,10 +214,12 @@ explain why a particular status appears in the Checks tab.
 #### Health 41 Repo Health (`health-41-repo-health.yml`)
 
 - **When it runs.** Monday 07:15 UTC on a schedule, or via manual dispatch.
-- **What it does.** Audits stale branches and unassigned issues, publishing the
-  weekly hygiene dashboard in the run summary.
+- **What it does.** Audits stale branches, unassigned issues, and default-branch
+  protection drift, publishing the weekly hygiene dashboard in the run summary.
+  When `Gate / gate` drops from branch protection the workflow fails with
+  branch-specific guidance that points responders back to the default branch.
 - **Merge impact.** Informational background signal; does not gate pull
-  requests.
+  requests, but a failure indicates branch protection needs repair.
 
 #### Health 42 Actionlint (`health-42-actionlint.yml`)
 

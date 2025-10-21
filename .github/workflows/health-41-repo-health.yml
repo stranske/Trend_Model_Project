@@ -162,7 +162,10 @@ jobs:
               summary.addRaw('All open issues have at least one assignee ✅', true);
             }
 
-            const expectedContexts = ['Gate / gate'];
+            const expectedContextsByBranch = new Map();
+            expectedContextsByBranch.set(defaultBranch, ['Gate / gate']);
+
+            const expectedContexts = expectedContextsByBranch.get(defaultBranch) ?? [];
             const branchProtectionResult = {
               contexts: [],
               strict: null,
@@ -208,6 +211,7 @@ jobs:
               ],
               ['Branch', defaultBranch],
               ['Source', branchProtectionResult.source],
+              ['Expected contexts', expectedContexts.length > 0 ? expectedContexts.join(', ') : '–'],
               ['Required contexts', uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–'],
               ['Required “up to date”', branchProtectionResult.strict === null ? 'unknown' : String(branchProtectionResult.strict)],
             ]);
@@ -221,8 +225,14 @@ jobs:
               if (unexpected.length > 0) {
                 problems.push(`unexpected contexts: ${unexpected.join(', ')}`);
               }
-              summary.addRaw(`❌ Branch protection drift detected — ${problems.join('; ')}`, true);
-              branchProtectionFailure = `Branch protection drift detected (${problems.join('; ')}).`;
+              const failurePrefix = `Branch protection drift detected for ${defaultBranch}`;
+              summary.addRaw(`❌ ${failurePrefix} — ${problems.join('; ')}`, true);
+
+              if (missing.includes('Gate / gate')) {
+                branchProtectionFailure = `Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Update branch protection to restore Gate.`;
+              } else {
+                branchProtectionFailure = `${failurePrefix} (${problems.join('; ')}).`;
+              }
             } else {
               summary.addRaw('✅ Branch protection contexts match the expected configuration.', true);
             }
