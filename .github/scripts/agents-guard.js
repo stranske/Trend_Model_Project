@@ -2,11 +2,7 @@
 
 const DEFAULT_MARKER = '<!-- agents-guard-marker -->';
 
-const DEFAULT_PROTECTED_PATHS = [
-  '.github/workflows/agents-63-chatgpt-issue-sync.yml',
-  '.github/workflows/agents-63-codex-issue-bridge.yml',
-  '.github/workflows/agents-70-orchestrator.yml',
-];
+const DEFAULT_PROTECTED_PATHS = ['.github/workflows/agents-*.yml'];
 
 function escapeRegex(text) {
   return text.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -92,7 +88,17 @@ function listRelevantFiles(files) {
     const current = file.filename || '';
     const previous = file.previous_filename || '';
 
+    // Treat most agents-* workflows as relevant, but allow a small
+    // unprotected exceptions list for utility workflows (e.g. agents-64).
     if (current.startsWith('.github/workflows/agents-')) {
+      // agents-64-verify-agent-assignment.yml is intentionally excluded from guard protection
+      // because it is a utility workflow used to verify agent assignment and does not affect
+      // agent logic or security. This policy is documented in .github/README.md under
+      // "Workflow Guard Exceptions". If you need to change this policy, update both this file
+      // and the documentation accordingly.
+      if (current.endsWith('agents-64-verify-agent-assignment.yml')) {
+        return false;
+      }
       return true;
     }
     if (previous && previous.startsWith('.github/workflows/agents-')) {
@@ -170,7 +176,45 @@ function evaluateGuard({
   marker = DEFAULT_MARKER,
 } = {}) {
   const normalizedLabelName = String(labelName).toLowerCase();
-  const protectedSet = new Set(protectedPaths);
+
+  const protectedEntries = (protectedPaths || [])
+    .map((pattern) => {
+      const normalized = normalizePattern(pattern || '');
+      const isGlob = /[*?]/.test(normalized);
+      return {
+        pattern: pattern || normalized,
+        normalized,
+        isGlob,
+        regex: isGlob ? globToRegExp(normalized) : null,
+      };
+    })
+    .filter((entry) => entry.normalized);
+
+  const exactProtected = new Map(
+    protectedEntries
+      .filter((entry) => !entry.isGlob)
+      .map((entry) => [entry.normalized, entry.pattern])
+  );
+  const globProtected = protectedEntries.filter((entry) => entry.isGlob);
+
+  const matchProtectedPath = (filePath) => {
+    if (!filePath) {
+      return null;
+    }
+    const normalized = normalizePattern(filePath);
+    if (!normalized) {
+      return null;
+    }
+    if (exactProtected.has(normalized)) {
+      return filePath;
+    }
+    for (const entry of globProtected) {
+      if (entry.regex && entry.regex.test(normalized)) {
+        return filePath;
+      }
+    }
+    return null;
+  };
 
   const relevantFiles = listRelevantFiles(files);
   const fatalViolations = [];
@@ -182,9 +226,7 @@ function evaluateGuard({
     const previous = file.previous_filename || '';
     const status = file.status || '';
 
-    const protectedPath = protectedSet.has(current)
-      ? current
-      : (previous && protectedSet.has(previous) ? previous : null);
+    const protectedPath = matchProtectedPath(current) || (previous ? matchProtectedPath(previous) : null);
 
     if (protectedPath) {
       touchedProtectedPaths.add(protectedPath);
@@ -213,7 +255,7 @@ function evaluateGuard({
   const codeownerLogins = new Set();
   const relevantCodeownerPaths = touchedProtectedPaths.size > 0
     ? [...touchedProtectedPaths]
-    : [...protectedSet];
+    : protectedEntries.map((entry) => entry.pattern);
 
   for (const path of relevantCodeownerPaths) {
     const owners = findCodeowners(codeownerEntries, path);

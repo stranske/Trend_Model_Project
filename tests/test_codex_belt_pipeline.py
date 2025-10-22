@@ -99,12 +99,15 @@ def test_worker_keeps_concurrency_and_pat_guard():
 
 def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     workflow = _load_workflow("agents-73-codex-belt-conveyor.yml")
+    triggers = workflow.get("on") or {}
+    workflow_call = triggers.get("workflow_call") or {}
+    inputs = workflow_call.get("inputs") or {}
+    assert {"issue", "branch", "pr_number"}.issubset(
+        inputs
+    ), "Conveyor callable contract must expose issue, branch, and pr_number inputs"
+
     jobs = workflow.get("jobs") or {}
     promote = jobs.get("promote") or {}
-    condition = promote.get("if") or ""
-    assert "workflow_run.conclusion == 'success'" in condition
-    assert "workflow_run.event == 'pull_request'" in condition
-
     steps = promote.get("steps") or []
     assert steps, "Conveyor promote job must define steps"
 
@@ -113,6 +116,12 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     assert _step_runs_command(
         guard, "ACTIONS_BOT_PAT secret is required for conveyor actions."
     )
+
+    gate_steps = [step for step in steps if step.get("name") == "Ensure Gate succeeded"]
+    assert gate_steps, "Conveyor must verify Gate success before merging"
+    gate_script = (gate_steps[0].get("with") or {}).get("script", "")
+    assert "getCombinedStatusForRef" in gate_script
+    assert "conveyor requires success" in gate_script
 
     redispatch_steps = [
         step for step in steps if step.get("name") == "Re-dispatch dispatcher"
