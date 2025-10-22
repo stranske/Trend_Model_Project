@@ -560,7 +560,7 @@ jobs:
             const ref = '${{ steps.def.outputs.default }}' || 'main';
             const params = {
               enable_keepalive: keepaliveEnabled ? 'true' : 'false',
-              options_json: { keepalive: { enabled: keepaliveEnabled } }
+              options_json: JSON.stringify({ keepalive: { enabled: keepaliveEnabled } })
             };
 
             try {
