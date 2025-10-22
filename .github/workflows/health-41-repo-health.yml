@@ -162,10 +162,20 @@ jobs:
               summary.addRaw('All open issues have at least one assignee ✅', true);
             }
 
-            const expectedContextsByBranch = new Map();
-            expectedContextsByBranch.set(defaultBranch, ['Gate / gate']);
+            await summary.write();
 
-            const expectedContexts = expectedContextsByBranch.get(defaultBranch) ?? [];
+            core.info('Repository health summary written to workflow run.');
+
+      - name: Verify default branch protection requires Gate / gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            const repoInfo = await github.rest.repos.get(context.repo);
+            const defaultBranch = repoInfo.data.default_branch;
+            const expectedContexts = ['Gate / gate'];
+
             const branchProtectionResult = {
               contexts: [],
               strict: null,
@@ -203,6 +213,8 @@ jobs:
             const missing = expectedSorted.filter(contextName => !uniqueContexts.includes(contextName));
             const unexpected = uniqueContexts.filter(contextName => !expectedSorted.includes(contextName));
 
+            const summary = core.summary;
+            summary.addBreak();
             summary.addHeading('Default branch protection', 2);
             summary.addTable([
               [
@@ -250,4 +262,4 @@ jobs:
               return;
             }
 
-            core.info('Repository health summary written to workflow run.');
+            core.info('Branch protection configuration matches expectations.');
