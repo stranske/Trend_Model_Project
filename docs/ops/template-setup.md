@@ -14,7 +14,7 @@ Set these variables to tailor behavior (all have sensible defaults if omitted):
 - `AGENT_FROM_LABEL_ALT` (default: `from:codex`)
 - `AGENT_LABEL` (default: `agent:copilot`)
 - `AGENT_LABEL_ALT` (default: `agent:codex`)
-- `AUTOFIX_OPT_IN_LABEL` (default: `autofix:clean`)
+- `AUTOFIX_LABEL` (always `autofix:clean`; add this label to PRs to enable Maint 46 autofix runs)
 - `APPROVE_PATTERNS` (default: `src/**,docs/**,tests/**,**/*.md`)
 - `MAX_LINES_CHANGED` (default: `1000`)
 - `CI_PY_VERSIONS` (default: `["3.11","3.12"]`)

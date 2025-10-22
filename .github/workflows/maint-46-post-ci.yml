@@ -29,6 +29,9 @@ permissions:
 
 env:
   COMMIT_PREFIX: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
+  AUTOFIX_LABEL: 'autofix:clean'
+  AUTOFIX_APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
+  AUTOFIX_PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
 
 jobs:
   summarize:
@@ -261,8 +264,8 @@ jobs:
       autofix_skip: ${{ steps.autofix_guard.outputs.skip }}
       autofix_skip_reason: ${{ steps.autofix_guard.outputs.reason }}
     env:
-      AUTOFIX_OPT_IN_LABEL: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
-      AUTOFIX_PATCH_LABEL: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
+      AUTOFIX_LABEL: ${{ env.AUTOFIX_LABEL }}
+      AUTOFIX_PATCH_LABEL: ${{ env.AUTOFIX_PATCH_LABEL }}
       AUTOFIX_TRIVIAL_KEYWORDS: ${{ vars.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test' }}
       AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
       AUTOFIX_MAX_CHANGES: ${{ vars.AUTOFIX_MAX_CHANGES || '800' }}
@@ -362,10 +365,10 @@ jobs:
       pr_labels_json: ${{ needs.context.outputs.labels_json }}
       same_repo: ${{ needs.context.outputs.same_repo == 'true' }}
       caller_actor: ${{ needs.context.outputs.actor }}
-      opt_in_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
-      clean_label: ${{ vars.AUTOFIX_OPT_IN_LABEL || 'autofix:clean' }}
-      applied_label: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
-      patch_label: ${{ vars.AUTOFIX_PATCH_LABEL || 'autofix:patch' }}
+      opt_in_label: ${{ env.AUTOFIX_LABEL }}
+      clean_label: ${{ env.AUTOFIX_LABEL }}
+      applied_label: ${{ env.AUTOFIX_APPLIED_LABEL }}
+      patch_label: ${{ env.AUTOFIX_PATCH_LABEL }}
       trigger_conclusion: ${{ github.event.workflow_run.conclusion }}
       trigger_class: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_reason: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
@@ -374,7 +377,7 @@ jobs:
       # NOTE: The commit_prefix parameter was previously sourced from the environment variable COMMIT_PREFIX.
       # It is now sourced from the repository variable AUTOFIX_COMMIT_PREFIX.
       # Please update any documentation or migration guides to reflect this change.
-      commit_prefix: ${{ vars.AUTOFIX_COMMIT_PREFIX || 'chore(autofix):' }}
+      commit_prefix: ${{ env.COMMIT_PREFIX }}
       allowed_file_globs: |
         src/**
         tests/**
@@ -422,90 +425,75 @@ jobs:
                   handle.write(f"{key}={value}\n")
           PY
 
-  fix-failing-checks:
-    name: Fix failing checks
-    needs: context
-    if: |
+  gate-rerun:
+    name: Rerun Gate after autofix
+    needs:
+      - context
+      - small-fixes-meta
+    if: >
       needs.context.outputs.found == 'true' &&
-      needs.context.outputs.loop_skip != 'true' &&
-      needs.context.outputs.trivial_failure == 'true' &&
-      (needs.context.outputs.same_repo != 'true' || needs.context.outputs.pat_available == 'true')
+      needs.context.outputs.same_repo == 'true' &&
+      needs.small-fixes-meta.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    env:
-      APPLIED_LABEL: ${{ vars.AUTOFIX_APPLIED_LABEL || 'autofix:applied' }}
-      AUTOFIX_TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-      AUTOFIX_TRIGGER_CLASS: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
-      AUTOFIX_TRIGGER_PR_HEAD: ${{ needs.context.outputs.head_sha }}
-      AUTOFIX_TRIGGER_REASON: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
     outputs:
-      ran: ${{ steps.capture.outputs.ran }}
-      changed: ${{ steps.capture.outputs.changed }}
-      remaining: ${{ steps.capture.outputs.remaining }}
-      new: ${{ steps.capture.outputs.new }}
-      patch_available: ${{ steps.capture.outputs.patch_available }}
-      skip_reason: ${{ steps.capture.outputs.skip_reason }}
-      trigger_conclusion: ${{ steps.capture.outputs.trigger_conclusion }}
-      trigger_class: ${{ steps.capture.outputs.trigger_class }}
-      trigger_reason: ${{ steps.capture.outputs.trigger_reason }}
-      trigger_head: ${{ steps.capture.outputs.trigger_head }}
+      triggered: ${{ steps.rerun.outputs.triggered }}
+      url: ${{ steps.rerun.outputs.url }}
+      message: ${{ steps.rerun.outputs.message }}
     steps:
-      - name: Checkout workflow repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Load formatter pins
-        run: |
-          set -euo pipefail
-          pin_file=".github/workflows/autofix-versions.env"
-          if [ ! -f "$pin_file" ]; then
-            echo "::error::Missing $pin_file" >&2
-            exit 1
-          fi
-          # shellcheck source=/dev/null
-          source "$pin_file"
-          for var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
-            if [ -z "${!var:-}" ]; then
-              echo "::error::Missing ${var} in $pin_file" >&2
-              exit 1
-            fi
-          done
-          cat "$pin_file" >> "$GITHUB_ENV"
-      - name: Autofix, commit, and push (composite)
-        id: autofix
-        uses: ./.github/actions/autofix-commit-push
-        with:
-          head_ref: ${{ needs.context.outputs.head_ref }}
-          token: ${{ needs.context.outputs.same_repo == 'true' && secrets.SERVICE_BOT_PAT || github.token }}
-          same_repo: ${{ needs.context.outputs.same_repo }}
-          commit_message: "${COMMIT_PREFIX} fix failing checks"
-          pr: ${{ needs.context.outputs.pr }}
-      - name: Label PR (autofix applied)
-        if: steps.autofix.outputs.changed == 'true' && needs.context.outputs.same_repo == 'true'
+      - name: Trigger Gate rerun
+        id: rerun
         uses: actions/github-script@v7
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const label = process.env.APPLIED_LABEL || 'autofix:applied';
+            const runId = Number(process.env.RUN_ID || '0');
+            const runUrl = (process.env.RUN_URL || '').trim();
+            if (!runId) {
+              core.warning('Missing Gate run ID; unable to trigger rerun.');
+              core.setOutput('triggered', 'false');
+              core.setOutput('url', runUrl);
+              core.setOutput('message', 'missing-run-id');
+              return;
+            }
             try {
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
+              await github.rest.actions.reRunWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+              const focusUrl = runUrl ? `${runUrl}?check_suite_focus=true` : '';
+              core.info(`Triggered Gate rerun for run ${runId}.`);
+              core.setOutput('triggered', 'true');
+              core.setOutput('url', focusUrl || runUrl);
+              core.setOutput('message', 'triggered');
             } catch (error) {
-              core.warning(`Failed to add label: ${error.message}`);
+              core.warning(`Failed to trigger Gate rerun: ${error.message}`);
+              core.setOutput('triggered', 'false');
+              core.setOutput('url', runUrl);
+              core.setOutput('message', error.message || 'rerun-error');
             }
 
-      - name: Tag PR for manual review
-        if: steps.autofix.outputs.changed != 'true'
-        uses: actions/github-script@v7
+  autofix-comment:
+    name: Autofix applied comment
+    needs:
+      - context
+      - small-fixes-meta
+      - gate-rerun
+    if: >
+      needs.context.outputs.found == 'true' &&
+      needs.context.outputs.same_repo == 'true' &&
+      needs.small-fixes-meta.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
-          script: |
-            const pr = Number('${{ needs.context.outputs.pr }}');
-            const label = 'needs-autofix-review';
-            try {
-              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, labels: [label] });
-            } catch (error) {
-              core.warning(`Failed to add label: ${error.message}`);
-            }
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
 
       - name: Update residual history (same-repo)
         if: needs.context.outputs.same_repo == 'true' && hashFiles('.github/actions/update-residual-history/action.yml') != ''
@@ -519,101 +507,19 @@ jobs:
           path: ci/autofix/history.json
           if-no-files-found: ignore
 
-      - name: Generate trend sparkline (same-repo)
-        if: needs.context.outputs.same_repo == 'true'
-        shell: bash
-        run: |
-          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
-          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
-
-      - name: Emit JSON report
-        if: always()
-        shell: bash
+      - name: Post autofix applied comment
+        uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.context.outputs.pr }}
-          CHANGED: ${{ steps.autofix.outputs.changed }}
-          REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
-          NEW_ISSUES: ${{ steps.autofix.outputs.new_issues }}
-        run: |
-          set -euo pipefail
-          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          if [ -f autofix_report_enriched.json ]; then
-            if python scripts/merge_autofix_report.py \
-              --input autofix_report_enriched.json \
-              --output autofix_report.json \
-              --pr-number "${PR_NUMBER}" \
-              --timestamp "${ts}"; then
-              :
-            else
-              printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-                "${CHANGED}" \
-                "${REMAINING}" \
-                "${NEW_ISSUES}" \
-                "${PR_NUMBER}" \
-                "${ts}" > autofix_report.json
-            fi
-          else
-            printf '{\n  "changed": "%s",\n  "remaining_issues": "%s",\n  "new_issues": "%s",\n  "pull_request": "%s",\n  "timestamp_utc": "%s"\n}\n' \
-              "${CHANGED}" \
-              "${REMAINING}" \
-              "${NEW_ISSUES}" \
-              "${PR_NUMBER}" \
-              "${ts}" > autofix_report.json
-          fi
-          echo "Enriched report ready."
-
-      - name: Upload JSON report
-        uses: actions/upload-artifact@v4
+          HEAD_SHA: ${{ needs.context.outputs.head_sha }}
+          FILE_LIST: ${{ needs.small-fixes-meta.outputs.file_list }}
+          GATE_RUN_URL: ${{ needs.gate-rerun.outputs.url || github.event.workflow_run.html_url }}
+          GATE_RERUN_TRIGGERED: ${{ needs.gate-rerun.outputs.triggered }}
         with:
-          name: autofix-report-pr-${{ needs.context.outputs.pr }}
-          path: autofix_report.json
-
-      - name: Summary
-        if: always()
-        run: |
-          {
-            echo "### Fix failing checks"
-            echo "PR: #${{ needs.context.outputs.pr }}"
-            echo "Changes applied: ${{ steps.autofix.outputs.changed }}"
-            echo "Remaining ruff issues: ${{ steps.autofix.outputs.remaining_issues }}"
-            echo "New ruff issues: ${{ steps.autofix.outputs.new_issues }}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Capture job summary
-        id: capture
-        if: always()
-        run: |
-          set -euo pipefail
-          changed="${AUTOFIX_CHANGED:-false}"
-          remaining="${AUTOFIX_REMAINING:-0}"
-          new_issues="${AUTOFIX_NEW:-0}"
-          same_repo="${SAME_REPO:-false}"
-          ran="true"
-          patch="false"
-          if [ "${changed}" = "true" ] && [ "${same_repo}" != "true" ]; then
-            patch="true"
-          fi
-          {
-            echo "ran=${ran}"
-            echo "changed=${changed:-false}"
-            echo "remaining=${remaining:-0}"
-            echo "new=${new_issues:-0}"
-            echo "patch_available=${patch}"
-            echo "skip_reason="
-            echo "trigger_conclusion=${AUTOFIX_TRIGGER_CONCLUSION:-}"
-            echo "trigger_class=${AUTOFIX_TRIGGER_CLASS:-}"
-            echo "trigger_reason=${AUTOFIX_TRIGGER_REASON:-}"
-            echo "trigger_head=${AUTOFIX_TRIGGER_PR_HEAD:-}"
-          } >> "$GITHUB_OUTPUT"
-        env:
-          AUTOFIX_CHANGED: ${{ steps.autofix.outputs.changed }}
-          AUTOFIX_REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
-          AUTOFIX_NEW: ${{ steps.autofix.outputs.new_issues }}
-          SAME_REPO: ${{ needs.context.outputs.same_repo }}
-          AUTOFIX_TRIGGER_CONCLUSION: ${{ env.AUTOFIX_TRIGGER_CONCLUSION }}
-          AUTOFIX_TRIGGER_CLASS: ${{ env.AUTOFIX_TRIGGER_CLASS }}
-          AUTOFIX_TRIGGER_REASON: ${{ env.AUTOFIX_TRIGGER_REASON }}
-          AUTOFIX_TRIGGER_PR_HEAD: ${{ env.AUTOFIX_TRIGGER_PR_HEAD }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { ensureAutofixComment } = require('./.github/scripts/maint-post-ci.js');
+            await ensureAutofixComment({ github, context, core });
 
   post-comment:
     name: Publish consolidated status
@@ -622,7 +528,8 @@ jobs:
       - context
       - small-fixes
       - small-fixes-meta
-      - fix-failing-checks
+      - gate-rerun
+      - autofix-comment
     if: >
       always() &&
       needs.context.result == 'success' &&
@@ -640,8 +547,7 @@ jobs:
       - name: Locate patch artifact
         id: patch_artifact
         if: >-
-          (needs.small-fixes-meta.outputs.patch_available || 'false') == 'true' ||
-          (needs.fix-failing-checks.outputs.patch_available || 'false') == 'true'
+          (needs.small-fixes-meta.outputs.patch_available || 'false') == 'true'
         uses: actions/github-script@v7
         env:
           RUN_ID: ${{ github.run_id }}
@@ -698,17 +604,9 @@ jobs:
           SMALL_FILE_LIST: ${{ needs.small-fixes-meta.outputs.file_list }}
           SMALL_LABEL_PRESENT: ${{ needs.context.outputs.has_opt_in }}
           SMALL_SKIP_CONTEXT: ${{ needs.context.outputs.autofix_skip_reason }}
-          FIX_RESULT: ${{ needs.fix-failing-checks.result }}
-          FIX_RAN: ${{ needs.fix-failing-checks.outputs.ran }}
-          FIX_CHANGED: ${{ needs.fix-failing-checks.outputs.changed }}
-          FIX_REMAINING: ${{ needs.fix-failing-checks.outputs.remaining }}
-          FIX_NEW: ${{ needs.fix-failing-checks.outputs.new }}
-          FIX_PATCH: ${{ needs.fix-failing-checks.outputs.patch_available }}
-          FIX_SKIP: ${{ needs.fix-failing-checks.outputs.skip_reason }}
-          FIX_TRIGGER_CONCLUSION: ${{ needs.fix-failing-checks.outputs.trigger_conclusion }}
-          FIX_TRIGGER_CLASS: ${{ needs.fix-failing-checks.outputs.trigger_class }}
-          FIX_TRIGGER_REASON: ${{ needs.fix-failing-checks.outputs.trigger_reason }}
-          FIX_TRIGGER_HEAD: ${{ needs.fix-failing-checks.outputs.trigger_head }}
+          GATE_RERUN_TRIGGERED: ${{ needs.gate-rerun.outputs.triggered }}
+          GATE_RERUN_URL: ${{ needs.gate-rerun.outputs.url }}
+          GATE_RERUN_MESSAGE: ${{ needs.gate-rerun.outputs.message }}
           FAIL_JOB_NAMES: ${{ needs.context.outputs.failing_jobs }}
         run: |
           python <<'PY'
@@ -837,10 +735,49 @@ jobs:
                   "patch": patch,
               }
 
-          entries = [
+          entries: List[Dict[str, Any]] = [
               build_entry("SMALL", "Small hygiene fixes", os.environ.get("SMALL_RESULT")),
-              build_entry("FIX", "Fix failing checks", os.environ.get("FIX_RESULT")),
           ]
+
+          gate_triggered = parse_bool(env.get("GATE_RERUN_TRIGGERED"))
+          gate_url = (env.get("GATE_RERUN_URL") or "").strip()
+          gate_message_raw = env.get("GATE_RERUN_MESSAGE") or ""
+          gate_message = clean_reason(gate_message_raw) or gate_message_raw.strip()
+          small_ran = parse_bool(env.get("SMALL_RAN"))
+          small_changed = parse_bool(env.get("SMALL_CHANGED"))
+
+          gate_notes: List[str] = []
+          if gate_triggered:
+              gate_status = "✅ triggered"
+              if gate_url:
+                  gate_notes.append(f"[View Gate rerun]({gate_url})")
+              else:
+                  gate_notes.append("Gate rerun triggered")
+          else:
+              gate_status = "⏭️ skipped"
+              reason = gate_message
+              if not reason:
+                  if not small_ran:
+                      reason = "autofix skipped"
+                  elif not small_changed:
+                      reason = "autofix produced no changes"
+              if reason:
+                  gate_notes.append(reason)
+              else:
+                  gate_notes.append("—")
+
+          entries.append(
+              {
+                  "title": "Gate rerun",
+                  "status": gate_status,
+                  "changed": "—",
+                  "remaining": "—",
+                  "new": "—",
+                  "notes": "<br/>".join(gate_notes),
+                  "ran": gate_triggered,
+                  "patch": False,
+              }
+          )
 
           autopatch_present = any(entry["patch"] for entry in entries)
 
@@ -882,14 +819,15 @@ jobs:
 
           fail_jobs_raw = os.environ.get("FAIL_JOB_NAMES") or ""
           fail_jobs = [item.strip() for item in fail_jobs_raw.split(',') if item.strip()]
-          fix_ran = parse_bool(env.get("FIX_RAN"))
           checks_block: List[str] = ["### Checks re-run", ""]
-          if fix_ran or fail_jobs:
-              if fail_jobs:
-                  checks_block.extend(f"- {job}" for job in fail_jobs)
+          if gate_triggered:
+              if gate_url:
+                  checks_block.append(f"- Gate rerun: [view run]({gate_url})")
               else:
-                  checks_block.append("- Gate checks re-triggered (names unavailable)")
-          else:
+                  checks_block.append("- Gate rerun triggered")
+          if fail_jobs:
+              checks_block.extend(f"- {job}" for job in fail_jobs)
+          if len(checks_block) == 2:
               checks_block.append("- None (Gate succeeded)")
 
           sections: List[str] = [anchor_marker, legacy_marker]

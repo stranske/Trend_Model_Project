@@ -10,6 +10,7 @@ const {
   resolveAutofixContext,
   inspectFailingJobs,
   evaluateAutofixRerunGuard,
+  ensureAutofixComment,
   updateFailureTracker,
   resolveFailureIssuesForRecoveredPR,
   autoHealFailureIssues,
@@ -225,6 +226,76 @@ test('evaluateAutofixRerunGuard detects duplicate patches', async () => {
   await evaluateAutofixRerunGuard({ github, context, core });
   assert.equal(core.outputs.skip, 'true');
   assert.equal(core.outputs.reason, 'duplicate-patch');
+});
+
+test('ensureAutofixComment posts comment with rerun link', async () => {
+  const core = createCore();
+  const context = { repo: { owner: 'octo', repo: 'demo' }, payload: { workflow_run: { id: 77 } } };
+  let created = null;
+  const github = {
+    rest: {
+      issues: {
+        listComments: async () => ({ data: [] }),
+        createComment: async payload => {
+          created = payload;
+        },
+      },
+    },
+    paginate: async (fn, params) => {
+      assert.equal(fn, github.rest.issues.listComments);
+      assert.equal(params.issue_number, 42);
+      return [];
+    },
+  };
+
+  process.env.PR_NUMBER = '42';
+  process.env.HEAD_SHA = 'abc123def4567890';
+  process.env.FILE_LIST = 'src/app.py\ntests/test_app.py';
+  process.env.GATE_RUN_URL = 'https://example.test/run';
+  process.env.GATE_RERUN_TRIGGERED = 'true';
+
+  await ensureAutofixComment({ github, context, core });
+
+  assert.ok(created, 'Expected comment to be created');
+  assert.equal(created.owner, 'octo');
+  assert.equal(created.repo, 'demo');
+  assert.equal(created.issue_number, 42);
+  assert.match(created.body, /Autofix applied/);
+  assert.match(created.body, /src\/app.py/);
+  assert.match(created.body, /Gate rerun: \[View Gate run\]\(https:\/\/example.test\/run\)/);
+
+  delete process.env.PR_NUMBER;
+  delete process.env.HEAD_SHA;
+  delete process.env.FILE_LIST;
+  delete process.env.GATE_RUN_URL;
+  delete process.env.GATE_RERUN_TRIGGERED;
+});
+
+test('ensureAutofixComment skips when marker present', async () => {
+  const core = createCore();
+  const context = { repo: { owner: 'octo', repo: 'demo' }, payload: { workflow_run: { id: 88 } } };
+  const comments = [
+    { body: '<!-- autofix-meta: head=abc123def4567890 --> existing' },
+  ];
+  const github = {
+    rest: {
+      issues: {
+        listComments: async () => ({ data: comments }),
+        createComment: async () => {
+          assert.fail('createComment should not be called when marker exists');
+        },
+      },
+    },
+    paginate: async () => comments,
+  };
+
+  process.env.PR_NUMBER = '99';
+  process.env.HEAD_SHA = 'abc123def4567890';
+
+  await ensureAutofixComment({ github, context, core });
+
+  delete process.env.PR_NUMBER;
+  delete process.env.HEAD_SHA;
 });
 
 test('updateFailureTracker opens issue when cooldown passes', async () => {

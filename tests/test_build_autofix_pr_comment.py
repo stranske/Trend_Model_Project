@@ -204,7 +204,7 @@ def test_build_comment_reports_tests_only_mode(
     )
 
     monkeypatch.setenv("AUTOFIX_MODE", "clean")
-    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "autofix:clean")
+    monkeypatch.setenv("AUTOFIX_LABEL", "autofix:clean")
 
     try:
         comment = comment_builder.build_comment(
@@ -213,12 +213,12 @@ def test_build_comment_reports_tests_only_mode(
         )
     finally:
         monkeypatch.delenv("AUTOFIX_MODE", raising=False)
-        monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
+        monkeypatch.delenv("AUTOFIX_LABEL", raising=False)
 
     assert "| Mode | Clean-mode cosmetic (`autofix:clean`) |" in comment
 
 
-def test_build_comment_reports_tests_only_mode_without_label(
+def test_build_comment_reports_tests_only_mode_without_custom_label(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     report_path = tmp_path / "report.json"
@@ -236,7 +236,7 @@ def test_build_comment_reports_tests_only_mode_without_label(
     )
 
     monkeypatch.setenv("AUTOFIX_MODE", "clean")
-    monkeypatch.setenv("AUTOFIX_CLEAN_LABEL", "")
+    monkeypatch.setenv("AUTOFIX_LABEL", "")
 
     try:
         comment = comment_builder.build_comment(
@@ -245,9 +245,9 @@ def test_build_comment_reports_tests_only_mode_without_label(
         )
     finally:
         monkeypatch.delenv("AUTOFIX_MODE", raising=False)
-        monkeypatch.delenv("AUTOFIX_CLEAN_LABEL", raising=False)
+        monkeypatch.delenv("AUTOFIX_LABEL", raising=False)
 
-    assert "| Mode | Clean-mode cosmetic |" in comment
+    assert "| Mode | Clean-mode cosmetic (`autofix:clean`) |" in comment
 
 
 def test_build_comment_reports_commit_with_debt(

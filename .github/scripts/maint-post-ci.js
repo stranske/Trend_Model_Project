@@ -358,7 +358,7 @@ async function resolveAutofixContext({ github, context, core }) {
         .filter(label => label && typeof label.name === 'string')
         .map(label => label.name)
     : [];
-  const optLabel = process.env.AUTOFIX_OPT_IN_LABEL || 'autofix:clean';
+  const optLabel = process.env.AUTOFIX_LABEL || 'autofix:clean';
   const patchLabel = process.env.AUTOFIX_PATCH_LABEL || 'autofix:patch';
   result.has_opt_in = labels.includes(optLabel) ? 'true' : 'false';
   result.has_patch_label = labels.includes(patchLabel) ? 'true' : 'false';
@@ -861,12 +861,99 @@ async function removeCiFailureLabel({ github, context, core, prNumber, label }) 
   }
 }
 
+async function ensureAutofixComment({ github, context, core }) {
+  const prNumber = parsePullNumber(process.env.PR_NUMBER);
+  const headShaRaw = (process.env.HEAD_SHA || '').trim();
+  if (!prNumber || !headShaRaw) {
+    core.info('Autofix comment prerequisites missing; skipping.');
+    return;
+  }
+
+  const headShaLower = headShaRaw.toLowerCase();
+  const fileListRaw = process.env.FILE_LIST || '';
+  const gateUrl = (process.env.GATE_RUN_URL || '').trim();
+  const rerunTriggered = /^true$/i.test(process.env.GATE_RERUN_TRIGGERED || '');
+  const runId = context.payload?.workflow_run?.id;
+
+  const markerParts = [`head=${headShaLower}`];
+  if (runId) {
+    markerParts.push(`run=${runId}`);
+  }
+  const marker = `<!-- autofix-meta: ${markerParts.join(' ')} -->`;
+
+  const { owner, repo } = context.repo;
+  const comments = await github.paginate(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number: prNumber,
+    per_page: 100,
+  });
+
+  const existing = comments.find(comment => {
+    const body = (comment.body || '').toLowerCase();
+    if (!body.includes('<!-- autofix-meta:')) {
+      return false;
+    }
+    return body.includes(`head=${headShaLower}`);
+  });
+
+  if (existing) {
+    core.info(`Autofix comment already present for head ${headShaLower}; skipping.`);
+    return;
+  }
+
+  const files = fileListRaw
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const fileLines = [];
+  const MAX_FILES = 30;
+  for (const [index, file] of files.entries()) {
+    if (index >= MAX_FILES) {
+      fileLines.push(`- _${files.length - MAX_FILES} more file(s) omitted_`);
+      break;
+    }
+    fileLines.push(`- \`${file}\``);
+  }
+  if (!fileLines.length) {
+    fileLines.push('- _None reported_');
+  }
+
+  const shortSha = headShaRaw.slice(0, 12) || headShaLower.slice(0, 12);
+  const lines = [
+    marker,
+    '### Autofix applied',
+    '',
+    `* Commit: \`${shortSha}\``,
+  ];
+
+  if (gateUrl) {
+    lines.push(`* Gate rerun: [View Gate run](${gateUrl})`);
+  } else if (rerunTriggered) {
+    lines.push('* Gate rerun: triggered (awaiting URL)');
+  } else {
+    lines.push('* Gate rerun: not triggered');
+  }
+
+  lines.push('');
+  lines.push('**Files touched**');
+  lines.push('');
+  lines.push(...fileLines);
+  lines.push('');
+  lines.push('_Posted automatically by Maint 46 Post CI._');
+
+  const body = lines.join('\n');
+  await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+  core.info(`Posted autofix comment for PR #${prNumber} (${shortSha}).`);
+}
+
 module.exports = {
   discoverWorkflowRuns,
   propagateGateCommitStatus,
   resolveAutofixContext,
   inspectFailingJobs,
   evaluateAutofixRerunGuard,
+  ensureAutofixComment,
   updateFailureTracker,
   resolveFailureIssuesForRecoveredPR,
   autoHealFailureIssues,
