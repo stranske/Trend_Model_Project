@@ -219,11 +219,100 @@ jobs:
             const val = String(raw).toLowerCase() === 'true';
             core.setOutput('post', val ? 'true' : 'false');
 
+      - name: Resolve keepalive opt-in
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        id: keepalive
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            const sentinel = /\[keepalive\]/i;
+            const keepaliveLabel = 'agents:keepalive';
+
+            let enabled = false;
+            let source = 'default';
+            let evidence = '';
+
+            if (!issueNumber) {
+              core.setOutput('enabled', 'false');
+              core.setOutput('mode', 'OFF');
+              core.setOutput('source', 'missing');
+              core.setOutput('options_json', JSON.stringify({ keepalive: { enabled: false } }));
+              return;
+            }
+
+            let issue = context.payload.issue;
+            if (!issue || Number(issue.number) !== issueNumber) {
+              try {
+                const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                issue = data;
+              } catch (error) {
+                core.warning(`Failed to fetch issue #${issueNumber}: ${error.message}`);
+              }
+            }
+
+            const labels = Array.isArray(issue?.labels) ? issue.labels : [];
+            const labelMatch = labels.some((label) => {
+              const name = typeof label === 'string' ? label : label?.name || '';
+              return name.trim().toLowerCase() === keepaliveLabel;
+            });
+
+            if (labelMatch) {
+              enabled = true;
+              source = 'label';
+              evidence = 'agents:keepalive label present';
+            }
+
+            if (!enabled) {
+              try {
+                const iterator = github.paginate.iterator(
+                  github.rest.issues.listComments,
+                  { owner, repo, issue_number: issueNumber, per_page: 100 }
+                );
+                for await (const page of iterator) {
+                  for (const comment of page.data) {
+                    if (sentinel.test(comment.body || '')) {
+                      enabled = true;
+                      source = 'comment';
+                      evidence = comment.html_url || `comment ${comment.id}`;
+                      break;
+                    }
+                  }
+                  if (enabled) {
+                    break;
+                  }
+                }
+              } catch (error) {
+                core.warning(`Failed to scan comments for keepalive sentinel: ${error.message}`);
+              }
+            }
+
+            const mode = enabled ? 'ON' : 'OFF';
+            const options = { keepalive: { enabled } };
+            core.setOutput('enabled', enabled ? 'true' : 'false');
+            core.setOutput('mode', mode);
+            core.setOutput('source', source);
+            core.setOutput('options_json', JSON.stringify(options));
+            if (evidence) {
+              core.setOutput('evidence', evidence);
+            }
+
+            const summary = core.summary;
+            summary
+              .addHeading('Keepalive opt-in resolution')
+              .addTable([
+                [{ data: 'Issue', header: true }, { data: 'Mode', header: true }, { data: 'Source', header: true }, { data: 'Evidence', header: true }],
+                [`#${issueNumber}`, mode, source, evidence || '(none)']
+              ]);
+            await summary.write();
+
       - name: Log chosen mode & draft
         run: |
           echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
           echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
           echo "Post Codex comment: ${{ steps.codex.outputs.post }}"
+          echo "Keepalive mode: ${{ steps.keepalive.outputs.mode || 'OFF' }} (source: ${{ steps.keepalive.outputs.source || 'default' }})"
 
       - name: Document concurrency policy decision
         run: |
@@ -266,6 +355,8 @@ jobs:
       - name: Post copyable PR template (composite)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'success' && steps.mode.outputs.mode != 'invite' && steps.local_action.outputs.pr != '' }}
         uses: actions/github-script@v7
+        env:
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -290,13 +381,17 @@ jobs:
             }
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const keepaliveLine = `Keepalive: ${keepaliveMode}`;
             const quoted = (issueBody || '')
               .split('\n')
               .map((line) => `> ${line}`)
               .join('\n');
-            const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+            const snippet = [header, `Source: ${issueUrl}`, keepaliveLine, '', quoted].join('\n');
             const message = [
               `Opened PR #${prNumber} to engage Codex.`,
+              '',
+              `Keepalive mode: **${keepaliveMode}**`,
               '',
               'Next steps for the PR author:',
               '1. Comment `@codex start` (posted automatically when possible) so Codex drafts the plan.',
@@ -365,11 +460,13 @@ jobs:
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const branch = process.env.BRANCH;
+            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const keepaliveLine = `Keepalive: ${keepaliveMode}`;
             let issueTitle = '';
             let issueBody = '';
-            try { 
-              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); 
-              issueTitle = is.title || ''; 
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
               issueBody = is.body || ''; 
             } catch (err) { 
               core.error('Failed to fetch issue: ' + err); 
@@ -436,6 +533,8 @@ jobs:
             const base = "${{ steps.def.outputs.default }}";
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
+            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const keepaliveLine = `Keepalive: ${keepaliveMode}`;
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot open PR.'); return; }
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
@@ -516,6 +615,8 @@ jobs:
       - name: Link PR on original issue
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' }}
         uses: actions/github-script@v7
+        env:
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -535,13 +636,17 @@ jobs:
               const prNumber = Number('${{ steps.pr.outputs.number }}');
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+              const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+              const keepaliveLine = `Keepalive: ${keepaliveMode}`;
               const quoted = (issueBody || '')
                 .split('\n')
                 .map((line) => `> ${line}`)
                 .join('\n');
-              const snippet = [header, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+              const snippet = [header, keepaliveLine, '', `Source: ${issueUrl}`, '', quoted].join('\n');
               const message = [
                 `Opened PR #${prNumber} to engage Codex.`,
+                '',
+                `Keepalive mode: **${keepaliveMode}**`,
                 '',
                 'Next steps for the PR author:',
                 '- Comment `@codex start` (auto-posted when possible) so Codex drafts the plan.',

@@ -249,9 +249,10 @@ runs:
               'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
               '```'
             ].join('\n');
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.\n\n${executionSnippet}` });
+            const keepaliveStatus = `Keepalive mode: **${keepaliveEnabled ? 'ON' : 'OFF'}**`;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.\n\n${keepaliveStatus}\n\n${executionSnippet}` });
           } catch {}
 
           core.setOutput('pr', String(prNum));
           core.setOutput('branch', branch);
-          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch}`);
+          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch} keepalive=${keepaliveEnabled ? 'ON' : 'OFF'}`);

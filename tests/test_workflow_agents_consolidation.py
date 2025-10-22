@@ -21,12 +21,15 @@ def test_agents_orchestrator_inputs_and_uses():
     assert wf.exists(), "agents-70-orchestrator.yml must exist"
     text = wf.read_text(encoding="utf-8")
     assert "workflow_dispatch:" in text, "Orchestrator must allow manual dispatch"
-    expected_inputs = {"params_json"}
+    expected_inputs = {"params_json", "options_json"}
     for key in expected_inputs:
         assert f"{key}:" in text, f"Missing workflow_dispatch input: {key}"
     assert (
         "github.event.inputs.params_json" in text
     ), "params_json must be read from workflow_dispatch inputs"
+    assert (
+        "github.event.inputs.options_json" in text
+    ), "options_json input must be forwarded to the resolver"
     assert "PARAMS_JSON" in text, "Resolve step must pass params_json via env"
     assert "JSON.parse" in text, "params_json must be parsed as JSON"
     assert "options_json" in text, "options_json output must remain available"
