@@ -217,6 +217,8 @@ jobs:
             ]);
 
             let branchProtectionFailure = null;
+            const expectedListForPointer = expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
+            const actualListForPointer = uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
             if (missing.length > 0 || unexpected.length > 0) {
               const problems = [];
               if (missing.length > 0) {
@@ -227,11 +229,15 @@ jobs:
               }
               const failurePrefix = `Branch protection drift detected for ${defaultBranch}`;
               summary.addRaw(`❌ ${failurePrefix} — ${problems.join('; ')}`, true);
+              summary.addRaw(
+                `➡️ Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`,
+                true,
+              );
 
               if (missing.includes('Gate / gate')) {
-                branchProtectionFailure = `Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Update branch protection to restore Gate.`;
+                branchProtectionFailure = `Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. Update branch protection to restore Gate.`;
               } else {
-                branchProtectionFailure = `${failurePrefix} (${problems.join('; ')}).`;
+                branchProtectionFailure = `${failurePrefix}. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. (${problems.join('; ')}).`;
               }
             } else {
               summary.addRaw('✅ Branch protection contexts match the expected configuration.', true);
