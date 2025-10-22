@@ -524,10 +524,10 @@ jobs:
           ${{ needs.summarize.outputs.summary_body }}
           EOF
 
-        - name: Locate patch artifact
-          id: patch_artifact
-          if: >-
-            (needs.small-fixes-meta.outputs.patch_available || 'false') == 'true'
+      - name: Locate patch artifact
+        id: patch_artifact
+        if: >-
+          (needs.small-fixes-meta.outputs.patch_available || 'false') == 'true'
         uses: actions/github-script@v7
         env:
           RUN_ID: ${{ github.run_id }}
