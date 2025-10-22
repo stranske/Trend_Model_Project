@@ -313,7 +313,7 @@ jobs:
               .split('\n')
               .map((line) => `> ${line}`)
               .join('\n');
-            const snippet = [header, keepaliveLine, '', `Source: ${issueUrl}`, '', quoted].join('\n');
+            const snippet = [header, `Source: ${issueUrl}`, keepaliveLine, '', quoted].join('\n');
             const message = [
               `Opened PR #${prNumber} to engage Codex.`,
               '',
