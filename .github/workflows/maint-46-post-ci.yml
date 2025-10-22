@@ -508,9 +508,7 @@ jobs:
             }
 
       - name: Update residual history (same-repo)
-        if: |
-          needs.context.outputs.same_repo == 'true' &&
-          hashFiles('.github/actions/update-residual-history/action.yml') != ''
+        if: needs.context.outputs.same_repo == 'true' && hashFiles('.github/actions/update-residual-history/action.yml') != ''
         uses: ./.github/actions/update-residual-history
 
       - name: Upload autofix history artifact (same-repo)
