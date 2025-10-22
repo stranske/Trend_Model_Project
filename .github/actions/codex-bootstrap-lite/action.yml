@@ -138,6 +138,7 @@ runs:
           }
           const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
           const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+          const keepaliveEnabled = keepaliveMode === 'ON';
           const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
           const header = `### Source Issue #${issue_number}: ${issueTitle}`;
           const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
