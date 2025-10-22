@@ -10,6 +10,11 @@ on:
         required: false
         default: '{}'
         type: string
+      options_json:
+        description: 'Optional JSON overrides forwarded to reusable agents workflow'
+        required: false
+        default: '{}'
+        type: string
       dry_run:
         description: 'Preview orchestrator actions without writes'
         required: false
@@ -73,6 +78,7 @@ jobs:
         env:
           PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
           WORKFLOW_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || '' }}
+          WORKFLOW_OPTIONS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.options_json || '' }}
         with:
           script: |
             const DEFAULT_READINESS_AGENTS = 'copilot,codex';
@@ -185,6 +191,11 @@ jobs:
             const workflowDryRun = process.env.WORKFLOW_DRY_RUN;
             if (workflowDryRun !== undefined && workflowDryRun !== null && workflowDryRun !== '') {
               merged.dry_run = workflowDryRun;
+            }
+
+            const workflowOptionsJson = process.env.WORKFLOW_OPTIONS_JSON;
+            if (workflowOptionsJson !== undefined && workflowOptionsJson !== null && workflowOptionsJson.trim() !== '') {
+              merged.options_json = workflowOptionsJson;
             }
 
             const readinessAgents = toCsv(merged.readiness_agents, DEFAULTS.readiness_agents);

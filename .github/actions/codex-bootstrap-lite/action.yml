@@ -37,6 +37,10 @@ inputs:
     description: "create | invite (invite = prepare branch and ask human to open PR)"
     required: false
     default: "create"
+  keepalive_enabled:
+    description: "Whether Codex keepalive should be enabled (true|false)"
+    required: false
+    default: "false"
 
 outputs:
   pr:
@@ -76,6 +80,7 @@ runs:
         AUTO_READY: ${{ inputs.auto_ready }}
         POST_CODEX: ${{ inputs.post_codex_comment }}
         PR_MODE: ${{ inputs.pr_mode }}
+        KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
       with:
         github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
         script: |
@@ -132,9 +137,11 @@ runs:
             core.warning(`Failed to read issue #${issue_number}: ${e.message}`);
           }
           const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+          const keepaliveEnabled = /^true$/i.test(process.env.KEEPALIVE_ENABLED || 'false');
+          const keepaliveLine = `Keepalive: ${keepaliveEnabled ? 'ON' : 'OFF'}`;
           const header = `### Source Issue #${issue_number}: ${issueTitle}`;
           const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-          const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+          const body = `${header}\n${keepaliveLine}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
           const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'false');
           const prMode = (process.env.PR_MODE || 'create').toLowerCase();
 
@@ -142,6 +149,7 @@ runs:
             // Do not create PR; ask the human to open it so they are the author
             const suggestion = [
               header,
+              keepaliveLine,
               `Source: ${issueUrl}`,
               quoted,
               '—',
@@ -226,9 +234,10 @@ runs:
               'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
               '```'
             ].join('\n');
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.\n\n${executionSnippet}` });
+            const keepaliveStatus = `Keepalive mode: **${keepaliveEnabled ? 'ON' : 'OFF'}**`;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.\n\n${keepaliveStatus}\n\n${executionSnippet}` });
           } catch {}
 
           core.setOutput('pr', String(prNum));
           core.setOutput('branch', branch);
-          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch}`);
+          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch} keepalive=${keepaliveEnabled ? 'ON' : 'OFF'}`);
