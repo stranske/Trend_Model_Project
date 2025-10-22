@@ -91,8 +91,11 @@ function listRelevantFiles(files) {
     // Treat most agents-* workflows as relevant, but allow a small
     // unprotected exceptions list for utility workflows (e.g. agents-64).
     if (current.startsWith('.github/workflows/agents-')) {
-      // agents-64 (verify-agent-assignment) is intentionally unprotected
-      // and should be ignored by the guard checks.
+      // agents-64-verify-agent-assignment.yml is intentionally excluded from guard protection
+      // because it is a utility workflow used to verify agent assignment and does not affect
+      // agent logic or security. This policy is documented in .github/README.md under
+      // "Workflow Guard Exceptions". If you need to change this policy, update both this file
+      // and the documentation accordingly.
       if (current.endsWith('agents-64-verify-agent-assignment.yml')) {
         return false;
       }
