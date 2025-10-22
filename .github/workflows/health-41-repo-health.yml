@@ -257,7 +257,7 @@ jobs:
               if (missing.includes('Gate / gate')) {
                 core.setFailed(`Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. Update branch protection to restore Gate. You can update branch protection here: https://github.com/${context.repo.owner}/${context.repo.repo}/settings/branch_protection_rules`);
               } else {
-                core.setFailed(`${failurePrefix}. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. (${problems.join('; ')}).`);
+                core.setFailed(`${failurePrefix}. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. (${problems.join('; ')}). Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`);
               }
               return;
             }
