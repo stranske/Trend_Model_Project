@@ -427,7 +427,7 @@ jobs:
       needs.belt-dispatch.outputs.issue != ''
     uses: ./.github/workflows/agents-72-codex-belt-worker.yml
     with:
-      issue: ${{ fromJson(format('{0}', needs.belt-dispatch.outputs.issue)) }}
+      issue: ${{ needs.belt-dispatch.outputs.issue }}
       branch: ${{ needs.belt-dispatch.outputs.branch }}
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
