@@ -78,6 +78,80 @@ jobs:
             core.setOutput('issue', num > 0 ? String(num) : '');
             core.setOutput('has_issue', num > 0 ? 'true' : 'false');
 
+      - name: Resolve keepalive opt-in
+        id: keepalive
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER || 0);
+            const { owner, repo } = context.repo;
+            const sentinelToken = '[keepalive]';
+            const sentinelLower = sentinelToken.toLowerCase();
+
+            const normaliseLabel = (value) => String(value || '').trim().toLowerCase();
+
+            const labels = Array.isArray(context.payload.issue?.labels)
+              ? context.payload.issue.labels.map((label) => normaliseLabel(typeof label === 'string' ? label : label?.name))
+              : [];
+
+            let labelOptIn = labels.includes('agents:keepalive');
+            const eventLabel = normaliseLabel(context.payload.label?.name);
+            if (!labelOptIn && eventLabel === 'agents:keepalive') {
+              labelOptIn = true;
+            }
+
+            let sentinelOptIn = false;
+            if (issueNumber > 0) {
+              try {
+                const iterator = github.paginate.iterator(
+                  github.rest.issues.listComments,
+                  { owner, repo, issue_number: issueNumber, per_page: 100 }
+                );
+                for await (const page of iterator) {
+                  for (const comment of page.data) {
+                    if (typeof comment?.body === 'string' && comment.body.toLowerCase().includes(sentinelLower)) {
+                      sentinelOptIn = true;
+                      break;
+                    }
+                  }
+                  if (sentinelOptIn) {
+                    break;
+                  }
+                }
+              } catch (error) {
+                core.warning(`Failed to scan comments for keepalive sentinel on issue #${issueNumber}: ${error.message}`);
+              }
+            }
+
+            const enabled = labelOptIn || sentinelOptIn;
+            let source = 'none';
+            if (labelOptIn && sentinelOptIn) {
+              source = 'label+sentinel';
+            } else if (labelOptIn) {
+              source = 'label';
+            } else if (sentinelOptIn) {
+              source = 'sentinel';
+            }
+
+            const mode = enabled ? 'ON' : 'OFF';
+            const options = { keepalive: { enabled } };
+
+            core.info(`Keepalive opt-in for issue #${issueNumber || 'n/a'}: ${enabled ? 'enabled' : 'disabled'} (${source}).`);
+            core.setOutput('enabled', enabled ? 'true' : 'false');
+            core.setOutput('mode', mode);
+            core.setOutput('source', source);
+            core.setOutput('options_json', JSON.stringify(options));
+
+            const summary = core.summary;
+            summary.addHeading('Codex keepalive opt-in');
+            summary.addRaw(`Mode: **${mode}**`).addEOL();
+            summary.addRaw(`Source: ${source}`).addEOL();
+            await summary.write();
+            summary.clear();
+
       - name: Fail fast on missing issue (manual run)
         if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
         run: |
@@ -182,6 +256,7 @@ jobs:
           auto_ready: 'true'
           post_codex_comment: ${{ steps.codex.outputs.post }}
           pr_mode: ${{ steps.mode.outputs.mode }}
+          keepalive_mode: ${{ steps.keepalive.outputs.mode || 'OFF' }}
 
       - name: Debug composite outputs
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.local_action.outcome == 'success' }}
@@ -283,6 +358,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -299,9 +375,43 @@ jobs:
               core.error('Failed to fetch issue: ' + err); 
             }
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+            const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-            const suggestion = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\n@codex start\n\nCodex, please derive and propose:\n- Scope / key constraints\n- Acceptance criteria / definition of done\n- Initial task checklist to iterate through\n\nUse the issue details above to draft the plan, then proceed with implementation.\n\n---\n\nOnce the plan is posted, comment the snippet below to start execution and enable keepalive:\n\nThe following block should be pasted as a separate PR comment:\n\n\u0060\u0060\u0060markdown\n@codex plan-and-execute\n\nCodex, reuse the scope, acceptance criteria, and task list from the source issue.\nPost those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.\nWork through the tasks, checking them off only after each acceptance criterion is satisfied.\n\u0060\u0060\u0060`;
+            const bodySections = [
+              keepaliveHeader,
+              '',
+              header,
+              '',
+              `Source: ${issueUrl}`,
+              '',
+              quoted,
+              '',
+              '@codex start',
+              '',
+              'Codex, please derive and propose:',
+              '- Scope / key constraints',
+              '- Acceptance criteria / definition of done',
+              '- Initial task checklist to iterate through',
+              '',
+              'Use the issue details above to draft the plan, then proceed with implementation.',
+              '',
+              '---',
+              '',
+              'Once the plan is posted, comment the snippet below to start execution and enable keepalive:',
+              '',
+              'The following block should be pasted as a separate PR comment:',
+              '',
+              '```markdown',
+              '@codex plan-and-execute',
+              '',
+              'Codex, reuse the scope, acceptance criteria, and task list from the source issue.',
+              'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
+              'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
+              '```'
+            ];
+            const suggestion = bodySections.join('\n');
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
             if (!issue_number) { core.setFailed('Resolved issue number missing; cannot post invite.'); return; }
             await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. Codex only engages on human-authored PRs.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}` });
@@ -317,6 +427,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -333,9 +444,22 @@ jobs:
               let issueBody = '';
               try { const { data: is } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = is.title || ''; issueBody = is.body || ''; } catch (e) { core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`); }
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+              const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+              const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-              const prBody = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n\nPR created automatically to engage Codex.`;
+              const prBody = [
+                keepaliveHeader,
+                '',
+                header,
+                '',
+                `Source: ${issueUrl}`,
+                '',
+                quoted,
+                '',
+                '—',
+                'PR created automatically to engage Codex.'
+              ].join('\n');
               ({ data: pr } = await github.rest.pulls.create({ owner, repo, head, base, draft: draftFlag, title: `Codex bootstrap for #${issue_number}`, body: prBody }));
             }
             core.setOutput('number', String(pr.number));
@@ -440,3 +564,80 @@ jobs:
               ].join('\n');
               await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
             }
+
+      - name: Dispatch Agents Orchestrator (keepalive sync)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && ((steps.local_action.outcome == 'success' && steps.local_action.outputs.pr != '') || (steps.local_action.outcome == 'failure' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '')) }}
+        uses: actions/github-script@v7
+        env:
+          DEFAULT_BRANCH: ${{ steps.def.outputs.default }}
+          KEEPALIVE_ENABLED: ${{ steps.keepalive.outputs.enabled || 'false' }}
+          KEEPALIVE_OPTIONS: ${{ steps.keepalive.outputs.options_json || '{}' }}
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
+          KEEPALIVE_SOURCE: ${{ steps.keepalive.outputs.source || 'none' }}
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+          PR_NUMBER: ${{ steps.local_action.outcome == 'success' && steps.local_action.outputs.pr || steps.pr.outputs.number || '' }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const defaultBranch = (process.env.DEFAULT_BRANCH || '').trim();
+            const ref = defaultBranch
+              ? (defaultBranch.startsWith('refs/') ? defaultBranch : `refs/heads/${defaultBranch}`)
+              : context.ref;
+            const keepaliveEnabled = (process.env.KEEPALIVE_ENABLED || '').trim().toLowerCase() === 'true';
+            const keepaliveSource = (process.env.KEEPALIVE_SOURCE || 'none').trim() || 'none';
+            const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim() || 'OFF';
+            const issueNumber = (process.env.ISSUE_NUMBER || '').trim();
+            const prNumber = (process.env.PR_NUMBER || '').trim();
+
+            let options = {};
+            try {
+              options = JSON.parse(process.env.KEEPALIVE_OPTIONS || '{}') || {};
+            } catch (error) {
+              core.warning(`Failed to parse keepalive options_json; using defaults. ${error.message}`);
+            }
+            if (!options.keepalive || typeof options.keepalive !== 'object') {
+              options.keepalive = {};
+            }
+            options.keepalive.enabled = keepaliveEnabled;
+            const optionsJson = JSON.stringify(options);
+
+            const params = {
+              keepalive: { enabled: keepaliveEnabled },
+              options_json: optionsJson,
+              enable_keepalive: keepaliveEnabled ? 'true' : 'false'
+            };
+            if (issueNumber) {
+              params.keepalive.issue = issueNumber;
+            }
+            if (prNumber) {
+              params.keepalive.pr = prNumber;
+            }
+
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'agents-70-orchestrator.yml',
+                ref,
+                inputs: {
+                  params_json: JSON.stringify(params)
+                }
+              });
+              core.info(`Dispatched Agents 70 Orchestrator with keepalive ${keepaliveEnabled ? 'enabled' : 'disabled'} (${keepaliveSource}).`);
+            } catch (error) {
+              core.warning(`Failed to dispatch Agents 70 Orchestrator: ${error.message}`);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Orchestrator keepalive dispatch');
+            summary.addRaw(`Keepalive mode: **${keepaliveMode}**`).addEOL();
+            summary.addRaw(`Source: ${keepaliveSource}`).addEOL();
+            if (issueNumber) {
+              summary.addRaw(`Issue: #${issueNumber}`).addEOL();
+            }
+            if (prNumber) {
+              summary.addRaw(`PR: #${prNumber}`).addEOL();
+            }
+            await summary.write();
+            summary.clear();
