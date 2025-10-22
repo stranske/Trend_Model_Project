@@ -3,8 +3,6 @@ from __future__ import annotations
 import pathlib
 from typing import Any, Dict, Iterable
 
-import pytest
-
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
@@ -31,52 +29,20 @@ def _job_steps(data: Dict[str, Any], job: str) -> Iterable[Dict[str, Any]]:
     return steps
 
 
-@pytest.mark.parametrize(
-    ("job", "changed_step"),
-    (
-        ("small-fixes", "apply"),
-        ("fix-failing-checks", "autofix"),
-    ),
-)
-def test_autofix_remote_repo_path_posts_patch_instructions(
-    job: str, changed_step: str
-) -> None:
+def test_gate_rerun_job_requires_autofix_changes() -> None:
     data = _load_workflow(WORKFLOW_FILE)
-    job_def = data["jobs"][job]
+    job_def = data["jobs"]["gate-rerun"]
+    condition = job_def.get("if", "")
+    assert "needs.small-fixes-meta.outputs.changed == 'true'" in condition
+    assert "needs.context.outputs.same_repo == 'true'" in condition
 
-    steps = job_def.get("steps")
 
-    if steps is not None:
-        if job == "small-fixes":
-            label_step = _step_by_name(steps, "Label PR (autofix patch available)")
-            condition = label_step.get("if", "")
-            assert "same_repo != 'true'" in condition
-            assert f"steps.{changed_step}.outputs.changed == 'true'" in condition
-            assert label_step.get("uses", "").startswith(
-                "actions/github-script@"
-            ), "Fork patch label step should use github-script to interact with the PR"
-        else:
-            assert not any(
-                step.get("name") == "Label PR (autofix patch available)"
-                for step in steps
-            ), "Patch label step should not exist in fix-failing-checks job"
-    else:
-        assert (
-            job_def.get("uses") == "./.github/workflows/reusable-18-autofix.yml"
-        ), "Small fixes job should invoke the reusable autofix workflow"
-        return
-
-    summary_step = _step_by_name(steps, "Summary")
-    run_script = summary_step.get("run", "")
-    if job == "small-fixes":
-        assert "Patch artifact:" in run_script
-        assert "${GITHUB_RUN_ID}" in run_script
-        assert "#artifacts" in run_script
-        assert "${{ needs.context.outputs.same_repo }}" in run_script
-        assert "${{ steps." in run_script
-    else:
-        assert "Fix failing checks" in run_script
-        assert "${{ steps." in run_script
+def test_autofix_comment_job_requires_same_repo_and_changes() -> None:
+    data = _load_workflow(WORKFLOW_FILE)
+    job_def = data["jobs"]["autofix-comment"]
+    condition = job_def.get("if", "")
+    assert "needs.context.outputs.same_repo == 'true'" in condition
+    assert "needs.small-fixes-meta.outputs.changed == 'true'" in condition
 
 
 def test_consolidated_comment_includes_patch_instructions() -> None:
@@ -90,19 +56,27 @@ def test_consolidated_comment_includes_patch_instructions() -> None:
 
 def test_autofix_opt_in_label_normalized_to_clean() -> None:
     data = _load_workflow(WORKFLOW_FILE)
+    root_env = data.get("env", {})
+    assert root_env.get("AUTOFIX_LABEL") == "autofix:clean"
+
     context_env = data["jobs"]["context"]["env"]
     assert (
-        "autofix:clean" in context_env["AUTOFIX_OPT_IN_LABEL"]
-    ), "Context job must default AUTOFIX_OPT_IN_LABEL to autofix:clean"
+        context_env["AUTOFIX_LABEL"] == "${{ env.AUTOFIX_LABEL }}"
+    ), "Context job must source AUTOFIX_LABEL from the workflow environment"
 
     small_with = data["jobs"]["small-fixes"]["with"]
     assert (
-        "autofix:clean" in small_with["opt_in_label"]
-    ), "Small fixes job must forward autofix:clean as the opt-in label"
+        small_with["opt_in_label"] == "${{ env.AUTOFIX_LABEL }}"
+    ), "Small fixes job must forward AUTOFIX_LABEL as the opt-in label"
     assert (
-        small_with["clean_label"].count("autofix:clean") == 1
-        and "autofix:clean" in small_with["clean_label"]
+        small_with["clean_label"] == "${{ env.AUTOFIX_LABEL }}"
     ), "Clean label should mirror the opt-in label"
+    assert (
+        small_with["applied_label"] == "${{ env.AUTOFIX_APPLIED_LABEL }}"
+    ), "Applied label should reference AUTOFIX_APPLIED_LABEL"
+    assert (
+        small_with["patch_label"] == "${{ env.AUTOFIX_PATCH_LABEL }}"
+    ), "Patch label should reference AUTOFIX_PATCH_LABEL"
     assert (
         small_with["dry_run"] == "${{ needs.context.outputs.same_repo != 'true' }}"
     ), "Small fixes job must forward an explicit dry_run toggle for fork safety"
