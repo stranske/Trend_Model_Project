@@ -114,6 +114,26 @@ def test_codex_issue_bridge_present():
     ), "agents-63-codex-issue-bridge.yml must exist after Codex bridge restoration"
 
 
+def test_codex_bootstrap_lite_surfaces_keepalive_mode():
+    action = Path(".github/actions/codex-bootstrap-lite/action.yml").read_text(encoding="utf-8")
+    assert "keepalive_mode:" in action, "Codex bootstrap action must accept a keepalive_mode input"
+    assert "### Keepalive:" in action, "Codex bootstrap action must label PR bodies with keepalive mode"
+
+
+def test_issue_bridge_tracks_keepalive_mode():
+    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(encoding="utf-8")
+    assert "Resolve keepalive opt-in" in text, "Issue bridge must detect keepalive opt-in state"
+    assert "### Keepalive:" in text, "Issue bridge must propagate keepalive mode to PR content"
+
+
+def test_issue_bridge_dispatches_orchestrator_with_keepalive_options():
+    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(encoding="utf-8")
+    assert "Dispatch Agents Orchestrator (keepalive sync)" in text, "Issue bridge must dispatch orchestrator for keepalive sync"
+    assert "agents-70-orchestrator.yml" in text, "Issue bridge orchestrator dispatch must target the Agents 70 workflow"
+    assert "params_json" in text, "Issue bridge orchestrator dispatch must pass params_json payload"
+    assert "keepalive" in text, "Issue bridge orchestrator dispatch must encode keepalive configuration"
+
+
 def test_keepalive_job_present():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     text = reusable.read_text(encoding="utf-8")
