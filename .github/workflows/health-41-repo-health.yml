@@ -178,7 +178,7 @@ jobs:
 
             const defaultBranch = process.env.DEFAULT_BRANCH || null;
             if (!defaultBranch) {
-              core.setFailed('Default branch name was not provided by the summary step.');
+              core.setFailed('Default branch name was not provided by the summary step. Ensure the summarise step completed successfully and outputs.default-branch is set.');
               return;
             }
 
