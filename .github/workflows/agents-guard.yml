@@ -43,9 +43,7 @@ jobs:
             const baseRef = context.payload.pull_request.base.sha;
             const labelName = 'agents:allow-change';
             const protectedPaths = [
-              '.github/workflows/agents-63-chatgpt-issue-sync.yml',
-              '.github/workflows/agents-63-codex-issue-bridge.yml',
-              '.github/workflows/agents-70-orchestrator.yml',
+              '.github/workflows/agents-*.yml',
             ];
 
             async function loadGuardModule() {

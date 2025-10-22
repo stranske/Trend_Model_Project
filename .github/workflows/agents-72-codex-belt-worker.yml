@@ -3,15 +3,12 @@
 name: Agents 72 Codex Belt Worker
 
 on:
-  repository_dispatch:
-    types:
-      - codex-belt.work
-  workflow_dispatch:
+  workflow_call:
     inputs:
       issue:
         description: 'Issue number'
         required: true
-        type: string
+        type: number
       branch:
         description: 'Branch to prepare (codex/issue-<n>)'
         required: true
@@ -21,6 +18,24 @@ on:
         required: false
         default: ''
         type: string
+      source:
+        description: 'Source of the worker invocation'
+        required: false
+        default: 'orchestrator'
+        type: string
+      dry_run:
+        description: 'Preview worker actions without writes'
+        required: false
+        default: false
+        type: boolean
+      max_parallel:
+        description: 'Maximum concurrent worker runs permitted'
+        required: false
+        default: 1
+        type: number
+    secrets:
+      actions_bot_pat:
+        required: true
 
 permissions:
   contents: write
@@ -36,8 +51,15 @@ jobs:
   bootstrap:
     name: Prepare Codex automation PR
     runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.ctx.outputs.issue || '' }}
+      branch: ${{ steps.ctx.outputs.branch || '' }}
+      base: ${{ steps.base.outputs.branch || '' }}
+      pr_number: ${{ steps.pr.outputs.number || '' }}
+      dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
+      allowed: ${{ steps.parallel.outputs.allowed || 'true' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
     steps:
       - name: Ensure ACTIONS_BOT_PAT is configured
         run: |
@@ -46,24 +68,21 @@ jobs:
             exit 1
           fi
 
+      - name: Determine worker mode
+        id: mode
+        run: |
+          echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
+
       - name: Resolve worker context
         id: ctx
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const payload = context.payload.client_payload || {};
-            const isDispatch = context.eventName === 'repository_dispatch';
-            const inputs = context.payload.inputs || {};
-
-            const issueRaw = isDispatch ? payload.issue : inputs.issue;
-            const branchRaw = isDispatch ? payload.branch : inputs.branch;
-            const baseRaw = isDispatch ? payload.base : inputs.base;
-
-            const issue = Number(issueRaw || 0);
-            const branch = String(branchRaw || '').trim();
-            const base = String(baseRaw || '').trim();
-            const source = isDispatch ? (payload.source || 'dispatch') : 'manual';
+            const issue = Number('${{ inputs.issue }}');
+            const branch = '${{ inputs.branch }}'.trim();
+            const base = '${{ inputs.base }}'.trim();
+            const source = '${{ inputs.source }}'.trim() || 'orchestrator';
 
             if (!issue) {
               core.setFailed('Worker missing issue number.');
@@ -101,7 +120,41 @@ jobs:
             const { data } = await github.rest.repos.get({ owner, repo });
             core.setOutput('branch', data.default_branch || 'main');
 
+      - name: Check parallel allowance
+        id: parallel
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const rawMax = Number('${{ inputs.max_parallel }}');
+            const maxParallel = Number.isFinite(rawMax) ? rawMax : 1;
+            if (maxParallel <= 1) {
+              core.setOutput('allowed', 'true');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const workflowId = 'agents-72-codex-belt-worker.yml';
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              status: 'in_progress',
+              per_page: 100,
+            });
+
+            const currentRunId = context.runId;
+            const others = (data.workflow_runs || []).filter((run) => run.id !== currentRunId);
+            if (others.length >= maxParallel) {
+              core.info(`Skipping worker execution – ${others.length} concurrent runs >= max_parallel ${maxParallel}.`);
+              core.setOutput('allowed', 'false');
+              return;
+            }
+
+            core.setOutput('allowed', 'true');
+
       - name: Re-verify issue labels
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
         id: verify
         uses: actions/github-script@v7
         with:
@@ -123,6 +176,7 @@ jobs:
             core.setOutput('has_in_progress', hasInProgress ? 'true' : 'false');
 
       - name: Checkout branch
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ctx.outputs.branch }}
@@ -130,6 +184,7 @@ jobs:
           fetch-depth: 0
 
       - name: Ensure branch exists remotely
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           branch="${{ steps.ctx.outputs.branch }}"
@@ -141,6 +196,7 @@ jobs:
           fi
 
       - name: Create placeholder commit when branch matches base
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
         env:
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
@@ -160,7 +216,7 @@ jobs:
           fi
 
       - name: Ensure issue labels reflect in-progress state
-        if: ${{ steps.verify.outputs.has_in_progress != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -174,7 +230,7 @@ jobs:
             }
 
       - name: Remove residual status:ready label
-        if: ${{ steps.verify.outputs.has_ready == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -190,6 +246,7 @@ jobs:
             }
 
       - name: Open or refresh Codex PR
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
         id: pr
         uses: actions/github-script@v7
         with:
@@ -242,7 +299,7 @@ jobs:
             core.summary.addRaw(`Prepared PR #${prNumber} targeting \`${base}\`.`).write();
 
       - name: Apply automation labels
-        if: ${{ steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -257,7 +314,7 @@ jobs:
             }
 
       - name: Ensure PR assignees include automation
-        if: ${{ steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -275,7 +332,7 @@ jobs:
             }
 
       - name: Post activation comment
-        if: ${{ steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -290,7 +347,7 @@ jobs:
             }
 
       - name: Sync issue comment with PR link
-        if: ${{ steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -303,3 +360,10 @@ jobs:
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
+
+      - name: Summarise worker preview
+        if: ${{ steps.parallel.outputs.allowed != 'true' || steps.mode.outputs.dry_run == 'true' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Worker executed in preview mode. No branches, issues, or pull requests were modified.
+          EOF

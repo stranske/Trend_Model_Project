@@ -3,11 +3,33 @@
 name: Agents 73 Codex Belt Conveyor
 
 on:
-  workflow_run:
-    workflows:
-      - Gate
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      issue:
+        description: 'Source issue number for the Codex belt PR'
+        required: true
+        type: number
+      branch:
+        description: 'Branch associated with the Codex belt PR (codex/issue-<n>)'
+        required: true
+        type: string
+      pr_number:
+        description: 'Pull request number to promote'
+        required: true
+        type: number
+      head_sha:
+        description: 'Head SHA used to evaluate status checks'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Preview conveyor actions without writes'
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      actions_bot_pat:
+        required: true
 
 permissions:
   contents: write
@@ -22,112 +44,121 @@ concurrency:
 jobs:
   promote:
     name: Promote merged Codex belt PR
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
+    outputs:
+      merged: ${{ steps.merge.outputs.merged || 'false' }}
+      dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
-    steps:
-      - name: Ensure ACTIONS_BOT_PAT is configured
-        run: |
-          if [ -z "$ACTIONS_BOT_PAT" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for conveyor actions.'
-            exit 1
-          fi
+      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
 
-      - name: Summarise workflow run
+    steps:
+      - name: Determine conveyor mode
+        id: mode
+        run: |
+          echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
+
+      - name: Summarise invocation
         uses: actions/github-script@v7
         with:
           script: |
-            const run = context.payload.workflow_run;
             const summary = core.summary;
             summary
               .addHeading('Codex Belt Conveyor')
               .addTable([
                 [
-                  { data: 'Workflow', header: true },
-                  { data: 'Run ID', header: true },
-                  { data: 'Conclusion', header: true }
+                  { data: 'Issue', header: true },
+                  { data: 'Branch', header: true },
+                  { data: 'PR', header: true }
                 ],
-                [run.name || 'Gate', String(run.id), run.conclusion || '(unknown)']
+                [
+                  `#${{ inputs.issue }}`,
+                  '${{ inputs.branch }}',
+                  `#${{ inputs.pr_number }}`
+                ]
               ])
               .write();
 
-      - name: Extract PR context
-        id: ctx
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const run = context.payload.workflow_run;
-            const pr = Array.isArray(run.pull_requests) ? run.pull_requests[0] : null;
-            if (!pr) {
-              core.info('No pull request attached to this workflow run.');
-              core.setOutput('continue', 'false');
-              return;
-            }
-            const branch = pr.head_branch || '';
-            const match = branch.match(/^codex\/issue-(\d+)$/);
-            if (!match) {
-              core.info(`Head branch ${branch} does not match codex/issue-<n>; skipping.`);
-              core.setOutput('continue', 'false');
-              return;
-            }
-            core.setOutput('continue', 'true');
-            core.setOutput('branch', branch);
-            core.setOutput('issue', match[1]);
-            core.setOutput('pr', String(pr.number));
-            core.setOutput('head_sha', pr.head_sha || '');
-
-      - name: Stop when no matching branch
-        if: ${{ steps.ctx.outputs.continue != 'true' }}
-        run: echo 'Workflow run not associated with a codex belt branch.'
-
-      - name: Fetch PR details
-        if: ${{ steps.ctx.outputs.continue == 'true' }}
+      - name: Load PR details
         id: pr
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
+            const prNumber = Number('${{ inputs.pr_number }}');
+            const branch = '${{ inputs.branch }}'.trim();
+            const expectedIssue = Number('${{ inputs.issue }}');
             const { owner, repo } = context.repo;
+
             const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             if (data.state !== 'open') {
-              core.info(`PR #${prNumber} state is ${data.state}; skipping.`);
-              core.setOutput('continue', 'false');
+              core.setFailed(`PR #${prNumber} is not open (state=${data.state}).`);
               return;
             }
             if (data.draft) {
-              core.info(`PR #${prNumber} is draft; skipping auto-merge.`);
-              core.setOutput('continue', 'false');
+              core.setFailed(`PR #${prNumber} is still marked as draft.`);
               return;
             }
-            core.setOutput('continue', 'true');
-            core.setOutput('base', data.base && data.base.ref ? data.base.ref : '');
-            core.summary.addRaw(`Ready to merge PR #${prNumber} (base ${data.base.ref}).`).write();
+            const headBranch = data.head && data.head.ref ? data.head.ref : '';
+            if (headBranch !== branch) {
+              core.setFailed(`PR #${prNumber} is running on ${headBranch} instead of ${branch}.`);
+              return;
+            }
+            const match = headBranch.match(/^codex\/issue-(\d+)$/);
+            if (!match) {
+              core.setFailed(`Branch ${headBranch} is not a codex belt branch.`);
+              return;
+            }
+            const inferredIssue = Number(match[1]);
+            if (expectedIssue && inferredIssue !== expectedIssue) {
+              core.warning(`Expected issue #${expectedIssue} but branch implies #${inferredIssue}. Using branch hint.`);
+            }
 
-      - name: Merge PR with squash
-        if: ${{ steps.pr.outputs.continue == 'true' }}
+            core.setOutput('issue', String(inferredIssue || expectedIssue || ''));
+            core.setOutput('head_sha', data.head && data.head.sha ? data.head.sha : '');
+            core.setOutput('base', data.base && data.base.ref ? data.base.ref : '');
+
+      - name: Ensure Gate succeeded
+        id: gate
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
+            const headSha = '${{ inputs.head_sha }}'.trim() || '${{ steps.pr.outputs.head_sha }}';
+            if (!headSha) {
+              core.setFailed('Unable to determine head SHA for status inspection.');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha });
+            if (!data || data.state !== 'success') {
+              const state = data && data.state ? data.state : '(unknown)';
+              core.setFailed(`Combined status for ${headSha} is ${state}; conveyor requires success.`);
+              return;
+            }
+
+      - name: Merge PR with squash
+        if: ${{ steps.mode.outputs.dry_run != 'true' }}
+        id: merge
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ inputs.pr_number }}');
             const { owner, repo } = context.repo;
             try {
               await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' });
+              core.setOutput('merged', 'true');
             } catch (error) {
               core.setFailed(`Failed to merge PR #${prNumber}: ${error.message}`);
             }
 
       - name: Delete branch after merge
-        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        if: ${{ steps.mode.outputs.dry_run != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const branch = '${{ steps.ctx.outputs.branch }}';
+            const branch = '${{ inputs.branch }}';
             const { owner, repo } = context.repo;
             try {
               await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
@@ -136,13 +167,17 @@ jobs:
             }
 
       - name: Close source issue
-        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        if: ${{ steps.mode.outputs.dry_run != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
+            if (!issue) {
+              core.warning('Unable to resolve issue number; skipping issue closure.');
+              return;
+            }
             try {
               await github.rest.issues.update({ owner, repo, issue_number: issue, state: 'closed' });
             } catch (error) {
@@ -162,37 +197,23 @@ jobs:
             }
 
       - name: Leave merge confirmation on PR
-        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
+        if: ${{ steps.mode.outputs.dry_run != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const prNumber = Number('${{ steps.ctx.outputs.pr }}');
-            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const prNumber = Number('${{ inputs.pr_number }}');
+            const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue}.` });
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue || '(unknown)'}.` });
             } catch (error) {
               core.warning(`Failed to comment on PR #${prNumber}: ${error.message}`);
             }
 
-      - name: Re-dispatch dispatcher
-        if: ${{ success() && steps.pr.outputs.continue == 'true' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
-          script: |
-            const { owner, repo } = context.repo;
-            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
-            const ref = repoInfo.default_branch || 'main';
-            try {
-              await github.rest.actions.createWorkflowDispatch({
-                owner,
-                repo,
-                workflow_id: 'agents-71-codex-belt-dispatcher.yml',
-                ref,
-              });
-            } catch (error) {
-              core.warning(`Failed to trigger dispatcher: ${error.message}`);
-            }
-            core.summary.addRaw('Dispatcher re-triggered for next issue.').write();
+      - name: Summarise conveyor preview
+        if: ${{ steps.mode.outputs.dry_run == 'true' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Conveyor executed in preview mode. No merges or clean-up actions were performed.
+          EOF

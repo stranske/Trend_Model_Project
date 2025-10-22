@@ -3,15 +3,21 @@
 name: Agents 71 Codex Belt Dispatcher
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+  workflow_call:
     inputs:
       force_issue:
         description: 'Optional issue number to dispatch immediately'
         required: false
         default: ''
         type: string
+      dry_run:
+        description: 'Preview dispatcher actions without writes'
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      actions_bot_pat:
+        required: true
 
 permissions:
   contents: write
@@ -26,8 +32,14 @@ jobs:
   dispatch:
     name: Select next Codex issue
     runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.pick.outputs.issue || '' }}
+      branch: ${{ steps.pick.outputs.branch || '' }}
+      base: ${{ steps.pick.outputs.base || '' }}
+      reason: ${{ steps.pick.outputs.reason || '' }}
+      dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
     steps:
       - name: Ensure ACTIONS_BOT_PAT is configured
         run: |
@@ -36,13 +48,18 @@ jobs:
             exit 1
           fi
 
+      - name: Determine dispatcher mode
+        id: mode
+        run: |
+          echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
+
       - name: Resolve candidate issue
         id: pick
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const forced = (context.payload.inputs && context.payload.inputs.force_issue) || '';
+            const forced = '${{ inputs.force_issue }}';
             const { owner, repo } = context.repo;
 
             const summary = core.summary;
@@ -106,7 +123,7 @@ jobs:
         run: echo 'No work queued.'
 
       - name: Checkout default branch
-        if: ${{ steps.pick.outputs.issue != '' }}
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pick.outputs.base }}
@@ -114,7 +131,7 @@ jobs:
           fetch-depth: 0
 
       - name: Create codex branch if missing
-        if: ${{ steps.pick.outputs.issue != '' }}
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           branch="${{ steps.pick.outputs.branch }}"
@@ -132,7 +149,7 @@ jobs:
           fi
 
       - name: Transition issue to in-progress
-        if: ${{ steps.pick.outputs.issue != '' }}
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
@@ -164,22 +181,9 @@ jobs:
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
 
-      - name: Dispatch worker
-        if: ${{ steps.pick.outputs.issue != '' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
-          script: |
-            const { owner, repo } = context.repo;
-            await github.rest.repos.createDispatchEvent({
-              owner,
-              repo,
-              event_type: 'codex-belt.work',
-              client_payload: {
-                issue: Number('${{ steps.pick.outputs.issue }}'),
-                branch: '${{ steps.pick.outputs.branch }}',
-                base: '${{ steps.pick.outputs.base }}',
-                source: '${{ steps.pick.outputs.reason || 'queue-selection' }}'
-              },
-            });
-            core.summary.addRaw('Worker dispatch event submitted.').write();
+      - name: Summarise dispatcher mode
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run == 'true' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Dispatcher executed in dry-run mode. No branches, labels, or comments were changed.
+          EOF

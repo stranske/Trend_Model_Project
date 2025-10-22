@@ -80,7 +80,10 @@ jobs:
               draft_pr: 'false',
               diagnostic_mode: 'off',
               options_json: DEFAULT_OPTIONS_JSON,
-              dry_run: 'false'
+              dry_run: 'false',
+              dispatcher_force_issue: '',
+              worker_max_parallel: '1',
+              conveyor_max_merges: '2'
             };
 
             const toString = (value, fallback = '') => {
@@ -132,6 +135,25 @@ jobs:
             };
 
             const nested = (value) => (value && typeof value === 'object' ? value : {});
+
+            const toBoundedIntegerString = (value, fallback, bounds = {}) => {
+              const { min, max } = bounds;
+              const fallbackNumber = Number(fallback);
+              let candidate = Number(value);
+              if (!Number.isFinite(candidate)) {
+                candidate = Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+              }
+              if (Number.isFinite(min) && candidate < min) {
+                candidate = min;
+              }
+              if (Number.isFinite(max) && candidate > max) {
+                candidate = max;
+              }
+              if (!Number.isFinite(candidate)) {
+                candidate = 0;
+              }
+              return String(Math.max(0, Math.floor(candidate)));
+            };
 
             let user = {};
             try {
@@ -204,6 +226,36 @@ jobs:
             };
 
             const optionsSource = merged.options_json ?? merged.options ?? DEFAULT_OPTIONS_JSON;
+            const sanitisedOptions = sanitiseOptions(optionsSource);
+
+            let parsedOptions = {};
+            try {
+              parsedOptions = JSON.parse(sanitisedOptions);
+            } catch (error) {
+              core.warning(`options_json could not be parsed (${error.message}); using defaults.`);
+            }
+
+            const beltOptions = nested(parsedOptions.belt ?? parsedOptions.codex_belt);
+            const dispatcherOptions = nested(beltOptions.dispatcher ?? parsedOptions.dispatcher);
+            const workerOptions = nested(beltOptions.worker ?? parsedOptions.worker);
+            const conveyorOptions = nested(beltOptions.conveyor ?? parsedOptions.conveyor);
+
+            const dispatcherForceIssue = toString(
+              dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,
+              DEFAULTS.dispatcher_force_issue
+            );
+
+            const workerMaxParallel = toBoundedIntegerString(
+              workerOptions.max_parallel ?? workerOptions.parallel ?? merged.worker_max_parallel,
+              DEFAULTS.worker_max_parallel,
+              { min: 0, max: 5 }
+            );
+
+            const conveyorMaxMerges = toBoundedIntegerString(
+              conveyorOptions.max_merges ?? conveyorOptions.limit ?? merged.conveyor_max_merges,
+              DEFAULTS.conveyor_max_merges,
+              { min: 0, max: 5 }
+            );
 
             const outputs = {
               enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
@@ -228,7 +280,10 @@ jobs:
               ),
               draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
               dry_run: dryRun,
-              options_json: sanitiseOptions(optionsSource)
+              options_json: sanitisedOptions,
+              dispatcher_force_issue: dispatcherForceIssue,
+              worker_max_parallel: workerMaxParallel,
+              conveyor_max_merges: conveyorMaxMerges
             };
 
             const orderedKeys = [
@@ -251,7 +306,10 @@ jobs:
               'bootstrap_issues_label',
               'draft_pr',
               'dry_run',
-              'options_json'
+              'options_json',
+              'dispatcher_force_issue',
+              'worker_max_parallel',
+              'conveyor_max_merges'
             ];
 
             const summarise = (value) => {
@@ -348,3 +406,125 @@ jobs:
           if [ -n "${MESSAGE}" ]; then
             echo "${MESSAGE}"
           fi
+
+  belt-dispatch:
+    name: Codex Belt Dispatcher
+    needs: resolve-params
+    uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
+    with:
+      force_issue: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
+      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
+    secrets:
+      actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+
+  belt-worker:
+    name: Codex Belt Worker
+    needs:
+      - resolve-params
+      - belt-dispatch
+    if: |
+      needs.resolve-params.outputs.worker_max_parallel != '0' &&
+      needs.belt-dispatch.outputs.issue != ''
+    uses: ./.github/workflows/agents-72-codex-belt-worker.yml
+    with:
+      issue: ${{ fromJson(format('{0}', needs.belt-dispatch.outputs.issue)) }}
+      branch: ${{ needs.belt-dispatch.outputs.branch }}
+      base: ${{ needs.belt-dispatch.outputs.base }}
+      source: ${{ needs.belt-dispatch.outputs.reason }}
+      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
+      max_parallel: ${{ fromJson(format('{0}', needs.resolve-params.outputs.worker_max_parallel)) }}
+    secrets:
+      actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+
+  belt-scan-ready-prs:
+    name: Scan Codex promotion queue
+    needs: resolve-params
+    runs-on: ubuntu-latest
+    outputs:
+      items: ${{ steps.scan.outputs.items || '[]' }}
+    env:
+      MAX_PROMOTIONS: ${{ needs.resolve-params.outputs.conveyor_max_merges }}
+    steps:
+      - name: Identify ready Codex PRs
+        id: scan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const maxPromotionsRaw = process.env.MAX_PROMOTIONS || '0';
+            const maxPromotions = Math.max(0, Math.floor(Number(maxPromotionsRaw || '0')));
+            const { owner, repo } = context.repo;
+            const { data: pulls } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 50 });
+            const candidates = [];
+
+            for (const pr of pulls) {
+              if (!pr || typeof pr !== 'object') {
+                continue;
+              }
+              const branch = pr.head && pr.head.ref ? pr.head.ref : '';
+              if (!/^codex\/issue-\d+$/.test(branch)) {
+                continue;
+              }
+              if (pr.draft) {
+                continue;
+              }
+              const headSha = pr.head && pr.head.sha ? pr.head.sha : '';
+              if (!headSha) {
+                continue;
+              }
+              const { data: status } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha });
+              if (!status || status.state !== 'success') {
+                continue;
+              }
+              const issueMatch = branch.match(/^codex\/issue-(\d+)$/);
+              const issue = issueMatch ? Number(issueMatch[1]) : null;
+              candidates.push({
+                pr: pr.number,
+                issue,
+                branch,
+                head_sha: headSha,
+              });
+              if (maxPromotions && candidates.length >= maxPromotions) {
+                break;
+              }
+            }
+
+            const summary = core.summary;
+            summary
+              .addHeading('Codex belt conveyor scan')
+              .addRaw(`Ready pull requests: ${candidates.length}`)
+              .addEOL();
+            if (candidates.length) {
+              summary.addTable([
+                [{ data: 'PR', header: true }, { data: 'Issue', header: true }, { data: 'Branch', header: true }],
+                ...candidates.map((entry) => [
+                  `#${entry.pr}`,
+                  entry.issue ? `#${entry.issue}` : '(unknown)',
+                  entry.branch,
+                ])
+              ]);
+            }
+            await summary.write();
+
+            core.setOutput('items', JSON.stringify(candidates));
+
+  belt-conveyor:
+    name: Promote Codex PRs
+    needs:
+      - resolve-params
+      - belt-scan-ready-prs
+    if: |
+      needs.resolve-params.outputs.conveyor_max_merges != '0' &&
+      needs.belt-scan-ready-prs.outputs.items != '' &&
+      needs.belt-scan-ready-prs.outputs.items != '[]'
+    strategy:
+      matrix:
+        pr: ${{ fromJson(needs.belt-scan-ready-prs.outputs.items) }}
+    uses: ./.github/workflows/agents-73-codex-belt-conveyor.yml
+    with:
+      issue: ${{ matrix.pr.issue || 0 }}
+      branch: ${{ matrix.pr.branch }}
+      pr_number: ${{ matrix.pr.pr }}
+      head_sha: ${{ matrix.pr.head_sha }}
+      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
+    secrets:
+      actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
