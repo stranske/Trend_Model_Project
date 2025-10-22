@@ -52,6 +52,14 @@ function dedupe(values) {
   return unique;
 }
 
+function normaliseLogin(login) {
+  const base = String(login ?? '').trim().toLowerCase();
+  if (!base) {
+    return '';
+  }
+  return base.replace(/\[bot\]$/i, '');
+}
+
 function summariseList(items, limit = 20) {
   if (items.length <= limit) {
     return items;
@@ -109,7 +117,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
   let agentLogins = String(agentSource)
     .split(',')
-    .map((value) => value.trim().toLowerCase())
+    .map(normaliseLogin)
     .filter(Boolean);
   if (!agentLogins.length) {
     agentLogins = ['chatgpt-codex-connector'];
@@ -168,7 +176,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const botComments = comments
-        .filter((comment) => agentLogins.includes((comment.user?.login || '').toLowerCase()))
+        .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
       if (!botComments.length) {
         core.info(`#${prNumber}: skipped – Codex has not commented yet.`);
