@@ -265,4 +265,9 @@ jobs:
             summary.addRaw('✅ Branch protection contexts match the expected configuration.', true);
             await summary.write();
 
-            core.info('Branch protection requirements verified.');
+            if (branchProtectionFailure) {
+              core.setFailed(branchProtectionFailure);
+              return;
+            }
+
+            core.info('Branch protection configuration matches expectations.');
