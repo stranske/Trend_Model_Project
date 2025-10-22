@@ -37,10 +37,10 @@ inputs:
     description: "create | invite (invite = prepare branch and ask human to open PR)"
     required: false
     default: "create"
-  keepalive_enabled:
-    description: "Whether Codex keepalive should be enabled (true|false)"
+  keepalive_mode:
+    description: "Keepalive mode string (ON/OFF) to surface in the PR body"
     required: false
-    default: "false"
+    default: "OFF"
 
 outputs:
   pr:
@@ -80,7 +80,7 @@ runs:
         AUTO_READY: ${{ inputs.auto_ready }}
         POST_CODEX: ${{ inputs.post_codex_comment }}
         PR_MODE: ${{ inputs.pr_mode }}
-        KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
+        KEEPALIVE_MODE: ${{ inputs.keepalive_mode }}
       with:
         github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
         script: |
@@ -137,26 +137,41 @@ runs:
             core.warning(`Failed to read issue #${issue_number}: ${e.message}`);
           }
           const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
-          const keepaliveEnabled = /^true$/i.test(process.env.KEEPALIVE_ENABLED || 'false');
-          const keepaliveLine = `Keepalive: ${keepaliveEnabled ? 'ON' : 'OFF'}`;
+          const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+          const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
           const header = `### Source Issue #${issue_number}: ${issueTitle}`;
           const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
-          const body = `${header}\n${keepaliveLine}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+          const body = [
+            keepaliveHeader,
+            '',
+            header,
+            '',
+            `Source: ${issueUrl}`,
+            '',
+            quoted,
+            '',
+            '—',
+            'PR created automatically to engage Codex.'
+          ].join('\n');
           const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'false');
           const prMode = (process.env.PR_MODE || 'create').toLowerCase();
 
           if (prMode === 'invite') {
             // Do not create PR; ask the human to open it so they are the author
             const suggestion = [
+              keepaliveHeader,
+              '',
               header,
-              keepaliveLine,
+              '',
               `Source: ${issueUrl}`,
+              '',
               quoted,
+              '',
               '—',
               'After opening the PR, comment with `@codex start` to request the plan.',
               'Once Codex replies, comment `@codex plan-and-execute` as a separate message.',
               'In that comment, remind Codex to reuse the scope, acceptance criteria, and task list from the issue, post them as markdown checklists, and keep updating them until everything is complete.'
-            ].join('\n\n');
+            ].join('\n');
             const compareUrl = `https://github.com/${owner}/${repo}/compare/${baseBranch}...${branch}?expand=1`;
             try {
               await github.rest.issues.createComment({

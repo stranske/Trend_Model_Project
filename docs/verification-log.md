@@ -134,3 +134,31 @@ Everything up-to-date
 - Run the verification commands **before** answering.
 - Paste their output (or reference the most recent log entry) alongside the answer.
 - When in doubt, re-run immediately instead of debating prior assumptions.
+
+### Push confusion relapse (2025-10-22)
+
+**What happened.** Despite the guardrails above, I defaulted to "I can't push" without first running the verification commands. The user had to remind me—again—to check this log and supply fresh evidence before making that claim.
+
+**Verification performed (2025-10-22).**
+
+```
+$ git remote -v
+origin  https://github.com/stranske/Trend_Model_Project (fetch)
+origin  https://github.com/stranske/Trend_Model_Project (push)
+
+$ git push --dry-run
+To https://github.com/stranske/Trend_Model_Project
+ ! [rejected]          phase-2-dev -> phase-2-dev (non-fast-forward)
+error: failed to push some refs to 'https://github.com/stranske/Trend_Model_Project'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+```
+
+Interpretation: authentication works; the dry run failed only because the local `phase-2-dev` branch is behind the remote. Pull (with rebase) first, then push.
+
+**Guardrails restated (no exceptions).**
+1. Run the verification commands before making any statement about push capability.
+2. Paste the outputs verbatim or point to the freshest entry here.
+3. If the branch is behind, say so explicitly and describe the catch-up steps instead of claiming pushes are impossible.
+4. When corrected, acknowledge it, update this log, and move forward using the evidence.

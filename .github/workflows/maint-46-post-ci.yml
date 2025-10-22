@@ -476,20 +476,13 @@ jobs:
               core.setOutput('message', error.message || 'rerun-error');
             }
 
-  autofix-comment:
-    name: Autofix applied comment
-    needs:
-      - context
-      - small-fixes-meta
-      - gate-rerun
-    if: >
-      needs.context.outputs.found == 'true' &&
-      needs.context.outputs.same_repo == 'true' &&
-      needs.small-fixes-meta.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout workflow helpers
-        uses: actions/checkout@v4
+      - name: Update residual history (same-repo)
+        if: needs.context.outputs.same_repo == 'true' && hashFiles('.github/actions/update-residual-history/action.yml') != ''
+        uses: ./.github/actions/update-residual-history
+
+      - name: Upload autofix history artifact (same-repo)
+        if: needs.context.outputs.same_repo == 'true'
+        uses: actions/upload-artifact@v4
         with:
           sparse-checkout: |
             .github/scripts
