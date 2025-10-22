@@ -88,7 +88,14 @@ function listRelevantFiles(files) {
     const current = file.filename || '';
     const previous = file.previous_filename || '';
 
+    // Treat most agents-* workflows as relevant, but allow a small
+    // unprotected exceptions list for utility workflows (e.g. agents-64).
     if (current.startsWith('.github/workflows/agents-')) {
+      // agents-64 (verify-agent-assignment) is intentionally unprotected
+      // and should be ignored by the guard checks.
+      if (current.endsWith('agents-64-verify-agent-assignment.yml')) {
+        return false;
+      }
       return true;
     }
     if (previous && previous.startsWith('.github/workflows/agents-')) {

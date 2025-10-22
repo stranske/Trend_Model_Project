@@ -37,6 +37,9 @@ on:
       actions_bot_pat:
         required: true
 
+  repository_dispatch:
+    types: [codex-belt.work]
+
 permissions:
   contents: write
   issues: write
