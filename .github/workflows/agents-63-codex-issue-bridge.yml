@@ -386,7 +386,8 @@ jobs:
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const branch = process.env.BRANCH;
-            const keepaliveMode = ((process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON') ? 'ON' : 'OFF';
+            const rawMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
+            const keepaliveMode = rawMode === 'ON' ? 'ON' : 'OFF';
             let issueTitle = '';
             let issueBody = '';
             try {
