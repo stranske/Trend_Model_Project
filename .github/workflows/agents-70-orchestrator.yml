@@ -55,6 +55,18 @@ jobs:
       worker_max_parallel: ${{ steps.resolve.outputs.worker_max_parallel }}
       conveyor_max_merges: ${{ steps.resolve.outputs.conveyor_max_merges }}
     steps:
+      - name: Confirm default-branch execution context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = context.ref || '';
+            const defaultBranch = context.payload?.repository?.default_branch || 'main';
+            const expectedRef = `refs/heads/${defaultBranch}`;
+            core.info(`Workflow ref: ${ref}`);
+            core.info(`Repository default branch: ${defaultBranch}`);
+            if (context.eventName === 'schedule' && ref && ref !== expectedRef) {
+              core.setFailed(`Scheduled orchestrator runs must execute from ${expectedRef}, but received ${ref}.`);
+            }
       - name: Resolve dispatch parameters
         id: resolve
         uses: actions/github-script@v7
@@ -453,14 +465,22 @@ jobs:
         env:
           DISPATCH_RESULT: ${{ needs.belt-dispatch.result || '' }}
           DISPATCH_ISSUE: ${{ needs.belt-dispatch.outputs.issue || '' }}
+          DISPATCH_REASON: ${{ needs.belt-dispatch.outputs.reason || '' }}
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           WORKER_ALLOWED: ${{ needs.belt-worker.outputs.allowed || '' }}
+          WORKER_PR_NUMBER: ${{ needs.belt-worker.outputs.pr_number || '' }}
+          WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || '' }}
+          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
         with:
           script: |
             const dispatchResult = (process.env.DISPATCH_RESULT || '').trim().toLowerCase();
             const workerResult = (process.env.WORKER_RESULT || '').trim().toLowerCase();
             const workerAllowed = (process.env.WORKER_ALLOWED || '').trim().toLowerCase();
             const dispatchedIssue = (process.env.DISPATCH_ISSUE || '').trim();
+            const dispatchReason = (process.env.DISPATCH_REASON || '').trim() || 'unknown';
+            const workerDryRun = (process.env.WORKER_DRY_RUN || '').trim().toLowerCase();
+            const prNumber = (process.env.WORKER_PR_NUMBER || '').trim();
+            const workerBranch = (process.env.WORKER_BRANCH || '').trim();
 
             let success = 0;
             let skipped = 0;
@@ -500,6 +520,47 @@ jobs:
             summary
               .addRaw(`Dispatch succeeded for ${success} PRs; ${skipped} skipped; ${failures} failures.`)
               .addEOL();
+
+            const rows = [
+              [
+                { data: 'PR', header: true },
+                { data: 'Issue', header: true },
+                { data: 'Reason', header: true },
+                { data: 'Worker Result', header: true },
+                { data: 'Branch', header: true }
+              ]
+            ];
+
+            const prLink = () => {
+              if (!prNumber) {
+                return workerDryRun === 'true' || workerAllowed === 'false' ? '— (preview)' : '—';
+              }
+              const { owner, repo } = context.repo;
+              const url = `https://github.com/${owner}/${repo}/pull/${prNumber}`;
+              return `<a href="${url}">#${prNumber}</a>`;
+            };
+
+            const issueLink = () => {
+              if (!dispatchedIssue) {
+                return '—';
+              }
+              const { owner, repo } = context.repo;
+              const url = `https://github.com/${owner}/${repo}/issues/${dispatchedIssue}`;
+              return `<a href="${url}">#${dispatchedIssue}</a>`;
+            };
+
+            const branchInfo = workerBranch ? `\`${workerBranch}\`` : '—';
+            const workerLabel = workerAllowed === 'false' ? 'blocked' : workerState;
+
+            rows.push([
+              prLink(),
+              issueLink(),
+              dispatchReason || 'unknown',
+              workerDryRun === 'true' ? 'preview' : workerLabel,
+              branchInfo,
+            ]);
+
+            summary.addTable(rows);
             await summary.write();
 
   belt-scan-ready-prs:
