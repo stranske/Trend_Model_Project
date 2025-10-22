@@ -48,6 +48,7 @@ jobs:
     outputs:
       merged: ${{ steps.merge.outputs.merged || 'false' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
+      mode: ${{ steps.mode.outputs.mode_label || 'live' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
 
@@ -61,28 +62,53 @@ jobs:
 
       - name: Determine conveyor mode
         id: mode
+        env:
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
+          dry_run="${INPUT_DRY_RUN}"
+          if [ "${dry_run}" = "true" ]; then
+            mode_label="preview"
+            echo "::notice::Conveyor executing in preview mode (dry run)."
+          else
+            mode_label="live"
+            echo "::notice::Conveyor executing in live mode."
+          fi
+
+          {
+            echo "dry_run=${dry_run}"
+            echo "mode_label=${mode_label}"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Summarise invocation
         uses: actions/github-script@v7
         with:
           script: |
             const summary = core.summary;
+            const dryRun = '${{ steps.mode.outputs.dry_run }}' === 'true';
+            const modeLabel = '${{ steps.mode.outputs.mode_label }}' || (dryRun ? 'preview' : 'live');
+            const prNumber = Number('${{ inputs.pr_number }}');
+            const targetPr = Number.isFinite(prNumber) ? `#${prNumber}` : 'Unknown';
+            const modeDisplay = dryRun ? 'Preview (dry run)' : 'Live (merge ready)';
             summary
               .addHeading('Codex Belt Conveyor')
               .addTable([
                 [
                   { data: 'Issue', header: true },
                   { data: 'Branch', header: true },
-                  { data: 'PR', header: true }
+                  { data: 'PR', header: true },
+                  { data: 'Mode', header: true }
                 ],
                 [
                   `#${{ inputs.issue }}`,
                   '${{ inputs.branch }}',
-                  `#${{ inputs.pr_number }}`
+                  targetPr,
+                  modeDisplay
                 ]
               ])
+              .addBreak()
+              .addRaw(`Resolved mode: **${modeLabel}**.`)
+              .addBreak()
+              .addRaw(`Target PR(s): **${targetPr}**.`)
               .write();
 
       - name: Load PR details
