@@ -50,11 +50,6 @@ jobs:
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
-    if: |
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
 
     steps:
       - name: Ensure ACTIONS_BOT_PAT is configured
