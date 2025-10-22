@@ -182,8 +182,8 @@ def build_comment(
 
     mode_env = (os.environ.get("AUTOFIX_MODE") or "").strip().lower()
     clean_label_env = (
-        (os.environ.get("AUTOFIX_LABEL") or "autofix:clean").strip() or "autofix:clean"
-    )
+        os.environ.get("AUTOFIX_LABEL") or "autofix:clean"
+    ).strip() or "autofix:clean"
     if mode_env == "clean":
         mode_display = f"Clean-mode cosmetic (`{clean_label_env}`)"
     elif mode_env:

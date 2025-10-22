@@ -78,80 +78,6 @@ jobs:
             core.setOutput('issue', num > 0 ? String(num) : '');
             core.setOutput('has_issue', num > 0 ? 'true' : 'false');
 
-      - name: Resolve keepalive opt-in
-        id: keepalive
-        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
-        uses: actions/github-script@v7
-        env:
-          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
-        with:
-          script: |
-            const issueNumber = Number(process.env.ISSUE_NUMBER || 0);
-            const { owner, repo } = context.repo;
-            const sentinelToken = '[keepalive]';
-            const sentinelLower = sentinelToken.toLowerCase();
-
-            const normaliseLabel = (value) => String(value || '').trim().toLowerCase();
-
-            const labels = Array.isArray(context.payload.issue?.labels)
-              ? context.payload.issue.labels.map((label) => normaliseLabel(typeof label === 'string' ? label : label?.name))
-              : [];
-
-            let labelOptIn = labels.includes('agents:keepalive');
-            const eventLabel = normaliseLabel(context.payload.label?.name);
-            if (!labelOptIn && eventLabel === 'agents:keepalive') {
-              labelOptIn = true;
-            }
-
-            let sentinelOptIn = false;
-            if (issueNumber > 0) {
-              try {
-                const iterator = github.paginate.iterator(
-                  github.rest.issues.listComments,
-                  { owner, repo, issue_number: issueNumber, per_page: 100 }
-                );
-                for await (const page of iterator) {
-                  for (const comment of page.data) {
-                    if (typeof comment?.body === 'string' && comment.body.toLowerCase().includes(sentinelLower)) {
-                      sentinelOptIn = true;
-                      break;
-                    }
-                  }
-                  if (sentinelOptIn) {
-                    break;
-                  }
-                }
-              } catch (error) {
-                core.warning(`Failed to scan comments for keepalive sentinel on issue #${issueNumber}: ${error.message}`);
-              }
-            }
-
-            const enabled = labelOptIn || sentinelOptIn;
-            let source = 'none';
-            if (labelOptIn && sentinelOptIn) {
-              source = 'label+sentinel';
-            } else if (labelOptIn) {
-              source = 'label';
-            } else if (sentinelOptIn) {
-              source = 'sentinel';
-            }
-
-            const mode = enabled ? 'ON' : 'OFF';
-            const options = { keepalive: { enabled } };
-
-            core.info(`Keepalive opt-in for issue #${issueNumber || 'n/a'}: ${enabled ? 'enabled' : 'disabled'} (${source}).`);
-            core.setOutput('enabled', enabled ? 'true' : 'false');
-            core.setOutput('mode', mode);
-            core.setOutput('source', source);
-            core.setOutput('options_json', JSON.stringify(options));
-
-            const summary = core.summary;
-            summary.addHeading('Codex keepalive opt-in');
-            summary.addRaw(`Mode: **${mode}**`).addEOL();
-            summary.addRaw(`Source: ${source}`).addEOL();
-            await summary.write();
-            summary.clear();
-
       - name: Fail fast on missing issue (manual run)
         if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
         run: |
@@ -460,8 +386,8 @@ jobs:
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.def.outputs.default }}";
             const branch = process.env.BRANCH;
-            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
-            const keepaliveLine = `Keepalive: ${keepaliveMode}`;
+            const rawMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
+            const keepaliveMode = rawMode === 'ON' ? 'ON' : 'OFF';
             let issueTitle = '';
             let issueBody = '';
             try {
@@ -472,7 +398,6 @@ jobs:
               core.error('Failed to fetch issue: ' + err); 
             }
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
-            const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
             const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
