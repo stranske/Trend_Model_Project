@@ -221,6 +221,11 @@ jobs:
             const unexpected = uniqueContexts.filter(contextName => !expectedSorted.includes(contextName));
 
             const summary = core.summary;
+            const expectedListForPointer = expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
+            const actualListForPointer = uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
+
+            core.info(`Expected required contexts: ${expectedListForPointer}`);
+            core.info(`Observed required contexts: ${actualListForPointer}`);
             summary.addHeading('Default branch protection', 2);
             summary.addTable([
               [
@@ -233,9 +238,6 @@ jobs:
               ['Required contexts', uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–'],
               ['Required “up to date”', branchProtectionResult.strict === null ? 'unknown' : String(branchProtectionResult.strict)],
             ]);
-
-            const expectedListForPointer = expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
-            const actualListForPointer = uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
 
             if (missing.length > 0 || unexpected.length > 0) {
               const problems = [];
