@@ -50,6 +50,9 @@ jobs:
       verify_issue_valid_assignees: ${{ steps.resolve.outputs.verify_issue_valid_assignees }}
       dry_run: ${{ steps.resolve.outputs.dry_run }}
       options_json: ${{ steps.resolve.outputs.options_json }}
+      dispatcher_force_issue: ${{ steps.resolve.outputs.dispatcher_force_issue }}
+      worker_max_parallel: ${{ steps.resolve.outputs.worker_max_parallel }}
+      conveyor_max_merges: ${{ steps.resolve.outputs.conveyor_max_merges }}
     steps:
       - name: Resolve dispatch parameters
         id: resolve
@@ -432,7 +435,7 @@ jobs:
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
-      max_parallel: ${{ fromJson(format('{0}', needs.resolve-params.outputs.worker_max_parallel)) }}
+      max_parallel: ${{ fromJson(needs.resolve-params.outputs.worker_max_parallel || '1') }}
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
