@@ -52,6 +52,13 @@ jobs:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
 
     steps:
+      - name: Ensure ACTIONS_BOT_PAT is configured
+        run: |
+          if [ -z "$ACTIONS_BOT_PAT" ]; then
+            echo '::error::ACTIONS_BOT_PAT secret is required for conveyor actions.'
+            exit 1
+          fi
+
       - name: Determine conveyor mode
         id: mode
         run: |

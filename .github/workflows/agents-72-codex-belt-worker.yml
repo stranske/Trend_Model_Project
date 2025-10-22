@@ -8,7 +8,7 @@ on:
       issue:
         description: 'Issue number'
         required: true
-        type: number
+        type: string
       branch:
         description: 'Branch to prepare (codex/issue-<n>)'
         required: true
