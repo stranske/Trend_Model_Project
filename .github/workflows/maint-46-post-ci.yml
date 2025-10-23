@@ -260,9 +260,11 @@ jobs:
       failure_has_jobs: ${{ steps.failure.outputs.has_jobs }}
       autofix_skip: ${{ steps.autofix_guard.outputs.skip }}
       autofix_skip_reason: ${{ steps.autofix_guard.outputs.reason }}
+      autofix_label: ${{ steps.autofix_meta.outputs.autofix_label }}
+      autofix_applied_label: ${{ steps.autofix_meta.outputs.autofix_applied_label }}
+      autofix_patch_label: ${{ steps.autofix_meta.outputs.autofix_patch_label }}
+      autofix_commit_prefix: ${{ steps.autofix_meta.outputs.autofix_commit_prefix }}
     env:
-      AUTOFIX_LABEL: ${{ env.AUTOFIX_LABEL }}
-      AUTOFIX_PATCH_LABEL: ${{ env.AUTOFIX_PATCH_LABEL }}
       AUTOFIX_TRIVIAL_KEYWORDS: ${{ vars.AUTOFIX_TRIVIAL_KEYWORDS || 'lint,format,style,doc,ruff,mypy,type,black,isort,label,test' }}
       AUTOFIX_MAX_FILES: ${{ vars.AUTOFIX_MAX_FILES || '40' }}
       AUTOFIX_MAX_CHANGES: ${{ vars.AUTOFIX_MAX_CHANGES || '800' }}
@@ -276,6 +278,18 @@ jobs:
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Capture autofix label metadata
+        id: autofix_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "autofix_label=${AUTOFIX_LABEL}"
+            echo "autofix_applied_label=${AUTOFIX_APPLIED_LABEL}"
+            echo "autofix_patch_label=${AUTOFIX_PATCH_LABEL}"
+            echo "autofix_commit_prefix=${COMMIT_PREFIX}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve workflow context
         id: info
@@ -362,19 +376,16 @@ jobs:
       pr_labels_json: ${{ needs.context.outputs.labels_json }}
       same_repo: ${{ needs.context.outputs.same_repo == 'true' }}
       caller_actor: ${{ needs.context.outputs.actor }}
-      opt_in_label: ${{ env.AUTOFIX_LABEL }}
-      clean_label: ${{ env.AUTOFIX_LABEL }}
-      applied_label: ${{ env.AUTOFIX_APPLIED_LABEL }}
-      patch_label: ${{ env.AUTOFIX_PATCH_LABEL }}
+      opt_in_label: "${{ needs.context.outputs.autofix_label }}"
+      clean_label: "${{ needs.context.outputs.autofix_label }}"
+      applied_label: "${{ needs.context.outputs.autofix_applied_label }}"
+      patch_label: "${{ needs.context.outputs.autofix_patch_label }}"
       trigger_conclusion: ${{ github.event.workflow_run.conclusion }}
       trigger_class: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_reason: ${{ github.event.workflow_run.conclusion == 'failure' && needs.context.outputs.trivial_failure == 'true' && 'trivial-failure' || github.event.workflow_run.conclusion }}
       trigger_head: ${{ needs.context.outputs.head_sha }}
       dry_run: ${{ needs.context.outputs.same_repo != 'true' }}
-      # NOTE: The commit_prefix parameter was previously sourced from the environment variable COMMIT_PREFIX.
-      # It is now sourced from the repository variable AUTOFIX_COMMIT_PREFIX.
-      # Please update any documentation or migration guides to reflect this change.
-      commit_prefix: ${{ env.COMMIT_PREFIX }}
+      commit_prefix: "${{ needs.context.outputs.autofix_commit_prefix }}"
       allowed_file_globs: |
         src/**
         tests/**

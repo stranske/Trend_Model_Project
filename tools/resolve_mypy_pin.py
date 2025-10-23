@@ -68,11 +68,7 @@ def resolve_pin(pyproject: Path, matrix_version: str | None) -> PinResolutionRes
         return PinResolutionResult(None, tuple(notices))
 
     data = _load_pyproject(pyproject)
-    raw_pin = (
-        data.get("tool", {})
-        .get("mypy", {})
-        .get("python_version")
-    )
+    raw_pin = data.get("tool", {}).get("mypy", {}).get("python_version")
 
     if raw_pin is not None:
         pin = str(raw_pin).strip()
@@ -117,7 +113,10 @@ def main(argv: Iterable[str] | None = None) -> int:
             if pin:
                 _write_output(pin)
             return 0
-        _emit("warning", "pyproject.toml not found and no matrix interpreter provided; skipping mypy pin resolution")
+        _emit(
+            "warning",
+            "pyproject.toml not found and no matrix interpreter provided; skipping mypy pin resolution",
+        )
         return 0
     except PinResolutionError as exc:
         _emit("error", str(exc), file=str(pyproject))
