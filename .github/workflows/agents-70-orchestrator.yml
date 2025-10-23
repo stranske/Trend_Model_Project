@@ -22,15 +22,14 @@ on:
         type: boolean
 
 permissions:
-  actions: write
   contents: write
   pull-requests: write
   issues: write
   actions: write
 
 concurrency:
-  group: orchestrator-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: orchestrator-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   resolve-params:
