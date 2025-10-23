@@ -40,7 +40,7 @@ jobs:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
             const marker = '<!-- keepalive-status -->';
-            const prNumberRaw = core.getInput('PR_NUMBER');
+            const prNumberRaw = process.env.PR_NUMBER;
             const prNumber = Number(prNumberRaw);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.setFailed(`Invalid pull request number: ${prNumberRaw}`);
