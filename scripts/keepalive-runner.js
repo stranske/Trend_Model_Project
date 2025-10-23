@@ -114,6 +114,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive -->';
   const marker = String(markerRaw);
 
+  const instructionTemplateRaw = options.keepalive_instruction ?? '';
+  const instructionTemplate = String(instructionTemplateRaw).trim();
+
   const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
   let agentLogins = String(agentSource)
     .split(',')
@@ -214,7 +217,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((entry) => entry.total > 0 && entry.unchecked > 0)
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
 
-      if (!checklistComments.length) {
+      const latestChecklist = checklistComments[0];
+      if (!latestChecklist) {
         core.info(`#${prNumber}: skipped – no Codex checklist with outstanding tasks.`);
         continue;
       }
@@ -231,12 +235,30 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
+      const totalTasks = latestChecklist.total;
+      const outstanding = latestChecklist.unchecked;
+      const completed = Math.max(0, totalTasks - outstanding);
+      const pluralSuffix = outstanding === 1 ? 'item remains' : 'items remain';
+      const defaultInstruction = `Codex, ${outstanding} ${pluralSuffix} unchecked on this PR. Continue executing the plan, update the checklist, and confirm once everything is complete.`;
+
+      let instruction = instructionTemplate || defaultInstruction;
+      const replacements = {
+        remaining: String(outstanding),
+        total: String(totalTasks),
+        completed: String(completed),
+      };
+      for (const [token, value] of Object.entries(replacements)) {
+        instruction = instruction.split(`{${token}}`).join(value);
+      }
+
       const bodyParts = [command];
+      if (instruction) {
+        bodyParts.push('', instruction);
+      }
       if (marker) {
         bodyParts.push('', marker);
       }
       const body = bodyParts.join('\n');
-      const outstanding = checklistComments[0].unchecked;
       if (dryRun) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
