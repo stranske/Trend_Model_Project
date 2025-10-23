@@ -413,9 +413,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Allow callers to prepend an artifact prefix while keeping the default
-          # coverage-<version> naming used by downstream workflows.
-          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
+          # Allow callers to prepend an artifact prefix while keeping a stable
+          # coverage artifact name for downstream workflows.
+          name: ${{ inputs['artifact-prefix'] }}coverage
           path: |
             coverage.xml
             coverage.json
@@ -509,7 +509,7 @@ jobs:
           retention-days: 7
 
       - name: Compute coverage delta
-        if: ${{ inputs['enable-coverage-delta'] }}
+        if: ${{ inputs['enable-coverage-delta'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
           python scripts/ci_coverage_delta.py
         env:
@@ -520,7 +520,7 @@ jobs:
           FAIL_ON_DROP: ${{ inputs['fail-on-coverage-drop'] }}
 
       - name: Upload coverage delta artifact
-        if: ${{ inputs['enable-coverage-delta'] }}
+        if: ${{ inputs['enable-coverage-delta'] && matrix.python-version == inputs['primary-python-version'] }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-delta

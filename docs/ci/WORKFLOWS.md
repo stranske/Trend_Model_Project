@@ -46,13 +46,13 @@ enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage-3.11`, `gate-coverage-3.12`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage artifacts live under `artifacts/coverage/runtimes/<python>` for downstream consumers. |
+| `core-tests` | core tests | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads live under `artifacts/coverage/runtimes/<python>` inside the combined artifact for downstream consumers. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `gate` | gate | Downloads the reusable CI coverage bundle, renders lint/type/test/coverage results, and posts the commit status. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
 
 ```mermaid
 flowchart TD
-    pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.11 + 3.12 matrix\n gate-coverage-* artifacts"]
+    pr00["pr-00-gate.yml"] --> pythonCi["core tests\n3.11 + 3.12 matrix\n gate-coverage artifact"]
     pr00 --> dockerSmoke["docker smoke\nimage build logs"]
     pythonCi --> gate["gate aggregator\nreviews artifacts"]
     dockerSmoke --> gate

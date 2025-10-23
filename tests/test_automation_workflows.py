@@ -165,7 +165,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"detect", "core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+            {"detect", "core-tests", "docker-smoke", "gate"},
         )
 
         job_detect = jobs["detect"]
@@ -179,21 +179,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "detect job must expose the diff detection step with id 'diff'",
         )
 
-        job_311 = jobs["core-tests-311"]
+        job_core = jobs["core-tests"]
         self.assertEqual(
-            job_311.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+            job_core.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
         )
-        with_block_311 = job_311.get("with", {})
-        self.assertEqual(with_block_311.get("python-version"), "3.11")
-        self.assertEqual(with_block_311.get("marker"), "not quarantine and not slow")
-
-        job_312 = jobs["core-tests-312"]
-        self.assertEqual(
-            job_312.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
-        )
-        with_block_312 = job_312.get("with", {})
-        self.assertEqual(with_block_312.get("python-version"), "3.12")
-        self.assertEqual(with_block_312.get("marker"), "not quarantine and not slow")
+        with_block_core = job_core.get("with", {})
+        self.assertEqual(with_block_core.get("python-versions"), "[\"3.11\",\"3.12\"]")
+        self.assertEqual(with_block_core.get("marker"), "not quarantine and not slow")
+        self.assertEqual(with_block_core.get("primary-python-version"), "3.11")
 
         job_smoke = jobs["docker-smoke"]
         self.assertEqual(
@@ -203,7 +196,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["gate"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["detect", "core-tests-311", "core-tests-312", "docker-smoke"],
+            ["detect", "core-tests", "docker-smoke"],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(
@@ -439,8 +432,8 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         self.assertEqual(
             len(coverage_steps),
-            2,
-            "Gate job should include coverage downloads for both 3.11 and 3.12",
+            1,
+            "Gate job should download the consolidated coverage artifact once",
         )
 
         for step in coverage_steps:
@@ -463,30 +456,17 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 inputs = step.get("with", {})
                 self.assertIsInstance(inputs, dict)
                 name_value = inputs.get("name")
-                self.assertIsInstance(name_value, str)
-                valid_prefixes = ("coverage-", "gate-coverage-")
-                self.assertTrue(
-                    any(name_value.startswith(prefix) for prefix in valid_prefixes),
-                    "Coverage artifact names should use coverage-<version> or gate-coverage-<version>",
+                self.assertEqual(
+                    name_value,
+                    "gate-coverage",
+                    "Coverage artifact name should be the stable gate-coverage bundle",
                 )
                 path_value = inputs.get("path")
                 self.assertIsInstance(path_value, str)
-
-                version_suffix = None
-                for prefix in valid_prefixes:
-                    if name_value.startswith(prefix):
-                        version_suffix = name_value[len(prefix) :]
-                        break
-
-                if version_suffix is None:
-                    self.fail("Coverage artifact names must include a version suffix")
-                normalized_suffix = version_suffix.replace(".", "")
-                expected_token = (
-                    f"core-tests-{normalized_suffix}" if normalized_suffix else ""
-                )
-                self.assertTrue(
-                    expected_token and expected_token in path_value,
-                    "Coverage download paths should include the normalized python version suffix",
+                self.assertIn(
+                    "core-tests",
+                    path_value,
+                    "Coverage download path should include the core-tests directory",
                 )
 
     def test_gate_summary_reports_job_table(self) -> None:

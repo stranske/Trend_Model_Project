@@ -62,8 +62,7 @@ def test_gate_docs_only_branching_logic():
     }.issubset(outputs), "Detect job must expose doc_only, run_core, and reason outputs"
 
     heavy_jobs = {
-        "core-tests-311",
-        "core-tests-312",
+        "core-tests",
         "docker-smoke",
     }
     for job_name in heavy_jobs:

@@ -20,17 +20,18 @@ Consumer example (excerpt from `pr-00-gate.yml`):
 
 ```yaml
 jobs:
-  core-tests-311:
-    name: core tests (3.11)
+  core-tests:
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
-      python-version: '3.11'
+      python-versions: '["3.11","3.12"]'
+      primary-python-version: '3.11'
       marker: "not quarantine and not slow"
 ```
 
-Key inputs include the Python version and optional pytest marker expression. The
-reusable job installs dependencies, runs Ruff, Mypy, and pytest with coverage,
-then uploads artifacts under the `coverage-<python>` naming convention.
+Key inputs include the Python matrix (or single version) and optional pytest
+marker expression. The reusable job installs dependencies, runs Ruff, Mypy, and
+pytest with coverage, then uploads a single `coverage` artifact containing the
+structured payloads under `artifacts/coverage/runtimes/<python>`.
 
 ## 2. Reusable Docker Smoke (`reusable-12-ci-docker.yml`)
 Gate calls this composite to build the Docker image and run the smoke-test

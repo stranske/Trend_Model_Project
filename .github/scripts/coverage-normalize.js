@@ -266,7 +266,7 @@ function writeJson(pathname, value) {
 
 async function computeCoverageStats({
   rootDir = path.join(process.cwd(), 'summary_artifacts'),
-  coverageRoot = path.join(process.cwd(), 'summary_artifacts', 'coverage-runtimes'),
+  coverageRoot = path.join(process.cwd(), 'summary_artifacts'),
   core,
   writeFiles = true,
 } = {}) {

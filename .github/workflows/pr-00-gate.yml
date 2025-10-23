@@ -54,27 +54,13 @@ jobs:
               - '.docker/**'
               - '**/.docker/**'
 
-  core-tests-311:
-    name: core-tests-311
+  core-tests:
+    name: core-tests
     needs: detect
     if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
-      python-version: '3.11'
-      primary-python-version: '3.11'
-      marker: "not quarantine and not slow"
-      enable-soft-gate: true
-      # Use the shared gate- prefix so downstream Maint workflows can locate the
-      # coverage artifacts without special-casing runtime names.
-      artifact-prefix: 'gate-'
-
-  core-tests-312:
-    name: core-tests-312
-    needs: detect
-    if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true'
-    uses: ./.github/workflows/reusable-10-ci-python.yml
-    with:
-      python-version: '3.12'
+      python-versions: '["3.11","3.12"]'
       primary-python-version: '3.11'
       marker: "not quarantine and not slow"
       enable-soft-gate: true
@@ -90,8 +76,7 @@ jobs:
     name: gate
     needs:
       - detect
-      - core-tests-311
-      - core-tests-312
+      - core-tests
       - docker-smoke
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -154,21 +139,13 @@ jobs:
               marker: process.env.MARKER || DEFAULT_MARKER,
               baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
             });
-      - name: Download coverage (3.11)
-        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-311.result != 'skipped' }}
+      - name: Download coverage
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: gate-coverage-3.11
-          path: gate_artifacts/core-tests-311
-
-      - name: Download coverage (3.12)
-        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.core-tests-312.result != 'skipped' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: gate-coverage-3.12
-          path: gate_artifacts/core-tests-312
+          name: gate-coverage
+          path: gate_artifacts/core-tests
 
       - name: Summarize results
         if: ${{ always() }}
@@ -177,7 +154,7 @@ jobs:
           DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
           RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
           REASON: ${{ needs.detect.outputs.reason }}
-          PYTHON_RESULT: ${{ needs.core-tests-311.result || needs.core-tests-312.result || 'skipped' }}
+          PYTHON_RESULT: ${{ needs.core-tests.result || 'skipped' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
         run: |

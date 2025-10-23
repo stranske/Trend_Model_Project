@@ -84,8 +84,8 @@ jobs:
         continue-on-error: true
         with:
           run-id: ${{ steps.gather.outputs.ci_run_id }}
-          pattern: 'gate-coverage-3.*'
-          path: summary_artifacts/coverage-runtimes
+          name: gate-coverage
+          path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Load coverage summary snippet
