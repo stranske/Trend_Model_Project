@@ -200,6 +200,8 @@ jobs:
               const deletions = Number(file.deletions || 0);
               const changes = Number(file.changes || 0);
               const status = String(file.status || '').toLowerCase();
+              // Allow exactly one addition/change for a bootstrap placeholder file.
+              // The check uses `> 1` (not `>= 1`) to permit a single-line addition/change only.
               if (additions > 1 || deletions > 0 || changes > 1 || status !== 'added') {
                 bootstrapOnly = false;
                 break;
