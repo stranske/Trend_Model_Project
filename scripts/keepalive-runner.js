@@ -90,9 +90,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   if (!keepaliveEnabled) {
     core.info('Codex keepalive disabled via options_json.');
     addHeading();
+    const pausedCount = 0;
+    const evaluatedCount = 0;
     summary.addRaw('Skip requested via options_json.').addEOL();
-    summary.addRaw('Skipped 0 paused PRs.').addEOL();
-    summary.addRaw('Evaluated pull requests: 0').addEOL();
+    summary.addRaw(`Skipped ${pausedCount} paused PRs.`).addEOL();
+    summary.addRaw(`Evaluated pull requests: ${evaluatedCount}`).addEOL();
     await summary.write();
     return;
   }
