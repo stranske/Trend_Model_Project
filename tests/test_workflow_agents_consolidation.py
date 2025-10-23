@@ -443,6 +443,12 @@ def test_keepalive_summary_reports_scope_and_activity():
     assert (
         "Evaluated pull requests:" in text
     ), "Keepalive summary should report how many PRs were inspected"
+    assert (
+        "agents:paused" in text
+    ), "Keepalive runner must recognise the agents:paused label"
+    assert (
+        "Skipped ${paused.length} paused PR" in text
+    ), "Keepalive summary must log the number of paused PRs it skipped"
 
 
 def test_keepalive_summary_includes_skip_notice():
@@ -473,6 +479,24 @@ def test_keepalive_job_runs_after_failures():
     assert (
         keepalive.get("if") == "${{ always() && inputs.enable_keepalive == 'true' }}"
     ), "Keepalive job must run even if earlier jobs fail while respecting enable_keepalive flag"
+
+
+def test_gate_keepalive_respects_paused_label():
+    text = (WORKFLOWS_DIR / "agents-75-keepalive-on-gate.yml").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "agents:paused" in text
+    ), "Gate keepalive workflow must skip PRs marked with agents:paused"
+
+
+def test_per_pr_keepalive_workflow_exists():
+    path = WORKFLOWS_DIR / "agents-keepalive-pr.yml"
+    assert path.exists(), "Per-PR keepalive workflow must exist"
+    text = path.read_text(encoding="utf-8")
+    assert (
+        "<!-- keepalive-status -->" in text
+    ), "Per-PR keepalive workflow must manage the sticky status comment"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
