@@ -304,6 +304,8 @@ jobs:
           rm -rf "${base_dir}"
           mkdir -p "${base_dir}"
 
+          mkdir -p "artifacts/coverage"
+
           copied=0
           if [ -f coverage.xml ]; then
             cp coverage.xml "${base_dir}/coverage.xml"
@@ -413,14 +415,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Allow callers to prepend an artifact prefix while keeping the default
-          # coverage-<version> naming used by downstream workflows.
-          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
-          path: |
-            coverage.xml
-            coverage.json
-            pytest-junit.xml
-            artifacts/coverage
+          name: ${{ inputs['artifact-prefix'] }}coverage
+          path: artifacts/coverage
           if-no-files-found: warn
           retention-days: 7
 

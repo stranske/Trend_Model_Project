@@ -266,12 +266,19 @@ function writeJson(pathname, value) {
 
 async function computeCoverageStats({
   rootDir = path.join(process.cwd(), 'summary_artifacts'),
-  coverageRoot = path.join(process.cwd(), 'summary_artifacts', 'coverage-runtimes'),
+  coverageRoot = path.join(process.cwd(), 'summary_artifacts', 'artifacts', 'coverage', 'runtimes'),
   core,
   writeFiles = true,
 } = {}) {
+  let resolvedCoverageRoot = coverageRoot;
+  if (!fs.existsSync(resolvedCoverageRoot)) {
+    const legacyRoot = path.join(rootDir, 'coverage-runtimes');
+    if (fs.existsSync(legacyRoot)) {
+      resolvedCoverageRoot = legacyRoot;
+    }
+  }
   const jobCoverages = new Map();
-  for (const directory of discoverCoverageDirectories(coverageRoot)) {
+  for (const directory of discoverCoverageDirectories(resolvedCoverageRoot)) {
     const label = labelForDirectory(directory);
     if (!label) {
       continue;
