@@ -55,6 +55,7 @@ def test_keepalive_skip_requested() -> None:
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Skip requested via options_json." in raw
+    assert "Skipped 0 paused PRs." in raw
     assert data["created_comments"] == []
 
 
@@ -75,6 +76,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     assert "Evaluated pull requests: 3" in raw
+    assert "Skipped 0 paused PRs." in raw
 
 
 def test_keepalive_dry_run_records_previews() -> None:
@@ -87,6 +89,7 @@ def test_keepalive_dry_run_records_previews() -> None:
 
     raw = _raw_entries(summary)
     assert "Previewed keepalive count: 1" in raw
+    assert "Skipped 0 paused PRs." in raw
 
 
 def test_keepalive_dedupes_configuration() -> None:
@@ -128,3 +131,20 @@ def test_keepalive_waits_for_recent_command() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     assert "Evaluated pull requests: 2" in raw
+    assert "Skipped 0 paused PRs." in raw
+
+
+def test_keepalive_respects_paused_label() -> None:
+    data = _run_scenario("paused")
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Skipped 1 paused PR." in raw
+    details = _details(summary, "Paused pull requests")
+    assert details is not None and any("#404" in item for item in details["items"])
+    created = data["created_comments"]
+    assert [item["issue_number"] for item in created] == [505]
+    assert created[0]["body"].endswith("<!-- codex-keepalive -->")
+    assert (
+        "Codex, 1/1 checklist item remains unchecked (completed 0)."
+        in created[0]["body"]
+    )
