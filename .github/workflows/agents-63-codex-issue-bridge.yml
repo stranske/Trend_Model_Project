@@ -34,6 +34,8 @@ concurrency:
 
 jobs:
   bridge:
+    # Run on any label event once agent:codex is present so concurrency cancellations
+    # from follow-up labels (e.g. agents:keepalive) still execute the bridge.
     if: >
       github.event_name == 'workflow_dispatch' ||
       (
@@ -41,7 +43,12 @@ jobs:
         (
           (
             github.event.action == 'labeled' &&
-            (contains(github.event.label.name, 'agent:codex') || contains(github.event.label.name, 'agents:codex'))
+            (
+              contains(github.event.label.name, 'agent:codex') ||
+              contains(github.event.label.name, 'agents:codex') ||
+              contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
+              contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
+            )
           ) ||
           (
             github.event.action != 'labeled' &&
