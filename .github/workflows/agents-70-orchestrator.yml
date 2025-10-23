@@ -29,7 +29,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: orchestrator-${{ github.run_attempt }}  # or include inputs/options hash if you add any
+  group: orchestrator-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
