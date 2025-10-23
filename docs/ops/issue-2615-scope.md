@@ -16,7 +16,7 @@ _Last reviewed: 2026-10-14_
 3. `agents-63-codex-issue-bridge.yml` remains enabled, responds to the `agent:codex` label, and is linked from documentation that explains the issue-to-PR automation flow.
 4. `agents-61` and `agents-62` workflows and any related scheduler hooks/configuration are removed from the repository.
 5. Documentation updates provide a clear lifecycle overview for Agent tasks (issue creation → labeling → bridge → orchestrator) with links to evidence or run instructions.
-6. Required CI workflows (Gate, core tests, docker smoke) continue to pass after the changes, demonstrating no regression in automation coverage.
+6. Required CI workflows (Gate, python ci, docker smoke) continue to pass after the changes, demonstrating no regression in automation coverage.
 
 ## Initial Task Checklist
 - [x] Create `.github/ISSUE_TEMPLATE/agent_task.yml` with labels, prompts, and instructions for Codex automation requests.

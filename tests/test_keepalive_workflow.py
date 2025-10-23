@@ -64,7 +64,10 @@ def test_keepalive_idle_threshold_logic() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [101]
     assert created[0]["body"].startswith("@codex plan-and-execute")
-    assert "Codex, 1 item remains unchecked on this PR." in created[0]["body"]
+    assert (
+        "Codex, 1/2 checklist item remains unchecked (completed 1)."
+        in created[0]["body"]
+    )
 
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and len(details["items"]) == 1
@@ -102,7 +105,10 @@ def test_keepalive_dedupes_configuration() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [505]
     assert created[0]["body"].endswith("<!-- codex-keepalive -->")
-    assert "Codex, 1 item remains unchecked on this PR." in created[0]["body"]
+    assert (
+        "Codex, 1/1 checklist item remains unchecked (completed 0)."
+        in created[0]["body"]
+    )
 
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and any("#505" in entry for entry in details["items"])
@@ -114,7 +120,10 @@ def test_keepalive_waits_for_recent_command() -> None:
 
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [707]
-    assert "Codex, 1 item remains unchecked on this PR." in created[0]["body"]
+    assert (
+        "Codex, 1/2 checklist item remains unchecked (completed 1)."
+        in created[0]["body"]
+    )
 
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw

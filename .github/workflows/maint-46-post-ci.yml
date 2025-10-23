@@ -78,14 +78,14 @@ jobs:
           path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download coverage payloads
+      - name: Download coverage artifact
         if: ${{ steps.gather.outputs.ci_run_id }}
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           run-id: ${{ steps.gather.outputs.ci_run_id }}
-          pattern: 'gate-coverage-3.*'
-          path: summary_artifacts/coverage-runtimes
+          name: gate-coverage
+          path: summary_artifacts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Load coverage summary snippet
@@ -161,15 +161,12 @@ jobs:
           fi
         env:
           SUMMARY_BODY: ${{ steps.prep.outputs.body }}
-      - name: Upload coverage artifacts
+      - name: Upload summary preview
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-summary
-          path: |
-            summary_artifacts/coverage-summary.md
-            coverage-stats.json
-            summary_artifacts/summary_preview.md
+          name: post-ci-summary-preview
+          path: summary_artifacts/summary_preview.md
           if-no-files-found: ignore
       - name: Publish run summary
         run: |

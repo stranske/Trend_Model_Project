@@ -304,6 +304,8 @@ jobs:
           rm -rf "${base_dir}"
           mkdir -p "${base_dir}"
 
+          mkdir -p "artifacts/coverage"
+
           copied=0
           if [ -f coverage.xml ]; then
             cp coverage.xml "${base_dir}/coverage.xml"
@@ -413,16 +415,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Allow callers to prepend an artifact prefix while keeping the default
-          # coverage-<version> naming used by downstream workflows.
-          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
-          path: |
-            coverage.xml
-            coverage.json
-            pytest-junit.xml
-            artifacts/coverage
+          name: ${{ inputs['artifact-prefix'] }}coverage
+          path: artifacts/coverage
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Finalize check results
         if: always()
@@ -478,6 +475,7 @@ jobs:
           path: ci-metrics.json
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Append metrics history
         if: ${{ inputs['enable-history'] || inputs['enable-classification'] }}
@@ -498,6 +496,7 @@ jobs:
           path: ${{ inputs['history-artifact-name'] }}
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Upload classification artifact
         if: ${{ inputs['enable-classification'] }}
@@ -507,6 +506,7 @@ jobs:
           path: classification.json
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Compute coverage delta
         if: ${{ inputs['enable-coverage-delta'] }}
@@ -527,6 +527,7 @@ jobs:
           path: coverage-delta.json
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Generate coverage trend summary
         if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
@@ -574,6 +575,7 @@ jobs:
           path: coverage-summary.md
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Upload coverage trend artifact
         if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
@@ -583,6 +585,7 @@ jobs:
           path: coverage-trend.json
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Upload coverage trend history artifact
         if: ${{ inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
@@ -592,6 +595,7 @@ jobs:
           path: coverage-trend-history.ndjson
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
   logs_summary:
     name: logs summary

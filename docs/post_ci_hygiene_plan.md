@@ -1,7 +1,7 @@
 # Post-CI Hygiene Scope & Execution Plan
 
 ## Scope and Key Constraints
-- Audit and update the Post-CI automated summary comment generator so that it references the current Gate workflow job names ("core tests (3.11)", "core tests (3.12)", "docker smoke", "gate").
+- Audit and update the Post-CI automated summary comment generator so that it references the current Gate workflow job names ("python ci (3.11)", "python ci (3.12)", "docker smoke", "gate").
 - Ensure the Post-CI workflow posts exactly one consolidated status comment per pull request, relying on concurrency controls and upsert logic to avoid duplication even when multiple runs race.
 - Validate the Failure Tracker workflow so that each failure category maintains a single rolling GitHub issue, updating the existing issue rather than opening duplicates when repeated failures occur.
 - Maintain compatibility with existing automation triggers and required checks; no regressions in CI pass conditions for unrelated areas.

@@ -4,7 +4,7 @@
 - Enforce the default-branch protection rule so it always requires **Gate / gate** and **Health 45 Agents Guard / Enforce agents workflow protections**.
 - Remove any legacy required status checks that overlap or conflict with the Gate or Health 45 Agents Guard protections (e.g., older `CI` workflows).
 - Enable the "Require branches to be up to date" option so merges must include the latest default-branch commits.
-- Preserve existing job names inside `gate.yml` (`core tests (3.11)`, `core tests (3.12)`, `docker smoke`, `gate`) to avoid downstream automation regressions.
+- Preserve existing job names inside `gate.yml` (`python ci`, `docker smoke`, `gate`) so downstream automation retains stable identifiers across the Python matrix and aggregation steps.
 - Communicate the new requirement in contributor-facing docs (CONTRIBUTING.md) without altering unrelated guidance.
 
 ## Acceptance Criteria / Definition of Done

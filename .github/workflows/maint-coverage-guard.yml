@@ -73,7 +73,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: gate-coverage-3.11
+          name: gate-coverage
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/payload
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -88,6 +88,6 @@ jobs:
           python tools/coverage_guard.py \
             --repo "${{ github.repository }}" \
             --trend-path coverage_artifacts/trend/coverage-trend.json \
-            --coverage-path coverage_artifacts/payload/coverage/runtimes/3.11/coverage.json \
+            --coverage-path coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json \
             --baseline-path config/coverage-baseline.json \
             --run-url "${{ steps.discover.outputs.run_url }}"

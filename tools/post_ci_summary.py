@@ -39,8 +39,14 @@ class RequiredJobGroup(TypedDict):
 
 
 DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
-    {"label": "core tests (3.11)", "patterns": [r"core\s*(tests?)?.*(3\.11|py\.?311)"]},
-    {"label": "core tests (3.12)", "patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"]},
+    {
+        "label": "python ci (3.11)",
+        "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.11|py\.?311)"]
+    },
+    {
+        "label": "python ci (3.12)",
+        "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.12|py\.?312)"]
+    },
     {"label": "docker smoke", "patterns": [r"docker.*smoke|smoke.*docker"]},
     {"label": "gate", "patterns": [r"gate"]},
 ]

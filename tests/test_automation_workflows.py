@@ -165,7 +165,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"detect", "core-tests-311", "core-tests-312", "docker-smoke", "gate"},
+            {"detect", "python-ci", "docker-smoke", "gate"},
         )
 
         job_detect = jobs["detect"]
@@ -179,21 +179,16 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             "detect job must expose the diff detection step with id 'diff'",
         )
 
-        job_311 = jobs["core-tests-311"]
+        job_python_ci = jobs["python-ci"]
         self.assertEqual(
-            job_311.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+            job_python_ci.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
         )
-        with_block_311 = job_311.get("with", {})
-        self.assertEqual(with_block_311.get("python-version"), "3.11")
-        self.assertEqual(with_block_311.get("marker"), "not quarantine and not slow")
-
-        job_312 = jobs["core-tests-312"]
+        with_block_python = job_python_ci.get("with", {})
         self.assertEqual(
-            job_312.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
+            with_block_python.get("python-versions"), '["3.11", "3.12"]'
         )
-        with_block_312 = job_312.get("with", {})
-        self.assertEqual(with_block_312.get("python-version"), "3.12")
-        self.assertEqual(with_block_312.get("marker"), "not quarantine and not slow")
+        self.assertEqual(with_block_python.get("marker"), "not quarantine and not slow")
+        self.assertEqual(with_block_python.get("primary-python-version"), "3.11")
 
         job_smoke = jobs["docker-smoke"]
         self.assertEqual(
@@ -203,7 +198,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["gate"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["detect", "core-tests-311", "core-tests-312", "docker-smoke"],
+            ["detect", "python-ci", "docker-smoke"],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(
@@ -439,55 +434,30 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         self.assertEqual(
             len(coverage_steps),
-            2,
-            "Gate job should include coverage downloads for both 3.11 and 3.12",
+            1,
+            "Gate job should download the consolidated gate-coverage artifact",
         )
 
-        for step in coverage_steps:
-            with self.subTest(step=step.get("name")):
-                self.assertTrue(
-                    step.get("continue-on-error"),
-                    "Coverage download should tolerate missing artifacts",
-                )
-                condition = step.get("if", "")
-                self.assertIn(
-                    "needs.detect.outputs.doc_only != 'true'",
-                    condition,
-                    "Coverage download must skip docs-only runs",
-                )
-                self.assertEqual(
-                    step.get("uses"),
-                    "actions/download-artifact@v4",
-                    "Coverage downloads should use actions/download-artifact v4",
-                )
-                inputs = step.get("with", {})
-                self.assertIsInstance(inputs, dict)
-                name_value = inputs.get("name")
-                self.assertIsInstance(name_value, str)
-                valid_prefixes = ("coverage-", "gate-coverage-")
-                self.assertTrue(
-                    any(name_value.startswith(prefix) for prefix in valid_prefixes),
-                    "Coverage artifact names should use coverage-<version> or gate-coverage-<version>",
-                )
-                path_value = inputs.get("path")
-                self.assertIsInstance(path_value, str)
-
-                version_suffix = None
-                for prefix in valid_prefixes:
-                    if name_value.startswith(prefix):
-                        version_suffix = name_value[len(prefix) :]
-                        break
-
-                if version_suffix is None:
-                    self.fail("Coverage artifact names must include a version suffix")
-                normalized_suffix = version_suffix.replace(".", "")
-                expected_token = (
-                    f"core-tests-{normalized_suffix}" if normalized_suffix else ""
-                )
-                self.assertTrue(
-                    expected_token and expected_token in path_value,
-                    "Coverage download paths should include the normalized python version suffix",
-                )
+        step = coverage_steps[0]
+        self.assertTrue(
+            step.get("continue-on-error"),
+            "Coverage download should tolerate missing artifacts",
+        )
+        condition = step.get("if", "")
+        self.assertIn(
+            "needs.detect.outputs.doc_only != 'true'",
+            condition,
+            "Coverage download must skip docs-only runs",
+        )
+        self.assertEqual(
+            step.get("uses"),
+            "actions/download-artifact@v4",
+            "Coverage downloads should use actions/download-artifact v4",
+        )
+        inputs = step.get("with", {})
+        self.assertIsInstance(inputs, dict)
+        self.assertEqual(inputs.get("name"), "gate-coverage")
+        self.assertEqual(inputs.get("path"), "gate_artifacts/python-ci")
 
     def test_gate_summary_reports_job_table(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
@@ -563,7 +533,12 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
         with_block = upload_step.get("with", {})
         paths = (with_block.get("path") or "").splitlines()
-        self.assertIn("coverage.xml", [path.strip() for path in paths])
+        normalized_paths = [path.strip() for path in paths]
+        self.assertIn(
+            "artifacts/coverage",
+            normalized_paths,
+            "Coverage artifact should bundle the staged artifacts/coverage directory",
+        )
 
     def test_syntax_demo_missing_colon(self):
         self.assertTrue(True)
