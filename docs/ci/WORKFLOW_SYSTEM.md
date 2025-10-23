@@ -10,7 +10,7 @@ contributor experiences on a pull request or on the maintenance calendar:
   the repository clean (Maint 46 Post CI, Maint Coverage Guard, Maint Keepalive
   Heartbeat, Maint 45, recurring health checks).
 3. **Issue / agents automation** – orchestrated agent work and issue
-   synchronisation (Agents 70 orchestrator plus Agents 63/64 companions).
+  synchronisation (Agents 70 orchestrator, Gate keepalive hook, plus Agents 63/64 companions).
 4. **Error checking, linting, and testing topology** – reusable workflows that
    fan out lint, type, test, and container verification across the matrix.
 
@@ -352,8 +352,8 @@ fires where” without diving into the full tables:
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
-    - **Primary workflows.** `agents-70-orchestrator.yml`, the paired
-      `agents-63-*.yml` issue bridges, `agents-64-verify-agent-assignment.yml`, and
+    - **Primary workflows.** `agents-70-orchestrator.yml`, `agents-75-keepalive-on-gate.yml`,
+      the paired `agents-63-*.yml` issue bridges, `agents-64-verify-agent-assignment.yml`, and
       `agents-guard.yml`.
     - **Triggers.** A mix of orchestrator cron/manual dispatches, labelled
       issues, schedules, and guarded pull requests when protected YAML changes.
@@ -361,6 +361,8 @@ fires where” without diving into the full tables:
     the immutable agents surface behind Code Owners, labels, and guard checks.
   - **Where to inspect logs.** Orchestrator:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml).
+    Gate keepalive:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-75-keepalive-on-gate.yml).
     Agents 63 bridge:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml).
   Health 45 Agents Guard:
@@ -420,6 +422,10 @@ status updates:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml)
     reveals downstream dispatch history and the inputs supplied by labelled
     issues.
+  - *Gate keepalive hook.* The
+    [Agents 75 keepalive workflow](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-75-keepalive-on-gate.yml)
+    shows which Gate runs triggered per-PR keepalive dispatches and surfaces the
+    labels/inputs that enabled the automation.
   - *Health 45 Agents Guard status.* Inspect
     [agents-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
     whenever a protected YAML edit lands; it should be green before merge.
@@ -441,7 +447,7 @@ status updates:
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
-| Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
+| Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-75-keepalive-on-gate.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
@@ -511,6 +517,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   listens for successful Gate runs on `codex/issue-*` branches, squash merges,
   deletes the branch, closes the source issue (removing `status:in-progress`),
   drops audit breadcrumbs, and re-dispatches the belt dispatcher.
+- **Agents 75 Keepalive On Gate** – `.github/workflows/agents-75-keepalive-on-gate.yml`
+  wakes up after successful Gate runs on labelled pull requests and dispatches
+  the per-PR keepalive workflow so automation with keepalive labels retains its
+  heartbeat without manual intervention.
 - **Agents 63 Codex Issue Bridge** – `.github/workflows/agents-63-codex-issue-bridge.yml`
   turns labelled issues into branches and bootstrap PRs.
 - **Agents 63 ChatGPT Issue Sync** – `.github/workflows/agents-63-chatgpt-issue-sync.yml`
@@ -570,6 +580,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Ensure Gate and Health 45 Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/20 * * * *`), `workflow_dispatch` | Fan out consumer automation and dispatch work. | ⚪ Critical surface (triage immediately if red) | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
+| **Agents 75 Keepalive On Gate** (`agents-75-keepalive-on-gate.yml`, agents bucket) | `workflow_run` (`Gate`, conclusion `success`) | Dispatch the per-PR keepalive workflow after Gate succeeds on labelled pull requests so automation heartbeats stay live. | ⚪ Opt-in via label | [Gate keepalive hook](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-75-keepalive-on-gate.yml) |
 | **Agents 63 Codex Issue Bridge** (`agents-63-codex-issue-bridge.yml`, agents bucket) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ⚪ Critical surface (automation intake) | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
 | **Agents 63 ChatGPT Issue Sync** (`agents-63-chatgpt-issue-sync.yml`, agents bucket) | `workflow_dispatch` | Keep curated topic files in sync with issues. | ⚪ Critical surface (automation intake) | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
 | **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
@@ -630,7 +641,7 @@ snapshots for audit trails.
 
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   `maint-46-post-ci.yml`, `maint-coverage-guard.yml`, health 40/41/42/43/44,
-  agents 70/63, `agents-guard.yml`, reusable 10/12/16/18, and
+  agents 70/75/63, `agents-guard.yml`, reusable 10/12/16/18, and
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
