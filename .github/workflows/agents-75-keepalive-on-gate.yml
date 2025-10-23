@@ -43,6 +43,6 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner, repo: context.repo.repo,
               workflow_id: 'agents-keepalive-pr.yml',
-              ref: context.payload.workflow_run.head_branch || context.ref.replace('refs/heads/',''),
+              ref: context.payload.workflow_run.head_sha,
               inputs: { pr: String(prNum) }
             });
