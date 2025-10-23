@@ -521,6 +521,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   wakes up after successful Gate runs on labelled pull requests and dispatches
   the per-PR keepalive workflow so automation with keepalive labels retains its
   heartbeat without manual intervention.
+- **Keepalive pause/resume control.** Apply the `agents:paused` label to a
+  keepalive-enabled pull request when you need to halt nudges. The gate hook
+  and the keepalive sweep both honour this label, skipping dispatch until it is
+  removed. The per-PR keepalive workflow maintains a sticky
+  "Keepalive status" comment that surfaces the current state (`Active`,
+  `Paused`, `Waiting for checks`, or `Complete`) and updates immediately when
+  the label state changes.
 - **Agents 63 Codex Issue Bridge** – `.github/workflows/agents-63-codex-issue-bridge.yml`
   turns labelled issues into branches and bootstrap PRs.
 - **Agents 63 ChatGPT Issue Sync** – `.github/workflows/agents-63-chatgpt-issue-sync.yml`

@@ -76,6 +76,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
   const options = parseJson(rawOptions, {});
   const summary = core.summary;
+  const pausedLabel = 'agents:paused';
 
   const addHeading = () => {
     summary.addHeading('Codex Keepalive');
@@ -89,7 +90,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   if (!keepaliveEnabled) {
     core.info('Codex keepalive disabled via options_json.');
     addHeading();
-    summary.addRaw('Skip requested via options_json.');
+    const pausedCount = 0;
+    const evaluatedCount = 0;
+    summary.addRaw('Skip requested via options_json.').addEOL();
+    summary.addRaw(`Skipped ${pausedCount} paused PRs.`).addEOL();
+    summary.addRaw(`Evaluated pull requests: ${evaluatedCount}`).addEOL();
     await summary.write();
     return;
   }
@@ -132,6 +137,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const now = Date.now();
   const triggered = [];
   const previews = [];
+  const paused = [];
   let scanned = 0;
   addHeading();
   summary
@@ -155,6 +161,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const hasTargetLabel = targetLabels.some((label) => labelNames.includes(label));
       if (!hasTargetLabel) {
         core.info(`#${pr.number}: skipped – missing required label (${targetLabels.join(', ')}).`);
+        continue;
+      }
+
+      if (labelNames.includes(pausedLabel)) {
+        paused.push(`#${pr.number} – paused via agents:paused`);
+        core.info(`#${pr.number}: skipped – keepalive paused via agents:paused label.`);
         continue;
       }
 
@@ -286,6 +298,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
   }
+  if (paused.length) {
+    summary.addDetails('Paused pull requests', summariseList(paused));
+  }
+  summary.addRaw(`Skipped ${paused.length} paused PR${paused.length === 1 ? '' : 's'}.`).addEOL();
   summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
   await summary.write();
 }
