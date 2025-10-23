@@ -210,8 +210,8 @@ jobs:
               const addedLines = patch
                 .split('\n')
                 .filter((line) => line.startsWith('+'))
-                .map((line) => line.slice(1).trim())
-                .filter((line) => line !== '');
+                .map((line) => line.slice(1));
+              // Do not filter out empty lines; count all added lines, including blank ones
               if (addedLines.length !== 1) {
                 bootstrapOnly = false;
                 break;
