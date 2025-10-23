@@ -36,13 +36,22 @@ jobs:
   bridge:
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'labeled' &&
-        (contains(github.event.label.name, 'agent:codex') || contains(github.event.label.name, 'agents:codex'))) ||
-      (github.event.action != 'labeled' &&
+      (
+        github.event_name == 'issues' &&
         (
-          contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
-          contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
-        ))
+          (
+            github.event.action == 'labeled' &&
+            (contains(github.event.label.name, 'agent:codex') || contains(github.event.label.name, 'agents:codex'))
+          ) ||
+          (
+            github.event.action != 'labeled' &&
+            (
+              contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
+              contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
+            )
+          )
+        )
+      )
     runs-on: ubuntu-latest
     env:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
