@@ -1,0 +1,49 @@
+name: Agents 75 Keepalive On Gate
+on:
+  workflow_run:
+    workflows: ["Gate"]          # must match your Gate workflow name
+    types: ["completed"]         # fires after Gate completes
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  workflow: write
+
+jobs:
+  maybe-keepalive:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.pull_requests &&
+      github.event.workflow_run.pull_requests.length > 0
+    runs-on: ubuntu-latest
+    concurrency:
+      group: keepalive-pr-${{ github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests.length > 0 && github.event.workflow_run.pull_requests[0].number || 'unknown' }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const prNum = context.payload.workflow_run.pull_requests[0].number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: prNum
+            });
+
+            // Gate on opt-in: label like 'agents:keepalive' OR the last bot comment containing a sentinel
+            const labels = pr.labels.map(l => l.name);
+            const keepalive = labels.includes('agents:keepalive');
+
+            if (!keepalive) {
+              core.info(`PR #${prNum}: keepalive not enabled; skipping.`);
+              return;
+            }
+
+            // Dispatch your per-PR keepalive workflow (the worker/dispatcher you already have)
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner, repo: context.repo.repo,
+              workflow_id: 'agents-keepalive-pr.yml',
+              ref: context.payload.workflow_run.head_sha,
+              inputs: { pr: String(prNum) }
+            });
