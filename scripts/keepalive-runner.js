@@ -217,7 +217,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((entry) => entry.total > 0 && entry.unchecked > 0)
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
 
-      if (!checklistComments.length) {
+      const latestChecklist = checklistComments[0];
+      if (!latestChecklist) {
         core.info(`#${prNumber}: skipped – no Codex checklist with outstanding tasks.`);
         continue;
       }
@@ -234,8 +235,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-      const totalTasks = checklistComments[0].total;
-      const outstanding = checklistComments[0].unchecked;
+      const totalTasks = latestChecklist.total;
+      const outstanding = latestChecklist.unchecked;
       const completed = Math.max(0, totalTasks - outstanding);
       const pluralSuffix = outstanding === 1 ? 'item remains' : 'items remain';
       const defaultInstruction = `Codex, ${outstanding} ${pluralSuffix} unchecked on this PR. Continue executing the plan, update the checklist, and confirm once everything is complete.`;
