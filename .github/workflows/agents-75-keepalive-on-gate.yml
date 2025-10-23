@@ -16,10 +16,10 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.pull_requests &&
-      github.event.workflow_run.pull_requests[0]
+      github.event.workflow_run.pull_requests.length > 0
     runs-on: ubuntu-latest
     concurrency:
-      group: keepalive-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      group: keepalive-pr-${{ github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests.length > 0 && github.event.workflow_run.pull_requests[0].number || 'unknown' }}
       cancel-in-progress: false
     steps:
       - uses: actions/github-script@v7
