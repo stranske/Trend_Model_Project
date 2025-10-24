@@ -1,3 +1,6 @@
+# Gate orchestrates CI enforcement for pull requests. The final `summary`
+# job aggregates artifacts, computes coverage deltas, publishes the commit
+# status, and maintains the consolidated PR comment.
 name: Gate
 
 on:
@@ -74,8 +77,8 @@ jobs:
     if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && needs.detect.outputs.docker_changed == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
-  gate:
-    name: gate
+  summary:
+    name: summary
     needs:
       - detect
       - python-ci
@@ -86,12 +89,15 @@ jobs:
       contents: read
       pull-requests: write
       statuses: write
+    env:
+      REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
     steps:
       - name: Checkout workflow helpers
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
             .github/scripts
+            tools
           sparse-checkout-cone-mode: false
       - name: Handle docs-only change
         if: needs.detect.outputs.doc_only == 'true'
@@ -141,13 +147,95 @@ jobs:
               marker: process.env.MARKER || DEFAULT_MARKER,
               baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
             });
-      - name: Download coverage artifact
+      - name: Discover Gate workflow runs
+        id: gather
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
+            await discoverWorkflowRuns({ github, context, core });
+
+      - name: Download Gate artifacts
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.python-ci.result != 'skipped' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: gate-coverage
-          path: gate_artifacts/python-ci
+          pattern: gate-*
+          merge-multiple: true
+          path: gate_artifacts/downloads
+
+      - name: Load coverage summary snippet
+        if: needs.detect.outputs.doc_only != 'true'
+        id: coverage_summary
+        run: |
+          set -euo pipefail
+          mkdir -p gate_artifacts/downloads
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          root = Path('gate_artifacts/downloads')
+
+          summary_path: Path | None = None
+          candidates = list(root.rglob('coverage-summary.md'))
+          if candidates:
+              summary_path = candidates[0]
+
+          if summary_path is None:
+              print('No coverage summary markdown found; continuing without it.')
+          else:
+              text = summary_path.read_text(encoding='utf-8')
+              dest = Path('gate-coverage-summary.md')
+              dest.write_text(text, encoding='utf-8')
+              if output_path:
+                  with Path(output_path).open('a', encoding='utf-8') as handle:
+                      handle.write('body<<EOF\n')
+                      handle.write(text)
+                      if not text.endswith('\n'):
+                          handle.write('\n')
+                      handle.write('EOF\n')
+              print(f'Embedded coverage summary from {summary_path}')
+          PY
+
+      - name: Compute coverage stats
+        if: needs.detect.outputs.doc_only != 'true'
+        id: coverage_stats
+        uses: actions/github-script@v7
+        env:
+          COVERAGE_ROOT: gate_artifacts/downloads
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { computeCoverageStats } = require('./.github/scripts/coverage-normalize.js');
+
+            const rootDir = process.env.COVERAGE_ROOT || 'gate_artifacts/downloads';
+            const coverageRoot = path.join(rootDir, 'coverage', 'runtimes');
+
+            const { stats, deltaPayload } = await computeCoverageStats({
+              core,
+              rootDir,
+              coverageRoot,
+              writeFiles: false,
+            });
+
+            const statsPath = path.resolve('gate-coverage.json');
+            const deltaPath = path.resolve('gate-coverage-delta.json');
+
+            if (stats && Object.keys(stats).length) {
+              fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf8');
+              core.setOutput('stats_json', JSON.stringify(stats));
+            } else {
+              core.info('Coverage stats unavailable.');
+            }
+
+            if (deltaPayload && Object.keys(deltaPayload).length) {
+              fs.writeFileSync(deltaPath, JSON.stringify(deltaPayload, null, 2), 'utf8');
+              core.setOutput('delta_json', JSON.stringify(deltaPayload));
+            } else {
+              core.info('Coverage delta unavailable.');
+            }
 
       - name: Summarize results
         if: ${{ always() }}
@@ -363,6 +451,114 @@ jobs:
                   handle.write(f"state={state}\n")
                   handle.write(f"description={description}\n")
           PY
+
+      - name: Prepare summary body
+        id: summary_body
+        run: |
+          python tools/post_ci_summary.py
+        env:
+          RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
+          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
+          COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
+          COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
+          REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
+
+      - name: Compose PR summary comment
+        id: compose_comment
+        run: |
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          body = (os.environ.get('SUMMARY_BODY') or '').strip()
+          pr_number = os.environ.get('PR_NUMBER', '').strip()
+          head_sha = os.environ.get('HEAD_SHA', '').strip()
+
+          if not body:
+              raise SystemExit('Summary body missing; aborting comment composition.')
+
+          head_token = head_sha[:12] if head_sha else ''
+          parts = []
+          if pr_number:
+              parts.append(f'pr={pr_number}')
+          if head_token:
+              parts.append(f'head={head_token}')
+          if not parts:
+              parts.append('anchor')
+
+          marker = f"<!-- gate-summary: {' '.join(parts)} -->"
+          payload = "\n".join([marker, body, ''])
+
+          Path('gate-summary.md').write_text(payload, encoding='utf-8')
+          print(marker)
+          PY
+        env:
+          SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Upload Gate summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-summary.md
+          path: gate-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage stats artifact
+        if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage.json
+          path: gate-coverage.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage delta artifact
+        if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage-delta.json
+          path: gate-coverage-delta.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage summary artifact copy
+        if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage-summary.md
+          path: gate-coverage-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Ensure consolidated summary comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const path = require('path');
+            const fs = require('fs');
+            const { upsertAnchoredComment } = require('./.github/scripts/comment-dedupe.js');
+
+            const commentPath = path.resolve('gate-summary.md');
+            const body = fs.readFileSync(commentPath, 'utf8');
+            await upsertAnchoredComment({
+              github,
+              context,
+              core,
+              prNumber: context.payload.pull_request?.number,
+              body,
+              anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+              fallbackMarker: '<!-- gate-summary:',
+            });
 
       - name: Report Gate commit status
         if: ${{ always() }}

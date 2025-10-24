@@ -3,7 +3,7 @@
 This document summarises the behaviour and configuration of the enhanced failure tracking workflow.
 
 ## Overview
-`maint-46-post-ci.yml` now owns the failure-tracker logic and listens to completed runs of the Gate workflow via a `workflow_run` trigger. The legacy `maint-47-check-failure-tracker.yml` workflow has been retired after delegation proved stable. Within the consolidated Maint 46 Post CI follower, a dedicated `failure-tracker` job executes on qualifying failures and:
+The Gate summary job now owns the failure-tracker logic and listens to completed runs of the Gate workflow. The legacy `maint-47-check-failure-tracker.yml` workflow has been retired after delegation proved stable. Within the consolidated summary job, a dedicated `failure-tracker` step executes on qualifying failures and:
 
 1. Enumerates failed jobs and the first failing step.
 2. Optionally extracts a stack token (first exception or error line) per failed job.
@@ -42,7 +42,7 @@ A run comment is additionally suppressed if:
 - The last comment is younger than `RATE_LIMIT_MINUTES`.
 
 ## Legacy PR Exclusions
-Gate runs that originate from historical pull requests #10 and #12 are explicitly marked by the Maint 46 Post CI context job with `failure_tracker_skip = true`. When that flag is set the failure-tracker job, success auto-heal, and consolidated PR comment jobs all short-circuit. This prevents the legacy threads from accumulating duplicate bot comments while allowing all modern PRs to benefit from the unified tracker flow.
+Gate runs that originate from historical pull requests #10 and #12 are explicitly marked by the Gate summary job with `failure_tracker_skip = true`. When that flag is set the failure-tracker path, success auto-heal, and consolidated PR comment jobs all short-circuit. This prevents the legacy threads from accumulating duplicate bot comments while allowing all modern PRs to benefit from the unified tracker flow.
 
 ## Auto-Heal (Success Path)
 On any successful monitored workflow run, open `ci-failure` issues are scanned. If `Last seen` is older than `AUTO_HEAL_INACTIVITY_HOURS`, the issue is commented on and closed.
@@ -87,7 +87,7 @@ You can manually validate behaviour:
 2. Rerun it but edit the `maint-90-selftest.yml` workflow to succeed (or manually re-run jobs) to test auto-heal logic after adjusting `INACTIVITY_HOURS`.
 
 ## Local Simulation Harness
-For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script from the Maint 46 Post CI workflow and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
+For a fast feedback loop without touching GitHub, run `node tools/simulate_failure_tracker.js`. The harness lifts the tracker script from the Gate summary job and replays three sequential failures against an in-memory stub of the GitHub API. It asserts that:
 
 - The tuned defaults (12-hour cooldown, three-occurrence escalation) are honoured.
 - Issues aggregate signatures instead of spawning duplicates across the cooldown window.

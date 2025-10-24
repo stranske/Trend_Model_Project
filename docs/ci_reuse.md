@@ -11,7 +11,7 @@ retired and now live only in git history, with verification notes captured in
 | ------------------ | ---- | ------- |
 | Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12. |
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
-| Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by `maint-46-post-ci.yml`. |
+| Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by the Gate summary job. |
 | Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
 | Selftest: Reusables | `.github/workflows/selftest-reusable-ci.yml` | Manual workflow that bundles the reusable CI matrix with publication logic. Modes toggle summary vs comment output and single vs dual-runtime matrices; optional inputs override Python versions, artifact downloads, and comment presentation. |
 
@@ -50,7 +50,7 @@ No inputs are required; extend by forking the workflow and layering additional
 steps if your project needs extra smoke assertions.
 
 ## 3. Autofix (`reusable-18-autofix.yml`)
-Used by `maint-46-post-ci.yml` to apply hygiene fixes once CI
+Used by the Gate summary job to apply hygiene fixes once CI
 succeeds. Inputs gate behaviour behind opt-in labels and allow custom commit
 prefixes. The composite enforces size/path heuristics before pushing changes
 with `SERVICE_BOT_PAT`.
@@ -122,7 +122,7 @@ titles plus dispatch reason can be customised to document ad-hoc runs.
 | Area | How to Extend | Notes |
 | ---- | ------------- | ----- |
 | Coverage reporting | Chain an additional job that depends on the reusable CI job to upload coverage artifacts. | Keep job IDs stable when referencing outputs. |
-| Autofix heuristics | Update `maint-46-post-ci.yml` to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
+| Autofix heuristics | Update the Gate summary job to widen size limits or adjust glob filters. | Avoid editing the reusable composite unless behaviour must change globally. |
 | Agents options | Provide extra keys inside `params_json` (and embed `options_json` when structured overrides are required) and update the reusable workflow to honour them. | Remember GitHub only supports 10 dispatch inputs; keep new flags in JSON. |
 
 ## Security & Permissions

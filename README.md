@@ -2,7 +2,7 @@
 
 [![Gate](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml/badge.svg?branch=phase-2-dev)](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) [![Codex Verification Guide](https://img.shields.io/badge/codex--verification-docs-blueviolet)](docs/codex-simulation.md)
 
-📚 **CI automation orientation**: Begin with the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)—it is the canonical first stop for contributors and documents the keep vs retire roster, policy guardrails, observability surfaces, and how Gate, Maint 46, and the agents orchestrator interact. Use the built-in quick orientation checklist, scenario cheat sheet, and bucket reference to map which workflows will fire before you touch YAML. The [Final topology (keep vs retire) table](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire) enumerates the authoritative roster, and [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) lays out the guardrails and approval flow. Hop from there to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need trigger, permission, or naming specifics for an individual workflow. Historical notes about retired flows live exclusively in [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md).
+📚 **CI automation orientation**: Begin with the [Workflow System Overview](docs/ci/WORKFLOW_SYSTEM.md)—it is the canonical first stop for contributors and documents the keep vs retire roster, policy guardrails, observability surfaces, and how Gate’s inline summary job and the agents orchestrator interact. Use the built-in quick orientation checklist, scenario cheat sheet, and bucket reference to map which workflows will fire before you touch YAML. The [Final topology (keep vs retire) table](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire) enumerates the authoritative roster, and [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) lays out the guardrails and approval flow. Hop from there to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need trigger, permission, or naming specifics for an individual workflow. Historical notes about retired flows live exclusively in [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md).
 
 > **🚀 New User?** → **[Quick Start Guide](docs/quickstart.md)** — Get your first analysis running in under 10 minutes!
 
@@ -41,7 +41,7 @@ Pull requests trigger an automated formatting + light type hygiene pass:
 
 If the workflow makes changes it auto-commits a `chore(autofix): ...` patch onto the PR branch. See `docs/autofix_type_hygiene.md` for details, extension steps, and troubleshooting.
 
-Post-CI follow-up continues to run via `maint-46-post-ci.yml`, delegating to the shared reusable autofix composite.
+Post-CI follow-up now runs inline in `pr-00-gate.yml` via the `summary` job, which publishes the consolidated PR comment and artifacts alongside the reusable autofix composite for manual opt-ins.
 
 
 

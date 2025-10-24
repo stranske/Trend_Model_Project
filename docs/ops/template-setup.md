@@ -14,7 +14,7 @@ Set these variables to tailor behavior (all have sensible defaults if omitted):
 - `AGENT_FROM_LABEL_ALT` (default: `from:codex`)
 - `AGENT_LABEL` (default: `agent:copilot`)
 - `AGENT_LABEL_ALT` (default: `agent:codex`)
-- `AUTOFIX_LABEL` (always `autofix:clean`; add this label to PRs to enable Maint 46 autofix runs)
+- `AUTOFIX_LABEL` (always `autofix:clean`; add this label to PRs to enable the Gate summary autofix routines)
 - `APPROVE_PATTERNS` (default: `src/**,docs/**,tests/**,**/*.md`)
 - `MAX_LINES_CHANGED` (default: `1000`)
 - `CI_PY_VERSIONS` (default: `["3.11","3.12"]`)
@@ -55,7 +55,7 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 - Automated merge-manager flows were retired with Issue #2190. Approvals and merges are now handled manually once Gate succeeds.
 - `maint-45-cosmetic-repair.yml` provides an optional manual helper to re-run pytest, apply formatting fixes via
   `scripts/ci_cosmetic_repair.py`, and open a labelled repair PR when hygiene updates are required.
-- Keep the `ci:green` label in sync with the latest Gate status manually; Maint 46 Post CI surfaces aggregated results and will
+- Keep the `ci:green` label in sync with the latest Gate status manually; the Gate summary job surfaces aggregated results and will
   highlight mismatches in its summary comment.
 
 ## 6. Docker Workflow

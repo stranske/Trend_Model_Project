@@ -59,7 +59,6 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "health-43-ci-signature-guard.yml",
     "health-44-gate-branch-protection.yml",
     "maint-45-cosmetic-repair.yml",
-    "maint-46-post-ci.yml",
     "maint-47-disable-legacy-workflows.yml",
     "maint-coverage-guard.yml",
     "maint-keepalive.yml",
@@ -68,6 +67,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "reusable-12-ci-docker.yml",
     "reusable-16-agents.yml",
     "reusable-18-autofix.yml",
+    "reusable-agents-issue-bridge.yml",
     "selftest-reusable-ci.yml",
 }
 
@@ -88,10 +88,10 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Health 43 CI Signature Guard",
     "Health 44 Gate Branch Protection",
     "Maint 45 Cosmetic Repair",
-    "Maint 46 Post CI",
     "Maint 47 Disable Legacy Workflows",
     "Maint Coverage Guard",
     "Maint Keepalive Heartbeat",
+    "Reusable Agents Issue Bridge",
     "Reusable CI",
     "Reusable Docker Smoke",
     "Reusable 16 Agents",

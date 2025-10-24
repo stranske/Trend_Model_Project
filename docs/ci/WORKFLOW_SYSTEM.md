@@ -5,9 +5,9 @@ pieces interlock so contributors can land changes without tripping the
 guardrails. Automation shows up in four canonical buckets that mirror what a
 contributor experiences on a pull request or on the maintenance calendar:
 
-1. **PR checks** – gatekeeping for every pull request (Gate with Maint 46 handling opt-in autofix follow-up).
+1. **PR checks** – gatekeeping for every pull request (Gate with Gate summary job handling opt-in autofix follow-up).
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
-  the repository clean (Maint 46 Post CI, Maint Coverage Guard, Maint Keepalive
+  the repository clean (Gate summary job, Maint Coverage Guard, Maint Keepalive
   Heartbeat, Maint 45, recurring health checks).
 3. **Issue / agents automation** – orchestrated agent work and issue
   synchronisation (Agents 70 orchestrator with keepalive sweep + pause label, plus Agents 63/64 companions).
@@ -84,19 +84,19 @@ the surface polished, and the agents stack orchestrates follow-up work.
 
 ### How the buckets interact in practice
 
-- **Gate and Maint 46** are the first responders on every pull request.
-  Gate decides whether to fan out into the reusable CI topology, while Autofix
-  runs the optional clean-up sweep via Maint 46 when the label is applied and
+- **Gate and its summary job** are the first responders on every pull request.
+  Gate decides whether to fan out into the reusable CI topology, while the
+  summary job runs the optional clean-up sweep when the label is applied and
   the opt-in guard passes.
-- **Maint 46 Post CI** wakes up after a successful Gate run and aggregates the
-  results, while the remaining maintenance workflows keep the default branch
-  protected on a schedule or by manual dispatch.
+- **The Gate summary job** runs after the main fan-out finishes and aggregates
+  the results, while the remaining maintenance workflows keep the default
+  branch protected on a schedule or by manual dispatch.
 - **Agents automation** consumes labelled issues and protected workflow edits,
   using the orchestrator to coordinate downstream jobs and guards such as the
   Health 45 Agents Guard.
 - **Reusable lint/test/topology workflows** execute only when called; they
-  provide the shared matrix for Gate, Maint 46, and manual reruns so contributors
-  see the same results regardless of entry point.
+  provide the shared matrix for Gate and manual reruns so contributors see the
+  same results regardless of entry point.
 
 ### Quick orientation for new contributors
 
@@ -132,9 +132,10 @@ return after a break:
 2. **Open the latest [Gate run](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)** and skim the
    Summary tab. It shows which reusable jobs fire for typical PRs and highlights
    the docs-only path so you know what to expect for lightweight changes.
-3. **Review the most recent [Maint 46 Post CI run](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml)**
-   to see how post-merge hygiene is reported. Treat that summary comment as the
-   canonical “state of CI” dashboard after every merge.
+3. **Review the most recent [Gate run](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)**
+   and inspect the summary job output to see how post-merge hygiene is reported.
+   Treat that summary comment as the canonical “state of CI” dashboard after
+   every merge.
 4. **Practice finding the agents guardrails** by visiting the
   [Health 45 Agents Guard history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
    and reading a recent run summary. It confirms how the label and review gates
@@ -170,7 +171,7 @@ explain why a particular status appears in the Checks tab.
 | Workflow | Primary triggers | Merge impact | Status context / where to look | Quick rerun path |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | **Gate / gate** in PR **Checks → Required** | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`) | `workflow_run` after Gate completes | ❌ Informational follow-up | Timeline comment titled **“Maint 46 Post CI summary”** (check run context `maint-46-post-ci`, posted after merge) | Open Maint 46 run from PR timeline → **Re-run jobs** |
+| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ❌ Informational follow-up | Timeline comment anchored with `<!-- gate-summary:` plus coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Workflow-file PRs/pushes, Monday 05:05 UTC cron, manual dispatch | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
@@ -183,8 +184,8 @@ explain why a particular status appears in the Checks tab.
 - **Health 45 Agents Guard / Enforce agents workflow protections** now runs on every
   pull request and only turns the status red when protected agents files change
   without the required guardrails.
-> - Maint 46 Post CI, Repo Health, Actionlint, and Agents 70 Orchestrator stay
->   informational follow-ups: expect Maint 46 as a timeline summary comment
+> - Gate summary job, Repo Health, Actionlint, and Agents 70 Orchestrator stay
+>   informational follow-ups: expect Gate summary job as a timeline summary comment
 >   after merge, and the remaining workflows under the Actions tab.
 > - Cross-reference the [Agents Workflow Protection
 >   Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts) for the
@@ -199,18 +200,20 @@ explain why a particular status appears in the Checks tab.
 - **Merge impact.** Required on every PR; branch protection blocks merges until
   the `gate` job is green (docs-only fast-pass still reports success).
 
-#### Maint 46 Post CI (`maint-46-post-ci.yml`)
+#### Gate summary job (`pr-00-gate.yml`, job `summary`)
 
-- **When it runs.** Follows every Gate completion (success **or** failure) via
-  the `workflow_run` trigger and inherits Gate's artifacts for context.
-- **What it does.** Posts the canonical CI summary comment on successful Gate
-  runs, uploads coverage rollups, resolves the failure-tracker issue, and
-  applies small autofix patches when allowed. On failing Gate runs it still
-  captures diagnostics and links the blocking run so triage has a single
-  thread. When rerun after a fixed Gate, Maint 46 republishes the summary
-  comment and refreshes the attached coverage bundle so reviewers always have
-  the latest snapshot in one place.
-- **Merge impact.** Informational; never required as a status check.
+- **When it runs.** Executes after the detect/python/docker jobs complete in the
+  Gate workflow. It always runs (`if: ${{ always() }}`) so even failing Gate runs
+  produce diagnostics and a status update.
+- **What it does.** Posts the canonical CI summary comment, uploads coverage
+  rollups, resolves the failure-tracker issue, and applies small autofix patches
+  when allowed. On failing Gate runs it still captures diagnostics and links the
+  blocking run so triage has a single thread. When rerun after a fixed Gate, the
+  summary job republishes the comment and refreshes the attached coverage bundle
+  so reviewers always have the latest snapshot in one place.
+- **Merge impact.** Informational; never required as a status check, but it
+  publishes the single comment and commit status contributors rely on to track
+  Gate health.
 
 #### Health 41 Repo Health (`health-41-repo-health.yml`)
 
@@ -259,11 +262,11 @@ explain why a particular status appears in the Checks tab.
 
 - **Gate.** From the PR Checks tab choose **Gate → Re-run jobs → Re-run failed
   jobs** (or **Re-run all jobs**). CLI alternative: `gh run rerun <gate-run-id>`.
-- **Maint 46 Post CI.** Open the Maint 46 run from the PR timeline and click
-  **Re-run jobs**. It inherits the original Gate artifacts and cannot be
-  dispatched directly; a successful rerun posts a fresh timeline summary with
-  updated coverage links after Gate turns green. CLI alternative:
-  `gh run rerun <maint-46-run-id>`.
+- **Gate summary job.** Re-run the Gate workflow and let the summary job
+  complete. It inherits the original artifacts and cannot be dispatched
+  independently; a successful rerun posts a fresh timeline summary with updated
+  coverage links after Gate turns green. CLI alternative: `gh run rerun
+  <gate-run-id>`.
 - **Health 41 Repo Health.** Actions tab → **Health 41 Repo Health → Run
   workflow**. CLI: `gh workflow run health-41-repo-health.yml`.
 - **Health 42 Actionlint.** Actions tab → **Health 42 Actionlint → Run
@@ -277,10 +280,10 @@ explain why a particular status appears in the Checks tab.
   changes delivered via `pull_request_target` when the label name begins with
   `agent:`. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
   rerun appears under **Actions → Health 45 Agents Guard**.
-- **Maint 46 Post CI flagged drift?** Follow the summary comment back to the
+- **Gate summary flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
-  follow-up issue before you retry. Maint 46 only exits green when both the
-  reusable CI fan-out and the hygiene sweep succeed.
+  follow-up issue before you retry. The Gate summary job only reports success
+  when both the reusable CI fan-out and the hygiene sweep succeed.
 - **Working on labelled agent issues or Codex escalations?** Review the
   [Issue / agents automation](#issue--agents-automation) guardrails so you know
   which workflows dispatch work and which checks must stay green.
@@ -302,11 +305,11 @@ and where to watch the result:
    calls the reusable lint/test topology. You can watch progress in the
    [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml)
    and follow the linked reusable job logs from the Checks tab.
-2. **Autofix (optional).** If reviewers add the `autofix:clean` label, Maint 46 Post
-   CI fans out to `reusable-18-autofix.yml` after Gate succeeds. Its logs show
-   up under the same pull request for easy comparison with Gate.
-3. **Merge lands on the default branch.** Maint 46 Post CI triggers from the
-   Gate success signal, aggregates artifacts, and applies any low-risk cleanup.
+2. **Autofix (optional).** If reviewers add the `autofix:clean` label, the Gate
+   summary job fans out to `reusable-18-autofix.yml` after Gate succeeds. Its
+   logs show up under the same pull request for easy comparison with Gate.
+3. **Merge lands on the default branch.** The Gate summary job aggregates
+   artifacts from the successful run and applies any low-risk cleanup.
   Scheduled maintenance jobs (Maint Keepalive Heartbeat, Maint 45, and Health
    40–44) continue to run on their cadence even when no one is watching,
    keeping the repo healthy.
@@ -317,7 +320,7 @@ and where to watch the result:
 5. **Manual investigations reuse the topology.** When contributors need to
    rerun linting, typing, or container checks locally, they can dispatch the
    `selftest-reusable-ci.yml` workflow or call the reusable CI entries directly,
-   guaranteeing they exercise the same matrix Gate and Maint 46 rely on.
+   guaranteeing they exercise the same matrix Gate and Gate summary job rely on.
 
 Revisit this sequence whenever you need to explain the automation lifecycle to
 new contributors or track down where a particular check originated.
@@ -327,27 +330,26 @@ new contributors or track down where a particular check originated.
 Use this cheat sheet when you need the quickest possible answer about “what
 fires where” without diving into the full tables:
 
-- **PR checks (Gate + Maint 46 opt-in autofix)**
+- **PR checks (Gate + Gate summary job opt-in autofix)**
   - **Primary workflows.** `pr-00-gate.yml` under
     `.github/workflows/`.
   - **Triggers.** `pull_request`, with Gate also running in
     `pull_request_target` for fork visibility. Autofix is label-gated.
   - **Purpose.** Guard every PR, detect docs-only diffs, and offer an optional
-    autofix sweep via Maint 46 before reviewers spend time on hygiene nits.
+    autofix sweep via Gate summary job before reviewers spend time on hygiene nits.
   - **Where to inspect logs.** Gate: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
-    Autofix: handled by Maint 46 Post CI after Gate completes.
+    Autofix: handled by Gate summary job after Gate completes.
 - **Maintenance & repo health**
-  - **Primary workflows.** `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
-    `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, and the health guardrails (`health-40`
-    through `health-44`).
-  - **Triggers.** Combination of `workflow_run` (Maint 46 watching Gate),
+  - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
+    `maint-coverage-guard.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`,
+    and the health guardrails (`health-40` through `health-44`).
+  - **Triggers.** Combination of the Gate summary job running after Gate,
     recurring schedules (keepalive + health guardrails), and manual dispatch for
     Maint 45 and ad-hoc keepalive checks.
   - **Purpose.** Keep the default branch stable after merges, surface drift,
     maintain a visible heartbeat for scheduled automation, and enforce
     branch-protection expectations without waiting for the next PR.
-  - **Where to inspect logs.** Maint 46:
-    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml).
+  - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
     Maint Keepalive: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml).
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
@@ -369,8 +371,8 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
-    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, and `selftest-reusable-ci.yml`.
-  - **Triggers.** Invoked via `workflow_call` by Gate, Maint 46, and manual
+    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-agents-issue-bridge.yml`, and `selftest-reusable-ci.yml`.
+  - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
     reruns. `selftest-reusable-ci.yml` handles the nightly rehearsal (cron at 06:30 UTC)
     and manual publication modes via `workflow_dispatch`.
   - **Purpose.** Provide a consistent lint/type/test/container matrix so every
@@ -390,8 +392,8 @@ enforces the guardrail so you know where to confirm compliance:
 
 | Bucket | Guardrails you must respect | Where it is enforced |
 | --- | --- | --- |
-| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Maint 46. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
-| Maintenance & repo health | Maint 46 only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Maint 46 summary comment, Health dashboard history, and Maint 45 run permissions. |
+| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Gate summary job. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
+| Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
 | Issue / agents automation | `agents:allow-change` label, Code Owner review, and Health 45 Agents Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
 
@@ -411,7 +413,7 @@ status updates:
     uploads the formatted patch or commit diff for reviewers to inspect before
     merging.
 - **Maintenance & repo health**
-  - *Maint 46 comment and artifact bundle.* Each run posts a consolidated
+  - *Gate summary job comment and artifact bundle.* Each run posts a consolidated
     summary with links to artifacts, making it easy to confirm that post-merge
     hygiene completed.
   - *Health 40–44 dashboards.* The Actions list filtered by `workflow:Health`
@@ -432,7 +434,7 @@ status updates:
     were synced or bootstrapped, invaluable when debugging missed escalations.
 - **Error checking, linting, and testing topology**
   - *Reusable job logs.* Because the reusable workflows emit job-level logs for
-    each caller, you can open the workflow run from Gate or Maint 46 and expand
+    each caller, you can open the workflow run from Gate or Gate summary job and expand
     the “Reusable CI” job to see the full lint/test output.
     - *Self-test runner nightly summary.* The scheduled run appends the
       verification table to the job summary so regressions surface without
@@ -445,9 +447,9 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | `maint-46-post-ci.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-63-*.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
-| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Maint 46, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
+| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
 
@@ -465,13 +467,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     docs-only comments left by older workflow revisions. No new PR comment is
     posted—the docs-only fast pass now lives exclusively in logs and the job
     summary.
-- **Maint 46 Post CI Autofix** – `.github/workflows/maint-46-post-ci.yml`
+- **Gate summary job Autofix** – implemented inside `pr-00-gate.yml`
   - Opt-in via the `autofix:clean` label. Runs the same formatters and light hygiene
     steps that Gate would otherwise leave to contributors, then posts the
     consolidated status comment.
 
 ### Maintenance & repo health
-- **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` consolidates
+- **Gate summary job** – the `summary` job within `pr-00-gate.yml` consolidates
   CI results, uploads artifacts, and applies small, low-risk fixes (for example,
   syncing generated docs or updating the failure tracker).
 - **Maint Coverage Guard** – `.github/workflows/maint-coverage-guard.yml`
@@ -545,7 +547,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   image and exercises the smoke tests Gate otherwise short-circuits for
   docs-only changes.
 - **Reusable Agents** – `reusable-16-agents.yml` powers orchestrated dispatch.
-- **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for Maint 46.
+- **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for Gate summary job.
 - **Selftest: Reusables** – `selftest-reusable-ci.yml` is the consolidated entry
   point. It runs nightly via cron (06:30 UTC) to rehearse the reusable matrix
   and accepts manual dispatches for summary/comment publication. Inputs:
@@ -557,10 +559,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   - Optional niceties include `pull_request_number`,
     `summary_title`/`comment_title`, `reason`, and `python_versions` (JSON array
     to override the default matrix).
-  - Maint 46 Post CI now serves as the canonical Gate follow-up comment. The
+  - Gate summary job now serves as the canonical Gate follow-up comment. The
     legacy wrappers `maint-43-selftest-pr-comment.yml`,
     `pr-20-selftest-pr-comment.yml`, and `selftest-pr-comment.yml` were retired
-    in Issue #2720 so PR annotations flow through either Maint 46 or this
+    in Issue #2720 so PR annotations flow through either Gate summary job or this
     manual workflow. See [`docs/ci/SELFTESTS.md`](SELFTESTS.md) for the scenario
     matrix and artifact expectations.
 
@@ -571,8 +573,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`, Gate follower) | `workflow_run` (Gate) | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Maint 46 runs & artifacts](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
-| **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate success) | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Maint 46 run log](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
+| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
+| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **Maint Keepalive Heartbeat** (`maint-keepalive.yml`, maintenance bucket) | `schedule` (`17 */12 * * *`), `workflow_dispatch` | Post a UTC timestamp heartbeat comment (with run URL) to the configured Ops issue so scheduled automation leaves an observable trace; fails fast if the Ops issue variable or PAT are missing. | ⚪ Scheduled | [Maint Keepalive runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint Coverage Guard** (`maint-coverage-guard.yml`, maintenance bucket) | `schedule` (`45 6 * * *`), `workflow_dispatch` | Audit the latest Gate coverage trend artifact and compare it against the baseline, failing when coverage regresses beyond the guard thresholds. | ⚪ Scheduled | [Maint Coverage Guard runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-coverage-guard.yml) |
@@ -615,15 +617,15 @@ snapshots for audit trails.
 
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
-- **Autofix.** Maint 46 centralizes automated follow-up fixes. Forks upload
+- **Autofix.** Gate summary job centralizes automated follow-up fixes. Forks upload
   patch artifacts instead of pushing. The dedicated pre-CI runner was retired;
-  opt-in labels trigger Maint 46 after Gate succeeds.
+  opt-in labels trigger Gate summary job after Gate succeeds.
 - **Branch protection.** The default branch must require the Gate status context
   (`gate`). Health 44 resolves the current default branch via the REST API and
   either enforces or verifies the rule (requires a `BRANCH_PROTECTION_TOKEN`
   secret with admin scope for enforcement). When agent workflows are in play,
   the rule also enforces **Health 45 Agents Guard / Enforce agents workflow protections**
-  so protected files stay gated. Maint 46 Post CI always runs after Gate turns
+  so protected files stay gated. Gate summary job always runs after Gate turns
   green, posting the consolidated summary comment as the informational "state of
   CI" snapshot—it is intentionally *not* configured as a required status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
@@ -643,7 +645,7 @@ snapshots for audit trails.
 ## Final topology (keep vs retire)
 
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
-  `maint-46-post-ci.yml`, `maint-coverage-guard.yml`, health 40/41/42/43/44,
+  the Gate summary job (inline), `maint-coverage-guard.yml`, health 40/41/42/43/44,
   agents 70/75/63, `agents-guard.yml`, reusable 10/12/16/18, and
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
@@ -662,7 +664,7 @@ snapshots for audit trails.
 4. Keep Code Owner review enabled so the protected files land only with explicit
    maintainer approval. At least one owning maintainer must approve before
    merging.
-5. After merge, remove the label, confirm Maint 46 processed the follow-up
+5. After merge, remove the label, confirm Gate summary job processed the follow-up
    hygiene, and verify Agents Guard reports green.
 6. Reflect the new state in this document and the [Workflow Catalog](WORKFLOWS.md)
    so future contributors inherit an accurate topology and guardrail map. Update
@@ -681,8 +683,8 @@ snapshots for audit trails.
   required check whenever `agents-*.yml` files change.
 - Health 44 confirms branch protection requires **Gate / gate** and **Agents
   Guard / Enforce agents workflow protections** on the default branch.
-- Maint 46 posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
-- Maint 46 Post CI remains informational—expect its guidance in the pull-request timeline, not in the required status list.
+- Gate summary job posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
+- Gate summary job remains informational—expect its guidance in the pull-request timeline, not in the required status list.
 
 ### Required vs informational checks on `phase-2-dev`
 
@@ -690,25 +692,25 @@ snapshots for audit trails.
 > before merge. Agents Guard / **Enforce agents workflow protections** auto-attaches as a
 > second required status whenever a PR touches `agents-*.yml`, keeping the
 > protected automation gated without widening the branch rule for every change.
-> Maint 46 Post CI publishes an informational timeline comment **after** Gate
+> Gate summary job publishes an informational timeline comment **after** Gate
 > succeeds and the PR lands. Every new pull request into
 > `phase-2-dev` should show **Gate / gate** under **Required checks**—treat a
 > missing Gate status as an incident and follow the branch-protection
-> playbook. Maintainers should continue to find Maint 46 exclusively as the
+> playbook. Maintainers should continue to find Gate summary job exclusively as the
 > post-merge timeline summary.
 
 > 📌 **Definition of done for branch protection.**
 > - Gate / `gate` remains required on every pull request before merge.
 > - Agents Guard / **Enforce agents workflow protections** auto-attaches as an additional
 >   required status whenever a pull request touches `agents-*.yml`.
-> - Maint 46 Post CI stays informational and surfaces only as the post-merge timeline summary.
-> - Branch protection rules keep Maint 46 unchecked while retaining the automatic Agents Guard enforcement on agents-surface PRs.
+> - Gate summary job stays informational and surfaces only as the post-merge timeline summary.
+> - Branch protection rules keep the summary job out of the required list while retaining the automatic Agents Guard enforcement on agents-surface PRs.
 
 | Context | Workflow | Required before merge? | Where it appears |
 | --- | --- | --- | --- |
 | **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
 | **Health 45 Agents Guard** / `Health 45 Agents Guard / Enforce agents workflow protections` | [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
-| **Maint 46 Post CI** / `maint-46-post-ci` | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) | ❌ Informational | Pull request timeline comment (after merge) |
+| **Gate summary comment** | Gate summary job (`pr-00-gate.yml`, job `summary`) | ❌ Informational | Pull request timeline comment (after merge) |
 
 > 🆔 **Status context names to copy exactly.**
 > - **Gate** reports the context `gate`. The branch-protection rule requires
@@ -720,15 +722,15 @@ snapshots for audit trails.
 >   [Agents Workflow Protection Policy](./AGENTS_POLICY.md#required-checks-and-status-contexts)
 >   whenever you draft review notes or open incidents—both docs list the exact
 >   contexts to keep the branch rule consistent.
-> - **Maint 46 Post CI** reports the context `maint-46-post-ci`, but the branch
->   rule must leave it unchecked so the workflow continues to post only the
->   informational timeline summary.
+> - The Gate summary job does not create a dedicated status context; it posts a
+>   timeline comment anchored with `<!-- gate-summary:` so the consolidated
+>   summary stays informational.
 
 > 🛠️ **Quick start routine.** To confirm the configuration end-to-end, (1) open
 > **Settings → Branches** and verify **Gate / gate** is the selected required
-> status while **Maint 46 Post CI** stays unchecked, (2) raise or refresh a pull
+> status while the summary job remains informational, (2) raise or refresh a pull
 > request to see **Gate / gate** listed under **Required checks**, and (3) after
-> merging, locate the **Maint 46 Post CI summary** comment in the timeline to
+> merging, locate the **Gate summary job summary** comment in the timeline to
 > confirm it posted as the informational roll-up.
 
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
@@ -736,11 +738,11 @@ snapshots for audit trails.
 > enforces **Health 45 Agents Guard / Enforce agents workflow protections**, so
 > when a PR touches `agents-*.yml` GitHub adds that context to the required list
 > automatically.
-> Maint 46 Post CI never appears in that list because it runs only after merge.
-> Maintainers reviewing follow-up CI should scroll to the Maint 46 Post CI
+> Gate summary job never appears in that list because it runs only after merge.
+> Maintainers reviewing follow-up CI should scroll to the Gate summary job
 > timeline comment after merge—it links back to
 > the successful Gate run, aggregates the reusable CI matrix, and is titled
-> **“Maint 46 Post CI summary”** for quick scanning. The pull-request template
+> **“Gate summary job summary”** for quick scanning. The pull-request template
 > links here so authors confirm the required check before requesting review. If
 > the PR UI shows a grey “Required checks” pill with no entries, refresh to
 > ensure Gate reports in; a missing Gate badge signals the branch-protection
@@ -754,14 +756,14 @@ snapshots for audit trails.
   look for **Health 45 Agents Guard / Enforce agents workflow protections** automatically
    appended to the same list.
 3. Return to the **Conversation** tab after merge to locate the
-   **Maint 46 Post CI summary** timeline comment. It includes links back to the
+   **Gate summary job summary** timeline comment. It includes links back to the
    Gate run so reviewers can audit the enforcement trail without leaving the PR.
 
 > 🚨 **Missing Gate? Treat it as a branch-protection incident.** If a freshly
 > opened or rebased pull request fails to list **Gate / gate** under
 > **Required checks**, stop and follow the [branch protection
 > playbook](#branch-protection-playbook). The rule may have been edited or the
-> Gate context renamed—restoring the configuration keeps Maint 46 Post CI in its
+> Gate context renamed—restoring the configuration keeps Gate summary job in its
 > informational role and ensures new PRs block until Gate turns green.
 >
 > ✍️ **Author checklist.** When you open or update a pull request, confirm the
@@ -773,9 +775,9 @@ snapshots for audit trails.
 > 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows Gate as
 > the required statuses—**Gate / gate** on every PR and **Health 45 Agents Guard / Enforce agents workflow protections** on protected edits—and that they are green (or actively
 > running). After the
-> merge lands, locate the **Maint 46 Post CI summary** comment in the timeline to
+> merge lands, locate the **Gate summary job summary** comment in the timeline to
 > confirm the informational roll-up posted and links back to the passing Gate
-> run—no branch-protection changes are needed for Maint 46 because it must stay
+> run—no branch-protection changes are needed for Gate summary job because it must stay
 > informational.
 
 - **Required before merge.** Gate / `gate` must finish green on every pull
@@ -784,9 +786,9 @@ snapshots for audit trails.
   `agents-*.yml`, GitHub automatically adds **Agents Guard / Enforce agents
   workflow protections** to the required list for that PR because the branch rule
   keeps the guard enforced.
-- **Informational after merge.** Maint 46 Post CI fans out once Gate finishes
+- **Informational after merge.** Gate summary job fans out once Gate finishes
   and posts the aggregated summary comment. It mirrors the reusable CI results
-  but does not block merges because it runs post-merge. Treat the Maint 46
+  but does not block merges because it runs post-merge. Treat the Gate summary job
   comment as the single source of truth for CI health after a merge—review it to
   confirm the latest Gate run and reusable jobs stayed green and that no follow-
   up remediation is needed.
@@ -837,15 +839,15 @@ branch-protection rulebook without re-learning the terminology.
      **Gate / gate**. Use the filter box to type `gate` so the correct context is
      highlighted, then click the entry until a check mark appears. Keep
   **Health 45 Agents Guard / Enforce agents workflow protections** checked so
-     agent-surface edits stay gated. Leave Maint 46 Post CI unchecked—it posts
-     post-merge guidance and must stay informational. If you see Maint 46 Post CI
+     agent-surface edits stay gated. Leave Gate summary job unchecked—it posts
+     post-merge guidance and must stay informational. If you see Gate summary job
      in the selected list, clear it before saving so the branch rule continues to
      block solely on Gate (and Agents Guard when applicable).
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
    - Click **Save changes**, then open or refresh a pull request aimed at
      `phase-2-dev` to confirm the **Checks** tab shows **Gate / gate** under
-     **Required checks**. If Maint 46 Post CI appears in that list, revisit the
+     **Required checks**. If Gate summary job appears in that list, revisit the
      branch rule immediately and deselect it so the workflow stays informational.
 4. **Run the enforcement script locally when needed.**
    - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check`
@@ -861,7 +863,7 @@ branch-protection rulebook without re-learning the terminology.
      observer mode.
    - In GitHub settings, confirm that **Gate / gate** appears under required
   status checks, with **Health 45 Agents Guard / Enforce agents workflow protections**
-     retained for agent-surface enforcement. Maint 46 Post CI is intentionally
+     retained for agent-surface enforcement. Gate summary job is intentionally
      absent—it publishes the summary comment after merge and remains
      informational.
    - From the command line, run
@@ -879,7 +881,7 @@ branch-protection rulebook without re-learning the terminology.
      tab shows **Gate / gate** under “Required checks.” When you modify
      `agents-*.yml`, also confirm **Agents Guard / Enforce agents
      workflow protections** is listed as required.
-   - Seeing **Maint 46 Post CI** absent from the required list is correct—it
+   - Seeing **Gate summary job** absent from the required list is correct—it
      remains informational and will surface as a timeline comment after merge.
    - Close the PR after verification to avoid polluting history.
 
@@ -901,16 +903,16 @@ branch-protection rulebook without re-learning the terminology.
      for regressions.
   3. Open a short-lived PR targeting the default branch to confirm that Gate and
      Agents Guard return as required before declaring recovery complete.
-- **Maint 46 Post CI comment missing or stale.**
-  1. Visit the [Maint 46 workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml)
+- **Gate summary job comment missing or stale.**
+  1. Visit the [Gate summary job workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/gate-summary.yml)
      and verify a run triggered from the Gate success you just merged. `workflow_run`
      events always list the source Gate run in the summary—expand it to confirm
      the linkage.
   2. If the run failed or never triggered, use **Re-run all jobs** on the
-     workflow page or dispatch it manually with `gh workflow run "Maint 46 Post CI" --ref <default-branch>`.
+     workflow page or dispatch it manually with `gh workflow run "Gate summary job" --ref <default-branch>`.
      For manual dispatches, keep the default branch checked out so the summary
      references the merged commit.
-  3. Once Maint 46 finishes, confirm the pull-request timeline shows the new
-     Maint 46 summary comment (with links back to the Gate run and reusable
+  3. Once Gate summary job finishes, confirm the pull-request timeline shows the new
+     Gate summary job summary comment (with links back to the Gate run and reusable
      matrix). If the comment is still absent, note the remediation in the
      incident issue and ping `#trend-ci` for follow-up.

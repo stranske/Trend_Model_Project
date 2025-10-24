@@ -4,11 +4,11 @@
 
 ## Purpose
 
-Provide Codex contributors with a concise overview of the consolidation work that finalizes "Maint 46 Post CI" as the single post-CI summary and coverage aggregator.
+Provide Codex contributors with a concise overview of the consolidation work that finalizes the Gate summary job as the single post-CI summary and coverage aggregator.
 
 ## Scope
 
-- Ensure the Maint 46 Post CI workflow triggers only for Gate runs that originate from pull requests.
+- Ensure the Gate summary job triggers only for Gate runs that originate from pull requests.
 - Resolve the correct PR head ref and SHA from the Gate payload so downstream steps stay aligned with the latest commit.
 - Keep workflow permissions minimal while supporting autofix pushes and comment updates (`contents: write`, `pull-requests: read`, `checks: read`, `issues: write`, `actions: read`). Document any additional scope that becomes necessary.
 - Produce one consolidated post-CI summary per PR, including a short coverage section when data is available.
@@ -21,6 +21,6 @@ Provide Codex contributors with a concise overview of the consolidation work tha
 
 ## Acceptance Criteria
 
-- A Gate run triggers Maint 46 Post CI which updates one consolidated summary for the PR.
+- A Gate run triggers the Gate summary job which updates one consolidated summary for the PR.
 - The summary captures run metadata and coverage details (when present) and handles missing coverage data gracefully.
 - Workflow permissions remain scoped to the minimal set required for comment updates, coverage download, and autofix pushes (`contents: write`, `pull-requests: read`, `checks: read`, `issues: write`, `actions: read`).

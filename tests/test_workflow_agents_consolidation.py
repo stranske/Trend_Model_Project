@@ -127,7 +127,7 @@ def test_codex_bootstrap_lite_surfaces_keepalive_mode():
 
 
 def test_issue_bridge_tracks_keepalive_mode():
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
     assert (
@@ -139,7 +139,7 @@ def test_issue_bridge_tracks_keepalive_mode():
 
 
 def test_issue_bridge_dispatches_orchestrator_with_keepalive_options():
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
     assert (
@@ -488,7 +488,9 @@ def test_orchestrator_documents_keepalive_pause_controls():
     keepalive = inputs.get("keepalive_enabled")
     assert keepalive, "Orchestrator must expose keepalive_enabled workflow input"
     assert (
-        str(keepalive.get("description", "")).lower().startswith("enable codex keepalive sweep")
+        str(keepalive.get("description", ""))
+        .lower()
+        .startswith("enable codex keepalive sweep")
     ), "keepalive_enabled input should document its keepalive toggle behaviour"
     assert (
         str(keepalive.get("default", "")).strip("'").lower() == "true"
@@ -498,7 +500,8 @@ def test_orchestrator_documents_keepalive_pause_controls():
 def test_orchestrator_handles_keepalive_pause_label():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
-        'keepalive skipped: repository label "${KEEPALIVE_PAUSE_LABEL}" is present.' in text
+        'keepalive skipped: repository label "${KEEPALIVE_PAUSE_LABEL}" is present.'
+        in text
     ), "Orchestrator must log keepalive skipped when pause label is present"
     assert (
         "keepalive_paused_label" in text

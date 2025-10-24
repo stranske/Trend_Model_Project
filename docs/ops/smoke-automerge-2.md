@@ -6,5 +6,5 @@ With the merge manager archived, retain this document as a reference scenario fo
 Expectations:
 - Branch naming (agents/codex-*) triggers from:codex + agent:codex + automerge + risk:low labels.
 - Reviewers now approve this docs-only PR manually.
-- Once checks pass, merge via the UI and update the `ci:green` label manually while relying on `maint-46-post-ci.yml` to capture
+- Once checks pass, merge via the UI and update the `ci:green` label manually while relying on the Gate summary job to capture
   the final status summary.

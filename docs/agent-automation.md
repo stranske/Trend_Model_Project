@@ -69,7 +69,7 @@ The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`,
 
 While the agent wrappers were removed, maintenance automation still supports the broader workflow stack:
 
-- `maint-46-post-ci.yml` writes consolidated run summaries, applies low-risk fixes, uploads patches when automation cannot push directly after `pr-00-gate.yml` finishes, and now owns the CI failure tracker end to end.
+- The Gate summary job writes consolidated run summaries, applies low-risk fixes, uploads patches when automation cannot push directly after `pr-00-gate.yml` finishes, and now owns the CI failure tracker end to end.
 
 1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, keepalive sweeps, or
   watchdog checks on demand.

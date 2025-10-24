@@ -6,8 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+# Add the root directory to Python path to enable tools import
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from tools.test_failure_signature import build_signature_hash
 
@@ -101,7 +105,9 @@ def _extract_contexts(section: object) -> list[str]:
 
     if isinstance(raw_contexts, str):
         contexts = [raw_contexts]
-    elif isinstance(raw_contexts, Iterable) and not isinstance(raw_contexts, (str, bytes)):
+    elif isinstance(raw_contexts, Iterable) and not isinstance(
+        raw_contexts, (str, bytes)
+    ):
         contexts = [str(item).strip() for item in raw_contexts]
     else:
         contexts = []
@@ -180,7 +186,9 @@ def _format_delta(
     if removed:
         parts.append("−" + ", ".join(removed))
 
-    current_strict = current_section.get("strict") if isinstance(current_section, Mapping) else None
+    current_strict = (
+        current_section.get("strict") if isinstance(current_section, Mapping) else None
+    )
     previous_strict = (
         previous_section.get("strict")
         if isinstance(previous_section, Mapping)
@@ -188,6 +196,7 @@ def _format_delta(
     )
 
     if current_strict != previous_strict:
+
         def _bool_status(value: object) -> str:
             if value is True:
                 return "✅ True"
@@ -229,19 +238,20 @@ def _snapshot_detail(
 
     if snapshot.get("error"):
         return (
-            _escape_table(
-                f"{label}: ❌ {snapshot.get('error')}"
-            ),
+            _escape_table(f"{label}: ❌ {snapshot.get('error')}"),
             "failure",
         )
 
     changes_required = snapshot.get("changes_required")
     require_up_to_date = _format_require_up_to_date(snapshot)
     current_contexts = ", ".join(_extract_contexts(snapshot.get("current"))) or "–"
-    target_contexts = ", ".join(
-        _extract_contexts(snapshot.get("after"))
-        or _extract_contexts(snapshot.get("desired"))
-    ) or "–"
+    target_contexts = (
+        ", ".join(
+            _extract_contexts(snapshot.get("after"))
+            or _extract_contexts(snapshot.get("desired"))
+        )
+        or "–"
+    )
     delta = _format_delta(snapshot, previous_snapshot)
 
     status_bits: list[str] = []
