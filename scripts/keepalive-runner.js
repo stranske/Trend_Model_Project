@@ -338,9 +338,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const totalTasks = latestChecklist.total;
       const outstanding = latestChecklist.unchecked;
       const completed = Math.max(0, totalTasks - outstanding);
-  const itemWord = outstanding === 1 ? 'item' : 'items';
-  const verb = outstanding === 1 ? 'remains' : 'remain';
-  const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
+      const itemWord = outstanding === 1 ? 'item' : 'items';
+      const verb = outstanding === 1 ? 'remains' : 'remain';
+      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
