@@ -35,6 +35,10 @@ concurrency:
 jobs:
   bridge:
     uses: ./.github/workflows/reusable-agents-issue-bridge.yml
+    # Resolve keepalive opt-in is delegated to the reusable bridge workflow.
+  # Dispatch Agents Orchestrator (keepalive sync) remains part of the reusable bridge so
+  # agent:codex label transitions automatically propagate `### Keepalive:` summaries while
+  # forwarding keepalive params_json payloads to agents-70-orchestrator.yml.
     with:
       agent: codex
       agent_display_name: Codex
