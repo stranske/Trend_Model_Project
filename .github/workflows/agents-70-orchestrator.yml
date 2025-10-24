@@ -92,6 +92,7 @@ jobs:
             const DEFAULT_VERIFY_ISSUE_ASSIGNEES = 'copilot,chatgpt-codex-connector,stranske-automation-bot';
             const DEFAULT_OPTIONS_JSON = '{}';
             // Repository label that pauses keepalive sweeps when present.
+            // Delete the label (or rename it) to resume keepalive automation without code changes.
             const KEEPALIVE_PAUSE_LABEL = 'keepalive:paused';
             const DEFAULTS = {
               enable_readiness: 'false',
