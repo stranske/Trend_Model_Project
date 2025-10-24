@@ -940,7 +940,7 @@ async function ensureAutofixComment({ github, context, core }) {
   lines.push('');
   lines.push(...fileLines);
   lines.push('');
-  lines.push('_Posted automatically by Maint 46 Post CI._');
+  lines.push('_Posted automatically by Gate summary._');
 
   const body = lines.join('\n');
   await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
