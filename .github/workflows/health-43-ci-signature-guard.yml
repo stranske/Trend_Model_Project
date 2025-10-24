@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Read signature files
         id: read_signature
         run: |
@@ -33,18 +36,11 @@ jobs:
         with:
           jobs-json: ${{ steps.read_signature.outputs.jobs_json }}
           expected-hash: ${{ steps.read_signature.outputs.expected_hash }}
-      - name: Reference documentation
+      - name: Record unified guard summary
         if: always()
         run: |
-          ref_name="${GITHUB_REF_NAME}"
-          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF}" ]; then
-            ref_name="${GITHUB_BASE_REF}"
-          fi
-          ref_name="${ref_name:-phase-2-dev}"
-
-          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ## Maint 40 CI Signature Guard
-
-          Review the [CI signature guard docs](https://github.com/${GITHUB_REPOSITORY}/blob/${ref_name}/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures)
-          for guidance on updating the fixtures when CI job definitions change.
-          EOF
+          python .github/scripts/health_summarize.py \
+            --signature-jobs .github/signature-fixtures/basic_jobs.json \
+            --signature-expected .github/signature-fixtures/basic_hash.txt \
+            --write-json health-43-summary.json \
+            --write-summary "${GITHUB_STEP_SUMMARY}"
