@@ -52,8 +52,6 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "agents-71-codex-belt-dispatcher.yml",
     "agents-72-codex-belt-worker.yml",
     "agents-73-codex-belt-conveyor.yml",
-    "agents-75-keepalive-on-gate.yml",
-    "agents-keepalive-pr.yml",
     "agents-guard.yml",
     "health-40-repo-selfcheck.yml",
     "health-41-repo-health.yml",
@@ -82,7 +80,6 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 71 Codex Belt Dispatcher",
     "Agents 72 Codex Belt Worker",
     "Agents 73 Codex Belt Conveyor",
-    "Agents 75 Keepalive On Gate",
     "Health 45 Agents Guard",
     "Gate",
     "Health 40 Repo Selfcheck",
@@ -100,7 +97,6 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Reusable 16 Agents",
     "Reusable 18 Autofix",
     "Selftest: Reusables",
-    "Agents Keepalive PR",
 }
 
 

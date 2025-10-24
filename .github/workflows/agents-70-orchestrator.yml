@@ -5,6 +5,12 @@ on:
     - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
+      # Keepalive controls — toggle the sweep or combine with keepalive:paused label.
+      keepalive_enabled:
+        description: 'Enable Codex keepalive sweep for this run'
+        required: false
+        default: 'true'
+        type: boolean
       params_json:
         description: 'JSON payload of orchestrator params'
         required: false
@@ -79,11 +85,14 @@ jobs:
           PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
           WORKFLOW_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || '' }}
           WORKFLOW_OPTIONS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.options_json || '' }}
+          WORKFLOW_KEEPALIVE_ENABLED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled || '' }}
         with:
           script: |
             const DEFAULT_READINESS_AGENTS = 'copilot,codex';
             const DEFAULT_VERIFY_ISSUE_ASSIGNEES = 'copilot,chatgpt-codex-connector,stranske-automation-bot';
             const DEFAULT_OPTIONS_JSON = '{}';
+            // Repository label that pauses keepalive sweeps when present.
+            const KEEPALIVE_PAUSE_LABEL = 'keepalive:paused';
             const DEFAULTS = {
               enable_readiness: 'false',
               readiness_agents: DEFAULT_READINESS_AGENTS,
@@ -198,6 +207,15 @@ jobs:
               merged.options_json = workflowOptionsJson;
             }
 
+            const workflowKeepaliveEnabled = process.env.WORKFLOW_KEEPALIVE_ENABLED;
+            if (
+              workflowKeepaliveEnabled !== undefined &&
+              workflowKeepaliveEnabled !== null &&
+              workflowKeepaliveEnabled !== ''
+            ) {
+              merged.enable_keepalive = workflowKeepaliveEnabled;
+            }
+
             const readinessAgents = toCsv(merged.readiness_agents, DEFAULTS.readiness_agents);
             const readinessCustom = toCsv(
               merged.readiness_custom_logins ?? merged.readiness_custom ?? merged.custom_logins,
@@ -284,6 +302,33 @@ jobs:
               { min: 0, max: 5 }
             );
 
+            const keepaliveRequested = toBoolString(
+              merged.enable_keepalive ?? keepalive.enabled,
+              DEFAULTS.enable_keepalive
+            );
+
+            const { owner, repo } = context.repo;
+            let keepalivePaused = false;
+
+            if (keepaliveRequested === 'true') {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: KEEPALIVE_PAUSE_LABEL });
+                keepalivePaused = true;
+                core.info(`keepalive skipped: repository label "${KEEPALIVE_PAUSE_LABEL}" is present.`);
+              } catch (error) {
+                if (error && error.status === 404) {
+                  core.info(`Keepalive pause label "${KEEPALIVE_PAUSE_LABEL}" not present; keepalive remains enabled.`);
+                } else {
+                  const message = error instanceof Error ? error.message : String(error);
+                  core.warning(`Unable to resolve keepalive pause label (${message}); proceeding with keepalive.`);
+                }
+              }
+            } else {
+              core.info('Keepalive disabled via configuration; skipping pause label check.');
+            }
+
+            const keepaliveEffective = keepalivePaused ? 'false' : keepaliveRequested;
+
             const outputs = {
               enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
               readiness_agents: readinessAgents,
@@ -299,7 +344,9 @@ jobs:
               verify_issue_number: verifyIssueNumber,
               verify_issue_valid_assignees: verifyIssueAssignees,
               enable_watchdog: toBoolString(merged.enable_watchdog, DEFAULTS.enable_watchdog),
-              enable_keepalive: toBoolString(merged.enable_keepalive ?? keepalive.enabled, DEFAULTS.enable_keepalive),
+              enable_keepalive: keepaliveEffective,
+              keepalive_requested: keepaliveRequested,
+              keepalive_paused_label: keepalivePaused ? 'true' : 'false',
               enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
               bootstrap_issues_label: toString(
                 merged.bootstrap_issues_label ?? bootstrap.label,
@@ -329,6 +376,8 @@ jobs:
               'verify_issue_valid_assignees',
               'enable_watchdog',
               'enable_keepalive',
+              'keepalive_requested',
+              'keepalive_paused_label',
               'enable_bootstrap',
               'bootstrap_issues_label',
               'draft_pr',
@@ -366,6 +415,13 @@ jobs:
               [{ data: 'Parameter', header: true }, { data: 'Value', header: true }],
               ...orderedKeys.map((key) => [key, summarise(outputs[key])])
             ]);
+            if (keepalivePaused) {
+              summary.addRaw(`keepalive skipped because the ${KEEPALIVE_PAUSE_LABEL} label is present.`).addEOL();
+            } else if (keepaliveRequested !== keepaliveEffective) {
+              summary
+                .addRaw('keepalive disabled via configuration overrides (input or params).')
+                .addEOL();
+            }
             await summary.write();
 
   orchestrate:
