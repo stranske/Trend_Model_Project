@@ -200,7 +200,6 @@ EXPECTED_NAMES = {
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
-    "maint-keepalive.yml": "Maint Keepalive Heartbeat",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "pr-00-gate.yml": "Gate",
     "reusable-10-ci-python.yml": "Reusable CI",
