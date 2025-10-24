@@ -18,7 +18,7 @@ flowchart LR
 
 - **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before posting the commit status summary.
 - **Autofix path:** [Maint 46 Post CI](../../.github/workflows/maint-46-post-ci.yml) consumes Gate artifacts and, when labels permit, calls [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) for hygiene pushes or patch uploads.
-- **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it.
+- **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), and [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml) workflows provide scheduled drift detection and enforcement snapshots.
 
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
@@ -90,7 +90,7 @@ The summary workflow updates its PR comment via `.github/scripts/comment-dedupe.
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
-* [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) and [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) manage task distribution.
+* [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) and [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) manage task distribution. The orchestrator summary now logs "keepalive skipped" when the pause label is present and surfaces `keepalive_pause_label`/`keepalive_paused_label` outputs for downstream consumers.
 * [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) and [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
 * [`agents-63-codex-issue-bridge.yml`](../../.github/workflows/agents-63-codex-issue-bridge.yml) hydrates Codex bootstrap pull requests from labelled issues and can seed the primer comment.
