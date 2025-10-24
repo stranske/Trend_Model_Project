@@ -89,7 +89,6 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Maint 45 Cosmetic Repair",
     "Maint 47 Disable Legacy Workflows",
     "Maint Coverage Guard",
-    "Maint Keepalive Heartbeat",
     "Reusable Agents Issue Bridge",
     "Reusable CI",
     "Reusable Docker Smoke",
