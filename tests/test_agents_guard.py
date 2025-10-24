@@ -23,7 +23,15 @@ process.stdout.write(DEFAULT_MARKER);
     return completed.stdout
 
 
-DEFAULT_MARKER = get_default_marker()
+# Lazy evaluation: only compute DEFAULT_MARKER when tests actually run
+_DEFAULT_MARKER_CACHE = None
+
+
+def get_default_marker_cached():
+    global _DEFAULT_MARKER_CACHE
+    if _DEFAULT_MARKER_CACHE is None:
+        _DEFAULT_MARKER_CACHE = get_default_marker()
+    return _DEFAULT_MARKER_CACHE
 
 
 def run_guard(
@@ -139,7 +147,7 @@ def test_deletion_blocks_with_comment():
     assert result["blocked"] is True
     assert any("was deleted" in reason for reason in result["failureReasons"])
     assert "Health 45 Agents Guard" in result["summary"]
-    assert result["commentBody"].startswith(DEFAULT_MARKER)
+    assert result["commentBody"].startswith(get_default_marker_cached())
 
 
 def test_custom_marker_propagates_to_comment():
@@ -170,8 +178,8 @@ def test_default_marker_added_once():
         codeowners=CODEOWNERS_SAMPLE,
     )
 
-    assert result["commentBody"].startswith(DEFAULT_MARKER)
-    assert result["commentBody"].count(DEFAULT_MARKER) == 1
+    assert result["commentBody"].startswith(get_default_marker_cached())
+    assert result["commentBody"].count(get_default_marker_cached()) == 1
 
 
 def test_rename_blocks_with_guidance():
