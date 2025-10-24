@@ -176,6 +176,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const triggered = [];
   const previews = [];
   const paused = [];
+  const skipped = [];
+  let skippedCount = 0;
   let scanned = 0;
   addHeading();
   summary
@@ -240,16 +242,25 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         (typeof label === 'string' ? label : label?.name || '').toLowerCase()
       );
 
+      const prNumber = pr.number;
+      const recordSkip = (reason, { paused: pausedEntry = false } = {}) => {
+        const entry = `#${prNumber} – ${reason}`;
+        skipped.push(entry);
+        skippedCount += 1;
+        if (pausedEntry) {
+          paused.push(entry);
+        }
+        core.info(`#${prNumber}: skipped – ${reason}`);
+      };
+
       if (labelNames.includes(pausedLabel)) {
-        paused.push(`#${pr.number} – paused via agents:paused`);
-        core.info(`#${pr.number}: skipped – keepalive paused via agents:paused label.`);
+        recordSkip('keepalive paused via agents:paused label', { paused: true });
         continue;
       }
 
-      const prNumber = pr.number;
       const comments = await fetchIssueComments(prNumber);
       if (!comments.length) {
-        core.info(`#${prNumber}: skipped – no timeline comments.`);
+        recordSkip('no timeline comments');
         continue;
       }
 
@@ -263,7 +274,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         });
 
         if (!sentinel) {
-          core.info(`#${prNumber}: skipped – keepalive opt-in not detected.`);
+          recordSkip('keepalive opt-in not detected');
           continue;
         }
 
@@ -274,7 +285,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       if (!commandComments.length) {
-        core.info(`#${prNumber}: skipped – no ${command} command yet.`);
+        recordSkip(`no ${command} command yet`);
         continue;
       }
 
@@ -282,27 +293,27 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
       if (!botComments.length) {
-        core.info(`#${prNumber}: skipped – Codex has not commented yet.`);
+        recordSkip('Codex has not commented yet');
         continue;
       }
 
       const lastAgentComment = botComments[botComments.length - 1];
       const lastAgentTs = new Date(lastAgentComment.updated_at || lastAgentComment.created_at).getTime();
       if (!Number.isFinite(lastAgentTs)) {
-        core.info(`#${prNumber}: skipped – unable to parse Codex timestamp.`);
+        recordSkip('unable to parse Codex timestamp');
         continue;
       }
 
       const minutesSinceAgent = (now - lastAgentTs) / 60000;
       if (minutesSinceAgent < idleMinutes) {
-        core.info(`#${prNumber}: skipped – last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${idleMinutes}).`);
+        recordSkip(`last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${idleMinutes})`);
         continue;
       }
 
       const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
       const minutesSinceCommand = (now - latestCommandTs) / 60000;
       if (latestCommandTs > lastAgentTs && minutesSinceCommand < idleMinutes) {
-        core.info(`#${prNumber}: skipped – waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes}).`);
+        recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes})`);
         continue;
       }
 
@@ -319,7 +330,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
       const latestChecklist = checklistComments[0];
       if (!latestChecklist) {
-        core.info(`#${prNumber}: skipped – no Codex checklist with outstanding tasks.`);
+        recordSkip('no Codex checklist with outstanding tasks');
         continue;
       }
 
@@ -330,7 +341,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const lastKeepaliveTs = new Date(keepaliveComments[0].created_at).getTime();
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
         if (minutesSinceKeepalive < repeatMinutes) {
-          core.info(`#${prNumber}: skipped – keepalive sent ${minutesSinceKeepalive.toFixed(1)} minutes ago (< ${repeatMinutes}).`);
+          recordSkip(`keepalive sent ${minutesSinceKeepalive.toFixed(1)} minutes ago (< ${repeatMinutes})`);
           continue;
         }
       }
@@ -338,9 +349,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const totalTasks = latestChecklist.total;
       const outstanding = latestChecklist.unchecked;
       const completed = Math.max(0, totalTasks - outstanding);
-  const itemWord = outstanding === 1 ? 'item' : 'items';
-  const verb = outstanding === 1 ? 'remains' : 'remain';
-  const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
+      const itemWord = outstanding === 1 ? 'item' : 'items';
+      const verb = outstanding === 1 ? 'remains' : 'remain';
+      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -386,10 +397,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
   }
+  if (skipped.length) {
+    summary.addDetails('Skipped pull requests', summariseList(skipped));
+  }
+  summary.addRaw(`Skipped keepalive count: ${skippedCount}`).addEOL();
   if (paused.length) {
     summary.addDetails('Paused pull requests', summariseList(paused));
   }
-  summary.addRaw(`Skipped ${paused.length} paused PR${paused.length === 1 ? '' : 's'}.`).addEOL();
+  summary.addRaw(`Paused pull requests: ${paused.length}`).addEOL();
   summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
   await summary.write();
 }
