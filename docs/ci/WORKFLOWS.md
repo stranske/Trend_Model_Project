@@ -9,15 +9,12 @@ This page captures the target layout for the automation that protects pull reque
 
 ```mermaid
 flowchart LR
-    gate["Gate\n.pr-00-gate.yml"] --> maint46["Maint 46 Post CI\n.maint-46-post-ci.yml"]
-    gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
-    maint46 --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
+    gate["Gate\n.pr-00-gate.yml"] --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
     agents70 --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
-    maint46 --> healthGuard["Health checks\n.health-4x-*.yml"]
+    gate --> healthGuard["Health checks\n.health-4x-*.yml"]
 ```
 
-- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before posting the commit status summary.
-- **Autofix path:** [Maint 46 Post CI](../../.github/workflows/maint-46-post-ci.yml) consumes Gate artifacts and, when labels permit, calls [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) for hygiene pushes or patch uploads.
+- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before publishing the built-in Gate summary and updating the required commit status.
 - **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), and [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml) workflows provide scheduled drift detection and enforcement snapshots.
 
@@ -58,9 +55,8 @@ flowchart TD
     dockerSmoke --> gate
     gate --> status["Required Gate status\nblocks/permits merge"]
 ```
-pull_request ──▶ Gate ──▶ Maint Post-CI summary
-                    │              │
-                    │              └─▶ Autofix / failure tracking (conditional)
+pull_request ──▶ Gate ──▶ Gate summary (step summary + commit status)
+                    │
                     └─▶ Reusable test suites (Python matrix & Docker smoke)
 ```
 
@@ -72,12 +68,11 @@ pull_request ──▶ Gate ──▶ Maint Post-CI summary
 
 The gate uses the shared `.github/scripts/detect-changes.js` helper to decide when documentation-only changes can skip heavy jobs and when Docker smoke tests must run.
 
-## Maint Post-CI Summary & Failure Handling
+## Gate Summary & Post-CI Reporting
 
-* [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) consumes the completed Gate run, normalises coverage artifacts with `.github/scripts/coverage-normalize.js`, publishes the consolidated PR summary, and manages failure tracker issues.
-* [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
+The Gate workflow now hosts the canonical post-CI summary. Its final job renders the lint/type/test/coverage tables directly into the Gate summary (step summary) and updates the required commit status so reviewers see a single source of truth per push. Downstream automation surfaces continue to rely on the `gate-coverage` artifact family.
 
-The summary workflow updates its PR comment via `.github/scripts/comment-dedupe.js`, ensuring a single authoritative status thread per pull request.
+* [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations, reusing the same artifact bundle that powers the Gate summary.
 
 ## Autofix & Maintenance
 
@@ -110,7 +105,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) verifies signed workflow runs when required.
 * [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml) ensures branch protection stays aligned with Gate expectations.
 
-Together these workflows define the CI surface area referenced by the Gate and Maint Post-CI jobs, keeping the automation stack observable, testable, and easier to evolve.
+Together these workflows define the CI surface area referenced by the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 
 ## Self-test Harness
 

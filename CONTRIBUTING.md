@@ -6,7 +6,7 @@ Before diving into automation specifics, read the [Workflow System Overview](doc
 required merge policy, observability surfaces, and the
 [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). The quick orientation checklist, scenario cheat
 sheet, and bucket reference inside that guide make it trivial for new contributors to see what runs where before changing YAML.
-The document also explains how Gate, Maint 46, and the agents orchestrator collaborate, and the
+The document also explains how Gate, the Gate summary job, and the agents orchestrator collaborate, and the
 [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) section outlines the guardrail and approval
 sequence for edits. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
 per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md) if you need the historical
@@ -38,14 +38,14 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
 - **Autofix lane** – Maintainers trigger autofix via the post-CI follower.
   Opt in by adding the `autofix:clean` label; the sweep runs once Gate finishes
   and is handled by `maint-46-post-ci.yml`.
-- **Maint 46 Post-CI follower** – When Gate finishes, the
+- **Gate summary job** – When Gate finishes, the final job
   [`maint-46-post-ci.yml`](.github/workflows/maint-46-post-ci.yml) workflow
   posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
   issues when hygiene regressions persist. It also updates the rolling
   "CI failures in last 24 h" issue labelled `ci-failure` so the current
   breakages stay easy to find. Treat that consolidated comment and
-  issue as the canonical health dashboards; rerun Gate or Maint 46 Post-CI
+  issue as the canonical health dashboards; rerun Gate
   if you need either refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
