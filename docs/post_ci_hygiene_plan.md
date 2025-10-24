@@ -40,7 +40,7 @@ the workflows behave as expected end-to-end.
 ## Verification Notes
 - Failure tracker issues now carry an explicit `Tracked PR` line and hidden `<!-- tracked-pr: ... -->` marker so the success
   path can deterministically find and heal the corresponding record after a recovery run.
-- The Maint 46 Post CI workflow posts a resolution comment and closes the tagged issue when Gate succeeds, keeping the rolling
+- The Gate summary job posts a resolution comment and closes the tagged issue when Gate succeeds, keeping the rolling
   failure tracker single-issue guarantee intact without manual cleanup.
 - Synthetic Node harnesses cover both sides of the lifecycle: failure updates increment the occurrence counter without spawning
   duplicates, and the success-path script reuses the tracked PR tag to post a resolution comment and close the existing issue.

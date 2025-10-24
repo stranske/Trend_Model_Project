@@ -1,7 +1,7 @@
 """Deterministic signature self-test.
 
 This script emulates the core hashing logic used in
-`.github/workflows/maint-46-post-ci.yml` (failure-tracker job) to provide a guardrail
+the Gate summary job's failure-tracker path to provide a guardrail
 that local changes to signature composition are intentional.
 
 Usage:

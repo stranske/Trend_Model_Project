@@ -108,8 +108,8 @@ def test_archive_ledgers_comment_wrappers() -> None:
         ), f"Archive ledger missing entry for retired workflow {wrapper}."
 
     assert (
-        "Maint 46 Post CI" in ledger_text
-    ), "Archive ledger should point readers to the Maint 46 Post CI summary path."
+        "Gate summary job" in ledger_text
+    ), "Archive ledger should point readers to the Gate summary job path."
     assert (
         SELFTEST_WORKFLOW_NAME in ledger_text
     ), "Archive ledger should reference the consolidated self-test workflow."
@@ -129,8 +129,8 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
 
     for doc_text in (system_text, catalog_text):
         assert (
-            "Maint 46 Post CI" in doc_text
-        ), "Docs should explain Maint 46 Post CI as the canonical comment path."
+            "Gate summary job" in doc_text
+        ), "Docs should explain the Gate summary job as the canonical comment path."
         assert (
             SELFTEST_WORKFLOW_NAME in doc_text
         ), "Docs should reference the canonical self-test workflow."

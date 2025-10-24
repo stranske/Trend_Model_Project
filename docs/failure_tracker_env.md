@@ -1,6 +1,6 @@
 # Failure Tracker Environment Reference
 
-Central reference for all environment variables used by the `failure-tracker` job inside `.github/workflows/maint-46-post-ci.yml`.
+Central reference for all environment variables used by the `failure-tracker` path inside the Gate summary job (`.github/workflows/pr-00-gate.yml`).
 
 | Variable | Default | Type | Scope | Purpose / Behaviour | Notes |
 |----------|---------|------|-------|---------------------|-------|

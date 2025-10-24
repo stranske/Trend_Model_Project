@@ -57,8 +57,8 @@ part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore 
 | Reusable agent stack | [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) |
 | Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
 | Gate workflow | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) |
-| Autofix follower | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) |
-| Failure tracker | [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) |
+| Autofix follower | Gate summary job (`pr-00-gate.yml`, job `summary`) |
+| Failure tracker | Gate summary job (`pr-00-gate.yml`, job `summary`) |
 
 ## Operational Notes
 - Run the orchestrator manually to re-bootstrap an issue, perform readiness checks, or trigger watchdog sweeps.

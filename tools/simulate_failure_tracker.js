@@ -1,51 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-
-function extractTrackerScript() {
-  const workflowPath = path.join(
-    __dirname,
-    '..',
-    '.github',
-    'workflows',
-    'maint-46-post-ci.yml',
-  );
-  const content = fs.readFileSync(workflowPath, 'utf8');
-  const lines = content.split(/\r?\n/);
-  const stepIndex = lines.findIndex((line) =>
-    line.includes('Derive failure signature & update tracking issue'),
-  );
-  if (stepIndex === -1) {
-    throw new Error('Unable to locate failure-tracker step.');
-  }
-  const start = lines.findIndex(
-    (line, idx) => idx > stepIndex && line.trim() === 'script: |',
-  );
-  if (start === -1 || start + 1 >= lines.length) {
-    throw new Error('Unable to locate tracker script block.');
-  }
-  const scriptLines = [];
-  const firstLine = lines[start + 1];
-  const indentMatch = firstLine.match(/^(\s*)/);
-  const indent = indentMatch ? indentMatch[1].length : 0;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (line.trim() === '') {
-      scriptLines.push('');
-      continue;
-    }
-    const leading = line.match(/^(\s*)/);
-    const leadingSpaces = leading ? leading[1].length : 0;
-    if (leadingSpaces < indent) {
-      break;
-    }
-    scriptLines.push(line.slice(indent));
-  }
-  return scriptLines.join('\n');
-}
+const maintPostCi = require('../.github/scripts/maint-post-ci.js');
 
 function createCore(state) {
   const summary = {
@@ -206,9 +162,6 @@ function createGithub(state, options) {
 }
 
 async function main() {
-  const script = extractTrackerScript();
-  const wrapped = `(async () => {\n${script}\n})()`;
-
   const state = {
     availableLabels: new Set(['ci-failure', 'ci', 'devops', 'priority: medium']),
     baseTime: new Date('2025-01-01T00:00:00Z'),
@@ -230,6 +183,7 @@ async function main() {
   const realDateNow = Date.now;
 
   try {
+    process.env.PR_NUMBER = '1234';
     for (let i = 0; i < runs.length; i += 1) {
       const run = runs[i];
       state.runIndex = i;
@@ -259,17 +213,12 @@ async function main() {
       process.env.OCCURRENCE_ESCALATE_THRESHOLD = '3';
       process.env.AUTO_HEAL_INACTIVITY_HOURS = '24';
 
-      await vm.runInNewContext(wrapped, {
-        Buffer,
-        console,
-        context,
-        core,
-        github,
-        process,
-        require,
-        setTimeout,
-        clearTimeout,
-      });
+      await maintPostCi.updateFailureTracker({ github, context, core });
+      await maintPostCi.resolveFailureIssuesForRecoveredPR({ github, context, core });
+      await maintPostCi.autoHealFailureIssues({ github, context, core });
+      await maintPostCi.snapshotFailureIssues({ github, context, core });
+      await maintPostCi.applyCiFailureLabel({ github, context, core });
+      await maintPostCi.removeCiFailureLabel({ github, context, core });
 
       if (!state.issue) {
         throw new Error('Tracker did not create or update an issue.');

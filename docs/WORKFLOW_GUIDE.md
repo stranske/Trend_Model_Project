@@ -18,7 +18,7 @@ operational detail for the kept set.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
 | `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
@@ -28,7 +28,7 @@ operational detail for the kept set.
 **Naming checklist**
 1. Choose the correct prefix for the workflow's scope.
 2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
-3. Title-case the workflow name so it matches the filename (`maint-46-post-ci.yml` → `Maint 46 Post CI`).
+3. Title-case the workflow name so it matches the filename (`maint-45-cosmetic-repair.yml` → `Maint 45 Cosmetic Repair`).
 4. Update this guide, `docs/ci/WORKFLOWS.md`, and the overview in `docs/ci/WORKFLOW_SYSTEM.md` whenever workflows are added,
    renamed, or removed.
 
@@ -41,11 +41,10 @@ The active roster below mirrors the **Keep** list in the [Workflow System Overvi
 ### PR Checks
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
 
-_Optional label-gated helper_
-- **`maint-46-post-ci.yml`** — Opt-in autofix follower (apply only when the `autofix:clean` label is present) delegating to the reusable autofix composite after Gate completes.
+_Inline Gate helper_
+- **Gate summary job (`pr-00-gate.yml`)** — Post-CI job that downloads artifacts, computes coverage deltas, runs the label-gated autofix routine, and updates the PR summary comment with a stable marker.
 
 ### Maintenance & Repo Health
-- **`maint-46-post-ci.yml`** — Follower triggered by the Gate `workflow_run` event that posts consolidated status updates, applies autofix commits or uploads patches, and owns the CI failure-tracker issue/label lifecycle.
 - **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTIONS_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
 - **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
@@ -69,7 +68,7 @@ _Additional opt-in utilities_
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
 - **`reusable-16-agents.yml`** — Reusable agent automation stack.
-- **`reusable-18-autofix.yml`** — Autofix harness used by `maint-46-post-ci.yml`.
+- **`reusable-18-autofix.yml`** — Autofix harness used by the Gate summary job.
 
 ### Self-tests
 - **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
@@ -79,17 +78,17 @@ _Additional opt-in utilities_
 The following workflows were decommissioned during the CI consolidation effort. Keep these references around for historical context only; do not resurrect them without a fresh review. For the authoritative ledger (including verification notes), see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
-- **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary in `maint-46-post-ci.yml`.
+- **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary embedded in the Gate workflow.
 - **Historical consumer wrappers** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
-1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes `maint-46-post-ci.yml`.
+1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes the Gate summary job.
 2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
 ### Failure rollup quick reference
-- `Maint 46 Post CI` updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
+- The Gate summary job updates the "CI failures in last 24 h" issue labelled `ci-failure`, aggregating failure signatures with links back to the offending Gate runs.
 - Auto-heal closes the issue after a full day without repeats while preserving an occurrence history in the body.
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
@@ -112,7 +111,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
-2. Monitor failure tracker issues surfaced by `Maint 46 Post CI`; it owns the delegation and auto-heal path end to end.
+2. Monitor failure tracker issues surfaced by the Gate summary job; it owns the delegation and auto-heal path end to end.
 3. Use `Health 42 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 5. Run `Maint 47 Disable Legacy Workflows` after archival sweeps to disable any retired workflows that still appear in the Actions UI.

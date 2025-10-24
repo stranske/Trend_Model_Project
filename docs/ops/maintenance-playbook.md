@@ -2,7 +2,7 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`health-41`, `maint-46-post-ci`, `health-42`, `health-43`,
+`health-41`, Gate summary job, `health-42`, `health-43`,
 `health-44`, `maint-45-cosmetic-repair`, and `maint-90`.
 
 ## health-41-repo-health.yml
@@ -28,24 +28,23 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    `REPO_HEALTH_STALE_BRANCH_DAYS` when the stale-branch window should change.
    Re-run the workflow via `workflow_dispatch` to validate the new threshold.
 
-## maint-46-post-ci.yml
+## Gate summary job (`pr-00-gate.yml`)
 
 1. **Check the run summary** — each execution appends a consolidated status
    block under `## Automated Status Summary`. Review it to understand which jobs
    failed and whether autofix attempted a patch.
-2. **Inspect the uploaded patch** — when autofix cannot push directly the
-   workflow uploads a patch artifact. Download it, apply locally, re-run
-   formatting, and push manually if appropriate.
+2. **Inspect the uploaded patch** — when autofix cannot push directly the job
+   uploads a patch artifact. Download it, apply locally, re-run formatting, and
+   push manually if appropriate.
 3. **Re-run after fixes** — once underlying CI passes (or the patch is applied)
-   manually re-run the workflow to refresh the summary and confirm autofix
-   reports success.
-4. **Keep inputs aligned** — if artifact lookups fail, ensure `pr-00-gate.yml`
+   manually re-run Gate to refresh the summary and confirm autofix reports success.
+4. **Keep inputs aligned** — if artifact lookups fail, ensure the Gate workflow
    still exposes the expected coverage/smoke outputs and that required labels
    remain in place for autofix eligibility.
-5. **Monitor the CI failure tracker** — the `failure-tracker` job creates or
-   updates the consolidated CI failure issue when Gate reports failures and
-   automatically resolves it once the offending run passes. Follow the links in
-   the run summary to triage recurring signatures.
+5. **Monitor the CI failure tracker** — the summary job creates or updates the
+   consolidated CI failure issue when Gate reports failures and automatically
+   resolves it once the offending run passes. Follow the links in the run
+   summary to triage recurring signatures.
 
 ## health-42-actionlint.yml
 
