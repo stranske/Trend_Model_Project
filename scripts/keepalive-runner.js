@@ -60,6 +60,42 @@ function normaliseLogin(login) {
   return base.replace(/\[bot\]$/i, '');
 }
 
+function escapeRegExp(value) {
+  return String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
+function detectKeepaliveSentinel(comments, { sentinelPattern, headerPattern, agentLogins }) {
+  if (!Array.isArray(comments) || !comments.length) {
+    return null;
+  }
+
+  const codexLogins = new Set(agentLogins.map(normaliseLogin));
+  codexLogins.add('stranske-automation-bot');
+  const codexMentionPattern = /@codex\b/i;
+
+  const sorted = [...comments].sort(
+    (a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)
+  );
+
+  for (const comment of sorted) {
+    const body = comment?.body || '';
+    if (!body) {
+      continue;
+    }
+
+    if (!(sentinelPattern.test(body) || headerPattern.test(body))) {
+      continue;
+    }
+
+    const login = normaliseLogin(comment?.user?.login);
+    if (codexLogins.has(login) || codexMentionPattern.test(body)) {
+      return { comment, login };
+    }
+  }
+
+  return null;
+}
+
 function summariseList(items, limit = 20) {
   if (items.length <= limit) {
     return items;
@@ -100,13 +136,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const idleMinutes = coerceNumber(options.keepalive_idle_minutes, 10, { min: 0 });
   const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
-  const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agent:codex';
+  const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
   let targetLabels = String(labelSource)
     .split(',')
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
   if (!targetLabels.length) {
-    targetLabels = ['agent:codex'];
+    targetLabels = ['agents:keepalive', 'agent:codex'];
   }
   targetLabels = dedupe(targetLabels);
 
@@ -116,6 +152,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive -->';
   const marker = String(markerRaw);
+
+  const sentinelRaw = options.keepalive_sentinel ?? '[keepalive]';
+  const sentinelPattern = new RegExp(escapeRegExp(sentinelRaw), 'i');
+  const keepaliveHeaderPattern = /###\s*Keepalive:\s*(on|enabled)/i;
 
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
@@ -136,6 +176,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const triggered = [];
   const previews = [];
   const paused = [];
+  const skipped = [];
+  let skippedCount = 0;
   let scanned = 0;
   addHeading();
   summary
@@ -199,30 +241,51 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const labelNames = (pr.labels || []).map((label) =>
         (typeof label === 'string' ? label : label?.name || '').toLowerCase()
       );
-      const hasTargetLabel = targetLabels.some((label) => labelNames.includes(label));
-      if (!hasTargetLabel) {
-        core.info(`#${pr.number}: skipped – missing required label (${targetLabels.join(', ')}).`);
-        continue;
-      }
-
-      if (labelNames.includes(pausedLabel)) {
-        paused.push(`#${pr.number} – paused via agents:paused`);
-        core.info(`#${pr.number}: skipped – keepalive paused via agents:paused label.`);
-        continue;
-      }
 
       const prNumber = pr.number;
+      const recordSkip = (reason, { paused: pausedEntry = false } = {}) => {
+        const entry = `#${prNumber} – ${reason}`;
+        skipped.push(entry);
+        skippedCount += 1;
+        if (pausedEntry) {
+          paused.push(entry);
+        }
+        core.info(`#${prNumber}: skipped – ${reason}`);
+      };
+
+      if (labelNames.includes(pausedLabel)) {
+        recordSkip('keepalive paused via agents:paused label', { paused: true });
+        continue;
+      }
+
       const comments = await fetchIssueComments(prNumber);
       if (!comments.length) {
-        core.info(`#${prNumber}: skipped – no timeline comments.`);
+        recordSkip('no timeline comments');
         continue;
+      }
+
+      const hasTargetLabel = targetLabels.some((label) => labelNames.includes(label));
+
+      if (!hasTargetLabel) {
+        const sentinel = detectKeepaliveSentinel(comments, {
+          sentinelPattern,
+          headerPattern: keepaliveHeaderPattern,
+          agentLogins,
+        });
+
+        if (!sentinel) {
+          recordSkip('keepalive opt-in not detected');
+          continue;
+        }
+
+        core.info(`#${prNumber}: keepalive opted-in via sentinel comment ${sentinel.comment?.html_url || ''}.`);
       }
 
       const commandComments = comments
         .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       if (!commandComments.length) {
-        core.info(`#${prNumber}: skipped – no ${command} command yet.`);
+        recordSkip(`no ${command} command yet`);
         continue;
       }
 
@@ -230,27 +293,27 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
       if (!botComments.length) {
-        core.info(`#${prNumber}: skipped – Codex has not commented yet.`);
+        recordSkip('Codex has not commented yet');
         continue;
       }
 
       const lastAgentComment = botComments[botComments.length - 1];
       const lastAgentTs = new Date(lastAgentComment.updated_at || lastAgentComment.created_at).getTime();
       if (!Number.isFinite(lastAgentTs)) {
-        core.info(`#${prNumber}: skipped – unable to parse Codex timestamp.`);
+        recordSkip('unable to parse Codex timestamp');
         continue;
       }
 
       const minutesSinceAgent = (now - lastAgentTs) / 60000;
       if (minutesSinceAgent < idleMinutes) {
-        core.info(`#${prNumber}: skipped – last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${idleMinutes}).`);
+        recordSkip(`last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${idleMinutes})`);
         continue;
       }
 
       const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
       const minutesSinceCommand = (now - latestCommandTs) / 60000;
       if (latestCommandTs > lastAgentTs && minutesSinceCommand < idleMinutes) {
-        core.info(`#${prNumber}: skipped – waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes}).`);
+        recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes})`);
         continue;
       }
 
@@ -267,7 +330,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
       const latestChecklist = checklistComments[0];
       if (!latestChecklist) {
-        core.info(`#${prNumber}: skipped – no Codex checklist with outstanding tasks.`);
+        recordSkip('no Codex checklist with outstanding tasks');
         continue;
       }
 
@@ -278,7 +341,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const lastKeepaliveTs = new Date(keepaliveComments[0].created_at).getTime();
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
         if (minutesSinceKeepalive < repeatMinutes) {
-          core.info(`#${prNumber}: skipped – keepalive sent ${minutesSinceKeepalive.toFixed(1)} minutes ago (< ${repeatMinutes}).`);
+          recordSkip(`keepalive sent ${minutesSinceKeepalive.toFixed(1)} minutes ago (< ${repeatMinutes})`);
           continue;
         }
       }
@@ -286,9 +349,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const totalTasks = latestChecklist.total;
       const outstanding = latestChecklist.unchecked;
       const completed = Math.max(0, totalTasks - outstanding);
-  const itemWord = outstanding === 1 ? 'item' : 'items';
-  const verb = outstanding === 1 ? 'remains' : 'remain';
-  const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
+      const itemWord = outstanding === 1 ? 'item' : 'items';
+      const verb = outstanding === 1 ? 'remains' : 'remain';
+      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -334,10 +397,18 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
   }
+  if (skipped.length) {
+    summary.addDetails('Skipped pull requests', summariseList(skipped));
+  }
+  summary.addRaw(`Skipped keepalive count: ${skippedCount}`).addEOL();
   if (paused.length) {
     summary.addDetails('Paused pull requests', summariseList(paused));
   }
-  summary.addRaw(`Skipped ${paused.length} paused PR${paused.length === 1 ? '' : 's'}.`).addEOL();
+  const pausedLineTemplate = `Skipped ${paused.length} paused PRs.`;
+  const pausedLine = paused.length === 1
+    ? pausedLineTemplate.replace('PRs.', 'PR.')
+    : pausedLineTemplate;
+  summary.addRaw(pausedLine).addEOL();
   summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
   await summary.write();
 }

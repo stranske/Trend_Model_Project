@@ -204,7 +204,6 @@ def test_codeowner_author_counts_as_approval():
                 "status": "modified",
             }
         ],
-        labels=[{"name": "agents:allow-change"}],
         reviews=[],
         codeowners=CODEOWNERS_SAMPLE,
         author="stranske",
@@ -213,6 +212,30 @@ def test_codeowner_author_counts_as_approval():
     assert result["blocked"] is False
     assert result["hasCodeownerApproval"] is True
     assert result["authorIsCodeowner"] is True
+    assert result["hasAllowLabel"] is False
+
+
+def test_codeowner_review_without_label_passes():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "status": "modified",
+            }
+        ],
+        labels=[],
+        reviews=[
+            {
+                "user": {"login": "stranske"},
+                "state": "APPROVED",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+    )
+
+    assert result["blocked"] is False
+    assert result["hasCodeownerApproval"] is True
+    assert result["hasAllowLabel"] is False
 
 
 def test_codeowner_approval_without_label_passes():
