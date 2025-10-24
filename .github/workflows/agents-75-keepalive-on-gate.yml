@@ -22,33 +22,211 @@ jobs:
       group: keepalive-pr-${{ github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests.length > 0 && github.event.workflow_run.pull_requests[0].number || 'unknown' }}
       cancel-in-progress: false
     steps:
-      - uses: actions/github-script@v7
+      - name: Evaluate keepalive dispatch
+        id: evaluate
+        uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prNum = context.payload.workflow_run.pull_requests[0].number;
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner, repo: context.repo.repo, pull_number: prNum
-            });
+            const workflowRun = context.payload.workflow_run || {};
+            const prInfo = Array.isArray(workflowRun.pull_requests) && workflowRun.pull_requests.length
+              ? workflowRun.pull_requests[0]
+              : null;
 
-            // Gate on opt-in: label like 'agents:keepalive' OR the last bot comment containing a sentinel
-            const labels = pr.labels.map(l => l.name);
-            const keepalive = labels.includes('agents:keepalive');
-            const paused = labels.map((name) => (name || '').toLowerCase()).includes('agents:paused');
+            const outcome = {
+              prNumber: '',
+              dispatched: false,
+              dispatchedCount: 0,
+              skippedCount: 1,
+              skipReason: 'Keepalive dispatch not attempted.',
+              optInSource: 'none',
+              ref: '',
+            };
 
-            if (!keepalive) {
-              core.info(`PR #${prNum}: keepalive not enabled; skipping.`);
+            if (!prInfo) {
+              outcome.skipReason = 'No associated pull request in workflow_run payload.';
+              core.info(outcome.skipReason);
+              core.setOutput('pr', '');
+              core.setOutput('dispatched', 'false');
+              core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+              core.setOutput('skipped_count', String(outcome.skippedCount));
+              core.setOutput('skip_reason', outcome.skipReason);
+              core.setOutput('opt_in_source', outcome.optInSource);
+              core.setOutput('ref', '');
               return;
             }
 
+            const prNumber = Number(prInfo.number);
+            outcome.prNumber = Number.isFinite(prNumber) ? String(prNumber) : '';
+
+            const { owner, repo } = context.repo;
+            const keepaliveLabel = 'agents:keepalive';
+            const pausedLabel = 'agents:paused';
+            const sentinelPattern = /\[keepalive\]/i;
+            const keepaliveHeaderPattern = /###\s*Keepalive:\s*(on|enabled)/i;
+            const codexMentionPattern = /@codex\b/i;
+
+            let pr;
+            try {
+              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              pr = data;
+            } catch (error) {
+              outcome.skipReason = `Failed to load PR #${prNumber}: ${error.message}`;
+              core.warning(outcome.skipReason);
+              core.setOutput('pr', outcome.prNumber);
+              core.setOutput('dispatched', 'false');
+              core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+              core.setOutput('skipped_count', String(outcome.skippedCount));
+              core.setOutput('skip_reason', outcome.skipReason);
+              core.setOutput('opt_in_source', outcome.optInSource);
+              core.setOutput('ref', '');
+              return;
+            }
+
+            const labelNames = Array.isArray(pr.labels)
+              ? pr.labels.map((label) => (typeof label === 'string' ? label : label?.name || '')).map((name) => name.toLowerCase())
+              : [];
+
+            const paused = labelNames.includes(pausedLabel);
             if (paused) {
-              core.info(`PR #${prNum}: keepalive paused via agents:paused; skipping dispatch.`);
+              outcome.skipReason = 'agents:paused label present; keepalive paused.';
+              core.info(`PR #${prNumber}: ${outcome.skipReason}`);
+              core.setOutput('pr', outcome.prNumber);
+              core.setOutput('dispatched', 'false');
+              core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+              core.setOutput('skipped_count', String(outcome.skippedCount));
+              core.setOutput('skip_reason', outcome.skipReason);
+              core.setOutput('opt_in_source', 'paused');
+              core.setOutput('ref', '');
               return;
             }
 
-            // Dispatch your per-PR keepalive workflow (the worker/dispatcher you already have)
+            if ((pr.state || '').toLowerCase() === 'closed') {
+              outcome.skipReason = 'Pull request is closed; keepalive skipped.';
+              core.info(`PR #${prNumber}: ${outcome.skipReason}`);
+              core.setOutput('pr', outcome.prNumber);
+              core.setOutput('dispatched', 'false');
+              core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+              core.setOutput('skipped_count', String(outcome.skippedCount));
+              core.setOutput('skip_reason', outcome.skipReason);
+              core.setOutput('opt_in_source', outcome.optInSource);
+              core.setOutput('ref', '');
+              return;
+            }
+
+            const hasOptInLabel = labelNames.includes(keepaliveLabel);
+            let optInSource = hasOptInLabel ? 'label' : 'none';
+
+            if (!hasOptInLabel) {
+              try {
+                const iterator = github.paginate.iterator(
+                  github.rest.issues.listComments,
+                  { owner, repo, issue_number: prNumber, per_page: 100 }
+                );
+                let sentinelFound = false;
+                for await (const page of iterator) {
+                  const comments = Array.isArray(page.data) ? page.data : [];
+                  if (!comments.length) {
+                    continue;
+                  }
+                  for (let idx = comments.length - 1; idx >= 0; idx -= 1) {
+                    const comment = comments[idx];
+                    const body = comment?.body || '';
+                    if (!body) {
+                      continue;
+                    }
+                    if (!(sentinelPattern.test(body) || keepaliveHeaderPattern.test(body))) {
+                      continue;
+                    }
+                    const login = String(comment?.user?.login || '').trim().toLowerCase();
+                    if (login === 'stranske-automation-bot' || login === 'chatgpt-codex-connector' || codexMentionPattern.test(body)) {
+                      sentinelFound = true;
+                      optInSource = 'sentinel';
+                      core.info(`PR #${prNumber}: keepalive opted-in via sentinel comment ${comment.html_url || ''}.`);
+                      break;
+                    }
+                  }
+                  if (sentinelFound) {
+                    break;
+                  }
+                }
+                if (!sentinelFound) {
+                  outcome.skipReason = 'Keepalive opt-in label or sentinel not detected.';
+                  core.info(`PR #${prNumber}: ${outcome.skipReason}`);
+                  core.setOutput('pr', outcome.prNumber);
+                  core.setOutput('dispatched', 'false');
+                  core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+                  core.setOutput('skipped_count', String(outcome.skippedCount));
+                  core.setOutput('skip_reason', outcome.skipReason);
+                  core.setOutput('opt_in_source', optInSource);
+                  core.setOutput('ref', '');
+                  return;
+                }
+              } catch (error) {
+                outcome.skipReason = `Failed to scan comments for keepalive sentinel: ${error.message}`;
+                core.warning(`PR #${prNumber}: ${outcome.skipReason}`);
+                core.setOutput('pr', outcome.prNumber);
+                core.setOutput('dispatched', 'false');
+                core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+                core.setOutput('skipped_count', String(outcome.skippedCount));
+                core.setOutput('skip_reason', outcome.skipReason);
+                core.setOutput('opt_in_source', optInSource);
+                core.setOutput('ref', '');
+                return;
+              }
+            }
+
+            const ref = workflowRun.head_branch || pr?.head?.ref || '';
+            if (!ref) {
+              outcome.skipReason = 'Unable to resolve branch ref for workflow dispatch.';
+              core.warning(`PR #${prNumber}: ${outcome.skipReason}`);
+              core.setOutput('pr', outcome.prNumber);
+              core.setOutput('dispatched', 'false');
+              core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+              core.setOutput('skipped_count', String(outcome.skippedCount));
+              core.setOutput('skip_reason', outcome.skipReason);
+              core.setOutput('opt_in_source', optInSource);
+              core.setOutput('ref', '');
+              return;
+            }
+
             await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner, repo: context.repo.repo,
+              owner,
+              repo,
               workflow_id: 'agents-keepalive-pr.yml',
-              ref: context.payload.workflow_run.head_sha,
-              inputs: { pr: String(prNum) }
+              ref,
+              inputs: { pr: String(prNumber) },
             });
+
+            outcome.dispatched = true;
+            outcome.dispatchedCount = 1;
+            outcome.skippedCount = 0;
+            outcome.skipReason = '';
+            outcome.optInSource = optInSource;
+            outcome.ref = ref;
+
+            core.info(`PR #${prNumber}: keepalive dispatch queued on ref ${ref} (opt-in source: ${optInSource}).`);
+
+            core.setOutput('pr', outcome.prNumber);
+            core.setOutput('dispatched', 'true');
+            core.setOutput('dispatched_count', String(outcome.dispatchedCount));
+            core.setOutput('skipped_count', String(outcome.skippedCount));
+            core.setOutput('skip_reason', outcome.skipReason);
+            core.setOutput('opt_in_source', outcome.optInSource);
+            core.setOutput('ref', outcome.ref);
+
+      - name: Summarize keepalive listener
+        run: |
+          {
+            echo "## Gate keepalive listener";
+            echo "* PR: ${{ steps.evaluate.outputs.pr || 'n/a' }}";
+            echo "* Dispatched: ${{ steps.evaluate.outputs.dispatched || 'false' }}";
+            echo "* Dispatched count: ${{ steps.evaluate.outputs.dispatched_count || '0' }}";
+            echo "* Skipped count: ${{ steps.evaluate.outputs.skipped_count || '0' }}";
+            if [ "${{ steps.evaluate.outputs.dispatched }}" = "true" ]; then
+              echo "* Opt-in source: ${{ steps.evaluate.outputs.opt_in_source || 'unknown' }}";
+              echo "* Dispatch ref: ${{ steps.evaluate.outputs.ref || 'n/a' }}";
+            else
+              echo "* Reason: ${{ steps.evaluate.outputs.skip_reason || 'n/a' }}";
+            fi;
+          } >> "$GITHUB_STEP_SUMMARY"
