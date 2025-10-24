@@ -97,6 +97,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            tools
           sparse-checkout-cone-mode: false
       - name: Handle docs-only change
         if: needs.detect.outputs.doc_only == 'true'
