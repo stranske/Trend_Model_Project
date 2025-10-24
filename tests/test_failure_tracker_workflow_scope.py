@@ -20,6 +20,11 @@ TRACKER_PATH = (
     REPO_ROOT / ".github" / "workflows" / "maint-47-check-failure-tracker.yml"
 )
 POST_CI_PATH = REPO_ROOT / ".github" / "workflows" / "maint-46-post-ci.yml"
+
+pytestmark = pytest.mark.skipif(
+    not POST_CI_PATH.exists(),
+    reason="Maint 46 post-CI workflow retired; Gate summary now owns status reporting.",
+)
 GH_SCRIPTS_DIR = REPO_ROOT / ".github" / "scripts"
 
 

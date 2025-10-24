@@ -165,7 +165,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"detect", "python-ci", "docker-smoke", "gate"},
+            {"detect", "python-ci", "docker-smoke", "summary"},
         )
 
         job_detect = jobs["detect"]
@@ -193,7 +193,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             job_smoke.get("uses"), "./.github/workflows/reusable-12-ci-docker.yml"
         )
 
-        job_gate = jobs["gate"]
+        job_gate = jobs["summary"]
         self.assertEqual(
             job_gate.get("needs"),
             ["detect", "python-ci", "docker-smoke"],
@@ -215,7 +215,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
     def test_gate_docs_only_handler_reports_fast_pass(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
-        gate_job = workflow.get("jobs", {}).get("gate", {})
+        gate_job = workflow.get("jobs", {}).get("summary", {})
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
@@ -264,7 +264,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
     def test_gate_cleans_up_legacy_docs_only_comment(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
-        gate_job = workflow.get("jobs", {}).get("gate", {})
+        gate_job = workflow.get("jobs", {}).get("summary", {})
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
@@ -419,21 +419,21 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
     def test_gate_downloads_coverage_with_tolerance(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
-        gate_job = workflow.get("jobs", {}).get("gate", {})
-        self.assertTrue(gate_job, "Gate workflow must define gate job")
+        gate_job = workflow.get("jobs", {}).get("summary", {})
+        self.assertTrue(gate_job, "Gate workflow must define summary job")
 
         coverage_steps = [
             step
             for step in gate_job.get("steps", [])
             if isinstance(step, dict)
             and isinstance(step.get("name"), str)
-            and step["name"].startswith("Download coverage")
+            and step["name"].startswith("Download Gate artifacts")
         ]
 
         self.assertEqual(
             len(coverage_steps),
             1,
-            "Gate job should download the consolidated gate-coverage artifact",
+            "Gate summary job should download the consolidated gate artifacts",
         )
 
         step = coverage_steps[0]
@@ -454,13 +454,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
         inputs = step.get("with", {})
         self.assertIsInstance(inputs, dict)
-        self.assertEqual(inputs.get("name"), "gate-coverage")
-        self.assertEqual(inputs.get("path"), "gate_artifacts/python-ci")
+        self.assertEqual(inputs.get("pattern"), "gate-*")
+        self.assertTrue(inputs.get("merge-multiple"))
+        self.assertEqual(inputs.get("path"), "gate_artifacts/downloads")
 
     def test_gate_summary_reports_job_table(self) -> None:
         workflow = self._read_workflow("pr-00-gate.yml")
-        gate_job = workflow.get("jobs", {}).get("gate", {})
-        self.assertTrue(gate_job, "Gate workflow must define gate job")
+        gate_job = workflow.get("jobs", {}).get("summary", {})
+        self.assertTrue(gate_job, "Gate workflow must define summary job")
 
         summarize_step = next(
             (

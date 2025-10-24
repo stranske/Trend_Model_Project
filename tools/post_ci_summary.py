@@ -1,7 +1,8 @@
 """Helpers for building the consolidated post-CI run summary.
 
-This module feeds the maint-46-post-ci workflow and is unit tested so regressions
-can be caught without executing the workflow on GitHub.
+Originally wired to the maint-46-post-ci follower, the helper now powers the
+inline `summary` job in `pr-00-gate.yml`. Unit tests keep coverage without
+requiring the full workflow to run on GitHub.
 """
 
 from __future__ import annotations

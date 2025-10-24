@@ -1,10 +1,9 @@
 ## Automated Post-CI Status Summary
 
-The repository publishes a consolidated status block to the run summary whenever
-the `maint-46-post-ci.yml` follower completes. The workflow subscribes
-to `workflow_run` events for the Gate workflow, downloads shared artifacts, and
-renders Markdown headed by `## Automated Status Summary` before appending it to
-`$GITHUB_STEP_SUMMARY`.
+The repository publishes a consolidated status block directly from the Gate
+workflow. The final `summary` job in `pr-00-gate.yml` downloads shared
+artifacts, computes coverage deltas, and renders Markdown headed by
+`## Automated Status Summary` before appending it to `$GITHUB_STEP_SUMMARY`.
 
 ### Summary Contents
 
@@ -13,19 +12,19 @@ Each refresh includes:
 * Head commit SHA and a roll-up of the most recent workflow runs that were
   queried for the PR head commit.
 * A required-check summary derived from the Gate job list. The default patterns
-  track the fan-out jobs (`python ci`, `docker smoke`) plus the `gate`
+  track the fan-out jobs (`python ci`, `docker smoke`) plus the `summary`
   aggregator so reviewers can see which leg failed.
 * A job-by-job table covering the latest Gate run, complete with badge emojis
   indicating state and deep links to the workflow/job logs. Failing rows are
   bolded for quick scanning.
 * Coverage headline metrics – latest averages, worst-job coverage, and deltas
   vs the previous recorded run when history is available – along with any
-  Markdown snippet published as the `gate-coverage-summary` artifact.
+  Markdown snippet published as the `gate-coverage-summary` artifact or the
+  republished `gate-coverage-summary.md`.
 
-The helper stores the rendered Markdown as
-`summary_artifacts/summary_preview.md` so maintainers can inspect the message
-directly from the Actions UI. Re-runs overwrite the same preview file with the
-latest content.
+The helper stores the rendered Markdown as `gate-summary.md` and uploads it as
+an artifact so maintainers can inspect the message directly from the Actions
+UI. Re-runs overwrite the same preview file with the latest content.
 
 ### Data sources
 
@@ -34,9 +33,10 @@ The workflow collects status data from three places:
 1. **Workflow run metadata** – `actions/github-script` queries the REST API to
    locate the most recent Gate run for the PR head SHA, then expands its job
    list so the summary reflects the real workflow structure.
-2. **Coverage summary artifact** – the CI workflow now writes coverage metrics
-   directly to the job summary, but any uploaded Markdown snippet is still
-   embedded below the headline metrics when present.
+2. **Coverage summary artifact** – the CI workflow writes coverage metrics
+   directly to the job summary, and any uploaded Markdown snippet (`gate-coverage-summary`
+   or `gate-coverage-summary.md`) is embedded below the headline metrics when
+   present.
 3. **Coverage trend records** – JSON and NDJSON artifacts
    (`coverage-trend.json` and `coverage-trend-history.ndjson`) continue to drive
    the latest and previous coverage values when available.
@@ -63,14 +63,14 @@ bundles have not been published yet.
   `DEFAULT_REQUIRED_JOB_GROUPS` declaration inside `tools/post_ci_summary.py`,
   or by supplying a `REQUIRED_JOB_GROUPS_JSON` workflow environment override.
 * Additional artifacts can be surfaced by extending the artifact download steps
-  in `maint-46-post-ci.yml` and updating the Markdown rendering helpers
-  inside `tools/post_ci_summary.py`.
+  in `pr-00-gate.yml` and updating the Markdown rendering helpers inside
+  `tools/post_ci_summary.py`.
 * To force Docker to run on documentation-only changes, tweak the `paths-ignore`
   list in `.github/workflows/pr-00-gate.yml` (the skip rules are unchanged by this
   consolidation).
 
 ### Disabling the Summary
 
-Delete or rename `.github/workflows/maint-46-post-ci.yml` to disable the
-follower. The consolidated helper is only invoked from that workflow, so no
-other automation will recreate the run-summary entry once the file is removed.
+Remove or comment out the `summary` job in `.github/workflows/pr-00-gate.yml`
+to disable the consolidated comment and run-summary entry. No other automation
+will recreate the block once the job is skipped.

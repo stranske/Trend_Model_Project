@@ -6,6 +6,7 @@ import pathlib
 import re
 from typing import Any, Dict, List
 
+import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
@@ -44,6 +45,12 @@ def _guarded_follow_up_steps(
 
 WORKFLOW_FILE = "maint-46-post-ci.yml"
 HELPER_FILE = "maint-post-ci.js"
+WORKFLOW_PATH = WORKFLOWS / WORKFLOW_FILE
+
+pytestmark = pytest.mark.skipif(
+    not WORKFLOW_PATH.exists(),
+    reason="Maint 46 post-CI workflow retired; Gate summary inlines automation.",
+)
 
 
 def test_autofix_workflow_uses_repo_commit_prefix() -> None:

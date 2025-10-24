@@ -3,10 +3,17 @@ from __future__ import annotations
 import pathlib
 from typing import Any, Dict, Iterable
 
+import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
 WORKFLOW_FILE = "maint-46-post-ci.yml"
+WORKFLOW_PATH = WORKFLOWS / WORKFLOW_FILE
+
+pytestmark = pytest.mark.skipif(
+    not WORKFLOW_PATH.exists(),
+    reason="Maint 46 post-CI workflow retired; Gate summary owns follow-up automation.",
+)
 
 
 def _load_workflow(name: str) -> Dict[str, Any]:

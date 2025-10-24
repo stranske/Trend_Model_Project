@@ -9,15 +9,14 @@ This page captures the target layout for the automation that protects pull reque
 
 ```mermaid
 flowchart LR
-    gate["Gate\n.pr-00-gate.yml"] --> maint46["Maint 46 Post CI\n.maint-46-post-ci.yml"]
+    gate["Gate\n.pr-00-gate.yml"] --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
+    gate --> healthGuard["Health checks\n.health-4x-*.yml"]
     gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
-    maint46 --> agents70["Agents 70 Orchestrator\n.agents-70-orchestrator.yml"]
     agents70 --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
-    maint46 --> healthGuard["Health checks\n.health-4x-*.yml"]
 ```
 
-- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before posting the commit status summary.
-- **Autofix path:** [Maint 46 Post CI](../../.github/workflows/maint-46-post-ci.yml) consumes Gate artifacts and, when labels permit, calls [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) for hygiene pushes or patch uploads.
+- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before its inline `summary` job publishes the commit status and PR comment.
+- **Autofix path:** When invoked directly, [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) can stage hygiene fixes or generate patch artifacts; it is no longer triggered automatically after Gate completes.
 - **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), and [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml) workflows provide scheduled drift detection and enforcement snapshots.
 
@@ -46,23 +45,20 @@ enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `artifacts/coverage/runtimes/<python>` for downstream consumers. |
+| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.11 + 3.12 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
-| `gate` | gate | Downloads the reusable CI coverage bundle, renders lint/type/test/coverage results, and posts the commit status. | Job summary with pass/fail table. | Hard-fails if any upstream job did not succeed; this status is the required merge check. |
+| `summary` | summary | Aggregates lint/type/test/coverage results, computes deltas, uploads `gate-summary.md`, and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Posts the required `Gate / gate` status and enforces failure when upstream legs are unhealthy. |
 
 ```mermaid
 flowchart TD
     pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.11 + 3.12 matrix\n gate-coverage artifact"]
     pr00 --> dockerSmoke["docker smoke\nimage build logs"]
-    pythonCi --> gate["gate aggregator\nreviews artifacts"]
-    dockerSmoke --> gate
-    gate --> status["Required Gate status\nblocks/permits merge"]
+    pythonCi --> summaryJob["summary job\naggregates artifacts"]
+    dockerSmoke --> summaryJob
+    summaryJob --> status["Required Gate status\nblocks/permits merge"]
 ```
-pull_request ──▶ Gate ──▶ Maint Post-CI summary
-                    │              │
-                    │              └─▶ Autofix / failure tracking (conditional)
+pull_request ──▶ Gate ──▶ Summary comment & status
                     └─▶ Reusable test suites (Python matrix & Docker smoke)
-```
 
 ## Pull Request Gate
 
@@ -72,12 +68,10 @@ pull_request ──▶ Gate ──▶ Maint Post-CI summary
 
 The gate uses the shared `.github/scripts/detect-changes.js` helper to decide when documentation-only changes can skip heavy jobs and when Docker smoke tests must run.
 
-## Maint Post-CI Summary & Failure Handling
+## Coverage Guardrails & Follow-ups
 
-* [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) consumes the completed Gate run, normalises coverage artifacts with `.github/scripts/coverage-normalize.js`, publishes the consolidated PR summary, and manages failure tracker issues.
+* Gate’s `summary` job now emits the consolidated PR comment, uploads `gate-summary.md`, and publishes `gate-coverage.json` / `gate-coverage-delta.json` for downstream consumers.
 * [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
-
-The summary workflow updates its PR comment via `.github/scripts/comment-dedupe.js`, ensuring a single authoritative status thread per pull request.
 
 ## Autofix & Maintenance
 
