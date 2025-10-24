@@ -61,7 +61,6 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "maint-45-cosmetic-repair.yml",
     "maint-47-disable-legacy-workflows.yml",
     "maint-coverage-guard.yml",
-    "maint-keepalive.yml",
     "pr-00-gate.yml",
     "reusable-10-ci-python.yml",
     "reusable-12-ci-docker.yml",
