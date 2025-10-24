@@ -74,15 +74,18 @@ jobs:
             const agent = process.env.AGENT || 'unknown';
             const issueNo = context.payload.issue && context.payload.issue.number;
             const manualIssue = '${{ inputs.issue_number }}';
-            core.summary.addHeading(`${agent.charAt(0).toUpperCase() + agent.slice(1)} Bridge Event Summary`).addTable([
-              [
-                {data:'Agent',header:true},
-                {data:'Issue (event)',header:true},
-                {data:'Issue (input)',header:true},
-                {data:'Mode',header:true}
-              ],
-              [agent, String(issueNo || ''), String(manualIssue || ''), '${{ inputs.mode }}']
-            ]).write();
+            await core.summary
+              .addHeading(`${agent.charAt(0).toUpperCase() + agent.slice(1)} Bridge Event Summary`)
+              .addTable([
+                [
+                  { data: 'Agent', header: true },
+                  { data: 'Issue (event)', header: true },
+                  { data: 'Issue (input)', header: true },
+                  { data: 'Mode', header: true }
+                ],
+                [agent, String(issueNo || ''), String(manualIssue || ''), '${{ inputs.mode }}']
+              ])
+              .write();
 
       - name: Resolve issue number
         id: ctx
