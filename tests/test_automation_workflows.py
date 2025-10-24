@@ -165,7 +165,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"detect", "python-ci", "docker-smoke", "summary"},
+            {"detect", "python-ci", "github-scripts-tests", "docker-smoke", "summary"},
         )
 
         job_detect = jobs["detect"]
@@ -196,7 +196,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["summary"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["detect", "python-ci", "docker-smoke"],
+            ["detect", "python-ci", "docker-smoke", "github-scripts-tests"],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(
@@ -478,16 +478,21 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
         script = (summarize_step or {}).get("run", "")
-        self.assertIn("| Job | Result |", script)
+        # After extraction, the workflow calls the gate_summary.py helper
+        self.assertIn("python .github/scripts/gate_summary.py", script)
+
+        # Verify the helper script exists and contains the expected logic
+        gate_summary_script = self._read_github_script("gate_summary.py")
+        self.assertIn("| Job | Result |", gate_summary_script)
         self.assertIn(
             "Docs-only change detected; heavy checks skipped",
-            script,
-            "Summarize step should append docs-only messaging to the Gate summary",
+            gate_summary_script,
+            "Gate summary script should append docs-only messaging to the Gate summary",
         )
         self.assertIn(
             "Gate fast-pass: docs-only change detected; heavy checks skipped.",
-            script,
-            "Summarize step should set the fast-pass description that matches the marker comment",
+            gate_summary_script,
+            "Gate summary script should set the fast-pass description that matches the marker comment",
         )
 
     def test_workflow_conditions_do_not_reintroduce_marker_expression(self) -> None:
