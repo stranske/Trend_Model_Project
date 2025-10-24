@@ -1,233 +1,117 @@
-1) Agents: Orchestrator can’t dispatch belt jobs (missing actions: write)
+1. Keepalive: event‑driven listener on Gate completion (cron stays as fallback)
 
-Labels: agents, automation, workflows, priority: high, risk: medium
-
-Why
-Scheduled Orchestrator runs fail to call Dispatcher/Worker because the caller lacks actions: write. No dispatch, no keepalive. Also ensure the workflow file lives on the default branch so the cron actually fires.
-
-Scope
-Grant minimal permissions, confirm schedule runs from default, and prove keepalive can reach Dispatcher/Worker.
-
-Task List
-
- In agents-70-orchestrator.yml, add:
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
-
-
- Ensure the workflow file exists on the repository’s default branch.
-
- Smoke test: run a workflow_dispatch of Orchestrator and verify it successfully invokes Dispatcher and Worker via workflow_call.
-
- Add a summary line: “Dispatch succeeded for N PRs; M skipped; K failures.”
-
-Acceptance Criteria
-
-A scheduled Orchestrator tick successfully calls Dispatcher/Worker without permission errors.
-
-Run summary shows count of dispatched PRs with links.
-
-No change to existing labels or agent prompts.
-
-Out of Scope
-Changing belt logic, Codex prompts, or acceptance-criteria formats.
-
-2) Agents: Conveyor YAML parse error (duplicate id) blocks promotions
-
-Labels: agents, automation, workflows, priority: high, risk: low
+Labels: agent:codex, agents, automation, workflows, ci, devops, priority: medium, risk:low, enhancement
 
 Why
-The conveyor workflow has the same id used twice for a step, invalidating the entire workflow. Promotions never execute.
 
-Scope
-Fix the duplicate id and keep one authoritative “mode” step.
+The current keepalive loop relies on periodic scans, which introduces latency and racy timing with autofix. A small event‑driven listener that fires when Gate completes on a PR makes keepalive responsive while leaving the cron loop as a safety net.
 
-Task List
+Tasks
 
- In agents-73-codex-belt-conveyor.yml, ensure only one step defines id: mode.
+Add a workflow that triggers on workflow_run of “Gate” with types: completed, filters to successful PR events, and dispatches a per‑PR keepalive job when keepalive is opted in.
+Honor the existing opt‑in signal (e.g., agents:keepalive label or a sentinel in the latest @codex comment if your bridge sets one) before dispatching.
+Set concurrency per PR so only one keepalive cycle can run for a given PR at a time and do not cancel in‑flight runs.
+Emit a short summary each time: PR number, whether keepalive dispatched, and why it was skipped if not.
+Leave the cron‑based keepalive in place as a fallback; it should also respect opt‑in and per‑PR concurrency.
 
- Actionlint pass on .github/workflows/**.yml.
+Acceptance criteria
 
- Dry run on a test PR: conveyor evaluates “mode,” logs dry-run vs live.
+A successful Gate run on an opted‑in PR results in exactly one new keepalive cycle without waiting for the cron tick.
+Non‑opt‑in PRs do not receive keepalive cycles from the event listener.
+Per‑PR concurrency prevents overlapping keepalive runs for the same PR.
+Run summaries show counts of dispatched and skipped PRs.
 
-Acceptance Criteria
+Implementation notes
 
-Workflow loads (no “duplicate id” error).
+Use on: workflow_run: workflows: ["Gate"] to match the existing workflow name and types: ["completed"].
+Filter to PR events (github.event.workflow_run.event == 'pull_request') and conclusion == 'success'.
+Check opt‑in by reading PR labels (e.g., agents:keepalive) or using your bridge’s sentinel logic, then dispatch the per‑PR keepalive workflow via actions.createWorkflowDispatch.
+Keep permissions: at least actions: write, contents: write, pull-requests: write, issues: write. 
+GitHub
 
-Conveyor run summary shows the resolved mode and target PR number(s).
+2. Keepalive: Pause/Resume via label gating and visible status
 
-No functional changes beyond making the file valid.
-
-Out of Scope
-Changing merge rules or branch-protection requirements.
-
-3) Issue Bridge: deterministic keepalive opt-in (options_json or label)
-
-Labels: agents, automation, workflows, priority: medium, risk: low
-
-Why
-Right now the keepalive decision depends on how poetic someone felt typing @codex. We need a machine-checkable switch so the bridge sets enable_keepalive without guessing.
-
-Scope
-Teach the Issue Bridge to set keepalive via either a sentinel phrase or a dedicated label, and pass it through to Orchestrator.
-
-Task List
-
- In agents-63-codex-issue-bridge.yml (or its called script), detect one of:
-
- Comment containing a sentinel like [keepalive], or
-
- Presence of a agents:keepalive label on the Issue/PR.
-
- When opt-in is true, pass:
-
-with:
-  options_json: '{"keepalive":{"enabled": true}}'
-
-
-when dispatching Orchestrator.
-
- When opt-in is false, explicitly pass enabled: false to avoid drift.
-
- Update the PR body header to state the current mode: “Keepalive: ON/OFF”.
-
-Acceptance Criteria
-
-Version A: @codex without sentinel or label runs once; no later keepalive ticks affect the PR.
-
-Version B: sentinel or label present triggers recurring keepalive cycles until AC complete.
-
-PR body shows the mode string and stays consistent with reality.
-
-Out of Scope
-Re-writing prompts or the belt’s internal step ordering.
-
-4) CI: unify coverage publisher and signals under one reusable job; Gate is authoritative
-
-Labels: ci, workflows, priority: medium, risk: low, testing
+Labels: agent:codex, agents, automation, workflows, devops, ci, priority: medium, risk:low, enhancement
 
 Why
-Coverage and status bounces between Gate and Post-CI produce drift and duplicate work. Gate should coordinate a single reusable CI job that publishes coverage once; Post-CI only reads and summarizes.
 
-Scope
-Fold ruff, type checks, pytest+coverage into reusable-10-ci-python.yml; Gate orchestrates; Post-CI reads.
+Sometimes you need to stop the loop to review changes or debug a test. A zero‑code, reversible Pause/Resume switch keeps keepalive predictable without removing opt‑in or rewriting configs.
 
-Task List
+Tasks
 
- Ensure reusable-10-ci-python.yml:
+Create a repository label agents:paused with description “Temporarily disable keepalive cycles for this PR.”
+Modify the keepalive scanner to exclude PRs that have agents:paused.
+Add an early‑exit guard to the per‑PR keepalive job that checks for agents:paused and exits successfully if present.
+Maintain a single sticky “Keepalive status” comment per PR that reads “Active,” “Paused,” “Waiting for checks,” or “Complete,” updated in place each cycle.
+Document the Pause/Resume control (label name, behavior, and where status appears) in the workflow documentation alongside the existing keepalive description.
 
- Runs ruff (lint/format check), type checks, and pytest with coverage on py311/py312.
+Acceptance criteria
 
- Uploads a single artifact at a stable path (e.g., artifacts/coverage/coverage.xml plus coverage.json).
+Applying agents:paused to an opted‑in PR prevents further keepalive cycles from both the scanner and any event‑driven listener.
+Removing agents:paused resumes the loop on the next eligible event (Gate completion or cron tick), with the status comment flipping back to “Active.”
+No duplicate cycles occur when pausing and immediately resuming; per‑PR concurrency prevents overlap.
+Pause does not alter other labels or merge state.
 
- In pr-00-gate.yml, call only the reusable job(s), keep docs-only fast-pass and Docker-only smoke.
+Implementation notes
 
- In Post-CI, remove any coverage repackaging or re-publishing; consume the one artifact and summarize.
+Apply the label gate in both places: the repository‑wide scanner and the per‑PR workflow, to avoid races.
+Have the per‑PR guard exit with code 0 so the run is a no‑op, not a failure.
+Keep the status comment bot‑owned so subsequent updates can edit it. 
+GitHub
++1
 
- Actionlint and job summaries updated accordingly.
+3. Keepalive OFF: Verify manual @codex plan produces scope and AC, no automated follow‑ups
 
-Acceptance Criteria
-
-Exactly one coverage artifact producer per PR.
-
-Gate status “Gate / gate” is the only required status in branch protection.
-
-Post-CI comment shows lint, types, tests, coverage using the single artifact.
-
-Out of Scope
-Adding more Python versions or exotic test shards.
-
-5) Autofix: single opt-in path from Post-CI; normalize label name
-
-Labels: autofix, workflows, ci, priority: medium, risk: low
+Labels: agent:codex, agents, automation, testing, ci, devops, priority: medium, risk:low, status: ready
 
 Why
-Two different entry points make double commits and finger-pointing. Keep one path: Post-CI invokes the autofix reusable when a PR has the appropriate label. Also stop arguing with yourself about the label string.
 
-Scope
-Consolidate to Post-CI as sole invoker and pick a single label, e.g., autofix:clean.
+We need a negative test to prove the manual flow (Version 1) never triggers keepalive. This protects against accidental opt‑in via comments or labels.
 
-Task List
+Tasks
 
- Remove the separate PR-scoped Autofix workflow or strip its logic so it’s inert.
+Create this Issue and apply agent:codex so the Codex Issue Bridge creates or updates a PR from the Issue content.
+In the PR, comment @codex start to request a scoped task list, acceptance criteria, and implementation notes. Do not include any keepalive sentinel or keepalive label.
+Make a small manual commit that addresses a subset of the acceptance criteria; let Gate and Post‑CI complete.
+Observe that no keepalive cycles run and no keepalive status thread appears.
 
- In maint-46-post-ci.yml, call the autofix reusable only when PR has autofix:clean.
+Acceptance criteria
 
- Normalize code to a single label value; remove fallbacks and environment defaults that disagree.
+Exactly one Codex planning response is posted to the PR with the task list and acceptance criteria.
+No keepalive runs are triggered for this PR: no dispatcher/worker/conveyor cycles and no keepalive status comment.
+Gate and Post‑CI behave normally; autofix runs only if you explicitly add autofix:clean.
 
- Post a one-shot “Autofix applied” comment with the file list and a link to the rerun Gate checks.
+Implementation notes
 
-Acceptance Criteria
+Use the same sections here (Why, Tasks, Acceptance criteria, Implementation notes) so the Bridge mirrors content into the PR description cleanly. 
+GitHub
 
-Only one workflow can perform autofix on a PR, guarded by autofix:clean.
+4. Keepalive ON: Verify event‑driven loop executes after Gate until all AC are met
 
-No duplicate “fix” commits for the same event.
-
-Gate reruns after autofix and status surfaces in the Post-CI summary.
-
-Out of Scope
-Adding new fix-it rules beyond formatting and trivial lint.
-
-6) Repo health: verify branch protection requires “Gate / gate”
-
-Labels: ci, health:repo, workflows, priority: medium, risk: low
+Labels: agent:codex, agents, automation, testing, ci, devops, priority: medium, risk:medium, status: ready
 
 Why
-If someone renames or un-checks required statuses, the guardrails vanish quietly. We need a weekly assertion that branch protection still requires the single Gate status.
 
-Scope
-Read branch-protection via API, fail loudly if “Gate / gate” is not required.
+We need a positive end‑to‑end test to confirm the keepalive loop runs automatically after each successful Gate, updating the branch and checklist until the acceptance criteria are complete.
 
-Task List
+Tasks
 
- In the repo-health workflow, add a step that fetches branch protection for the default branch and verifies required status checks include exactly “Gate / gate”.
+Create this Issue and apply agent:codex so the Codex Issue Bridge creates or updates a PR from the Issue content.
+In the PR, opt in to keepalive with a comment like @codex plan-and-execute [keepalive] or by applying the agents:keepalive label if your bridge supports label‑based opt‑in.
+Observe the first Codex execution push an update and wait for Gate to complete.
+After Gate succeeds, verify that the event‑driven keepalive listener dispatches the next Codex cycle automatically.
+If autofix is enabled via autofix:clean, verify keepalive waits for all checks to finish before dispatching again.
+Repeat until all acceptance criteria are checked off in the PR, then confirm the loop stops and the final status is “Complete.”
 
- On drift, fail the job and post an actionable summary with current vs expected checks.
+Acceptance criteria
 
- Add a short, “what to fix” pointer in the summary.
+After each successful Gate, exactly one keepalive cycle runs for the PR and updates the branch or checklist.
+Per‑PR concurrency prevents overlapping cycles for the same PR.
+The sticky status comment progresses through “Active → Waiting for checks → Active → Complete.”
+When all acceptance criteria are met, no further cycles are dispatched.
 
-Acceptance Criteria
+Implementation notes
 
-Weekly health run shows current branch-protection settings and passes when “Gate / gate” is required.
-
-On mismatch, job fails with explicit diff of required checks.
-
-Out of Scope
-Changing the name of the Gate job or adding secondary required checks.
-
-7) Docs: codify the target workflow layout and the keepalive switch
-
-Labels: documentation, docs, workflows, priority: low, risk: low
-
-Why
-Future you will forget which toggle wakes the robots. Document the topology and the two Codex modes in one place.
-
-Scope
-Write a single page and link to workflow files.
-
-Task List
-
- Add docs/ci/WORKFLOWS.md with:
-
- PR checks topology (Gate, reusable CI, Docker smoke, Post-CI).
-
- Agents control plane: Orchestrator scheduled, belt callable only.
-
- Keepalive switch: sentinel phrase [keepalive] or agents:keepalive label, and how the bridge passes options_json.
-
- Branch-protection requirement and the health check.
-
- Link to each workflow YAML for quick navigation.
-
-Acceptance Criteria
-
-One markdown page explains how to run Version A (manual) and Version B (keepalive), including labels used and expected run order.
-
-Contributors can follow it and not summon chaos by accident.
-
-Out of Scope
-A novel on why YAML is not a real programming language.
+The event‑driven listener should key off the “Gate” workflow name, so keep it stable.
+If label‑based opt‑in is used, ensure the listener and scanner both require the same label to avoid drift.
+Use your existing Issue Bridge format so the plan and AC land in the PR body exactly where Codex expects them.
