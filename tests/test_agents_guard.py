@@ -2,8 +2,18 @@ import json
 import subprocess
 from pathlib import Path
 from textwrap import dedent
+import shutil
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# Check if Node.js is available
+NODE_AVAILABLE = shutil.which("node") is not None
+skip_if_no_node = pytest.mark.skipif(
+    not NODE_AVAILABLE,
+    reason="Node.js not available (required for agents-guard.js tests)",
+)
 
 
 def get_default_marker():
@@ -133,6 +143,7 @@ CODEOWNERS_SAMPLE = """
 """.strip()
 
 
+@skip_if_no_node
 def test_deletion_blocks_with_comment():
     result = run_guard(
         files=[
@@ -150,6 +161,7 @@ def test_deletion_blocks_with_comment():
     assert result["commentBody"].startswith(get_default_marker_cached())
 
 
+@skip_if_no_node
 def test_custom_marker_propagates_to_comment():
     custom_marker = "<!-- custom-guard-marker -->"
     result = run_guard(
@@ -167,6 +179,7 @@ def test_custom_marker_propagates_to_comment():
     assert result["commentBody"].startswith(custom_marker)
 
 
+@skip_if_no_node
 def test_default_marker_added_once():
     result = run_guard(
         files=[
@@ -182,6 +195,7 @@ def test_default_marker_added_once():
     assert result["commentBody"].count(get_default_marker_cached()) == 1
 
 
+@skip_if_no_node
 def test_rename_blocks_with_guidance():
     result = run_guard(
         files=[
@@ -198,6 +212,7 @@ def test_rename_blocks_with_guidance():
     assert any("was renamed" in reason for reason in result["failureReasons"])
 
 
+@skip_if_no_node
 def test_modification_without_label_or_approval_requires_both():
     result = run_guard(
         files=[
@@ -216,6 +231,7 @@ def test_modification_without_label_or_approval_requires_both():
     assert any("Request approval" in reason for reason in result["failureReasons"])
 
 
+@skip_if_no_node
 def test_label_without_codeowner_still_blocks():
     result = run_guard(
         files=[
@@ -234,6 +250,7 @@ def test_label_without_codeowner_still_blocks():
     assert any("Request approval" in reason for reason in result["failureReasons"])
 
 
+@skip_if_no_node
 def test_label_and_codeowner_approval_passes():
     result = run_guard(
         files=[
@@ -256,6 +273,7 @@ def test_label_and_codeowner_approval_passes():
     assert result["summary"] == "Health 45 Agents Guard passed."
 
 
+@skip_if_no_node
 def test_codeowner_author_counts_as_approval():
     result = run_guard(
         files=[
@@ -275,6 +293,7 @@ def test_codeowner_author_counts_as_approval():
     assert result["hasAllowLabel"] is False
 
 
+@skip_if_no_node
 def test_codeowner_review_without_label_passes():
     result = run_guard(
         files=[
@@ -298,6 +317,7 @@ def test_codeowner_review_without_label_passes():
     assert result["hasAllowLabel"] is False
 
 
+@skip_if_no_node
 def test_codeowner_approval_without_label_passes():
     result = run_guard(
         files=[
@@ -321,6 +341,7 @@ def test_codeowner_approval_without_label_passes():
     assert result["hasAllowLabel"] is False
 
 
+@skip_if_no_node
 def test_unprotected_file_is_ignored():
     result = run_guard(
         files=[
@@ -338,6 +359,7 @@ def test_unprotected_file_is_ignored():
     assert result["failureReasons"] == []
 
 
+@skip_if_no_node
 def test_detect_no_violations_for_clean_workflow():
     source = dedent(
         """
@@ -354,6 +376,7 @@ def test_detect_no_violations_for_clean_workflow():
     assert detect_pull_request_target_violations(source) == []
 
 
+@skip_if_no_node
 def test_detect_flags_head_sha_checkout():
     source = dedent(
         """
@@ -370,6 +393,7 @@ def test_detect_flags_head_sha_checkout():
     assert any(item.get("type") == "checkout-head-sha" for item in violations)
 
 
+@skip_if_no_node
 def test_detect_flags_secrets_in_run_block():
     source = dedent(
         """
@@ -385,6 +409,7 @@ def test_detect_flags_secrets_in_run_block():
     assert any(item.get("type") == "secrets-run" for item in violations)
 
 
+@skip_if_no_node
 def test_detect_ignores_secrets_in_comments():
     source = dedent(
         """
@@ -399,6 +424,7 @@ def test_detect_ignores_secrets_in_comments():
     assert detect_pull_request_target_violations(source) == []
 
 
+@skip_if_no_node
 def test_validate_skips_non_target_event(tmp_path):
     result = validate_pull_request_target_safety(
         eventName="pull_request",
@@ -411,6 +437,7 @@ def test_validate_skips_non_target_event(tmp_path):
     assert result["result"]["violations"] == []
 
 
+@skip_if_no_node
 def test_validate_accepts_clean_workflow(tmp_path):
     workflow = dedent(
         """
@@ -437,6 +464,7 @@ def test_validate_accepts_clean_workflow(tmp_path):
     assert result["result"]["violations"] == []
 
 
+@skip_if_no_node
 def test_validate_blocks_unsafe_workflow(tmp_path):
     workflow = dedent(
         """
