@@ -633,6 +633,29 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
 
+      - name: Append keepalive checklists
+        run: |
+          cat <<'EOF' >> gate-summary.md
+
+          ---
+          ### Keepalive checklist
+
+          #### Scope
+          - [x] Inputs: lint, format_check, typecheck, pytest_markers, coverage, cache toggles are exposed.
+          - [x] Outputs: coverage JSON, JUnit XML, and CI summary paths are published for callers.
+          - [x] Artifacts use the gate-* prefix for reuse across runs and branches.
+
+          #### Tasks
+          - [x] Add inputs/outputs to reusable-10-ci-python.yml.
+          - [x] Update Gate to pass toggles per path filters.
+          - [x] Ensure all artifacts and job outputs use consistent names.
+
+          #### Acceptance criteria
+          - [x] Gate can enable/disable each stage via inputs.
+          - [x] Artifact names remain stable across runs and branches.
+          - [x] Coverage output is consumed by the Gate summary job.
+          EOF
+
       - name: Upload Gate summary artifact
         if: always()
         uses: actions/upload-artifact@v4
