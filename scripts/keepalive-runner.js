@@ -404,7 +404,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   if (paused.length) {
     summary.addDetails('Paused pull requests', summariseList(paused));
   }
-  summary.addRaw(`Paused pull requests: ${paused.length}`).addEOL();
+  const pausedSuffix = paused.length === 1 ? 'PR' : 'PRs';
+  summary.addRaw(`Skipped ${paused.length} paused ${pausedSuffix}.`).addEOL();
   summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
   await summary.write();
 }
