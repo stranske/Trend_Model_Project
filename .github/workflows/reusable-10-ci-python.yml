@@ -138,10 +138,6 @@ on:
         description: JSON array of Python versions to execute.
         required: false
         default: '["3.11"]'
-      python-version:
-        description: Primary Python version to use when `python-versions` is empty.
-        required: false
-        default: '3.11'
       pytest_markers:
         description: Optional pytest marker expression.
         required: false
@@ -158,11 +154,6 @@ on:
         type: boolean
       typecheck:
         description: Toggle mypy execution.
-        required: false
-        default: true
-        type: boolean
-      run-mypy:
-        description: Deprecated alias for `typecheck`.
         required: false
         default: true
         type: boolean
@@ -183,11 +174,6 @@ on:
         type: boolean
       enable-history:
         description: Append metrics history NDJSON artifact.
-        required: false
-        default: false
-        type: boolean
-      enable-coverage-delta:
-        description: Compute coverage delta vs baseline configuration.
         required: false
         default: false
         type: boolean
