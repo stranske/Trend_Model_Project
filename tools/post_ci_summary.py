@@ -1,6 +1,6 @@
 """Helpers for building the consolidated post-CI run summary.
 
-Originally wired to the maint-46-post-ci follower, the helper now powers the
+Originally wired to the legacy post-CI follower, the helper now powers the
 inline `summary` job in `pr-00-gate.yml`. Unit tests keep coverage without
 requiring the full workflow to run on GitHub.
 """
