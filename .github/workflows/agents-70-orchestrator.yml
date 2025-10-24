@@ -3,6 +3,16 @@ name: Agents 70 Orchestrator
 on:
   schedule:
     - cron: '*/20 * * * *'
+  repository_dispatch:
+    types:
+      - agents-orchestrator-ping
+    # Expected payload:
+    #   event_type: agents-orchestrator-ping
+    #   client_payload:
+    #     keepalive_enabled: true|false (optional)
+    #     dry_run: true|false (optional)
+    #     params: { ... }        # forwarded to params_json
+    #     options: { ... }       # forwarded to options_json overrides
   workflow_dispatch:
     inputs:
       # Keepalive controls — toggle the sweep or combine with keepalive:paused label.
@@ -38,8 +48,86 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  idle-precheck:
+    name: Idle precheck
+    runs-on: ubuntu-latest
+    outputs:
+      has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
+    steps:
+      - name: Detect manual dispatch origin
+        if: github.event_name == 'repository_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sender = context.payload?.sender?.login || 'unknown';
+            const type = context.payload?.action || context.payload?.event_type || 'agents-orchestrator-ping';
+            core.info(`Repository dispatch received from @${sender} (type: ${type}).`);
+
+      - name: Count agent issues
+        id: precheck
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = core.summary;
+            const { owner, repo } = context.repo;
+            const started = Date.now();
+            let count = 0;
+
+            await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              },
+              (response, done) => {
+                for (const issue of response.data || []) {
+                  if (issue.pull_request) {
+                    continue;
+                  }
+                  const labels = Array.isArray(issue.labels) ? issue.labels : [];
+                  if (
+                    labels.some((label) => {
+                      const name = typeof label === 'string' ? label : label?.name;
+                      return typeof name === 'string' && name.startsWith('agent:');
+                    })
+                  ) {
+                    count += 1;
+                    if (count > 0) {
+                      done();
+                      break;
+                    }
+                  }
+                }
+                return [];
+              }
+            );
+
+            const hasWork = count > 0;
+            const elapsed = Math.round((Date.now() - started) / 100) / 10;
+            core.setOutput('has_work', hasWork ? 'true' : 'false');
+
+            summary.addHeading('Agents orchestrator idle precheck');
+            summary.addRaw(`agent:* issues detected: ${count}`);
+            summary.addEOL();
+            summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`);
+            summary.addEOL();
+            if (!hasWork) {
+              summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
+            }
+            await summary.write();
+
+            if (!hasWork) {
+              core.info('Idle, skipping orchestrator dispatch.');
+            } else {
+              core.info(`Detected ${count} agent-triage issues; proceeding.`);
+            }
+
   resolve-params:
     name: Resolve Parameters
+    needs: idle-precheck
+    if: needs.idle-precheck.outputs.has_work == 'true'
     runs-on: ubuntu-latest
     outputs:
       enable_readiness: ${{ steps.resolve.outputs.enable_readiness }}
@@ -83,10 +171,38 @@ jobs:
         id: resolve
         uses: actions/github-script@v7
         env:
-          PARAMS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.params_json || '{}' }}
-          WORKFLOW_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || '' }}
-          WORKFLOW_OPTIONS_JSON: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.options_json || '' }}
-          WORKFLOW_KEEPALIVE_ENABLED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled || '' }}
+          PARAMS_JSON: ${{
+            github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
+            github.event_name == 'repository_dispatch' && (
+              github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
+              github.event.client_payload && github.event.client_payload.params_json ||
+              ''
+            ) ||
+            '{}'
+          }}
+          WORKFLOW_DRY_RUN: ${{
+            github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
+            github.event_name == 'repository_dispatch' && (
+              github.event.client_payload && github.event.client_payload.dry_run || ''
+            ) ||
+            ''
+          }}
+          WORKFLOW_OPTIONS_JSON: ${{
+            github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
+            github.event_name == 'repository_dispatch' && (
+              github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
+              github.event.client_payload && github.event.client_payload.options_json ||
+              ''
+            ) ||
+            ''
+          }}
+          WORKFLOW_KEEPALIVE_ENABLED: ${{
+            github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
+            github.event_name == 'repository_dispatch' && (
+              github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
+            ) ||
+            ''
+          }}
         with:
           script: |
             const DEFAULT_READINESS_AGENTS = 'copilot,codex';
