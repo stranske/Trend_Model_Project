@@ -2,16 +2,6 @@ name: Reusable CI
 
 on:
   workflow_call:
-    outputs:
-      coverage_json:
-        description: Path to the coverage JSON report if generated.
-        value: ${{ jobs.tests.outputs.coverage_json }}
-      junit_path:
-        description: Path to the staged JUnit XML report for the runtime.
-        value: ${{ jobs.tests.outputs.junit_path }}
-      summary_path:
-        description: Path to the structured summary JSON emitted for the runtime.
-        value: ${{ jobs.tests.outputs.summary_path }}
     inputs:
       python-version:
         description: Primary Python version to use when `python-versions` is not provided.
@@ -210,10 +200,6 @@ on:
 jobs:
   tests:
     name: python ${{ matrix.python-version }}
-    outputs:
-      coverage_json: ${{ steps.coverage_paths.outputs.coverage_json }}
-      junit_path: ${{ steps.coverage_paths.outputs.junit_path }}
-      summary_path: ${{ steps.coverage_paths.outputs.summary_path }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
