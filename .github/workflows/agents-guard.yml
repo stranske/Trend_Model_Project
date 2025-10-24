@@ -1,3 +1,7 @@
+# Protects the agents workflow suite. This guard runs on pull_request for normal
+# checks and on pull_request_target to apply safety gates before any privileged
+# context is used. Do not remove the safety step – it ensures we never checkout
+# untrusted refs or log repository secrets when running with elevated tokens.
 name: Health 45 Agents Guard
 
 on:
@@ -27,6 +31,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verify pull_request_target safety invariants
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+            const guardPath = path.resolve(workspace, '.github/scripts/agents-guard.js');
+            const { validatePullRequestTargetSafety } = require(guardPath);
+
+            validatePullRequestTargetSafety({
+              eventName: context.eventName,
+              workflowPath: '.github/workflows/agents-guard.yml',
+              workspaceRoot: workspace,
+            });
+
       - name: Evaluate protected file changes
         id: evaluate
         uses: actions/github-script@v7
