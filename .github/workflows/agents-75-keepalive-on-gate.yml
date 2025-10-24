@@ -9,7 +9,6 @@ permissions:
   pull-requests: write
   issues: write
   actions: write
-  workflow: write
 
 jobs:
   maybe-keepalive:

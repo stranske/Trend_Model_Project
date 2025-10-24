@@ -22,7 +22,9 @@ class AutofixContext:
 
     @property
     def file_list(self) -> list[str]:
-        return [line.strip() for line in self.file_list_raw.splitlines() if line.strip()]
+        return [
+            line.strip() for line in self.file_list_raw.splitlines() if line.strip()
+        ]
 
 
 def load_enriched(path: Path) -> dict | None:
@@ -41,7 +43,9 @@ def build_report(ctx: AutofixContext) -> dict:
         report.update(
             {
                 "pull_request": ctx.pr_number,
-                "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp_utc": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
             }
         )
         return report
@@ -56,13 +60,17 @@ def build_report(ctx: AutofixContext) -> dict:
 
 
 def write_report(report: dict, destination: Path) -> None:
-    destination.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    destination.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def build_context() -> AutofixContext:
     return AutofixContext(
         output_path=Path(os.environ.get("AUTOFIX_REPORT", "autofix_report.json")),
-        enriched_path=Path(os.environ.get("AUTOFIX_REPORT_ENRICHED", "autofix_report_enriched.json")),
+        enriched_path=Path(
+            os.environ.get("AUTOFIX_REPORT_ENRICHED", "autofix_report_enriched.json")
+        ),
         pr_number=os.environ.get("PR_NUMBER"),
         mode=os.environ.get("REPORT_MODE", ""),
         changed=os.environ.get("REPORT_CHANGED", ""),

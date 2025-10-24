@@ -148,3 +148,13 @@ def test_keepalive_respects_paused_label() -> None:
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
         in created[0]["body"]
     )
+
+
+def test_keepalive_handles_paged_comments() -> None:
+    data = _run_scenario("paged_comments")
+    created = data["created_comments"]
+    assert [item["issue_number"] for item in created] == [808]
+    assert created[0]["body"].startswith("@codex plan-and-execute")
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Triggered keepalive count: 1" in raw
