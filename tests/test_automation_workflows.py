@@ -184,9 +184,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             job_python_ci.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
         )
         with_block_python = job_python_ci.get("with", {})
-        self.assertEqual(
-            with_block_python.get("python-versions"), '["3.11", "3.12"]'
-        )
+        self.assertEqual(with_block_python.get("python-versions"), '["3.11", "3.12"]')
         self.assertEqual(with_block_python.get("marker"), "not quarantine and not slow")
         self.assertEqual(with_block_python.get("primary-python-version"), "3.11")
 

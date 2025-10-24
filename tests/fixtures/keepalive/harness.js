@@ -137,8 +137,11 @@ async function runScenario(scenario) {
     return { data: slice };
   };
 
-  const listComments = async ({ issue_number }) => {
-    return { data: commentMap.get(issue_number) || [] };
+  const listComments = async ({ issue_number, per_page = 30, page = 1 }) => {
+    const comments = commentMap.get(issue_number) || [];
+    const start = (page - 1) * per_page;
+    const slice = comments.slice(start, start + per_page);
+    return { data: slice };
   };
 
   const createComment = async ({ issue_number, body }) => {
@@ -157,21 +160,25 @@ async function runScenario(scenario) {
     },
     paginate: {
       iterator: (method, params) => {
-        if (method !== listPulls) {
+        if (method !== listPulls && method !== listComments) {
           throw new Error('Unsupported paginate target');
         }
-        const perPage = params.per_page || 50;
-        let page = 1;
+        const defaultPerPage = method === listPulls ? 50 : 30;
+        const perPage = params.per_page || defaultPerPage;
         return {
           async *[Symbol.asyncIterator]() {
+            let page = 1;
             while (true) {
-              const start = (page - 1) * perPage;
-              if (start >= pulls.length) {
+              const response = await method({ ...params, page, per_page: perPage });
+              const data = Array.isArray(response.data) ? response.data : [];
+              if (!data.length) {
                 break;
               }
-              const response = await method({ ...params, page });
-              page += 1;
               yield response;
+              if (data.length < perPage) {
+                break;
+              }
+              page += 1;
             }
           },
         };
