@@ -76,6 +76,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
   const options = parseJson(rawOptions, {});
   const summary = core.summary;
+  const pausedLabel = 'agents:paused';
 
   const addHeading = () => {
     summary.addHeading('Codex Keepalive');
@@ -89,7 +90,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   if (!keepaliveEnabled) {
     core.info('Codex keepalive disabled via options_json.');
     addHeading();
-    summary.addRaw('Skip requested via options_json.');
+    summary.addRaw('Skip requested via options_json.').addEOL();
+    summary.addRaw('Skipped 0 paused PRs.').addEOL();
+    summary.addRaw('Evaluated pull requests: 0').addEOL();
     await summary.write();
     return;
   }
@@ -132,6 +135,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const now = Date.now();
   const triggered = [];
   const previews = [];
+  const paused = [];
   let scanned = 0;
   addHeading();
   summary
@@ -146,6 +150,49 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     { owner, repo, state: 'open', per_page: 50 }
   );
 
+  const fetchIssueComments = async (issueNumber) => {
+    const comments = [];
+    const perPage = 100;
+    const hasIterator = Boolean(github.paginate?.iterator);
+
+    if (hasIterator) {
+      const iterator = github.paginate.iterator(github.rest.issues.listComments, {
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: perPage,
+      });
+
+      for await (const page of iterator) {
+        const data = Array.isArray(page.data) ? page.data : [];
+        if (data.length) {
+          comments.push(...data);
+        }
+      }
+    } else {
+      let page = 1;
+      while (true) {
+        const { data } = await github.rest.issues.listComments({
+          owner,
+          repo,
+          issue_number: issueNumber,
+          per_page: perPage,
+          page,
+        });
+        if (!Array.isArray(data) || !data.length) {
+          break;
+        }
+        comments.push(...data);
+        if (data.length < perPage) {
+          break;
+        }
+        page += 1;
+      }
+    }
+
+    return comments;
+  };
+
   for await (const page of paginatePulls) {
     for (const pr of page.data) {
       scanned += 1;
@@ -158,13 +205,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
+      if (labelNames.includes(pausedLabel)) {
+        paused.push(`#${pr.number} – paused via agents:paused`);
+        core.info(`#${pr.number}: skipped – keepalive paused via agents:paused label.`);
+        continue;
+      }
+
       const prNumber = pr.number;
-      const { data: comments } = await github.rest.issues.listComments({
-        owner,
-        repo,
-        issue_number: prNumber,
-        per_page: 100,
-      });
+      const comments = await fetchIssueComments(prNumber);
       if (!comments.length) {
         core.info(`#${prNumber}: skipped – no timeline comments.`);
         continue;
@@ -286,6 +334,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
   }
+  if (paused.length) {
+    summary.addDetails('Paused pull requests', summariseList(paused));
+  }
+  summary.addRaw(`Skipped ${paused.length} paused PR${paused.length === 1 ? '' : 's'}.`).addEOL();
   summary.addRaw(`Evaluated pull requests: ${scanned}`).addEOL();
   await summary.write();
 }

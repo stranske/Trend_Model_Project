@@ -86,13 +86,19 @@ def load_baseline(path: Path) -> BaselineConfig:
     baseline = _to_float(data.get("line"))
     warn_drop = _to_float(data.get("warn_drop")) or 1.0
     recovery_days_raw = data.get("recovery_days")
-    recovery_days = _to_int(recovery_days_raw) if recovery_days_raw is not None else None
+    recovery_days = (
+        _to_int(recovery_days_raw) if recovery_days_raw is not None else None
+    )
     if recovery_days is None or recovery_days <= 0:
         recovery_days = 3
-    return BaselineConfig(baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days)
+    return BaselineConfig(
+        baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days
+    )
 
 
-def load_snapshot(trend_path: Path, config: BaselineConfig) -> Optional[CoverageSnapshot]:
+def load_snapshot(
+    trend_path: Path, config: BaselineConfig
+) -> Optional[CoverageSnapshot]:
     data = load_json(trend_path)
     if not isinstance(data, Mapping):
         print(f"Coverage trend data missing at {trend_path}", file=sys.stderr)
@@ -191,7 +197,13 @@ def github_request(
 def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     url = f"/repos/{repo}/issues"
-    params = {"state": "all", "labels": label, "per_page": 100, "sort": "created", "direction": "asc"}
+    params = {
+        "state": "all",
+        "labels": label,
+        "per_page": 100,
+        "sort": "created",
+        "direction": "asc",
+    }
     while url:
         body, headers = github_request("GET", url, token, params=params)
         params = None
@@ -202,15 +214,23 @@ def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     return issues
 
 
-def find_issue(repo: str, token: str, label: str, title: str) -> Optional[dict[str, Any]]:
-    candidates = [issue for issue in list_issues(repo, token, label) if str(issue.get("title", "")).startswith(title)]
+def find_issue(
+    repo: str, token: str, label: str, title: str
+) -> Optional[dict[str, Any]]:
+    candidates = [
+        issue
+        for issue in list_issues(repo, token, label)
+        if str(issue.get("title", "")).startswith(title)
+    ]
     if not candidates:
         return None
     candidates.sort(key=lambda item: item.get("created_at", ""))
     return candidates[0]
 
 
-def create_issue(repo: str, token: str, title: str, body: str, label: str) -> dict[str, Any]:
+def create_issue(
+    repo: str, token: str, title: str, body: str, label: str
+) -> dict[str, Any]:
     payload = {"title": title, "body": body, "labels": [label]}
     issue, _ = github_request("POST", f"/repos/{repo}/issues", token, payload=payload)
     if not isinstance(issue, Mapping):  # pragma: no cover - defensive
@@ -218,7 +238,14 @@ def create_issue(repo: str, token: str, title: str, body: str, label: str) -> di
     return dict(issue)
 
 
-def update_issue(repo: str, token: str, number: int, *, body: Optional[str] = None, state: Optional[str] = None) -> None:
+def update_issue(
+    repo: str,
+    token: str,
+    number: int,
+    *,
+    body: Optional[str] = None,
+    state: Optional[str] = None,
+) -> None:
     payload: dict[str, Any] = {}
     if body is not None:
         payload["body"] = body
@@ -230,7 +257,9 @@ def update_issue(repo: str, token: str, number: int, *, body: Optional[str] = No
 
 
 def post_comment(repo: str, token: str, number: int, body: str) -> None:
-    github_request("POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body})
+    github_request(
+        "POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body}
+    )
 
 
 def read_metadata(body: str) -> dict[str, Any]:
@@ -282,7 +311,9 @@ def compose_issue_body(config: BaselineConfig, metadata: Mapping[str, Any]) -> s
     return "\n".join(lines) + "\n"
 
 
-def compute_top_files(data: Optional[Mapping[str, Any]], limit: int) -> list[FileCoverage]:
+def compute_top_files(
+    data: Optional[Mapping[str, Any]], limit: int
+) -> list[FileCoverage]:
     if not isinstance(data, Mapping):
         return []
     files = data.get("files")
@@ -366,7 +397,9 @@ def build_update_comment(
     return "\n".join(lines)
 
 
-def build_recovered_comment(snapshot: CoverageSnapshot, config: BaselineConfig, date: dt.date) -> str:
+def build_recovered_comment(
+    snapshot: CoverageSnapshot, config: BaselineConfig, date: dt.date
+) -> str:
     return (
         "✅ Coverage recovered above baseline for "
         f"{config.recovery_days} consecutive days.\n\n"
@@ -375,7 +408,9 @@ def build_recovered_comment(snapshot: CoverageSnapshot, config: BaselineConfig, 
     )
 
 
-def ensure_issue(repo: str, token: str, config: BaselineConfig, issue_title: str, label: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def ensure_issue(
+    repo: str, token: str, config: BaselineConfig, issue_title: str, label: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
     issue = find_issue(repo, token, label, issue_title)
     metadata: dict[str, Any]
     if issue is None:
@@ -395,7 +430,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--repo", required=True, help="Repository in owner/name format")
     parser.add_argument("--trend-path", type=Path, default=Path("coverage-trend.json"))
     parser.add_argument("--coverage-path", type=Path, default=Path("coverage.json"))
-    parser.add_argument("--baseline-path", type=Path, default=Path("config/coverage-baseline.json"))
+    parser.add_argument(
+        "--baseline-path", type=Path, default=Path("config/coverage-baseline.json")
+    )
     parser.add_argument("--issue-title", default=DEFAULT_ISSUE_TITLE)
     parser.add_argument("--label", default=DEFAULT_ISSUE_LABEL)
     parser.add_argument("--recovery-days", type=int, default=None)
@@ -425,7 +462,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         coverage_data = load_json(args.coverage_path)
         top_files = compute_top_files(coverage_data, args.top_limit)
 
-        issue, metadata = ensure_issue(args.repo, token, config, args.issue_title, args.label)
+        issue, metadata = ensure_issue(
+            args.repo, token, config, args.issue_title, args.label
+        )
         issue_number = int(issue["number"])
         is_open = issue.get("state") == "open"
 
@@ -441,7 +480,13 @@ def main(argv: Optional[list[str]] = None) -> int:
                 update_issue(args.repo, token, issue_number, state="open")
                 issue["state"] = "open"
                 print(f"Reopened coverage guard issue #{issue_number}")
-            metadata.update({"recovery": 0, "last_status": "below", "last_updated": today.isoformat()})
+            metadata.update(
+                {
+                    "recovery": 0,
+                    "last_status": "below",
+                    "last_updated": today.isoformat(),
+                }
+            )
             body = compose_issue_body(config, metadata)
             update_issue(args.repo, token, issue_number, body=body)
             comment = build_update_comment(
@@ -464,8 +509,18 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             return 0
 
-        recovery = recovery_count + 1 if last_status == "above" or last_status == "recovery" else 1
-        metadata.update({"recovery": recovery, "last_status": "above", "last_updated": today.isoformat()})
+        recovery = (
+            recovery_count + 1
+            if last_status == "above" or last_status == "recovery"
+            else 1
+        )
+        metadata.update(
+            {
+                "recovery": recovery,
+                "last_status": "above",
+                "last_updated": today.isoformat(),
+            }
+        )
         body = compose_issue_body(config, metadata)
         update_issue(args.repo, token, issue_number, body=body)
 

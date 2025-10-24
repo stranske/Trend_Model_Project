@@ -1,0 +1,170 @@
+name: Agents Keepalive PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Pull request number'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: keepalive-pr-${{ inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  update-status:
+    name: Update Keepalive Status
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PR_NUMBER: ${{ inputs.pr }}
+    steps:
+      - name: Validate keepalive identity
+        run: |
+          if [ -z "${{ secrets.service_bot_pat }}" ]; then
+            echo "::error::service_bot_pat secret is required for keepalive status updates." >&2
+            exit 1
+          fi
+      - name: Resolve keepalive state
+        id: state
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr }}
+        with:
+          github-token: ${{ secrets.service_bot_pat }}
+          script: |
+            const marker = '<!-- keepalive-status -->';
+            const prNumberRaw = process.env.PR_NUMBER;
+            const prNumber = Number(prNumberRaw);
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setFailed(`Invalid pull request number: ${prNumberRaw}`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+
+            const labels = (pr.labels || []).map((label) =>
+              (typeof label === 'string' ? label : label?.name || '').toLowerCase()
+            );
+            const paused = labels.includes('agents:paused');
+            const closed = (pr.state || '').toLowerCase() === 'closed';
+            const merged = Boolean(pr.merged_at);
+
+            let combinedState = '';
+            try {
+              const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+                owner,
+                repo,
+                ref: pr.head.sha
+              });
+              combinedState = (combined.state || '').toLowerCase();
+            } catch (error) {
+              core.warning(`Failed to fetch combined status for #${prNumber}: ${error.message}`);
+            }
+
+            const waitingForChecks = ['pending', 'failure'].includes(combinedState);
+
+            let state = 'Active';
+            if (closed) {
+              state = 'Complete';
+            } else if (paused) {
+              state = 'Paused';
+            } else if (waitingForChecks) {
+              state = 'Waiting for checks';
+            }
+
+            const timestamp = new Date().toISOString();
+            const lines = [
+              marker,
+              '### Keepalive status',
+              `State: **${state}**`,
+              `Updated: ${timestamp}`,
+              ''
+            ];
+
+            if (state === 'Paused') {
+              lines.push('Keepalive runs are paused. Remove the `agents:paused` label to resume automation.');
+            } else if (state === 'Complete') {
+              lines.push('Keepalive automation is complete for this pull request.');
+            } else if (state === 'Waiting for checks') {
+              lines.push('Keepalive automation will resume once required checks succeed.');
+            } else {
+              lines.push('Keepalive automation is active.');
+            }
+
+            const body = lines.join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            const normalise = (login) => String(login || '').trim().toLowerCase();
+
+            const keeper = comments.find((comment) =>
+              (comment.body || '').includes(marker) && normalise(comment.user?.login) === 'stranske-automation-bot'
+            );
+
+            let commentUrl = '';
+            if (keeper) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: keeper.id,
+                body
+              });
+              commentUrl = keeper.html_url || '';
+            } else {
+              const { data: created } = await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body
+              });
+              commentUrl = created.html_url || '';
+            }
+
+            core.setOutput('state', state);
+            core.setOutput('paused', paused ? 'true' : 'false');
+            core.setOutput('closed', closed ? 'true' : 'false');
+            core.setOutput('merged', merged ? 'true' : 'false');
+            core.setOutput('comment_url', commentUrl);
+            core.setOutput('combined_state', combinedState || 'unknown');
+            core.info(`Keepalive status for #${prNumber}: ${state}`);
+            if (paused) {
+              core.info('agents:paused label detected; downstream automation will not dispatch.');
+            }
+            if (state === 'Waiting for checks') {
+              core.info(`Checks still pending or failing for #${prNumber}; keepalive dispatch deferred.`);
+            }
+
+      - name: Summarise keepalive status
+        run: |
+          {
+            echo "## Keepalive status summary";
+            echo "* PR: #${PR_NUMBER}";
+            echo "* State: ${{ steps.state.outputs.state }}";
+            echo "* Paused: ${{ steps.state.outputs.paused || 'false' }}";
+            echo "* Comment: ${{ steps.state.outputs.comment_url || 'n/a' }}";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Halt when paused
+        if: steps.state.outputs.paused == 'true'
+        run: echo "Keepalive paused; skipping follow-up automation."
+
+      - name: Halt while checks pending
+        if: steps.state.outputs.state == 'Waiting for checks'
+        run: echo "Required checks still running or failing; keepalive will resume later."
+
+      - name: Halt when complete
+        if: steps.state.outputs.state == 'Complete'
+        run: echo "Keepalive complete; no further automation required."

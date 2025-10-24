@@ -1,3 +1,16 @@
+# Actionlint 1.7+ cannot infer outputs exposed by call-workflow jobs, so it
+# flags references to needs.belt-dispatch.outputs.* and
+# needs.belt-worker.outputs.* inside agents-70-orchestrator.yml. These outputs
+# are guaranteed by the reusable workflows and exercised in tests, so we
+# suppress those false positives here.
+property\s+"?issue"?\s+is\s+not\s+defined.*
+property\s+"?branch"?\s+is\s+not\s+defined.*
+property\s+"?base"?\s+is\s+not\s+defined.*
+property\s+"?reason"?\s+is\s+not\s+defined.*
+property\s+"?dry_run"?\s+is\s+not\s+defined.*
+property\s+"?allowed"?\s+is\s+not\s+defined.*
+property\s+"?pr_number"?\s+is\s+not\s+defined.*
+property\s+"?worker_max_parallel"?\s+is\s+not\s+defined.*
 # Format: CODE:pattern
 # Lines are converted to `-ignore=CODE:pattern` arguments by the
 # `Compute actionlint allowlist` workflow step. Keep this list short and

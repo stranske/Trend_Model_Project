@@ -9,7 +9,6 @@ permissions:
   pull-requests: write
   issues: write
   actions: write
-  workflow: write
 
 jobs:
   maybe-keepalive:
@@ -34,9 +33,15 @@ jobs:
             // Gate on opt-in: label like 'agents:keepalive' OR the last bot comment containing a sentinel
             const labels = pr.labels.map(l => l.name);
             const keepalive = labels.includes('agents:keepalive');
+            const paused = labels.map((name) => (name || '').toLowerCase()).includes('agents:paused');
 
             if (!keepalive) {
               core.info(`PR #${prNum}: keepalive not enabled; skipping.`);
+              return;
+            }
+
+            if (paused) {
+              core.info(`PR #${prNum}: keepalive paused via agents:paused; skipping dispatch.`);
               return;
             }
 
