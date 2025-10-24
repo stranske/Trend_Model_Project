@@ -3,6 +3,13 @@
 const DEFAULT_MARKER = '<!-- agents-guard-marker -->';
 
 const DEFAULT_PROTECTED_PATHS = ['.github/workflows/agents-*.yml'];
+const ALLOW_REMOVED_PATHS = new Set(
+  [
+    // Keepalive consolidation retired the standalone keepalive sweeps.
+    '.github/workflows/agents-75-keepalive-on-gate.yml',
+    '.github/workflows/agents-keepalive-pr.yml',
+  ].map((entry) => entry.toLowerCase()),
+);
 
 function escapeRegex(text) {
   return text.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -228,9 +235,18 @@ function evaluateGuard({
 
     const protectedPath = matchProtectedPath(current) || (previous ? matchProtectedPath(previous) : null);
 
+    const normalizedCurrent = normalizePattern(current).toLowerCase();
+    const normalizedPrevious = normalizePattern(previous).toLowerCase();
+    const removalAllowed =
+      (normalizedCurrent && ALLOW_REMOVED_PATHS.has(normalizedCurrent)) ||
+      (normalizedPrevious && ALLOW_REMOVED_PATHS.has(normalizedPrevious));
+
     if (protectedPath) {
       touchedProtectedPaths.add(protectedPath);
       if (status === 'removed') {
+        if (removalAllowed) {
+          continue;
+        }
         fatalViolations.push(`• ${current} was deleted.`);
         continue;
       }

@@ -481,22 +481,34 @@ def test_keepalive_job_runs_after_failures():
     ), "Keepalive job must run even if earlier jobs fail while respecting enable_keepalive flag"
 
 
-def test_gate_keepalive_respects_paused_label():
-    text = (WORKFLOWS_DIR / "agents-75-keepalive-on-gate.yml").read_text(
-        encoding="utf-8"
-    )
+def test_orchestrator_documents_keepalive_pause_controls():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
+    dispatch = (_workflow_on_section(data)).get("workflow_dispatch") or {}
+    inputs = dispatch.get("inputs") or {}
+    keepalive = inputs.get("keepalive_enabled")
+    assert keepalive, "Orchestrator must expose keepalive_enabled workflow input"
     assert (
-        "agents:paused" in text
-    ), "Gate keepalive workflow must skip PRs marked with agents:paused"
+        str(keepalive.get("description", "")).lower().startswith("enable codex keepalive sweep")
+    ), "keepalive_enabled input should document its keepalive toggle behaviour"
+    assert (
+        str(keepalive.get("default", "")).strip("'").lower() == "true"
+    ), "keepalive_enabled input should default to enabled"
 
 
-def test_per_pr_keepalive_workflow_exists():
-    path = WORKFLOWS_DIR / "agents-keepalive-pr.yml"
-    assert path.exists(), "Per-PR keepalive workflow must exist"
-    text = path.read_text(encoding="utf-8")
+def test_orchestrator_handles_keepalive_pause_label():
+    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
-        "<!-- keepalive-status -->" in text
-    ), "Per-PR keepalive workflow must manage the sticky status comment"
+        'keepalive skipped: repository label "${KEEPALIVE_PAUSE_LABEL}" is present.' in text
+    ), "Orchestrator must log keepalive skipped when pause label is present"
+    assert (
+        "keepalive_paused_label" in text
+    ), "Orchestrator outputs should surface whether the pause label was detected"
+    assert (
+        "keepalive_pause_label" in text
+    ), "Orchestrator outputs should expose the pause label name for downstream jobs"
+    assert (
+        "keepalive:paused" in text
+    ), "Pause label constant must be documented in the workflow script"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
