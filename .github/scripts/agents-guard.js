@@ -277,8 +277,8 @@ function evaluateGuard({
   const hasExternalApproval = [...codeownerLogins].some((login) => approvedLogins.has(login));
   const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
 
-  const needsLabel = modifiedProtectedPaths.size > 0 && !hasAllowLabel;
   const needsApproval = modifiedProtectedPaths.size > 0 && !hasCodeownerApproval;
+  const needsLabel = modifiedProtectedPaths.size > 0 && !hasAllowLabel && !hasCodeownerApproval;
 
   const failureReasons = [];
   if (fatalViolations.length > 0) {
