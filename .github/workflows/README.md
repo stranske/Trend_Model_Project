@@ -9,7 +9,7 @@ inventory and naming rules.
 ## 1. Architecture Snapshot
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
-- Autofix lane (`maint-46-post-ci.yml`): workflow_run follower that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
+- Gate summary (`pr-00-gate.yml` post-CI jobs): integrated post-CI reporting that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - Codex belt automation (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`): hands-off conveyor for labelled issues—dispatcher selects `agent:codex` + `status:ready` issues and prepares a `codex/issue-*` branch, worker opens or refreshes the PR with labels/assignees, and conveyor merges after Gate success before re-queuing the dispatcher.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
@@ -26,7 +26,7 @@ The CI stack now routes every pull request through a single Gate workflow that o
 | Gate orchestrator | `pr-00-gate.yml` job `gate` | Coordinates Python (3.11 + 3.12) and Docker smoke runs, fails fast if any leg fails | Required (`Gate / gate`) | Remains the authoritative CI gate |
 | Reusable CI | `reusable-10-ci-python.yml` via `pr-00-gate.yml` | Standard Python toolchain (Black, Ruff, mypy, pytest, coverage upload) used by Gate | Called by Gate | Continue to be the single CI entry point |
 | Reusable Docker smoke | `reusable-12-ci-docker.yml` via `pr-00-gate.yml` | Deterministic Docker build and smoke probe | Called by Gate | Continue to be the single Docker entry point |
-| Autofix lane | `maint-46-post-ci.yml` | Workflow_run follower that posts Gate summaries, commits small hygiene fixes (success runs), and retries trivial CI failures | Not required | Remains optional |
+| Gate summary | `pr-00-gate.yml` post-CI jobs | Integrated reporting that posts Gate summaries, commits small hygiene fixes (success runs), and retries trivial CI failures | Not required | Remains optional |
 
 Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) have been removed now that branch protection enforces the Gate job directly.
 
@@ -48,8 +48,8 @@ Flow:
 |-------|---------|--------|
 | `agent:codex` / `agent:copilot` | Marks automation-owned issues and PRs | Agent labeler |
 | `from:codex` / `from:copilot` | Origin marker for automation PRs | Agent labeler |
-| `autofix:clean` | Opt-in label gating Maint 46 Post CI. Automation also applies `autofix:applied`, `autofix:debt`, `autofix:patch`, and `autofix:clean-only` to describe the outcome. | Maint 46 Post CI |
-| `ci-failure` | Pins the rolling CI dashboard issue | Maint 46 Post CI |
+| `autofix:clean` | Opt-in label gating Gate summary jobs. Automation also applies `autofix:applied`, `autofix:debt`, `autofix:patch`, and `autofix:clean-only` to describe the outcome. | Gate summary |
+| `ci-failure` | Pins the rolling CI dashboard issue | Gate summary |
 | Area labels | Scope classification for review routing | Path labeler |
 
 ---
@@ -71,7 +71,6 @@ workflow files.
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
-| `maint-46-post-ci.yml` | workflow_run (`Gate`) | Consolidated Gate follower for summaries, hygiene autofix, and trivial failure remediation once CI passes. Requires the `autofix:clean` label for the small hygiene sweep.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
 | `maint-keepalive.yml` | schedule (17 */12 * * *), workflow_dispatch | Posts an Ops heartbeat comment with a UTC timestamp so scheduled runs leave an observable trace.
@@ -88,7 +87,7 @@ workflow files.
 | `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
-| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by `maint-46-post-ci.yml`. |
+| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by Gate summary jobs. |
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -179,7 +178,7 @@ Key traits:
 2. Accepts inputs for base branch, Python version, dry-run toggles, and branch suffix to coordinate parallel repair attempts.
 3. Runs pytest in allow-fail mode to surface current failures before executing the cosmetic fixer.
 4. Uses the same cosmetic repair helper consumed by the autofix follower, ensuring identical formatting rules across automated and manual flows.
-5. Captures repair summaries and emits outputs that downstream tooling (like Maint 46 Post CI) can render in job summaries.
+5. Captures repair summaries and emits outputs that downstream tooling (like Gate summary jobs) can render in job summaries.
 
 Guardrails: `tests/test_workflow_naming.py` asserts the workflow remains in the inventory, and the repair helper’s behaviour is covered by tests for `scripts/ci_cosmetic_repair.py`.
 
@@ -342,7 +341,7 @@ Note: The gate job will become the only required status after successful observa
    `bootstrap_issues_label: agent:codex`, `options_json` overrides).
 3. Review the `orchestrate` job summary for readiness tables, bootstrap
    planners, watchdog status, and keepalive signals.
-4. Rerun as needed; Maint 46 Post CI will echo failing runs in the `ci-failure`
+4. Rerun as needed; Gate summary jobs will echo failing runs in the `ci-failure`
    rollup when Gate is affected.
 
 `reusable-16-agents.yml` remains the single implementation surface for readiness
@@ -357,7 +356,7 @@ inputs without duplicating JSON parsing.
    exist.
 2. Verify repository variables (`OPS_HEALTH_ISSUE`, optional
    `AUTOFIX_OPT_IN_LABEL`) are set.
-3. Review Gate and Maint 46 Post CI runs on a recent PR to familiarise yourself
+3. Review Gate and its integrated summary jobs on a recent PR to familiarise yourself
    with the consolidated reporting.
 4. Trigger a manual Agents 70 Orchestrator run in dry-run mode (`enable_bootstrap`
    false) to observe readiness output and ensure secrets resolve.
