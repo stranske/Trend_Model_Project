@@ -1,4 +1,4 @@
-1.Consolidate keepalive into Orchestrator and add pause/resume label
+1. Consolidate keepalive into Orchestrator and add pause/resume label
 
 Labels: agents, workflow, enhancement, agent:codex
 
