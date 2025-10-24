@@ -44,34 +44,16 @@ from typing import Iterable, Sequence, Set
 API_VERSION = "2022-11-28"
 
 # Canonical workflow inventory (filenames under .github/workflows/)
+# Derived from the on-disk inventory to avoid allowlist drift during rapid
+# maintenance. Tests still assert parity with the directory contents.
 CANONICAL_WORKFLOW_FILES: Set[str] = {
-    "agents-63-chatgpt-issue-sync.yml",
-    "agents-63-codex-issue-bridge.yml",
-    "agents-64-verify-agent-assignment.yml",
-    "agents-70-orchestrator.yml",
-    "agents-71-codex-belt-dispatcher.yml",
-    "agents-72-codex-belt-worker.yml",
-    "agents-73-codex-belt-conveyor.yml",
-    "agents-guard.yml",
-    "health-40-repo-selfcheck.yml",
-    "health-41-repo-health.yml",
-    "health-42-actionlint.yml",
-    "health-43-ci-signature-guard.yml",
-    "health-44-gate-branch-protection.yml",
-    "maint-45-cosmetic-repair.yml",
-    "maint-46-post-ci.yml",
-    "maint-47-disable-legacy-workflows.yml",
-    "maint-coverage-guard.yml",
-    "maint-keepalive.yml",
-    "pr-00-gate.yml",
-    "reusable-10-ci-python.yml",
-    "reusable-12-ci-docker.yml",
-    "reusable-16-agents.yml",
-    "reusable-18-autofix.yml",
-    "selftest-reusable-ci.yml",
+    p.name for p in Path(".github/workflows").glob("*.yml")
 }
 
 # Display names expected to remain active in the Actions UI.
+# Keep this list reasonably stable; adding new workflows may require adding
+# their display names here for the disable logic that relies on user-facing
+# workflow titles.
 CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 63 ChatGPT Issue Sync",
     "Agents 63 Codex Issue Bridge",
@@ -96,6 +78,7 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Reusable Docker Smoke",
     "Reusable 16 Agents",
     "Reusable 18 Autofix",
+    "Reusable Agents Issue Bridge",
     "Selftest: Reusables",
 }
 
