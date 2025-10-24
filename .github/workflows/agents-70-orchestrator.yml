@@ -171,38 +171,42 @@ jobs:
         id: resolve
         uses: actions/github-script@v7
         env:
-          PARAMS_JSON: ${{
-            github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
-            github.event_name == 'repository_dispatch' && (
-              github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
-              github.event.client_payload && github.event.client_payload.params_json ||
+          PARAMS_JSON: >-
+            ${{
+              github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
+              github.event_name == 'repository_dispatch' && (
+                github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
+                github.event.client_payload && github.event.client_payload.params_json ||
+                ''
+              ) ||
+              '{}'
+            }}
+          WORKFLOW_DRY_RUN: >-
+            ${{
+              github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
+              github.event_name == 'repository_dispatch' && (
+                github.event.client_payload && github.event.client_payload.dry_run || ''
+              ) ||
               ''
-            ) ||
-            '{}'
-          }}
-          WORKFLOW_DRY_RUN: ${{
-            github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
-            github.event_name == 'repository_dispatch' && (
-              github.event.client_payload && github.event.client_payload.dry_run || ''
-            ) ||
-            ''
-          }}
-          WORKFLOW_OPTIONS_JSON: ${{
-            github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
-            github.event_name == 'repository_dispatch' && (
-              github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
-              github.event.client_payload && github.event.client_payload.options_json ||
+            }}
+          WORKFLOW_OPTIONS_JSON: >-
+            ${{
+              github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
+              github.event_name == 'repository_dispatch' && (
+                github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
+                github.event.client_payload && github.event.client_payload.options_json ||
+                ''
+              ) ||
               ''
-            ) ||
-            ''
-          }}
-          WORKFLOW_KEEPALIVE_ENABLED: ${{
-            github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
-            github.event_name == 'repository_dispatch' && (
-              github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
-            ) ||
-            ''
-          }}
+            }}
+          WORKFLOW_KEEPALIVE_ENABLED: >-
+            ${{
+              github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
+              github.event_name == 'repository_dispatch' && (
+                github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
+              ) ||
+              ''
+            }}
         with:
           script: |
             const DEFAULT_READINESS_AGENTS = 'copilot,codex';
