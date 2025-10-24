@@ -1,233 +1,420 @@
-1) Agents: Orchestrator can’t dispatch belt jobs (missing actions: write)
+1. Consolidate keepalive into Orchestrator and add pause/resume label
 
-Labels: agents, automation, workflows, priority: high, risk: medium
+Labels: agents, workflow, enhancement, agent:codex
 
 Why
-Scheduled Orchestrator runs fail to call Dispatcher/Worker because the caller lacks actions: write. No dispatch, no keepalive. Also ensure the workflow file lives on the default branch so the cron actually fires.
+Unify all keepalive behavior inside Agents 70 Orchestrator. Remove any redundant keepalive workflows. Add a pause/resume control via repository label so maintainers can temporarily stop keepalive without code edits.
 
 Scope
-Grant minimal permissions, confirm schedule runs from default, and prove keepalive can reach Dispatcher/Worker.
 
-Task List
+Orchestrator gains an input/flag to enable keepalive sweep.
 
- In agents-70-orchestrator.yml, add:
+Honor a repo-level label, for example keepalive:paused, to skip keepalive runs.
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
+Delete redundant keepalive workflows after migration.
 
+  - Non-Goals
 
- Ensure the workflow file exists on the repository’s default branch.
+    - Changing Orchestrator’s belt/queue logic beyond the keepalive path.
 
- Smoke test: run a workflow_dispatch of Orchestrator and verify it successfully invokes Dispatcher and Worker via workflow_call.
+Tasks
 
- Add a summary line: “Dispatch succeeded for N PRs; M skipped; K failures.”
+- In agents-70-orchestrator.yml, add inputs.keepalive_enabled defaulting to true.
+
+- At job start, read labels via API; if keepalive:paused is present, short-circuit keepalive steps.
+
+- Inline docs: comment headers describing the pause label and flag.
+
+- Remove old keepalive workflows (e.g., “Agents Keepalive PR” and any “Keepalive On Gate”) and references.
+
+- Update any callers that previously triggered those files.
 
 Acceptance Criteria
 
-A scheduled Orchestrator tick successfully calls Dispatcher/Worker without permission errors.
+- With keepalive:paused applied, Orchestrator logs “keepalive skipped” and performs no keepalive changes.
 
-Run summary shows count of dispatched PRs with links.
+- With label removed and keepalive_enabled: true, Orchestrator performs keepalive as before.
 
-No change to existing labels or agent prompts.
+- No other workflow references removed files; CI is green.
 
-Out of Scope
-Changing belt logic, Codex prompts, or acceptance-criteria formats.
+Implementation notes
 
-2) Agents: Conveyor YAML parse error (duplicate id) blocks promotions
+- Branch: codex/issue-<n>-keepalive-consolidation
 
-Labels: agents, automation, workflows, priority: high, risk: low
+- PR title prefix: [Agents] Keepalive consolidation + pause label
+
+- Touch only: .github/workflows/agents-*.yml, minimal scripts under .github/scripts/ as needed.
+
+2. Migrate post-CI summary into PR Gate and retire Maint 46
+
+Labels: ci, workflow, maintenance, enhancement, agent:codex
 
 Why
-The conveyor workflow has the same id used twice for a step, invalidating the entire workflow. Promotions never execute.
+Fold the “post-CI” artifact aggregation, coverage delta, and single PR comment summary into the final job of the PR Gate workflow. Remove the broken Maint 46 Post CI to eliminate the env.* expression surfacing errors and the workflow_run indirection.
 
 Scope
-Fix the duplicate id and keep one authoritative “mode” step.
 
-Task List
+Move artifact collection and coverage delta computation into the Gate’s final job.
 
- In agents-73-codex-belt-conveyor.yml, ensure only one step defines id: mode.
+Emit or update a single PR comment with a stable hidden marker.
 
- Actionlint pass on .github/workflows/**.yml.
+Standardize artifact names under gate-*.
 
- Dry run on a test PR: conveyor evaluates “mode,” logs dry-run vs live.
+  - Non-Goals
+
+    - Changing test tooling, coverage tools, or thresholds.
+
+Tasks
+
+- Add a summary job in Gate with needs: [ci, docker?].
+
+- Download artifacts, compute deltas, and post one comment (update-in-place).
+
+- Standardize artifact names: gate-coverage.json, gate-summary.md etc.
+
+- Remove maint-46-post-ci.yml and any workflow_run references.
+
+- Update docs/comments at top of Gate file.
 
 Acceptance Criteria
 
-Workflow loads (no “duplicate id” error).
+- PRs show one updated summary comment per push.
 
-Conveyor run summary shows the resolved mode and target PR number(s).
+- Coverage delta correctly reflects artifact content on reruns.
 
-No functional changes beyond making the file valid.
+- No references to Maint 46; CI passes.
 
-Out of Scope
-Changing merge rules or branch-protection requirements.
+Implementation notes
 
-3) Issue Bridge: deterministic keepalive opt-in (options_json or label)
+- Branch: codex/issue-<n>-gate-postci-inline
 
-Labels: agents, automation, workflows, priority: medium, risk: low
+- PR title prefix: [CI] Inline post-CI summary into Gate
+
+- Touch only: .github/workflows/*gate*.yml, remove maint-46*.yml, small helper under .github/scripts/ if needed.
+
+3. Unify Health 43 (CI signature guard) and 44 (branch protection) reporting
+
+Labels: workflow, maintenance, enhancement, guardrail, agent:codex
 
 Why
-Right now the keepalive decision depends on how poetic someone felt typing @codex. We need a machine-checkable switch so the bridge sets enable_keepalive without guessing.
+Keep both checks, but publish one step-summary that shows CI signature drift and branch protection state in a single table. Reduce reviewer noise without losing safety.
 
 Scope
-Teach the Issue Bridge to set keepalive via either a sentinel phrase or a dedicated label, and pass it through to Orchestrator.
 
-Task List
+Retain existing checks.
 
- In agents-63-codex-issue-bridge.yml (or its called script), detect one of:
+Add one summary step that collates outputs and prints a single table.
 
- Comment containing a sentinel like [keepalive], or
+Keep triggers as-is.
 
- Presence of a agents:keepalive label on the Issue/PR.
+  - Non-Goals
 
- When opt-in is true, pass:
+    - Changing branch protection policy or required checks.
 
-with:
-  options_json: '{"keepalive":{"enabled": true}}'
+Tasks
 
+- Create a small script to normalize outputs from both jobs to JSON.
 
-when dispatching Orchestrator.
+- Step summary prints one table with columns: Check, Status, Details.
 
- When opt-in is false, explicitly pass enabled: false to avoid drift.
-
- Update the PR body header to state the current mode: “Keepalive: ON/OFF”.
+- Ensure failure conditions remain per-job so protections still bite.
 
 Acceptance Criteria
 
-Version A: @codex without sentinel or label runs once; no later keepalive ticks affect the PR.
+- One summary table appears.
 
-Version B: sentinel or label present triggers recurring keepalive cycles until AC complete.
+- Failure still blocks if either guard fails.
 
-PR body shows the mode string and stays consistent with reality.
+- No change to triggers/permissions beyond summary step.
 
-Out of Scope
-Re-writing prompts or the belt’s internal step ordering.
+Codex implementation notes
 
-4) CI: unify coverage publisher and signals under one reusable job; Gate is authoritative
+- Branch: codex/issue-<n>-health-unified-summary
 
-Labels: ci, workflows, priority: medium, risk: low, testing
+- PR title prefix: [Health] Unify guardrail reporting
+
+- Touch only: the two health workflows and .github/scripts/health_summarize.*.
+
+4. Create reusable agents-issue-bridge and refactor Codex bridge to use it
+
+Labels: agents, workflow, enhancement, agent:codex
 
 Why
-Coverage and status bounces between Gate and Post-CI produce drift and duplicate work. Gate should coordinate a single reusable CI job that publishes coverage once; Post-CI only reads and summarizes.
+Introduce a reusable workflow agents-issue-bridge.yml with an input agent: codex|chatgpt. Refactor the existing “Agents 63 Codex Issue Bridge” to call it with agent=codex. This reduces drift and allows adding a ChatGPT variant later without duplicating logic.
 
 Scope
-Fold ruff, type checks, pytest+coverage into reusable-10-ci-python.yml; Gate orchestrates; Post-CI reads.
 
-Task List
+New reusable workflow with shared steps: parse issue, branch naming, PR open/update, label management.
 
- Ensure reusable-10-ci-python.yml:
+Thin wrapper “Agents 63” calls the reusable with agent=codex.
 
- Runs ruff (lint/format check), type checks, and pytest with coverage on py311/py312.
+Non-Goals
 
- Uploads a single artifact at a stable path (e.g., artifacts/coverage/coverage.xml plus coverage.json).
+Changing current Codex behavior or branch naming.
 
- In pr-00-gate.yml, call only the reusable job(s), keep docs-only fast-pass and Docker-only smoke.
+Tasks
 
- In Post-CI, remove any coverage repackaging or re-publishing; consume the one artifact and summarize.
+- Add .github/workflows/reusable-agents-issue-bridge.yml with inputs: agent, issue_number, mode (create|invite), etc.
 
- Actionlint and job summaries updated accordingly.
+- Update “Agents 63 Codex Issue Bridge” to workflow_call the reusable.
+
+- Document inputs and expected labels at file top.
 
 Acceptance Criteria
 
-Exactly one coverage artifact producer per PR.
+- Existing Codex path works identically.
 
-Gate status “Gate / gate” is the only required status in branch protection.
+- Reusable shows in Actions list and can be invoked in future wrappers.
 
-Post-CI comment shows lint, types, tests, coverage using the single artifact.
+- Zero behavior change in labels/PR naming.
 
-Out of Scope
-Adding more Python versions or exotic test shards.
+Implementation notes
 
-5) Autofix: single opt-in path from Post-CI; normalize label name
+- Branch: codex/issue-<n>-agents-bridge-reusable
 
-Labels: autofix, workflows, ci, priority: medium, risk: low
+- PR title prefix: [Agents] Reusable issue bridge
+
+- Touch only: .github/workflows/agents-63-*.yml and new reusable file.
+
+5. Throttle Orchestrator with an idle precheck and optional dispatch
+
+Labels: agents, enhancement, performance, workflow, agent:codex
 
 Why
-Two different entry points make double commits and finger-pointing. Keep one path: Post-CI invokes the autofix reusable when a PR has the appropriate label. Also stop arguing with yourself about the label string.
+Add a fast idle precheck so the cron job exits quickly when there’s no agent work. Optionally handle repository_dispatch to allow other workflows to ping the Orchestrator on demand.
 
 Scope
-Consolidate to Post-CI as sole invoker and pick a single label, e.g., autofix:clean.
 
-Task List
+Precheck: count open issues with agent:* or check a queue marker; exit early if zero.
 
- Remove the separate PR-scoped Autofix workflow or strip its logic so it’s inert.
+Add `on: repository_dispatch` with types: [agents-orchestrator-ping].
 
- In maint-46-post-ci.yml, call the autofix reusable only when PR has autofix:clean.
+  - Non-Goals
 
- Normalize code to a single label value; remove fallbacks and environment defaults that disagree.
+    - Changing the cron schedule frequency itself.
 
- Post a one-shot “Autofix applied” comment with the file list and a link to the rerun Gate checks.
+Tasks
+
+- Add a precheck step (GitHub API) to detect idle state and short-circuit.
+
+- Add a repository_dispatch trigger; log who pinged.
+
+- Document JSON payload structure for pings.
 
 Acceptance Criteria
 
-Only one workflow can perform autofix on a PR, guarded by autofix:clean.
+- Runs log “idle, skipping” when no work; job finishes under ~10s.
 
-No duplicate “fix” commits for the same event.
+- Manual repository_dispatch successfully triggers orchestration.
 
-Gate reruns after autofix and status surfaces in the Post-CI summary.
+- No semantic change to belt/worker tasks.
 
-Out of Scope
-Adding new fix-it rules beyond formatting and trivial lint.
+Implementation notes
 
-6) Repo health: verify branch protection requires “Gate / gate”
+- Branch: codex/issue-<n>-orchestrator-throttle
 
-Labels: ci, health:repo, workflows, priority: medium, risk: low
+- PR title prefix: [Agents] Orchestrator idle precheck + dispatch
+
+- Touch only: agents-70-orchestrator.yml.
+
+6. Canonicalize reusable Python CI with feature toggles and stable artifacts
+
+Labels: ci, enhancement, workflow, agent:codex
 
 Why
-If someone renames or un-checks required statuses, the guardrails vanish quietly. We need a weekly assertion that branch protection still requires the single Gate status.
+Turn the reusable Python CI into the single canonical entrypoint with inputs to toggle ruff, black --check, mypy, test markers, coverage export, and cache settings. Normalize artifact naming and outputs.
 
 Scope
-Read branch-protection via API, fail loudly if “Gate / gate” is not required.
 
-Task List
+Inputs: lint, format_check, typecheck, pytest_markers, coverage: bool, cache: bool.
 
- In the repo-health workflow, add a step that fetches branch protection for the default branch and verifies required status checks include exactly “Gate / gate”.
+Outputs: coverage JSON path, junit path, summary path.
 
- On drift, fail the job and post an actionable summary with current vs expected checks.
+Artifact prefix: gate-*.
 
- Add a short, “what to fix” pointer in the summary.
+  - Non-Goals
+
+    - Introducing new tools.
+
+Tasks
+
+- Add inputs/outputs to reusable-10-ci-python.yml.
+
+- Update Gate to pass toggles per path filters.
+
+- Ensure all artifacts and job outputs use consistent names.
 
 Acceptance Criteria
 
-Weekly health run shows current branch-protection settings and passes when “Gate / gate” is required.
+- Gate can enable/disable each stage via inputs.
 
-On mismatch, job fails with explicit diff of required checks.
+- Artifact names stable across runs and branches.
 
-Out of Scope
-Changing the name of the Gate job or adding secondary required checks.
+- Coverage output consumed by Gate summary job.
 
-7) Docs: codify the target workflow layout and the keepalive switch
+Implementation notes
 
-Labels: documentation, docs, workflows, priority: low, risk: low
+- Branch: codex/issue-<n>-reusable-ci-canon
+
+- PR title prefix: [CI] Canonical reusable with toggles
+
+- Touch only: reusable-10-ci-python.yml and Gate caller.
+
+7. Extract inline github-script logic into .github/scripts/ with tests
+
+Labels: maintenance, ci, workflow, enhancement, agent:codex
 
 Why
-Future you will forget which toggle wakes the robots. Document the topology and the two Codex modes in one place.
+Move nontrivial github-script JS into small script files under .github/scripts/ or a tiny Python helper to improve readability and enable basic unit tests.
 
 Scope
-Write a single page and link to workflow files.
 
-Task List
+For each inline script > ~15 lines, move to a file.
 
- Add docs/ci/WORKFLOWS.md with:
+Add minimal tests that validate JSON I/O and guard conditions.
 
- PR checks topology (Gate, reusable CI, Docker smoke, Post-CI).
+  - Non-Goals
 
- Agents control plane: Orchestrator scheduled, belt callable only.
+    - Changing behavior.
 
- Keepalive switch: sentinel phrase [keepalive] or agents:keepalive label, and how the bridge passes options_json.
+Tasks
 
- Branch-protection requirement and the health check.
+- Create ./.github/scripts/ with README on usage.
 
- Link to each workflow YAML for quick navigation.
+- Extract scripts from Gate summary, branch-protection checker, and any agents glue.
+
+- Add a tiny pytest job in CI to run unit tests for these scripts.
 
 Acceptance Criteria
 
-One markdown page explains how to run Version A (manual) and Version B (keepalive), including labels used and expected run order.
+- No inline multi-dozen-line github-script blocks remain.
 
-Contributors can follow it and not summon chaos by accident.
+- Unit tests for extracted scripts pass locally and in CI.
 
-Out of Scope
-A novel on why YAML is not a real programming language.
+- Behavior matches prior logs.
+
+Implementation notes
+
+- Branch: codex/issue-<n>-scripts-extract
+
+- PR title prefix: [Maint] Extract github-script helpers
+
+- Touch only: .github/workflows/*, .github/scripts/*, minimal tests.
+
+8. Harden pull_request_target agents guard with an automated safety check
+
+Labels: security, guardrail, workflow, agent:codex
+
+Why
+Keep using pull_request_target where necessary, but add a static safety check that fails the workflow if any job under that event attempts to checkout untrusted head refs or write secrets to logs.
+
+Scope
+
+Add a pre-job step reading the workflow run context and abort if:
+actions/checkout with ref: ${{ github.event.pull_request.head.sha }} under pull_request_target, or any step references ${{ secrets.* }} in a run command.
+
+  - Non-Goals
+
+    - Replacing pull_request_target; this is a belt-and-suspenders check.
+
+Tasks
+
+- Implement a script that inspects the resolved job steps (or runs static lint on the workflow file) for the above anti-patterns.
+
+- Fail with a clear message if violations are present.
+
+- Document why the guard exists at the file header.
+
+Acceptance Criteria
+
+- Guard fails when a violating step is intentionally added in a test branch.
+
+- Existing agents guard continues to pass.
+
+- No false positives on current workflows.
+
+Implementation notes
+
+- Branch: codex/issue-<n>-prt-guard-check
+
+- PR title prefix: [Security] Auto-check unsafe patterns in PR-target
+
+- Touch only: agents guard workflow and helper script.
+
+9. Delete superseded keepalive workflows after consolidation
+
+Labels: maintenance, cleanup, workflow, agent:codex
+
+Why
+Remove obsolete keepalive workflows that have been replaced by the Orchestrator’s unified keepalive path.
+
+Scope
+
+Delete files only; no logic changes elsewhere.
+
+  - Non-Goals
+
+    - Any functional change beyond removal.
+
+Tasks
+
+- Remove keepalive workflows marked obsolete in Issue 1.
+
+- Search repo for references; update or delete badges/links.
+
+Acceptance Criteria
+
+- Actions tab shows no removed workflows.
+
+- No references to removed files remain.
+
+- CI is green.
+
+Implementation notes
+
+- Branch: codex/issue-<n>-remove-old-keepalive
+
+- PR title prefix: [Maint] Remove obsolete keepalive workflows
+
+- Touch only: .github/workflows/*keepalive*.yml and docs.
+
+10. Single PR comment policy for the Gate (idempotent updater)
+
+Labels: ci, workflow, enhancement, agent:codex
+
+Why
+Ensure the Gate writes exactly one persistent PR comment updated in place, keyed by a hidden marker. Prevents comment spam and aids skim-reading.
+
+Scope
+
+Introduce a stable marker in the comment body.
+
+Update existing comment instead of posting new ones.
+
+  - Non-Goals
+
+    - Changing summary content beyond marker insertion.
+
+Tasks
+
+- Implement get-or-create logic for the Gate’s final summary step.
+
+- Add hidden marker, e.g. <!-- gate:summary -->.
+
+- Verify multiple pushes update the same comment.
+
+Acceptance Criteria
+
+- Re-push on the same PR updates the single comment.
+
+- Marker present and unique per PR.
+
+- No duplicate comments appear across runs.
+
+Implementation notes
+
+- Branch: codex/issue-<n>-gate-single-comment
+
+- PR title prefix: [CI] Gate single comment policy
+
+- Touch only: Gate workflow summary step/script.
