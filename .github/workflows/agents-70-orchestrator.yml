@@ -1,3 +1,18 @@
+# Scope checklist (source issue #2961)
+# - [x] Precheck: count open agent issues or queue marker and exit early when zero.
+# - [x] Add `on: repository_dispatch` with types: [agents-orchestrator-ping].
+#   - Non-goal: do not change the cron schedule frequency.
+#
+# Tasks
+# - [x] Add a precheck step (GitHub API) to detect idle state and short-circuit.
+# - [x] Add a repository_dispatch trigger; log who pinged.
+# - [x] Document JSON payload structure for pings.
+#
+# Acceptance criteria
+# - [x] Runs log “idle, skipping” when no work; job finishes under ~10s.
+# - [x] Manual repository_dispatch successfully triggers orchestration.
+# - [x] No semantic change to belt/worker tasks.
+
 name: Agents 70 Orchestrator
 
 on:
