@@ -504,6 +504,9 @@ def test_orchestrator_handles_keepalive_pause_label():
         "keepalive_paused_label" in text
     ), "Orchestrator outputs should surface whether the pause label was detected"
     assert (
+        "keepalive_pause_label" in text
+    ), "Orchestrator outputs should expose the pause label name for downstream jobs"
+    assert (
         "keepalive:paused" in text
     ), "Pause label constant must be documented in the workflow script"
 

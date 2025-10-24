@@ -56,6 +56,7 @@ jobs:
       verify_issue_number: ${{ steps.resolve.outputs.verify_issue_number }}
       enable_watchdog: ${{ steps.resolve.outputs.enable_watchdog }}
       enable_keepalive: ${{ steps.resolve.outputs.enable_keepalive }}
+      keepalive_pause_label: ${{ steps.resolve.outputs.keepalive_pause_label }}
       enable_bootstrap: ${{ steps.resolve.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ steps.resolve.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.resolve.outputs.draft_pr }}
@@ -348,6 +349,7 @@ jobs:
               enable_keepalive: keepaliveEffective,
               keepalive_requested: keepaliveRequested,
               keepalive_paused_label: keepalivePaused ? 'true' : 'false',
+              keepalive_pause_label: KEEPALIVE_PAUSE_LABEL,
               enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
               bootstrap_issues_label: toString(
                 merged.bootstrap_issues_label ?? bootstrap.label,
@@ -379,6 +381,7 @@ jobs:
               'enable_keepalive',
               'keepalive_requested',
               'keepalive_paused_label',
+              'keepalive_pause_label',
               'enable_bootstrap',
               'bootstrap_issues_label',
               'draft_pr',
