@@ -187,7 +187,7 @@ Scope
 
 Precheck: count open issues with agent:* or check a queue marker; exit early if zero.
 
-Add on: repository_dispatch with types: [agents-orchestrator-ping].
+Add `on: repository_dispatch` with types: [agents-orchestrator-ping].
 
   - Non-Goals
 
