@@ -1,4 +1,11 @@
 // @ts-check
+// The agents guard acts as a safety net for automation workflows. It protects
+// critical agent entry points from unauthorized changes and now also asserts
+// that pull_request_target executions never checkout untrusted refs or echo
+// repository secrets.
+
+const fs = require('fs');
+const path = require('path');
 
 const DEFAULT_MARKER = '<!-- agents-guard-marker -->';
 
@@ -10,6 +17,10 @@ const ALLOW_REMOVED_PATHS = new Set(
     '.github/workflows/agents-keepalive-pr.yml',
   ].map((entry) => entry.toLowerCase()),
 );
+
+const PULL_REQUEST_TARGET_EVENT = 'pull_request_target';
+const HEAD_SHA_REF_REGEX = /\bref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/i;
+const SECRETS_EXPRESSION_REGEX = /\$\{\{\s*secrets\.[^}]+\}\}/i;
 
 function escapeRegex(text) {
   return text.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -42,6 +53,132 @@ function globToRegExp(glob) {
 
 function normalizePattern(pattern) {
   return pattern.replace(/^\/+/, '');
+}
+
+function detectPullRequestTargetViolations(source) {
+  const lines = String(source || '').split(/\r?\n/);
+  const violations = [];
+
+  let checkoutState = null;
+  let runBlockState = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    const indent = (rawLine.match(/^\s*/) || [''])[0].length;
+    const trimmed = rawLine.trim();
+    const isComment = /^\s*#/.test(rawLine);
+
+    if (checkoutState && (indent < checkoutState.indent || (indent === checkoutState.indent && /^-\s+/.test(trimmed)))) {
+      checkoutState = null;
+    }
+
+    if (runBlockState && indent <= runBlockState.indent && trimmed !== '') {
+      runBlockState = null;
+    }
+
+    if (runBlockState) {
+      if (!isComment && SECRETS_EXPRESSION_REGEX.test(rawLine)) {
+        violations.push({
+          type: 'secrets-run',
+          line: index + 1,
+          snippet: trimmed || rawLine.trim(),
+        });
+      }
+      continue;
+    }
+
+    if (isComment) {
+      continue;
+    }
+
+    if (checkoutState && HEAD_SHA_REF_REGEX.test(trimmed)) {
+      violations.push({
+        type: 'checkout-head-sha',
+        line: index + 1,
+        snippet: trimmed,
+        anchor: checkoutState.line,
+      });
+      checkoutState = null;
+      continue;
+    }
+
+    let usesMatch = rawLine.match(/^(\s*)-\s+uses:\s*actions\/checkout\b/i);
+    if (!usesMatch) {
+      usesMatch = rawLine.match(/^(\s*)uses:\s*actions\/checkout\b/i);
+    }
+    if (usesMatch) {
+      checkoutState = { indent: usesMatch[1].length, line: index + 1 };
+      continue;
+    }
+
+    let runMatch = rawLine.match(/^(\s*)-\s+run:\s*([|>])?\s*(.*)$/);
+    if (!runMatch) {
+      runMatch = rawLine.match(/^(\s*)run:\s*([|>])?\s*(.*)$/);
+    }
+    if (runMatch) {
+      const inlineCommand = runMatch[3] || '';
+      if (inlineCommand && SECRETS_EXPRESSION_REGEX.test(inlineCommand)) {
+        violations.push({
+          type: 'secrets-run',
+          line: index + 1,
+          snippet: inlineCommand.trim(),
+        });
+      }
+
+      if (runMatch[2]) {
+        runBlockState = { indent: runMatch[1].length, line: index + 1 };
+      }
+    }
+  }
+
+  return violations;
+}
+
+function formatPullRequestTargetViolation(violation) {
+  if (!violation || typeof violation !== 'object') {
+    return '• Unsafe workflow pattern detected.';
+  }
+
+  const line = violation.line ? `Line ${violation.line}` : 'Unspecified line';
+  switch (violation.type) {
+    case 'checkout-head-sha':
+      return `${line}: actions/checkout must not target github.event.pull_request.head.sha in pull_request_target workflows.`;
+    case 'secrets-run':
+      return `${line}: run command references the secrets context (${violation.snippet || '${{ secrets.* }}'}).`;
+    default:
+      return `${line}: Unsafe workflow pattern detected.`;
+  }
+}
+
+function validatePullRequestTargetSafety({
+  eventName = process.env.GITHUB_EVENT_NAME || '',
+  workflowPath = '.github/workflows/agents-guard.yml',
+  workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd(),
+  fsModule = fs,
+} = {}) {
+  const normalizedEvent = String(eventName || '').toLowerCase();
+  if (normalizedEvent !== PULL_REQUEST_TARGET_EVENT) {
+    return { checked: false, violations: [] };
+  }
+
+  const resolvedPath = path.resolve(workspaceRoot, workflowPath);
+
+  let source;
+  try {
+    source = fsModule.readFileSync(resolvedPath, { encoding: 'utf-8' });
+  } catch (error) {
+    throw new Error(`Failed to read ${workflowPath}: ${error.message}`);
+  }
+
+  const violations = detectPullRequestTargetViolations(source);
+  if (violations.length > 0) {
+    const bulletList = violations.map((violation) => formatPullRequestTargetViolation(violation)).join('\n');
+    throw new Error(
+      `Unsafe pull_request_target usage detected in ${workflowPath}:\n${bulletList}`,
+    );
+  }
+
+  return { checked: true, violations: [] };
 }
 
 function parseCodeowners(content) {
@@ -395,5 +532,7 @@ module.exports = {
   evaluateGuard,
   parseCodeowners,
   globToRegExp,
+  validatePullRequestTargetSafety,
+  detectPullRequestTargetViolations,
 };
 
