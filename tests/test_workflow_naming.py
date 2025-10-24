@@ -77,14 +77,14 @@ def test_gate_docs_only_branching_logic():
             "needs.detect.outputs.run_core == 'true'" in condition
         ), f"{job_name} must honor run_core toggle"
 
-    gate_job = jobs.get("gate") or {}
+    gate_job = jobs.get("summary") or {}
     gate_steps = gate_job.get("steps") or []
     docs_only_steps = [
         step
         for step in gate_steps
         if isinstance(step, dict) and step.get("id") == "docs_only"
     ]
-    assert docs_only_steps, "Gate job must include docs-only handling step"
+    assert docs_only_steps, "Summary job must include docs-only handling step"
     docs_only_step = docs_only_steps[0]
     assert (
         docs_only_step.get("if") == "needs.detect.outputs.doc_only == 'true'"
@@ -207,5 +207,6 @@ EXPECTED_NAMES = {
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
+    "reusable-agents-issue-bridge.yml": "Reusable Agents Issue Bridge",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
 }

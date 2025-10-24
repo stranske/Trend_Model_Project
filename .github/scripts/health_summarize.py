@@ -6,8 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+# Add the root directory to Python path to enable tools import
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from tools.test_failure_signature import build_signature_hash
 

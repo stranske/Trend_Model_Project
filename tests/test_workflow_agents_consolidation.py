@@ -127,7 +127,7 @@ def test_codex_bootstrap_lite_surfaces_keepalive_mode():
 
 
 def test_issue_bridge_tracks_keepalive_mode():
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
     assert (
@@ -139,7 +139,7 @@ def test_issue_bridge_tracks_keepalive_mode():
 
 
 def test_issue_bridge_dispatches_orchestrator_with_keepalive_options():
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
     assert (

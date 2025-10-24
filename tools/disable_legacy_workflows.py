@@ -67,6 +67,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "reusable-12-ci-docker.yml",
     "reusable-16-agents.yml",
     "reusable-18-autofix.yml",
+    "reusable-agents-issue-bridge.yml",
     "selftest-reusable-ci.yml",
 }
 
@@ -90,6 +91,7 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Maint 47 Disable Legacy Workflows",
     "Maint Coverage Guard",
     "Maint Keepalive Heartbeat",
+    "Reusable Agents Issue Bridge",
     "Reusable CI",
     "Reusable Docker Smoke",
     "Reusable 16 Agents",
