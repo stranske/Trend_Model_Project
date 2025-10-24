@@ -6,7 +6,7 @@ Before diving into automation specifics, read the [Workflow System Overview](doc
 required merge policy, observability surfaces, and the
 [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). The quick orientation checklist, scenario cheat
 sheet, and bucket reference inside that guide make it trivial for new contributors to see what runs where before changing YAML.
-The document also explains how Gate, Maint 46, and the agents orchestrator collaborate, and the
+The document also explains how Gate, the summary job, and the agents orchestrator collaborate, and the
 [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) section outlines the guardrail and approval
 sequence for edits. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
 per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md) if you need the historical
@@ -35,17 +35,17 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     must pass whenever a pull request touches `agents-*.yml` workflows. The
     guard enforces CODEOWNERS coverage, label requirements, and review policy
     before allowing protected automation changes to merge.
-- **Autofix lane** – Maintainers trigger autofix via the post-CI follower.
+- **Autofix lane** – Maintainers trigger autofix via the Gate summary job.
   Opt in by adding the `autofix:clean` label; the sweep runs once Gate finishes
-  and is handled by `maint-46-post-ci.yml`.
-- **Maint 46 Post-CI follower** – When Gate finishes, the
-  [`maint-46-post-ci.yml`](.github/workflows/maint-46-post-ci.yml) workflow
-  posts a single PR summary comment (Gate status + coverage), attempts
+  and is handled inside `pr-00-gate.yml`.
+- **Gate summary job** – When Gate finishes, the
+  summary job posts a single PR summary comment (Gate status + coverage), attempts
   the same autofix sweep using the composite action, and files tracker
   issues when hygiene regressions persist. It also updates the rolling
   "CI failures in last 24 h" issue labelled `ci-failure` so the current
   breakages stay easy to find. Treat that consolidated comment and
-  issue as the canonical health dashboards; rerun Gate or Maint 46 Post-CI
+  issue as the canonical health dashboards; rerun Gate when you need a fresh
+  post-summary update.
   if you need either refreshed.
 - **Agent automation** – The
   [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
@@ -114,7 +114,7 @@ The CI style job pins versions in `.github/workflows/autofix-versions.env`. Alwa
 
 ### Pull Request Autofix Workflow
 
-Pull requests labelled `autofix:clean` trigger the Maint 46 Post CI workflow. It performs a very small, deterministic cleanup pass so reviewers do not need to chase trivial nits:
+Pull requests labelled `autofix:clean` trigger the Gate summary job inside `pr-00-gate.yml`. It performs a very small, deterministic cleanup pass so reviewers do not need to chase trivial nits:
 
 - Formats Python files with `ruff format` (no Black/isort/docformatter sweep).
 - Runs `ruff check --fix --unsafe-fixes` limited to `F401`, `F841`, and the safe `E1/E2/E3/E4/E7/W1/W2/W3` families.

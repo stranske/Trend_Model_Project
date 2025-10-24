@@ -1,6 +1,6 @@
 # Automated Autofix & Type Hygiene Pipeline
 
-This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests. The post-CI follower `maint-46-post-ci.yml` invokes the reusable composite whenever a PR opts in via the `autofix:clean` label.
+This repository includes an extended **autofix** workflow that standardises style and performs *lightweight* type hygiene automatically on pull requests. The Gate summary job invokes the reusable composite whenever a PR opts in via the `autofix:clean` label.
 
 ## What It Does (Scope)
 1. Code formatting & style
@@ -95,11 +95,11 @@ Open a focused PR (or issue) for:
 
 ## Verification scenarios
 
-Run these quick checks whenever the Maint 46 autofix lane changes to confirm Issue #2649’s safeguards remain in place:
+Run these quick checks whenever the Gate summary job’s autofix lane changes to confirm Issue #2649’s safeguards remain in place:
 
 ### Same-repo opt-in
 1. Open a branch in the main repository with a deliberate lint issue (for example, reorder an import) and add the `autofix:clean` label.
-2. Verify the **Maint 46 Post CI** follower triggers exactly one `apply` job once Gate succeeds and cancels any superseded runs when you push extra commits or re-run the workflow from the UI.
+2. Verify the Gate summary job triggers exactly one `apply` job once Gate succeeds and cancels any superseded runs when you push extra commits or re-run the workflow from the UI.
 3. Confirm the comment updated in place under the `<!-- autofix-status: DO NOT EDIT -->` marker shows the applied commit link and an "Autofix result" section.
 
 ### Fork opt-in
@@ -126,7 +126,7 @@ To replicate Issue #2724’s acceptance criteria end-to-end:
 
 1. Push a same-repo branch that intentionally violates a simple Ruff rule (for example, add trailing whitespace to a Python file).
 2. Open a pull request targeting the default branch and add the opt-in autofix label (`autofix:clean`).
-3. Observe the **Maint 46 Post CI** workflow run; once complete it should:
+3. Observe the Gate summary job run; once complete it should:
    - Install Ruff, apply the safe `ruff check --fix --exit-zero` sweep, and commit cosmetic fixes back to the branch.【F:.github/workflows/reusable-18-autofix.yml†L231-L575】
    - Apply the `autofix:applied` label (and remove any stale `autofix:clean`) when the commit lands.【F:.github/workflows/reusable-18-autofix.yml†L520-L575】【F:.github/workflows/reusable-18-autofix.yml†L675-L785】
    - Update the status comment with an **Autofix result** block summarising the labels and linking to the commit.【F:.github/workflows/reusable-18-autofix.yml†L520-L671】【F:scripts/build_autofix_pr_comment.py†L230-L275】

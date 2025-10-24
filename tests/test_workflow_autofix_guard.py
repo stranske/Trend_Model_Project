@@ -6,7 +6,6 @@ import pathlib
 import re
 from typing import Any, Dict, List
 
-import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
@@ -43,21 +42,13 @@ def _guarded_follow_up_steps(
     return missing
 
 
-WORKFLOW_FILE = "maint-46-post-ci.yml"
+GATE_WORKFLOW = WORKFLOWS / "pr-00-gate.yml"
 HELPER_FILE = "maint-post-ci.js"
-WORKFLOW_PATH = WORKFLOWS / WORKFLOW_FILE
-
-pytestmark = pytest.mark.skipif(
-    not WORKFLOW_PATH.exists(),
-    reason="Maint 46 post-CI workflow retired; Gate summary inlines automation.",
-)
 
 
-def test_autofix_workflow_uses_repo_commit_prefix() -> None:
-    data = _load_yaml(WORKFLOW_FILE)
-    prefix_expr = data.get("env", {}).get("COMMIT_PREFIX", "")
-    assert "AUTOFIX_COMMIT_PREFIX" in prefix_expr
-    assert "chore(autofix):" in prefix_expr
+def test_gate_summary_uses_post_ci_helper() -> None:
+    contents = GATE_WORKFLOW.read_text(encoding="utf-8")
+    assert "./.github/scripts/maint-post-ci.js" in contents
 
 
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
@@ -91,13 +82,6 @@ def _extract_trivial_keywords(source: str) -> set[str]:
 
 
 def test_autofix_trivial_keywords_cover_lint_type_and_tests() -> None:
-    data = _load_yaml(WORKFLOW_FILE)
-    failure_step = next(
-        step for step in data["jobs"]["context"]["steps"] if step.get("id") == "failure"
-    )
-    script = failure_step["with"]["script"]
-    assert "require('./.github/scripts/maint-post-ci.js')" in script
-
     helper_source = _load_helper(HELPER_FILE)
     keywords = _extract_trivial_keywords(helper_source)
     expected = {"lint", "mypy", "test"}

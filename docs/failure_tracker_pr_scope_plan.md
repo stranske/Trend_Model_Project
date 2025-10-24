@@ -2,7 +2,7 @@
 
 ## Scope and Key Constraints
 - Limit workflow runs to `workflow_run` events originating from pull request workflows; ignore pushes, scheduled, or manual triggers.
-- Operate only on repositories where the Gate follower (`maint-46-post-ci.yml`) is configured; the former `maint-47-check-failure-tracker.yml` shell has been removed after delegation was verified.
+- Operate only on repositories where the Gate summary job is configured; the former `maint-47-check-failure-tracker.yml` shell has been removed after delegation was verified.
 - Apply labeling logic solely to pull requests with failed required checks to avoid interfering with optional jobs.
 - Produce exactly one small `ci-failures-snapshot` artifact per failing workflow run (and the same payload on the auto-heal success path); keep artifact size minimal (<1 MB) and avoid storing secrets or PII.
 - Maintain compatibility with existing success-path behaviour so passing runs remain label/artifact free.
@@ -17,7 +17,7 @@
 
 ## Initial Task Checklist
 - [x] Audit the historical `maint-47-check-failure-tracker.yml` triggers and add guard clauses to ensure the job exits early unless the source event is a PR (completed prior to removal).
-- [x] Implement or refine logic that detects failed required jobs and adds/removes the `ci-failure` label accordingly inside `maint-46-post-ci.yml`.
+- [x] Implement or refine logic that detects failed required jobs and adds/removes the `ci-failure` label accordingly inside the Gate summary job.
 - [x] Confirm the artifact upload step reuses the `ci-failures-snapshot` name and enforce size/content constraints.
 - [x] Update documentation (this plan plus any operator guides) to capture scope, label expectations, and artifact lifecycle.
 - [x] Validate behaviour via `workflow_run` replays or local action runners, capturing evidence for both passing and failing PR scenarios.

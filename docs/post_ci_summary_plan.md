@@ -25,7 +25,7 @@
 
 ## Status Summary
 
-- Maint 46 Post CI now runs exclusively for pull-request initiated completions of the Gate workflow and uses a PR-scoped concurrency key to avoid duplicate summaries.
+- The Gate summary job now runs exclusively for pull-request initiated completions of the Gate workflow and uses a PR-scoped concurrency key to avoid duplicate summaries.
 - The renderer deduplicates target runs, tolerates missing metadata, and highlights required job groups with resilient fallbacks for absent jobs.
 - Regression tests cover deduplication, pending-run placeholders, CLI `$GITHUB_OUTPUT` append semantics, and validation of required job-group configuration parsing.
 - Operations documentation has been refreshed to steer maintainers toward the step-summary output and to explain the anti-spam guarantees.

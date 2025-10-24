@@ -1,6 +1,6 @@
 # Autofix PR-02 Hardening Plan
 
-> **Update (2026-10).** The `pr-02-autofix.yml` entry workflow has since been removed; Maint 46 Post CI is the sole opt-in autofix path. This document is retained for historical context around the hardening work performed before the consolidation.
+> **Update (2026-10).** The `pr-02-autofix.yml` entry workflow has since been removed; the Gate summary job is the sole opt-in autofix path. This document is retained for historical context around the hardening work performed before the consolidation.
 
 ## Scope and Key Constraints
 - **Workflow coverage**: Changes limited to the `pr-02-autofix` entry workflow and the reusable Autofix workflow it invokes. Other CI workflows stay untouched to avoid unintended concurrency coupling.
