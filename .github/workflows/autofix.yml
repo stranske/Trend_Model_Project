@@ -307,8 +307,7 @@ jobs:
               pins[key.strip()] = value.strip()
           output = os.environ['GITHUB_OUTPUT']
           with open(output, 'a', encoding='utf-8') as handle:
-              handle.write(f"ruff={pins.get('RUFF_VERSION', '')}
-")
+              handle.write(f"ruff={pins.get('RUFF_VERSION', '')}\n")
           PY
 
       - name: Setup Python
