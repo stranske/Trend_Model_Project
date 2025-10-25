@@ -760,6 +760,16 @@ jobs:
           if not isinstance(tasks, list):
               raise SystemExit('Ledger tasks must be a list')
 
+          def collect_statuses(entries):
+              statuses = {}
+              for entry in entries:
+                  if not isinstance(entry, dict):
+                      continue
+                  task_id = entry.get('id')
+                  if isinstance(task_id, str) and task_id:
+                      statuses[task_id] = str(entry.get('status', ''))
+              return statuses
+
           start_info = {}
           if start_path.exists():
               try:
@@ -772,6 +782,10 @@ jobs:
           summary_lines = []
           if start_info.get('created'):
               summary_lines.append(f"Created ledger for issue #{issue} targeting {branch} -> {base}.")
+
+          before_statuses = collect_statuses(tasks)
+          after_statuses = before_statuses.copy()
+          violations = []
 
           target_task = None
           for task in tasks:
@@ -790,6 +804,7 @@ jobs:
           elif dry_run:
               summary_lines.append(f"Dry run – task {task_id} remains {target_task.get('status','todo')}.")
               final_status = str(target_task.get('status', ''))
+              after_statuses = collect_statuses(tasks)
           else:
               status_before = str(target_task.get('status', ''))
               previous_status = str(task_info.get('previous_status', '')) if task_info else ''
@@ -803,11 +818,13 @@ jobs:
                           f"Task {task_id} already done before finalisation; no changes applied."
                       )
                       final_status = 'done'
+                      after_statuses = collect_statuses(tasks)
                   elif status_before != 'doing':
                       summary_lines.append(
                           f"Task {task_id} expected status doing but found {status_before or 'unknown'}; left unchanged."
                       )
                       final_status = status_before
+                      after_statuses = collect_statuses(tasks)
                   else:
                       commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
                       target_task['status'] = 'done'
@@ -819,17 +836,20 @@ jobs:
                       summary_lines.append(
                           f"Task {task_id} advanced {previous_status or status_before} → done @ {commit_sha[:7]}."
                       )
+                      after_statuses = collect_statuses(tasks)
               else:
                   if status_before == 'done':
                       summary_lines.append(
                           f"Task {task_id} remained done despite job failure; ledger left untouched."
                       )
                       final_status = 'done'
+                      after_statuses = collect_statuses(tasks)
                   elif status_before != 'doing':
                       summary_lines.append(
                           f"Task {task_id} not in progress ({status_before or 'unknown'}); no reset applied."
                       )
                       final_status = status_before
+                      after_statuses = collect_statuses(tasks)
                   else:
                       note = f"{iso_now()} failure (run {run_id}): status={job_status or 'failure'}"
                       notes.append(note)
@@ -839,11 +859,57 @@ jobs:
                       target_task['started_at'] = None
                       final_status = 'todo'
                       summary_lines.append(f"Task {task_id} reset to todo after {job_status or 'failure'}.")
+                      after_statuses = collect_statuses(tasks)
 
               new_text = yaml.safe_dump(data, sort_keys=False)
               if new_text != original_text:
                   ledger_path.write_text(new_text, encoding='utf-8')
                   changed = True
+
+          status_changes = []
+          if not dry_run and task_id:
+              for tid, before in before_statuses.items():
+                  after = after_statuses.get(tid)
+                  if after != before:
+                      status_changes.append((tid, before, after))
+              for tid, after in after_statuses.items():
+                  if tid not in before_statuses:
+                      status_changes.append((tid, None, after))
+
+              def describe(change):
+                  tid, before, after = change
+                  before_display = (before or '∅') if before is not None else '∅'
+                  after_display = (after or '∅') if after is not None else '∅'
+                  return f"{tid}: {before_display} → {after_display}"
+
+              unexpected = [c for c in status_changes if c[0] != task_id]
+              if unexpected:
+                  for change in unexpected:
+                      summary_lines.append(
+                          f"Unexpected task status change detected ({describe(change)}); requires attention."
+                      )
+                  violations.append('Ledger run modified multiple tasks; expected a single task transition.')
+
+              if target_task is not None:
+                  if status_before == 'doing' and job_status == 'success':
+                      if not any(c[0] == task_id for c in status_changes):
+                          summary_lines.append(
+                              f"Task {task_id} did not advance from doing after a successful run; ledger invariant violated."
+                          )
+                          violations.append('Successful run failed to advance selected task to done.')
+                  if status_before == 'doing' and job_status != 'success':
+                      if not any(c[0] == task_id for c in status_changes):
+                          summary_lines.append(
+                              f"Task {task_id} remained doing after failure; expected reset to todo."
+                          )
+                          violations.append('Failed run did not reset selected task to todo.')
+
+              remaining_doing = [tid for tid, state in after_statuses.items() if state == 'doing']
+              if remaining_doing and job_status == 'success':
+                  summary_lines.append(
+                      f"Tasks still marked doing after success: {', '.join(remaining_doing)}."
+                  )
+                  violations.append('Successful run left tasks in doing status; expected none.')
 
           if not summary_lines:
               summary_lines.append('Ledger unchanged during this run.')
@@ -861,6 +927,11 @@ jobs:
                   handle.write(f"task_status={final_status}\n")
                   handle.write(f"ledger_path={ledger_path if ledger_path.exists() else ''}\n")
                   handle.write(f"commit_sha={commit_sha}\n")
+
+          if violations:
+              for message in violations:
+                  print(f"::error::{message}")
+              raise SystemExit('Ledger task progression invariant violated.')
           PY
 
       - name: Validate ledger schema (final)
