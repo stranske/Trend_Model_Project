@@ -141,6 +141,7 @@ Complex rebase conflict resolution.
 ## Tasks
 - Add preflight: `git fetch`, verify local HEAD matches `origin/<branch>`.
 - If stale and `inputs.use_step_branch == true`, create `codex/issue-<n>/step/<short>`, push, open/refresh PR from step branch to the issue head.
+  - Specify merge strategy: After Gate passes, automatically merge the PR. (Or: PR requires manual review and approval before merging. [Choose one based on intended workflow])
 - If stale and fallback disabled, fail fast with clear summary.
 
 ## Acceptance criteria
