@@ -38,8 +38,8 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-conveyor-${{ github.event.client_payload.issue || github.event.client_payload.issue_number || github.event.inputs.issue || github.run_id }}
-  cancel-in-progress: false
+  group: codex-belt-conveyor-${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.branch || (github.event.client_payload.issue && format('codex/issue-{0}', github.event.client_payload.issue)) || (github.event.client_payload.issue_number && format('codex/issue-{0}', github.event.client_payload.issue_number))) || inputs.branch || github.event.inputs.branch || github.ref_name || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   promote:
