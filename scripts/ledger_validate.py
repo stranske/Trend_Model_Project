@@ -130,12 +130,16 @@ def _validate_task(
             if not commit:
                 errors.append(f"{context}.commit is required when status is done")
             elif not HEX_RE.match(commit.lower()):
-                errors.append(f"{context}.commit must be a Git SHA (7-40 hex characters)")
+                errors.append(
+                    f"{context}.commit must be a Git SHA (7-40 hex characters)"
+                )
             else:
                 try:
                     files = _commit_files(commit)
                 except LedgerError as exc:
-                    errors.append(f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}")
+                    errors.append(
+                        f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
+                    )
                 else:
                     if not files:
                         errors.append(
