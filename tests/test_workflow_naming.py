@@ -193,6 +193,7 @@ EXPECTED_NAMES = {
     "agents-71-codex-belt-dispatcher.yml": "Agents 71 Codex Belt Dispatcher",
     "agents-72-codex-belt-worker.yml": "Agents 72 Codex Belt Worker",
     "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
+    "agents-74-pr-body-writer.yml": "Agents 74 PR body writer",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-41-repo-health.yml": "Health 41 Repo Health",
