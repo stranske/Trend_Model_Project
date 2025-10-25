@@ -28,6 +28,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_step_branch:
+        description: 'Allow fallback step branch when issue branch is stale'
+        required: false
+        default: false
+        type: boolean
       max_parallel:
         description: 'Maximum concurrent worker runs permitted'
         required: false
@@ -61,7 +66,9 @@ jobs:
       pr_number: ${{ steps.pr.outputs.number || '' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
       allowed: ${{ steps.parallel.outputs.allowed || 'true' }}
-      concurrency_group: ${{ steps.ctx.outputs.concurrency_group || '' }}
+      use_step_branch: ${{ steps.mode.outputs.use_step_branch || 'false' }}
+      freshness: ${{ steps.freshness.outputs.status || '' }}
+      fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat != '' && secrets.actions_bot_pat || secrets.ACTIONS_BOT_PAT }}
     steps:
@@ -105,7 +112,12 @@ jobs:
             const dryRunValue = dryRunInput !== '' ? dryRunInput : payload.dry_run;
             const dryRun = coerce(dryRunValue);
 
+            const stepBranchInput = '${{ inputs.use_step_branch }}';
+            const stepBranchValue = stepBranchInput !== '' ? stepBranchInput : payload.use_step_branch;
+            const useStepBranch = coerce(stepBranchValue);
+
             core.setOutput('dry_run', dryRun ? 'true' : 'false');
+            core.setOutput('use_step_branch', useStepBranch ? 'true' : 'false');
 
       - name: Resolve worker context
         id: ctx
@@ -238,6 +250,79 @@ jobs:
             }
 
             core.setOutput('allowed', 'true');
+
+      - name: Prune merged step branches
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        id: prune
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            if (!issue) {
+              core.info('Issue context unavailable; skipping step branch pruning.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issueBranch = '${{ steps.ctx.outputs.branch }}';
+            const prefix = `codex/issue-${issue}/step/`;
+            const deleted = [];
+
+            try {
+              const { data: refs } = await github.rest.git.listMatchingRefs({
+                owner,
+                repo,
+                ref: `heads/${prefix}`,
+              });
+
+              for (const ref of refs) {
+                const branchName = (ref.ref || '').replace('refs/heads/', '');
+                if (!branchName) {
+                  continue;
+                }
+
+                try {
+                  const { data: pulls } = await github.rest.pulls.list({
+                    owner,
+                    repo,
+                    head: `${owner}:${branchName}`,
+                    state: 'closed',
+                    per_page: 50,
+                  });
+
+                  const merged = (pulls || []).find((pr) => {
+                    if (!pr || !pr.head || !pr.base) {
+                      return false;
+                    }
+                    const headMatches = pr.head.ref === branchName;
+                    const baseMatches = pr.base.ref === issueBranch;
+                    return headMatches && baseMatches && Boolean(pr.merged_at);
+                  });
+
+                  if (merged) {
+                    await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branchName}` });
+                    deleted.push(branchName);
+                  }
+                } catch (error) {
+                  core.warning(`Failed to evaluate ${branchName}: ${error.message}`);
+                }
+              }
+            } catch (error) {
+              if (error && error.status === 404) {
+                core.info('No step branches to prune.');
+              } else {
+                core.warning(`Unable to list step branches: ${error.message}`);
+              }
+            }
+
+            if (deleted.length) {
+              core.info(`Deleted merged step branches: ${deleted.join(', ')}`);
+            } else {
+              core.info('No merged step branches required pruning.');
+            }
+
+            core.setOutput('deleted', JSON.stringify(deleted));
 
       - name: Re-verify issue labels
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
@@ -452,7 +537,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
-          branch="${{ steps.ctx.outputs.branch }}"
+          branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             echo "Confirmed origin/$branch exists."
           else
@@ -466,7 +551,7 @@ jobs:
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
           set -euo pipefail
-          branch="${{ steps.ctx.outputs.branch }}"
+          branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
           base="${BASE_BRANCH}"
           git fetch origin "$base"
           upstream_sha=$(git rev-parse "origin/$base")
@@ -518,8 +603,9 @@ jobs:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
-            const branch = '${{ steps.ctx.outputs.branch }}';
-            const base = '${{ steps.base.outputs.branch }}';
+            const fallbackBranch = '${{ steps.fallback.outputs.branch || '' }}';
+            const branch = fallbackBranch || '${{ steps.ctx.outputs.branch }}';
+            const base = fallbackBranch ? '${{ steps.ctx.outputs.branch }}' : '${{ steps.base.outputs.branch }}';
             const { owner, repo } = context.repo;
 
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue}`;
@@ -561,7 +647,7 @@ jobs:
             }
 
             core.setOutput('number', String(prNumber));
-            core.summary.addRaw(`Prepared PR #${prNumber} targeting \`${base}\`.`).write();
+            core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
 
       - name: Apply automation labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
