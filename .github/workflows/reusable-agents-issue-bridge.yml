@@ -62,6 +62,12 @@ permissions:
 jobs:
   bridge:
     runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.ctx.outputs.issue }}
+      has_issue: ${{ steps.ctx.outputs.has_issue }}
+      base: ${{ steps.refs.outputs.base }}
+      head: ${{ steps.mk.outputs.branch || steps.refs.outputs.head || '' }}
+      mode: ${{ steps.mode.outputs.mode }}
     env:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
       AGENT: ${{ inputs.agent }}
