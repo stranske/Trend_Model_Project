@@ -6,14 +6,17 @@ from pathlib import Path
 
 import pytest
 
+# Add script directory to path before importing gate_summary
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / ".github" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-import gate_summary
+import gate_summary  # noqa: E402
 
 
-def write_summary(root: Path, runtime: str, *, lint: str = "success", tests: str = "success") -> None:
+def write_summary(
+    root: Path, runtime: str, *, lint: str = "success", tests: str = "success"
+) -> None:
     summary_dir = root / "downloads" / runtime
     summary_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -76,7 +79,9 @@ def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
     "python_outcome, expected_state",
     [("failure", "failure"), ("success", "success")],
 )
-def test_summary_state_reflects_python_outcome(tmp_path: Path, python_outcome: str, expected_state: str) -> None:
+def test_summary_state_reflects_python_outcome(
+    tmp_path: Path, python_outcome: str, expected_state: str
+) -> None:
     write_summary(tmp_path, "3.12", lint="failure", tests=python_outcome)
     context = gate_summary.SummaryContext(
         doc_only=False,
