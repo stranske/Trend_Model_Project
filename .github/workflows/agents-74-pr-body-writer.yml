@@ -150,7 +150,7 @@ jobs:
               const rest = body.slice(start);
               
               // Find next heading (## or ###)
-              const next = rest.search(/\r?\n#{2,3}\s+/i);
+              const next = rest.search(/\r?\n#{2}\s+/i);
               const end = next === -1 ? rest.length : next + 1;
               const content = rest.slice(0, end).trim();
               
