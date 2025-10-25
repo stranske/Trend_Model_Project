@@ -79,7 +79,7 @@ def _commit_files(commit: str) -> List[str]:
     except subprocess.CalledProcessError as exc:
         raise LedgerError(f"unknown commit {commit}") from exc
 
-    files = [line.strip() for line in output.splitlines() if line.strip()]
+    files = [line for line in (l.strip() for l in output.splitlines()) if line]
     return files
 
 
