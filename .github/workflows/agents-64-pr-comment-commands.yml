@@ -28,7 +28,6 @@ jobs:
             const marker = '<!-- codex-activation-marker -->';
             const errorMarker = '<!-- codex-activation-error -->';
 
-            const { github, context, core } = globalThis;
             const { payload } = context;
             const { owner, repo } = context.repo;
             const issueNumber = payload.issue.number;
@@ -44,10 +43,9 @@ jobs:
                 ? 'No `agent:*` label found on this pull request.'
                 : `Multiple agent labels found (${agentLabels.join(', ')}).`;
 
-              const body = `${errorMarker}
-**Codex activation blocked**
-
-${reason}`;
+              const body = `${errorMarker}\n` +
+                '**Codex activation blocked**\n\n' +
+                `${reason}`;
 
               const existingComments = await github.paginate(
                 github.rest.issues.listComments,
@@ -147,13 +145,12 @@ ${reason}`;
               });
             }
 
-            const activationBody = `${marker}
-Codex activation dispatched for **@${agent}** from [comment #${comment.id}](${comment.html_url}).
-
-- Pull request: #${issueNumber}
-- Base branch: ${pull.data.base.ref}
-- Head branch: ${pull.data.head.ref}
-- Comment ID: ${comment.id}`;
+            const activationBody = `${marker}\n` +
+              `Codex activation dispatched for **@${agent}** from [comment #${comment.id}](${comment.html_url}).\n\n` +
+              `- Pull request: #${issueNumber}\n` +
+              `- Base branch: ${pull.data.base.ref}\n` +
+              `- Head branch: ${pull.data.head.ref}\n` +
+              `- Comment ID: ${comment.id}`;
 
             const activationComment = comments.find(c => (c.body || '').includes(marker));
             if (activationComment) {

@@ -77,7 +77,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
 CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 63 ChatGPT Issue Sync",
     "Agents 63 Codex Issue Bridge",
-    "Agents 64 PR Comment Commands",
+    "Agents 64 PR comment command listener",
     "Agents 64 Verify Agent Assignment",
     "Agents 70 Orchestrator",
     "Agents 71 Codex Belt Dispatcher",
