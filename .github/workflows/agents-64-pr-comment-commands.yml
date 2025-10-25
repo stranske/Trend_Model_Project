@@ -1,0 +1,179 @@
+name: Agents 64 PR Comment Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: pr-comment-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  handle-command:
+    if: ${{ github.event.issue.pull_request }}
+    name: Handle PR comment commands
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process command
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const marker = '<!-- codex-activation-marker -->';
+            const errorMarker = '<!-- codex-activation-error -->';
+            const issue = context.payload.issue;
+            const comment = context.payload.comment || {};
+            if (!issue || !issue.pull_request) {
+              core.info('Comment is not on a pull request.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issueNumber = issue.number;
+            const commentId = comment.id;
+            const commentUrl = comment.html_url;
+            const rawBody = comment.body || '';
+            const trimmedBody = rawBody.replace(/^\s+/, '');
+
+            const listLabels = await github.rest.issues.listLabelsOnIssue({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+            const agentLabels = (listLabels.data || []).filter(
+              (label) => typeof label.name === 'string' && label.name.startsWith('agent:')
+            );
+
+            const upsertComment = async ({ markerText, body }) => {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              });
+              const existing = comments.find((c) => (c.body || '').includes(markerText));
+              if (existing) {
+                if (existing.body !== body) {
+                  await github.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: existing.id,
+                    body,
+                  });
+                }
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  body,
+                });
+              }
+            };
+
+            if (agentLabels.length !== 1) {
+              const problem =
+                agentLabels.length === 0
+                  ? 'No `agent:*` labels are applied to this pull request.'
+                  : `Expected exactly one \`agent:*\` label but found ${agentLabels.length}: ${agentLabels
+                      .map((label) => `\`${label.name}\``)
+                      .join(', ')}.`;
+              const body = [
+                errorMarker,
+                '⚠️ Unable to activate the Codex keepalive command.',
+                '',
+                problem,
+              ].join('\n');
+              await upsertComment({ markerText: errorMarker, body });
+              core.notice(problem);
+              return;
+            }
+
+            const agentLabel = agentLabels[0].name;
+            const agent = agentLabel.split(':', 2)[1]?.trim();
+            if (!agent) {
+              core.warning(`Unable to parse agent from label ${agentLabel}.`);
+              return;
+            }
+
+            const commandText = `@${agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
+
+            if (!trimmedBody.startsWith(commandText)) {
+              core.info('Comment does not contain the activation command.');
+              return;
+            }
+
+            const { data: allComments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+            const matching = allComments.filter((c) =>
+              (c.body || '').replace(/^\s+/, '').startsWith(commandText)
+            );
+            if (matching.length > 0) {
+              matching.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+              const latest = matching[matching.length - 1];
+              if (latest.id !== commentId) {
+                core.info(
+                  `A newer activation comment (${latest.id}) exists; skipping dispatch for comment ${commentId}.`
+                );
+                return;
+              }
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: issueNumber,
+            });
+            const baseRef = pr.base?.ref || '';
+            const headRef = pr.head?.ref || '';
+            const canonicalBranch = headRef && headRef.startsWith('codex/issue-')
+              ? headRef
+              : `codex/issue-${issueNumber}`;
+
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'codex-belt.work',
+              client_payload: {
+                issue: issueNumber,
+                base: baseRef,
+                head: headRef,
+                branch: canonicalBranch,
+                source: 'pr-comment-command',
+              },
+            });
+
+            const activationBody = [
+              marker,
+              `✅ Keepalive command received from ${commentUrl ? `[this comment](${commentUrl})` : 'the triggering comment'}.`,
+              '',
+              `Dispatched \`codex-belt.work\` for issue #${issueNumber} (${agentLabel}).`,
+              '',
+              '| Key | Value |',
+              '| --- | ----- |',
+              `| Base | \`${baseRef || '(unknown)'}\` |`,
+              `| Head | \`${headRef || '(unknown)'}\` |`,
+              `| Branch | \`${canonicalBranch}\` |`,
+              `| Run | [#${context.runNumber}](https://github.com/${owner}/${repo}/actions/runs/${context.runId}) |`,
+            ].join('\n');
+
+            await upsertComment({ markerText: marker, body: activationBody });
+
+            core.summary
+              .addHeading('Codex PR Comment Command Listener')
+              .addTable([
+                [{ data: 'Issue', header: true }, { data: 'Agent', header: true }, { data: 'Branch', header: true }],
+                [`#${issueNumber}`, agentLabel, canonicalBranch],
+              ])
+              .write();
+
