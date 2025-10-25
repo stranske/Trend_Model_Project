@@ -6,7 +6,7 @@ Labels: agent:codex, agents, automation, devops, ci
 Bridge sometimes creates its own PR/branch while the belt also opens one. Different head names and hard-coded base produce duplicate PRs and “work on main.”
 
 ## Scope
-Bridge wrappers and the reusable bridge only. Do not edit Orchestrator/Worker here.
+Bridge wrappers (i.e., `.github/workflows/agents-63-codex-issue-bridge.yml` and `.github/workflows/reusable-agents-issue-bridge.yml`) and the reusable bridge only. Do not edit Orchestrator/Worker here.
 
 ## Non-Goals
 No content changes to agent prompts.
