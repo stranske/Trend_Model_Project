@@ -62,10 +62,12 @@ concise summary:
 - The list of touched files (if any).
 
 The comment stores metadata in a `<!-- autofix-loop:{...} -->` marker so future
-runs can detect prior attempts. The workflow also applies the `autofix:clean`
-label and removes `needs-autofix-review` when the sweep succeeds, signalling
-that only cosmetic adjustments were required. If the job is skipped the guard
-reason is emitted to the job summary for quick inspection.
+runs can detect prior attempts. When the sweep produces formatting/import-order
+changes it applies the `autofix:clean` label and clears `needs-autofix-review`.
+If no edits were produced (or a future expansion detects non-cosmetic work) the
+labels flip: `needs-autofix-review` is added and `autofix:clean` is removed so a
+human can take over. If the job is skipped the guard reason is emitted to the
+job summary for quick inspection.
 
 ## Failure modes
 

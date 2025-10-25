@@ -494,18 +494,35 @@ jobs:
 
             const labelClean = 'autofix:clean';
             const labelReview = 'needs-autofix-review';
+            const isClean = changed && fileCount > 0;
 
-            try {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelClean] });
-            } catch (error) {
-              core.warning(`Failed to add ${labelClean}: ${error}`);
-            }
+            if (isClean) {
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelClean] });
+              } catch (error) {
+                core.warning(`Failed to add ${labelClean}: ${error}`);
+              }
 
-            try {
-              await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelReview });
-            } catch (error) {
-              if (error.status !== 404) {
-                core.warning(`Failed to remove ${labelReview}: ${error}`);
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelReview });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Failed to remove ${labelReview}: ${error}`);
+                }
+              }
+            } else {
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelReview] });
+              } catch (error) {
+                core.warning(`Failed to add ${labelReview}: ${error}`);
+              }
+
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelClean });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Failed to remove ${labelClean}: ${error}`);
+                }
               }
             }
 
