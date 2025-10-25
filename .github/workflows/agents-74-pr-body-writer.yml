@@ -44,7 +44,7 @@ jobs:
             async function discoverPr() {
               // Manual trigger with explicit PR number
               if (context.eventName === 'workflow_dispatch') {
-                const prNumber = '${{ inputs.pr_number }}';
+                const prNumber = '${{ inputs.pr_number || '' }}';
                 if (prNumber && prNumber.trim()) {
                   const num = Number.parseInt(prNumber.trim(), 10);
                   if (!Number.isNaN(num)) {
