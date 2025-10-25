@@ -168,5 +168,5 @@ Agent-created PRs only; opt-in via `automerge` label.
   * Make the step no-op unless `automerge` is on the PR.
 
 Branch: codex/issue--agent-automerge
-PR title prefix: [CI] Auto‑merge for agent PRs (opt‑in)
+PR title prefix: [CI] Auto-merge for agent PRs (opt-in)
 Touch only: .github/workflows/agents-70-orchestrator.yml, docs/ci/MERGE_QUEUE.md
