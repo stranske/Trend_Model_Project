@@ -13,6 +13,7 @@ import datetime as _dt
 import json
 import re
 import sys
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -25,7 +26,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - handled via error exit
 
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
-ISO8601_RE = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$")
+ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 class LedgerError(Exception):
@@ -69,8 +70,21 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
     return errors
 
 
+def _commit_files(commit: str) -> List[str]:
+    try:
+        output = subprocess.check_output(
+            ["git", "show", "--pretty=format:", "--name-only", commit],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise LedgerError(f"unknown commit {commit}") from exc
+
+    files = [line for line in (l.strip() for l in output.splitlines()) if line]
+    return files
+
+
 def _validate_task(
-    task: Dict[str, Any], *, index: int, seen_ids: set[str]
+    task: Dict[str, Any], *, index: int, seen_ids: set[str], ledger_path: Path
 ) -> List[str]:
     errors: List[str] = []
     context = f"tasks[{index}]"
@@ -116,9 +130,21 @@ def _validate_task(
             if not commit:
                 errors.append(f"{context}.commit is required when status is done")
             elif not HEX_RE.match(commit.lower()):
-                errors.append(
-                    f"{context}.commit must be a Git SHA (7-40 hex characters)"
-                )
+                errors.append(f"{context}.commit must be a Git SHA (7-40 hex characters)")
+            else:
+                try:
+                    files = _commit_files(commit)
+                except LedgerError as exc:
+                    errors.append(f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}")
+                else:
+                    if not files:
+                        errors.append(
+                            f"{ledger_path}: {context}.commit {commit} has no changed files"
+                        )
+                    elif all(name.startswith(".agents/") for name in files):
+                        errors.append(
+                            f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"
+                        )
         else:
             if commit and not HEX_RE.match(commit.lower()):
                 errors.append(f"{context}.commit must be empty or a Git SHA")
@@ -164,7 +190,9 @@ def validate_ledger(path: Path) -> List[str]:
         if not isinstance(task, dict):
             problems.append(f"{path}: tasks[{index}] must be a mapping")
             continue
-        problems.extend(_validate_task(task, index=index, seen_ids=seen_ids))
+        problems.extend(
+            _validate_task(task, index=index, seen_ids=seen_ids, ledger_path=path)
+        )
         if task.get("status") == "doing":
             doing_count += 1
 
