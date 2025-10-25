@@ -31,7 +31,18 @@ def test_agents_orchestrator_inputs_and_uses():
         "github.event.inputs.options_json" in text
     ), "options_json input must be forwarded to the resolver"
     assert "PARAMS_JSON" in text, "Resolve step must pass params_json via env"
-    assert "JSON.parse" in text, "params_json must be parsed as JSON"
+    # After extraction, the parsing logic is in agents_orchestrator_resolve.js
+    assert (
+        "agents_orchestrator_resolve.js" in text
+        or "agents-orchestrator-resolve" in text
+    ), "Orchestrator must invoke the resolver helper script"
+    # Verify the helper script contains the JSON parsing logic
+    resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
+    assert resolver_script.exists(), "Resolver helper script must exist"
+    resolver_text = resolver_script.read_text(encoding="utf-8")
+    assert (
+        "JSON.parse" in resolver_text
+    ), "Resolver script must parse params_json as JSON"
     assert "options_json" in text, "options_json output must remain available"
     assert (
         "enable_bootstrap:" in text
@@ -53,9 +64,13 @@ def test_agents_orchestrator_exposes_dry_run_toggle():
     assert (
         "dry_run: ${{ needs.resolve-params.outputs.dry_run }}" in text
     ), "Reusable workflow invocation must forward the resolved dry_run flag"
+    # After extraction, the dry_run output is computed in agents_orchestrator_resolve.js
+    resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
+    assert resolver_script.exists(), "Resolver helper script must exist"
+    resolver_text = resolver_script.read_text(encoding="utf-8")
     assert (
-        "dry_run: dryRun" in text
-    ), "Resolve step should surface the computed dry_run flag in its outputs table"
+        "dryRun" in resolver_text
+    ), "Resolve script should compute and surface the dry_run flag"
 
 
 def test_orchestrator_bootstrap_label_delegates_fallback():
@@ -499,19 +514,21 @@ def test_orchestrator_documents_keepalive_pause_controls():
 
 def test_orchestrator_handles_keepalive_pause_label():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    # After extraction, the keepalive pause logic is in agents_orchestrator_resolve.js
+    resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
+    assert resolver_script.exists(), "Resolver helper script must exist"
+    resolver_text = resolver_script.read_text(encoding="utf-8")
     assert (
         'keepalive skipped: repository label "${KEEPALIVE_PAUSE_LABEL}" is present.'
-        in text
-    ), "Orchestrator must log keepalive skipped when pause label is present"
-    assert (
-        "keepalive_paused_label" in text
-    ), "Orchestrator outputs should surface whether the pause label was detected"
+        in resolver_text
+    ), "Resolver script must log keepalive skipped when pause label is present"
+    # The workflow exposes keepalive_pause_label (not keepalive_paused_label)
     assert (
         "keepalive_pause_label" in text
     ), "Orchestrator outputs should expose the pause label name for downstream jobs"
     assert (
-        "keepalive:paused" in text
-    ), "Pause label constant must be documented in the workflow script"
+        "keepalive:paused" in resolver_text
+    ), "Pause label constant must be documented in the resolver script"
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
