@@ -310,11 +310,11 @@ jobs:
           branch="${{ steps.ctx.outputs.branch }}"
           remote_sha="${{ steps.freshness.outputs.remote_sha }}"
           short_id=$(python - <<'PY'
-import secrets
-alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
-token = ''.join(secrets.choice(alphabet) for _ in range(8))
-print(token)
-PY
+          import secrets
+          alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
+          token = ''.join(secrets.choice(alphabet) for _ in range(8))
+          print(token)
+          PY
           )
           step_branch="codex/issue-${ISSUE}/step/$short_id"
           git checkout -B "$step_branch" "$remote_sha"
