@@ -82,7 +82,7 @@ def test_worker_keeps_concurrency_and_pat_guard():
     assert group.startswith(
         "codex-belt"
     ), f"Concurrency group should start with 'codex-belt', got: {group}"
-    assert concurrency.get("cancel-in-progress") is False
+    assert concurrency.get("cancel-in-progress") is True
 
     events = workflow.get("on") or {}
     repo_dispatch = events.get("repository_dispatch") or {}
