@@ -7,6 +7,17 @@ on:
   workflow_run:
     workflows: [Gate]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to update (leave empty to use trigger context)'
+        required: false
+        type: string
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,7 +26,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: pr-body-writer-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  group: pr-body-writer-${{ github.event.pull_request.number || github.event.workflow_run.id || inputs.pr_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -31,6 +42,22 @@ jobs:
             const repo = context.repo.repo;
 
             async function discoverPr() {
+              // Manual trigger with explicit PR number
+              if (context.eventName === 'workflow_dispatch') {
+                const prNumber = '${{ inputs.pr_number }}';
+                if (prNumber && prNumber.trim()) {
+                  const num = Number.parseInt(prNumber.trim(), 10);
+                  if (!Number.isNaN(num)) {
+                    core.info(`Manual trigger: using PR #${num}`);
+                    // Fetch PR to get current head SHA
+                    const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: num});
+                    return {number: num, headSha: pr.head.sha};
+                  }
+                }
+                core.warning('workflow_dispatch without valid pr_number; skipping');
+                return null;
+              }
+              
               if (context.eventName === 'pull_request') {
                 const pr = context.payload.pull_request;
                 return {number: pr.number, headSha: pr.head.sha};
@@ -101,15 +128,34 @@ jobs:
             }
 
             function extractSection(body, heading) {
-              if (!body) return '';
-              const pattern = new RegExp(`(^|\n)##\s+${heading.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\s*\n`, 'i');
+              if (!body) {
+                core.debug(`extractSection: body is empty for heading "${heading}"`);
+                return '';
+              }
+              
+              // More flexible regex: allow ## or ### headers, optional trailing spaces/newlines
+              const escapedHeading = heading.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+              const pattern = new RegExp(`(^|\\n)#{2,3}\\s+${escapedHeading}\\s*\\r?\\n`, 'i');
               const match = body.match(pattern);
-              if (!match) return '';
+              
+              if (!match) {
+                core.debug(`extractSection: No match for heading "${heading}"`);
+                core.debug(`  Pattern: ${pattern}`);
+                core.debug(`  Body preview: ${body.slice(0, 200).replace(/\n/g, '\\n')}`);
+                return '';
+              }
+              
+              core.debug(`extractSection: Found "${heading}" at index ${match.index}`);
               const start = match.index + match[0].length;
               const rest = body.slice(start);
-              const next = rest.search(/\n##\s+/i);
+              
+              // Find next heading (## or ###)
+              const next = rest.search(/\r?\n#{2,3}\s+/i);
               const end = next === -1 ? rest.length : next + 1;
-              return rest.slice(0, end).trim();
+              const content = rest.slice(0, end).trim();
+              
+              core.debug(`  Extracted ${content.length} characters`);
+              return content;
             }
 
             function normalizeWhitespace(value) {
@@ -345,8 +391,16 @@ jobs:
               return `Unable to determine source issue for PR #${pr.number}; skipping.`;
             }
 
+            core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
             const issueResponse = await github.rest.issues.get({owner, repo, issue_number: issueNumber});
             const issueBody = issueResponse.data.body || '';
+            
+            if (!issueBody) {
+              core.warning(`Issue #${issueNumber} has no body content`);
+            } else {
+              core.debug(`Issue body length: ${issueBody.length} characters`);
+              core.debug(`Issue body preview: ${issueBody.slice(0, 300).replace(/\n/g, '\\n')}`);
+            }
 
             function extractWithAliases(body, aliases) {
               for (const alias of aliases) {
@@ -357,10 +411,16 @@ jobs:
             }
 
             function buildRichSummary(body) {
+              core.info('Building rich summary from issue sections...');
               const why = normalizeWhitespace(extractSection(body, 'Why'));
               const scopeRaw = normalizeWhitespace(extractSection(body, 'Scope'));
               const nonGoals = normalizeWhitespace(extractSection(body, 'Non-Goals'));
               const goal = normalizeWhitespace(extractSection(body, 'Goal'));
+              
+              core.info(`  Why: ${why ? `${why.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Scope: ${scopeRaw ? `${scopeRaw.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Non-Goals: ${nonGoals ? `${nonGoals.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Goal: ${goal ? `${goal.length} chars` : 'NOT FOUND'}`);
               
               const parts = [];
               if (why) parts.push(why);
@@ -368,7 +428,9 @@ jobs:
               if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
               if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
               
-              return parts.join('\n\n');
+              const result = parts.join('\n\n');
+              core.info(`Rich summary result: ${result ? `${result.length} chars` : 'EMPTY'}`);
+              return result;
             }
 
             const summaryRich = buildRichSummary(issueBody);
@@ -376,10 +438,14 @@ jobs:
             const testing = normalizeWhitespace(extractWithAliases(issueBody, ['Testing', 'Test Plan', 'Validation']));
             const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
             
+            core.info(`Final sections - Summary: ${summary ? 'OK' : 'EMPTY'}, Testing: ${testing ? 'OK' : 'EMPTY'}, CI: ${ci ? 'OK' : 'EMPTY'}`);
+            
             // Extract raw content for status block (will be formatted by buildStatusBlock)
             const scope = extractSection(issueBody, 'Scope') || '';
             const tasks = extractSection(issueBody, 'Tasks') || '';
             const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
+
+            core.info(`Status block sections - Scope: ${scope ? 'OK' : 'EMPTY'}, Tasks: ${tasks ? 'OK' : 'EMPTY'}, Acceptance: ${acceptance ? 'OK' : 'EMPTY'}`);
 
             const preamble = buildPreamble({summary, testing, ci});
 
