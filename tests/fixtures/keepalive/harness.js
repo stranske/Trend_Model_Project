@@ -83,6 +83,17 @@ function loadKeepaliveRunner() {
   return sandbox.module.exports;
 }
 
+let commentSequence = 1;
+
+function allocateCommentId(existingId) {
+  if (existingId !== undefined && existingId !== null) {
+    return existingId;
+  }
+  const id = commentSequence;
+  commentSequence += 1;
+  return id;
+}
+
 function normaliseComment(comment) {
   if (!comment) {
     return null;
@@ -91,7 +102,9 @@ function normaliseComment(comment) {
     return null;
   }
   const login = comment.user && typeof comment.user === 'object' ? comment.user.login : undefined;
+  const id = allocateCommentId(comment.id);
   return {
+    id,
     body: comment.body || '',
     created_at: comment.created_at || comment.updated_at || new Date().toISOString(),
     updated_at: comment.updated_at || null,
@@ -100,6 +113,7 @@ function normaliseComment(comment) {
 }
 
 async function runScenario(scenario) {
+  commentSequence = 1;
   const summary = new SummaryRecorder();
   const info = [];
   const warnings = [];
@@ -118,6 +132,9 @@ async function runScenario(scenario) {
 
   const pulls = Array.from(scenario.pulls || []).map((pull) => ({
     number: pull.number,
+    head: {
+      ref: pull.head?.ref || `codex/issue-${pull.number}`,
+    },
     labels: Array.from(pull.labels || []).map((label) =>
       typeof label === 'string' ? { name: label } : label
     ),
@@ -130,6 +147,7 @@ async function runScenario(scenario) {
   }
 
   const createdComments = [];
+  const updatedComments = [];
 
   const listPulls = async ({ per_page = 50, page = 1 }) => {
     const start = (page - 1) * per_page;
@@ -146,7 +164,14 @@ async function runScenario(scenario) {
 
   const createComment = async ({ issue_number, body }) => {
     const entry = { issue_number, body };
+    entry.id = allocateCommentId();
     createdComments.push(entry);
+    return { data: entry };
+  };
+
+  const updateComment = async ({ comment_id, body }) => {
+    const entry = { comment_id, body };
+    updatedComments.push(entry);
     return { data: entry };
   };
 
@@ -156,6 +181,7 @@ async function runScenario(scenario) {
       issues: {
         listComments,
         createComment,
+        updateComment,
       },
     },
     paginate: {
@@ -224,6 +250,7 @@ async function runScenario(scenario) {
     summary: summary.toJSON(),
     logs: { info, warnings, notices, failedMessage },
     created_comments: createdComments,
+    updated_comments: updatedComments,
   };
 }
 

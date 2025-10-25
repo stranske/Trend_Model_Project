@@ -150,7 +150,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const command = String(commandRaw).trim() || '@codex plan-and-execute';
   const commandLower = command.toLowerCase();
 
-  const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive -->';
+  const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive-marker -->';
   const marker = String(markerRaw);
 
   const sentinelRaw = options.keepalive_sentinel ?? '[keepalive]';
@@ -174,6 +174,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const repo = context.repo.repo;
   const now = Date.now();
   const triggered = [];
+  const refreshed = [];
   const previews = [];
   const paused = [];
   const skipped = [];
@@ -243,6 +244,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       );
 
       const prNumber = pr.number;
+      const headRef = String(pr.head?.ref || '').trim();
       const recordSkip = (reason, { paused: pausedEntry = false } = {}) => {
         const entry = `#${prNumber} – ${reason}`;
         skipped.push(entry);
@@ -252,6 +254,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
         core.info(`#${prNumber}: skipped – ${reason}`);
       };
+
+      if (!headRef.toLowerCase().startsWith('codex/issue-')) {
+        recordSkip('head branch not codex/issue-*');
+        continue;
+      }
 
       if (labelNames.includes(pausedLabel)) {
         recordSkip('keepalive paused via agents:paused label', { paused: true });
@@ -335,10 +342,17 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const keepaliveComments = comments
-        .filter((comment) => (comment.body || '').includes(marker))
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      if (keepaliveComments.length) {
-        const lastKeepaliveTs = new Date(keepaliveComments[0].created_at).getTime();
+        .map((comment) => ({
+          comment,
+          body: comment.body || '',
+          id: comment.id,
+          timestamp: new Date(comment.updated_at || comment.created_at).getTime(),
+        }))
+        .filter((entry) => entry.body.includes(marker))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const latestKeepalive = keepaliveComments[0];
+      if (latestKeepalive) {
+        const lastKeepaliveTs = latestKeepalive.timestamp;
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
         if (minutesSinceKeepalive < repeatMinutes) {
           recordSkip(`keepalive sent ${minutesSinceKeepalive.toFixed(1)} minutes ago (< ${repeatMinutes})`);
@@ -374,6 +388,15 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       if (dryRun) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
+      } else if (latestKeepalive && latestKeepalive.id) {
+        await github.rest.issues.updateComment({
+          owner,
+          repo,
+          comment_id: latestKeepalive.id,
+          body,
+        });
+        refreshed.push(`#${prNumber} – keepalive refreshed (remaining tasks: ${outstanding})`);
+        core.info(`#${prNumber}: keepalive refreshed (remaining tasks: ${outstanding}).`);
       } else {
         await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
         triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding})`);
@@ -396,6 +419,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       summary.addRaw('No unattended Codex tasks detected.');
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
+    if (refreshed.length) {
+      summary.addDetails('Refreshed keepalive comments', summariseList(refreshed));
+    }
+    summary.addRaw(`Refreshed keepalive count: ${refreshed.length}`).addEOL();
   }
   if (skipped.length) {
     summary.addDetails('Skipped pull requests', summariseList(skipped));
