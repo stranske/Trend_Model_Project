@@ -365,7 +365,7 @@ jobs:
               const parts = [];
               if (why) parts.push(why);
               if (goal) parts.push(goal);
-              if (scopeRaw && parts.length > 0) parts.push(`\n**Scope:** ${scopeRaw}`);
+              if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
               if (nonGoals) parts.push(`\n**Non-Goals:** ${nonGoals}`);
               
               return parts.join('\n\n');
