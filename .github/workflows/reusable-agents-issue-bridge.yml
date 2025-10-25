@@ -84,6 +84,74 @@ jobs:
             core.setOutput('issue', num > 0 ? String(num) : '');
             core.setOutput('has_issue', num > 0 ? 'true' : 'false');
 
+      - name: Resolve agent label
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        id: agent_label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+
+            const loadLabels = async () => {
+              if (!issueNumber) {
+                return [];
+              }
+              const issueFromEvent = context.payload.issue;
+              if (issueFromEvent && Number(issueFromEvent.number) === issueNumber) {
+                return issueFromEvent.labels || [];
+              }
+              const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+              return data.labels || [];
+            };
+
+            const rawLabels = await loadLabels();
+            const prefixes = ['agent:', 'agents:'];
+            const candidates = [];
+
+            for (const label of rawLabels) {
+              const name = (typeof label === 'string' ? label : label?.name || '').trim();
+              if (!name) continue;
+              const lower = name.toLowerCase();
+              for (const prefix of prefixes) {
+                if (!lower.startsWith(prefix)) {
+                  continue;
+                }
+                const suffix = lower.slice(prefix.length).trim();
+                if (!suffix || suffix === 'keepalive') {
+                  continue;
+                }
+                candidates.push({ original: name, suffix });
+                break;
+              }
+            }
+
+            if (candidates.length === 0) {
+              core.setFailed('Exactly one agent:* label is required to run the bridge.');
+              return;
+            }
+            if (candidates.length > 1) {
+              const names = candidates.map((c) => c.original).join(', ');
+              core.setFailed(`Expected exactly one agent:* label but found multiple: ${names}`);
+              return;
+            }
+
+            const { original, suffix } = candidates[0];
+            const agent = suffix;
+            const mention = `@${agent}`;
+            const title = agent.charAt(0).toUpperCase() + agent.slice(1);
+
+            core.exportVariable('BRIDGE_AGENT_LABEL', original);
+            core.exportVariable('BRIDGE_AGENT_NAME', agent);
+            core.exportVariable('BRIDGE_AGENT_MENTION', mention);
+            core.exportVariable('BRIDGE_AGENT_TITLE', title);
+            core.exportVariable('AGENT', agent);
+
+            core.setOutput('label', original);
+            core.setOutput('agent', agent);
+            core.setOutput('mention', mention);
+            core.setOutput('title', title);
+
       - name: Resolve base and head refs
         id: refs
         uses: actions/github-script@v7
@@ -115,7 +183,7 @@ jobs:
         id: mode
         uses: actions/github-script@v7
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const agent = process.env.AGENT || 'unknown';
@@ -241,7 +309,7 @@ jobs:
 
       - name: Log chosen mode & draft
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         run: |
           echo "Agent: $AGENT"
           echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
@@ -281,7 +349,7 @@ jobs:
         id: mk
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
           BASE: ${{ steps.refs.outputs.base }}
           HEAD: ${{ steps.refs.outputs.head || '' }}
         run: |
@@ -328,7 +396,7 @@ jobs:
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -336,7 +404,9 @@ jobs:
             const base = "${{ steps.refs.outputs.base }}";
             const branch = process.env.BRANCH;
             const agent = process.env.AGENT || 'unknown';
-            const agentTitle = agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
             const rawMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
             const keepaliveMode = rawMode === 'ON' ? 'ON' : 'OFF';
 
@@ -371,7 +441,7 @@ jobs:
               '',
               quoted,
               '',
-              `@${agent} start`,
+              `${mention} start`,
               '',
               `${agentTitle}, please derive and propose:`,
               '- Scope / key constraints',
@@ -387,11 +457,7 @@ jobs:
               'The following block should be pasted as a separate PR comment:',
               '',
               '```markdown',
-              `@${agent} plan-and-execute`,
-              '',
-              `${agentTitle}, reuse the scope, acceptance criteria, and task list from the source issue.`,
-              'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
-              'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
+              instruction,
               '```'
             ];
             
@@ -413,7 +479,7 @@ jobs:
       - name: Skip PR creation when inviting
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         run: |
           echo "Invite mode: skipping PR creation; waiting for human author to create PR for $AGENT."
 
@@ -424,7 +490,7 @@ jobs:
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           github-token: ${{ secrets.owner_pr_pat || secrets.service_bot_pat || github.token }}
           script: |
@@ -434,8 +500,10 @@ jobs:
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
-            const agent = process.env.AGENT || 'unknown';
-            const agentTitle = agent.charAt(0).toUpperCase() + agent.slice(1);
+              const agent = process.env.AGENT || 'unknown';
+              const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+              const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+              const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
 
             if (!issue_number) {
               core.setFailed('Resolved issue number missing; cannot open PR.');
@@ -514,7 +582,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR: ${{ steps.pr.outputs.number }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -526,7 +594,7 @@ jobs:
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
         uses: actions/github-script@v7
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           github-token: ${{ env.SERVICE_BOT_PAT }}
           script: |
@@ -540,7 +608,7 @@ jobs:
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && steps.agent_comment.outputs.post == 'true' }}
         uses: actions/github-script@v7
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const {owner, repo} = context.repo;
@@ -553,13 +621,15 @@ jobs:
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
         uses: actions/github-script@v7
         env:
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           script: |
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = process.env.AGENT || 'unknown';
-            const agentTitle = agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
             const codexPromptMsg = [
               "PR created.",
               `Comment \`@${agent} start\` to request the plan.`,
@@ -573,7 +643,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
           BRANCH: ${{ steps.mk.outputs.branch }}
           BASE: ${{ steps.refs.outputs.base }}
         with:
@@ -596,7 +666,9 @@ jobs:
             }
 
             const agent = process.env.AGENT || 'unknown';
-            const agentTitle = agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
@@ -624,16 +696,12 @@ jobs:
               `Keepalive mode: **${keepaliveMode}**`,
               '',
               'Next steps for the PR author:',
-              `- Comment \`@${agent} start\` (auto-posted when possible) so ${agentTitle} drafts the plan.`,
+              `- Comment \`${mention} start\` (auto-posted when possible) so ${agentTitle} drafts the plan.`,
               `- After ${agentTitle} replies with the checklist, post the execution command below to begin delivery and enable keepalive.`,
               '',
               'Execution command (copy into a standalone PR comment):',
               '```markdown',
-              `@${agent} plan-and-execute`,
-              '',
-              `${agentTitle}, reuse the scope, acceptance criteria, and task list from the source issue.`,
-              'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
-              'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
+              instruction,
               '```',
               '',
               'Issue context (optional: copy into the PR description):',
@@ -656,7 +724,7 @@ jobs:
           KEEPALIVE_SOURCE: ${{ steps.keepalive.outputs.source || 'none' }}
           ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
           PR_NUMBER: ${{ steps.pr.outputs.number || '' }}
-          AGENT: ${{ inputs.agent }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
           github-token: ${{ secrets.service_bot_pat || github.token }}
           script: |
