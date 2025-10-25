@@ -48,7 +48,7 @@ No logic changes to how steps are executed.
 ## Tasks
 - Set Worker concurrency to `codex-belt-${{ inputs.branch }}` with `cancel-in-progress: true`.
 - Do the same for Conveyor.
-- Post a single activation comment with HTML marker `<!-- codex-activation-marker -->`. If present, update it; if absent, create it.
+- Post a single activation comment to the PR conversation, containing the HTML marker `<!-- codex-activation-marker -->` and a summary of the Worker activation status (e.g., "Codex Worker activated for branch <branch-name>"). If present, update it; if absent, create it.
 
 ## Acceptance criteria
 - Two Worker runs for the same head never overlap; one cancels/queues the other.
