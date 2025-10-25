@@ -251,6 +251,79 @@ jobs:
 
             core.setOutput('allowed', 'true');
 
+      - name: Prune merged step branches
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        id: prune
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            if (!issue) {
+              core.info('Issue context unavailable; skipping step branch pruning.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issueBranch = '${{ steps.ctx.outputs.branch }}';
+            const prefix = `codex/issue-${issue}/step/`;
+            const deleted = [];
+
+            try {
+              const { data: refs } = await github.rest.git.listMatchingRefs({
+                owner,
+                repo,
+                ref: `heads/${prefix}`,
+              });
+
+              for (const ref of refs) {
+                const branchName = (ref.ref || '').replace('refs/heads/', '');
+                if (!branchName) {
+                  continue;
+                }
+
+                try {
+                  const { data: pulls } = await github.rest.pulls.list({
+                    owner,
+                    repo,
+                    head: `${owner}:${branchName}`,
+                    state: 'closed',
+                    per_page: 50,
+                  });
+
+                  const merged = (pulls || []).find((pr) => {
+                    if (!pr || !pr.head || !pr.base) {
+                      return false;
+                    }
+                    const headMatches = pr.head.ref === branchName;
+                    const baseMatches = pr.base.ref === issueBranch;
+                    return headMatches && baseMatches && Boolean(pr.merged_at);
+                  });
+
+                  if (merged) {
+                    await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branchName}` });
+                    deleted.push(branchName);
+                  }
+                } catch (error) {
+                  core.warning(`Failed to evaluate ${branchName}: ${error.message}`);
+                }
+              }
+            } catch (error) {
+              if (error && error.status === 404) {
+                core.info('No step branches to prune.');
+              } else {
+                core.warning(`Unable to list step branches: ${error.message}`);
+              }
+            }
+
+            if (deleted.length) {
+              core.info(`Deleted merged step branches: ${deleted.join(', ')}`);
+            } else {
+              core.info('No merged step branches required pruning.');
+            }
+
+            core.setOutput('deleted', JSON.stringify(deleted));
+
       - name: Re-verify issue labels
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
         id: verify
@@ -551,12 +624,36 @@ jobs:
               ]
             ];
 
+            let pruned = [];
+            try {
+              const rawPruned = '${{ steps.prune.outputs.deleted || '' }}'.trim();
+              if (rawPruned) {
+                const parsed = JSON.parse(rawPruned);
+                if (Array.isArray(parsed)) {
+                  pruned = parsed;
+                }
+              }
+            } catch (error) {
+              core.warning(`Unable to parse pruned branch list: ${error.message}`);
+            }
+
             const summary = core.summary;
             summary.addHeading('Codex Belt Worker');
             if (prSummary) {
               summary.addRaw(`${prSummary}\n\n`);
             }
-            summary.addTable(table).write();
+            summary.addTable(table);
+
+            if (pruned.length) {
+              summary
+                .addHeading('Step Branch Cleanup', 2)
+                .addTable([
+                  [{ data: 'Branch', header: true }],
+                  ...pruned.map((name) => [name])
+                ]);
+            }
+
+            summary.write();
 
       - name: Summarise worker preview
         if: ${{ steps.parallel.outputs.allowed != 'true' || steps.mode.outputs.dry_run == 'true' }}
