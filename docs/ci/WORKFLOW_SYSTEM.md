@@ -521,6 +521,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 74 PR body writer** – `.github/workflows/agents-74-pr-body-writer.yml`
   synchronizes PR body sections from source issues and builds dynamic status
   summaries from workflow runs and acceptance criteria.
+- **Agents 75 Keepalive On Gate** – `.github/workflows/agents-75-keepalive-on-gate.yml`
+  consolidates keepalive behavior with the Gate workflow so keepalive sweeps
+  can be triggered or gated by PR-level signals and Gate summary outcomes.
 - **Keepalive sweep (orchestrator + reusable-16).** The orchestrator passes the
   `enable_keepalive` flag into `reusable-16-agents.yml`, which executes the
   keepalive script when enabled. Summary output now notes when keepalive ran or
