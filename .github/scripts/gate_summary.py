@@ -72,7 +72,9 @@ def _pick_best(outcomes: Iterable[str]) -> str:
 def _aggregate(entries: Iterable[tuple[str, str]]) -> tuple[str, str]:
     pairs = list(entries)
     best = _pick_best([outcome for _, outcome in pairs])
-    detail = ", ".join(f"{runtime}: {_friendly(outcome)}" for runtime, outcome in sorted(pairs))
+    detail = ", ".join(
+        f"{runtime}: {_friendly(outcome)}" for runtime, outcome in sorted(pairs)
+    )
     return best, detail or "no runs"
 
 
@@ -123,7 +125,9 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
     for record in sorted(records, key=lambda item: str(item.get("python_version", ""))):
         runtime = str(record.get("python_version", "unknown"))
         job_name = str(record.get("job_name") or runtime)
-        checks = record.get("checks") if isinstance(record.get("checks"), Mapping) else {}
+        checks = (
+            record.get("checks") if isinstance(record.get("checks"), Mapping) else {}
+        )
 
         def _check(name: str) -> str:
             section = checks.get(name)
@@ -144,8 +148,14 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
         coverage_entries.append((runtime, coverage_min))
         job_results.setdefault(job_name, []).extend([lint, typing, tests, coverage_min])
 
-        coverage_info = record.get("coverage") if isinstance(record.get("coverage"), Mapping) else {}
-        percent = coverage_info.get("percent") if isinstance(coverage_info, Mapping) else None
+        coverage_info = (
+            record.get("coverage")
+            if isinstance(record.get("coverage"), Mapping)
+            else {}
+        )
+        percent = (
+            coverage_info.get("percent") if isinstance(coverage_info, Mapping) else None
+        )
         if isinstance(percent, (int, float)):
             coverage_percents.append(f"{runtime}: {percent:.2f}%")
             percent_display = f"{percent:.2f}%"
@@ -167,7 +177,15 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
             )
         )
 
-    return table, lint_entries, type_entries, test_entries, coverage_entries, coverage_percents, job_results
+    return (
+        table,
+        lint_entries,
+        type_entries,
+        test_entries,
+        coverage_entries,
+        coverage_percents,
+        job_results,
+    )
 
 
 def _doc_only_lines(reason: str) -> list[str]:
@@ -189,7 +207,9 @@ def _doc_only_lines(reason: str) -> list[str]:
     return lines
 
 
-def _append_job_table(lines: list[str], job_results: Mapping[str, Iterable[str]], docker_result: str) -> None:
+def _append_job_table(
+    lines: list[str], job_results: Mapping[str, Iterable[str]], docker_result: str
+) -> None:
     lines.append("")
     lines.append("| Job | Result |")
     lines.append("| --- | --- |")
@@ -218,9 +238,15 @@ def _active_lines(
     coverage_status, coverage_detail = _aggregate(coverage_entries)
 
     lines.append("")
-    lines.append(f"- Lint: {_emoji(lint_status)} {_friendly(lint_status)} ({lint_detail})")
-    lines.append(f"- Type check: {_emoji(type_status)} {_friendly(type_status)} ({type_detail})")
-    lines.append(f"- Tests: {_emoji(test_status)} {_friendly(test_status)} ({test_detail})")
+    lines.append(
+        f"- Lint: {_emoji(lint_status)} {_friendly(lint_status)} ({lint_detail})"
+    )
+    lines.append(
+        f"- Type check: {_emoji(type_status)} {_friendly(type_status)} ({type_detail})"
+    )
+    lines.append(
+        f"- Tests: {_emoji(test_status)} {_friendly(test_status)} ({test_detail})"
+    )
     lines.append(
         f"- Coverage minimum: {_emoji(coverage_status)} {_friendly(coverage_status)} ({coverage_detail})"
     )
@@ -345,4 +371,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

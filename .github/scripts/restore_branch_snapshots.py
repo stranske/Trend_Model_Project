@@ -61,7 +61,9 @@ def _iter_artifacts(response: dict) -> Iterator[Artifact]:
     return iter(converted)
 
 
-def _collect_artifacts(session: requests.Session, repo: str, token: str) -> list[Artifact]:
+def _collect_artifacts(
+    session: requests.Session, repo: str, token: str
+) -> list[Artifact]:
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -84,7 +86,9 @@ def _collect_artifacts(session: requests.Session, repo: str, token: str) -> list
     return results
 
 
-def _select_latest(artifacts: Iterable[Artifact], prefix: str, current_run_id: str | None) -> Artifact | None:
+def _select_latest(
+    artifacts: Iterable[Artifact], prefix: str, current_run_id: str | None
+) -> Artifact | None:
     cleaned_run = str(current_run_id) if current_run_id else ""
     filtered = [
         art
@@ -136,7 +140,9 @@ def _copy_json(source_dir: Path, destination_dir: Path) -> None:
             target.write_bytes(path.read_bytes())
             copied = True
     if not copied:
-        raise RestoreError(f"Artifact directory {source_dir} did not contain JSON snapshots")
+        raise RestoreError(
+            f"Artifact directory {source_dir} did not contain JSON snapshots"
+        )
 
 
 def restore_previous_snapshots(
@@ -195,7 +201,10 @@ def main() -> int:
         return 0
 
     if restored:
-        print(f"[summary] Restored previous snapshots into {snapshot_dir / 'previous'}", flush=True)
+        print(
+            f"[summary] Restored previous snapshots into {snapshot_dir / 'previous'}",
+            flush=True,
+        )
     else:
         print("[summary] No previous artifact found", flush=True)
     return 0
