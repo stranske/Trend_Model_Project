@@ -288,14 +288,70 @@ jobs:
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
+  belt-check-existing-pr:
+    name: Guard existing Codex PRs
+    needs:
+      - belt-dispatch
+    if: needs.belt-dispatch.outputs.issue != '' && needs.belt-dispatch.outputs.branch != ''
+    runs-on: ubuntu-latest
+    outputs:
+      pr_exists: ${{ steps.lookup.outputs.pr_exists || 'false' }}
+      pr_number: ${{ steps.lookup.outputs.pr_number || '' }}
+      pr_url: ${{ steps.lookup.outputs.pr_url || '' }}
+    steps:
+      - name: Detect existing PR for issue branch
+        id: lookup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = '${{ needs.belt-dispatch.outputs.branch }}';
+            const summary = core.summary;
+
+            summary.addHeading('Codex belt PR guard');
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${branch}`,
+              per_page: 1,
+            });
+
+            const existing = Array.isArray(pulls) && pulls.length > 0 ? pulls[0] : null;
+
+            if (!existing) {
+              summary.addRaw(`No open PR detected for branch \`${branch}\`.`).write();
+              core.setOutput('pr_exists', 'false');
+              core.setOutput('pr_number', '');
+              core.setOutput('pr_url', '');
+              return;
+            }
+
+            const prNumber = existing.number ? String(existing.number) : '';
+            const prUrl = existing.html_url || (prNumber ? `https://github.com/${owner}/${repo}/pull/${prNumber}` : '');
+
+            summary
+              .addRaw(`Existing PR detected: <a href="${prUrl}">#${prNumber || '(unknown)'}</a>.`)
+              .addEOL()
+              .addRaw('Result: skipped: PR exists.')
+              .write();
+
+            core.info('PR already exists.');
+            core.setOutput('pr_exists', 'true');
+            core.setOutput('pr_number', prNumber);
+            core.setOutput('pr_url', prUrl);
+
   belt-worker:
     name: Codex Belt Worker
     needs:
       - resolve-params
       - belt-dispatch
+      - belt-check-existing-pr
     if: |
       needs.resolve-params.outputs.worker_max_parallel != '0' &&
       needs.belt-dispatch.outputs.issue != ''
+      && needs.belt-check-existing-pr.outputs.pr_exists != 'true'
     uses: ./.github/workflows/agents-72-codex-belt-worker.yml
     with:
       issue: ${{ needs.belt-dispatch.outputs.issue }}
@@ -312,25 +368,34 @@ jobs:
     needs:
       - belt-dispatch
       - belt-worker
+      - belt-check-existing-pr
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Record existing PR guard outcome
+        if: needs.belt-check-existing-pr.outputs.pr_exists == 'true'
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ## Codex belt worker guard
+          * Status: skipped: PR exists.
+          * Existing PR: [#${{ needs.belt-check-existing-pr.outputs.pr_number }}](${{ needs.belt-check-existing-pr.outputs.pr_url }})
+          EOF
+
       - name: Append dispatch summary
         uses: actions/github-script@v7
         env:
           DISPATCH_RESULT: ${{ needs.belt-dispatch.result || '' }}
           DISPATCH_ISSUE: ${{ needs.belt-dispatch.outputs.issue || '' }}
           DISPATCH_REASON: ${{ needs.belt-dispatch.outputs.reason || '' }}
-          WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
+          WORKER_RESULT: ${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && 'skipped: PR exists.' || needs.belt-worker.result || '' }}
           WORKER_ALLOWED: ${{ needs.belt-worker.outputs.allowed || '' }}
-          WORKER_PR_NUMBER: ${{ needs.belt-worker.outputs.pr_number || '' }}
-          WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || '' }}
+          WORKER_PR_NUMBER: ${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || '' }}
+          WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
         with:
           script: |
             const { appendDispatchSummary } = require('./.github/scripts/agents_dispatch_summary.js');
             await appendDispatchSummary({ core, context, env: process.env });
-
   belt-scan-ready-prs:
     name: Scan Codex promotion queue
     needs: resolve-params
