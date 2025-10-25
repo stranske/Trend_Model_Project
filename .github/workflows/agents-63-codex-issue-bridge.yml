@@ -16,14 +16,6 @@ on:
         description: "Auto-post '@codex start' as the actor (true/false)"
         required: false
         default: "true"
-      pr_mode:
-        description: "create | invite (invite = human opens the PR)"
-        required: false
-        default: "create"
-      codex_pr_draft:
-        description: "Force created PR to be draft (true/false)"
-        required: false
-        default: "false"
 
 permissions:
   contents: write
@@ -65,9 +57,9 @@ jobs:
     with:
       agent: "codex"
       issue_number: ${{ github.event.issue.number || inputs.test_issue || '' }}
-      mode: ${{ inputs.pr_mode || 'create' }}
+      mode: 'invite'
       post_agent_comment: ${{ inputs.post_codex_comment || 'true' }}
-      agent_pr_draft: ${{ inputs.codex_pr_draft || 'false' }}
+      agent_pr_draft: 'false'
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}

@@ -1,0 +1,40 @@
+version: 1
+issue: 2996
+base: main
+branch: codex/issue--agent-ledger
+tasks:
+  - id: ledger-schema
+    title: Define a versioned .agents/issue-<n>-ledger.yml schema with metadata and task entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: worker-read
+    title: Teach the Codex belt worker to load the ledger, select the next todo task, and mark it doing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: worker-write
+    title: Persist task completion, including commit SHA on success or notes on failure, from the worker run.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: ledger-validate
+    title: Add scripts/ledger_validate.py and enforce the schema in CI.
+    status: done
+    started_at: '2025-10-25T03:05:56Z'
+    finished_at: '2025-10-25T03:07:15Z'
+    commit: 2fdf00127d995ca40f94f556124434207f8b45b2
+    notes: []
+  - id: ledger-summary
+    title: Include the ledger delta in the worker job summary output.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

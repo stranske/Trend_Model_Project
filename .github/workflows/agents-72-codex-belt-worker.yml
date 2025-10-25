@@ -28,6 +28,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_step_branch:
+        description: 'Allow fallback step branch when issue branch is stale'
+        required: false
+        default: false
+        type: boolean
       max_parallel:
         description: 'Maximum concurrent worker runs permitted'
         required: false
@@ -47,8 +52,8 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt
-  cancel-in-progress: false
+  group: codex-belt-${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.branch || (github.event.client_payload.issue && format('codex/issue-{0}', github.event.client_payload.issue)) || (github.event.client_payload.issue_number && format('codex/issue-{0}', github.event.client_payload.issue_number))) || inputs.branch || github.event.inputs.branch || github.ref_name || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   bootstrap:
@@ -61,6 +66,9 @@ jobs:
       pr_number: ${{ steps.pr.outputs.number || '' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
       allowed: ${{ steps.parallel.outputs.allowed || 'true' }}
+      use_step_branch: ${{ steps.mode.outputs.use_step_branch || 'false' }}
+      freshness: ${{ steps.freshness.outputs.status || '' }}
+      fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat != '' && secrets.actions_bot_pat || secrets.ACTIONS_BOT_PAT }}
     steps:
@@ -104,7 +112,12 @@ jobs:
             const dryRunValue = dryRunInput !== '' ? dryRunInput : payload.dry_run;
             const dryRun = coerce(dryRunValue);
 
+            const stepBranchInput = '${{ inputs.use_step_branch }}';
+            const stepBranchValue = stepBranchInput !== '' ? stepBranchInput : payload.use_step_branch;
+            const useStepBranch = coerce(stepBranchValue);
+
             core.setOutput('dry_run', dryRun ? 'true' : 'false');
+            core.setOutput('use_step_branch', useStepBranch ? 'true' : 'false');
 
       - name: Resolve worker context
         id: ctx
@@ -165,13 +178,23 @@ jobs:
               core.warning(`Unexpected branch naming: ${branch}`);
             }
 
+            const runId = context.runId;
+            const concurrencyKey = issue || payload.issue || payload.issue_number || runId;
+            const concurrencyGroup = concurrencyKey ? `codex-belt-${concurrencyKey}` : '';
+            if (!concurrencyGroup) {
+              core.setFailed('Unable to determine concurrency group.');
+              return;
+            }
+
             core.setOutput('issue', String(issue));
             core.setOutput('branch', branch);
             core.setOutput('base', base);
             core.setOutput('source', source);
+            core.setOutput('concurrency_group', concurrencyGroup);
             core.summary
               .addHeading('Codex Belt Worker')
               .addTable([[{ data: 'Issue', header: true }, { data: 'Branch', header: true }, { data: 'Source', header: true }], [`#${issue}`, branch, source]])
+              .addTable([[{ data: 'Concurrency Group', header: true }, { data: 'Issue', header: true }, { data: 'Branch', header: true }], [concurrencyGroup, `#${issue}`, branch]])
               .write();
 
       - name: Determine default branch
@@ -228,6 +251,79 @@ jobs:
 
             core.setOutput('allowed', 'true');
 
+      - name: Prune merged step branches
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        id: prune
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            if (!issue) {
+              core.info('Issue context unavailable; skipping step branch pruning.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issueBranch = '${{ steps.ctx.outputs.branch }}';
+            const prefix = `codex/issue-${issue}/step/`;
+            const deleted = [];
+
+            try {
+              const { data: refs } = await github.rest.git.listMatchingRefs({
+                owner,
+                repo,
+                ref: `heads/${prefix}`,
+              });
+
+              for (const ref of refs) {
+                const branchName = (ref.ref || '').replace('refs/heads/', '');
+                if (!branchName) {
+                  continue;
+                }
+
+                try {
+                  const { data: pulls } = await github.rest.pulls.list({
+                    owner,
+                    repo,
+                    head: `${owner}:${branchName}`,
+                    state: 'closed',
+                    per_page: 50,
+                  });
+
+                  const merged = (pulls || []).find((pr) => {
+                    if (!pr || !pr.head || !pr.base) {
+                      return false;
+                    }
+                    const headMatches = pr.head.ref === branchName;
+                    const baseMatches = pr.base.ref === issueBranch;
+                    return headMatches && baseMatches && Boolean(pr.merged_at);
+                  });
+
+                  if (merged) {
+                    await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branchName}` });
+                    deleted.push(branchName);
+                  }
+                } catch (error) {
+                  core.warning(`Failed to evaluate ${branchName}: ${error.message}`);
+                }
+              }
+            } catch (error) {
+              if (error && error.status === 404) {
+                core.info('No step branches to prune.');
+              } else {
+                core.warning(`Unable to list step branches: ${error.message}`);
+              }
+            }
+
+            if (deleted.length) {
+              core.info(`Deleted merged step branches: ${deleted.join(', ')}`);
+            } else {
+              core.info('No merged step branches required pruning.');
+            }
+
+            core.setOutput('deleted', JSON.stringify(deleted));
+
       - name: Re-verify issue labels
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
         id: verify
@@ -258,11 +354,190 @@ jobs:
           token: ${{ env.ACTIONS_BOT_PAT }}
           fetch-depth: 0
 
+      - name: Prepare ledger task
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        id: ledger_start
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+          GITHUB_TOKEN: ${{ env.ACTIONS_BOT_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import datetime as dt
+          import json
+          import os
+          import re
+          import sys
+          import urllib.request
+          from pathlib import Path
+
+          import yaml
+
+          def iso_now() -> str:
+              return dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+
+          issue = os.environ["ISSUE"].strip()
+          branch = os.environ["BRANCH"].strip()
+          base = os.environ["BASE_BRANCH"].strip()
+          repo = os.environ["GITHUB_REPOSITORY"].strip()
+          token = os.environ.get("GITHUB_TOKEN", "").strip()
+
+          agents_dir = Path('.agents')
+          agents_dir.mkdir(parents=True, exist_ok=True)
+          ledger_path = agents_dir / f'issue-{issue}-ledger.yml'
+          start_path = agents_dir / '.ledger-start.json'
+
+          original_text = None
+          data = None
+          if ledger_path.exists():
+              original_text = ledger_path.read_text(encoding='utf-8')
+              loaded = yaml.safe_load(original_text) or {}
+              if not isinstance(loaded, dict):
+                  raise SystemExit(f"Ledger {ledger_path} must contain a mapping")
+              data = loaded
+          else:
+              owner, _, name = repo.partition('/')
+              url = f"https://api.github.com/repos/{owner}/{name}/issues/{issue}"
+              headers = {"Accept": "application/vnd.github+json"}
+              if token:
+                  headers["Authorization"] = f"token {token}"
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  payload = json.load(response)
+              body = payload.get('body') or ''
+              pattern = re.compile(r'^\s*[-*]\s+\[(?: |x|X)\]\s+(.*)$', re.MULTILINE)
+              tasks = []
+              for index, match in enumerate(pattern.finditer(body), start=1):
+                  title = match.group(1).strip()
+                  if not title:
+                      continue
+                  tasks.append({
+                      'id': f'task-{index:02d}',
+                      'title': title,
+                      'status': 'todo',
+                      'started_at': None,
+                      'finished_at': None,
+                      'commit': '',
+                      'notes': [],
+                  })
+              if not tasks:
+                  tasks = [{
+                      'id': 'task-01',
+                      'title': 'Initialise durable progress ledger from issue tasks',
+                      'status': 'todo',
+                      'started_at': None,
+                      'finished_at': None,
+                      'commit': '',
+                      'notes': [],
+                  }]
+              data = {
+                  'version': 1,
+                  'issue': int(issue),
+                  'base': base,
+                  'branch': branch,
+                  'tasks': tasks,
+              }
+
+          data.setdefault('version', 1)
+          data.setdefault('issue', int(issue))
+          data['issue'] = int(data['issue'])
+          data['base'] = base
+          data['branch'] = branch
+          tasks = data.setdefault('tasks', [])
+          if not isinstance(tasks, list):
+              raise SystemExit('Ledger tasks must be a list')
+
+          selected = None
+          previous_status = None
+          for task in tasks:
+              if not isinstance(task, dict):
+                  continue
+              task.setdefault('notes', [])
+              task.setdefault('commit', '')
+              if task.get('status') == 'doing':
+                  selected = task
+                  previous_status = 'doing'
+                  break
+          if selected is None:
+              for task in tasks:
+                  if not isinstance(task, dict):
+                      continue
+                  if task.get('status') == 'todo':
+                      selected = task
+                      previous_status = 'todo'
+                      break
+
+          now = iso_now()
+          if selected is not None:
+              if selected.get('status') == 'todo':
+                  selected['status'] = 'doing'
+                  selected['started_at'] = now
+                  selected['finished_at'] = None
+                  selected['commit'] = ''
+              elif selected.get('status') == 'doing' and not selected.get('started_at'):
+                  selected['started_at'] = now
+
+          new_text = yaml.safe_dump(data, sort_keys=False)
+          changed = new_text != (original_text or '')
+          if changed:
+              ledger_path.write_text(new_text, encoding='utf-8')
+
+          start_info = {
+              'issue': issue,
+              'ledger_path': str(ledger_path),
+              'created': original_text is None,
+              'ledger_changed': changed,
+              'task': None,
+          }
+          if selected is not None:
+              start_info['task'] = {
+                  'id': selected.get('id'),
+                  'title': selected.get('title'),
+                  'previous_status': previous_status,
+                  'current_status': selected.get('status'),
+              }
+          start_path.write_text(json.dumps(start_info), encoding='utf-8')
+
+          gh_output = os.environ.get('GITHUB_OUTPUT')
+          if gh_output:
+              with open(gh_output, 'a', encoding='utf-8') as handle:
+                  handle.write(f"task_id={start_info['task']['id'] if start_info['task'] else ''}\n")
+                  handle.write(f"task_status={start_info['task']['current_status'] if start_info['task'] else ''}\n")
+                  handle.write(f"ledger_changed={'true' if changed else 'false'}\n")
+                  handle.write(f"ledger_created={'true' if start_info['created'] else 'false'}\n")
+          PY
+
+      - name: Validate ledger schema (pre-flight)
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        run: |
+          python scripts/ledger_validate.py .agents/issue-${{ steps.ctx.outputs.issue }}-ledger.yml
+
+      - name: Commit ledger in-progress state
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          TASK_ID: ${{ steps.ledger_start.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "stranske-automation-bot"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+          git add .agents/issue-${ISSUE}-ledger.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          task_id=${TASK_ID:-n/a}
+          git commit -m "chore(ledger): start task ${task_id} for issue #${ISSUE}"
+          git push origin "${BRANCH}"
+
       - name: Ensure branch exists remotely
         if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
-          branch="${{ steps.ctx.outputs.branch }}"
+          branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             echo "Confirmed origin/$branch exists."
           else
@@ -276,7 +551,7 @@ jobs:
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
           set -euo pipefail
-          branch="${{ steps.ctx.outputs.branch }}"
+          branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
           base="${BASE_BRANCH}"
           git fetch origin "$base"
           upstream_sha=$(git rev-parse "origin/$base")
@@ -328,8 +603,9 @@ jobs:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
-            const branch = '${{ steps.ctx.outputs.branch }}';
-            const base = '${{ steps.base.outputs.branch }}';
+            const fallbackBranch = '${{ steps.fallback.outputs.branch || '' }}';
+            const branch = fallbackBranch || '${{ steps.ctx.outputs.branch }}';
+            const base = fallbackBranch ? '${{ steps.ctx.outputs.branch }}' : '${{ steps.base.outputs.branch }}';
             const { owner, repo } = context.repo;
 
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue}`;
@@ -371,7 +647,7 @@ jobs:
             }
 
             core.setOutput('number', String(prNumber));
-            core.summary.addRaw(`Prepared PR #${prNumber} targeting \`${base}\`.`).write();
+            core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
 
       - name: Apply automation labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
@@ -413,12 +689,39 @@ jobs:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
             const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const branch = ('${{ steps.ctx.outputs.branch }}' || '').trim() || '(unknown branch)';
+            const dryRun = '${{ steps.mode.outputs.dry_run }}' === 'true';
             const { owner, repo } = context.repo;
-            const message = '@codex start\n\nAutomated belt worker prepared this PR. Please continue implementing the requested changes.';
+            const marker = '<!-- codex-activation-marker -->';
+            const summary = dryRun
+              ? `Codex Worker activated for branch \`${branch}\` (dry run preview).`
+              : `Codex Worker activated for branch \`${branch}\`.`;
+            const body = `${marker}\n${summary}\n\n@codex start\n\nAutomated belt worker prepared this PR. Please continue implementing the requested changes.`;
+
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: message });
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100
+              });
+              const withMarker = comments.filter((comment) => typeof comment.body === 'string' && comment.body.includes(marker));
+              const [primary, ...duplicates] = withMarker;
+
+              if (primary) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: primary.id, body });
+                for (const duplicate of duplicates) {
+                  try {
+                    await github.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id });
+                  } catch (deletionError) {
+                    core.warning(`Failed to remove duplicate Codex activation comment ${duplicate.id} on PR #${prNumber}: ${deletionError.message}`);
+                  }
+                }
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              }
             } catch (error) {
-              core.warning(`Failed to post Codex command on PR #${prNumber}: ${error.message}`);
+              core.warning(`Failed to upsert Codex activation comment on PR #${prNumber}: ${error.message}`);
             }
 
       - name: Sync issue comment with PR link
@@ -435,6 +738,258 @@ jobs:
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
+
+      - name: Finalise ledger task
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' }}
+        id: ledger_finalize
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+          TASK_ID: ${{ steps.ledger_start.outputs.task_id }}
+          JOB_STATUS: ${{ job.status }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import datetime as dt
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          import yaml
+
+          def iso_now() -> str:
+              return dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+
+          issue = os.environ.get('ISSUE', '').strip()
+          branch = os.environ.get('BRANCH', '').strip()
+          base = os.environ.get('BASE_BRANCH', '').strip()
+          task_id_env = (os.environ.get('TASK_ID') or '').strip()
+          job_status = (os.environ.get('JOB_STATUS') or '').lower()
+          dry_run = (os.environ.get('DRY_RUN') or '').lower() == 'true'
+          run_id = os.environ.get('GITHUB_RUN_ID', '')
+
+          agents_dir = Path('.agents')
+          ledger_path = agents_dir / f'issue-{issue}-ledger.yml'
+          start_path = agents_dir / '.ledger-start.json'
+          summary_path = agents_dir / '.ledger-summary.md'
+
+          original_text = ledger_path.read_text(encoding='utf-8') if ledger_path.exists() else ''
+          data = yaml.safe_load(original_text) if original_text else None
+          if data is None:
+              data = {}
+          if not isinstance(data, dict):
+              raise SystemExit(f'Ledger {ledger_path} must contain a mapping')
+          tasks = data.get('tasks') or []
+          if not isinstance(tasks, list):
+              raise SystemExit('Ledger tasks must be a list')
+
+          def collect_statuses(entries):
+              statuses = {}
+              for entry in entries:
+                  if not isinstance(entry, dict):
+                      continue
+                  task_id = entry.get('id')
+                  if isinstance(task_id, str) and task_id:
+                      statuses[task_id] = str(entry.get('status', ''))
+              return statuses
+
+          start_info = {}
+          if start_path.exists():
+              try:
+                  start_info = json.loads(start_path.read_text(encoding='utf-8'))
+              except json.JSONDecodeError:
+                  start_info = {}
+          task_info = start_info.get('task') if isinstance(start_info.get('task'), dict) else None
+          task_id = task_id_env or (task_info.get('id') if task_info else '')
+
+          summary_lines = []
+          if start_info.get('created'):
+              summary_lines.append(f"Created ledger for issue #{issue} targeting {branch} -> {base}.")
+
+          before_statuses = collect_statuses(tasks)
+          after_statuses = before_statuses.copy()
+          violations = []
+
+          target_task = None
+          for task in tasks:
+              if isinstance(task, dict) and task.get('id') == task_id:
+                  target_task = task
+                  break
+
+          changed = False
+          final_status = ''
+          commit_sha = ''
+
+          if not task_id:
+              summary_lines.append('No ledger task selected for this run.')
+          elif target_task is None:
+              summary_lines.append(f"Ledger task {task_id} not found; no updates applied.")
+          elif dry_run:
+              summary_lines.append(f"Dry run – task {task_id} remains {target_task.get('status','todo')}.")
+              final_status = str(target_task.get('status', ''))
+              after_statuses = collect_statuses(tasks)
+          else:
+              status_before = str(target_task.get('status', ''))
+              previous_status = str(task_info.get('previous_status', '')) if task_info else ''
+              notes = target_task.setdefault('notes', [])
+              if not isinstance(notes, list):
+                  notes = []
+                  target_task['notes'] = notes
+              if job_status == 'success':
+                  if status_before == 'done':
+                      summary_lines.append(
+                          f"Task {task_id} already done before finalisation; no changes applied."
+                      )
+                      final_status = 'done'
+                      after_statuses = collect_statuses(tasks)
+                  elif status_before != 'doing':
+                      summary_lines.append(
+                          f"Task {task_id} expected status doing but found {status_before or 'unknown'}; left unchanged."
+                      )
+                      final_status = status_before
+                      after_statuses = collect_statuses(tasks)
+                  else:
+                      commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+                      target_task['status'] = 'done'
+                      target_task['finished_at'] = iso_now()
+                      if not target_task.get('started_at'):
+                          target_task['started_at'] = target_task['finished_at']
+                      target_task['commit'] = commit_sha
+                      final_status = 'done'
+                      summary_lines.append(
+                          f"Task {task_id} advanced {previous_status or status_before} → done @ {commit_sha[:7]}."
+                      )
+                      after_statuses = collect_statuses(tasks)
+              else:
+                  if status_before == 'done':
+                      summary_lines.append(
+                          f"Task {task_id} remained done despite job failure; ledger left untouched."
+                      )
+                      final_status = 'done'
+                      after_statuses = collect_statuses(tasks)
+                  elif status_before != 'doing':
+                      summary_lines.append(
+                          f"Task {task_id} not in progress ({status_before or 'unknown'}); no reset applied."
+                      )
+                      final_status = status_before
+                      after_statuses = collect_statuses(tasks)
+                  else:
+                      note = f"{iso_now()} failure (run {run_id}): status={job_status or 'failure'}"
+                      notes.append(note)
+                      target_task['status'] = 'todo'
+                      target_task['commit'] = ''
+                      target_task['finished_at'] = None
+                      target_task['started_at'] = None
+                      final_status = 'todo'
+                      summary_lines.append(f"Task {task_id} reset to todo after {job_status or 'failure'}.")
+                      after_statuses = collect_statuses(tasks)
+
+              new_text = yaml.safe_dump(data, sort_keys=False)
+              if new_text != original_text:
+                  ledger_path.write_text(new_text, encoding='utf-8')
+                  changed = True
+
+          status_changes = []
+          if not dry_run and task_id:
+              for tid, before in before_statuses.items():
+                  after = after_statuses.get(tid)
+                  if after != before:
+                      status_changes.append((tid, before, after))
+              for tid, after in after_statuses.items():
+                  if tid not in before_statuses:
+                      status_changes.append((tid, None, after))
+
+              def describe(change):
+                  tid, before, after = change
+                  before_display = (before or '∅') if before is not None else '∅'
+                  after_display = (after or '∅') if after is not None else '∅'
+                  return f"{tid}: {before_display} → {after_display}"
+
+              unexpected = [c for c in status_changes if c[0] != task_id]
+              if unexpected:
+                  for change in unexpected:
+                      summary_lines.append(
+                          f"Unexpected task status change detected ({describe(change)}); requires attention."
+                      )
+                  violations.append('Ledger run modified multiple tasks; expected a single task transition.')
+
+              if target_task is not None:
+                  if status_before == 'doing' and job_status == 'success':
+                      if not any(c[0] == task_id for c in status_changes):
+                          summary_lines.append(
+                              f"Task {task_id} did not advance from doing after a successful run; ledger invariant violated."
+                          )
+                          violations.append('Successful run failed to advance selected task to done.')
+                  if status_before == 'doing' and job_status != 'success':
+                      if not any(c[0] == task_id for c in status_changes):
+                          summary_lines.append(
+                              f"Task {task_id} remained doing after failure; expected reset to todo."
+                          )
+                          violations.append('Failed run did not reset selected task to todo.')
+
+              remaining_doing = [tid for tid, state in after_statuses.items() if state == 'doing']
+              if remaining_doing and job_status == 'success':
+                  summary_lines.append(
+                      f"Tasks still marked doing after success: {', '.join(remaining_doing)}."
+                  )
+                  violations.append('Successful run left tasks in doing status; expected none.')
+
+          if not summary_lines:
+              summary_lines.append('Ledger unchanged during this run.')
+
+          summary_path.write_text('\n'.join(summary_lines) + '\n', encoding='utf-8')
+
+          if start_path.exists():
+              start_path.unlink()
+
+          gh_output = os.environ.get('GITHUB_OUTPUT')
+          if gh_output:
+              with open(gh_output, 'a', encoding='utf-8') as handle:
+                  handle.write(f"ledger_changed={'true' if changed else 'false'}\n")
+                  handle.write(f"task_id={task_id}\n")
+                  handle.write(f"task_status={final_status}\n")
+                  handle.write(f"ledger_path={ledger_path if ledger_path.exists() else ''}\n")
+                  handle.write(f"commit_sha={commit_sha}\n")
+
+          if violations:
+              for message in violations:
+                  print(f"::error::{message}")
+              raise SystemExit('Ledger task progression invariant violated.')
+          PY
+
+      - name: Validate ledger schema (final)
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && steps.ledger_finalize.outputs.ledger_path != '' }}
+        run: |
+          python scripts/ledger_validate.py ${{ steps.ledger_finalize.outputs.ledger_path }}
+
+      - name: Commit ledger completion state
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outputs.ledger_changed == 'true' }}
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          TASK_ID: ${{ steps.ledger_finalize.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "stranske-automation-bot"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+          git add .agents/issue-${ISSUE}-ledger.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          task_id=${TASK_ID:-n/a}
+          git commit -m "chore(ledger): finish task ${task_id} for issue #${ISSUE}"
+          git push origin "${BRANCH}"
+
+      - name: Append ledger delta to summary
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' }}
+        run: |
+          if [ -f .agents/.ledger-summary.md ]; then
+            cat .agents/.ledger-summary.md >>"$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Summarise worker preview
         if: ${{ steps.parallel.outputs.allowed != 'true' || steps.mode.outputs.dry_run == 'true' }}

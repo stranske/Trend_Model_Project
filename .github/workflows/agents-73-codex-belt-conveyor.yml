@@ -38,8 +38,8 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-conveyor
-  cancel-in-progress: false
+  group: codex-belt-conveyor-${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.branch || (github.event.client_payload.issue && format('codex/issue-{0}', github.event.client_payload.issue)) || (github.event.client_payload.issue_number && format('codex/issue-{0}', github.event.client_payload.issue_number))) || inputs.branch || github.event.inputs.branch || github.ref_name || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   promote:
@@ -49,6 +49,7 @@ jobs:
       merged: ${{ steps.merge.outputs.merged || 'false' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
       mode: ${{ steps.mode.outputs.mode_label || 'live' }}
+      concurrency_group: ${{ steps.summary.outputs.concurrency_group || '' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
 
@@ -80,15 +81,30 @@ jobs:
           } >>"$GITHUB_OUTPUT"
 
       - name: Summarise invocation
+        id: summary
         uses: actions/github-script@v7
         with:
           script: |
             const summary = core.summary;
             const dryRun = '${{ steps.mode.outputs.dry_run }}' === 'true';
             const modeLabel = '${{ steps.mode.outputs.mode_label }}' || (dryRun ? 'preview' : 'live');
+            const issueRaw = '${{ inputs.issue }}';
+            const issueValue = Number(issueRaw);
+            const issueNumber = Number.isFinite(issueValue) && issueValue > 0 ? issueValue : null;
+            const branch = '${{ inputs.branch }}'.trim();
             const prNumber = Number('${{ inputs.pr_number }}');
             const targetPr = Number.isFinite(prNumber) ? `#${prNumber}` : 'Unknown';
             const modeDisplay = dryRun ? 'Preview (dry run)' : 'Live (merge ready)';
+            const payload = (context.payload && context.payload.client_payload) || {};
+            const runId = context.runId;
+            const concurrencyKey = issueNumber || payload.issue || payload.issue_number || runId;
+            const concurrencyGroup = concurrencyKey ? `codex-belt-conveyor-${concurrencyKey}` : '';
+            if (!concurrencyGroup) {
+              core.setFailed('Unable to determine conveyor concurrency group.');
+              return;
+            }
+            const issueDisplay = issueNumber ? `#${issueNumber}` : 'Unknown';
+            const branchDisplay = branch || '(unspecified)';
             summary
               .addHeading('Codex Belt Conveyor')
               .addTable([
@@ -99,10 +115,22 @@ jobs:
                   { data: 'Mode', header: true }
                 ],
                 [
-                  `#${{ inputs.issue }}`,
-                  '${{ inputs.branch }}',
+                  issueDisplay,
+                  branchDisplay,
                   targetPr,
                   modeDisplay
+                ]
+              ])
+              .addTable([
+                [
+                  { data: 'Concurrency Group', header: true },
+                  { data: 'Issue', header: true },
+                  { data: 'Branch', header: true }
+                ],
+                [
+                  concurrencyGroup,
+                  issueDisplay,
+                  branchDisplay
                 ]
               ])
               .addBreak()
@@ -110,6 +138,7 @@ jobs:
               .addBreak()
               .addRaw(`Target PR(s): **${targetPr}**.`)
               .write();
+            core.setOutput('concurrency_group', concurrencyGroup);
 
       - name: Load PR details
         id: pr

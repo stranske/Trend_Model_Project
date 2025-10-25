@@ -1,420 +1,251 @@
-1. Consolidate keepalive into Orchestrator and add pause/resume label
+1) Issue Bridge: invite‑only mode, use codex/issue-<n> head, and resolve base from repo default
 
-Labels: agents, workflow, enhancement, agent:codex
+Labels: agent:codex, agents, automation, devops, ci
 
-Why
-Unify all keepalive behavior inside Agents 70 Orchestrator. Remove any redundant keepalive workflows. Add a pause/resume control via repository label so maintainers can temporarily stop keepalive without code edits.
+## Why
+Bridge sometimes creates its own PR/branch while the belt also opens one. Different head names and hard-coded base produce duplicate PRs and “work on main.”
 
-Scope
+## Scope
+Bridge wrappers (i.e., `.github/workflows/agents-63-codex-issue-bridge.yml` and `.github/workflows/reusable-agents-issue-bridge.yml`) and the reusable bridge only. Do not edit Orchestrator/Worker here.
 
-Orchestrator gains an input/flag to enable keepalive sweep.
+## Non-Goals
+No content changes to agent prompts.
 
-Honor a repo-level label, for example keepalive:paused, to skip keepalive runs.
+## Tasks
+- Default Bridge PR mode to **invite** (no PR creation in Bridge); the belt owns PR creation.
+- Compute the base branch via `repos.get().default_branch` each run; never assume `main`.
+- Emit canonical head `codex/issue-<n>` as output for downstream steps.
+- Do not create ephemeral `agents/*` heads.
+- Update the summary in the issue comment to reflect chosen base/head.
 
-Delete redundant keepalive workflows after migration.
+## Acceptance criteria
+- Running the Bridge never creates a PR by default (invite mode).
+- The head branch is always `codex/issue-<n>`.
+- The base always equals the repository default branch at dispatch time.
 
-  - Non-Goals
+## Implementation notes
+- Files: `.github/workflows/agents-63-codex-issue-bridge.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`
+- Add a tiny `actions/github-script` step to get `default_branch` and set outputs: `{ base, head }`.
+- Keep an optional `mode=create` input for manual testing, but default stays `invite`.
 
-    - Changing Orchestrator’s belt/queue logic beyond the keepalive path.
+Branch: codex/issue--bridge-invite-canonical
+PR title prefix: [Bridge] Invite-only + canonical head
+Touch only: .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/reusable-agents-issue-bridge.yml
 
-Tasks
+2) Worker: per‑branch concurrency; marker‑based activation comment upsert
 
-- In agents-70-orchestrator.yml, add inputs.keepalive_enabled defaulting to true.
+Labels: agent:codex, agents, ci, devops, automation
 
-- At job start, read labels via API; if keepalive:paused is present, short-circuit keepalive steps.
+## Why
+Global concurrency lets two Workers mutate the same PR simultaneously. Separate runs also spam duplicate “start” comments.
 
-- Inline docs: comment headers describing the pause label and flag.
+## Scope
+Agents 72 Worker (and 73 Conveyor concurrency mirror).
 
-- Remove old keepalive workflows (e.g., “Agents Keepalive PR” and any “Keepalive On Gate”) and references.
+## Non-Goals
+No logic changes to how steps are executed.
 
-- Update any callers that previously triggered those files.
+## Tasks
+- Set Worker concurrency to `codex-belt-${{ inputs.branch }}` with `cancel-in-progress: true`.
+- Do the same for Conveyor.
+- Post a single activation comment to the PR conversation, containing the HTML marker `<!-- codex-activation-marker -->` and a summary of the Worker activation status (e.g., "Codex Worker activated for branch <branch-name>"). If present, update it; if absent, create it.
 
-Acceptance Criteria
+## Acceptance criteria
+- Two Worker runs for the same head never overlap; one cancels/queues the other.
+- Activation text appears once per PR and is updated in place on re-runs.
 
-- With keepalive:paused applied, Orchestrator logs “keepalive skipped” and performs no keepalive changes.
+## Implementation notes
+- Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `.github/workflows/agents-73-codex-belt-conveyor.yml`
+- Use `actions/github-script@v7` to list comments, find the marker, and upsert.
 
-- With label removed and keepalive_enabled: true, Orchestrator performs keepalive as before.
+Branch: codex/issue--worker-concurrency-upsert
+PR title prefix: [Agents] Per-branch concurrency + comment upsert
+Touch only: .github/workflows/agents-72-codex-belt-worker.yml, .github/workflows/agents-73-codex-belt-conveyor.yml
 
-- No other workflow references removed files; CI is green.
+3) Keepalive: single source of truth, branch‑scoped triggers, marker upsert
 
-Implementation notes
+Labels: agent:codex, agents, agents:keepalive, automation, devops, ci
 
-- Branch: codex/issue-<n>-keepalive-consolidation
+## Why
+Multiple keepalive mechanisms race each other (Orchestrator sweep, Gate listener, any legacy keepalive). That causes duplicate comments and duplicate dispatch.
 
-- PR title prefix: [Agents] Keepalive consolidation + pause label
+## Scope
+Orchestrator keepalive sweep and the Gate listener workflow only.
 
-- Touch only: .github/workflows/agents-*.yml, minimal scripts under .github/scripts/ as needed.
+## Non-Goals
+No changes to belt step sizing.
 
-2. Migrate post-CI summary into PR Gate and retire Maint 46
+## Tasks
+- Choose ONE keepalive mechanism:
+  - Preferred: keep Orchestrator sweep; disable Gate listener, OR
+  - If Gate listener is kept, restrict to `head_branch` like `codex/issue-*` and disable Orchestrator sweep.
+- Add `<!-- codex-keepalive-marker -->` upserted comment to avoid duplicates.
+- Respect `agents:paused` label to short-circuit both paths.
 
-Labels: ci, workflow, maintenance, enhancement, agent:codex
+## Acceptance criteria
+- Exactly one keepalive path remains active.
+- No duplicate keepalive comments appear on PRs.
+- Keepalive never fires on non-agent branches.
 
-Why
-Fold the “post-CI” artifact aggregation, coverage delta, and single PR comment summary into the final job of the PR Gate workflow. Remove the broken Maint 46 Post CI to eliminate the env.* expression surfacing errors and the workflow_run indirection.
+## Implementation notes
+- Files: `.github/workflows/agents-70-orchestrator.yml`, `.github/workflows/agents-75-keepalive-on-gate.yml` (or similarly named)
+- Gate listener (if used): `on: workflow_run` with `conclusion == success` and branch filter `startsWith(head_branch, 'codex/issue-')`.
 
-Scope
+Branch: codex/issue--keepalive-consolidation
+PR title prefix: [Agents] Keepalive consolidation + branch scoping
+Touch only: .github/workflows/agents-70-orchestrator.yml, .github/workflows/agents-75-keepalive-on-gate.yml (or similarly named)
 
-Move artifact collection and coverage delta computation into the Gate’s final job.
+4) Orchestrator: dedupe PR creation by skipping Worker when PR exists
 
-Emit or update a single PR comment with a stable hidden marker.
+Labels: agent:codex, agents, automation, devops, ci
 
-Standardize artifact names under gate-*.
+## Why
+When Bridge ever created a PR (or a prior Worker run did), Orchestrator can still dispatch a new Worker that creates a second PR.
 
-  - Non-Goals
+## Scope
+Agents 70 Orchestrator dispatch logic only.
 
-    - Changing test tooling, coverage tools, or thresholds.
+## Non-Goals
+No changes to issue selection rules.
 
-Tasks
+## Tasks
+- Before dispatch, query open PRs for `head = owner:codex/issue-<n>`.
+- If found, skip Worker dispatch and log “PR already exists.”
+- Emit the PR URL in summary for clarity.
 
-- Add a summary job in Gate with needs: [ci, docker?].
+## Acceptance criteria
+- With an existing PR for `codex/issue-<n>`, Orchestrator never dispatches a run that opens another PR.
+- Summary shows “skipped: PR exists.”
 
-- Download artifacts, compute deltas, and post one comment (update-in-place).
+## Implementation notes
+- File: `.github/workflows/agents-70-orchestrator.yml`
+- Use `pulls.list` with `head: ${owner}:codex/issue-<n>`.
 
-- Standardize artifact names: gate-coverage.json, gate-summary.md etc.
+Branch: codex/issue--orchestrator-pr-dedupe
+PR title prefix: [Agents] Orchestrator skip when PR exists
+Touch only: .github/workflows/agents-70-orchestrator.yml
 
-- Remove maint-46-post-ci.yml and any workflow_run references.
+5) Worker preflight: enforce branch freshness; optional step‑branch fallback
 
-- Update docs/comments at top of Gate file.
+Labels: agent:codex, agents, devops, ci
 
-Acceptance Criteria
+## Why
+If the Worker edits on a stale checkout, it repeats or ignores work. We need a fast freshness check and a safe fallback.
 
-- PRs show one updated summary comment per push.
+## Scope
+Agents 72 Worker.
 
-- Coverage delta correctly reflects artifact content on reruns.
+## Non-Goals
+Complex rebase conflict resolution.
 
-- No references to Maint 46; CI passes.
+## Tasks
+- Add preflight: `git fetch`, verify local HEAD matches `origin/<branch>`.
+- If stale and `inputs.use_step_branch == true`, create `codex/issue-<n>/step/<short>`, push, open/refresh PR from step branch to the issue head.
+  - Specify merge strategy: After Gate passes, automatically merge the PR. (Or: PR requires manual review and approval before merging. [Choose one based on intended workflow])
+- If stale and fallback disabled, fail fast with clear summary.
 
-Implementation notes
+## Acceptance criteria
+- Worker never proceeds on a stale branch without either failing fast or using step-branch fallback.
+- Gate validates each step before the next begins.
 
-- Branch: codex/issue-<n>-gate-postci-inline
+## Implementation notes
+- File: `.github/workflows/agents-72-codex-belt-worker.yml`
+- Keep fallback off by default; flip-on per issue if needed.
 
-- PR title prefix: [CI] Inline post-CI summary into Gate
+Branch: codex/issue--worker-head-freshness
+PR title prefix: [Agents] Worker freshness + step-branch (optional)
+Touch only: .github/workflows/agents-72-codex-belt-worker.yml
 
-- Touch only: .github/workflows/*gate*.yml, remove maint-46*.yml, small helper under .github/scripts/ if needed.
+6) Add branch‑local progress ledger and wire Worker read/write
 
-3. Unify Health 43 (CI signature guard) and 44 (branch protection) reporting
+Labels: agent:codex, agents, automation, ci, devops
 
-Labels: workflow, maintenance, enhancement, guardrail, agent:codex
+## Why
+Agents forget completed steps unless progress is persisted. A minimal on-branch ledger prevents repeats/skips.
 
-Why
-Keep both checks, but publish one step-summary that shows CI signature drift and branch protection state in a single table. Reduce reviewer noise without losing safety.
+## Scope
+Define a small YAML ledger and have Worker advance exactly one task per run.
 
-Scope
+## Non-Goals
+External state stores or dashboards.
 
-Retain existing checks.
+## Tasks
+- Define `.agents/issue-<n>-ledger.yml` schema:
+  - `version`, `issue`, `base`, `branch`, `tasks: [{id,title,status,commit,notes}]`
+- Worker read: pick next `todo`, mark `doing`.
+- Worker write: mark `done` with commit SHA; append `notes` on failure.
+- Add `scripts/ledger_validate.py` and a CI check to validate schema.
 
-Add one summary step that collates outputs and prints a single table.
+## Acceptance criteria
+- Each Worker run advances a single task from `todo` to `done`.
+- No completed task is repeated in later runs.
+- CI fails if the ledger schema is invalid.
 
-Keep triggers as-is.
+## Implementation notes
+- Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `scripts/ledger_validate.py`, `.agents/*`
+- Summarize the ledger delta in the job summary.
 
-  - Non-Goals
+Branch: codex/issue--agent-ledger
+PR title prefix: [Agents] Branch-local ledger + worker integration
+Touch only: .github/workflows/agents-72-codex-belt-worker.yml, scripts/ledger_validate.py, .agents/*
 
-    - Changing branch protection policy or required checks.
+7) Retire legacy keepalive path(s) and any remaining maint-46-post-ci.yml
 
-Tasks
+Labels: agent:codex, agents, devops, ci, docs
 
-- Create a small script to normalize outputs from both jobs to JSON.
+## Why
+Old keepalive and post-CI artifacts can still fire or confuse contributors, causing duplicate comments or summaries.
 
-- Step summary prints one table with columns: Check, Status, Details.
+## Scope
+Delete or archive workflows superseded by Orchestrator/Gate.
 
-- Ensure failure conditions remain per-job so protections still bite.
+## Non-Goals
+No functional replacements; consolidation already exists.
 
-Acceptance Criteria
+## Tasks
+- Remove any legacy keepalive workflow files not selected in the active keepalive path.
+- Remove/disable `maint-46-post-ci.yml` if present and fully absorbed by Gate summary.
+- Add a short doc blurb under `docs/ci/` explaining the current, single keepalive path and Gate summary.
 
-- One summary table appears.
+## Acceptance criteria
+- Only the chosen keepalive workflow remains.
+- No post-CI workflow remains outside Gate’s built-in summary.
+- Docs reflect the simplified topology.
 
-- Failure still blocks if either guard fails.
+## Implementation notes
+- Files: `.github/workflows/*keepalive*.yml`, `.github/workflows/maint-46-post-ci.yml`, `docs/ci/WORKFLOW_SYSTEM.md`
 
-- No change to triggers/permissions beyond summary step.
+Branch: codex/issue--retire-legacy-keepalive-postci
+PR title prefix: [CI] Retire legacy keepalive/post-CI
+Touch only: .github/workflows/*keepalive*.yml, .github/workflows/maint-46-post-ci.yml, docs/ci/WORKFLOW_SYSTEM.md
 
-Codex implementation notes
+8) Auto‑merge labeled agent PRs after required checks pass
 
-- Branch: codex/issue-<n>-health-unified-summary
+Labels: agent:codex, automerge, ci, devops, automation
 
-- PR title prefix: [Health] Unify guardrail reporting
+## Why
+Agent PRs that are green and explicitly opted-in shouldn’t wait for manual clicks.
 
-- Touch only: the two health workflows and .github/scripts/health_summarize.*.
+## Scope
+Agents 70 Orchestrator (or a small dedicated workflow) to call the merge API for labeled PRs.
 
-4. Create reusable agents-issue-bridge and refactor Codex bridge to use it
+## Non-Goals
+Changing branch protection rules; do not bypass required checks.
 
-Labels: agents, workflow, enhancement, agent:codex
+## Tasks
+- Detect agent PRs with `automerge` label and all required checks green.
+- Verify PR author is the automation identity; verify base equals default branch.
+- Merge via API (squash or repo default); otherwise log a clear “blocked by protection” note.
 
-Why
-Introduce a reusable workflow agents-issue-bridge.yml with an input agent: codex|chatgpt. Refactor the existing “Agents 63 Codex Issue Bridge” to call it with agent=codex. This reduces drift and allows adding a ChatGPT variant later without duplicating logic.
+## Acceptance criteria
+- Labeled agent PRs self-merge automatically when green.
+- Non-labeled PRs are untouched.
+- When merge is blocked by protection, logs show the reason.
 
-Scope
+## Implementation notes
+- File: `.github/workflows/agents-70-orchestrator.yml` (or a tiny `agents-78-automerge.yml`)
+- Reuse existing token; no new scopes.
 
-New reusable workflow with shared steps: parse issue, branch naming, PR open/update, label management.
-
-Thin wrapper “Agents 63” calls the reusable with agent=codex.
-
-Non-Goals
-
-Changing current Codex behavior or branch naming.
-
-Tasks
-
-- Add .github/workflows/reusable-agents-issue-bridge.yml with inputs: agent, issue_number, mode (create|invite), etc.
-
-- Update “Agents 63 Codex Issue Bridge” to workflow_call the reusable.
-
-- Document inputs and expected labels at file top.
-
-Acceptance Criteria
-
-- Existing Codex path works identically.
-
-- Reusable shows in Actions list and can be invoked in future wrappers.
-
-- Zero behavior change in labels/PR naming.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-agents-bridge-reusable
-
-- PR title prefix: [Agents] Reusable issue bridge
-
-- Touch only: .github/workflows/agents-63-*.yml and new reusable file.
-
-5. Throttle Orchestrator with an idle precheck and optional dispatch
-
-Labels: agents, enhancement, performance, workflow, agent:codex
-
-Why
-Add a fast idle precheck so the cron job exits quickly when there’s no agent work. Optionally handle repository_dispatch to allow other workflows to ping the Orchestrator on demand.
-
-Scope
-
-Precheck: count open issues with agent:* or check a queue marker; exit early if zero.
-
-Add `on: repository_dispatch` with types: [agents-orchestrator-ping].
-
-  - Non-Goals
-
-    - Changing the cron schedule frequency itself.
-
-Tasks
-
-- Add a precheck step (GitHub API) to detect idle state and short-circuit.
-
-- Add a repository_dispatch trigger; log who pinged.
-
-- Document JSON payload structure for pings.
-
-Acceptance Criteria
-
-- Runs log “idle, skipping” when no work; job finishes under ~10s.
-
-- Manual repository_dispatch successfully triggers orchestration.
-
-- No semantic change to belt/worker tasks.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-orchestrator-throttle
-
-- PR title prefix: [Agents] Orchestrator idle precheck + dispatch
-
-- Touch only: agents-70-orchestrator.yml.
-
-6. Canonicalize reusable Python CI with feature toggles and stable artifacts
-
-Labels: ci, enhancement, workflow, agent:codex
-
-Why
-Turn the reusable Python CI into the single canonical entrypoint with inputs to toggle ruff, black --check, mypy, test markers, coverage export, and cache settings. Normalize artifact naming and outputs.
-
-Scope
-
-Inputs: lint, format_check, typecheck, pytest_markers, coverage: bool, cache: bool.
-
-Outputs: coverage JSON path, junit path, summary path.
-
-Artifact prefix: gate-*.
-
-  - Non-Goals
-
-    - Introducing new tools.
-
-Tasks
-
-- Add inputs/outputs to reusable-10-ci-python.yml.
-
-- Update Gate to pass toggles per path filters.
-
-- Ensure all artifacts and job outputs use consistent names.
-
-Acceptance Criteria
-
-- Gate can enable/disable each stage via inputs.
-
-- Artifact names stable across runs and branches.
-
-- Coverage output consumed by Gate summary job.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-reusable-ci-canon
-
-- PR title prefix: [CI] Canonical reusable with toggles
-
-- Touch only: reusable-10-ci-python.yml and Gate caller.
-
-7. Extract inline github-script logic into .github/scripts/ with tests
-
-Labels: maintenance, ci, workflow, enhancement, agent:codex
-
-Why
-Move nontrivial github-script JS into small script files under .github/scripts/ or a tiny Python helper to improve readability and enable basic unit tests.
-
-Scope
-
-For each inline script > ~15 lines, move to a file.
-
-Add minimal tests that validate JSON I/O and guard conditions.
-
-  - Non-Goals
-
-    - Changing behavior.
-
-Tasks
-
-- Create ./.github/scripts/ with README on usage.
-
-- Extract scripts from Gate summary, branch-protection checker, and any agents glue.
-
-- Add a tiny pytest job in CI to run unit tests for these scripts.
-
-Acceptance Criteria
-
-- No inline multi-dozen-line github-script blocks remain.
-
-- Unit tests for extracted scripts pass locally and in CI.
-
-- Behavior matches prior logs.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-scripts-extract
-
-- PR title prefix: [Maint] Extract github-script helpers
-
-- Touch only: .github/workflows/*, .github/scripts/*, minimal tests.
-
-8. Harden pull_request_target agents guard with an automated safety check
-
-Labels: security, guardrail, workflow, agent:codex
-
-Why
-Keep using pull_request_target where necessary, but add a static safety check that fails the workflow if any job under that event attempts to checkout untrusted head refs or write secrets to logs.
-
-Scope
-
-Add a pre-job step reading the workflow run context and abort if:
-actions/checkout with ref: ${{ github.event.pull_request.head.sha }} under pull_request_target, or any step references ${{ secrets.* }} in a run command.
-
-  - Non-Goals
-
-    - Replacing pull_request_target; this is a belt-and-suspenders check.
-
-Tasks
-
-- Implement a script that inspects the resolved job steps (or runs static lint on the workflow file) for the above anti-patterns.
-
-- Fail with a clear message if violations are present.
-
-- Document why the guard exists at the file header.
-
-Acceptance Criteria
-
-- Guard fails when a violating step is intentionally added in a test branch.
-
-- Existing agents guard continues to pass.
-
-- No false positives on current workflows.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-prt-guard-check
-
-- PR title prefix: [Security] Auto-check unsafe patterns in PR-target
-
-- Touch only: agents guard workflow and helper script.
-
-9. Delete superseded keepalive workflows after consolidation
-
-Labels: maintenance, cleanup, workflow, agent:codex
-
-Why
-Remove obsolete keepalive workflows that have been replaced by the Orchestrator’s unified keepalive path.
-
-Scope
-
-Delete files only; no logic changes elsewhere.
-
-  - Non-Goals
-
-    - Any functional change beyond removal.
-
-Tasks
-
-- Remove keepalive workflows marked obsolete in Issue 1.
-
-- Search repo for references; update or delete badges/links.
-
-Acceptance Criteria
-
-- Actions tab shows no removed workflows.
-
-- No references to removed files remain.
-
-- CI is green.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-remove-old-keepalive
-
-- PR title prefix: [Maint] Remove obsolete keepalive workflows
-
-- Touch only: .github/workflows/*keepalive*.yml and docs.
-
-10. Single PR comment policy for the Gate (idempotent updater)
-
-Labels: ci, workflow, enhancement, agent:codex
-
-Why
-Ensure the Gate writes exactly one persistent PR comment updated in place, keyed by a hidden marker. Prevents comment spam and aids skim-reading.
-
-Scope
-
-Introduce a stable marker in the comment body.
-
-Update existing comment instead of posting new ones.
-
-  - Non-Goals
-
-    - Changing summary content beyond marker insertion.
-
-Tasks
-
-- Implement get-or-create logic for the Gate’s final summary step.
-
-- Add hidden marker, e.g. <!-- gate:summary -->.
-
-- Verify multiple pushes update the same comment.
-
-Acceptance Criteria
-
-- Re-push on the same PR updates the single comment.
-
-- Marker present and unique per PR.
-
-- No duplicate comments appear across runs.
-
-Implementation notes
-
-- Branch: codex/issue-<n>-gate-single-comment
-
-- PR title prefix: [CI] Gate single comment policy
-
-- Touch only: Gate workflow summary step/script.
+Branch: codex/issue--agent-auto-merge
+PR title prefix: [CI] Auto-merge for labeled agent PRs
+Touch only: .github/workflows/agents-70-orchestrator.yml

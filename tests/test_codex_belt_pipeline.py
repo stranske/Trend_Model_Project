@@ -78,8 +78,11 @@ def test_worker_keeps_concurrency_and_pat_guard():
     workflow = _load_workflow("agents-72-codex-belt-worker.yml")
 
     concurrency = workflow.get("concurrency") or {}
-    assert concurrency.get("group") == "codex-belt"
-    assert concurrency.get("cancel-in-progress") is False
+    group = concurrency.get("group", "")
+    assert group.startswith(
+        "codex-belt"
+    ), f"Concurrency group should start with 'codex-belt', got: {group}"
+    assert concurrency.get("cancel-in-progress") is True
 
     events = workflow.get("on") or {}
     repo_dispatch = events.get("repository_dispatch") or {}

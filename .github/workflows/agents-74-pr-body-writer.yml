@@ -1,0 +1,421 @@
+# See docs/ci/AGENTS_POLICY.md for guardrails and override process.
+name: Agents 74 PR body writer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: pr-body-writer-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  update-pr-body:
+    name: Upsert PR body sections
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function discoverPr() {
+              if (context.eventName === 'pull_request') {
+                const pr = context.payload.pull_request;
+                return {number: pr.number, headSha: pr.head.sha};
+              }
+
+              if (context.eventName === 'workflow_run') {
+                const run = context.payload.workflow_run;
+                if (!run || run.event !== 'pull_request') {
+                  core.info('Workflow run not associated with a pull request.');
+                  return null;
+                }
+
+                const headSha = run.head_sha;
+                if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
+                  const directMatch = run.pull_requests.find((item) => item && item.head_sha === headSha);
+                  const candidate = directMatch || run.pull_requests[0];
+                  if (candidate && typeof candidate.number === 'number') {
+                    return {number: candidate.number, headSha};
+                  }
+                }
+                const prs = await github.paginate(
+                  github.rest.repos.listPullRequestsAssociatedWithCommit,
+                  {
+                    owner,
+                    repo,
+                    commit_sha: headSha,
+                    per_page: 100,
+                  },
+                );
+
+                const matching = prs.find((item) => item.head && item.head.sha === headSha);
+                if (!matching) {
+                  core.info(`No pull request found for commit ${headSha}.`);
+                  return null;
+                }
+
+                return {number: matching.number, headSha};
+              }
+
+              core.info(`Unsupported event: ${context.eventName}`);
+              return null;
+            }
+
+            function extractIssueNumber(pr) {
+              const branch = pr.head.ref || '';
+              const candidates = [];
+              const branchMatch = branch.match(/issue-+([0-9]+)/i);
+              if (branchMatch) {
+                candidates.push(branchMatch[1]);
+              }
+
+              const titleMatch = (pr.title || '').match(/#([0-9]+)/);
+              if (titleMatch) {
+                candidates.push(titleMatch[1]);
+              }
+
+              const bodyMatches = [...((pr.body || '').matchAll(/#([0-9]+)/g))].map((m) => m[1]);
+              candidates.push(...bodyMatches);
+
+              for (const value of candidates) {
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isNaN(parsed)) {
+                  return parsed;
+                }
+              }
+
+              return null;
+            }
+
+            function extractSection(body, heading) {
+              if (!body) return '';
+              const pattern = new RegExp(`(^|\n)##\s+${heading.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\s*\n`, 'i');
+              const match = body.match(pattern);
+              if (!match) return '';
+              const start = match.index + match[0].length;
+              const rest = body.slice(start);
+              const next = rest.search(/\n##\s+/i);
+              const end = next === -1 ? rest.length : next + 1;
+              return rest.slice(0, end).trim();
+            }
+
+            function normalizeWhitespace(value) {
+              if (!value) return '';
+              return value
+                .replace(/\r\n/g, '\n')
+                .split('\n')
+                .map((line) => line.trimEnd())
+                .join('\n')
+                .trim();
+            }
+
+            function ensureChecklist(section) {
+              const cleaned = normalizeWhitespace(section);
+              if (!cleaned) {
+                return '';
+              }
+
+              return cleaned
+                .split('\n')
+                .map((line) => {
+                  const match = line.match(/^(\s*)([-*])\s+(.*)$/);
+                  if (!match) {
+                    return line.trim();
+                  }
+                  const [, indent = '', , contentRaw] = match;
+                  const content = contentRaw.trim();
+                  const checkbox = content.match(/^\[( |x|X)\]\s*/);
+                  if (checkbox) {
+                    const state = checkbox[1].toLowerCase() === 'x' ? 'x' : ' ';
+                    const remainder = content.slice(checkbox[0].length).trimStart();
+                    return `${indent}- [${state}] ${remainder}`;
+                  }
+                  return `${indent}- [ ] ${content}`;
+                })
+                .join('\n');
+            }
+
+            function fallbackChecklist(message) {
+              return `- [ ] ${message}`;
+            }
+
+            function buildPreamble(sections) {
+              const lines = [
+                '<!-- pr-preamble:start -->',
+                '## Summary',
+                sections.summary || '_No summary provided by the source issue._',
+                '',
+                '## Testing',
+                sections.testing || '_No testing instructions provided by the source issue._',
+                '',
+                '## CI readiness',
+                sections.ci || '_No CI readiness notes provided by the source issue._',
+                '<!-- pr-preamble:end -->',
+              ];
+              return lines.join('\n');
+            }
+
+            function iconForStatus(status) {
+              switch (status) {
+                case 'success':
+                  return '✅';
+                case 'skipped':
+                  return '⏭️';
+                case 'cancelled':
+                  return '⏹️';
+                case 'timed_out':
+                  return '⏱️';
+                case 'failure':
+                  return '❌';
+                case 'neutral':
+                  return '⚪';
+                case 'pending':
+                case 'waiting':
+                case 'queued':
+                case 'requested':
+                  return '⏳';
+                default:
+                  return '❔';
+              }
+            }
+
+            function friendlyStatus(status) {
+              return (status || 'unknown').replace(/_/g, ' ');
+            }
+
+            function combineStatus(run) {
+              if (!run) {
+                return {icon: '❔', label: 'unknown'};
+              }
+              if (run.conclusion) {
+                const normalized = run.conclusion.toLowerCase();
+                return {icon: iconForStatus(normalized), label: friendlyStatus(normalized)};
+              }
+              if (run.status) {
+                const normalized = run.status.toLowerCase();
+                return {icon: iconForStatus(normalized), label: friendlyStatus(normalized)};
+              }
+              return {icon: '❔', label: 'unknown'};
+            }
+
+            function selectLatestWorkflows(runs) {
+              const latest = new Map();
+              for (const run of runs) {
+                const name = run.name || 'Unnamed workflow';
+                const key = name.toLowerCase();
+                const existing = latest.get(key);
+                if (!existing) {
+                  latest.set(key, run);
+                  continue;
+                }
+                if (new Date(run.created_at) > new Date(existing.created_at)) {
+                  latest.set(key, run);
+                }
+              }
+              return latest;
+            }
+
+            function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks}) {
+              const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
+
+              statusLines.push('#### Scope');
+              const scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
+              statusLines.push(scopeFormatted);
+              statusLines.push('');
+
+              statusLines.push('#### Tasks');
+              const tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
+              statusLines.push(tasksFormatted);
+              statusLines.push('');
+
+              statusLines.push('#### Acceptance criteria');
+              const acceptanceFormatted = acceptance ? ensureChecklist(acceptance) : fallbackChecklist('Acceptance criteria section missing from source issue.');
+              statusLines.push(acceptanceFormatted);
+              statusLines.push('');
+
+              statusLines.push(`**Head SHA:** ${headSha}`);
+
+              const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              let latestLine = '—';
+              if (latestRuns.length > 0) {
+                const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
+                const chosen = gate || latestRuns[0];
+                const status = combineStatus(chosen);
+                latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
+              }
+              statusLines.push(`**Latest Runs:** ${latestLine}`);
+
+              const requiredParts = [];
+              for (const name of requiredChecks) {
+                const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
+                const status = combineStatus(run);
+                requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+              }
+              statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
+              statusLines.push('');
+
+              const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
+              for (const run of Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+                const status = combineStatus(run);
+                const link = run.html_url ? `[View run](${run.html_url})` : '—';
+                table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
+              }
+
+              if (table.length === 2) {
+                table.push('| — | — | — |');
+              }
+
+              statusLines.push(...table);
+              statusLines.push('<!-- auto-status-summary:end -->');
+
+              return statusLines.join('\n');
+            }
+
+            function upsertBlock(body, marker, replacement) {
+              const start = `<!-- ${marker}:start -->`;
+              const end = `<!-- ${marker}:end -->`;
+
+              const startIndex = body.indexOf(start);
+              const endIndex = body.indexOf(end);
+              if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                return `${body.slice(0, startIndex)}${replacement}${body.slice(endIndex + end.length)}`;
+              }
+
+              const trimmed = body.trimEnd();
+              const prefix = trimmed ? `${trimmed}\n\n` : '';
+              return `${prefix}${replacement}`;
+            }
+
+            async function fetchRequiredChecks(baseRef) {
+              const qualified = baseRef.startsWith('refs/') ? baseRef : `refs/heads/${baseRef}`;
+              try {
+                const result = await github.graphql(
+                  `query($owner: String!, $repo: String!, $qualified: String!) {
+                    repository(owner: $owner, name: $repo) {
+                      ref(qualifiedName: $qualified) {
+                        branchProtectionRule {
+                          requiresStatusChecks
+                          requiredStatusCheckContexts
+                        }
+                      }
+                    }
+                  }`,
+                  {owner, repo, qualified},
+                );
+                const rule = result?.repository?.ref?.branchProtectionRule;
+                if (rule && rule.requiresStatusChecks && Array.isArray(rule.requiredStatusCheckContexts)) {
+                  return rule.requiredStatusCheckContexts.filter((item) => typeof item === 'string' && item.trim());
+                }
+              } catch (error) {
+                core.info(`Branch protection lookup failed: ${error.message}`);
+              }
+              return [];
+            }
+
+            const prInfo = await discoverPr();
+            if (!prInfo) {
+              return 'No pull request context detected; skipping update.';
+            }
+
+            const prResponse = await github.rest.pulls.get({owner, repo, pull_number: prInfo.number});
+            const pr = prResponse.data;
+            if (pr.state === 'closed') {
+              return `Pull request #${pr.number} is closed; skipping update.`;
+            }
+
+            if (prInfo.headSha && pr.head && pr.head.sha && pr.head.sha !== prInfo.headSha) {
+              return `Skipping update for PR #${pr.number} because workflow run head ${prInfo.headSha} does not match current head ${pr.head.sha}.`;
+            }
+
+            const issueNumber = extractIssueNumber(pr);
+            if (!issueNumber) {
+              return `Unable to determine source issue for PR #${pr.number}; skipping.`;
+            }
+
+            const issueResponse = await github.rest.issues.get({owner, repo, issue_number: issueNumber});
+            const issueBody = issueResponse.data.body || '';
+
+            function extractWithAliases(body, aliases) {
+              for (const alias of aliases) {
+                const content = extractSection(body, alias);
+                if (content) return content;
+              }
+              return '';
+            }
+
+            function buildRichSummary(body) {
+              const why = normalizeWhitespace(extractSection(body, 'Why'));
+              const scopeRaw = normalizeWhitespace(extractSection(body, 'Scope'));
+              const nonGoals = normalizeWhitespace(extractSection(body, 'Non-Goals'));
+              const goal = normalizeWhitespace(extractSection(body, 'Goal'));
+              
+              const parts = [];
+              if (why) parts.push(why);
+              if (goal) parts.push(goal);
+              if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
+              if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
+              
+              return parts.join('\n\n');
+            }
+
+            const summaryRich = buildRichSummary(issueBody);
+            const summary = summaryRich || normalizeWhitespace(extractWithAliases(issueBody, ['Summary', 'Description', 'Overview']));
+            const testing = normalizeWhitespace(extractWithAliases(issueBody, ['Testing', 'Test Plan', 'Validation']));
+            const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
+            
+            // Extract raw content for status block (will be formatted by buildStatusBlock)
+            const scope = extractSection(issueBody, 'Scope') || '';
+            const tasks = extractSection(issueBody, 'Tasks') || '';
+            const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
+
+            const preamble = buildPreamble({summary, testing, ci});
+
+            const workflowRunResponse = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              head_sha: pr.head.sha,
+              per_page: 100,
+            });
+            const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
+
+            const requiredChecks = await fetchRequiredChecks(pr.base.ref);
+            if (!requiredChecks.includes('gate') && pr.base.ref) {
+              requiredChecks.push('gate');
+            }
+
+            const statusBlock = buildStatusBlock({
+              scope,
+              tasks,
+              acceptance,
+              headSha: prInfo.headSha,
+              workflowRuns,
+              requiredChecks,
+            });
+
+            const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
+            const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
+
+            if (newBody !== (pr.body || '')) {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pr.number,
+                body: newBody,
+              });
+              return `Updated PR #${pr.number} body with synchronized sections from issue #${issueNumber}.`;
+            }
+
+            return 'PR body already up to date; no changes required.';
