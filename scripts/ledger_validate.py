@@ -58,7 +58,9 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
         errors.append(f"{path}.{field} must be a string or null")
         return errors
     if not ISO8601_RE.match(value):
-        errors.append(f"{path}.{field} must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
+        errors.append(
+            f"{path}.{field} must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)"
+        )
         return errors
     try:
         _dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
@@ -67,7 +69,9 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
     return errors
 
 
-def _validate_task(task: Dict[str, Any], *, index: int, seen_ids: set[str]) -> List[str]:
+def _validate_task(
+    task: Dict[str, Any], *, index: int, seen_ids: set[str]
+) -> List[str]:
     errors: List[str] = []
     context = f"tasks[{index}]"
 
@@ -94,8 +98,12 @@ def _validate_task(task: Dict[str, Any], *, index: int, seen_ids: set[str]) -> L
     if not isinstance(notes, list) or not all(isinstance(item, str) for item in notes):
         errors.append(f"{context}.notes must be a list of strings")
 
-    errors.extend(_validate_timestamp(task.get("started_at"), field="started_at", path=context))
-    errors.extend(_validate_timestamp(task.get("finished_at"), field="finished_at", path=context))
+    errors.extend(
+        _validate_timestamp(task.get("started_at"), field="started_at", path=context)
+    )
+    errors.extend(
+        _validate_timestamp(task.get("finished_at"), field="finished_at", path=context)
+    )
 
     commit = task.get("commit", "")
     if commit is None:
@@ -108,7 +116,9 @@ def _validate_task(task: Dict[str, Any], *, index: int, seen_ids: set[str]) -> L
             if not commit:
                 errors.append(f"{context}.commit is required when status is done")
             elif not HEX_RE.match(commit.lower()):
-                errors.append(f"{context}.commit must be a Git SHA (7-40 hex characters)")
+                errors.append(
+                    f"{context}.commit must be a Git SHA (7-40 hex characters)"
+                )
         else:
             if commit and not HEX_RE.match(commit.lower()):
                 errors.append(f"{context}.commit must be empty or a Git SHA")
@@ -159,7 +169,9 @@ def validate_ledger(path: Path) -> List[str]:
             doing_count += 1
 
     if doing_count > 1:
-        problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
+        problems.append(
+            f"{path}: at most one task may have status=doing (found {doing_count})"
+        )
 
     return problems
 
