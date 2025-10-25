@@ -135,7 +135,7 @@ def _validate_task(
                 try:
                     files = _commit_files(commit)
                 except LedgerError as exc:
-                    errors.append(f"{ledger_path}: {context}.commit {commit} not found in repository")
+                    errors.append(f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}")
                 else:
                     if not files:
                         errors.append(
