@@ -85,7 +85,7 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 72 Codex Belt Worker",
     "Agents 73 Codex Belt Conveyor",
     "Agents 74 PR body writer",
-    "Agents 75 Keepalive On Gate",
+    "Agents 75 Keepalive on Gate (disabled)",
     "CI Autofix Loop",
     "Health 45 Agents Guard",
     "Gate",
