@@ -792,28 +792,53 @@ jobs:
               final_status = str(target_task.get('status', ''))
           else:
               status_before = str(target_task.get('status', ''))
+              previous_status = str(task_info.get('previous_status', '')) if task_info else ''
               notes = target_task.setdefault('notes', [])
               if not isinstance(notes, list):
                   notes = []
                   target_task['notes'] = notes
               if job_status == 'success':
-                  commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-                  target_task['status'] = 'done'
-                  target_task['finished_at'] = iso_now()
-                  if not target_task.get('started_at'):
-                      target_task['started_at'] = target_task['finished_at']
-                  target_task['commit'] = commit_sha
-                  final_status = 'done'
-                  summary_lines.append(f"Task {task_id} advanced {status_before} → done @ {commit_sha[:7]}.")
+                  if status_before == 'done':
+                      summary_lines.append(
+                          f"Task {task_id} already done before finalisation; no changes applied."
+                      )
+                      final_status = 'done'
+                  elif status_before != 'doing':
+                      summary_lines.append(
+                          f"Task {task_id} expected status doing but found {status_before or 'unknown'}; left unchanged."
+                      )
+                      final_status = status_before
+                  else:
+                      commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+                      target_task['status'] = 'done'
+                      target_task['finished_at'] = iso_now()
+                      if not target_task.get('started_at'):
+                          target_task['started_at'] = target_task['finished_at']
+                      target_task['commit'] = commit_sha
+                      final_status = 'done'
+                      summary_lines.append(
+                          f"Task {task_id} advanced {previous_status or status_before} → done @ {commit_sha[:7]}."
+                      )
               else:
-                  note = f"{iso_now()} failure (run {run_id}): status={job_status or 'failure'}"
-                  notes.append(note)
-                  target_task['status'] = 'todo'
-                  target_task['commit'] = ''
-                  target_task['finished_at'] = None
-                  target_task['started_at'] = None
-                  final_status = 'todo'
-                  summary_lines.append(f"Task {task_id} reset to todo after {job_status or 'failure'}.")
+                  if status_before == 'done':
+                      summary_lines.append(
+                          f"Task {task_id} remained done despite job failure; ledger left untouched."
+                      )
+                      final_status = 'done'
+                  elif status_before != 'doing':
+                      summary_lines.append(
+                          f"Task {task_id} not in progress ({status_before or 'unknown'}); no reset applied."
+                      )
+                      final_status = status_before
+                  else:
+                      note = f"{iso_now()} failure (run {run_id}): status={job_status or 'failure'}"
+                      notes.append(note)
+                      target_task['status'] = 'todo'
+                      target_task['commit'] = ''
+                      target_task['finished_at'] = None
+                      target_task['started_at'] = None
+                      final_status = 'todo'
+                      summary_lines.append(f"Task {task_id} reset to todo after {job_status or 'failure'}.")
 
               new_text = yaml.safe_dump(data, sort_keys=False)
               if new_text != original_text:
