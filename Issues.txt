@@ -93,7 +93,7 @@ No changes to belt step sizing.
 
 Branch: codex/issue--keepalive-consolidation
 PR title prefix: [Agents] Keepalive consolidation + branch scoping
-Touch only: .github/workflows/agents-70-orchestrator.yml, .github/workflows/agents-75-keepalive-on-gate.yml
+Touch only: .github/workflows/agents-70-orchestrator.yml, .github/workflows/agents-75-keepalive-on-gate.yml (or similarly named)
 
 4) Orchestrator: dedupe PR creation by skipping Worker when PR exists
 
