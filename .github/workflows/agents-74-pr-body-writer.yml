@@ -232,15 +232,18 @@ jobs:
               const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
 
               statusLines.push('#### Scope');
-              statusLines.push(scope || fallbackChecklist('Scope section missing from source issue.'));
+              const scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
+              statusLines.push(scopeFormatted);
               statusLines.push('');
 
               statusLines.push('#### Tasks');
-              statusLines.push(tasks || fallbackChecklist('Tasks section missing from source issue.'));
+              const tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
+              statusLines.push(tasksFormatted);
               statusLines.push('');
 
               statusLines.push('#### Acceptance criteria');
-              statusLines.push(acceptance || fallbackChecklist('Acceptance criteria section missing from source issue.'));
+              const acceptanceFormatted = acceptance ? ensureChecklist(acceptance) : fallbackChecklist('Acceptance criteria section missing from source issue.');
+              statusLines.push(acceptanceFormatted);
               statusLines.push('');
 
               statusLines.push(`**Head SHA:** ${headSha}`);
@@ -345,12 +348,38 @@ jobs:
             const issueResponse = await github.rest.issues.get({owner, repo, issue_number: issueNumber});
             const issueBody = issueResponse.data.body || '';
 
-            const summary = normalizeWhitespace(extractSection(issueBody, 'Summary'));
-            const testing = normalizeWhitespace(extractSection(issueBody, 'Testing'));
-            const ci = normalizeWhitespace(extractSection(issueBody, 'CI readiness'));
-            const scope = ensureChecklist(extractSection(issueBody, 'Scope'));
-            const tasks = ensureChecklist(extractSection(issueBody, 'Tasks'));
-            const acceptance = ensureChecklist(extractSection(issueBody, 'Acceptance criteria'));
+            function extractWithAliases(body, aliases) {
+              for (const alias of aliases) {
+                const content = extractSection(body, alias);
+                if (content) return content;
+              }
+              return '';
+            }
+
+            function buildRichSummary(body) {
+              const why = normalizeWhitespace(extractSection(body, 'Why'));
+              const scopeRaw = normalizeWhitespace(extractSection(body, 'Scope'));
+              const nonGoals = normalizeWhitespace(extractSection(body, 'Non-Goals'));
+              const goal = normalizeWhitespace(extractSection(body, 'Goal'));
+              
+              const parts = [];
+              if (why) parts.push(why);
+              if (goal) parts.push(goal);
+              if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
+              if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
+              
+              return parts.join('\n\n');
+            }
+
+            const summaryRich = buildRichSummary(issueBody);
+            const summary = summaryRich || normalizeWhitespace(extractWithAliases(issueBody, ['Summary', 'Description', 'Overview']));
+            const testing = normalizeWhitespace(extractWithAliases(issueBody, ['Testing', 'Test Plan', 'Validation']));
+            const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
+            
+            // Extract raw content for status block (will be formatted by buildStatusBlock)
+            const scope = extractSection(issueBody, 'Scope') || '';
+            const tasks = extractSection(issueBody, 'Tasks') || '';
+            const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
 
             const preamble = buildPreamble({summary, testing, ci});
 
