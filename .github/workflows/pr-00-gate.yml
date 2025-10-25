@@ -307,33 +307,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p gate_artifacts/downloads
-          python <<'PY'
-          import os
-          from pathlib import Path
-
-          output_path = os.environ.get('GITHUB_OUTPUT')
-          root = Path('gate_artifacts/downloads')
-
-          summary_path: Path | None = None
-          candidates = list(root.rglob('coverage-summary.md'))
-          if candidates:
-              summary_path = candidates[0]
-
-          if summary_path is None:
-              print('No coverage summary markdown found; continuing without it.')
-          else:
-              text = summary_path.read_text(encoding='utf-8')
-              dest = Path('gate-coverage-summary.md')
-              dest.write_text(text, encoding='utf-8')
-              if output_path:
-                  with Path(output_path).open('a', encoding='utf-8') as handle:
-                      handle.write('body<<EOF\n')
-                      handle.write(text)
-                      if not text.endswith('\n'):
-                          handle.write('\n')
-                      handle.write('EOF\n')
-              print(f'Embedded coverage summary from {summary_path}')
-          PY
+          python .github/scripts/load_coverage_summary.py
 
       - name: Compute coverage stats
         if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.coverage == 'true'
@@ -401,33 +375,7 @@ jobs:
 
       - name: Compose PR summary comment
         id: compose_comment
-        run: |
-          python <<'PY'
-          import os
-          from pathlib import Path
-
-          body = (os.environ.get('SUMMARY_BODY') or '').strip()
-          pr_number = os.environ.get('PR_NUMBER', '').strip()
-          head_sha = os.environ.get('HEAD_SHA', '').strip()
-
-          if not body:
-              raise SystemExit('Summary body missing; aborting comment composition.')
-
-          head_token = head_sha[:12] if head_sha else ''
-          parts = []
-          if pr_number:
-              parts.append(f'pr={pr_number}')
-          if head_token:
-              parts.append(f'head={head_token}')
-          if not parts:
-              parts.append('anchor')
-
-          marker = f"<!-- gate-summary: {' '.join(parts)} -->"
-          payload = "\n".join([marker, body, ''])
-
-          Path('gate-summary.md').write_text(payload, encoding='utf-8')
-          print(marker)
-          PY
+        run: python .github/scripts/compose_pr_comment.py
         env:
           SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
