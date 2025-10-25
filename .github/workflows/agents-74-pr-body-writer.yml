@@ -133,9 +133,9 @@ jobs:
                 return '';
               }
               
-              // More flexible regex: allow ## or ### headers, optional trailing spaces/newlines
+              // More flexible regex: allow #, ## or ### headers, optional trailing spaces/newlines
               const escapedHeading = heading.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-              const pattern = new RegExp(`(^|\\n)#{2,3}\\s+${escapedHeading}\\s*\\r?\\n`, 'i');
+              const pattern = new RegExp(`(^|\\n)#{1,3}\\s+${escapedHeading}\\s*\\r?\\n`, 'i');
               const match = body.match(pattern);
               
               if (!match) {
