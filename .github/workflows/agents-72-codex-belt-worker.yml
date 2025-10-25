@@ -47,7 +47,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt
+  group: codex-belt-${{ github.event.client_payload.issue || github.event.client_payload.issue_number || github.event.inputs.issue || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -61,6 +61,7 @@ jobs:
       pr_number: ${{ steps.pr.outputs.number || '' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
       allowed: ${{ steps.parallel.outputs.allowed || 'true' }}
+      concurrency_group: ${{ steps.ctx.outputs.concurrency_group || '' }}
     env:
       ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat != '' && secrets.actions_bot_pat || secrets.ACTIONS_BOT_PAT }}
     steps:
@@ -165,13 +166,23 @@ jobs:
               core.warning(`Unexpected branch naming: ${branch}`);
             }
 
+            const runId = context.runId;
+            const concurrencyKey = issue || payload.issue || payload.issue_number || runId;
+            const concurrencyGroup = concurrencyKey ? `codex-belt-${concurrencyKey}` : '';
+            if (!concurrencyGroup) {
+              core.setFailed('Unable to determine concurrency group.');
+              return;
+            }
+
             core.setOutput('issue', String(issue));
             core.setOutput('branch', branch);
             core.setOutput('base', base);
             core.setOutput('source', source);
+            core.setOutput('concurrency_group', concurrencyGroup);
             core.summary
               .addHeading('Codex Belt Worker')
               .addTable([[{ data: 'Issue', header: true }, { data: 'Branch', header: true }, { data: 'Source', header: true }], [`#${issue}`, branch, source]])
+              .addTable([[{ data: 'Concurrency Group', header: true }, { data: 'Issue', header: true }, { data: 'Branch', header: true }], [concurrencyGroup, `#${issue}`, branch]])
               .write();
 
       - name: Determine default branch
