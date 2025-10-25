@@ -366,7 +366,7 @@ jobs:
               if (why) parts.push(why);
               if (goal) parts.push(goal);
               if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
-              if (nonGoals) parts.push(`\n**Non-Goals:** ${nonGoals}`);
+              if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
               
               return parts.join('\n\n');
             }
