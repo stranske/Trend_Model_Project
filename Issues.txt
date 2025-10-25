@@ -89,7 +89,7 @@ No changes to belt step sizing.
 
 ## Implementation notes
 - Files: `.github/workflows/agents-70-orchestrator.yml`, `.github/workflows/agents-75-keepalive-on-gate.yml` (or similarly named)
-- Gate listener (if used): `on: workflow_run` with `conclusion == success` and branch filter `contains(head_branch, 'codex/issue-')`.
+- Gate listener (if used): `on: workflow_run` with `conclusion == success` and branch filter `startsWith(head_branch, 'codex/issue-')`.
 
 Branch: codex/issue--keepalive-consolidation
 PR title prefix: [Agents] Keepalive consolidation + branch scoping
