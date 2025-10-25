@@ -387,9 +387,9 @@ jobs:
           DISPATCH_RESULT: ${{ needs.belt-dispatch.result || '' }}
           DISPATCH_ISSUE: ${{ needs.belt-dispatch.outputs.issue || '' }}
           DISPATCH_REASON: ${{ needs.belt-dispatch.outputs.reason || '' }}
-          WORKER_RESULT: ${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && 'skipped: PR exists.' || needs.belt-worker.result || '' }}
+          WORKER_RESULT: "${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && 'skipped: PR exists.' || needs.belt-worker.result || '' }}"
           WORKER_ALLOWED: ${{ needs.belt-worker.outputs.allowed || '' }}
-          WORKER_PR_NUMBER: ${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || '' }}
+          WORKER_PR_NUMBER: "${{ needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || '' }}"
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
         with:
