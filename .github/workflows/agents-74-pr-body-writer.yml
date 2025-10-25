@@ -354,10 +354,10 @@ jobs:
 
             const preamble = buildPreamble({summary, testing, ci});
 
-            const workflowRunResponse = await github.rest.actions.listWorkflowRunsForPullRequest({
+            const workflowRunResponse = await github.rest.actions.listWorkflowRunsForRepo({
               owner,
               repo,
-              pull_number: pr.number,
+              head_sha: pr.head.sha,
               per_page: 100,
             });
             const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
