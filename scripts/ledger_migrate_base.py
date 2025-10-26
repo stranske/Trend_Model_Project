@@ -35,7 +35,10 @@ def _run_git(args: Iterable[str]) -> str:
             capture_output=True,
             text=True,
         )
-    except (OSError, subprocess.CalledProcessError) as exc:  # pragma: no cover - git failures surfaced to caller
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+    ) as exc:  # pragma: no cover - git failures surfaced to caller
         raise MigrationError(str(exc)) from exc
     return completed.stdout
 
@@ -95,7 +98,9 @@ def detect_default_branch(explicit: Optional[str] = None) -> str:
         return current[len("refs/heads/") :]
     if current:
         return current
-    raise MigrationError("unable to determine default branch; pass --default explicitly")
+    raise MigrationError(
+        "unable to determine default branch; pass --default explicitly"
+    )
 
 
 def load_ledger(path: Path) -> tuple[dict, Optional[str]]:
@@ -117,7 +122,14 @@ def migrate_ledger(path: Path, default_branch: str, *, check: bool) -> LedgerRes
 
     data["base"] = default_branch
     with path.open("w", encoding="utf-8") as handle:
-        yaml.dump(data, handle, Dumper=LedgerDumper, sort_keys=False, indent=2, default_flow_style=False)
+        yaml.dump(
+            data,
+            handle,
+            Dumper=LedgerDumper,
+            sort_keys=False,
+            indent=2,
+            default_flow_style=False,
+        )
     return LedgerResult(path=path, previous=base, updated=default_branch, changed=True)
 
 
@@ -137,7 +149,9 @@ def discover_ledgers(root: Path) -> List[Path]:
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Update ledger base branch to repository default")
+    parser = argparse.ArgumentParser(
+        description="Update ledger base branch to repository default"
+    )
     parser.add_argument(
         "--check",
         action="store_true",
