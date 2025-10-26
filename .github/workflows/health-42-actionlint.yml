@@ -1,15 +1,11 @@
 name: Health 42 Actionlint
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/**/*.yml'
-  push:
-    branches: [phase-2-dev]
-    paths:
-      - '.github/workflows/**/*.yml'
-  schedule:
-    - cron: '5 5 * * 1'
+  workflow_call:
+    inputs:
+      reporter:
+        required: false
+        type: string
   workflow_dispatch:
 
 permissions:
@@ -28,8 +24,12 @@ jobs:
       - name: Compute REPORTER value
         id: set-reporter
         run: |
-          if [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
+          if [ -n "${{ inputs.reporter }}" ]; then
+            echo "reporter=${{ inputs.reporter }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
             echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.REPORTER || '' }}" != '' ]; then
+            echo "reporter=${{ github.event.inputs.REPORTER }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
           else

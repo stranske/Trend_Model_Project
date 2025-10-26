@@ -1,6 +1,7 @@
 name: Health 44 Gate Branch Protection
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
     types:
@@ -8,8 +9,6 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-  schedule:
-    - cron: '0 6 * * *'
 
 permissions:
   contents: read
