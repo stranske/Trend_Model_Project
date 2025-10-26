@@ -207,4 +207,7 @@ def test_keepalive_skips_non_codex_branches() -> None:
 
     details = _details(summary, "Skipped pull requests")
     assert details is not None
-    assert any("#111" in item and "head branch not codex/issue-*" in item for item in details["items"])
+    assert any(
+        "#111" in item and "head branch not codex/issue-*" in item
+        for item in details["items"]
+    )
