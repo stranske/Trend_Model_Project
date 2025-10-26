@@ -1,6 +1,6 @@
 # Agents Workflow Protection Policy
 
-**Purpose.** Preserve the Agents 63 pair (issue bridge + ChatGPT sync) and the
+**Purpose.** Preserve the Agents 63 intake stack (issue intake front plus the Codex bridge and ChatGPT sync wrappers) and the
 Agents 70 orchestrator as always-on automation. The policy explains why the
 workflows are treated as "unremovable," the layers that enforce the guardrails,
 and the narrow scenarios where changes are allowed.
@@ -9,17 +9,21 @@ and the narrow scenarios where changes are allowed.
 - **Agents 70 orchestrator** — single dispatch surface for all consumer
   automations. Retiring it strands downstream workflows, so availability is a
   release gate.
-- **Agents 63 – Codex issue bridge** — converts labelled issues into working
-  branches and bootstrap PRs.
-- **Agents 63 – ChatGPT issue sync** — keeps curated topic files in lock-step
-  with GitHub issues.
+- **Agents 63 – Issue intake** — unified entry point that routes ChatGPT topic
+  imports and Codex bridge requests into the reusable workflows without
+  duplicating logic.
+- **Agents 63 – Codex issue bridge** — legacy trigger shim that now forwards
+  events to the intake workflow while maintaining label semantics.
+- **Agents 63 – ChatGPT issue sync** — manual wrapper that exposes the curated
+  import inputs while delegating to the shared intake workflow.
 
-These workflows are coupled: the orchestrator depends on the bridge for intake,
-and both Agents 63 files assume the orchestrator will service their dispatches.
-Disrupting any one of them breaks the automation topology.
+These workflows are coupled: the orchestrator depends on the intake stack for
+consistent branch/issue preparation, and the Agents 63 wrappers assume the
+orchestrator will service their dispatches. Disrupting any one of them breaks the
+automation topology.
 
 ## Protection layers
-1. **CODEOWNERS review** – `.github/CODEOWNERS` lists the three workflows under
+1. **CODEOWNERS review** – `.github/CODEOWNERS` lists the four workflows under
    maintainer ownership. GitHub will not merge a change without Code Owner
    approval and branch protection keeps the requirement enabled.
 2. **Repository ruleset** – the default-branch ruleset (named
@@ -27,6 +31,7 @@ Disrupting any one of them breaks the automation topology.
    deleting or renaming these workflows. The rule **must** include a
    `restrict_file_updates` block with the following paths and both
    "Block deletions" and "Block renames" toggled on:
+   - `.github/workflows/agents-63-issue-intake.yml`
    - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
    - `.github/workflows/agents-63-codex-issue-bridge.yml`
    - `.github/workflows/agents-70-orchestrator.yml`
@@ -132,7 +137,7 @@ single source of truth.
 
 - **UI path** – `Settings → Code security and analysis → Rulesets → Tests Pass to
   Merge`. Confirm the ruleset is `Active`, then expand the `Restrict file
-  updates` section to verify the three workflow paths, with both "Block
+  updates` section to verify the four workflow paths, with both "Block
   deletions" and "Block renames" toggled on.
 - **API check** – run
 
@@ -144,7 +149,7 @@ single source of truth.
   ```
 
   The JSON must report `"enforcement": "active"` and a `file_rules` array whose
-  `parameters` include the three workflow paths with `block_deletions` and
+  `parameters` include the four workflow paths with `block_deletions` and
   `block_renames` set to `true`. If the ruleset is disabled or missing the file
   rules, coordinate with a repository admin to restore protection before
   running destructive push tests. Verification output is logged in
