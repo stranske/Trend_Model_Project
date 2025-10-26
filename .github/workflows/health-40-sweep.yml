@@ -1,0 +1,61 @@
+name: Health 40 Sweep
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '5 5 * * 1'
+  pull_request:
+  push:
+    branches: [phase-2-dev]
+    paths:
+      - '.github/workflows/**/*.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  detect:
+    name: detect workflow edits
+    runs-on: ubuntu-latest
+    outputs:
+      workflows: ${{ steps.result.outputs.workflows }}
+    steps:
+      - name: Detect workflow file changes
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            workflows:
+              - '.github/workflows/**/*.yml'
+      - name: Publish change decision
+        id: result
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ steps.filter.outputs.workflows }}" = "true" ]; then
+              echo "workflows=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "workflows=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  actionlint:
+    name: workflow lint (maint-36)
+    needs: detect
+    if: needs.detect.outputs.workflows == 'true'
+    uses: ./.github/workflows/health-42-actionlint.yml
+    with:
+      reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
+    secrets: inherit
+
+  branch-protection-verify:
+    name: branch protection sweep
+    needs: detect
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/health-44-gate-branch-protection.yml
+    secrets: inherit

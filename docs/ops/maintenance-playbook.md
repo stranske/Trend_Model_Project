@@ -2,7 +2,7 @@
 
 This playbook explains how on-call responders should handle failures in the
 maintenance workflows that remain after Issue 2190. The roster now consists of
-`health-41`, Gate summary job, `health-42`, `health-43`,
+`health-40-sweep`, `health-41`, Gate summary job, `health-42`, `health-43`,
 `health-44`, `maint-45-cosmetic-repair`, and `maint-90`.
 
 ## health-41-repo-health.yml
@@ -46,15 +46,28 @@ maintenance workflows that remain after Issue 2190. The roster now consists of
    resolves it once the offending run passes. Follow the links in the run
    summary to triage recurring signatures.
 
+## health-40-sweep.yml
+
+1. **PR context** — the Actionlint job mirrors review coverage from the legacy
+   workflow. Confirm reviewdog annotations appear on the PR; if the run skipped
+   (paths-filter false), validate that no workflow files changed.
+2. **Scheduled sweep** — weekly cron and manual dispatches run both Actionlint
+   and branch-protection verification. Inspect the branch-protection leg when
+   failures mention missing required checks or mismatched branch rules.
+3. **Manual reruns** — dispatch the workflow after restoring branch protection
+   or addressing Actionlint feedback. Inputs are not required; the sweep fans
+   out automatically based on the event type.
+
 ## health-42-actionlint.yml
 
-1. **PR context** — reviewdog publishes annotations directly on the offending
-   workflow file. Open the "Files changed" tab to see inline comments.
-2. **Scheduled run** — when the weekly cron fails, inspect the workflow logs to
-   identify the offending file and push a corrective PR. Actionlint failures
-   will also block merges via the CI gate.
+1. **Ad-hoc lint** — use the manual dispatch entry point for rehearsal runs
+   outside the sweep. Reviewdog publishes annotations directly on the offending
+   workflow file.
+2. **Reusable leg** — when triggered via the sweep, this workflow inherits the
+   reporter from the caller. Inspect the logs if the sweep reports a failure but
+   you do not see inline review comments.
 3. **Version drift** — actionlint is pinned; if you need a newer version, update
-   the pinned release in both this workflow and the reusable composites that run
+   the pinned release in both this workflow and any reusable composites that run
    actionlint.
 
 ## health-43-ci-signature-guard.yml

@@ -195,6 +195,7 @@ EXPECTED_NAMES = {
     "agents-74-pr-body-writer.yml": "Agents 74 PR body writer",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
+    "health-40-sweep.yml": "Health 40 Sweep",
     "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",
     "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
