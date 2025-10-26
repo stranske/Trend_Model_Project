@@ -38,7 +38,6 @@ class TestStreamlitProxy:
                 patch("trend_analysis.proxy.server.uvicorn"),
                 patch("trend_analysis.proxy.server.websockets"),
             ):
-
                 mock_httpx.AsyncClient.return_value = Mock()
                 mock_fastapi.return_value = Mock()
 
@@ -63,7 +62,6 @@ class TestStreamlitProxy:
                 patch("trend_analysis.proxy.server.uvicorn"),
                 patch("trend_analysis.proxy.server.websockets"),
             ):
-
                 mock_httpx.AsyncClient.return_value = Mock()
                 mock_fastapi.return_value = Mock()
 
@@ -101,7 +99,6 @@ class TestStreamlitProxy:
             patch("sys.argv", ["proxy"] + test_args),
             patch("trend_analysis.proxy.cli.run_proxy") as mock_run,
         ):
-
             try:
                 main()
                 mock_run.assert_called_once_with(

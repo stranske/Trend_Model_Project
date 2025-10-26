@@ -14,7 +14,6 @@ from typing import Any
 
 import yaml
 
-
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
 
 

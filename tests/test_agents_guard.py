@@ -1,8 +1,8 @@
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from textwrap import dedent
-import shutil
 
 import pytest
 
