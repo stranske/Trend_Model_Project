@@ -587,8 +587,7 @@ jobs:
       always() &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'autofix') &&
-      (needs.summary.result == 'success' || needs.summary.result == 'failure' || github.event.action == 'labeled')
+      contains(github.event.pull_request.labels.*.name, 'autofix')
     uses: ./.github/workflows/reusable-18-autofix.yml
     with:
       pr_number: ${{ github.event.pull_request.number }}
