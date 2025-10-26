@@ -420,7 +420,9 @@ setattr(_bi, "annualize_return", annualize_return)
 setattr(_bi, "annualize_volatility", annualize_volatility)
 
 # Public submodule to expose summary helpers
-from . import attribution  # noqa: E402,F401
-from . import rolling  # noqa: E402,F401
-from . import summary  # noqa: E402,F401
-from . import turnover  # noqa: E402,F401
+from . import (  # noqa: E402
+    attribution,  # noqa: F401
+    rolling,  # noqa: F401
+    summary,  # noqa: F401
+    turnover,  # noqa: F401
+)
