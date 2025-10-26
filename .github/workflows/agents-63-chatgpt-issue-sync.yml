@@ -233,8 +233,8 @@ jobs:
                 `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
                 `Deduplicated topics: ${metrics.topics_after_dedup}`,
                 `Topics processed: ${metrics.topics_processed}`,
-                `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
-                `Topics skipped without agent labels: ${metrics.topics_skipped_without_agent_labels}`,
+                `Topics skipped (conflicting agent labels): ${metrics.topics_skipped_for_other_agents}`,
+                `Topics skipped (missing agent labels): ${metrics.topics_skipped_without_agent_labels}`,
                 `Created issues: ${createdCount}`,
                 `Updated issues: ${updatedCount}`,
                 `Reopened issues: ${reopenedCount}`,
@@ -269,22 +269,133 @@ jobs:
               return;
             }
             const normalizeLabel = (label) => label.trim().toLowerCase();
-            const isAgentLabel = (label) => {
-              if (typeof label !== 'string') return false;
-              return label.trim().toLowerCase().startsWith('agent:');
+            const agentPrefixes = ['agent:', 'agents:'];
+            const inviteSuffix = '-invite';
+            const analyzeAgentLabels = (rawLabels) => {
+              const entries = new Map();
+              for (const raw of rawLabels || []) {
+                if (typeof raw !== 'string') continue;
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const lower = trimmed.toLowerCase();
+                const prefix = agentPrefixes.find((candidate) => lower.startsWith(candidate));
+                if (!prefix) continue;
+                let suffix = lower.slice(prefix.length).trim();
+                if (!suffix || suffix === 'keepalive') continue;
+                let base = suffix;
+                let invite = false;
+                if (base.endsWith(inviteSuffix)) {
+                  base = base.slice(0, -inviteSuffix.length).trim();
+                  invite = true;
+                }
+                if (!base) continue;
+                const canonical = `agent:${base}`;
+                if (!entries.has(canonical)) {
+                  entries.set(canonical, {
+                    base,
+                    canonical,
+                    baseLabels: new Set(),
+                    inviteLabels: new Set(),
+                    rawLabels: new Set(),
+                  });
+                }
+                const entry = entries.get(canonical);
+                entry.rawLabels.add(trimmed);
+                if (invite) {
+                  entry.inviteLabels.add(trimmed);
+                } else {
+                  entry.baseLabels.add(trimmed);
+                }
+              }
+              return {
+                entries: Array.from(entries.values()).map((entry) => ({
+                  base: entry.base,
+                  canonical: entry.canonical,
+                  baseLabels: Array.from(entry.baseLabels),
+                  inviteLabels: Array.from(entry.inviteLabels),
+                  rawLabels: Array.from(entry.rawLabels),
+                })),
+              };
             };
+            const missingAgentTopics = [];
+            const conflictingAgentTopics = [];
+            const eligibleTopics = [];
             let topicsWithAgentLabels = 0;
-            let topicsSkippedForOtherAgents = 0;
-            let topicsSkippedWithoutAgentLabels = 0;
-            const topics = rawTopics.filter((topic) => {
+            for (const topic of rawTopics) {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
-              const agentLabels = labels.filter((label) => isAgentLabel(label));
-              if (agentLabels.length) {
+              const analysis = analyzeAgentLabels(labels);
+              const entriesWithBase = analysis.entries.filter((entry) => entry.baseLabels.length > 0);
+              if (entriesWithBase.length > 0) {
                 topicsWithAgentLabels += 1;
               }
-              return true;
-            });
+              if (entriesWithBase.length === 0) {
+                missingAgentTopics.push({ topic, analysis });
+                continue;
+              }
+              if (entriesWithBase.length > 1) {
+                conflictingAgentTopics.push({ topic, analysis: entriesWithBase });
+                continue;
+              }
+              eligibleTopics.push(topic);
+            }
             metrics.topics_with_agent_labels = topicsWithAgentLabels;
+            metrics.topics_skipped_without_agent_labels = missingAgentTopics.length;
+            metrics.topics_skipped_for_other_agents = conflictingAgentTopics.length;
+            if (missingAgentTopics.length || conflictingAgentTopics.length) {
+              const errorSegments = [];
+              if (missingAgentTopics.length) {
+                const missingTitles = missingAgentTopics
+                  .map(({ topic }) => (topic && topic.title ? `"${topic.title.trim()}"` : '(untitled topic)'))
+                  .slice(0, 5)
+                  .join(', ');
+                errorSegments.push(
+                  `${missingAgentTopics.length} topic${missingAgentTopics.length === 1 ? '' : 's'} missing an agent:* label${
+                    missingTitles ? ` (${missingTitles}${missingAgentTopics.length > 5 ? ', …' : ''})` : ''
+                  }`,
+                );
+              }
+              if (conflictingAgentTopics.length) {
+                const conflictTitles = conflictingAgentTopics
+                  .map(({ topic }) => (topic && topic.title ? `"${topic.title.trim()}"` : '(untitled topic)'))
+                  .slice(0, 5)
+                  .join(', ');
+                errorSegments.push(
+                  `${conflictingAgentTopics.length} topic${conflictingAgentTopics.length === 1 ? '' : 's'} with conflicting agent:* labels${
+                    conflictTitles ? ` (${conflictTitles}${conflictingAgentTopics.length > 5 ? ', …' : ''})` : ''
+                  }`,
+                );
+              }
+              const baseMessage =
+                errorSegments.length === 1
+                  ? errorSegments[0]
+                  : `${errorSegments.slice(0, -1).join('; ')}; ${errorSegments.slice(-1)}`;
+              const failureMessage = `Cannot sync topics: ${baseMessage}. Add exactly one agent:* label to each topic before rerunning.`;
+              for (const { topic, analysis } of missingAgentTopics) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                const inviteLabels = (analysis.entries || [])
+                  .flatMap((entry) => entry.inviteLabels || [])
+                  .join(', ');
+                const inviteSuffixText = inviteLabels ? ` Found invite-only labels: ${inviteLabels}.` : '';
+                core.error(`Missing agent:* label for topic${preview}.${inviteSuffixText}`);
+              }
+              for (const { topic, analysis } of conflictingAgentTopics) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                const labelList = analysis
+                  .flatMap((entry) => entry.baseLabels.concat(entry.inviteLabels))
+                  .filter(Boolean)
+                  .join(', ');
+                core.error(`Topic${preview} has multiple agent labels: ${labelList || '(none listed)'}.`);
+              }
+              metrics.topics_after_dedup = eligibleTopics.length;
+              setOutputs();
+              await publishSummary({
+                skippedCount: rawTopics.length,
+                notice: failureMessage,
+              });
+              core.setFailed(failureMessage);
+              return;
+            }
+            const topics = eligibleTopics;
             if (!topics.length) {
               setZeroOutputs();
               await publishSummary({
