@@ -413,6 +413,91 @@ jobs:
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
         run: python .github/scripts/gate_summary.py
 
+      - name: Auto-apply autofix label for cosmetic failures
+        id: autofix_label
+        if: |
+          github.event_name == 'pull_request' &&
+          needs.detect.outputs.doc_only != 'true' &&
+          steps.summarize.outputs.state == 'failure' &&
+          steps.summarize.outputs.cosmetic_failure == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'autofix:clean')
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_EXTENSIONS: 'py,pyi'
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            core.setOutput('applied', 'false');
+            core.setOutput('skipped_reason', '');
+
+            if (!pr) {
+              core.info('No pull request context available; skipping auto-label.');
+              core.setOutput('skipped_reason', 'missing-pr');
+              return;
+            }
+
+            if (!pr.number) {
+              core.info('Pull request number missing; skipping auto-label.');
+              core.setOutput('skipped_reason', 'invalid-pr');
+              return;
+            }
+
+            const sameRepo =
+              pr.head?.repo?.full_name === `${owner}/${repo}` &&
+              pr.base?.repo?.full_name === `${owner}/${repo}`;
+            if (!sameRepo) {
+              core.info('Skipping auto-label for forked PR.');
+              core.setOutput('skipped_reason', 'fork-pr');
+              return;
+            }
+
+            const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const allowedExtensions = String(process.env.ALLOWED_EXTENSIONS || '')
+              .split(',')
+              .map(ext => ext.trim().toLowerCase())
+              .filter(Boolean)
+              .map(ext => (ext.startsWith('.') ? ext : `.${ext}`));
+
+            const disallowed = [];
+            for await (const page of iterator) {
+              if (!Array.isArray(page.data)) {
+                continue;
+              }
+              for (const file of page.data) {
+                const filename = file?.filename;
+                if (typeof filename !== 'string' || filename.length === 0) {
+                  continue;
+                }
+                const lower = filename.toLowerCase();
+                const allowed = allowedExtensions.some(ext => lower.endsWith(ext));
+                if (!allowed) {
+                  disallowed.push(filename);
+                }
+              }
+            }
+
+            if (disallowed.length > 0) {
+              core.info(`Skipping auto-label; non-Python changes detected: ${disallowed.join(', ')}`);
+              core.setOutput('skipped_reason', 'non-python');
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['autofix:clean'],
+            });
+            core.info('Applied autofix:clean label for cosmetic failure.');
+            core.setOutput('applied', 'true');
+
       - name: Prepare summary body
         id: summary_body
         run: |
@@ -460,26 +545,36 @@ jobs:
           HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
 
       - name: Append keepalive checklists
+        env:
+          LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         run: |
-          cat <<'EOF' >> gate-summary.md
+          autofix_task=' '
+          if [ "${LABEL_APPLIED}" = "true" ]; then
+            autofix_task='x'
+          fi
+
+          autofix_accept=' '
+          if [ "${LABEL_APPLIED}" = "true" ]; then
+            autofix_accept='x'
+          fi
+
+          cat <<EOF >> gate-summary.md
 
           ---
           ### Keepalive checklist
 
           #### Scope
-          - [x] Inputs: lint, format_check, typecheck, pytest_markers, coverage, cache toggles are exposed.
-          - [x] Outputs: coverage JSON, JUnit XML, and CI summary paths are published for callers.
-          - [x] Artifacts use the gate-* prefix for reuse across runs and branches.
+          - [x] Small change in Gate’s summary job plus label logic in Autofix.
 
           #### Tasks
-          - [x] Add inputs/outputs to reusable-10-ci-python.yml.
-          - [x] Update Gate to pass toggles per path filters.
-          - [x] Ensure all artifacts and job outputs use consistent names.
+          - [${autofix_task}] In Gate summary, detect format/import-only failures and add autofix:clean.
+          - [ ] In autofix.yml, drop the agent:* co-label requirement; trigger solely on autofix/autofix:clean.
+          - [ ] Keep ALLOWED_GLOBS as *.py, *.pyi; add explicit guard against non-Python changes.
 
           #### Acceptance criteria
-          - [x] Gate can enable/disable each stage via inputs.
-          - [x] Artifact names remain stable across runs and branches.
-          - [x] Coverage output is consumed by the Gate summary job.
+          - [${autofix_accept}] For cosmetic failures, PR gains autofix:clean automatically.
+          - [ ] Autofix Loop runs and pushes minimal import/format fixes.
+          - [ ] No edits outside allowed globs.
           EOF
 
       - name: Upload Gate summary artifact
@@ -587,7 +682,8 @@ jobs:
       always() &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'autofix') &&
+      (contains(github.event.pull_request.labels.*.name, 'autofix') ||
+       contains(github.event.pull_request.labels.*.name, 'autofix:clean')) &&
       needs.summary.result == 'failure'
     uses: ./.github/workflows/reusable-18-autofix.yml
     with:
@@ -601,4 +697,7 @@ jobs:
       trigger_conclusion: ${{ needs.summary.result }}
       trigger_class: ${{ needs.summary.outputs.state == 'failure' && 'ci-failure' || 'ci-success' }}
       trigger_reason: 'Triggered by Gate workflow after CI completion'
+      allowed_file_globs: |-
+        **/*.py
+        **/*.pyi
     secrets: inherit
