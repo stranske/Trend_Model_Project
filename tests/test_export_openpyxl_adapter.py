@@ -113,7 +113,9 @@ def test_export_to_excel_uses_adapter_when_xlsxwriter_missing(monkeypatch, tmp_p
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+    def fake_to_excel(
+        self, writer, sheet_name, index=False, **_: object
+    ) -> None:  # noqa: ARG002
         writer.sheets[sheet_name] = object()
         writer.book.worksheets.append(DummyWorksheet("Sheet"))
 
@@ -410,7 +412,9 @@ def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pd, "ExcelWriter", fake_excel_writer)
 
-    def fake_to_excel(self, writer, sheet_name, index=False, **_: object) -> None:  # noqa: ARG002
+    def fake_to_excel(
+        self, writer, sheet_name, index=False, **_: object
+    ) -> None:  # noqa: ARG002
         ws = DummyWorksheet("Temp")
         writer.book.worksheets.append(ws)
         writer.sheets[sheet_name] = ws
