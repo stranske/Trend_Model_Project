@@ -153,22 +153,16 @@ def test_issue_bridge_tracks_keepalive_mode():
     ), "Issue bridge must propagate keepalive mode to PR content"
 
 
-def test_issue_bridge_dispatches_orchestrator_with_keepalive_options():
+def test_issue_bridge_keepalive_dispatch_disabled():
     text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
     assert (
-        "Dispatch Agents Orchestrator (keepalive sync)" in text
-    ), "Issue bridge must dispatch orchestrator for keepalive sync"
+        "\n      - name: Dispatch Agents Orchestrator (keepalive sync)" not in text
+    ), "Issue bridge should no longer dispatch keepalive via orchestrator"
     assert (
-        "agents-70-orchestrator.yml" in text
-    ), "Issue bridge orchestrator dispatch must target the Agents 70 workflow"
-    assert (
-        "params_json" in text
-    ), "Issue bridge orchestrator dispatch must pass params_json payload"
-    assert (
-        "keepalive" in text
-    ), "Issue bridge orchestrator dispatch must encode keepalive configuration"
+        "keepalive now runs exclusively via the orchestrator sweep" in text
+    ), "Issue bridge should document that keepalive dispatch is disabled"
 
 
 def test_keepalive_job_present():
