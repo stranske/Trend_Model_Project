@@ -1,6 +1,6 @@
 version: 1
 issue: 3011
-base: work
+base: phase-2-dev
 branch: codex/issue--agent-ledger
 tasks:
   - id: ledger-schema
