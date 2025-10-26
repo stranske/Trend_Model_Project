@@ -182,7 +182,7 @@ def test_keepalive_job_present():
     ), "Keepalive job must document enable_keepalive option"
     helper = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert (
-        "<!-- codex-keepalive -->" in helper
+        "<!-- codex-keepalive-marker -->" in helper
     ), "Keepalive marker must be retained for duplicate suppression"
     assert (
         "issue_numbers_json" in text
