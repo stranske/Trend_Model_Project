@@ -93,6 +93,10 @@ def test_build_summary_comment_renders_expected_sections(
         "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)"
         in body
     )
+    assert (
+        "**Required contexts:** Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections"
+        in body
+    )
     assert "core tests (3.11): ✅ success" in body
     assert "core tests (3.12): ✅ success" in body
     assert "docker smoke: ❌ failure" in body
@@ -130,6 +134,10 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert "docker smoke: ⏳ pending" in body
     assert "gate: ⏳ pending" in body
     assert "**Latest Runs:** ⏳ pending — Gate" in body
+    assert (
+        "**Required contexts:** Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections"
+        in body
+    )
     assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
     assert "_(no jobs reported)_" in body

@@ -267,6 +267,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            .github/config
             tools
           sparse-checkout-cone-mode: false
       - name: Handle docs-only change
@@ -516,6 +517,7 @@ jobs:
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
           REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
+          REQUIRED_CONTEXTS_FILE: .github/config/required-contexts.json
 
       - name: Compose PR summary comment
         id: compose_comment

@@ -13,6 +13,7 @@ from tools.enforce_gate_branch_protection import (
     diff_contexts,
     fetch_status_checks,
     format_contexts,
+    load_required_contexts,
     main,
     normalise_contexts,
     parse_contexts,
@@ -21,7 +22,9 @@ from tools.enforce_gate_branch_protection import (
     update_status_checks,
 )
 
-REQUIRED_CONTEXTS = list(DEFAULT_CONTEXTS)
+REQUIRED_CONTEXTS = load_required_contexts(
+    Path(".github/config/required-contexts.json")
+) or list(DEFAULT_CONTEXTS)
 
 
 class DummyResponse(requests.Response):
@@ -67,6 +70,42 @@ class DummySession(requests.Session):
         json_payload = _kwargs.get("json")
         self.last_payload = json_payload if isinstance(json_payload, dict) else None
         return self._next_response()
+
+
+def test_load_required_contexts_handles_config_file(tmp_path: Path) -> None:
+    config = tmp_path / "required-contexts.json"
+    config.write_text(
+        json.dumps(
+            {
+                "required_contexts": [
+                    " Gate / gate ",
+                    "",
+                    "Health 45 Agents Guard / Enforce agents workflow protections",
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_required_contexts(config) == [
+        "Gate / gate",
+        "Health 45 Agents Guard / Enforce agents workflow protections",
+    ]
+
+
+def test_load_required_contexts_missing_file_returns_empty(tmp_path: Path) -> None:
+    config = tmp_path / "missing.json"
+    assert load_required_contexts(config) == []
+
+
+def test_load_required_contexts_falls_back_to_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = tmp_path / "contexts.json"
+    config.write_text(json.dumps(["Gate / gate", "Extra"]), encoding="utf-8")
+    monkeypatch.setenv("REQUIRED_CONTEXTS_FILE", str(config))
+
+    assert load_required_contexts(None) == ["Gate / gate", "Extra"]
 
 
 def test_parse_contexts_defaults_to_required_contexts() -> None:
