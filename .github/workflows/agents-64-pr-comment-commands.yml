@@ -1,0 +1,13 @@
+name: Agents PR comment commands (retired)
+
+on:
+  workflow_call:
+
+jobs:
+  retired:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow retired
+        run: |
+          echo 'agents-64-pr-comment-commands.yml is retired.'
+          echo 'Use agents-pr-meta.yml for PR command handling.'

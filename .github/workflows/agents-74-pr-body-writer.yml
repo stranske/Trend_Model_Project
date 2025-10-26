@@ -1,0 +1,13 @@
+name: Agents PR body writer (retired)
+
+on:
+  workflow_call:
+
+jobs:
+  retired:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow retired
+        run: |
+          echo 'agents-74-pr-body-writer.yml is retired.'
+          echo 'Use agents-pr-meta.yml for PR body synchronization.'
