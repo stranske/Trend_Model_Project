@@ -137,9 +137,22 @@ jobs:
             }
 
             const { original, suffix } = candidates[0];
-            const agent = suffix;
+            const slugify = (value) =>
+              value
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const agent = slugify(suffix);
+            if (!agent) {
+              core.setFailed(`Agent label \"${original}\" could not be normalized to a slug.`);
+              return;
+            }
             const mention = `@${agent}`;
-            const title = agent.charAt(0).toUpperCase() + agent.slice(1);
+            const title = agent
+              .split('-')
+              .filter(Boolean)
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(' ') || original;
 
             core.exportVariable('BRIDGE_AGENT_LABEL', original);
             core.exportVariable('BRIDGE_AGENT_NAME', agent);

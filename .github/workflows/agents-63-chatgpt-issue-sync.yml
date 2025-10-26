@@ -192,6 +192,7 @@ jobs:
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
               topics_skipped_without_agent_labels: 0,
+              agent_labels_removed: 0,
               assigned_elsewhere: 0,
             };
             const metrics = {
@@ -201,6 +202,7 @@ jobs:
               topics_processed: 0,
               topics_skipped_for_other_agents: 0,
               topics_skipped_without_agent_labels: 0,
+              agent_labels_removed: 0,
               duplicate_topics: 0,
               invalid_topics: 0,
               assigned_elsewhere: 0,
@@ -231,6 +233,7 @@ jobs:
               const summaryLines = [
                 `Topics provided: ${metrics.topics_total}`,
                 `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
+                `Agent labels stripped: ${metrics.agent_labels_removed}`,
                 `Deduplicated topics: ${metrics.topics_after_dedup}`,
                 `Topics processed: ${metrics.topics_processed}`,
                 `Topics skipped for other agents: ${metrics.topics_skipped_for_other_agents}`,
@@ -414,10 +417,17 @@ jobs:
               const details = [];
               const pendingCreates = new Map();
               const skipped = [];
+              const ignoredAgentLabels = [];
               for (const raw of rawLabels || []) {
                 if (typeof raw !== 'string') continue;
                 const trimmed = raw.trim();
                 if (!trimmed) continue;
+                const normalized = trimmed.toLowerCase();
+                if (normalized.startsWith('agent:') || normalized.startsWith('agents:')) {
+                  ignoredAgentLabels.push(trimmed);
+                  memoizeLabelResolution([trimmed], null);
+                  continue;
+                }
                 const cacheKey = trimmed.toLowerCase();
                 if (labelResolutionCache.has(cacheKey)) {
                   const cached = labelResolutionCache.get(cacheKey);
@@ -463,7 +473,7 @@ jobs:
                 }
                 details.push({ name: newName, requiresCreation: true, pendingKey: canonicalKey });
               }
-              return { details, pendingCreates, skipped };
+              return { details, pendingCreates, skipped, ignoredAgentLabels };
             };
             const ensurePendingLabelCreates = async (pendingCreates) => {
               const successful = new Set();
@@ -570,9 +580,21 @@ jobs:
                   continue;
                 }
                 metrics.topics_processed += 1;
-                const { details: labelDetails, pendingCreates, skipped } = classifyTopicLabels(topic.labels || []);
+                const {
+                  details: labelDetails,
+                  pendingCreates,
+                  skipped,
+                  ignoredAgentLabels,
+                } = classifyTopicLabels(topic.labels || []);
                 for (const skippedLabel of skipped) {
                   core.warning(`Skipped label "${skippedLabel}" for ${title}.`);
+                }
+                if (ignoredAgentLabels.length) {
+                  metrics.agent_labels_removed += ignoredAgentLabels.length;
+                  const list = ignoredAgentLabels.join(', ');
+                  core.info(
+                    `Removed agent labels [${list}] from ${title}; manual agent selection is required post-sync.`,
+                  );
                 }
                 const uniqueDesired = Array.from(
                   new Set(labelDetails.map((detail) => detail.name).filter((name) => typeof name === 'string' && name)),
