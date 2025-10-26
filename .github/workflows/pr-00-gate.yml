@@ -5,7 +5,7 @@ name: Gate
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   workflow_dispatch:
 
 concurrency:
@@ -15,6 +15,8 @@ concurrency:
 jobs:
   detect:
     name: detect changed files
+    # Skip full CI on label-only events, but allow workflow to continue for autofix
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     outputs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
@@ -585,7 +587,8 @@ jobs:
       always() &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'autofix')
+      contains(github.event.pull_request.labels.*.name, 'autofix') &&
+      (needs.summary.result == 'success' || needs.summary.result == 'failure' || github.event.action == 'labeled')
     uses: ./.github/workflows/reusable-18-autofix.yml
     with:
       pr_number: ${{ github.event.pull_request.number }}
