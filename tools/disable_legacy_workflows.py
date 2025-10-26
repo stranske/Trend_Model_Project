@@ -90,6 +90,8 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 72 Codex Belt Worker",
     "Agents 73 Codex Belt Conveyor",
     "Agents 74 PR body writer",
+    "Agents PR comment commands (retired)",
+    "Agents PR body writer (retired)",
     "Agents PR meta manager",
     "CI Autofix Loop",
     "Health 45 Agents Guard",
