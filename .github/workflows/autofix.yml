@@ -308,6 +308,7 @@ jobs:
           output = os.environ['GITHUB_OUTPUT']
           with open(output, 'a', encoding='utf-8') as handle:
               handle.write(f"ruff={pins.get('RUFF_VERSION', '')}\n")
+              handle.write(f"black={pins.get('BLACK_VERSION', '')}\n")
           PY
 
       - name: Setup Python
@@ -328,6 +329,11 @@ jobs:
           else
             pip install ruff
           fi
+          if [ -n "${{ steps.pins.outputs.black }}" ]; then
+            pip install "black==${{ steps.pins.outputs.black }}"
+          else
+            pip install black
+          fi
 
       - name: Apply Ruff import ordering fixes
         if: steps.context.outputs.should_run == 'true'
@@ -336,12 +342,19 @@ jobs:
           source .venv/bin/activate
           ruff check --select I --fix .
 
-      - name: Apply Ruff formatting
+      - name: Apply Ruff lint fixes
         if: steps.context.outputs.should_run == 'true'
         run: |
           set -euo pipefail
           source .venv/bin/activate
-          ruff format .
+          ruff check --fix .
+
+      - name: Apply Black formatting
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+          black .
 
       - name: Remove temporary virtualenv
         if: steps.context.outputs.should_run == 'true'

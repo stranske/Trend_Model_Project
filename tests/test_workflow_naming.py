@@ -26,9 +26,7 @@ def test_workflow_slugs_follow_wfv1_prefixes():
         for path in _workflow_paths()
         if not path.name.startswith(ALLOWED_PREFIXES)
     ]
-    assert (
-        not non_compliant
-    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
+    assert not non_compliant, f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
 
 
 def test_archive_directories_removed():
@@ -204,6 +202,7 @@ EXPECTED_NAMES = {
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
+    "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "pr-00-gate.yml": "Gate",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",

@@ -258,7 +258,14 @@ jobs:
           elif [ -f setup.cfg ] || [ -f setup.py ]; then
             pip install -e . || pip install .
           fi
-          pip install black ruff mypy pytest pytest-cov
+          # Source version pins from shared config to stay consistent with autofix
+          if [ -f .github/workflows/autofix-versions.env ]; then
+            source .github/workflows/autofix-versions.env
+            pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}"
+          else
+            echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
+            pip install black ruff mypy pytest pytest-cov
+          fi
 
       - name: Resolve mypy python pin
         if: ${{ inputs.typecheck && inputs['run-mypy'] }}

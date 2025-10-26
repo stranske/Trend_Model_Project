@@ -244,9 +244,16 @@ jobs:
               echo "${pin_file} did not define RUFF_VERSION; installing default Ruff release" >&2
               python3 -m pip install --upgrade --user ruff
             fi
+            if [[ -n "${BLACK_VERSION:-}" ]]; then
+              echo "BLACK_VERSION=${BLACK_VERSION}" >> "${GITHUB_ENV}"
+              python3 -m pip install --upgrade --user "black==${BLACK_VERSION}"
+            else
+              echo "${pin_file} did not define BLACK_VERSION; installing default Black release" >&2
+              python3 -m pip install --upgrade --user black
+            fi
           else
-            echo "Missing ${pin_file}; installing default Ruff release" >&2
-            python3 -m pip install --upgrade --user ruff
+            echo "Missing ${pin_file}; installing default Ruff and Black releases" >&2
+            python3 -m pip install --upgrade --user ruff black
           fi
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
@@ -267,12 +274,13 @@ jobs:
           fi
           printf '[autofix] Target directories: %s\n' "${targets[*]}"
           ruff --version
+          black --version
           echo "[autofix] Normalising imports with Ruff"
           ruff check --select I --fix --exit-zero "${targets[@]}"
           echo "[autofix] Applying Ruff lint fixes"
           ruff check --fix --exit-zero "${targets[@]}"
-          echo "[autofix] Normalising whitespace with Ruff formatter"
-          ruff format "${targets[@]}"
+          echo "[autofix] Normalising whitespace with Black"
+          black "${targets[@]}"
 
       - name: Clean cosmetic sweep
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
