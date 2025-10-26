@@ -71,8 +71,7 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --apply \
-            --context "Gate / gate" \
-            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --config .github/config/required-contexts.json \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
 
@@ -86,8 +85,7 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --check \
             --require-strict \
-            --context "Gate / gate" \
-            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --config .github/config/required-contexts.json \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
@@ -100,8 +98,7 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --check \
-            --context "Gate / gate" \
-            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --config .github/config/required-contexts.json \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 

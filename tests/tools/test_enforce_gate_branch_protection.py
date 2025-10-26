@@ -9,6 +9,7 @@ from tools.enforce_gate_branch_protection import (
     DEFAULT_CONTEXTS,
     BranchProtectionError,
     BranchProtectionMissingError,
+    load_required_contexts,
     StatusCheckState,
     diff_contexts,
     fetch_status_checks,
@@ -21,7 +22,9 @@ from tools.enforce_gate_branch_protection import (
     update_status_checks,
 )
 
-REQUIRED_CONTEXTS = list(DEFAULT_CONTEXTS)
+REQUIRED_CONTEXTS = load_required_contexts(
+    Path(".github/config/required-contexts.json")
+) or list(DEFAULT_CONTEXTS)
 
 
 class DummyResponse(requests.Response):

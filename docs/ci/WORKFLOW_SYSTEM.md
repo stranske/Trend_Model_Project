@@ -829,6 +829,11 @@ snapshots for audit trails.
 Use this quick routine when you need proof that branch protection still blocks
 on the correct statuses:
 
+*The canonical list of required contexts lives in*
+`./.github/config/required-contexts.json`. Update the JSON file when a status
+name changes—the Health 44 enforcer and the Gate summary job both read it, so a
+single edit keeps enforcement and reporting in sync.
+
 1. Open the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml)
    and download the `enforcement.json` / `verification.json` snapshots. They
    list the enforced contexts—expect **Gate / gate** and, when applicable,

@@ -31,6 +31,8 @@ DEFAULT_CONTEXTS = (
     "Health 45 Agents Guard / Enforce agents workflow protections",
 )
 
+DEFAULT_CONFIG_PATH = Path(".github/config/required-contexts.json")
+
 
 class BranchProtectionError(RuntimeError):
     """Raised when the GitHub API reports an unrecoverable error."""
@@ -221,9 +223,46 @@ def bootstrap_branch_protection(
     return StatusCheckState.from_api(status_payload)
 
 
-def parse_contexts(values: Iterable[str] | None) -> List[str]:
+def load_required_contexts(
+    config_path: str | os.PathLike[str] | None = None,
+) -> List[str]:
+    """Return contexts defined in the shared configuration file."""
+
+    candidate = Path(
+        config_path
+        or os.getenv("REQUIRED_CONTEXTS_FILE")
+        or DEFAULT_CONFIG_PATH
+    )
+    try:
+        payload = json.loads(candidate.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError:
+        return []
+
+    if isinstance(payload, Mapping):
+        contexts_value = payload.get("required_contexts") or payload.get("contexts")
+    else:
+        contexts_value = payload
+
+    contexts: List[str] = []
+    if isinstance(contexts_value, Iterable) and not isinstance(
+        contexts_value, (str, bytes)
+    ):
+        for item in contexts_value:
+            if isinstance(item, str):
+                candidate_value = item.strip()
+                if candidate_value:
+                    contexts.append(candidate_value)
+    return contexts
+
+
+def parse_contexts(
+    values: Iterable[str] | None, *, config_path: str | os.PathLike[str] | None = None
+) -> List[str]:
     if not values:
-        return list(DEFAULT_CONTEXTS)
+        contexts = load_required_contexts(config_path)
+        return contexts or list(DEFAULT_CONTEXTS)
     cleaned: List[str] = []
     for value in values:
         candidate = value.strip()
@@ -318,6 +357,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Branch to inspect/update. Defaults to DEFAULT_BRANCH or 'main'.",
     )
     parser.add_argument(
+        "--config",
+        help=(
+            "Path to the required contexts configuration file. Defaults to "
+            "'.github/config/required-contexts.json' when present."
+        ),
+    )
+    parser.add_argument(
         "--context",
         dest="contexts",
         action="append",
@@ -379,7 +425,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.repo:
         parser.error("--repo is required when GITHUB_REPOSITORY is not set.")
 
-    desired_contexts = normalise_contexts(parse_contexts(args.contexts))
+    desired_contexts = normalise_contexts(
+        parse_contexts(args.contexts, config_path=args.config)
+    )
 
     snapshot: dict[str, Any] | None = None
     if args.snapshot:
