@@ -305,9 +305,10 @@ jobs:
                 return '';
               }
 
-              // More flexible regex: allow #, ## or ### headers, optional trailing spaces/newlines
+              // Flexible regex: allow ## headers OR standalone text on its own line
               const escapedHeading = heading.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-              const pattern = new RegExp(`(^|\\n)#{1,3}\\s+${escapedHeading}\\s*\\r?\\n`, 'i');
+              // Match either "## Heading" or just "Heading" at start of line
+              const pattern = new RegExp(`(^|\\n)(#{1,3}\\s+)?${escapedHeading}\\s*\\r?\\n`, 'i');
               const match = body.match(pattern);
 
               if (!match) {
@@ -321,8 +322,12 @@ jobs:
               const start = match.index + match[0].length;
               const rest = body.slice(start);
 
-              const next = rest.search(/\r?\n#{2}\s+/i);
-              const end = next === -1 ? rest.length : next + 1;
+              // Look for next section: either ## heading OR a known section name at start of line
+              const knownSections = ['Why', 'Scope', 'Non-Goals', 'Goal', 'Tasks', 'Acceptance criteria', 'Success criteria', 'Definition of done', 'Implementation notes', 'Technical notes', 'Summary', 'Description', 'Overview', 'Testing', 'Test Plan', 'Validation', 'CI readiness'];
+              const sectionPattern = knownSections.map(s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+              const nextPattern = new RegExp(`\\r?\\n(#{2,3}\\s+|(?:${sectionPattern})\\s*\\r?\\n)`, 'i');
+              const nextMatch = rest.match(nextPattern);
+              const end = nextMatch ? nextMatch.index + 1 : rest.length;
               const content = rest.slice(0, end).trim();
 
               core.debug(`  Extracted ${content.length} characters`);
