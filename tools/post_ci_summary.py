@@ -230,7 +230,7 @@ def _derive_required_groups_from_runs(
 
 
 def _collect_category_states(
-    runs: Sequence[Mapping[str, object]]
+    runs: Sequence[Mapping[str, object]],
 ) -> dict[str, tuple[str, str | None]]:
     states: dict[str, tuple[str, str | None]] = {}
     for run in runs:
@@ -267,7 +267,7 @@ def _collect_category_states(
 
 
 def _is_docs_only_fast_pass(
-    category_states: Mapping[str, tuple[str, str | None]]
+    category_states: Mapping[str, tuple[str, str | None]],
 ) -> bool:
     seen_skipped = False
     for key in DOC_ONLY_JOB_KEYS:
@@ -330,9 +330,7 @@ def _load_required_contexts(
     config_path: str | os.PathLike[str] | None = None,
 ) -> List[str]:
     candidate = Path(
-        config_path
-        or os.getenv("REQUIRED_CONTEXTS_FILE")
-        or REQUIRED_CONTEXTS_PATH
+        config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or REQUIRED_CONTEXTS_PATH
     )
     try:
         payload = json.loads(candidate.read_text(encoding="utf-8"))

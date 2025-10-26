@@ -229,9 +229,7 @@ def load_required_contexts(
     """Return contexts defined in the shared configuration file."""
 
     candidate = Path(
-        config_path
-        or os.getenv("REQUIRED_CONTEXTS_FILE")
-        or DEFAULT_CONFIG_PATH
+        config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or DEFAULT_CONFIG_PATH
     )
     try:
         payload = json.loads(candidate.read_text(encoding="utf-8"))
