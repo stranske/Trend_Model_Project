@@ -112,7 +112,9 @@ def _load_summary_records(artifacts_root: Path) -> list[dict]:
     return records
 
 
-def _detect_cosmetic_failure(records: Iterable[Mapping[str, object]]) -> tuple[bool, tuple[str, ...]]:
+def _detect_cosmetic_failure(
+    records: Iterable[Mapping[str, object]],
+) -> tuple[bool, tuple[str, ...]]:
     allowed_failures = {"format", "lint"}
     benign_outcomes = {"success", "skipped", "pending"}
     cosmetic_hits: set[str] = set()
@@ -127,7 +129,9 @@ def _detect_cosmetic_failure(records: Iterable[Mapping[str, object]]) -> tuple[b
             return False, ()
 
         for name, section in checks.items():
-            outcome = _normalize_check_outcome(section if isinstance(section, Mapping) else None)
+            outcome = _normalize_check_outcome(
+                section if isinstance(section, Mapping) else None
+            )
             if outcome in benign_outcomes:
                 continue
             if name in allowed_failures and outcome == "failure":
@@ -410,9 +414,7 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
             f"cosmetic_failure={'true' if result.cosmetic_failure else 'false'}\n"
         )
         if result.failure_checks:
-            handle.write(
-                "failure_checks=" + ",".join(result.failure_checks) + "\n"
-            )
+            handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
         else:
             handle.write("failure_checks=\n")
 
