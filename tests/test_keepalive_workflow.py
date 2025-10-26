@@ -181,3 +181,31 @@ def test_keepalive_refreshes_existing_comment() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 0" in raw
     assert "Refreshed keepalive count: 1" in raw
+
+
+def test_keepalive_upgrades_legacy_comment() -> None:
+    data = _run_scenario("legacy_keepalive")
+    assert data["created_comments"] == []
+
+    updated = data["updated_comments"]
+    assert [item["comment_id"] for item in updated] == [4242]
+    assert updated[0]["body"].endswith("<!-- codex-keepalive-marker -->")
+
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Triggered keepalive count: 0" in raw
+    assert "Refreshed keepalive count: 1" in raw
+
+
+def test_keepalive_skips_non_codex_branches() -> None:
+    data = _run_scenario("non_codex_branch")
+    assert data["created_comments"] == []
+    assert data["updated_comments"] == []
+
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Skipped keepalive count: 1" in raw
+
+    details = _details(summary, "Skipped pull requests")
+    assert details is not None
+    assert any("#111" in item and "head branch not codex/issue-*" in item for item in details["items"])
