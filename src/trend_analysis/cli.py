@@ -12,9 +12,8 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
-from . import export
+from . import export, pipeline
 from . import logging as run_logging
-from . import pipeline
 from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
