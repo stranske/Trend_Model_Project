@@ -124,9 +124,9 @@ jobs:
               let invite = false;
               if (base.endsWith(inviteSuffix)) {
                 base = base.slice(0, -inviteSuffix.length).trim();
+                if (!base) continue;
                 invite = true;
               }
-              if (!base) continue;
               const canonical = `agent:${base}`;
               if (!candidates.has(canonical)) {
                 candidates.set(canonical, {
