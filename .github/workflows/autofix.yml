@@ -142,26 +142,16 @@ jobs:
               })
               .filter(Boolean);
 
-            const hasAutofix = labelNames.includes('autofix');
-            const hasAgent = labelNames.some((name) => name.startsWith('agent:'));
+            const hasAutofix = labelNames.some(
+              (name) => name === 'autofix' || name === 'autofix:clean'
+            );
 
             summary.addRaw(`Labels: ${labelNames.join(', ') || '(none)'}`).addEOL();
-            summary.addRaw(`Has autofix label: ${hasAutofix}`).addEOL();
-            summary.addRaw(`Has agent:* label: ${hasAgent}`).addEOL();
+            summary.addRaw(`Has autofix/autofix:clean label: ${hasAutofix}`).addEOL();
 
             if (!hasAutofix) {
               result.skip_reason = 'missing-autofix-label';
               summary.addRaw('Autofix label not present; skipping.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
-              }
-              await summary.write();
-              return;
-            }
-
-            if (!hasAgent) {
-              result.skip_reason = 'missing-agent-label';
-              summary.addRaw('Agent label not present; skipping.').addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
@@ -185,6 +175,42 @@ jobs:
             if (!sameRepo) {
               result.skip_reason = 'fork-pr';
               summary.addRaw('Autofix loop only runs for same-repo branches.').addEOL();
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              await summary.write();
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const allowedExtensions = ['.py', '.pyi'];
+            const disallowedFiles = files
+              .map((file) => {
+                if (!file) return '';
+                if (typeof file === 'string') return file;
+                if (typeof file.filename === 'string') return file.filename;
+                return '';
+              })
+              .filter(Boolean)
+              .filter((filename) => {
+                const lower = filename.toLowerCase();
+                return !allowedExtensions.some((ext) => lower.endsWith(ext));
+              });
+
+            summary.addRaw(`Non-Python files detected: ${disallowedFiles.length}`).addEOL();
+
+            if (disallowedFiles.length > 0) {
+              result.skip_reason = 'non-python-changes';
+              summary
+                .addRaw(
+                  `Detected non-Python changes; skipping autofix loop (${disallowedFiles.join(', ')})`
+                )
+                .addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }

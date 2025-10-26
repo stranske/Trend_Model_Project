@@ -17,9 +17,6 @@ from trend.cli import (
     TrendCLIError,
     _determine_seed,
     _ensure_dataframe,
-)
-from trend.cli import _load_configuration as _load_yaml_configuration
-from trend.cli import (
     _prepare_export_config,
     _print_summary,
     _resolve_report_output_path,
@@ -27,6 +24,7 @@ from trend.cli import (
     _run_pipeline,
     _write_report_files,
 )
+from trend.cli import _load_configuration as _load_yaml_configuration
 from trend.reporting import generate_unified_report
 from trend_analysis.config import load_config
 from trend_model.spec import ensure_run_spec

@@ -263,7 +263,7 @@ jobs:
         run: |
           set -euo pipefail
           targets=()
-          for path in src tests tools; do
+          for path in src tests tools .github/scripts; do
             if [ -d "$path" ]; then
               targets+=("$path")
             fi
@@ -357,7 +357,7 @@ jobs:
               fi
             done <<<"${ALLOWED_FILE_GLOBS}"
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
-              allowed_patterns=("src/**" "tests/**" "tools/**")
+              allowed_patterns=("src/**" "tests/**" "tools/**" ".github/scripts/**")
             fi
             shopt -s nullglob globstar
             disallowed=()

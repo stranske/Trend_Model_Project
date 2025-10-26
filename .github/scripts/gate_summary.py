@@ -26,6 +26,8 @@ class SummaryResult:
     lines: list[str]
     state: str
     description: str
+    cosmetic_failure: bool = False
+    failure_checks: tuple[str, ...] = ()
 
 
 PRIORITY: dict[str, int] = {
@@ -78,6 +80,14 @@ def _aggregate(entries: Iterable[tuple[str, str]]) -> tuple[str, str]:
     return best, detail or "no runs"
 
 
+def _normalize_check_outcome(section: Mapping[str, object] | None) -> str:
+    if isinstance(section, Mapping):
+        outcome = section.get("outcome")
+        if isinstance(outcome, str):
+            return _normalize(outcome)
+    return "unknown"
+
+
 def _load_summary_records(artifacts_root: Path) -> list[dict]:
     records: list[dict] = []
     base = artifacts_root / "downloads"
@@ -100,6 +110,39 @@ def _load_summary_records(artifacts_root: Path) -> list[dict]:
             records.append(data)
 
     return records
+
+
+def _detect_cosmetic_failure(
+    records: Iterable[Mapping[str, object]],
+) -> tuple[bool, tuple[str, ...]]:
+    allowed_failures = {"format", "lint"}
+    benign_outcomes = {"success", "skipped", "pending"}
+    cosmetic_hits: set[str] = set()
+    has_records = False
+
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        has_records = True
+        checks = record.get("checks")
+        if not isinstance(checks, Mapping):
+            return False, ()
+
+        for name, section in checks.items():
+            outcome = _normalize_check_outcome(
+                section if isinstance(section, Mapping) else None
+            )
+            if outcome in benign_outcomes:
+                continue
+            if name in allowed_failures and outcome == "failure":
+                cosmetic_hits.add(str(name))
+                continue
+            return False, ()
+
+    if not has_records or not cosmetic_hits:
+        return False, ()
+
+    return True, tuple(sorted(cosmetic_hits))
 
 
 def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
@@ -130,12 +173,9 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
         )
 
         def _check(name: str) -> str:
-            section = checks.get(name)
-            if isinstance(section, Mapping):
-                outcome = section.get("outcome")
-                if isinstance(outcome, str):
-                    return _normalize(outcome)
-            return "unknown"
+            return _normalize_check_outcome(
+                checks.get(name) if isinstance(checks, Mapping) else None
+            )
 
         lint = _check("lint")
         typing = _check("type_check")
@@ -267,6 +307,8 @@ def summarize(context: SummaryContext) -> SummaryResult:
         )
         return SummaryResult(lines=lines, state="success", description=description)
 
+    records = _load_summary_records(context.artifacts_root)
+
     (
         table,
         lint_entries,
@@ -275,7 +317,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         coverage_entries,
         coverage_percents,
         job_results,
-    ) = _collect_table(_load_summary_records(context.artifacts_root))
+    ) = _collect_table(records)
 
     lines = _active_lines(
         table,
@@ -293,10 +335,13 @@ def summarize(context: SummaryContext) -> SummaryResult:
 
     python_result = _normalize(context.python_result or "success")
     docker_result_norm = _normalize(context.docker_result or "skipped")
+    cosmetic_failure = False
+    failure_checks: tuple[str, ...] = ()
 
     if python_result != "success":
         state = "failure"
         description = f"Python CI result: {python_result}."
+        cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
     elif context.docker_changed and docker_result_norm != "success":
         state = "failure"
         description = f"Docker smoke result: {docker_result_norm}."
@@ -310,7 +355,13 @@ def summarize(context: SummaryContext) -> SummaryResult:
         else:
             adjusted_lines.append(line)
 
-    return SummaryResult(lines=adjusted_lines, state=state, description=description)
+    return SummaryResult(
+        lines=adjusted_lines,
+        state=state,
+        description=description,
+        cosmetic_failure=cosmetic_failure,
+        failure_checks=failure_checks,
+    )
 
 
 def _resolve_path(env_var: str) -> Path | None:
@@ -359,6 +410,13 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
     with output_path.open("a", encoding="utf-8") as handle:
         handle.write(f"state={result.state}\n")
         handle.write(f"description={result.description}\n")
+        handle.write(
+            f"cosmetic_failure={'true' if result.cosmetic_failure else 'false'}\n"
+        )
+        if result.failure_checks:
+            handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
+        else:
+            handle.write("failure_checks=\n")
 
 
 def main() -> int:

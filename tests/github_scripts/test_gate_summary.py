@@ -15,16 +15,23 @@ import gate_summary  # noqa: E402
 
 
 def write_summary(
-    root: Path, runtime: str, *, lint: str = "success", tests: str = "success"
+    root: Path,
+    runtime: str,
+    *,
+    format_outcome: str = "success",
+    lint: str = "success",
+    tests: str = "success",
+    type_check: str = "success",
 ) -> None:
     summary_dir = root / "downloads" / runtime
     summary_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "python_version": runtime,
         "checks": {
+            "format": {"outcome": format_outcome},
             "lint": {"outcome": lint},
             "tests": {"outcome": tests},
-            "type_check": {"outcome": "success"},
+            "type_check": {"outcome": type_check},
             "coverage_minimum": {"outcome": "success"},
         },
         "coverage": {"percent": 91.23},
@@ -73,6 +80,7 @@ def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
     assert "Reported coverage" in joined
     assert "Docker smoke skipped" in joined
     assert "| docker-smoke | success |" in joined
+    assert result.cosmetic_failure is False
 
 
 @pytest.mark.parametrize(
@@ -97,3 +105,65 @@ def test_summary_state_reflects_python_outcome(
 
     result = gate_summary.summarize(context)
     assert result.state == expected_state
+    assert result.cosmetic_failure is False
+
+
+def test_cosmetic_failure_detected(tmp_path: Path) -> None:
+    write_summary(tmp_path, "3.11", format_outcome="failure")
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="failure",
+        docker_result="success",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert result.cosmetic_failure is True
+    assert result.failure_checks == ("format",)
+
+
+def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
+    write_summary(tmp_path, "3.11", tests="failure")
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="failure",
+        docker_result="success",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert result.cosmetic_failure is False
+
+
+def test_cosmetic_failure_reports_all_allowed_checks(tmp_path: Path) -> None:
+    write_summary(tmp_path, "3.11", format_outcome="failure")
+    write_summary(tmp_path, "3.12", lint="failure")
+
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="failure",
+        docker_result="success",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert result.cosmetic_failure is True
+    assert result.failure_checks == ("format", "lint")
