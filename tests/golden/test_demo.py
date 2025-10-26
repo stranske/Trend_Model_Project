@@ -360,8 +360,8 @@ class TestDemoGoldenMaster:
         assert len(hashes_run2) > 0, "No output files generated in run 2"
 
         # Check that same files were generated
-        assert (
-            set(hashes_run1.keys()) == set(hashes_run2.keys())
+        assert set(hashes_run1.keys()) == set(
+            hashes_run2.keys()
         ), f"Different files generated: {set(hashes_run1.keys())} vs {set(hashes_run2.keys())}"
 
         # Check that content hashes match

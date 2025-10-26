@@ -300,7 +300,7 @@ jobs:
           fi
           ruff check tests --select I --fix --exit-zero
           ruff check tests --fix --exit-zero
-          ruff format tests || true
+          black tests || true
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
