@@ -170,6 +170,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "python-ci",
                 "github-scripts-tests",
                 "docker-smoke",
+                "ledger-validation",
                 "summary",
                 "autofix",
             },
@@ -203,7 +204,13 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         job_gate = jobs["summary"]
         self.assertEqual(
             job_gate.get("needs"),
-            ["detect", "python-ci", "docker-smoke", "github-scripts-tests"],
+            [
+                "detect",
+                "python-ci",
+                "docker-smoke",
+                "github-scripts-tests",
+                "ledger-validation",
+            ],
         )
         steps = job_gate.get("steps", [])
         summary_step = next(
