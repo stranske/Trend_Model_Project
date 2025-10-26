@@ -323,9 +323,9 @@ jobs:
           if [ ${#tests_only[@]} -gt 0 ]; then
             sorted_tests=$(printf '%s\n' "${tests_only[@]}" | sort -u)
             {
-              echo "file_list<<'EOF'"
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
               printf '%s\n' "$sorted_tests"
-              echo 'EOF'
+              echo "AUTOFIX_DELIMITER_$$"
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -431,9 +431,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           if [ -n "$file_list_payload" ]; then
             {
-              echo "file_list<<'EOF'"
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
               printf '%s\n' "$file_list_payload"
-              echo 'EOF'
+              echo "AUTOFIX_DELIMITER_$$"
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -475,9 +475,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           if [ -n "$file_list" ]; then
             {
-              echo "file_list<<'EOF'"
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
               printf '%s\n' "$file_list"
-              echo 'EOF'
+              echo "AUTOFIX_DELIMITER_$$"
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -541,14 +541,14 @@ jobs:
               labels="$labels, \`autofix:debt\`"
             fi
             {
-              echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+              echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
               if [ "$MODE" = "clean" ]; then
                 echo "Clean-mode cosmetic autofix commit: [${short_sha}]($url)"
               else
                 echo "Autofix commit: [${short_sha}]($url)"
               fi
               echo "Labels: $labels"
-              echo "EOF"
+              echo "AUTOFIX_BLOCK_DELIMITER_$$"
             } >> "$GITHUB_ENV"
           fi
 
@@ -626,7 +626,7 @@ jobs:
             labels="$labels, \`autofix:debt\`"
           fi
           {
-            echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+            echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
             if [ "$MODE" = "clean" ]; then
               echo "Clean-mode cosmetic patch: [${name}](${url})"
             else
@@ -640,7 +640,7 @@ jobs:
             echo "   git am < autofix.patch"
             echo "3. Push to your PR branch:"
             echo "   git push origin HEAD:${HEAD_REF}"
-            echo "EOF"
+            echo "AUTOFIX_BLOCK_DELIMITER_$$"
           } >> "$GITHUB_ENV"
 
       - name: Prepare no-change summary
@@ -662,14 +662,14 @@ jobs:
             labels="$labels, \`autofix:debt\`"
           fi
           {
-            echo "AUTOFIX_RESULT_BLOCK<<'EOF'"
+            echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
             if [ "$MODE" = "clean" ]; then
               echo "Clean-mode cosmetic sweep found no changes."
             else
               echo "No changes required."
             fi
             echo "Labels: $labels"
-            echo "EOF"
+            echo "AUTOFIX_BLOCK_DELIMITER_$$"
           } >> "$GITHUB_ENV"
 
       - name: Manage autofix outcome labels
@@ -1116,8 +1116,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           if [ -n "$file_list" ]; then
             {
-              echo "file_list<<'EOF'"
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
               printf '%s\n' "$file_list"
-              echo 'EOF'
+              echo "AUTOFIX_DELIMITER_$$"
             } >> "$GITHUB_OUTPUT"
           fi
+
