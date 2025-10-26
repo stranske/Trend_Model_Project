@@ -26,7 +26,9 @@ def test_workflow_slugs_follow_wfv1_prefixes():
         for path in _workflow_paths()
         if not path.name.startswith(ALLOWED_PREFIXES)
     ]
-    assert not non_compliant, f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
+    assert (
+        not non_compliant
+    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
 
 
 def test_archive_directories_removed():
@@ -186,6 +188,7 @@ EXPECTED_NAMES = {
     "agents-guard.yml": "Health 45 Agents Guard",
     "agents-63-codex-issue-bridge.yml": "Agents 63 Codex Issue Bridge",
     "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
+    "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-pr-comment-commands.yml": "Agents 64 PR comment command listener",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
