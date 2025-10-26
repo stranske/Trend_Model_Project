@@ -254,6 +254,13 @@ jobs:
       statuses: write
     env:
       REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
+    outputs:
+      state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
+      description: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
+      cosmetic_failure: ${{ steps.summarize.outputs.cosmetic_failure || 'false' }}
+      failure_checks: ${{ steps.summarize.outputs.failure_checks || '' }}
+      autofix_label_applied: ${{ steps.autofix_label.outputs.applied || 'false' }}
+      autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
       - name: Checkout workflow helpers
         uses: actions/checkout@v4
@@ -701,3 +708,123 @@ jobs:
         **/*.py
         **/*.pyi
     secrets: inherit
+
+  keepalive-progress:
+    name: keepalive progress
+    needs:
+      - summary
+      - autofix
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Update keepalive checklist
+        uses: actions/github-script@v7
+        env:
+          SUMMARY_AUTOFIX_APPLIED: ${{ needs.summary.outputs.autofix_label_applied || 'false' }}
+          SUMMARY_COSMETIC: ${{ needs.summary.outputs.cosmetic_failure || 'false' }}
+          SUMMARY_FAILURE_CHECKS: ${{ needs.summary.outputs.failure_checks || '' }}
+          AUTOFIX_RESULT: ${{ needs.autofix.result || 'skipped' }}
+          AUTOFIX_RAN: ${{ needs.autofix.outputs.ran || 'false' }}
+          AUTOFIX_CHANGED: ${{ needs.autofix.outputs.changed || 'false' }}
+          AUTOFIX_SKIP_REASON: ${{ needs.autofix.outputs.skip_reason || '' }}
+          AUTOFIX_FILE_LIST: ${{ needs.autofix.outputs.file_list || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { upsertAnchoredComment } = require('./.github/scripts/comment-dedupe.js');
+
+            const toBool = (value) => String(value || '').trim().toLowerCase() === 'true';
+
+            const cosmetic = toBool(process.env.SUMMARY_COSMETIC);
+            const labelApplied = toBool(process.env.SUMMARY_AUTOFIX_APPLIED);
+            const autofixRan = toBool(process.env.AUTOFIX_RAN);
+            const autofixChanged = toBool(process.env.AUTOFIX_CHANGED);
+            const skipReason = (process.env.AUTOFIX_SKIP_REASON || '').trim();
+            const rawFiles = (process.env.AUTOFIX_FILE_LIST || '')
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter(Boolean);
+            const onlyAllowed = rawFiles.every((file) =>
+              file.toLowerCase().endsWith('.py') || file.toLowerCase().endsWith('.pyi')
+            );
+
+            const guardOk = skipReason !== 'non-python-changes';
+            const acceptance1 = cosmetic && labelApplied;
+            const acceptance2 = autofixChanged;
+            const acceptance3 = guardOk && (!autofixRan || rawFiles.length === 0 || onlyAllowed);
+
+            const checkbox = (flag) => (flag ? 'x' : ' ');
+
+            const task1 = checkbox(acceptance1);
+            const task2 = checkbox(acceptance2);
+            const task3 = checkbox(acceptance3);
+
+            const accept1 = checkbox(acceptance1);
+            const accept2 = checkbox(acceptance2);
+            const accept3 = checkbox(acceptance3);
+
+            const details = [];
+            if (cosmetic) {
+              const checks = (process.env.SUMMARY_FAILURE_CHECKS || '').trim();
+              details.push(`- Cosmetic failure checks: ${checks || '(none reported)'}`);
+            }
+            if (autofixRan) {
+              details.push(`- Autofix job result: ${process.env.AUTOFIX_RESULT || 'unknown'}`);
+              details.push(
+                `- Autofix changed files: ${rawFiles.length ? rawFiles.join(', ') : '(none)'}`,
+              );
+              if (skipReason) {
+                details.push(`- Autofix skip reason: ${skipReason}`);
+              }
+            }
+
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request context; skipping keepalive update.');
+              return;
+            }
+
+            const headSha = (process.env.HEAD_SHA || pr.head?.sha || '').slice(0, 12);
+            const anchor = `<!-- keepalive-checklist: pr=${pr.number}${headSha ? ` head=${headSha}` : ''} -->`;
+
+            const lines = [
+              anchor,
+              '### Keepalive checklist',
+              '',
+              '#### Scope',
+              '- [x] Small change in Gate’s summary job plus label logic in Autofix.',
+              '',
+              '#### Tasks',
+              `- [${task1}] In Gate summary, detect format/import-only failures and add autofix:clean.`,
+              `- [${task2}] In autofix.yml, drop the agent:* co-label requirement; trigger solely on autofix/autofix:clean.`,
+              `- [${task3}] Keep ALLOWED_GLOBS as *.py, *.pyi; add explicit guard against non-Python changes.`,
+              '',
+              '#### Acceptance criteria',
+              `- [${accept1}] For cosmetic failures, PR gains autofix:clean automatically.`,
+              `- [${accept2}] Autofix Loop runs and pushes minimal import/format fixes.`,
+              `- [${accept3}] No edits outside allowed globs.`,
+            ];
+
+            if (details.length) {
+              lines.push('', '#### Status notes', ...details);
+            }
+
+            lines.push('');
+
+            const body = lines.join('\n');
+            await upsertAnchoredComment({
+              github,
+              context,
+              core,
+              prNumber: pr.number,
+              body,
+              anchorPattern: /<!--\s*keepalive-checklist:([^>]*)-->/i,
+              fallbackMarker: '<!-- keepalive-checklist:',
+            });
