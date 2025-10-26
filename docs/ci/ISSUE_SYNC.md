@@ -1,26 +1,41 @@
-# Issue Sync agent label policy
+# Agents 63 issue sync label policy
 
-The Agents 63 Issue Sync workflow normalizes topic lists into GitHub issues. To prevent
-automation from launching against the wrong agent, the workflow now enforces manual agent
-selection across the sync/bridge hand-off.
+The Agents 63 ChatGPT issue sync and Codex issue bridge workflows now rely on a
+single, manually selected `agent:*` label to determine which automation is
+invited to work on a request. Auto-selection caused the bridge to summon the
+wrong automation, so both workflows enforce a stricter contract.
 
-## Sync: labels from imports
+## Manual agent selection
 
-* Any `agent:*` or `agents:*` labels found in the imported topic payload are stripped during
-  processing. They appear in the run summary under **Agent labels stripped** so humans can
-  quickly reapply the correct label once triage is complete.
-* The workflow still applies non-agent labels supplied in the payload and leaves any existing
-  agent assignments untouched when refreshing an issue. Manual selection happens after the
-  issue lands in the repository.
+1. Choose the desired automation label (`agent:codex`, `agent:claude`, etc.) in
+   the GitHub sidebar before running the sync. The sync will refuse to run if it
+   cannot find exactly one base `agent:*` label.
+2. Optional mode overrides such as `agent:codex-invite` may still be used, but
+   they must accompany the base label (`agent:codex`). Invite-only labels without
+   the base label are rejected.
+3. Keepalive sentinel labels such as `agents:keepalive` are ignored by the
+   validation logic and do not count toward the single-label requirement.
 
-## Bridge: validation before copy/paste output
+## Issue sync behaviour
 
-* The reusable bridge workflow refuses to continue unless the target issue has **exactly one**
-  `agent:*`/`agents:*` label after manual triage. Missing or multiple labels fail fast with a
-  descriptive error so the run can be retriggered once the issue is corrected.
-* The bridge derives the `@{agent}` mention for instructions directly from the surviving label.
-  The suffix portion of the label is normalized to a lowercase slug and reused for the
-  instructions, `BRIDGE_AGENT_*` environment variables, and copy/paste scaffold.
+- Each topic must specify exactly one base `agent:*` label. Topics without a
+  label, or with more than one agent assignment, abort the run and emit
+  actionable errors.
+- The workflow publishes counts for skipped topics (missing or conflicting agent
+  labels) in the run summary so the curator can fix the source topics before
+  retrying.
 
-These guardrails ensure human confirmation picks the right automation before a branch or PR is
-prepared, while keeping downstream prompts and instructions aligned with that selection.
+## Bridge behaviour
+
+- The bridge resolves the same single `agent:*` label and fails fast when the
+  label is missing, duplicated, or only present in invite form.
+- Copy/paste instructions derive the correct `@{agent}` mention and friendly
+  agent title (`Codex`, `Claude`, etc.) from that label, ensuring the kick-off
+  snippet always references the intended automation.
+- When `agent:<name>-invite` is present alongside the base label, the bridge
+  continues to honour the invite override while still deriving the correct agent
+  mention.
+
+Following these rules keeps the sync and bridge aligned, prevents accidental
+hand-offs to the wrong automation, and keeps the keepalive workflow watching the
+right checklists.
