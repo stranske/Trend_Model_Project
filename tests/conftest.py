@@ -69,9 +69,7 @@ def pytest_collection_modifyitems(config, items):
         it.user_properties.append(("test_markers", ",".join(markers)))
 
 
-def pytest_sessionfinish(
-    session: pytest.Session, exitstatus: int
-) -> None:  # noqa: ARG001
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
     recorder = get_recorder()
     if not recorder.has_entries():
         return
