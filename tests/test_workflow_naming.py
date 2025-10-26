@@ -201,6 +201,7 @@ EXPECTED_NAMES = {
     "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
+    "maint-46-post-ci.yml": "Maint 46 Post CI",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",

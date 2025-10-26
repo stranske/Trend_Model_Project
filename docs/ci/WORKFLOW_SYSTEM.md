@@ -321,7 +321,7 @@ and where to watch the result:
    logs show up under the same pull request for easy comparison with Gate.
 3. **Merge lands on the default branch.** The Gate summary job aggregates
    artifacts from the successful run and applies any low-risk cleanup.
-  Scheduled maintenance jobs (Maint 45 and Health
+  Scheduled maintenance jobs (Maint 46 Post CI, Maint 45, and Health
    40–44) continue to run on their cadence even when no one is watching,
    keeping the repo healthy.
 4. **Issue and agents automation picks up queued work.** Labelled issues flow
@@ -352,14 +352,16 @@ fires where” without diving into the full tables:
     Autofix: handled by Gate summary job after Gate completes.
 - **Maintenance & repo health**
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
-    `maint-coverage-guard.yml`, `maint-45-cosmetic-repair.yml`,
-    and the health guardrails (`health-40` through `health-44`).
+    `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
+    `maint-45-cosmetic-repair.yml`, and the health guardrails
+    (`health-40` through `health-44`).
   - **Triggers.** Combination of the Gate summary job running after Gate,
     recurring schedules (health guardrails), and manual dispatch for
     Maint 45.
   - **Purpose.** Keep the default branch stable after merges, surface drift,
     and enforce branch-protection expectations without waiting for the next PR.
   - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
+    Maint 46: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml).
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
@@ -456,7 +458,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -489,6 +491,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
   coverage dips outside the allowed guard band.
+- **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` listens for
+  completed Gate runs, runs `actionlint` as a fast syntax guard, downloads the
+  Gate artifacts, renders the consolidated CI summary (including coverage
+  deltas) via `tools/post_ci_summary.py`, saves a markdown preview, and
+  refreshes the Gate commit status so the Checks tab reflects the latest run.
 - **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
   runs on-demand and disables archived workflows still listed as active in the
   Actions UI.
@@ -593,6 +600,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Check PyPI for new versions of CI/autofix tools and create/update an issue when updates are available. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-50-tool-version-check.yml) |
 | **Maint Coverage Guard** (`maint-coverage-guard.yml`, maintenance bucket) | `schedule` (`45 6 * * *`), `workflow_dispatch` | Audit the latest Gate coverage trend artifact and compare it against the baseline, failing when coverage regresses beyond the guard thresholds. | ⚪ Scheduled | [Maint Coverage Guard runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-coverage-guard.yml) |
+| **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate, `completed`) | Collect the latest Gate run metadata, validate syntax via `actionlint`, render the consolidated CI summary with coverage deltas, publish a markdown preview, and refresh the Gate commit status. | ⚪ Automatic follow-up | [Maint 46 runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
