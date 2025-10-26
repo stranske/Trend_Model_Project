@@ -307,21 +307,28 @@ jobs:
               const requiredParts = [];
               for (const name of requiredChecks) {
                 const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
-                const status = combineStatus(run);
-                requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+                if (!run) {
+                  // Check hasn't started yet
+                  requiredParts.push(`${name}: ⏸️ not started`);
+                } else {
+                  const status = combineStatus(run);
+                  requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+                }
               }
               statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
               statusLines.push('');
 
               const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
-              for (const run of Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
-                const status = combineStatus(run);
-                const link = run.html_url ? `[View run](${run.html_url})` : '—';
-                table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
-              }
-
-              if (table.length === 2) {
-                table.push('| — | — | — |');
+              const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+              
+              if (runs.length === 0) {
+                table.push('| _(no workflow runs yet for this commit)_ | — | — |');
+              } else {
+                for (const run of runs) {
+                  const status = combineStatus(run);
+                  const link = run.html_url ? `[View run](${run.html_url})` : '—';
+                  table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
+                }
               }
 
               statusLines.push(...table);
