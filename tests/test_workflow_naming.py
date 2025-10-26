@@ -26,7 +26,9 @@ def test_workflow_slugs_follow_wfv1_prefixes():
         for path in _workflow_paths()
         if not path.name.startswith(ALLOWED_PREFIXES)
     ]
-    assert not non_compliant, f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
+    assert (
+        not non_compliant
+    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
 
 
 def test_archive_directories_removed():
@@ -195,6 +197,7 @@ EXPECTED_NAMES = {
     "agents-74-pr-body-writer.yml": "Agents 74 PR body writer",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
+    "health-40-sweep.yml": "Health 40 Sweep",
     "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",
     "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
