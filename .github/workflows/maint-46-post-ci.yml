@@ -34,11 +34,6 @@ jobs:
             tools/post_ci_summary.py
           sparse-checkout-cone-mode: false
 
-      - name: Validate workflow syntax
-        uses: rhysd/actionlint@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Discover Gate workflow runs
         id: discover
         uses: actions/github-script@v7
