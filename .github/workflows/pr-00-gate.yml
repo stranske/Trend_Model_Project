@@ -230,7 +230,7 @@ jobs:
 
       - name: Validate ledger files
         run: |
-          if [ -d .agents ] && ls .agents/issue-*-ledger.yml 1> /dev/null 2>&1; then
+          if [ -d .agents ] && find .agents -name 'issue-*-ledger.yml' -print -quit | grep -q .; then
             python scripts/ledger_validate.py
           else
             echo "No ledger files found; validation skipped."
