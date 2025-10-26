@@ -165,7 +165,9 @@ jobs:
               return;
             }
 
-            const { original, suffix } = candidates[0];
+            const entry = withBase[0];
+            const original = Array.from(entry.labels)[0] || `agent:${entry.base}`;
+            const suffix = entry.base;
             const slugify = (value) =>
               value
                 .toLowerCase()
