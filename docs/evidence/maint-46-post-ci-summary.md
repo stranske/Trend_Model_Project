@@ -25,7 +25,7 @@ The rendered Gate summary preview is stored as a Base64 text artifact (`maint-46
 Recreate the PNG locally with:
 
 ```bash
-base64 -d docs/evidence/maint-46-post-ci-summary.b64 > docs/evidence/maint-46-post-ci-summary.png
+base64 -d -i docs/evidence/maint-46-post-ci-summary.b64 > docs/evidence/maint-46-post-ci-summary.png
 ```
 
 This preserves the evidence while keeping the repository text-only for easier reviews.
