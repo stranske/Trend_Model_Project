@@ -1,6 +1,6 @@
 version: 1
 issue: 3011
-base: main
+base: phase-2-dev
 branch: codex/issue--agent-ledger
 tasks:
   - id: ledger-schema
@@ -11,7 +11,8 @@ tasks:
     commit: ''
     notes: []
   - id: ledger-keys
-    title: Ensure ledger metadata includes version, issue, base, branch, and task fields.
+    title: Ensure ledger metadata includes version, issue, base, branch, and task
+      fields.
     status: todo
     started_at: null
     finished_at: null
