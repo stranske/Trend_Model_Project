@@ -36,6 +36,9 @@ assignees: ""
 ---
 
 <!-- 
+📚 Format Guide: See docs/ci/ISSUE_FORMAT_GUIDE.md for detailed formatting requirements,
+   section header options, and examples of valid issue structures.
+
 IMPORTANT: Do NOT add agent:* labels automatically. 
 The agent label (agent:codex, agent:claude, etc.) must be selected manually after issue creation.
 -->

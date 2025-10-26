@@ -986,7 +986,8 @@ jobs:
             const num = Number(issueNumber);
             const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
             const labels = (issue.labels || []).map(label => typeof label === 'string' ? label : (label.name || '')).filter(Boolean).map(name => name.toLowerCase());
-            const agentLabels = labels.filter(name => /^agents?:/.test(name));
+            // Only match agent assignment labels (agent:codex, agent:chatgpt), not process labels (agents:keepalive)
+            const agentLabels = labels.filter(name => /^agent:[a-z]+$/.test(name));
             if (agentLabels.length !== 1) {
               core.setFailed(`Expected exactly one agent:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
               return;
