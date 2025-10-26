@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_workflow_naming import EXPECTED_NAMES
 from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
+    WorkflowAPIError,
     _extract_next_link,
     _normalize_allowlist,
-    WorkflowAPIError,
     disable_legacy_workflows,
 )
-from tests.test_workflow_naming import EXPECTED_NAMES
 
 
 def test_canonical_workflow_files_match_inventory() -> None:
@@ -26,8 +26,8 @@ def test_canonical_workflow_names_match_expected_mapping() -> None:
     assert (
         set(EXPECTED_NAMES) == CANONICAL_WORKFLOW_FILES
     ), "Workflow naming expectations drifted; keep EXPECTED_NAMES in sync with the allowlist."
-    assert CANONICAL_WORKFLOW_NAMES == set(
-        EXPECTED_NAMES.values()
+    assert (
+        CANONICAL_WORKFLOW_NAMES == set(EXPECTED_NAMES.values())
     ), "Workflow display-name allowlist drifted; synchronize EXPECTED_NAMES in tests/test_workflow_naming.py."
 
 

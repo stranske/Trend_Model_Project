@@ -195,6 +195,11 @@ jobs:
               .addHeading('Codex Belt Worker')
               .addTable([[{ data: 'Issue', header: true }, { data: 'Branch', header: true }, { data: 'Source', header: true }], [`#${issue}`, branch, source]])
               .addTable([[{ data: 'Concurrency Group', header: true }, { data: 'Issue', header: true }, { data: 'Branch', header: true }], [concurrencyGroup, `#${issue}`, branch]])
+              .addHeading('Branch Freshness Safeguards')
+              .addList([
+                'Checkouts and fetches track the issue branch input, never defaulting to main unless it is the computed repository default.',
+                'A freshness gate compares HEAD with the remote branch and requires use_step_branch fallback for stale branches.',
+              ])
               .write();
 
       - name: Determine default branch
