@@ -19,7 +19,7 @@ operational detail for the kept set.
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
-| `health-` | Repository health & policy checks | `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
+| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
 | `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
@@ -46,9 +46,10 @@ _Inline Gate helper_
 
 ### Maintenance & Repo Health
 - **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTIONS_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
-- **`health-42-actionlint.yml`** — Sole workflow-lint gate. Runs actionlint via reviewdog on PR edits, pushes, weekly cron, and manual dispatch.
+- **`health-40-sweep.yml`** — Weekly sweep that fans out to Actionlint and branch-protection verification. Pull requests trigger the Actionlint leg (paths-filter gated) while schedule/manual runs execute both checks to keep the enforcement snapshots fresh.
+- **`health-42-actionlint.yml`** — Underlying Actionlint job invoked by the sweep (and still runnable via manual dispatch when you need a focused lint dry run).
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
-- **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured.
+- **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured (now triggered on PRs or by the consolidated sweep).
 
 _Additional opt-in utilities_
 - **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report covering stale branches, unassigned issues, and default-branch protection drift, with optional `workflow_dispatch` reruns.
@@ -112,7 +113,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
 2. Monitor failure tracker issues surfaced by the Gate summary job; it owns the delegation and auto-heal path end to end.
-3. Use `Health 42 Actionlint` (`workflow_dispatch`) for ad-hoc validation of complex workflow edits before pushing.
+3. Use `Health 40 Sweep` when you want the combined Actionlint + branch-protection sweep, or `Health 42 Actionlint` (`workflow_dispatch`) for an Actionlint-only rehearsal of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 5. Run `Maint 47 Disable Legacy Workflows` after archival sweeps to disable any retired workflows that still appear in the Actions UI.
 

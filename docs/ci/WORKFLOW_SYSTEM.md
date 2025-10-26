@@ -172,7 +172,8 @@ explain why a particular status appears in the Checks tab.
 | **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | **Gate / gate** in PR **Checks → Required** | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ❌ Informational follow-up | Timeline comment anchored with `<!-- gate-summary:` plus coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
-| **Health 42 Actionlint** (`health-42-actionlint.yml`) | Workflow-file PRs/pushes, Monday 05:05 UTC cron, manual dispatch | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
+| **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC schedule, workflow-file pull requests, manual dispatch | ❌ Informational hygiene | Combined Actionlint + branch-protection jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
+| **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | Every pull request (`pull_request`); label changes via `pull_request_target` (labels starting with `agent:`) | ✅ Required status (fails only when protected workflow policies are violated) | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 
@@ -224,10 +225,21 @@ explain why a particular status appears in the Checks tab.
 - **Merge impact.** Informational background signal; does not gate pull
   requests, but a failure indicates branch protection needs repair.
 
+#### Health 40 Sweep (`health-40-sweep.yml`)
+
+- **When it runs.** Monday 05:05 UTC on a schedule, manual dispatch, and on any
+  pull request (Actionlint runs only when workflow files change thanks to a
+  `paths-filter` gate).
+- **What it does.** Fan-out job that first evaluates workflow edits with
+  Actionlint and then verifies default-branch protection via the Health 44
+  helper on scheduled/manual runs.
+- **Merge impact.** Informational; it keeps weekly enforcement evidence fresh
+  without adding new required contexts.
+
 #### Health 42 Actionlint (`health-42-actionlint.yml`)
 
-- **When it runs.** On workflow-file pull requests, pushes to `phase-2-dev`, a
-  Monday cron (05:05 UTC), and manual dispatch.
+- **When it runs.** Manual dispatch or via `workflow_call` when the sweep needs
+  the Actionlint leg.
 - **What it does.** Runs Actionlint with the repository allowlist, annotates PRs
   via Reviewdog, and uploads SARIF for GitHub code scanning.
 - **Merge impact.** Informational; use the annotations to fix workflow schema
@@ -584,9 +596,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-repo-selfcheck.yml) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-41-repo-health.yml) |
-| **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `schedule` (daily) | Enforce actionlint across workflows. | ⚪ Scheduled | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
+| **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly), `pull_request`, `workflow_dispatch` | Run Actionlint on workflow edits and verify branch protection during sweeps. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-40-sweep.yml) |
+| **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `workflow_dispatch`, `workflow_call` | Provide the reusable Actionlint leg for sweeps or focused rehearsals. | ⚪ Manual/reusable | [Health 42 logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-42-actionlint.yml) |
 | **Health 43 CI Signature Guard** (`health-43-ci-signature-guard.yml`, maintenance bucket) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-43-ci-signature-guard.yml) |
-| **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Ensure Gate and Health 45 Agents Guard stay required on the default branch. | ⚪ Scheduled (fails if misconfigured) | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
+| **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `pull_request`, `workflow_dispatch`, `workflow_call` | Ensure Gate and Health 45 Agents Guard stay required on the default branch. | ⚪ Scheduled via sweep / manual | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/20 * * * *`), `workflow_dispatch` | Fan out consumer automation (readiness, diagnostics, keepalive sweep) and dispatch work; honours the `keepalive:paused` label and `keepalive_enabled` flag. | ⚪ Critical surface (triage immediately if red) | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
 | **Agents 63 Codex Issue Bridge** (`agents-63-codex-issue-bridge.yml`, agents bucket) | `issues`, `workflow_dispatch` | Bootstrap branches and PRs from labelled issues. | ⚪ Critical surface (automation intake) | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
