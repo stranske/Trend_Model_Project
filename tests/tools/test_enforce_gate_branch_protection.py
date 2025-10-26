@@ -72,6 +72,42 @@ class DummySession(requests.Session):
         return self._next_response()
 
 
+def test_load_required_contexts_handles_config_file(tmp_path: Path) -> None:
+    config = tmp_path / "required-contexts.json"
+    config.write_text(
+        json.dumps(
+            {
+                "required_contexts": [
+                    " Gate / gate ",
+                    "",
+                    "Health 45 Agents Guard / Enforce agents workflow protections",
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_required_contexts(config) == [
+        "Gate / gate",
+        "Health 45 Agents Guard / Enforce agents workflow protections",
+    ]
+
+
+def test_load_required_contexts_missing_file_returns_empty(tmp_path: Path) -> None:
+    config = tmp_path / "missing.json"
+    assert load_required_contexts(config) == []
+
+
+def test_load_required_contexts_falls_back_to_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = tmp_path / "contexts.json"
+    config.write_text(json.dumps(["Gate / gate", "Extra"]), encoding="utf-8")
+    monkeypatch.setenv("REQUIRED_CONTEXTS_FILE", str(config))
+
+    assert load_required_contexts(None) == ["Gate / gate", "Extra"]
+
+
 def test_parse_contexts_defaults_to_required_contexts() -> None:
     assert parse_contexts(None) == REQUIRED_CONTEXTS
     assert parse_contexts([""]) == REQUIRED_CONTEXTS
