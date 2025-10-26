@@ -1,251 +1,309 @@
-1) Issue Bridge: invite‑only mode, use codex/issue-<n> head, and resolve base from repo default
+1) Worker: remove hardcoded main; always use dynamic base/head and enforce HEAD freshness
 
-Labels: agent:codex, agents, automation, devops, ci
-
-## Why
-Bridge sometimes creates its own PR/branch while the belt also opens one. Different head names and hard-coded base produce duplicate PRs and “work on main.”
-
-## Scope
-Bridge wrappers (i.e., `.github/workflows/agents-63-codex-issue-bridge.yml` and `.github/workflows/reusable-agents-issue-bridge.yml`) and the reusable bridge only. Do not edit Orchestrator/Worker here.
-
-## Non-Goals
-No content changes to agent prompts.
-
-## Tasks
-- Default Bridge PR mode to **invite** (no PR creation in Bridge); the belt owns PR creation.
-- Compute the base branch via `repos.get().default_branch` each run; never assume `main`.
-- Emit canonical head `codex/issue-<n>` as output for downstream steps.
-- Do not create ephemeral `agents/*` heads.
-- Update the summary in the issue comment to reflect chosen base/head.
-
-## Acceptance criteria
-- Running the Bridge never creates a PR by default (invite mode).
-- The head branch is always `codex/issue-<n>`.
-- The base always equals the repository default branch at dispatch time.
-
-## Implementation notes
-- Files: `.github/workflows/agents-63-codex-issue-bridge.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`
-- Add a tiny `actions/github-script` step to get `default_branch` and set outputs: `{ base, head }`.
-- Keep an optional `mode=create` input for manual testing, but default stays `invite`.
-
-Branch: codex/issue--bridge-invite-canonical
-PR title prefix: [Bridge] Invite-only + canonical head
-Touch only: .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/reusable-agents-issue-bridge.yml
-
-2) Worker: per‑branch concurrency; marker‑based activation comment upsert
-
+Title: Worker: purge ref: main; use dynamic base/head and HEAD freshness preflight
 Labels: agent:codex, agents, ci, devops, automation
 
-## Why
-Global concurrency lets two Workers mutate the same PR simultaneously. Separate runs also spam duplicate “start” comments.
+Body:
 
-## Scope
-Agents 72 Worker (and 73 Conveyor concurrency mirror).
+Summary
+Eliminate the remaining checkout of `main` in the Worker and ensure all fetch/checkout operations use the runtime inputs (base/head). Add a HEAD freshness preflight so steps never run on a stale worktree.
 
-## Non-Goals
-No logic changes to how steps are executed.
+Testing
+- Force a PR with base != main; run Worker; verify no reference to `main` occurs in logs.
+- Make the branch stale; verify Worker fails fast (default) or uses configured fallback (if enabled).
+- CI green after each step; no duplicate runs on main.
 
-## Tasks
-- Set Worker concurrency to `codex-belt-${{ inputs.branch }}` with `cancel-in-progress: true`.
-- Do the same for Conveyor.
-- Post a single activation comment to the PR conversation, containing the HTML marker `<!-- codex-activation-marker -->` and a summary of the Worker activation status (e.g., "Codex Worker activated for branch <branch-name>"). If present, update it; if absent, create it.
+CI readiness
+- No new required checks.
+- Gate validates code after each Worker step.
 
-## Acceptance criteria
-- Two Worker runs for the same head never overlap; one cancels/queues the other.
-- Activation text appears once per PR and is updated in place on re-runs.
+Automated Status Summary
+Scope
+- agents-72 Worker checkout/fetch logic only; optional freshness preflight.
 
-## Implementation notes
-- Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `.github/workflows/agents-73-codex-belt-conveyor.yml`
-- Use `actions/github-script@v7` to list comments, find the marker, and upsert.
+Tasks
+- [ ] Replace any `ref: main`/implicit default in Worker with inputs: `ref: ${{ inputs.branch }}`; fetch base with `${{ inputs.base }}`.
+- [ ] Add freshness preflight: compare `HEAD` to `origin/${{ inputs.branch }}`; fail if stale (unless fallback enabled).
+- [ ] (Optional) Add `inputs.use_step_branch` fallback to create and merge a step branch when stale.
 
-Branch: codex/issue--worker-concurrency-upsert
-PR title prefix: [Agents] Per-branch concurrency + comment upsert
-Touch only: .github/workflows/agents-72-codex-belt-worker.yml, .github/workflows/agents-73-codex-belt-conveyor.yml
+Acceptance criteria
+- [ ] Worker never checks out or fetches `main` unless it is the computed default branch.
+- [ ] Stale branches do not proceed without explicit fallback.
+- [ ] No spurious runs on main.
 
-3) Keepalive: single source of truth, branch‑scoped triggers, marker upsert
+Topic GUID: 5c7f3a0f-8a1e-4a9b-b1c4-6a6d0b2f2d91
 
-Labels: agent:codex, agents, agents:keepalive, automation, devops, ci
+Why
+A leftover `ref: main` causes duplicate work against main and undermines deterministic task iteration.
 
-## Why
-Multiple keepalive mechanisms race each other (Orchestrator sweep, Gate listener, any legacy keepalive). That causes duplicate comments and duplicate dispatch.
+Scope
+Worker checkout/fetch steps and a minimal freshness gate.
 
-## Scope
-Orchestrator keepalive sweep and the Gate listener workflow only.
+Non-Goals
+No changes to step sizing or Codex prompts.
 
-## Non-Goals
-No changes to belt step sizing.
+Tasks
+- [ ] Ensure all `actions/checkout` and git fetch steps use `${{ inputs.branch }}` and `${{ inputs.base }}`.
+- [ ] Add freshness preflight and short, actionable failure output.
+- [ ] Document the behavior in the Worker summary.
 
-## Tasks
-- Choose ONE keepalive mechanism:
-  - Preferred: keep Orchestrator sweep; disable Gate listener, OR
-  - If Gate listener is kept, restrict to `head_branch` like `codex/issue-*` and disable Orchestrator sweep.
-- Add `<!-- codex-keepalive-marker -->` upserted comment to avoid duplicates.
-- Respect `agents:paused` label to short-circuit both paths.
+Acceptance criteria
+- [ ] No logs show `ref: main` unless `main` is the actual default base.
+- [ ] Freshness check prevents stale edits; optional fallback merges cleanly.
 
-## Acceptance criteria
-- Exactly one keepalive path remains active.
-- No duplicate keepalive comments appear on PRs.
-- Keepalive never fires on non-agent branches.
+Implementation notes
+Files: `.github/workflows/agents-72-codex-belt-worker.yml`
+Keep concurrency grouping as is; only checkout/fetch and preflight change.
 
-## Implementation notes
-- Files: `.github/workflows/agents-70-orchestrator.yml`, `.github/workflows/agents-75-keepalive-on-gate.yml` (or similarly named)
-- Gate listener (if used): `on: workflow_run` with `conclusion == success` and branch filter `startsWith(head_branch, 'codex/issue-')`.
-
-Branch: codex/issue--keepalive-consolidation
-PR title prefix: [Agents] Keepalive consolidation + branch scoping
-Touch only: .github/workflows/agents-70-orchestrator.yml, .github/workflows/agents-75-keepalive-on-gate.yml (or similarly named)
-
-4) Orchestrator: dedupe PR creation by skipping Worker when PR exists
-
-Labels: agent:codex, agents, automation, devops, ci
-
-## Why
-When Bridge ever created a PR (or a prior Worker run did), Orchestrator can still dispatch a new Worker that creates a second PR.
-
-## Scope
-Agents 70 Orchestrator dispatch logic only.
-
-## Non-Goals
-No changes to issue selection rules.
-
-## Tasks
-- Before dispatch, query open PRs for `head = owner:codex/issue-<n>`.
-- If found, skip Worker dispatch and log “PR already exists.”
-- Emit the PR URL in summary for clarity.
-
-## Acceptance criteria
-- With an existing PR for `codex/issue-<n>`, Orchestrator never dispatches a run that opens another PR.
-- Summary shows “skipped: PR exists.”
-
-## Implementation notes
-- File: `.github/workflows/agents-70-orchestrator.yml`
-- Use `pulls.list` with `head: ${owner}:codex/issue-<n>`.
-
-Branch: codex/issue--orchestrator-pr-dedupe
-PR title prefix: [Agents] Orchestrator skip when PR exists
-Touch only: .github/workflows/agents-70-orchestrator.yml
-
-5) Worker preflight: enforce branch freshness; optional step‑branch fallback
-
-Labels: agent:codex, agents, devops, ci
-
-## Why
-If the Worker edits on a stale checkout, it repeats or ignores work. We need a fast freshness check and a safe fallback.
-
-## Scope
-Agents 72 Worker.
-
-## Non-Goals
-Complex rebase conflict resolution.
-
-## Tasks
-- Add preflight: `git fetch`, verify local HEAD matches `origin/<branch>`.
-- If stale and `inputs.use_step_branch == true`, create `codex/issue-<n>/step/<short>`, push, open/refresh PR from step branch to the issue head.
-  - Specify merge strategy: After Gate passes, automatically merge the PR. (Or: PR requires manual review and approval before merging. [Choose one based on intended workflow])
-- If stale and fallback disabled, fail fast with clear summary.
-
-## Acceptance criteria
-- Worker never proceeds on a stale branch without either failing fast or using step-branch fallback.
-- Gate validates each step before the next begins.
-
-## Implementation notes
-- File: `.github/workflows/agents-72-codex-belt-worker.yml`
-- Keep fallback off by default; flip-on per issue if needed.
-
-Branch: codex/issue--worker-head-freshness
-PR title prefix: [Agents] Worker freshness + step-branch (optional)
+Branch: codex/issue--worker-dynamic-base-head
+PR title prefix: [Agents] Worker: dynamic base/head + freshness preflight
 Touch only: .github/workflows/agents-72-codex-belt-worker.yml
 
-6) Add branch‑local progress ledger and wire Worker read/write
+Copy/paste to PR comment (kickoff)
+@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
 
-Labels: agent:codex, agents, automation, ci, devops
+2) Bridge: enforce default invite‑only and canonical base/head derivation (no PR creation by default)
 
-## Why
-Agents forget completed steps unless progress is persisted. A minimal on-branch ledger prevents repeats/skips.
+Title: Bridge: default to invite‑only; derive base from repo default; standardize head codex/issue-<n>
+Labels: agents, automation, devops, ci, docs, agent:codex
 
-## Scope
-Define a small YAML ledger and have Worker advance exactly one task per run.
+Body:
 
-## Non-Goals
-External state stores or dashboards.
+Summary
+Stop accidental duplicate PRs. Bridge must default to invite-only (no PR creation), compute base from the repository default branch each run, and emit head `codex/issue-<n>` for the belt.
 
-## Tasks
-- Define `.agents/issue-<n>-ledger.yml` schema:
-  - `version`, `issue`, `base`, `branch`, `tasks: [{id,title,status,commit,notes}]`
-- Worker read: pick next `todo`, mark `doing`.
-- Worker write: mark `done` with commit SHA; append `notes` on failure.
-- Add `scripts/ledger_validate.py` and a CI check to validate schema.
+Testing
+- Run Bridge on labeled Issue: it posts copy/paste + base/head; creates no PR.
+- Toggle debug `mode=create`: it creates exactly one PR from `codex/issue-<n>` into the computed default base.
+- Re-run Bridge: still no PR in invite mode.
 
-## Acceptance criteria
-- Each Worker run advances a single task from `todo` to `done`.
-- No completed task is repeated in later runs.
-- CI fails if the ledger schema is invalid.
+CI readiness
+- No required-check changes.
+- Compatible with existing Orchestrator/Worker flows.
 
-## Implementation notes
-- Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `scripts/ledger_validate.py`, `.agents/*`
-- Summarize the ledger delta in the job summary.
+Automated Status Summary
+Scope
+- Bridge wrapper and reusable bridge; invitation mode and base/head computation only.
 
-Branch: codex/issue--agent-ledger
-PR title prefix: [Agents] Branch-local ledger + worker integration
-Touch only: .github/workflows/agents-72-codex-belt-worker.yml, scripts/ledger_validate.py, .agents/*
+Tasks
+- [ ] Set Bridge input default `mode: invite` (no PR creation).
+- [ ] Derive base via `repos.get().default_branch` on every run.
+- [ ] Emit canonical head `codex/issue-<n>` as outputs for downstream steps.
+- [ ] Ensure copy/paste block includes base/head in the summary for operator visibility.
 
-7) Retire legacy keepalive path(s) and any remaining maint-46-post-ci.yml
+Acceptance criteria
+- [ ] Invite-only behavior is default.
+- [ ] base == repository default branch; head == `codex/issue-<n>` every run.
+- [ ] No duplicate PRs when Bridge and belt both run.
 
-Labels: agent:codex, agents, devops, ci, docs
+Topic GUID: d2c8f868-3a17-4a1b-b6b0-9d809b1f3cde
 
-## Why
-Old keepalive and post-CI artifacts can still fire or confuse contributors, causing duplicate comments or summaries.
+Why
+When Bridge can create PRs by default or uses ad-hoc head names, it races the belt and opens duplicates; hardcoding `main` yields wrong base.
 
-## Scope
-Delete or archive workflows superseded by Orchestrator/Gate.
+Scope
+Bridge inputs and base/head computation.
 
-## Non-Goals
-No functional replacements; consolidation already exists.
+Non-Goals
+Copy/paste instruction text is unchanged (already finalized).
 
-## Tasks
-- Remove any legacy keepalive workflow files not selected in the active keepalive path.
-- Remove/disable `maint-46-post-ci.yml` if present and fully absorbed by Gate summary.
-- Add a short doc blurb under `docs/ci/` explaining the current, single keepalive path and Gate summary.
+Tasks
+- [ ] Default to `mode=invite`.
+- [ ] Resolve base from `default_branch`.
+- [ ] Standardize head `codex/issue-<n>` and expose outputs.
 
-## Acceptance criteria
-- Only the chosen keepalive workflow remains.
-- No post-CI workflow remains outside Gate’s built-in summary.
-- Docs reflect the simplified topology.
+Acceptance criteria
+- [ ] No PR in invite mode; exactly one in create mode.
+- [ ] Computed base/head visible in Bridge summary/comment.
 
-## Implementation notes
-- Files: `.github/workflows/*keepalive*.yml`, `.github/workflows/maint-46-post-ci.yml`, `docs/ci/WORKFLOW_SYSTEM.md`
+Implementation notes
+Files: `.github/workflows/agents-63-codex-issue-bridge.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`
 
-Branch: codex/issue--retire-legacy-keepalive-postci
-PR title prefix: [CI] Retire legacy keepalive/post-CI
-Touch only: .github/workflows/*keepalive*.yml, .github/workflows/maint-46-post-ci.yml, docs/ci/WORKFLOW_SYSTEM.md
+Branch: codex/issue--bridge-invite-enforced
+PR title prefix: [Bridge] Invite-only default + canonical base/head
+Touch only: .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/reusable-agents-issue-bridge.yml
 
-8) Auto‑merge labeled agent PRs after required checks pass
+Copy/paste to PR comment (kickoff)
+@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
 
-Labels: agent:codex, automerge, ci, devops, automation
+3) Keepalive: enforce single path and scope to codex/issue-* with marker upsert
 
-## Why
-Agent PRs that are green and explicitly opted-in shouldn’t wait for manual clicks.
+Title: Keepalive: single nudge path only; restrict to codex/issue-*; upsert by marker
+Labels: agents, agents:keepalive, automation, devops, ci, agent:codex
 
-## Scope
-Agents 70 Orchestrator (or a small dedicated workflow) to call the merge API for labeled PRs.
+Body:
 
-## Non-Goals
-Changing branch protection rules; do not bypass required checks.
+Summary
+Ensure only one keepalive path is active and it only nudges Codex PRs (`codex/issue-*`). Upsert the keepalive comment with a HTML marker to avoid duplication.
 
-## Tasks
-- Detect agent PRs with `automerge` label and all required checks green.
-- Verify PR author is the automation identity; verify base equals default branch.
-- Merge via API (squash or repo default); otherwise log a clear “blocked by protection” note.
+Testing
+- Trigger Gate on a non-agent branch: no keepalive comment or nudge occurs.
+- Trigger Gate on `codex/issue-<n>`: keepalive updates a single comment in place.
+- Run twice quickly: single comment remains; state refreshes.
 
-## Acceptance criteria
-- Labeled agent PRs self-merge automatically when green.
-- Non-labeled PRs are untouched.
-- When merge is blocked by protection, logs show the reason.
+CI readiness
+- No required-check changes; this is orchestration glue.
 
-## Implementation notes
-- File: `.github/workflows/agents-70-orchestrator.yml` (or a tiny `agents-78-automerge.yml`)
-- Reuse existing token; no new scopes.
+Automated Status Summary
+Scope
+- Active keepalive workflow (Gate listener or Orchestrator sweep), not both.
 
-Branch: codex/issue--agent-auto-merge
-PR title prefix: [CI] Auto-merge for labeled agent PRs
-Touch only: .github/workflows/agents-70-orchestrator.yml
+Tasks
+- [ ] Disable the unused keepalive path (Gate-driven or Orchestrator sweep).
+- [ ] Restrict nudge to branches matching `codex/issue-*`.
+- [ ] Upsert keepalive comment using `<!-- codex-keepalive-marker -->`.
+
+Acceptance criteria
+- [ ] Exactly one keepalive mechanism is live.
+- [ ] No keepalive activity on non-agent branches.
+- [ ] No duplicate keepalive comments.
+
+Topic GUID: 1a7a47c3-7a39-42c6-9b69-9c0b5a25f5f4
+
+Why
+Multiple nudgers cause duplicate comments and double dispatch; lack of branch scoping nudges the wrong PRs.
+
+Scope
+Keepalive listener logic and its comment behavior.
+
+Non-Goals
+No changes to belt step sizing or CI content.
+
+Tasks
+- [ ] Pick one keepalive path; disable the other.
+- [ ] Add branch filter and marker-based comment upsert.
+
+Acceptance criteria
+- [ ] Single source of truth for nudges; clean comments.
+
+Implementation notes
+Files: `.github/workflows/agents-70-orchestrator.yml` and/or `.github/workflows/agents-75-keepalive-on-gate.yml` (whichever is active), `scripts/keepalive-runner.js`
+
+Branch: codex/issue--keepalive-scope-single
+PR title prefix: [Agents] Keepalive: scoped single path + marker upsert
+Touch only: active keepalive workflow(s) and scripts/keepalive-runner.js
+
+Copy/paste to PR comment (kickoff)
+@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+
+4) Issue Sync: forbid auto‑applying agent labels; require exactly one manual agent:*
+
+Title: Issue Sync: no auto agent selection; validate exactly one manual agent:* label
+Labels: agents, automation, devops, ci, docs
+
+Body:
+
+Summary
+Make the Issue Sync and Bridge refuse to proceed unless exactly one `agent:*` label is present on the Issue, selected manually. Do not auto-apply `agent:codex` (or any other). Copy/paste blocks must derive `@{agent}` from that single label.
+
+Testing
+- Issue with 0 agent labels: Sync/Bridge post a single “select exactly one agent:*” message and stop.
+- Issue with 2+ agent labels: same refusal.
+- Exactly one agent label: copy/paste shows correct @{agent} and listener triggers correctly.
+
+CI readiness
+- No required-check changes.
+
+Automated Status Summary
+Scope
+- Issue Sync wrapper and Bridge label handling/validation.
+
+Tasks
+- [ ] Remove any auto-labeling of `agent:*` from Issue Sync.
+- [ ] Validate exactly one `agent:*` label in Bridge before generating copy/paste.
+- [ ] Document the policy in `docs/ci/ISSUE_SYNC.md`.
+
+Acceptance criteria
+- [ ] Manual selection only; validation enforced.
+- [ ] Copy/paste mentions the correct `@{agent}` every time.
+
+Topic GUID: 0d9eaa84-a9c2-4f56-a8d8-93fa5f2e36bc
+
+Why
+Auto-selecting agents creates mismatches and can launch the wrong automation.
+
+Scope
+Sync/Bridge label logic and docs.
+
+Non-Goals
+Changes to agent prompts.
+
+Tasks
+- [ ] Strip auto-labeling from Sync; enforce validation in Bridge.
+- [ ] Add a short doc of the labeling rule.
+
+Acceptance criteria
+- [ ] Sync/Bridge refuse to proceed without exactly one label.
+- [ ] `@{agent}` is always derived from the selected label.
+
+Implementation notes
+Files: `.github/workflows/agents-63-chatgpt-issue-sync.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`, `docs/ci/ISSUE_SYNC.md`
+
+Branch: codex/issue--issue-sync-manual-agent
+PR title prefix: [Bridge] Manual agent selection enforced
+Touch only: .github/workflows/agents-63-chatgpt-issue-sync.yml, .github/workflows/reusable-agents-issue-bridge.yml, docs/ci/ISSUE_SYNC.md
+
+Copy/paste to PR comment (kickoff)
+@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+
+5) Ledger hygiene: treat base as informational and migrate stale main to default
+
+Title: Ledger hygiene: migrate base from main to repo default and ignore ledger base at runtime
+Labels: agents, automation, ci, devops, docs, agent:codex
+
+Body:
+
+Summary
+Prevent the ledger’s `base` field from reintroducing `main` drift. Migrate old ledgers to the current repo default and ensure Worker uses runtime base, not the ledger field, for checkout/fetch.
+
+Testing
+- Ledger with base: main in a repo whose default != main: Worker uses computed default, not ledger base.
+- Migration job updates ledger base to current default.
+- CI check fails if new ledgers write `base: main` when default != main.
+
+CI readiness
+- Add a tiny validation script to Gate; no required-check changes.
+
+Automated Status Summary
+Scope
+- Ledger writers/readers in Worker; a small migration/validator.
+
+Tasks
+- [ ] Worker: ignore ledger.base for checkout; always compute base at runtime.
+- [ ] Add a migration script to update `.agents/issue-*/ledger.yml` base to the current default.
+- [ ] Add a CI validator to flag ledgers that set base != current default.
+
+Acceptance criteria
+- [ ] Worker never trusts ledger base for git operations.
+- [ ] Existing ledgers no longer reference `main` unless it is the default.
+- [ ] CI flags out-of-date ledger base values.
+
+Topic GUID: 6bc9c04e-13ba-4497-97bf-1d8a977f4bf3
+
+Why
+Even after fixing the Worker, a stale `base: main` in ledgers can mislead future tooling or humans.
+
+Scope
+Worker ledger read path, small migration and CI validator.
+
+Non-Goals
+Changing the ledger schema beyond `base` semantics.
+
+Tasks
+- [ ] Guard Worker against using ledger.base for git.
+- [ ] Add `scripts/ledger_migrate_base.py` and a CI step.
+- [ ] Document the rule in the ledger spec.
+
+Acceptance criteria
+- [ ] No runtime git operation depends on ledger.base.
+- [ ] Ledgers reflect the actual default branch.
+
+Implementation notes
+Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `scripts/ledger_migrate_base.py`, `docs/ci/LEDGER.md`
+
+Branch: codex/issue--ledger-base-hygiene
+PR title prefix: [Agents] Ledger base hygiene
+Touch only: .github/workflows/agents-72-codex-belt-worker.yml, scripts/ledger_migrate_base.py, docs/ci/LEDGER.md
+
+Copy/paste to PR comment (kickoff)
+@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
