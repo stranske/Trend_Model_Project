@@ -1,6 +1,6 @@
 # See docs/ci/AGENTS_POLICY.md for guardrails and override process.
-# This is a thin wrapper that calls the reusable agents issue bridge workflow
-# with agent=codex to maintain existing Codex behavior.
+# This is a thin wrapper that calls the reusable agents issue intake workflow
+# so Codex keeps the existing label-triggered behaviour.
 name: Agents 63 Codex Issue Bridge
 
 on:
@@ -23,7 +23,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: codex-issue-${{ github.event.issue.number || inputs.test_issue || github.run_id }}
+  group: codex-issue-${{ github.event.issue.number || github.event.inputs.test_issue || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -53,13 +53,11 @@ jobs:
           )
         )
       )
-    uses: ./.github/workflows/reusable-agents-issue-bridge.yml
+    uses: ./.github/workflows/agents-63-issue-intake.yml
     with:
-      agent: "codex"
-      issue_number: ${{ github.event.issue.number || inputs.test_issue || '' }}
-      mode: 'invite'
-      post_agent_comment: ${{ inputs.post_codex_comment || 'true' }}
-      agent_pr_draft: 'false'
+      intake_mode: codex_bridge
+      issue_number: ${{ github.event.issue.number || github.event.inputs.test_issue || '' }}
+      post_codex_comment: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.post_codex_comment || 'true') || 'true' }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
