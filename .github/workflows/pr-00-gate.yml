@@ -213,6 +213,29 @@ jobs:
     if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && needs.detect.outputs.docker_changed == 'true'
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
+  ledger-validation:
+    name: ledger validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: pip install PyYAML
+
+      - name: Validate ledger files
+        run: |
+          if [ -d .agents ] && ls .agents/issue-*-ledger.yml 1> /dev/null 2>&1; then
+            python scripts/ledger_validate.py
+          else
+            echo "No ledger files found; validation skipped."
+          fi
+
   summary:
     name: summary
     needs:
@@ -220,6 +243,7 @@ jobs:
       - python-ci
       - docker-smoke
       - github-scripts-tests
+      - ledger-validation
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
