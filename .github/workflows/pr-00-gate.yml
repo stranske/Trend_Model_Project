@@ -552,3 +552,26 @@ jobs:
         run: |
           echo "Gate reported failure: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
           exit 1
+
+  autofix:
+    name: autofix
+    needs:
+      - summary
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'autofix')
+    uses: ./.github/workflows/reusable-18-autofix.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      pr_title: ${{ github.event.pull_request.title }}
+      pr_is_draft: ${{ github.event.pull_request.draft }}
+      pr_labels_json: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+      same_repo: true
+      caller_actor: ${{ github.actor }}
+      trigger_conclusion: ${{ needs.summary.result }}
+      trigger_class: ${{ needs.summary.outputs.state == 'failure' && 'ci-failure' || 'ci-success' }}
+      trigger_reason: 'Triggered by Gate workflow after CI completion'
+    secrets: inherit

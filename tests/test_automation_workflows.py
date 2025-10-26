@@ -165,7 +165,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         jobs = workflow.get("jobs", {})
         self.assertEqual(
             set(jobs.keys()),
-            {"detect", "python-ci", "github-scripts-tests", "docker-smoke", "summary"},
+            {
+                "detect",
+                "python-ci",
+                "github-scripts-tests",
+                "docker-smoke",
+                "summary",
+                "autofix",
+            },
         )
 
         job_detect = jobs["detect"]
