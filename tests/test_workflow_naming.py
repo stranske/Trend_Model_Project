@@ -26,9 +26,7 @@ def test_workflow_slugs_follow_wfv1_prefixes():
         for path in _workflow_paths()
         if not path.name.startswith(ALLOWED_PREFIXES)
     ]
-    assert (
-        not non_compliant
-    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
+    assert not non_compliant, f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
 
 
 def test_archive_directories_removed():
