@@ -17,11 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-try:
-    import yaml  # type: ignore
-except ModuleNotFoundError as exc:  # pragma: no cover - handled via error exit
-    print("ledger_validate: missing dependency 'PyYAML'.", file=sys.stderr)
-    raise SystemExit(2) from exc
+import yaml  # type: ignore
 
 
 VALID_STATUSES = {"todo", "doing", "done"}
