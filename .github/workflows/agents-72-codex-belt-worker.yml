@@ -359,6 +359,14 @@ jobs:
           token: ${{ env.ACTIONS_BOT_PAT }}
           fetch-depth: 0
 
+      - name: Validate ledger base branch
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        env:
+          DEFAULT_BRANCH: ${{ steps.base.outputs.branch }}
+        run: |
+          set -euo pipefail
+          python scripts/ledger_migrate_base.py --check --default "${DEFAULT_BRANCH}"
+
       - name: Preflight branch freshness
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
         id: freshness
@@ -490,6 +498,10 @@ jobs:
 
           import yaml
 
+          class LedgerDumper(yaml.SafeDumper):
+              def increase_indent(self, flow: bool = False, indentless: bool = False):  # type: ignore[override]
+                  return super().increase_indent(flow, False)
+
           def iso_now() -> str:
               return dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
 
@@ -506,11 +518,15 @@ jobs:
 
           original_text = None
           data = None
+          previous_base = None
           if ledger_path.exists():
               original_text = ledger_path.read_text(encoding='utf-8')
               loaded = yaml.safe_load(original_text) or {}
               if not isinstance(loaded, dict):
                   raise SystemExit(f"Ledger {ledger_path} must contain a mapping")
+              existing_base = loaded.get('base')
+              if isinstance(existing_base, str):
+                  previous_base = existing_base.strip() or None
               data = loaded
           else:
               owner, _, name = repo.partition('/')
@@ -594,10 +610,20 @@ jobs:
               elif selected.get('status') == 'doing' and not selected.get('started_at'):
                   selected['started_at'] = now
 
-          new_text = yaml.safe_dump(data, sort_keys=False)
+          new_text = yaml.dump(data, Dumper=LedgerDumper, sort_keys=False, indent=2, default_flow_style=False)
           changed = new_text != (original_text or '')
           if changed:
               ledger_path.write_text(new_text, encoding='utf-8')
+
+          base_aligned = previous_base is None or previous_base == base
+          if previous_base and previous_base != base:
+              notice = f"Ledger base updated from {previous_base} to {base}."
+              print(f"::notice::{notice}")
+              summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+              if summary_path:
+                  with open(summary_path, 'a', encoding='utf-8') as summary:
+                      summary.write('### Ledger Base Alignment\n')
+                      summary.write(f"- Updated ledger base from `{previous_base}` to `{base}`.\n")
 
           start_info = {
               'issue': issue,
@@ -605,6 +631,7 @@ jobs:
               'created': original_text is None,
               'ledger_changed': changed,
               'task': None,
+              'base_aligned': base_aligned,
           }
           if selected is not None:
               start_info['task'] = {
@@ -622,6 +649,7 @@ jobs:
                   handle.write(f"task_status={start_info['task']['current_status'] if start_info['task'] else ''}\n")
                   handle.write(f"ledger_changed={'true' if changed else 'false'}\n")
                   handle.write(f"ledger_created={'true' if start_info['created'] else 'false'}\n")
+                  handle.write(f"ledger_base_aligned={'true' if base_aligned else 'false'}\n")
           PY
 
       - name: Validate ledger schema (pre-flight)
@@ -907,6 +935,10 @@ jobs:
 
           import yaml
 
+          class LedgerDumper(yaml.SafeDumper):
+              def increase_indent(self, flow: bool = False, indentless: bool = False):  # type: ignore[override]
+                  return super().increase_indent(flow, False)
+
           def iso_now() -> str:
               return dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
 
@@ -1034,7 +1066,7 @@ jobs:
                       summary_lines.append(f"Task {task_id} reset to todo after {job_status or 'failure'}.")
                       after_statuses = collect_statuses(tasks)
 
-              new_text = yaml.safe_dump(data, sort_keys=False)
+              new_text = yaml.dump(data, Dumper=LedgerDumper, sort_keys=False, indent=2, default_flow_style=False)
               if new_text != original_text:
                   ledger_path.write_text(new_text, encoding='utf-8')
                   changed = True
