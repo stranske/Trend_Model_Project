@@ -7,10 +7,9 @@ contributor experiences on a pull request or on the maintenance calendar:
 
 1. **PR checks** – gatekeeping for every pull request (Gate with Gate summary job handling opt-in autofix follow-up).
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
-  the repository clean (Gate summary job, Maint Coverage Guard, Maint Keepalive
-  Heartbeat, Maint 45, recurring health checks).
+  the repository clean (Gate summary job, Maint Coverage Guard, Maint 45, recurring health checks).
 3. **Issue / agents automation** – orchestrated agent work and issue
-  synchronisation (Agents 70 orchestrator with keepalive sweep + pause label, plus Agents 63/64 companions).
+  synchronisation (Agents 70 orchestrator with unified keepalive sweep + pause label, plus Agents 63/64 companions).
 4. **Error checking, linting, and testing topology** – reusable workflows that
    fan out lint, type, test, and container verification across the matrix.
 
@@ -310,7 +309,7 @@ and where to watch the result:
    logs show up under the same pull request for easy comparison with Gate.
 3. **Merge lands on the default branch.** The Gate summary job aggregates
    artifacts from the successful run and applies any low-risk cleanup.
-  Scheduled maintenance jobs (Maint Keepalive Heartbeat, Maint 45, and Health
+  Scheduled maintenance jobs (Maint 45 and Health
    40–44) continue to run on their cadence even when no one is watching,
    keeping the repo healthy.
 4. **Issue and agents automation picks up queued work.** Labelled issues flow
@@ -341,16 +340,14 @@ fires where” without diving into the full tables:
     Autofix: handled by Gate summary job after Gate completes.
 - **Maintenance & repo health**
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
-    `maint-coverage-guard.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`,
+    `maint-coverage-guard.yml`, `maint-45-cosmetic-repair.yml`,
     and the health guardrails (`health-40` through `health-44`).
   - **Triggers.** Combination of the Gate summary job running after Gate,
-    recurring schedules (keepalive + health guardrails), and manual dispatch for
-    Maint 45 and ad-hoc keepalive checks.
+    recurring schedules (health guardrails), and manual dispatch for
+    Maint 45.
   - **Purpose.** Keep the default branch stable after merges, surface drift,
-    maintain a visible heartbeat for scheduled automation, and enforce
-    branch-protection expectations without waiting for the next PR.
+    and enforce branch-protection expectations without waiting for the next PR.
   - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml).
-    Maint Keepalive: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml).
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
@@ -447,7 +444,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-keepalive.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -480,12 +477,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
   coverage dips outside the allowed guard band.
-- **Maint Keepalive Heartbeat** – `.github/workflows/maint-keepalive.yml` runs
-  on a twice-daily cron (and manual dispatch) to post a timestamped comment (with
-  the run URL) to the Ops heartbeat issue via `ACTIONS_BOT_PAT`. The workflow
-  validates that the `OPS_HEARTBEAT_ISSUE` repository variable and PAT are set
-  before posting, failing fast if misconfigured so the heartbeat cannot silently
-  stall.
 - **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
   runs on-demand and disables archived workflows still listed as active in the
   Actions UI.
@@ -521,13 +512,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 74 PR body writer** – `.github/workflows/agents-74-pr-body-writer.yml`
   synchronizes PR body sections from source issues and builds dynamic status
   summaries from workflow runs and acceptance criteria.
-- **Agents 75 Keepalive On Gate** – `.github/workflows/agents-75-keepalive-on-gate.yml`
-  consolidates keepalive behavior with the Gate workflow so keepalive sweeps
-  can be triggered or gated by PR-level signals and Gate summary outcomes.
-- **Keepalive sweep (orchestrator + reusable-16).** The orchestrator passes the
+- **Keepalive sweep (orchestrator only).** The Agents 70 Orchestrator provides
+  the single, consolidated keepalive path. The orchestrator passes the
   `enable_keepalive` flag into `reusable-16-agents.yml`, which executes the
-  keepalive script when enabled. Summary output now notes when keepalive ran or
-  when it was skipped due to pause controls.
+  keepalive script when enabled. Summary output notes when keepalive ran or
+  was skipped due to pause controls. Legacy keepalive workflows (including
+  `agents-75-keepalive-on-gate.yml`) have been retired in favor of this
+  unified approach.
 - **Keepalive pause/resume control.** Toggle the repository-level
   `keepalive:paused` label to halt keepalive runs globally, or set the
   `keepalive_enabled` workflow input / params override to disable a single
@@ -584,7 +575,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
-| **Maint Keepalive Heartbeat** (`maint-keepalive.yml`, maintenance bucket) | `schedule` (`17 */12 * * *`), `workflow_dispatch` | Post a UTC timestamp heartbeat comment (with run URL) to the configured Ops issue so scheduled automation leaves an observable trace; fails fast if the Ops issue variable or PAT are missing. | ⚪ Scheduled | [Maint Keepalive runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-keepalive.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint Coverage Guard** (`maint-coverage-guard.yml`, maintenance bucket) | `schedule` (`45 6 * * *`), `workflow_dispatch` | Audit the latest Gate coverage trend artifact and compare it against the baseline, failing when coverage regresses beyond the guard thresholds. | ⚪ Scheduled | [Maint Coverage Guard runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-coverage-guard.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml) |
