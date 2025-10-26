@@ -1,0 +1,47 @@
+version: 1
+issue: 3011
+base: main
+branch: codex/issue--agent-ledger
+tasks:
+  - id: ledger-schema
+    title: Define `.agents/issue-<n>-ledger.yml` schema with metadata and task entries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: ledger-keys
+    title: Ensure ledger metadata includes version, issue, base, branch, and task fields.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: worker-read
+    title: Worker reads ledger, picks next todo task, and marks it doing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: worker-write
+    title: Worker writes completion results with commit SHA or failure notes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: ledger-validate
+    title: Validate ledger schema via scripts/ledger_validate.py and CI check.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: ledger-summary
+    title: Summarise ledger delta in worker job summary output.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
