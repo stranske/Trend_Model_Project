@@ -173,6 +173,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "ledger-validation",
                 "summary",
                 "autofix",
+                "keepalive-progress",
             },
         )
 
