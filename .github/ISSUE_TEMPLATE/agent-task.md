@@ -8,6 +8,11 @@ labels:
 assignees: ''
 ---
 
+<!-- 
+📚 Format Guide: See docs/ci/ISSUE_FORMAT_GUIDE.md for detailed formatting requirements,
+   section header options, and examples of valid issue structures.
+-->
+
 ## Goal
 <!-- Describe the primary objective Codex should accomplish. Include links to relevant issues, documents, or workflows. -->
 
