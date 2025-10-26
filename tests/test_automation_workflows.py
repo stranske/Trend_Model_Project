@@ -170,6 +170,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "python-ci",
                 "github-scripts-tests",
                 "docker-smoke",
+                "ledger-validation",
                 "summary",
                 "autofix",
             },
