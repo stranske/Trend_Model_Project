@@ -145,3 +145,25 @@ def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
     result = gate_summary.summarize(context)
     assert result.state == "failure"
     assert result.cosmetic_failure is False
+
+
+def test_cosmetic_failure_reports_all_allowed_checks(tmp_path: Path) -> None:
+    write_summary(tmp_path, "3.11", format_outcome="failure")
+    write_summary(tmp_path, "3.12", lint="failure")
+
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="failure",
+        docker_result="success",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert result.cosmetic_failure is True
+    assert result.failure_checks == ("format", "lint")
