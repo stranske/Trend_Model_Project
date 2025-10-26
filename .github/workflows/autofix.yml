@@ -3,7 +3,7 @@ name: CI Autofix Loop
 on:
   workflow_run:
     workflows:
-      - PR 00 Gate
+      - Gate
     types:
       - completed
 
