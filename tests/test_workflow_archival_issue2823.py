@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pathlib
 
-
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 ARCHIVE_LEDGER_PATH = pathlib.Path("docs/archive/ARCHIVE_WORKFLOWS.md")
 

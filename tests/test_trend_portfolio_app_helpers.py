@@ -855,7 +855,9 @@ def test_render_run_section_single_period_empty_summary(
 
     successes: list[str] = []
     app_mod.st.success = successes.append  # type: ignore[assignment]
-    app_mod.st.dataframe = lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("dataframe should not render"))  # type: ignore[assignment]
+    app_mod.st.dataframe = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("dataframe should not render")
+    )  # type: ignore[assignment]
 
     downloads: list[Any] = []
     app_mod.st.download_button = lambda *args, **kwargs: downloads.append(args[0])  # type: ignore[assignment]
@@ -959,7 +961,9 @@ def test_render_run_section_multi_period_empty_summary(
 
     successes: list[str] = []
     app_mod.st.success = successes.append  # type: ignore[assignment]
-    app_mod.st.dataframe = lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("dataframe should not render"))  # type: ignore[assignment]
+    app_mod.st.dataframe = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("dataframe should not render")
+    )  # type: ignore[assignment]
 
     downloads: list[Any] = []
 

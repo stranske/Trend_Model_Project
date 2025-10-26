@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_workflow_naming import EXPECTED_NAMES
 from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
+    WorkflowAPIError,
     _extract_next_link,
     _normalize_allowlist,
-    WorkflowAPIError,
     disable_legacy_workflows,
 )
-from tests.test_workflow_naming import EXPECTED_NAMES
 
 
 def test_canonical_workflow_files_match_inventory() -> None:
