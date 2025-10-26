@@ -96,6 +96,59 @@ function detectKeepaliveSentinel(comments, { sentinelPattern, headerPattern, age
   return null;
 }
 
+function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern }) {
+  if (!Array.isArray(comments) || !comments.length) {
+    return [];
+  }
+
+  const markerToken = String(marker || '').trim();
+  const automationLogins = new Set(agentLogins.map(normaliseLogin));
+  automationLogins.add('stranske-automation-bot');
+
+  const looksLikeKeepalive = (comment, body) => {
+    const login = normaliseLogin(comment?.user?.login);
+    if (!automationLogins.has(login)) {
+      return false;
+    }
+
+    if (markerToken && body.includes(markerToken)) {
+      return true;
+    }
+
+    if (headerPattern.test(body)) {
+      return true;
+    }
+
+    const lower = body.toLowerCase();
+    return (
+      lower.includes('keepalive mode:') ||
+      (lower.includes('@codex plan-and-execute') && lower.includes('checklist'))
+    );
+  };
+
+  return comments
+    .map((comment) => {
+      const body = comment?.body || '';
+      if (!body) {
+        return null;
+      }
+
+      const markerPresent = markerToken && body.includes(markerToken);
+      if (!(markerPresent || looksLikeKeepalive(comment, body))) {
+        return null;
+      }
+
+      return {
+        comment,
+        id: comment.id,
+        body,
+        timestamp: new Date(comment.updated_at || comment.created_at).getTime(),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
 function summariseList(items, limit = 20) {
   if (items.length <= limit) {
     return items;
@@ -341,16 +394,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      const keepaliveComments = comments
-        .map((comment) => ({
-          comment,
-          body: comment.body || '',
-          id: comment.id,
-          timestamp: new Date(comment.updated_at || comment.created_at).getTime(),
-        }))
-        .filter((entry) => entry.body.includes(marker))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      const latestKeepalive = keepaliveComments[0];
+      const keepaliveCandidates = detectExistingKeepalive(comments, {
+        marker,
+        agentLogins,
+        headerPattern: keepaliveHeaderPattern,
+      });
+      const latestKeepalive = keepaliveCandidates[0];
       if (latestKeepalive) {
         const lastKeepaliveTs = latestKeepalive.timestamp;
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
