@@ -1,309 +1,312 @@
-1) Worker: remove hardcoded main; always use dynamic base/head and enforce HEAD freshness
+1) Fix: Maint 46 Post CI fails to load due to invalid env.* usage
 
-Title: Worker: purge ref: main; use dynamic base/head and HEAD freshness preflight
-Labels: agent:codex, agents, ci, devops, automation
+Title: Maint 46 Post CI: fix invalid env.* scoping and restore coverage comment
 
-Body:
-
-Summary
-Eliminate the remaining checkout of `main` in the Worker and ensure all fetch/checkout operations use the runtime inputs (base/head). Add a HEAD freshness preflight so steps never run on a stale worktree.
-
-Testing
-- Force a PR with base != main; run Worker; verify no reference to `main` occurs in logs.
-- Make the branch stale; verify Worker fails fast (default) or uses configured fallback (if enabled).
-- CI green after each step; no duplicate runs on main.
-
-CI readiness
-- No new required checks.
-- Gate validates code after each Worker step.
-
-Automated Status Summary
-Scope
-- agents-72 Worker checkout/fetch logic only; optional freshness preflight.
-
-Tasks
-- [ ] Replace any `ref: main`/implicit default in Worker with inputs: `ref: ${{ inputs.branch }}`; fetch base with `${{ inputs.base }}`.
-- [ ] Add freshness preflight: compare `HEAD` to `origin/${{ inputs.branch }}`; fail if stale (unless fallback enabled).
-- [ ] (Optional) Add `inputs.use_step_branch` fallback to create and merge a step branch when stale.
-
-Acceptance criteria
-- [ ] Worker never checks out or fetches `main` unless it is the computed default branch.
-- [ ] Stale branches do not proceed without explicit fallback.
-- [ ] No spurious runs on main.
-
-Topic GUID: 5c7f3a0f-8a1e-4a9b-b1c4-6a6d0b2f2d91
-
-Why
-A leftover `ref: main` causes duplicate work against main and undermines deterministic task iteration.
-
-Scope
-Worker checkout/fetch steps and a minimal freshness gate.
-
-Non-Goals
-No changes to step sizing or Codex prompts.
-
-Tasks
-- [ ] Ensure all `actions/checkout` and git fetch steps use `${{ inputs.branch }}` and `${{ inputs.base }}`.
-- [ ] Add freshness preflight and short, actionable failure output.
-- [ ] Document the behavior in the Worker summary.
-
-Acceptance criteria
-- [ ] No logs show `ref: main` unless `main` is the actual default base.
-- [ ] Freshness check prevents stale edits; optional fallback merges cleanly.
-
-Implementation notes
-Files: `.github/workflows/agents-72-codex-belt-worker.yml`
-Keep concurrency grouping as is; only checkout/fetch and preflight change.
-
-Branch: codex/issue--worker-dynamic-base-head
-PR title prefix: [Agents] Worker: dynamic base/head + freshness preflight
-Touch only: .github/workflows/agents-72-codex-belt-worker.yml
-
-Copy/paste to PR comment (kickoff)
-@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
-
-2) Bridge: enforce default invite‑only and canonical base/head derivation (no PR creation by default)
-
-Title: Bridge: default to invite‑only; derive base from repo default; standardize head codex/issue-<n>
-Labels: agents, automation, devops, ci, docs, agent:codex
+Labels: agent:codex, devops, workflows, ci, health:coverage, bug, priority: high
 
 Body:
 
-Summary
-Stop accidental duplicate PRs. Bridge must default to invite-only (no PR creation), compute base from the repository default branch each run, and emit head `codex/issue-<n>` for the belt.
+Description
 
-Testing
-- Run Bridge on labeled Issue: it posts copy/paste + base/head; creates no PR.
-- Toggle debug `mode=create`: it creates exactly one PR from `codex/issue-<n>` into the computed default base.
-- Re-run Bridge: still no PR in invite mode.
-
-CI readiness
-- No required-check changes.
-- Compatible with existing Orchestrator/Worker flows.
-
-Automated Status Summary
-Scope
-- Bridge wrapper and reusable bridge; invitation mode and base/head computation only.
-
-Tasks
-- [ ] Set Bridge input default `mode: invite` (no PR creation).
-- [ ] Derive base via `repos.get().default_branch` on every run.
-- [ ] Emit canonical head `codex/issue-<n>` as outputs for downstream steps.
-- [ ] Ensure copy/paste block includes base/head in the summary for operator visibility.
-
-Acceptance criteria
-- [ ] Invite-only behavior is default.
-- [ ] base == repository default branch; head == `codex/issue-<n>` every run.
-- [ ] No duplicate PRs when Bridge and belt both run.
-
-Topic GUID: d2c8f868-3a17-4a1b-b6b0-9d809b1f3cde
+maint-46-post-ci.yml fails to load because it references env.* in expression contexts that don’t expose env. This blocks the consolidated PR summary and coverage delta.
 
 Why
-When Bridge can create PRs by default or uses ad-hoc head names, it races the belt and opens duplicates; hardcoding `main` yields wrong base.
+
+The Post CI step ties together Gate results and coverage reporting. While it’s broken, PRs lose the final summary and delta signal. The failure is reproducible in the workflow parser.
 
 Scope
-Bridge inputs and base/head computation.
+Fix the workflow and any helper script pathing so the summary and coverage delta reliably post after Gate.
 
 Non-Goals
-Copy/paste instruction text is unchanged (already finalized).
+Rewriting Gate or changing coverage tooling.
 
 Tasks
-- [ ] Default to `mode=invite`.
-- [ ] Resolve base from `default_branch`.
-- [ ] Standardize head `codex/issue-<n>` and expose outputs.
+
+ Replace env.* expressions with supported sources:
+
+ Move constants to vars.* or job‑level env: and pass via with:/step env.
+
+ Alternatively compute constants via actions/github-script and export outputs.
+
+ Ensure summary step reads coverage artifact and posts delta to the PR.
+
+ Add a fast validation step (actionlint or act -n) to catch expression misuse.
+
+ Prove fix on a throwaway PR, attach screenshot of summary.
 
 Acceptance criteria
-- [ ] No PR in invite mode; exactly one in create mode.
-- [ ] Computed base/head visible in Bridge summary/comment.
+
+ Workflow loads with no “Unrecognized named-value: env” errors.
+
+ PRs show a single consolidated CI summary with coverage delta.
+
+ No regression in Gate artifact naming/layout.
 
 Implementation notes
-Files: `.github/workflows/agents-63-codex-issue-bridge.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`
 
-Branch: codex/issue--bridge-invite-enforced
-PR title prefix: [Bridge] Invite-only default + canonical base/head
-Touch only: .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/reusable-agents-issue-bridge.yml
-
+Files: .github/workflows/maint-46-post-ci.yml, .github/scripts/*post-ci*.{js,ts}
+Branch: codex/issue--maint-46-post-ci-fix
+PR title prefix: [Maint] Post CI fix
+Touch only: .github/workflows/maint-46-post-ci.yml, relevant .github/scripts/*post-ci*
 Copy/paste to PR comment (kickoff)
-@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+@{agent} Work the tasks and acceptance criteria. After each change, update the checklist and repost the current scope/tasks/criteria so keepalive can track progress.
 
-3) Keepalive: enforce single path and scope to codex/issue-* with marker upsert
+2) Consolidate: Health 42 + 44 into a single scheduled “Health Sweep”
 
-Title: Keepalive: single nudge path only; restrict to codex/issue-*; upsert by marker
-Labels: agents, agents:keepalive, automation, devops, ci, agent:codex
+Title: Health Sweep: merge Actionlint (42) and Branch‑Protection verify (44)
+
+Labels: agent:codex, devops, workflows, maintenance, health:repo, refactor, priority: medium
 
 Body:
 
-Summary
-Ensure only one keepalive path is active and it only nudges Codex PRs (`codex/issue-*`). Upsert the keepalive comment with a HTML marker to avoid duplication.
+Description
 
-Testing
-- Trigger Gate on a non-agent branch: no keepalive comment or nudge occurs.
-- Trigger Gate on `codex/issue-<n>`: keepalive updates a single comment in place.
-- Run twice quickly: single comment remains; state refreshes.
-
-CI readiness
-- No required-check changes; this is orchestration glue.
-
-Automated Status Summary
-Scope
-- Active keepalive workflow (Gate listener or Orchestrator sweep), not both.
-
-Tasks
-- [ ] Disable the unused keepalive path (Gate-driven or Orchestrator sweep).
-- [ ] Restrict nudge to branches matching `codex/issue-*`.
-- [ ] Upsert keepalive comment using `<!-- codex-keepalive-marker -->`.
-
-Acceptance criteria
-- [ ] Exactly one keepalive mechanism is live.
-- [ ] No keepalive activity on non-agent branches.
-- [ ] No duplicate keepalive comments.
-
-Topic GUID: 1a7a47c3-7a39-42c6-9b69-9c0b5a25f5f4
+Fold Health 42 (Actionlint) and Health 44 (branch‑protection enforcement) into one scheduled workflow with two jobs: actionlint and branch-protection-verify. Keep PR‑time Actionlint via paths-filter, but run the verification/enforce piece on schedule.
 
 Why
-Multiple nudgers cause duplicate comments and double dispatch; lack of branch scoping nudges the wrong PRs.
+
+Same signal, fewer workflows to reason about; easier to keep required contexts aligned with reality. 
+GitHub
++1
 
 Scope
-Keepalive listener logic and its comment behavior.
+Create health-40-sweep.yml with two jobs; retire the old scheduled runners.
 
 Non-Goals
-No changes to belt step sizing or CI content.
+Changing which contexts are required.
 
 Tasks
-- [ ] Pick one keepalive path; disable the other.
-- [ ] Add branch filter and marker-based comment upsert.
+
+ New .github/workflows/health-40-sweep.yml with:
+
+ Job 1: actionlint (PR + schedule, use paths-filter for PRs).
+
+ Job 2: branch-protection-verify (schedule + manual dispatch).
+
+ Decommission redundant scheduled triggers in 42/44.
+
+ Update docs to point to the new single sweep.
 
 Acceptance criteria
-- [ ] Single source of truth for nudges; clean comments.
+
+ Weekly scheduled sweep runs both checks and posts results.
+
+ PRs still get Actionlint reviews only when workflow files change.
+
+ No change to enforced required checks list. 
+GitHub
 
 Implementation notes
-Files: `.github/workflows/agents-70-orchestrator.yml` and/or `.github/workflows/agents-75-keepalive-on-gate.yml` (whichever is active), `scripts/keepalive-runner.js`
 
-Branch: codex/issue--keepalive-scope-single
-PR title prefix: [Agents] Keepalive: scoped single path + marker upsert
-Touch only: active keepalive workflow(s) and scripts/keepalive-runner.js
-
+Files: .github/workflows/health-42-actionlint.yml, .github/workflows/health-44-gate-branch-protection.yml, .github/workflows/health-40-sweep.yml
+Branch: codex/issue--health-sweep-consolidation
+PR title prefix: [Health] Consolidate health checks
+Touch only: the three workflows above, minor docs under docs/ci/
 Copy/paste to PR comment (kickoff)
-@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+@{agent} Build the new sweep, remove duplicate schedules, and confirm both checks run as intended. Keep PR-time Actionlint behavior unchanged.
 
-4) Issue Sync: forbid auto‑applying agent labels; require exactly one manual agent:*
+3) Unify intake: one “Agents 63 Issue Intake” front‑end
 
-Title: Issue Sync: no auto agent selection; validate exactly one manual agent:* label
-Labels: agents, automation, devops, ci, docs
+Title: Agents 63: unify ChatGPT Issue Sync + Codex Issue Bridge into a single intake front
+
+Labels: agent:codex, agents, workflows, devops, enhancement, docs, priority: medium
 
 Body:
 
-Summary
-Make the Issue Sync and Bridge refuse to proceed unless exactly one `agent:*` label is present on the Issue, selected manually. Do not auto-apply `agent:codex` (or any other). Copy/paste blocks must derive `@{agent}` from that single label.
+Description
 
-Testing
-- Issue with 0 agent labels: Sync/Bridge post a single “select exactly one agent:*” message and stop.
-- Issue with 2+ agent labels: same refusal.
-- Exactly one agent label: copy/paste shows correct @{agent} and listener triggers correctly.
-
-CI readiness
-- No required-check changes.
-
-Automated Status Summary
-Scope
-- Issue Sync wrapper and Bridge label handling/validation.
-
-Tasks
-- [ ] Remove any auto-labeling of `agent:*` from Issue Sync.
-- [ ] Validate exactly one `agent:*` label in Bridge before generating copy/paste.
-- [ ] Document the policy in `docs/ci/ISSUE_SYNC.md`.
-
-Acceptance criteria
-- [ ] Manual selection only; validation enforced.
-- [ ] Copy/paste mentions the correct `@{agent}` every time.
-
-Topic GUID: 0d9eaa84-a9c2-4f56-a8d8-93fa5f2e36bc
+Present one “Issue Intake” entry that accepts {repo_file | raw_input | source_url} and outputs normalized, agent‑ready issues. Route internally to ChatGPT parsing or the Codex bridge without exposing two top‑level workflows. Preserve current label gating (exactly one agent:* required to trigger the bridge). 
+GitHub
++1
 
 Why
-Auto-selecting agents creates mismatches and can launch the wrong automation.
+
+Removes naming duplication and makes Orchestrator simpler while keeping your existing parsing and bridge behavior intact. 
+GitHub
 
 Scope
-Sync/Bridge label logic and docs.
+New agents-63-issue-intake.yml calls existing reusables internally; deprecate the two fronts.
 
 Non-Goals
-Changes to agent prompts.
+Changing parsing logic, changing bridge agent=codex behavior.
 
 Tasks
-- [ ] Strip auto-labeling from Sync; enforce validation in Bridge.
-- [ ] Add a short doc of the labeling rule.
+
+ Add agents-63-issue-intake.yml with inputs mirroring agents-63-chatgpt-issue-sync.yml. 
+GitHub
+
+ Internally call the ChatGPT parser or the issue bridge based on inputs.
+
+ Keep label contract: exactly one agent:* to engage the bridge. 
+GitHub
+
+ Update orchestrator/README references.
 
 Acceptance criteria
-- [ ] Sync/Bridge refuse to proceed without exactly one label.
-- [ ] `@{agent}` is always derived from the selected label.
+
+ Intake accepts all three input modes; issues match existing format.
+
+ Bridge still fires when agent:codex is applied. 
+GitHub
+
+ Legacy fronts are left as thin wrappers or removed after a grace period.
 
 Implementation notes
-Files: `.github/workflows/agents-63-chatgpt-issue-sync.yml`, `.github/workflows/reusable-agents-issue-bridge.yml`, `docs/ci/ISSUE_SYNC.md`
 
-Branch: codex/issue--issue-sync-manual-agent
-PR title prefix: [Bridge] Manual agent selection enforced
-Touch only: .github/workflows/agents-63-chatgpt-issue-sync.yml, .github/workflows/reusable-agents-issue-bridge.yml, docs/ci/ISSUE_SYNC.md
-
+Files: .github/workflows/agents-63-chatgpt-issue-sync.yml, .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/agents-63-issue-intake.yml
+Branch: codex/issue--agents-63-intake-unify
+PR title prefix: [Agents] Unify issue intake
+Touch only: the three workflows, docs under docs/ci/AGENTS_POLICY.md
 Copy/paste to PR comment (kickoff)
-@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+@{agent} Implement the intake front, route to existing reusables, and ensure label-based triggering remains identical to current behavior.
 
-5) Ledger hygiene: treat base as informational and migrate stale main to default
+4) Merge PR meta: Listener + Body Writer into one workflow
 
-Title: Ledger hygiene: migrate base from main to repo default and ignore ledger base at runtime
-Labels: agents, automation, ci, devops, docs, agent:codex
+Title: Agents PR Meta: merge comment command listener (64) and PR body writer (74)
+
+Labels: agent:codex, workflows, devops, refactor, guardrail, priority: medium
 
 Body:
 
-Summary
-Prevent the ledger’s `base` field from reintroducing `main` drift. Migrate old ledgers to the current repo default and ensure Worker uses runtime base, not the ledger field, for checkout/fetch.
+Description
 
-Testing
-- Ledger with base: main in a repo whose default != main: Worker uses computed default, not ledger base.
-- Migration job updates ledger base to current default.
-- CI check fails if new ledgers write `base: main` when default != main.
-
-CI readiness
-- Add a tiny validation script to Gate; no required-check changes.
-
-Automated Status Summary
-Scope
-- Ledger writers/readers in Worker; a small migration/validator.
-
-Tasks
-- [ ] Worker: ignore ledger.base for checkout; always compute base at runtime.
-- [ ] Add a migration script to update `.agents/issue-*/ledger.yml` base to the current default.
-- [ ] Add a CI validator to flag ledgers that set base != current default.
-
-Acceptance criteria
-- [ ] Worker never trusts ledger base for git operations.
-- [ ] Existing ledgers no longer reference `main` unless it is the default.
-- [ ] CI flags out-of-date ledger base values.
-
-Topic GUID: 6bc9c04e-13ba-4497-97bf-1d8a977f4bf3
+Combine the PR comment command listener and the PR body writer into one workflow with a shared concurrency group. Keep marker‑based PR body updates to avoid clashes with human text.
 
 Why
-Even after fixing the Worker, a stale `base: main` in ledgers can mislead future tooling or humans.
+
+Eliminates cross‑workflow races and centralizes PR decoration logic.
 
 Scope
-Worker ledger read path, small migration and CI validator.
+One workflow handling commands and body updates in separate jobs.
 
 Non-Goals
-Changing the ledger schema beyond `base` semantics.
+Changing command syntax or markers.
 
 Tasks
-- [ ] Guard Worker against using ledger.base for git.
-- [ ] Add `scripts/ledger_migrate_base.py` and a CI step.
-- [ ] Document the rule in the ledger spec.
+
+ Create agents-pr-meta.yml with jobs:
+
+ listen_commands on issue_comment events.
+
+ update_body to maintain a single marker block.
+
+ Use a common concurrency group keyed by PR number.
+
+ Remove/retire the old two workflows.
 
 Acceptance criteria
-- [ ] No runtime git operation depends on ledger.base.
-- [ ] Ledgers reflect the actual default branch.
+
+ Commands and body updates never run concurrently for the same PR.
+
+ Marker updates do not overwrite unrelated PR text.
 
 Implementation notes
-Files: `.github/workflows/agents-72-codex-belt-worker.yml`, `scripts/ledger_migrate_base.py`, `docs/ci/LEDGER.md`
 
-Branch: codex/issue--ledger-base-hygiene
-PR title prefix: [Agents] Ledger base hygiene
-Touch only: .github/workflows/agents-72-codex-belt-worker.yml, scripts/ledger_migrate_base.py, docs/ci/LEDGER.md
-
+Files: .github/workflows/agents-64-pr-comment-command-listener.yml, .github/workflows/agents-74-pr-body-writer.yml, .github/workflows/agents-pr-meta.yml
+Branch: codex/issue--merge-pr-meta
+PR title prefix: [Agents] Merge PR meta workflows
+Touch only: the three workflows above
 Copy/paste to PR comment (kickoff)
-@{agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.
+@{agent} Build the combined workflow and replace the two existing ones. Validate concurrency and no body thrash on a test PR.
+
+5) Autofix: auto‑label style‑only failures in Gate and widen loop scope
+
+Title: Gate + Autofix: auto‑label clean failures and allow loop on any PR with autofix:clean
+
+Labels: agent:codex, workflows, ci, devops, autofix, autofix:clean, enhancement, priority: high
+
+Body:
+
+Description
+
+When Gate detects failures limited to formatting/imports/other cosmetic issues, apply autofix:clean to the PR. Update the Autofix Loop to run whenever autofix:clean is present, not only on agent:* PRs, while keeping the ALLOWED_GLOBS restriction.
+
+Why
+
+This recovers time on human PRs without sacrificing safety; the loop already has tight edit scopes. 
+GitHub
++1
+
+Scope
+Small change in Gate’s summary job plus label logic in Autofix.
+
+Non-Goals
+Changing allowed file globs.
+
+Tasks
+
+ In Gate summary, detect format/import‑only failures and add autofix:clean. 
+GitHub
+
+ In autofix.yml, drop the agent:* co‑label requirement; trigger solely on autofix/autofix:clean. 
+GitHub
+
+ Keep ALLOWED_GLOBS as *.py, *.pyi; add explicit guard against non‑Python changes.
+
+Acceptance criteria
+
+ For cosmetic failures, PR gains autofix:clean automatically.
+
+ Autofix Loop runs and pushes minimal import/format fixes.
+
+ No edits outside allowed globs.
+
+Implementation notes
+
+Files: .github/workflows/pr-00-gate.yml, .github/workflows/autofix.yml, .github/scripts/*gate*
+Branch: codex/issue--gate-autolabel-autofix
+PR title prefix: [CI] Gate-driven autofix label & loop
+Touch only: the two workflows above and Gate summary script
+Copy/paste to PR comment (kickoff)
+@{agent} Implement label auto-add and relax the loop’s label gate while preserving allowed file globs.
+
+6) Guardrail: centralize required check names to avoid brittle branch‑protection drift
+
+Title: Branch protection: centralize required contexts and sync with enforcer
+
+Labels: agent:codex, workflows, devops, guardrail, health:repo, maintenance, priority: medium
+
+Body:
+
+Description
+
+Put required check names (e.g., “Gate / gate”, “Health 45 Agents Guard / Enforce agents workflow protections”) in a single config that both the enforcer and Gate summary read, so renames don’t silently break protection. 
+GitHub
+
+Why
+
+Names drift; protection silently weakens. One source of truth prevents foot‑guns.
+
+Scope
+New config file and minor updates to the enforcer and Gate summary job to read it.
+
+Non-Goals
+Adding or removing required checks.
+
+Tasks
+
+ Add .github/config/required-contexts.json with canonical list.
+
+ Update branch‑protection enforcer to consume the file. 
+GitHub
+
+ Update Gate summary to reference the same list when reporting “required checks.”
+
+ Document the rule and the update process in docs/ci/.
+
+Acceptance criteria
+
+ A single JSON file defines required contexts.
+
+ Enforcer and Gate summary read the same list.
+
+ Renaming a job requires updating one file, not code.
+
+Implementation notes
+
+Files: .github/config/required-contexts.json, .github/workflows/health-44-gate-branch-protection.yml, .github/workflows/pr-00-gate.yml, .github/scripts/*branch*
+Branch: codex/issue--required-contexts-source-of-truth
+PR title prefix: [Guardrail] Centralize required contexts
+Touch only: those files and minimal docs
+Copy/paste to PR comment (kickoff)
+@{agent} Add the config, wire it into enforcer + Gate summary, and document the process for updating required contexts.
