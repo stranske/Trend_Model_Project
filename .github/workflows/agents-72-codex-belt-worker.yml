@@ -390,13 +390,13 @@ jobs:
             echo "remote_sha=$remote_sha"
           } >>"$GITHUB_OUTPUT"
 
-          cat <<SUMMARY >>"$GITHUB_STEP_SUMMARY"
-### Branch Freshness
-- Branch: `$branch`
-- Local SHA: $local_sha
-- Remote SHA: $remote_sha
-- Status: **$status**
-SUMMARY
+          {
+            echo "### Branch Freshness"
+            echo "- Branch: \`$branch\`"
+            echo "- Local SHA: $local_sha"
+            echo "- Remote SHA: $remote_sha"
+            echo "- Status: **$status**"
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Handle stale branch fallback
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
@@ -432,10 +432,10 @@ SUMMARY
           fi
 
           if [ "${USE_STEP_BRANCH}" != "true" ]; then
-            cat <<SUMMARY >>"$GITHUB_STEP_SUMMARY"
-### Step-Branch Fallback
-- Outcome: ❌ Branch `$branch` is stale but fallback is disabled.
-SUMMARY
+            {
+              echo "### Step-Branch Fallback"
+              echo "- Outcome: ❌ Branch \`$branch\` is stale but fallback is disabled."
+            } >>"$GITHUB_STEP_SUMMARY"
             echo "::error::Branch $branch is stale relative to origin/$branch. Enable use_step_branch to continue."
             exit 1
           fi
@@ -458,10 +458,10 @@ SUMMARY
             echo "status=step"
           } >>"$GITHUB_OUTPUT"
 
-          cat <<SUMMARY >>"$GITHUB_STEP_SUMMARY"
-### Step-Branch Fallback
-- Outcome: ✅ Created fallback branch `$step_branch` targeting `$branch`.
-SUMMARY
+          {
+            echo "### Step-Branch Fallback"
+            echo "- Outcome: ✅ Created fallback branch \`$step_branch\` targeting \`$branch\`."
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Prepare ledger task
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
