@@ -127,7 +127,9 @@ def test_blended_score_merges_aliases_and_inverts(sample_bundle):
         bundle._metrics["Sharpe"]
     ) + (  # type: ignore[index]
         canonical_total["MaxDrawdown"] / total
-    ) * (-rank_selection._zscore(bundle._metrics["MaxDrawdown"]))  # type: ignore[index]
+    ) * (
+        -rank_selection._zscore(bundle._metrics["MaxDrawdown"])
+    )  # type: ignore[index]
 
     pd.testing.assert_series_equal(result, expected)
 
