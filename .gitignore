@@ -47,6 +47,7 @@ results/
 !docs/evidence/gate-branch-protection/*.json
 !config/coverage-baseline.json
 !/.github/signature-fixtures/basic_jobs.json
+!/.github/config/required-contexts.json
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
 !tests/fixtures/keepalive/*.json

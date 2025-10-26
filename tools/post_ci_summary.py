@@ -53,6 +53,9 @@ DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
 ]
 
 
+REQUIRED_CONTEXTS_PATH = Path(".github/config/required-contexts.json")
+
+
 def _copy_required_groups(
     groups: Sequence[RequiredJobGroup],
 ) -> List[RequiredJobGroup]:
@@ -227,7 +230,7 @@ def _derive_required_groups_from_runs(
 
 
 def _collect_category_states(
-    runs: Sequence[Mapping[str, object]]
+    runs: Sequence[Mapping[str, object]],
 ) -> dict[str, tuple[str, str | None]]:
     states: dict[str, tuple[str, str | None]] = {}
     for run in runs:
@@ -264,7 +267,7 @@ def _collect_category_states(
 
 
 def _is_docs_only_fast_pass(
-    category_states: Mapping[str, tuple[str, str | None]]
+    category_states: Mapping[str, tuple[str, str | None]],
 ) -> bool:
     seen_skipped = False
     for key in DOC_ONLY_JOB_KEYS:
@@ -321,6 +324,36 @@ def _load_required_groups(
     if derived:
         return derived
     return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
+
+
+def _load_required_contexts(
+    config_path: str | os.PathLike[str] | None = None,
+) -> List[str]:
+    candidate = Path(
+        config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or REQUIRED_CONTEXTS_PATH
+    )
+    try:
+        payload = json.loads(candidate.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError:
+        return []
+
+    if isinstance(payload, Mapping):
+        contexts_value = payload.get("required_contexts") or payload.get("contexts")
+    else:
+        contexts_value = payload
+
+    contexts: List[str] = []
+    if isinstance(contexts_value, Iterable) and not isinstance(
+        contexts_value, (str, bytes)
+    ):
+        for item in contexts_value:
+            if isinstance(item, str):
+                value = item.strip()
+                if value:
+                    contexts.append(value)
+    return contexts
 
 
 def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, object]]:
@@ -646,6 +679,7 @@ def build_summary_comment(
     job_table_lines = _format_jobs_table(rows)
     groups = _load_required_groups(required_groups_env, deduped_runs)
     required_segments = _collect_required_segments(deduped_runs, groups)
+    contexts = _load_required_contexts(None)
     latest_runs_line = _format_latest_runs(deduped_runs)
     coverage_lines = _format_coverage_lines(coverage_stats)
     coverage_delta_lines = _format_coverage_delta_lines(coverage_delta)
@@ -685,6 +719,8 @@ def build_summary_comment(
         body_parts.append(f"**Head SHA:** {head_sha}")
     if latest_runs_line:
         body_parts.append(f"**Latest Runs:** {latest_runs_line}")
+    if contexts:
+        body_parts.append(f"**Required contexts:** {', '.join(contexts)}")
     if required_segments:
         body_parts.append(f"**Required:** {', '.join(required_segments)}")
     body_parts.append("")
