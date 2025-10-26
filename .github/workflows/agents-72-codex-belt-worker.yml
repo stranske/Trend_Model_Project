@@ -354,6 +354,115 @@ jobs:
           token: ${{ env.ACTIONS_BOT_PAT }}
           fetch-depth: 0
 
+      - name: Preflight branch freshness
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        id: freshness
+        env:
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+        run: |
+          set -euo pipefail
+          branch="${BRANCH}"
+          if [ -z "$branch" ]; then
+            echo '::error::Missing branch context for freshness check.'
+            exit 1
+          fi
+
+          if ! git fetch --quiet origin "$branch"; then
+            echo "::error::Failed to fetch origin/$branch for freshness verification."
+            exit 1
+          fi
+
+          if ! git rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
+            echo "::error::Remote branch origin/$branch not found during freshness check."
+            exit 1
+          fi
+
+          local_sha=$(git rev-parse HEAD)
+          remote_sha=$(git rev-parse "origin/$branch")
+          status="fresh"
+          if [ "$local_sha" != "$remote_sha" ]; then
+            status="stale"
+          fi
+
+          {
+            echo "status=$status"
+            echo "local_sha=$local_sha"
+            echo "remote_sha=$remote_sha"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Branch Freshness"
+            echo "- Branch: \`$branch\`"
+            echo "- Local SHA: $local_sha"
+            echo "- Remote SHA: $remote_sha"
+            echo "- Status: **$status**"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Handle stale branch fallback
+        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        id: fallback
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          USE_STEP_BRANCH: ${{ steps.mode.outputs.use_step_branch }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          status="${{ steps.freshness.outputs.status }}"
+          branch="${BRANCH}"
+          issue="${ISSUE}"
+
+          if [ -z "$status" ]; then
+            echo '::error::Freshness check did not report a status.'
+            exit 1
+          fi
+
+          if [ "$status" = "fresh" ]; then
+            {
+              echo "branch="
+              echo "status=fresh"
+            } >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$status" != "stale" ]; then
+            echo "::error::Unexpected freshness status: $status"
+            exit 1
+          fi
+
+          if [ "${USE_STEP_BRANCH}" != "true" ]; then
+            {
+              echo "### Step-Branch Fallback"
+              echo "- Outcome: ❌ Branch \`$branch\` is stale but fallback is disabled."
+            } >>"$GITHUB_STEP_SUMMARY"
+            echo "::error::Branch $branch is stale relative to origin/$branch. Enable use_step_branch to continue."
+            exit 1
+          fi
+
+          short=$(git rev-parse --short "origin/$branch")
+          timestamp=$(date -u +%Y%m%d%H%M%S)
+          step_branch="codex/issue-${issue}/step/${timestamp}-${short}"
+
+          git checkout --detach "origin/$branch"
+          git checkout -b "$step_branch"
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "::notice::Dry run enabled; not pushing $step_branch to origin."
+          else
+            git push origin "$step_branch"
+          fi
+
+          {
+            echo "branch=$step_branch"
+            echo "status=step"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Step-Branch Fallback"
+            echo "- Outcome: ✅ Created fallback branch \`$step_branch\` targeting \`$branch\`."
+          } >>"$GITHUB_STEP_SUMMARY"
+
       - name: Prepare ledger task
         if: ${{ steps.parallel.outputs.allowed == 'true' }}
         id: ledger_start
@@ -648,6 +757,38 @@ jobs:
 
             core.setOutput('number', String(prNumber));
             core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
+
+      - name: Configure auto-merge strategy
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const { owner, repo } = context.repo;
+
+            try {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              if (!pr.node_id) {
+                core.warning(`Unable to retrieve node_id for PR #${prNumber}; skipping auto-merge enablement.`);
+                return;
+              }
+
+              await github.graphql(
+                `mutation EnableAutoMerge($pullRequestId: ID!, $method: PullRequestMergeMethod!) {
+                  enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $method }) {
+                    pullRequest { number }
+                  }
+                }`,
+                { pullRequestId: pr.node_id, method: 'SQUASH' }
+              );
+
+              core.summary.addHeading('Merge Strategy').addList([
+                `Enabled auto-merge (squash) for PR #${prNumber} once required checks pass.`,
+              ]).write();
+            } catch (error) {
+              core.warning(`Failed to enable auto-merge for PR #${prNumber}: ${error.message}`);
+            }
 
       - name: Apply automation labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
