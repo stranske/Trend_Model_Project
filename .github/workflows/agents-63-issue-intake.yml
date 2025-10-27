@@ -518,7 +518,7 @@ jobs:
               if (entriesWithBase.length > 0) {
                 topicsWithAgentLabels += 1;
               }
-              // Strip all agent:* labels - they will be applied manually from Issues tab
+              // Strip all agent:* labels in chatgpt_sync mode - they will be applied manually from Issues tab
               if (!Array.isArray(topic.labels)) {
                 topic.labels = [];
               }
