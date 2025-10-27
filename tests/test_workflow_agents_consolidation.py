@@ -402,11 +402,22 @@ def test_agent_task_template_auto_labels_codex():
 
 def test_issue_intake_guard_checks_agent_label():
     text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(encoding="utf-8")
+    # The workflow must check for agent:codex in two different ways:
+    # 1. For 'labeled' events: check github.event.label.name
+    # 2. For 'opened'/'reopened' events: check github.event.issue.labels array
     assert (
-        "contains(github.event.label.name, 'agent:codex')" in text
-        or "contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex')"
-        in text
-    ), "Issue intake must guard on the agent:codex label to trigger hand-off"
+        "contains(format('{0}', github.event.label.name), 'agent:codex')" in text
+        or "contains(github.event.label.name, 'agent:codex')" in text
+    ), "Issue intake must check github.event.label.name for labeled events"
+    assert (
+        "github.event.issue.labels" in text
+    ), "Issue intake must check issue.labels array for opened/reopened events"
+    assert (
+        "github.event.action == 'opened'" in text
+    ), "Issue intake must handle opened action"
+    assert (
+        "github.event.action == 'reopened'" in text
+    ), "Issue intake must handle reopened action"
 
 
 def test_reusable_agents_jobs_have_timeouts():
