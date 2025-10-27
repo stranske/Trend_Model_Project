@@ -169,13 +169,18 @@ jobs:
             
             const title = '🔧 CI/Autofix Tool Updates Available';
             
-            const instructionsBlock = `\`\`\`bash
-source .github/workflows/autofix-versions.env
-pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" "isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" "mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" "pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"
-black --check .
-ruff check .
-mypy src tests
-\`\`\``;
+            const instructions = [
+              'source .github/workflows/autofix-versions.env',
+              'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" ' +
+                '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" ' +
+                '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" ' +
+                '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
+              'black --check .',
+              'ruff check .',
+              'mypy src tests'
+            ].join('\n');
+            const instructionsBlock = '```bash\n' + instructions + '\n```';
+            
             const body = report + '\n\n' +
               '### Updates Available\n\n' +
               updates + '\n\n' +
