@@ -7,7 +7,6 @@ on:
       - opened
       - reopened
       - labeled
-      - unlabeled
   workflow_dispatch:
     inputs:
       intake_mode:
@@ -105,16 +104,7 @@ jobs:
   normalize_inputs:
     if: >
       github.event_name != 'issues' ||
-      (
-        github.event.action == 'labeled' && github.event.label.name == 'agent:codex'
-      ) ||
-      (
-        github.event.action == 'unlabeled' && github.event.label.name == 'agent:codex'
-      ) ||
-      (
-        (github.event.action == 'opened' || github.event.action == 'reopened') &&
-        contains(toJson(github.event.issue.labels.*.name), 'agent:codex')
-      )
+      contains(toJson(github.event.issue.labels.*.name), 'agent:')
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
