@@ -709,7 +709,8 @@ jobs:
       allowed_file_globs: |-
         **/*.py
         **/*.pyi
-    secrets: inherit
+    secrets:
+      service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
   keepalive-progress:
     name: keepalive progress
