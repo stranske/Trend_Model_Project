@@ -10,7 +10,7 @@
 
 ## Acceptance Criteria / Definition of Done
 1. **Agents.md** accurately describes the current agent ecosystem:
-   - Includes entries for Orchestrator, Codex Issue Bridge, and Verify Agent Assignment with up-to-date names.
+   - Includes entries for Orchestrator, Issue Intake, and Verify Agent Assignment with up-to-date names.
    - Lists trigger types (schedule, workflow_dispatch, issue_comment, etc.) and manual dispatch instructions where applicable.
    - Provides cross-links or references to relevant workflows or configs if they exist in the repo.
 2. **ARCHIVE_WORKFLOWS.md** contains an "Archived" section that:

@@ -144,10 +144,10 @@ Never touch notebooks living under any directory whose name ends in old/.
 - **Role**: single automation front door. Each invocation delegates to `reusable-16-agents.yml`, merging booleans and JSON overrides into one payload so the reusable flow can run bootstrap, readiness, watchdog, verification, and keepalive passes in the same job graph.
 - **Manual run**: Actions → **Agents 70 Orchestrator** → **Run workflow**. Pass booleans as strings (`true`/`false`) for the built-in toggles and use the `options_json` input for advanced settings such as `enable_bootstrap`, additional keepalive tuning, or overriding valid assignees.
 
-### Agents 63 Codex Issue Bridge
-- **File**: `.github/workflows/agents-63-codex-issue-bridge.yml`.
-- **Triggers**: Issue events (`opened`, `labeled`, `reopened`) when the target carries either the `agent:codex` or `agents:codex` label, plus `workflow_dispatch` for manual tests, PR-mode overrides, and draft forcing.
-- **Role**: hydrates Codex bootstrap PRs or invite flows when a labeled issue needs service and can optionally post the `@codex start` primer comment. Manual dispatch must provide `test_issue` so the bridge knows which record to process; the workflow enforces that input before it hydrates the bootstrap path.
+### Agents 63 Issue Intake
+- **File**: `.github/workflows/agents-63-issue-intake.yml`.
+- **Triggers**: Issue events (`opened`, `labeled`, `reopened`) when the target carries either the `agent:codex` or `agents:codex` label, plus `workflow_dispatch` for manual Codex rehearsals and `workflow_call` for ChatGPT sync delegation.
+- **Role**: canonical automation front door. Label-triggered runs bootstrap Codex PRs (or invite flows) while manual/ChatGPT dispatches reuse the same normalization pipeline so everything flows through one job graph. Manual Codex runs accept the issue number and optional comment toggles; ChatGPT sync continues to provide topic inputs via the wrapper.
 
 ### Agents 64 Verify Agent Assignment
 - **File**: `.github/workflows/agents-64-verify-agent-assignment.yml`.

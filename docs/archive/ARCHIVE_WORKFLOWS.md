@@ -17,7 +17,7 @@ This document records the archival and eventual deletion of legacy agent-related
 - `repo-health-nightly.yml` → [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) — Weekly repo-health audits now run under the numbered Health 41 workflow.
 - `ci-signature-guard.yml` → [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) — Signature verification moved to the numbered health guard.
 - `agents-47-verify-codex-bootstrap-matrix.yml` → [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
-- `assign-to-agents.yml` → [`agents-63-codex-issue-bridge.yml`](../../.github/workflows/agents-63-codex-issue-bridge.yml) + [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Label-driven bridge and orchestrator now assign Codex issues without the standalone helper.
+- `assign-to-agents.yml` → [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) + [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Label-driven intake and orchestrator now assign Codex issues without the standalone helper.
 
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).

@@ -12,7 +12,7 @@
 ## Acceptance Criteria / Definition of Done
 - `docs/ci/AGENTS_POLICY.md` exists with clear sections covering scope & purpose, protection layers, allowed change scenarios with the labeling workflow, and at least one actionable troubleshooting block.
 - `docs/ci/WORKFLOW_SYSTEM.md` references the new policy file when discussing agents workflow protections.
-- `.github/workflows/agents-63-chatgpt-issue-sync.yml` and `.github/workflows/agents-63-codex-issue-bridge.yml` include header comments linking directly to the policy doc.
+- `.github/workflows/agents-63-chatgpt-issue-sync.yml` and `.github/workflows/agents-63-issue-intake.yml` include header comments linking directly to the policy doc.
 - All new and updated documentation follows the existing tone/formatting conventions for CI docs (concise headings, sentence-case bullets, Markdown lint friendly).
 - No functional workflow behavior changes are introduced; CI should continue to treat this as a docs-only update.
 

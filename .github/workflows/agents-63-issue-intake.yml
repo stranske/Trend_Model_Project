@@ -2,6 +2,8 @@
 name: Agents 63 Issue Intake
 
 on:
+  issues:
+    types: [opened, labeled, reopened]
   workflow_call:
     inputs:
       intake_mode:
@@ -118,20 +120,57 @@ jobs:
               echo "false"
             fi
           }
-          
-          debug=$(normalize_bool "${{ inputs.debug }}")
-          post_codex=$(normalize_bool "${{ inputs.post_codex_comment }}")
-          draft_pr=$(normalize_bool "${{ inputs.bridge_draft_pr }}")
-          
+
+          event_name="${GITHUB_EVENT_NAME}"
+
+          intake_mode="${INPUT_INTAKE_MODE:-}"
+          repo_file="${INPUT_REPO_FILE:-}"
+          raw_input="${INPUT_RAW_INPUT:-}"
+          source_url="${INPUT_SOURCE_URL:-}"
+          debug=$(normalize_bool "${INPUT_DEBUG:-}")
+          issue_number="${INPUT_ISSUE_NUMBER:-}"
+          post_codex_input="${INPUT_POST_CODEX_COMMENT:-}"
+          bridge_agent="${INPUT_BRIDGE_AGENT:-}"
+          draft_pr=$(normalize_bool "${INPUT_BRIDGE_DRAFT_PR:-}")
+
+          payload_issue=""
+          if command -v jq >/dev/null 2>&1; then
+            payload_issue=$(jq -r '.issue.number // empty' "$GITHUB_EVENT_PATH")
+          fi
+          if [ -z "$issue_number" ]; then
+            issue_number="$payload_issue"
+          fi
+
+          if [ -z "$bridge_agent" ]; then
+            bridge_agent="codex"
+          fi
+
+          if [ -z "$intake_mode" ]; then
+            if [ "$event_name" = "issues" ]; then
+              intake_mode="codex_bridge"
+            else
+              intake_mode="chatgpt_sync"
+            fi
+          fi
+
+          if [ -z "$post_codex_input" ]; then
+            if [ "$intake_mode" = "codex_bridge" ]; then
+              post_codex_input="true"
+            else
+              post_codex_input="false"
+            fi
+          fi
+          post_codex=$(normalize_bool "$post_codex_input")
+
           {
-            echo "intake_mode=${{ inputs.intake_mode }}"
-            echo "repo_file=${{ inputs.repo_file }}"
-            echo "raw_input=${{ inputs.raw_input }}"
-            echo "source_url=${{ inputs.source_url }}"
+            echo "intake_mode=$intake_mode"
+            echo "repo_file=$repo_file"
+            echo "raw_input=$raw_input"
+            echo "source_url=$source_url"
             echo "debug=$debug"
-            echo "issue_number=${{ inputs.issue_number }}"
+            echo "issue_number=$issue_number"
             echo "post_codex_comment=$post_codex"
-            echo "bridge_agent=${{ inputs.bridge_agent || 'codex' }}"
+            echo "bridge_agent=$bridge_agent"
             echo "bridge_draft_pr=$draft_pr"
           } >> "$GITHUB_OUTPUT"
 
@@ -1044,7 +1083,27 @@ jobs:
 
   bridge_preflight:
     needs: normalize_inputs
-    if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
+    if: >
+      needs.normalize_inputs.outputs.intake_mode == 'codex_bridge' &&
+      (
+        github.event_name != 'issues' ||
+        (
+          github.event.action == 'labeled' &&
+          (
+            contains(github.event.label.name, 'agent:codex') ||
+            contains(github.event.label.name, 'agents:codex') ||
+            contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
+            contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
+          )
+        ) ||
+        (
+          github.event.action != 'labeled' &&
+          (
+            contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
+            contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
+          )
+        )
+      )
     name: Validate Codex issue labels
     runs-on: ubuntu-latest
     permissions:
@@ -1093,6 +1152,14 @@ jobs:
   codex_bridge:
     needs: [normalize_inputs, bridge_preflight]
     if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
+    concurrency:
+      group: >
+        codex-issue-${{
+          needs.normalize_inputs.outputs.issue_number ||
+          github.event.issue.number ||
+          github.run_id
+        }}
+      cancel-in-progress: true
     uses: ./.github/workflows/reusable-agents-issue-bridge.yml
     with:
       agent: ${{ needs.normalize_inputs.outputs.bridge_agent || needs.bridge_preflight.outputs.agent_key }}

@@ -1,19 +1,18 @@
 # Agents Workflow Protection Policy
 
-**Purpose.** Preserve the Agents 63 intake stack (issue intake front plus the Codex bridge and ChatGPT sync wrappers) and the
-Agents 70 orchestrator as always-on automation. The policy explains why the
-workflows are treated as "unremovable," the layers that enforce the guardrails,
-and the narrow scenarios where changes are allowed.
+**Purpose.** Preserve the Agents 63 intake stack (issue intake front plus the
+ChatGPT sync wrapper) and the Agents 70 orchestrator as always-on automation.
+The policy explains why the workflows are treated as "unremovable," the layers
+that enforce the guardrails, and the narrow scenarios where changes are
+allowed.
 
 ## Scope and purpose
 - **Agents 70 orchestrator** — single dispatch surface for all consumer
   automations. Retiring it strands downstream workflows, so availability is a
   release gate.
-- **Agents 63 – Issue intake** — unified entry point that routes ChatGPT topic
-  imports and Codex bridge requests into the reusable workflows without
-  duplicating logic.
-- **Agents 63 – Codex issue bridge** — legacy trigger shim that now forwards
-  events to the intake workflow while maintaining label semantics.
+- **Agents 63 – Issue intake** — unified entry point that now handles the
+  `agent:codex` label trigger directly while continuing to service ChatGPT
+  topic imports via the reusable workflow surface.
 - **Agents 63 – ChatGPT issue sync** — manual wrapper that exposes the curated
   import inputs while delegating to the shared intake workflow.
 
@@ -33,7 +32,6 @@ automation topology.
    "Block deletions" and "Block renames" toggled on:
    - `.github/workflows/agents-63-issue-intake.yml`
    - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
-   - `.github/workflows/agents-63-codex-issue-bridge.yml`
    - `.github/workflows/agents-70-orchestrator.yml`
 
    > **2025-09-05 status:** the ruleset is currently **disabled** with no
