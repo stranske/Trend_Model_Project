@@ -166,6 +166,17 @@ jobs:
               return;
             }
 
+            const token = String(process.env.ACTIONS_BOT_PAT || '').trim();
+            if (!token) {
+              result.skip_reason = 'missing-actions-bot-pat';
+              summary.addRaw('ACTIONS_BOT_PAT secret is missing; skipping autofix.').addEOL();
+              for (const [key, value] of Object.entries(result)) {
+                core.setOutput(key, value);
+              }
+              await summary.write();
+              return;
+            }
+
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner,
               repo,
