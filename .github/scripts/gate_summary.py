@@ -28,6 +28,7 @@ class SummaryResult:
     description: str
     cosmetic_failure: bool = False
     failure_checks: tuple[str, ...] = ()
+    format_failure: bool = False
 
 
 PRIORITY: dict[str, int] = {
@@ -337,11 +338,13 @@ def summarize(context: SummaryContext) -> SummaryResult:
     docker_result_norm = _normalize(context.docker_result or "skipped")
     cosmetic_failure = False
     failure_checks: tuple[str, ...] = ()
+    format_failure = False
 
     if python_result != "success":
         state = "failure"
         description = f"Python CI result: {python_result}."
         cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
+        format_failure = "format" in failure_checks
     elif context.docker_changed and docker_result_norm != "success":
         state = "failure"
         description = f"Docker smoke result: {docker_result_norm}."
@@ -361,6 +364,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         description=description,
         cosmetic_failure=cosmetic_failure,
         failure_checks=failure_checks,
+        format_failure=format_failure,
     )
 
 
@@ -417,6 +421,9 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
             handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
         else:
             handle.write("failure_checks=\n")
+        handle.write(
+            f"format_failure={'true' if result.format_failure else 'false'}\n"
+        )
 
 
 def main() -> int:
