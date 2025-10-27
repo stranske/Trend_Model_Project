@@ -5,51 +5,9 @@ on:
   issues:
     types:
       - opened
-      - labeled
       - reopened
-  workflow_call:
-    inputs:
-      intake_mode:
-        description: "Select intake target: chatgpt_sync or agent_bridge"
-        required: true
-        type: string
-      source:
-        description: "Primary: path (in repo) to topics file (preferred for large lists)"
-        required: false
-        type: string
-      raw_input:
-        description: "Secondary: small pasted topic list (may truncate around 1KB)"
-        required: false
-        type: string
-      source_url:
-        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
-        required: false
-        type: string
-      debug:
-        description: "Enable verbose debug diagnostics"
-        required: false
-        type: string
-      issue_number:
-        description: "Optional explicit issue number when running Codex bridge manually"
-        required: false
-        type: string
-      post_codex_comment:
-        description: "Auto-post '@codex start' as the actor (true/false)"
-        required: false
-        type: string
-      bridge_agent:
-        description: "Agent key passed to the reusable bridge workflow (default codex)"
-        required: false
-        type: string
-      bridge_draft_pr:
-        description: "Open Codex bootstrap PRs as draft (true/false)"
-        required: false
-        type: string
-    secrets:
-      service_bot_pat:
-        required: false
-      owner_pr_pat:
-        required: false
+      - labeled
+      - unlabeled
   workflow_dispatch:
     inputs:
       intake_mode:
@@ -95,17 +53,68 @@ on:
         required: false
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      intake_mode:
+        description: "Select intake target: chatgpt_sync or agent_bridge"
+        required: true
+        type: string
+      source:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
+      raw_input:
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
+        required: false
+        type: string
+      source_url:
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+        required: false
+        type: string
+      debug:
+        description: "Enable verbose debug diagnostics"
+        required: false
+        type: string
+      issue_number:
+        description: "Optional explicit issue number when running Codex bridge manually"
+        required: false
+        type: string
+      post_codex_comment:
+        description: "Auto-post '@codex start' as the actor (true/false)"
+        required: false
+        type: string
+      bridge_agent:
+        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        required: false
+        type: string
+      bridge_draft_pr:
+        description: "Open Codex bootstrap PRs as draft (true/false)"
+        required: false
+        type: string
+    secrets:
+      service_bot_pat:
+        required: false
+      owner_pr_pat:
+        required: false
 
 concurrency:
-  group: >
-    issue-${{ github.event.issue.number || github.run_id }}-intake
+  group: issue-${{ github.event.issue.number }}-intake
   cancel-in-progress: true
 
 jobs:
   normalize_inputs:
     if: >
       github.event_name != 'issues' ||
-      contains(toJson(github.event.issue.labels.*.name), 'agent:')
+      (
+        github.event.action == 'labeled' && github.event.label.name == 'agent:codex'
+      ) ||
+      (
+        github.event.action == 'unlabeled' && github.event.label.name == 'agent:codex'
+      ) ||
+      (
+        (github.event.action == 'opened' || github.event.action == 'reopened') &&
+        contains(toJson(github.event.issue.labels.*.name), 'agent:codex')
+      )
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
