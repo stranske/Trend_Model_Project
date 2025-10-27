@@ -402,15 +402,16 @@ def test_agent_task_template_auto_labels_codex():
 
 def test_issue_intake_guard_checks_agent_label():
     text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(encoding="utf-8")
-    # The workflow must check for agent:codex in the issue's labels array
+    # The workflow must check for agent:* prefix in the issue's labels array
     # This handles all issue events (opened, labeled, reopened, etc.) and
     # solves the problem of multiple labels being added simultaneously
+    # It also generalizes to support any agent (codex, claude, etc.)
     assert (
         "github.event.issue.labels" in text
-    ), "Issue intake must check issue.labels array for agent:codex"
+    ), "Issue intake must check issue.labels array for agent:* labels"
     assert (
-        "agent:codex" in text
-    ), "Issue intake must specifically check for agent:codex label"
+        "agent:" in text
+    ), "Issue intake must check for agent: prefix to match any agent label"
 
 
 def test_reusable_agents_jobs_have_timeouts():

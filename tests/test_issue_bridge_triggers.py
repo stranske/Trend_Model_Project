@@ -93,11 +93,11 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             "Condition must check the issue's labels array",
         )
 
-        # Check that condition checks for agent:codex label
+        # Check that condition checks for agent: prefix (any agent label)
         self.assertIn(
-            "agent:codex",
+            "agent:",
             clean_condition,
-            "Condition must check for agent:codex label",
+            "Condition must check for agent: prefix to match any agent label",
         )
 
     def test_condition_handles_opened_with_agent_label(self) -> None:
@@ -106,7 +106,7 @@ class TestIssueBridgeTriggers(unittest.TestCase):
 
         # The condition should check the issue's labels array for ALL issue events
         # This ensures that even if a different label triggers the workflow,
-        # it will still run if agent:codex is present in the issue's labels
+        # it will still run if ANY agent:* label is present in the issue's labels
         self.assertIn(
             "github.event.issue.labels",
             text,
@@ -142,12 +142,13 @@ class TestIssueBridgeTriggers(unittest.TestCase):
         clean_condition = " ".join(str(condition).split())
 
         # The simplified condition should have this structure:
-        # (not issues) OR (issue has agent:codex label)
+        # (not issues) OR (issue has agent:* label)
         #
-        # This means ANY issue event will trigger if the issue has agent:codex,
+        # This means ANY issue event will trigger if the issue has any agent:* label,
         # regardless of which specific label triggered the event.
         # This handles the case where multiple labels are added simultaneously
         # and a different label (like agents:keepalive) triggers the workflow.
+        # It also generalizes to support agent:codex, agent:claude, etc.
 
         # Check for OR operator
         self.assertIn(
@@ -159,12 +160,12 @@ class TestIssueBridgeTriggers(unittest.TestCase):
     def test_chatgpt_sync_issues_format_works(self) -> None:
         """
         Ensure issues created by chatgpt_sync (which don't initially have
-        agent:codex) can be processed when the label is manually added.
+        agent labels) can be processed when an agent label is manually added.
         """
         # chatgpt_sync creates issues WITHOUT agent labels, per PR #3090
-        # Users then manually add agent:codex from the Issues tab
+        # Users then manually add agent:codex, agent:claude, etc. from the Issues tab
         # ANY labeled event will trigger the workflow, and it will proceed
-        # if agent:codex is present in the issue's labels array
+        # if ANY agent:* label is present in the issue's labels array
 
         data = self._load_workflow()
         jobs = data.get("jobs", {})
@@ -175,7 +176,28 @@ class TestIssueBridgeTriggers(unittest.TestCase):
         self.assertIn(
             "github.event.issue.labels",
             condition,
-            "Condition must check issue.labels array for agent:codex presence",
+            "Condition must check issue.labels array for agent:* label presence",
+        )
+
+    def test_condition_supports_any_agent_label(self) -> None:
+        """Ensure condition works with any agent:* label (codex, claude, etc.)."""
+        data = self._load_workflow()
+        jobs = data.get("jobs", {})
+        normalize_job = jobs.get("normalize_inputs", {})
+        condition = normalize_job.get("if", "")
+
+        # The condition should check for 'agent:' prefix, not a specific agent
+        self.assertIn(
+            "agent:",
+            condition,
+            "Condition must check for agent: prefix to support any agent label",
+        )
+
+        # Should NOT hard-code a specific agent name
+        self.assertNotIn(
+            "agent:codex",
+            condition,
+            "Condition should not hard-code agent:codex, use prefix instead",
         )
 
 

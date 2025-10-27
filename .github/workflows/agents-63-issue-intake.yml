@@ -105,7 +105,7 @@ jobs:
   normalize_inputs:
     if: >
       github.event_name != 'issues' ||
-      contains(toJson(github.event.issue.labels.*.name), 'agent:codex')
+      contains(toJson(github.event.issue.labels.*.name), 'agent:')
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
