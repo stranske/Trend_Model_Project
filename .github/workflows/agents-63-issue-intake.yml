@@ -127,6 +127,17 @@ jobs:
     steps:
       - name: Normalize inputs
         id: normalize
+        env:
+          INPUT_INTAKE_MODE: ${{ inputs.intake_mode }}
+          INPUT_SOURCE: ${{ inputs.source }}
+          INPUT_REPO_FILE: ${{ inputs.repo_file }}
+          INPUT_RAW_INPUT: ${{ inputs.raw_input }}
+          INPUT_SOURCE_URL: ${{ inputs.source_url }}
+          INPUT_DEBUG: ${{ inputs.debug }}
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INPUT_POST_CODEX_COMMENT: ${{ inputs.post_codex_comment }}
+          INPUT_BRIDGE_AGENT: ${{ inputs.bridge_agent }}
+          INPUT_BRIDGE_DRAFT_PR: ${{ inputs.bridge_draft_pr }}
         run: |
           # Handle boolean inputs from workflow_dispatch vs workflow_call
           normalize_bool() {
