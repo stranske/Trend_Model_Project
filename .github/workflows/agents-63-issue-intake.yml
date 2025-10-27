@@ -106,11 +106,15 @@ jobs:
     if: >
       github.event_name != 'issues' ||
       (
-        (github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+        github.event.action == 'labeled' &&
         (
           contains(format('{0}', github.event.label.name), 'agent:codex') ||
           contains(format('{0}', github.event.label.name), 'agents:codex')
         )
+      ) ||
+      (
+        (github.event.action == 'opened' || github.event.action == 'reopened') &&
+        contains(toJson(github.event.issue.labels.*.name), 'agent:codex')
       )
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
