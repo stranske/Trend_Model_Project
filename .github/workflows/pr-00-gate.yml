@@ -47,7 +47,7 @@ jobs:
       - name: Detect Docker-related changes via paths filter
         if: github.event_name == 'pull_request'
         id: docker_paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: ${{ github.event.pull_request.base.sha }}
@@ -68,7 +68,7 @@ jobs:
       - name: Detect Python CI changes via paths filter
         if: github.event_name == 'pull_request'
         id: python_paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: ${{ github.event.pull_request.base.sha }}
