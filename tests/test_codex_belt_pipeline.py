@@ -78,7 +78,9 @@ def test_dispatcher_is_reusable_only_and_exposes_worker_context():
 
     outputs = dispatch_job.get("outputs") or {}
     for key in {"issue", "branch", "base", "reason", "dry_run"}:
-        assert key in outputs, f"Dispatcher must expose '{key}' output for orchestrator hand-off"
+        assert (
+            key in outputs
+        ), f"Dispatcher must expose '{key}' output for orchestrator hand-off"
 
 
 def test_worker_keeps_concurrency_and_pat_guard():
