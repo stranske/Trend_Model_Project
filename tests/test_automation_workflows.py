@@ -172,7 +172,6 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
                 "docker-smoke",
                 "ledger-validation",
                 "summary",
-                "autofix",
             },
         )
 
