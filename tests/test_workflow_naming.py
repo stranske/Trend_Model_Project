@@ -167,39 +167,8 @@ def test_workflow_display_names_are_unique():
     assert not duplicates, f"Duplicate workflow display names detected: {duplicates}"
 
 
-def test_chatgpt_issue_sync_workflow_present_and_intact():
-    """Verify ChatGPT issue sync delegates to the shared intake workflow."""
-    sync_path = WORKFLOW_DIR / "agents-63-chatgpt-issue-sync.yml"
-    assert (
-        sync_path.exists()
-    ), "agents-63-chatgpt-issue-sync.yml must remain in the workflow inventory"
-
-    # The sync workflow now delegates to the shared intake workflow
-    sync_text = sync_path.read_text(encoding="utf-8")
-    assert (
-        "agents-63-issue-intake.yml" in sync_text
-    ), "Sync workflow must delegate to agents-63-issue-intake.yml"
-
-    # The actual input normalization happens in the intake workflow
-    intake_path = WORKFLOW_DIR / "agents-63-issue-intake.yml"
-    assert (
-        intake_path.exists()
-    ), "agents-63-issue-intake.yml must exist for shared intake logic"
-    intake_text = intake_path.read_text(encoding="utf-8")
-    assert (
-        ".github/scripts/decode_raw_input.py" in intake_text
-    ), "Intake workflow must normalize input using decode_raw_input.py"
-    assert (
-        ".github/scripts/parse_chatgpt_topics.py" in intake_text
-    ), "Workflow must parse topics via parse_chatgpt_topics.py"
-    assert (
-        "github.rest.issues.create" in intake_text
-    ), "Workflow must create or update GitHub issues"
-
-
 EXPECTED_NAMES = {
     "agents-guard.yml": "Health 45 Agents Guard",
-    "agents-63-chatgpt-issue-sync.yml": "Agents 63 ChatGPT Issue Sync",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-pr-comment-commands.yml": "Agents PR comment commands (retired)",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",

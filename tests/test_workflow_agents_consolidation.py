@@ -139,6 +139,18 @@ def test_issue_intake_handles_codex_events():
     assert (
         "agent:codex" in text and "agents:codex" in text
     ), "Issue intake must guard on the codex agent labels"
+    assert (
+        ".github/scripts/decode_raw_input.py" in text
+    ), "Issue intake must normalize ChatGPT payloads"
+    assert (
+        ".github/scripts/parse_chatgpt_topics.py" in text
+    ), "Issue intake must parse ChatGPT topics"
+    assert (
+        "github.rest.issues.create" in text
+    ), "Issue intake must create or update GitHub issues"
+    assert (
+        "./.github/workflows/reusable-agents-issue-bridge.yml" in text
+    ), "Issue intake must invoke the reusable agents issue bridge"
 
 
 def test_codex_bootstrap_lite_surfaces_keepalive_mode():
