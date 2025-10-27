@@ -173,7 +173,7 @@ jobs:
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Resolve dispatch parameters
         id: resolve
         uses: actions/github-script@v7
@@ -394,7 +394,7 @@ jobs:
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Append dispatch summary
         uses: actions/github-script@v7
@@ -426,7 +426,7 @@ jobs:
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Identify ready Codex PRs
         id: scan
         uses: actions/github-script@v7
