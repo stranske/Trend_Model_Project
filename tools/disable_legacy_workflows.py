@@ -46,13 +46,11 @@ API_VERSION = "2022-11-28"
 # Canonical workflow inventory (filenames under .github/workflows/)
 CANONICAL_WORKFLOW_FILES: Set[str] = {
     "agents-63-issue-intake.yml",
-    "agents-64-pr-comment-commands.yml",
     "agents-64-verify-agent-assignment.yml",
     "agents-70-orchestrator.yml",
     "agents-71-codex-belt-dispatcher.yml",
     "agents-72-codex-belt-worker.yml",
     "agents-73-codex-belt-conveyor.yml",
-    "agents-74-pr-body-writer.yml",
     "agents-guard.yml",
     "agents-pr-meta.yml",
     "autofix.yml",
@@ -84,8 +82,6 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Agents 71 Codex Belt Dispatcher",
     "Agents 72 Codex Belt Worker",
     "Agents 73 Codex Belt Conveyor",
-    "Agents PR comment commands (retired)",
-    "Agents PR body writer (retired)",
     "Agents PR meta manager",
     "CI Autofix Loop",
     "Health 45 Agents Guard",

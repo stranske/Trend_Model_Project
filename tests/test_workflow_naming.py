@@ -170,13 +170,11 @@ def test_workflow_display_names_are_unique():
 EXPECTED_NAMES = {
     "agents-guard.yml": "Health 45 Agents Guard",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
-    "agents-64-pr-comment-commands.yml": "Agents PR comment commands (retired)",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "agents-71-codex-belt-dispatcher.yml": "Agents 71 Codex Belt Dispatcher",
     "agents-72-codex-belt-worker.yml": "Agents 72 Codex Belt Worker",
     "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
-    "agents-74-pr-body-writer.yml": "Agents PR body writer (retired)",
     "agents-pr-meta.yml": "Agents PR meta manager",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
