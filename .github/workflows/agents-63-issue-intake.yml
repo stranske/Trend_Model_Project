@@ -45,10 +45,107 @@ on:
         required: false
       owner_pr_pat:
         required: false
+  workflow_dispatch:
+    inputs:
+      intake_mode:
+        description: "Select intake target: chatgpt_sync or codex_bridge"
+        required: true
+        type: choice
+        options:
+          - chatgpt_sync
+          - codex_bridge
+      repo_file:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
+      raw_input:
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
+        required: false
+        type: string
+      source_url:
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+        required: false
+        type: string
+      debug:
+        description: "Enable verbose debug diagnostics"
+        required: false
+        type: boolean
+        default: false
+      issue_number:
+        description: "Optional explicit issue number when running Codex bridge manually"
+        required: false
+        type: string
+      post_codex_comment:
+        description: "Auto-post '@codex start' as the actor (true/false)"
+        required: false
+        type: boolean
+        default: true
+      bridge_agent:
+        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        required: false
+        type: string
+        default: "codex"
+      bridge_draft_pr:
+        description: "Open Codex bootstrap PRs as draft (true/false)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  normalize_inputs:
+    name: Normalize workflow inputs
+    runs-on: ubuntu-latest
+    outputs:
+      intake_mode: ${{ steps.normalize.outputs.intake_mode }}
+      repo_file: ${{ steps.normalize.outputs.repo_file }}
+      raw_input: ${{ steps.normalize.outputs.raw_input }}
+      source_url: ${{ steps.normalize.outputs.source_url }}
+      debug: ${{ steps.normalize.outputs.debug }}
+      issue_number: ${{ steps.normalize.outputs.issue_number }}
+      post_codex_comment: ${{ steps.normalize.outputs.post_codex_comment }}
+      bridge_agent: ${{ steps.normalize.outputs.bridge_agent }}
+      bridge_draft_pr: ${{ steps.normalize.outputs.bridge_draft_pr }}
+    steps:
+      - name: Normalize inputs
+        id: normalize
+        run: |
+          # Handle boolean inputs from workflow_dispatch vs workflow_call
+          debug="${{ inputs.debug }}"
+          if [ "$debug" = "true" ] || [ "$debug" = "True" ] || [ "$debug" = "TRUE" ]; then
+            debug="true"
+          else
+            debug="false"
+          fi
+          
+          post_codex="${{ inputs.post_codex_comment }}"
+          if [ "$post_codex" = "true" ] || [ "$post_codex" = "True" ] || [ "$post_codex" = "TRUE" ]; then
+            post_codex="true"
+          else
+            post_codex="false"
+          fi
+          
+          draft_pr="${{ inputs.bridge_draft_pr }}"
+          if [ "$draft_pr" = "true" ] || [ "$draft_pr" = "True" ] || [ "$draft_pr" = "TRUE" ]; then
+            draft_pr="true"
+          else
+            draft_pr="false"
+          fi
+          
+          {
+            echo "intake_mode=${{ inputs.intake_mode }}"
+            echo "repo_file=${{ inputs.repo_file }}"
+            echo "raw_input=${{ inputs.raw_input }}"
+            echo "source_url=${{ inputs.source_url }}"
+            echo "debug=$debug"
+            echo "issue_number=${{ inputs.issue_number }}"
+            echo "post_codex_comment=$post_codex"
+            echo "bridge_agent=${{ inputs.bridge_agent || 'codex' }}"
+            echo "bridge_draft_pr=$draft_pr"
+          } >> "$GITHUB_OUTPUT"
+
   chatgpt_sync:
-    if: inputs.intake_mode == 'chatgpt_sync'
+    needs: normalize_inputs
+    if: needs.normalize_inputs.outputs.intake_mode == 'chatgpt_sync'
     name: Normalize ChatGPT topics into GitHub issues
     runs-on: ubuntu-latest
     concurrency:
@@ -64,15 +161,15 @@ jobs:
 
       - name: Echo received inputs
         run: |
-          echo "Inputs JSON:" '${{ toJson(inputs) }}'
+          echo "Inputs JSON:" '${{ toJson(needs.normalize_inputs.outputs) }}'
           echo "Selected ref: ${GITHUB_REF}"
 
       - name: Prepare topic source
         env:
-          RAW_INPUT_JSON: ${{ toJson(inputs.raw_input) }}
-          SOURCE_URL: ${{ inputs.source_url }}
-          REPO_FILE: ${{ inputs.repo_file }}
-          DEBUG_FLAG: ${{ inputs.debug }}
+          RAW_INPUT_JSON: ${{ toJson(needs.normalize_inputs.outputs.raw_input) }}
+          SOURCE_URL: ${{ needs.normalize_inputs.outputs.source_url }}
+          REPO_FILE: ${{ needs.normalize_inputs.outputs.repo_file }}
+          DEBUG_FLAG: ${{ needs.normalize_inputs.outputs.debug }}
         run: |
           set -euo pipefail
           echo "Ref: ${GITHUB_REF} Commit: ${GITHUB_SHA}" >&2
@@ -108,7 +205,7 @@ jobs:
           fi
 
       - name: Debug artifacts (raw/decoded)
-        if: ${{ inputs.debug == 'true' }}
+        if: ${{ needs.normalize_inputs.outputs.debug == 'true' }}
         run: |
           echo '--- DEBUG: file inventory ---'
           # shellcheck disable=SC2012
@@ -131,7 +228,7 @@ jobs:
           fi
 
       - name: Upload debug artifacts
-        if: ${{ always() && inputs.debug == 'true' }}
+        if: ${{ always() && needs.normalize_inputs.outputs.debug == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: chatgpt-sync-debug
@@ -954,7 +1051,8 @@ jobs:
             }
 
   bridge_preflight:
-    if: inputs.intake_mode == 'codex_bridge'
+    needs: normalize_inputs
+    if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
     name: Validate Codex issue labels
     runs-on: ubuntu-latest
     permissions:
@@ -967,8 +1065,8 @@ jobs:
       - name: Inspect label contract
         id: inspect
         env:
-          INPUT_ISSUE: ${{ inputs.issue_number }}
-          DEFAULT_AGENT: ${{ inputs.bridge_agent || 'codex' }}
+          INPUT_ISSUE: ${{ needs.normalize_inputs.outputs.issue_number }}
+          DEFAULT_AGENT: ${{ needs.normalize_inputs.outputs.bridge_agent }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -1001,15 +1099,15 @@ jobs:
             core.setOutput('agent_key', agentLabel.replace(/^agents?:/, ''));
 
   codex_bridge:
-    if: inputs.intake_mode == 'codex_bridge'
-    needs: bridge_preflight
+    needs: [normalize_inputs, bridge_preflight]
+    if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
     uses: ./.github/workflows/reusable-agents-issue-bridge.yml
     with:
-      agent: ${{ inputs.bridge_agent != '' && inputs.bridge_agent || needs.bridge_preflight.outputs.agent_key || 'codex' }}
-      issue_number: ${{ inputs.issue_number != '' && inputs.issue_number || needs.bridge_preflight.outputs.issue_number || '' }}
+      agent: ${{ needs.normalize_inputs.outputs.bridge_agent != '' && needs.normalize_inputs.outputs.bridge_agent || needs.bridge_preflight.outputs.agent_key || 'codex' }}
+      issue_number: ${{ needs.normalize_inputs.outputs.issue_number != '' && needs.normalize_inputs.outputs.issue_number || needs.bridge_preflight.outputs.issue_number || '' }}
       mode: 'invite'
-      post_agent_comment: ${{ inputs.post_codex_comment != '' && inputs.post_codex_comment || 'true' }}
-      agent_pr_draft: ${{ inputs.bridge_draft_pr != '' && inputs.bridge_draft_pr || 'false' }}
+      post_agent_comment: ${{ needs.normalize_inputs.outputs.post_codex_comment }}
+      agent_pr_draft: ${{ needs.normalize_inputs.outputs.bridge_draft_pr }}
     secrets:
       service_bot_pat: ${{ secrets.service_bot_pat }}
       owner_pr_pat: ${{ secrets.owner_pr_pat }}
