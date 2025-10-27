@@ -86,49 +86,31 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             "Condition must allow non-issue events (workflow_dispatch/workflow_call)",
         )
 
-        # Check that condition handles 'labeled' events
+        # Check that condition checks the issue's labels array
         self.assertIn(
-            "github.event.action == 'labeled'",
+            "github.event.issue.labels",
             clean_condition,
-            "Condition must check for 'labeled' action",
+            "Condition must check the issue's labels array",
         )
 
-        # Check that condition checks the label name for 'labeled' events
+        # Check that condition checks for agent: prefix (any agent label)
         self.assertIn(
-            "github.event.label.name",
+            "agent:",
             clean_condition,
-            "Condition must check the specific label being added",
-        )
-
-        # Check that condition checks for agent:codex label
-        self.assertIn(
-            "agent:codex",
-            clean_condition,
-            "Condition must check for agent:codex label",
+            "Condition must check for agent: prefix to match any agent label",
         )
 
     def test_condition_handles_opened_with_agent_label(self) -> None:
-        """Ensure condition checks issue labels for opened/reopened events."""
+        """Ensure condition checks issue labels for all issue events."""
         text = self.intake_workflow.read_text(encoding="utf-8")
 
-        # The condition should handle opened/reopened events differently
-        # For these, it needs to check the issue's labels array
-        self.assertIn(
-            "github.event.action == 'opened'",
-            text,
-            "Condition must handle 'opened' action",
-        )
-        self.assertIn(
-            "github.event.action == 'reopened'",
-            text,
-            "Condition must handle 'reopened' action",
-        )
-
-        # For opened/reopened, we need to check the issue's labels array
+        # The condition should check the issue's labels array for ALL issue events
+        # This ensures that even if a different label triggers the workflow,
+        # it will still run if ANY agent:* label is present in the issue's labels
         self.assertIn(
             "github.event.issue.labels",
             text,
-            "Condition must check issue labels for opened/reopened events",
+            "Condition must check issue labels for all issue events",
         )
 
     def test_condition_does_not_trigger_on_unlabeled(self) -> None:
@@ -159,40 +141,63 @@ class TestIssueBridgeTriggers(unittest.TestCase):
         # Clean up for easier parsing
         clean_condition = " ".join(str(condition).split())
 
-        # The condition should have this structure:
-        # (not issues) OR (labeled with agent:codex) OR (opened/reopened with agent:codex)
+        # The simplified condition should have this structure:
+        # (not issues) OR (issue has agent:* label)
+        #
+        # This means ANY issue event will trigger if the issue has any agent:* label,
+        # regardless of which specific label triggered the event.
+        # This handles the case where multiple labels are added simultaneously
+        # and a different label (like agents:keepalive) triggers the workflow.
+        # It also generalizes to support agent:codex, agent:claude, etc.
 
-        # Check for OR operators separating the three cases
-        or_count = clean_condition.count("||")
-        self.assertGreaterEqual(
-            or_count,
-            2,
-            "Condition should have at least 2 OR operators to separate the three cases",
+        # Check for OR operator
+        self.assertIn(
+            "||",
+            clean_condition,
+            "Condition should have an OR operator separating the two cases",
         )
 
     def test_chatgpt_sync_issues_format_works(self) -> None:
         """
         Ensure issues created by chatgpt_sync (which don't initially have
-        agent:codex) can be processed when the label is manually added.
+        agent labels) can be processed when an agent label is manually added.
         """
-        # This is tested implicitly by test_condition_handles_opened_with_agent_label
-        # and test_normalize_job_has_correct_condition, but we document the requirement
-        # here for clarity.
-
         # chatgpt_sync creates issues WITHOUT agent labels, per PR #3090
-        # Users then manually add agent:codex from the Issues tab
-        # The 'labeled' event should trigger the workflow
+        # Users then manually add agent:codex, agent:claude, etc. from the Issues tab
+        # ANY labeled event will trigger the workflow, and it will proceed
+        # if ANY agent:* label is present in the issue's labels array
 
         data = self._load_workflow()
         jobs = data.get("jobs", {})
         normalize_job = jobs.get("normalize_inputs", {})
         condition = normalize_job.get("if", "")
 
-        # Verify labeled event is handled
+        # Verify the condition checks the issue's labels array
         self.assertIn(
-            "labeled",
+            "github.event.issue.labels",
             condition,
-            "Condition must handle 'labeled' action for manual label addition",
+            "Condition must check issue.labels array for agent:* label presence",
+        )
+
+    def test_condition_supports_any_agent_label(self) -> None:
+        """Ensure condition works with any agent:* label (codex, claude, etc.)."""
+        data = self._load_workflow()
+        jobs = data.get("jobs", {})
+        normalize_job = jobs.get("normalize_inputs", {})
+        condition = normalize_job.get("if", "")
+
+        # The condition should check for 'agent:' prefix, not a specific agent
+        self.assertIn(
+            "agent:",
+            condition,
+            "Condition must check for agent: prefix to support any agent label",
+        )
+
+        # Should NOT hard-code a specific agent name
+        self.assertNotIn(
+            "agent:codex",
+            condition,
+            "Condition should not hard-code agent:codex, use prefix instead",
         )
 
 
