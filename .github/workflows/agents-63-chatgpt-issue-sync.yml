@@ -4,7 +4,7 @@ name: Agents 63 ChatGPT Issue Sync
 on:
   workflow_dispatch:
     inputs:
-      repo_file:
+      source:
         description: "Primary: path (in repo) to topics file (preferred for large lists)"
         required: false
         type: string
@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/agents-63-issue-intake.yml
     with:
       intake_mode: chatgpt_sync
-      repo_file: ${{ github.event.inputs.repo_file }}
+      source: ${{ github.event.inputs.source }}
       raw_input: ${{ github.event.inputs.raw_input }}
       source_url: ${{ github.event.inputs.source_url }}
       debug: ${{ github.event.inputs.debug && 'true' || 'false' }}

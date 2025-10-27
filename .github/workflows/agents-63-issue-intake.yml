@@ -3,103 +3,120 @@ name: Agents 63 Issue Intake
 
 on:
   issues:
-    types: [opened, labeled, reopened]
-  workflow_call:
-    inputs:
-      intake_mode:
-        description: "Select intake target: chatgpt_sync or codex_bridge"
-        required: true
-        type: string
-      repo_file:
-        description: "Primary: path (in repo) to topics file (preferred for large lists)"
-        required: false
-        type: string
-      raw_input:
-        description: "Secondary: small pasted topic list (may truncate around 1KB)"
-        required: false
-        type: string
-      source_url:
-        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
-        required: false
-        type: string
-      debug:
-        description: "Enable verbose debug diagnostics"
-        required: false
-        type: string
-      issue_number:
-        description: "Optional explicit issue number when running Codex bridge manually"
-        required: false
-        type: string
-      post_codex_comment:
-        description: "Auto-post '@codex start' as the actor (true/false)"
-        required: false
-        type: string
-      bridge_agent:
-        description: "Agent key passed to the reusable bridge workflow (default codex)"
-        required: false
-        type: string
-      bridge_draft_pr:
-        description: "Open Codex bootstrap PRs as draft (true/false)"
-        required: false
-        type: string
-    secrets:
-      service_bot_pat:
-        required: false
-      owner_pr_pat:
-        required: false
-  workflow_dispatch:
-    inputs:
-      intake_mode:
-        description: "Select intake target: chatgpt_sync or codex_bridge"
-        required: true
-        type: choice
-        options:
-          - chatgpt_sync
-          - codex_bridge
-      repo_file:
-        description: "Primary: path (in repo) to topics file (preferred for large lists)"
-        required: false
-        type: string
-      raw_input:
-        description: "Secondary: small pasted topic list (may truncate around 1KB)"
-        required: false
-        type: string
-      source_url:
-        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
-        required: false
-        type: string
-      debug:
-        description: "Enable verbose debug diagnostics"
-        required: false
-        type: boolean
-        default: false
-      issue_number:
-        description: "Optional explicit issue number when running Codex bridge manually"
-        required: false
-        type: string
-      post_codex_comment:
-        description: "Auto-post '@codex start' as the actor (true/false)"
-        required: false
-        type: boolean
-        default: true
-      bridge_agent:
-        description: "Agent key passed to the reusable bridge workflow (default codex)"
-        required: false
-        type: string
-        default: "codex"
-      bridge_draft_pr:
-        description: "Open Codex bootstrap PRs as draft (true/false)"
-        required: false
-        type: boolean
-        default: false
+    types:
+      - opened
+      - labeled
+      - reopened
+
+concurrency:
+  group: >
+    issue-${{ github.event.issue.number || github.run_id }}-intake
+  cancel-in-progress: true
+workflow_call:
+  inputs:
+    intake_mode:
+      description: "Select intake target: chatgpt_sync or codex_bridge"
+      required: true
+      type: string
+    source:
+      description: "Primary: path (in repo) to topics file (preferred for large lists)"
+      required: false
+      type: string
+    raw_input:
+      description: "Secondary: small pasted topic list (may truncate around 1KB)"
+      required: false
+      type: string
+    source_url:
+      description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+      required: false
+      type: string
+    debug:
+      description: "Enable verbose debug diagnostics"
+      required: false
+      type: string
+    issue_number:
+      description: "Optional explicit issue number when running Codex bridge manually"
+      required: false
+      type: string
+    post_codex_comment:
+      description: "Auto-post '@codex start' as the actor (true/false)"
+      required: false
+      type: string
+    bridge_agent:
+      description: "Agent key passed to the reusable bridge workflow (default codex)"
+      required: false
+      type: string
+    bridge_draft_pr:
+      description: "Open Codex bootstrap PRs as draft (true/false)"
+      required: false
+      type: string
+  secrets:
+    service_bot_pat:
+      required: false
+    owner_pr_pat:
+      required: false
+workflow_dispatch:
+  inputs:
+    intake_mode:
+      description: "Select intake target: chatgpt_sync or codex_bridge"
+      required: true
+      type: choice
+      options:
+        - chatgpt_sync
+        - codex_bridge
+    source:
+      description: "Primary: path (in repo) to topics file (preferred for large lists)"
+      required: false
+      type: string
+    raw_input:
+      description: "Secondary: small pasted topic list (may truncate around 1KB)"
+      required: false
+      type: string
+    source_url:
+      description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+      required: false
+      type: string
+    debug:
+      description: "Enable verbose debug diagnostics"
+      required: false
+      type: boolean
+      default: false
+    issue_number:
+      description: "Optional explicit issue number when running Codex bridge manually"
+      required: false
+      type: string
+    post_codex_comment:
+      description: "Auto-post '@codex start' as the actor (true/false)"
+      required: false
+      type: boolean
+      default: true
+    bridge_agent:
+      description: "Agent key passed to the reusable bridge workflow (default codex)"
+      required: false
+      type: string
+      default: "codex"
+    bridge_draft_pr:
+      description: "Open Codex bootstrap PRs as draft (true/false)"
+      required: false
+      type: boolean
+      default: false
 
 jobs:
   normalize_inputs:
+    if: >
+      github.event_name != 'issues' ||
+      (
+        (github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+        (
+          contains(format('{0}', github.event.label.name), 'agent:codex') ||
+          contains(format('{0}', github.event.label.name), 'agents:codex')
+        )
+      )
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
       intake_mode: ${{ steps.normalize.outputs.intake_mode }}
-      repo_file: ${{ steps.normalize.outputs.repo_file }}
+      source: ${{ steps.normalize.outputs.source }}
       raw_input: ${{ steps.normalize.outputs.raw_input }}
       source_url: ${{ steps.normalize.outputs.source_url }}
       debug: ${{ steps.normalize.outputs.debug }}
@@ -124,7 +141,8 @@ jobs:
           event_name="${GITHUB_EVENT_NAME}"
 
           intake_mode="${INPUT_INTAKE_MODE:-}"
-          repo_file="${INPUT_REPO_FILE:-}"
+          source_input="${INPUT_SOURCE:-}"
+          legacy_repo_file="${INPUT_REPO_FILE:-}"
           raw_input="${INPUT_RAW_INPUT:-}"
           source_url="${INPUT_SOURCE_URL:-}"
           debug=$(normalize_bool "${INPUT_DEBUG:-}")
@@ -143,6 +161,10 @@ jobs:
 
           if [ -z "$bridge_agent" ]; then
             bridge_agent="codex"
+          fi
+
+          if [ -z "$source_input" ] && [ -n "$legacy_repo_file" ]; then
+            source_input="$legacy_repo_file"
           fi
 
           if [ -z "$intake_mode" ]; then
@@ -164,7 +186,7 @@ jobs:
 
           {
             echo "intake_mode=$intake_mode"
-            echo "repo_file=$repo_file"
+            echo "source=$source_input"
             echo "raw_input=$raw_input"
             echo "source_url=$source_url"
             echo "debug=$debug"
@@ -199,18 +221,18 @@ jobs:
         env:
           RAW_INPUT_JSON: ${{ toJson(needs.normalize_inputs.outputs.raw_input) }}
           SOURCE_URL: ${{ needs.normalize_inputs.outputs.source_url }}
-          REPO_FILE: ${{ needs.normalize_inputs.outputs.repo_file }}
+          SOURCE_PATH: ${{ needs.normalize_inputs.outputs.source }}
           DEBUG_FLAG: ${{ needs.normalize_inputs.outputs.debug }}
         run: |
           set -euo pipefail
           echo "Ref: ${GITHUB_REF} Commit: ${GITHUB_SHA}" >&2
           echo "Debug input (raw): '${DEBUG_FLAG}'" >&2
-          # Precedence: repo_file > raw_input > source_url
-          if [ -n "${REPO_FILE}" ]; then
-            if [ -f "${REPO_FILE}" ]; then
-              python .github/scripts/decode_raw_input.py --passthrough --in "${REPO_FILE}" --source repo_file
+          # Precedence: source > raw_input > source_url
+          if [ -n "${SOURCE_PATH}" ]; then
+            if [ -f "${SOURCE_PATH}" ]; then
+              python .github/scripts/decode_raw_input.py --passthrough --in "${SOURCE_PATH}" --source repo_file
             else
-              echo "::error::repo_file '${REPO_FILE}' not found in repository." >&2; exit 1
+              echo "::error::source '${SOURCE_PATH}' not found in repository." >&2; exit 1
             fi
           elif [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
             printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
@@ -222,7 +244,7 @@ jobs:
             fi
             python .github/scripts/decode_raw_input.py --passthrough --in "$tmp_dl" --source source_url
           else
-            echo "::error::Provide one of repo_file, raw_input, or source_url when dispatching this workflow." >&2; exit 1
+            echo "::error::Provide one of source, raw_input, or source_url when dispatching this workflow." >&2; exit 1
           fi
           if ! [ -s input.txt ]; then
             echo "::error::The provided input was empty." >&2
@@ -231,7 +253,7 @@ jobs:
           if [ -f raw_input.json ]; then
             size=$(wc -c < raw_input.json || echo 0)
             if [ "$size" -ge 1024 ]; then
-              echo "::warning::raw_input size is $size bytes (possible truncation). Prefer repo_file or source_url." >&2
+              echo "::warning::raw_input size is $size bytes (possible truncation). Prefer source or source_url." >&2
             fi
           fi
 
