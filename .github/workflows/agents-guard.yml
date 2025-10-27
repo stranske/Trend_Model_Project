@@ -31,6 +31,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout base ref for safety validation
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: |
+            .github/scripts/agents-guard.js
+
       - name: Verify pull_request_target safety invariants
         if: github.event_name == 'pull_request_target'
         uses: actions/github-script@v7
@@ -46,6 +54,13 @@ jobs:
               workflowPath: '.github/workflows/agents-guard.yml',
               workspaceRoot: workspace,
             });
+
+      - name: Checkout PR head for pull_request event
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/agents-guard.js
 
       - name: Evaluate protected file changes
         id: evaluate

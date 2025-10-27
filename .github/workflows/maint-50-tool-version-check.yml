@@ -36,6 +36,8 @@ jobs:
           source .github/workflows/autofix-versions.env
           echo "black_current=${BLACK_VERSION}" >> "$GITHUB_OUTPUT"
           echo "ruff_current=${RUFF_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "isort_current=${ISORT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "docformatter_current=${DOCFORMATTER_VERSION}" >> "$GITHUB_OUTPUT"
           echo "mypy_current=${MYPY_VERSION}" >> "$GITHUB_OUTPUT"
           echo "pytest_current=${PYTEST_VERSION}" >> "$GITHUB_OUTPUT"
           echo "pytest_cov_current=${PYTEST_COV_VERSION}" >> "$GITHUB_OUTPUT"
@@ -62,6 +64,8 @@ jobs:
           packages = {
               'black': 'black_latest',
               'ruff': 'ruff_latest',
+              'docformatter': 'docformatter_latest',
+              'isort': 'isort_latest',
               'mypy': 'mypy_latest',
               'pytest': 'pytest_latest',
               'pytest-cov': 'pytest_cov_latest',
@@ -89,6 +93,8 @@ jobs:
           current = {
               'black': '${{ steps.current.outputs.black_current }}',
               'ruff': '${{ steps.current.outputs.ruff_current }}',
+              'docformatter': '${{ steps.current.outputs.docformatter_current }}',
+              'isort': '${{ steps.current.outputs.isort_current }}',
               'mypy': '${{ steps.current.outputs.mypy_current }}',
               'pytest': '${{ steps.current.outputs.pytest_current }}',
               'pytest-cov': '${{ steps.current.outputs.pytest_cov_current }}',
@@ -98,6 +104,8 @@ jobs:
           latest = {
               'black': '${{ steps.latest.outputs.black_latest }}',
               'ruff': '${{ steps.latest.outputs.ruff_latest }}',
+              'docformatter': '${{ steps.latest.outputs.docformatter_latest }}',
+              'isort': '${{ steps.latest.outputs.isort_latest }}',
               'mypy': '${{ steps.latest.outputs.mypy_latest }}',
               'pytest': '${{ steps.latest.outputs.pytest_latest }}',
               'pytest-cov': '${{ steps.latest.outputs.pytest_cov_latest }}',
@@ -161,13 +169,17 @@ jobs:
             
             const title = '🔧 CI/Autofix Tool Updates Available';
             
-            const instructionsBlock = '```bash\n' +
-              'source .github/workflows/autofix-versions.env\n' +
-              'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" "mypy==$MYPY_VERSION"\n' +
-              'black --check .\n' +
-              'ruff check .\n' +
-              'mypy src tests\n' +
-              '```';
+            const instructions = [
+              'source .github/workflows/autofix-versions.env',
+              'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" ' +
+                '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" ' +
+                '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" ' +
+                '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
+              'black --check .',
+              'ruff check .',
+              'mypy src tests'
+            ].join('\n');
+            const instructionsBlock = '```bash\n' + instructions + '\n```';
             
             const body = report + '\n\n' +
               '### Updates Available\n\n' +
