@@ -366,7 +366,7 @@ fires where” without diving into the full tables:
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
     - **Primary workflows.** `agents-70-orchestrator.yml`, the belt chain (`agents-71/72/73`),
-      the paired `agents-63-*.yml` issue bridges, `agents-64-verify-agent-assignment.yml`,
+      the shared intake plus ChatGPT sync wrappers (`agents-63-issue-intake.yml`, `agents-63-chatgpt-issue-sync.yml`), `agents-64-verify-agent-assignment.yml`,
       and `agents-guard.yml`.
     - **Triggers.** A mix of orchestrator cron/manual dispatches, labelled
       issues, schedules, and guarded pull requests when protected YAML changes.
@@ -376,8 +376,8 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml).
   Keepalive sweeps run inside the orchestrator (see summary notes when the `keepalive:paused`
   label is present or the `keepalive_enabled` flag disables it).
-    Agents 63 bridge:
-    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml).
+    Agents 63 intake:
+    [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-issue-intake.yml).
   Health 45 Agents Guard:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
@@ -550,9 +550,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   invocation. When paused, the orchestrator logs “keepalive skipped” and skips
   the sweep entirely until the label or flag is cleared.
 - **Agents 63 Issue Intake** – `.github/workflows/agents-63-issue-intake.yml`
-  centralises ChatGPT imports and Codex bridge routing via a reusable entry point.
-- **Agents 63 Codex Issue Bridge** – `.github/workflows/agents-63-codex-issue-bridge.yml`
-  turns labelled issues into branches and bootstrap PRs by forwarding to the intake workflow.
+  centralises ChatGPT imports and handles the `agent:codex` label trigger via a
+  single reusable entry point.
 - **Agents 63 ChatGPT Issue Sync** – `.github/workflows/agents-63-chatgpt-issue-sync.yml`
   keeps curated topic files (for example `Issues.txt`) aligned with tracked
   issues by delegating to the intake workflow.
@@ -615,8 +614,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `pull_request`, `workflow_dispatch`, `workflow_call` | Ensure Gate and Health 45 Agents Guard stay required on the default branch. | ⚪ Scheduled via sweep / manual | [Health 44 enforcement logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/20 * * * *`), `workflow_dispatch` | Fan out consumer automation (readiness, diagnostics, keepalive sweep) and dispatch work; honours the `keepalive:paused` label and `keepalive_enabled` flag. | ⚪ Critical surface (triage immediately if red) | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
-| **Agents 63 Issue Intake** (`agents-63-issue-intake.yml`, agents bucket) | `workflow_call` | Shared intake workflow invoked by the ChatGPT sync and Codex bridge wrappers. | ⚪ Critical surface (automation intake) | — |
-| **Agents 63 Codex Issue Bridge** (`agents-63-codex-issue-bridge.yml`, agents bucket) | `issues`, `workflow_dispatch` | Label-triggered wrapper that routes Codex issues into `agents-63-issue-intake.yml`. | ⚪ Critical surface (automation intake) | [Agents 63 bridge logs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-codex-issue-bridge.yml) |
+| **Agents 63 Issue Intake** (`agents-63-issue-intake.yml`, agents bucket) | `issues`, `workflow_call`, `workflow_dispatch` | Canonical front door for agent issue intake. Listens for `agent:codex` labels and services ChatGPT sync requests through the shared normalization pipeline. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-issue-intake.yml) |
 | **Agents 63 ChatGPT Issue Sync** (`agents-63-chatgpt-issue-sync.yml`, agents bucket) | `workflow_dispatch` | Manual wrapper that forwards curated topic lists into `agents-63-issue-intake.yml`. | ⚪ Critical surface (automation intake) | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
 | **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
 | **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/autofix.yml) |
@@ -660,7 +658,7 @@ snapshots for audit trails.
   green, posting the consolidated summary comment as the informational "state of
   CI" snapshot—it is intentionally *not* configured as a required status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
-  to `agents-63-issue-intake.yml`, `agents-63-chatgpt-issue-sync.yml`, `agents-63-codex-issue-bridge.yml`, and
+  to `agents-63-issue-intake.yml`, `agents-63-chatgpt-issue-sync.yml`, and
   `agents-70-orchestrator.yml` stay maintainer gated on top of the immutable
   guardrails.
 - **Types.** When mypy is pinned, run it in the pinned interpreter only to avoid

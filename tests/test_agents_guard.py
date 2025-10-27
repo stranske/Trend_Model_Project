@@ -200,8 +200,8 @@ def test_rename_blocks_with_guidance():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-codex-issue-bridge.yml",
-                "previous_filename": ".github/workflows/agents-63-codex-issue-bridge.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "previous_filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "renamed",
             }
         ],

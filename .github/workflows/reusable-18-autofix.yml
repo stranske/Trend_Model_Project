@@ -87,6 +87,10 @@ on:
         required: false
         default: ''
         type: string
+    secrets:
+      service_bot_pat:
+        description: 'PAT for SERVICE_BOT to trigger workflows on autofix commits'
+        required: true
 
 permissions:
   contents: write
@@ -146,6 +150,7 @@ jobs:
         with:
           ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
+          token: ${{ secrets.service_bot_pat }}
           persist-credentials: true
       - name: Guard against loops (Issue #1347)
         id: guard

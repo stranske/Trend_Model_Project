@@ -14,10 +14,10 @@ remain true after the cleanup.
 ## Trigger Labels
 - Primary issue label: `agent:codex` (case-sensitive). Use it to document that an issue expects Codex handling even though the
   workflow is manually dispatched.
-- Aliases such as `agents:codex` are no longer acted upon automatically but can remain for historical context.
+- Aliases such as `agents:codex` remain supported and trigger the same automation path.
 - Preferred entry point: open the [Agent task issue template](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml)
   so the required `agents` and `agent:codex` labels are applied up front.
-- The template change from Issue #2650 guarantees both labels are present, ensuring the Codex issue bridge triggers and then
+- The template change from Issue #2650 guarantees both labels are present, ensuring the intake workflow triggers and then
   defers work to `agents-70-orchestrator.yml`.
 
 ## PR Hygiene
@@ -31,9 +31,9 @@ remain true after the cleanup.
   variables to the reusable composite.
 
 ## Active Workflows & Actions
-- **Codex issue bridge:** `.github/workflows/agents-63-codex-issue-bridge.yml`
-  - Reacts to `agent:codex` (and `agents:codex`) labels plus manual dispatch.
-  - Creates or reuses Codex bootstrap branches/PRs and posts copyable issue snippets + `@codex start` instructions.
+- **Issue intake:** `.github/workflows/agents-63-issue-intake.yml`
+  - Reacts to `agent:codex` / `agents:codex` labels, manual dispatch, and reusable workflow calls.
+  - Creates or reuses Codex bootstrap branches/PRs, posts copyable issue snippets + `@codex start` instructions, and services ChatGPT sync inputs via the same pipeline.
 - **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
   - 20-minute cron plus manual dispatch.
   - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
@@ -46,8 +46,8 @@ remain true after the cleanup.
   - Handles PAT selection, branch creation (`agents/codex-issue-<num>-<runid>`), marker files, PR authoring, and notification
     comments.
 
-Legacy wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, etc.) remain deleted as
-part of Issue #2190; the dedicated Codex issue bridge was reinstated to restore the label-driven workflow.
+ Legacy wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, etc.) remain deleted as
+part of Issue #2190; the label-driven workflow now lands directly in the shared intake front door.
 
 ## Quick Index
 
