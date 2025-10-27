@@ -6,7 +6,7 @@ on:
     - cron: '5 5 * * 1'
   pull_request:
   push:
-    branches: [phase-2-dev]
+    branches: [phase-2-dev, main]
     paths:
       - '.github/workflows/**/*.yml'
 
