@@ -52,8 +52,15 @@ def _step_runs_command(step: dict[str, Any], needle: str) -> bool:
     return needle in script
 
 
-def test_dispatcher_wires_repo_dispatch_event():
+def test_dispatcher_is_reusable_only_and_exposes_worker_context():
     workflow = _load_workflow("agents-71-codex-belt-dispatcher.yml")
+    triggers = workflow.get("on") or {}
+    assert set(triggers) == {"workflow_call"}
+
+    workflow_call = triggers.get("workflow_call") or {}
+    inputs = workflow_call.get("inputs") or {}
+    assert {"force_issue", "dry_run"}.issubset(inputs)
+
     jobs = workflow.get("jobs") or {}
     dispatch_job = jobs.get("dispatch") or {}
     steps = dispatch_job.get("steps") or []
@@ -65,12 +72,15 @@ def test_dispatcher_wires_repo_dispatch_event():
         guard, "ACTIONS_BOT_PAT secret is required for dispatcher writes."
     ), "Dispatcher must fail early when ACTIONS_BOT_PAT is missing"
 
-    dispatch_steps = [step for step in steps if step.get("name") == "Dispatch worker"]
-    assert dispatch_steps, "Dispatcher must hand off work to the worker"
-    worker_step = dispatch_steps[0]
-    script = (worker_step.get("with") or {}).get("script", "")
-    assert "createDispatchEvent" in script
-    assert "codex-belt.work" in script
+    assert not any(
+        _step_runs_command(step, "createDispatchEvent") for step in steps
+    ), "Dispatcher should no longer emit repository dispatch events"
+
+    outputs = dispatch_job.get("outputs") or {}
+    for key in {"issue", "branch", "base", "reason", "dry_run"}:
+        assert (
+            key in outputs
+        ), f"Dispatcher must expose '{key}' output for orchestrator hand-off"
 
 
 def test_worker_keeps_concurrency_and_pat_guard():
@@ -84,9 +94,7 @@ def test_worker_keeps_concurrency_and_pat_guard():
     assert concurrency.get("cancel-in-progress") is True
 
     events = workflow.get("on") or {}
-    repo_dispatch = events.get("repository_dispatch") or {}
-    types = repo_dispatch.get("types") or []
-    assert "codex-belt.work" in types
+    assert set(events) == {"workflow_call"}
 
     jobs = workflow.get("jobs") or {}
     bootstrap = jobs.get("bootstrap") or {}
