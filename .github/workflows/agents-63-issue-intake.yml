@@ -1095,7 +1095,7 @@ jobs:
     if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
     uses: ./.github/workflows/reusable-agents-issue-bridge.yml
     with:
-      agent: ${{ needs.normalize_inputs.outputs.bridge_agent || needs.bridge_preflight.outputs.agent_key || 'codex' }}
+      agent: ${{ needs.normalize_inputs.outputs.bridge_agent || needs.bridge_preflight.outputs.agent_key }}
       issue_number: ${{ needs.normalize_inputs.outputs.issue_number || needs.bridge_preflight.outputs.issue_number || '' }}
       mode: 'invite'
       post_agent_comment: ${{ needs.normalize_inputs.outputs.post_codex_comment }}
