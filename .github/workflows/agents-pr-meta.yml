@@ -44,6 +44,8 @@ jobs:
           script: |
             const marker = '<!-- codex-activation-marker -->';
             const errorMarker = '<!-- codex-activation-error -->';
+            const aliasCommands = ['/codex run', '/agent run'];
+            const aliasCommandSet = new Set(aliasCommands.map((value) => value.toLowerCase()));
 
             const { payload } = context;
             const { owner, repo } = context.repo;
@@ -60,9 +62,18 @@ jobs:
                 ? 'No `agent:*` label found on this pull request.'
                 : `Multiple agent labels found (${agentLabels.join(', ')}).`;
 
+              const guidance = agentLabels.length === 0
+                ? 'Add exactly one `agent:*` label (for example, `agent:codex`) and re-run the command.'
+                : 'Remove the extra `agent:*` labels so only one remains, then re-run the command.';
+
+              const labelList = agentLabels.length > 0
+                ? `\n\nApplied agent labels: ${agentLabels.join(', ')}`
+                : '';
+
               const body = `${errorMarker}\n`
                 + '**Codex activation blocked**\n\n'
-                + `${reason}`;
+                + `${reason}${labelList}\n\n`
+                + `${guidance}`;
 
               const existingComments = await github.paginate(
                 github.rest.issues.listComments,
@@ -106,8 +117,30 @@ jobs:
 
             const commandPrefix = `@${agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
 
+            const getActivationCommand = (rawText) => {
+              if (!rawText) return null;
+              const trimmed = rawText.trim();
+              if (!trimmed) return null;
+
+              if (trimmed.startsWith(commandPrefix)) {
+                return { type: 'full', value: commandPrefix };
+              }
+
+              const normalizedLines = trimmed
+                .split(/\r?\n+/)
+                .map((line) => line.trim().toLowerCase())
+                .filter(Boolean);
+
+              if (normalizedLines.length > 0 && aliasCommandSet.has(normalizedLines[0])) {
+                return { type: 'alias', value: normalizedLines[0] };
+              }
+
+              return null;
+            };
+
             const bodyText = (comment.body || '').trim();
-            if (!bodyText.startsWith(commandPrefix)) {
+            const activationCommand = getActivationCommand(bodyText);
+            if (!activationCommand) {
               core.setOutput('dispatched', 'false');
               core.setOutput('reason', 'no-match');
               return;
@@ -123,8 +156,8 @@ jobs:
               }
             );
 
-            const matchingComments = comments.filter(c => (c.body || '').trim().startsWith(commandPrefix));
-            if (matchingComments.length === 0 || matchingComments[matchingComments.length - 1].id !== comment.id) {
+            const activationComments = comments.filter(c => getActivationCommand((c.body || '').trim()));
+            if (activationComments.length === 0 || activationComments[activationComments.length - 1].id !== comment.id) {
               core.info('Command superseded by a newer comment; skipping dispatch.');
               core.setOutput('dispatched', 'false');
               core.setOutput('reason', 'superseded');
