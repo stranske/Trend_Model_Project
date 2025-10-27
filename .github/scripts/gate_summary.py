@@ -421,9 +421,7 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
             handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
         else:
             handle.write("failure_checks=\n")
-        handle.write(
-            f"format_failure={'true' if result.format_failure else 'false'}\n"
-        )
+        handle.write(f"format_failure={'true' if result.format_failure else 'false'}\n")
 
 
 def main() -> int:
