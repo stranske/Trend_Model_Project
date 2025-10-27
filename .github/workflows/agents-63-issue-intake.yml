@@ -10,7 +10,7 @@ on:
   workflow_call:
     inputs:
       intake_mode:
-        description: "Select intake target: chatgpt_sync or codex_bridge"
+        description: "Select intake target: chatgpt_sync or agent_bridge"
         required: true
         type: string
       source:
@@ -53,12 +53,12 @@ on:
   workflow_dispatch:
     inputs:
       intake_mode:
-        description: "Select intake target: chatgpt_sync or codex_bridge"
+        description: "Select intake target: chatgpt_sync or agent_bridge"
         required: true
         type: choice
         options:
           - chatgpt_sync
-          - codex_bridge
+          - agent_bridge
       source:
         description: "Primary: path (in repo) to topics file (preferred for large lists)"
         required: false
@@ -180,14 +180,14 @@ jobs:
 
           if [ -z "$intake_mode" ]; then
             if [ "$event_name" = "issues" ]; then
-              intake_mode="codex_bridge"
+              intake_mode="agent_bridge"
             else
               intake_mode="chatgpt_sync"
             fi
           fi
 
           if [ -z "$post_codex_input" ]; then
-            if [ "$intake_mode" = "codex_bridge" ]; then
+            if [ "$intake_mode" = "agent_bridge" ]; then
               post_codex_input="true"
             else
               post_codex_input="false"
@@ -510,6 +510,7 @@ jobs:
             const conflictingAgentTopics = [];
             const eligibleTopics = [];
             let topicsWithAgentLabels = 0;
+            let agentLabelsStripped = 0;
             for (const topic of rawTopics) {
               const labels = Array.isArray(topic.labels) ? topic.labels : [];
               const analysis = analyzeAgentLabels(labels);
@@ -517,72 +518,26 @@ jobs:
               if (entriesWithBase.length > 0) {
                 topicsWithAgentLabels += 1;
               }
-              if (entriesWithBase.length === 0) {
-                missingAgentTopics.push({ topic, analysis });
-                continue;
+              // Strip all agent:* labels - they will be applied manually from Issues tab
+              if (!Array.isArray(topic.labels)) {
+                topic.labels = [];
               }
-              if (entriesWithBase.length > 1) {
-                conflictingAgentTopics.push({ topic, analysis: entriesWithBase });
-                continue;
-              }
+              const originalLength = topic.labels.length;
+              topic.labels = topic.labels.filter((label) => {
+                const lower = normalizeLabel(label);
+                return !agentPrefixes.some((prefix) => lower.startsWith(prefix));
+              });
+              agentLabelsStripped += (originalLength - topic.labels.length);
+              
+              // All topics are eligible - no validation required
               eligibleTopics.push(topic);
             }
             metrics.topics_with_agent_labels = topicsWithAgentLabels;
-            metrics.topics_skipped_without_agent_labels = missingAgentTopics.length;
-            metrics.topics_skipped_for_other_agents = conflictingAgentTopics.length;
-            if (missingAgentTopics.length || conflictingAgentTopics.length) {
-              const errorSegments = [];
-              if (missingAgentTopics.length) {
-                const missingTitles = missingAgentTopics
-                  .map(({ topic }) => (topic && topic.title ? `"${topic.title.trim()}"` : '(untitled topic)'))
-                  .slice(0, 5)
-                  .join(', ');
-                errorSegments.push(
-                  `${missingAgentTopics.length} topic${missingAgentTopics.length === 1 ? '' : 's'} missing an agent:* label${
-                    missingTitles ? ` (${missingTitles}${missingAgentTopics.length > 5 ? ', …' : ''})` : ''
-                  }`,
-                );
-              }
-              if (conflictingAgentTopics.length) {
-                const conflictTitles = conflictingAgentTopics
-                  .map(({ topic }) => (topic && topic.title ? `"${topic.title.trim()}"` : '(untitled topic)'))
-                  .slice(0, 5)
-                  .join(', ');
-                errorSegments.push(
-                  `${conflictingAgentTopics.length} topic${conflictingAgentTopics.length === 1 ? '' : 's'} with conflicting agent:* labels${
-                    conflictTitles ? ` (${conflictTitles}${conflictingAgentTopics.length > 5 ? ', …' : ''})` : ''
-                  }`,
-                );
-              }
-              const baseMessage =
-                errorSegments.length === 1
-                  ? errorSegments[0]
-                  : `${errorSegments.slice(0, -1).join('; ')}; ${errorSegments.slice(-1)}`;
-              const failureMessage = `Cannot sync topics: ${baseMessage}. Add exactly one agent:* label to each topic before rerunning.`;
-              for (const { topic, analysis } of missingAgentTopics) {
-                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
-                const inviteLabels = (analysis.entries || [])
-                  .flatMap((entry) => entry.inviteLabels || [])
-                  .join(', ');
-                const inviteSuffixText = inviteLabels ? ` Found invite-only labels: ${inviteLabels}.` : '';
-                core.error(`Missing agent:* label for topic${preview}.${inviteSuffixText}`);
-              }
-              for (const { topic, analysis } of conflictingAgentTopics) {
-                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
-                const labelList = analysis
-                  .flatMap((entry) => entry.baseLabels.concat(entry.inviteLabels))
-                  .filter(Boolean)
-                  .join(', ');
-                core.error(`Topic${preview} has multiple agent labels: ${labelList || '(none listed)'}.`);
-              }
-              metrics.topics_after_dedup = eligibleTopics.length;
-              setOutputs();
-              await publishSummary({
-                skippedCount: rawTopics.length,
-                notice: failureMessage,
-              });
-              core.setFailed(failureMessage);
-              return;
+            metrics.agent_labels_removed = agentLabelsStripped;
+            metrics.topics_skipped_without_agent_labels = 0;
+            metrics.topics_skipped_for_other_agents = 0;
+            if (agentLabelsStripped > 0) {
+              core.notice(`Stripped ${agentLabelsStripped} agent:* label${agentLabelsStripped === 1 ? '' : 's'} from topics. Apply agent labels manually from the Issues tab to trigger agent workflows.`);
             }
             const topics = eligibleTopics;
             if (!topics.length) {
@@ -592,6 +547,7 @@ jobs:
               });
               return;
             }
+            metrics.topics_after_dedup = topics.length;
             const seenTopics = new Set();
             const deduped = [];
             let duplicateCount = 0;
@@ -1117,7 +1073,7 @@ jobs:
   bridge_preflight:
     needs: normalize_inputs
     if: >
-      needs.normalize_inputs.outputs.intake_mode == 'codex_bridge' &&
+      needs.normalize_inputs.outputs.intake_mode == 'agent_bridge' &&
       (
         github.event_name != 'issues' ||
         (
@@ -1182,9 +1138,9 @@ jobs:
             core.setOutput('issue_number', String(num));
             core.setOutput('agent_key', agentLabel.replace(/^agents?:/, ''));
 
-  codex_bridge:
+  agent_bridge:
     needs: [normalize_inputs, bridge_preflight]
-    if: needs.normalize_inputs.outputs.intake_mode == 'codex_bridge'
+    if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
     concurrency:
       group: >
         codex-issue-${{
