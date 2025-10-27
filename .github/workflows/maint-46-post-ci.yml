@@ -26,7 +26,64 @@ jobs:
     env:
       ARTIFACT_ROOT: summary_artifacts
     steps:
+      - name: Check Gate summary completion
+        id: gate_guard
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run) {
+              core.warning('No workflow_run payload; assuming recovery mode.');
+              core.setOutput('recover', 'true');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const runId = run.id;
+            if (!runId) {
+              core.warning('Gate run id missing; running Maint 46 in recovery mode.');
+              core.setOutput('recover', 'true');
+              return;
+            }
+
+            let summaryJob = null;
+            try {
+              const jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                {
+                  owner,
+                  repo,
+                  run_id: runId,
+                  per_page: 100,
+                },
+              );
+              summaryJob = jobs.find(job => {
+                if (!job || typeof job.name !== 'string') {
+                  return false;
+                }
+                return job.name.toLowerCase() === 'summary';
+              }) || null;
+            } catch (error) {
+              core.warning(`Failed to inspect Gate jobs: ${error.message}`);
+            }
+
+            if (summaryJob && summaryJob.conclusion === 'success') {
+              core.notice('Gate summary job succeeded; skipping Maint 46 recovery run.');
+              core.setOutput('recover', 'false');
+              return;
+            }
+
+            if (summaryJob) {
+              const conclusion = summaryJob.conclusion || summaryJob.status || 'unknown';
+              core.notice(`Gate summary job conclusion: ${conclusion}. Running recovery.`);
+            } else {
+              core.notice('Gate summary job not found; running recovery.');
+            }
+
+            core.setOutput('recover', 'true');
+
       - name: Checkout helpers
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -35,6 +92,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Discover Gate workflow runs
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
         id: discover
         uses: actions/github-script@v7
         with:
@@ -43,7 +101,7 @@ jobs:
             await discoverWorkflowRuns({ github, context, core });
 
       - name: Download Gate artifacts
-        if: ${{ steps.discover.outputs.gate_run_id != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
         uses: actions/download-artifact@v4
         with:
           pattern: gate-*
@@ -53,7 +111,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Collect coverage payloads
-        if: ${{ steps.discover.outputs.gate_run_id != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
         id: coverage_payloads
         run: |
           python - <<'PY'
@@ -108,6 +166,7 @@ jobs:
           PY
 
       - name: Build summary body
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
         id: render
         run: |
           python tools/post_ci_summary.py
@@ -119,7 +178,7 @@ jobs:
           COVERAGE_SECTION: ${{ steps.coverage_payloads.outputs.coverage_section }}
 
       - name: Publish summary
-        if: ${{ steps.render.outputs.body != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
         run: |
           python - <<'PY'
           import os
@@ -141,7 +200,7 @@ jobs:
           SUMMARY_BODY: ${{ steps.render.outputs.body }}
 
       - name: Persist summary preview
-        if: ${{ steps.render.outputs.body != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
         run: |
           python - <<'PY'
           import os
@@ -160,7 +219,7 @@ jobs:
           PREVIEW_PATH: ${{ env.ARTIFACT_ROOT }}/post-ci-summary.md
 
       - name: Upload summary preview artifact
-        if: ${{ steps.render.outputs.body != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: maint-46-post-ci-summary.md
@@ -170,7 +229,7 @@ jobs:
           overwrite: true
 
       - name: Propagate Gate commit status
-        if: ${{ steps.discover.outputs.head_sha != '' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.head_sha != '' }}
         uses: actions/github-script@v7
         env:
           HEAD_SHA: ${{ steps.discover.outputs.head_sha }}
