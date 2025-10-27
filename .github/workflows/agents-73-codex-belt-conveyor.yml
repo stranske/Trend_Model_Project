@@ -38,7 +38,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-conveyor-${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.branch || (github.event.client_payload.issue && format('codex/issue-{0}', github.event.client_payload.issue)) || (github.event.client_payload.issue_number && format('codex/issue-{0}', github.event.client_payload.issue_number))) || inputs.branch || github.event.inputs.branch || github.ref_name || github.run_id }}
+  group: codex-belt-conveyor-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -95,9 +95,8 @@ jobs:
             const prNumber = Number('${{ inputs.pr_number }}');
             const targetPr = Number.isFinite(prNumber) ? `#${prNumber}` : 'Unknown';
             const modeDisplay = dryRun ? 'Preview (dry run)' : 'Live (merge ready)';
-            const payload = (context.payload && context.payload.client_payload) || {};
             const runId = context.runId;
-            const concurrencyKey = issueNumber || payload.issue || payload.issue_number || runId;
+            const concurrencyKey = branch || issueNumber || runId;
             const concurrencyGroup = concurrencyKey ? `codex-belt-conveyor-${concurrencyKey}` : '';
             if (!concurrencyGroup) {
               core.setFailed('Unable to determine conveyor concurrency group.');
