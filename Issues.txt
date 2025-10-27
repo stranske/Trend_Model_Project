@@ -1,5 +1,5 @@
 1. Autofix (Option B): keep standalone loop; run on `autofix` or `autofix:clean`; remove Gate’s embedded autofix job
-Labels: agent:codex, autofix, ci, devops, automation, enhancement, workflows
+Labels: autofix, ci, devops, automation, enhancement, workflows
 
 Why
 Two competing autofix paths cause double pushes and comment noise. The standalone loop is resilient (retries, comment markers) and should be the single engine.
@@ -29,7 +29,7 @@ PR title prefix: [CI][Autofix] Option B
 PR kickoff comment: @{agent} Enable the standalone autofix loop for `autofix*` labels, remove Gate’s internal autofix job, keep Gate’s summary/label behavior, and ensure only Python files are edited; strip `autofix*` labels after success.
 
 2. Agents 63: choose single public entrypoint (Issue Intake vs agent-specific wrapper) and retire the other
-Labels: agent:codex, agents, devops, automation, documentation, enhancement, workflows
+Labels: agents, devops, automation, documentation, enhancement, workflows
 
 Why
 Having both “Issue Intake” and a Codex wrapper confuses contributors and increases maintenance. Keep one public entry and route everything through it.
@@ -57,7 +57,7 @@ PR title prefix: [Agents] Canonical entrypoint
 PR kickoff comment: @{agent} Keep a single public entrypoint for agent issues; wire it like the current wrapper and remove the duplicate.
 
 3. Agents 70 Orchestrator: restore helper scripts and add checkout steps so `require('./.github/scripts/...')` works
-Labels: agent:codex, agents, devops, workflows, bug, maintenance
+Labels:  agents, devops, workflows, bug, maintenance
 
 Why
 The Orchestrator calls local helpers (`agents_orchestrator_resolve.js`, `agents_dispatch_summary.js`, `agents_belt_scan.js`) via `require`, but jobs don’t check out the repo before those script steps. Missing scripts or missing checkout breaks Resolve/Dispatch/Summary.
@@ -87,7 +87,7 @@ PR title prefix: [Agents] Orchestrator script wiring
 PR kickoff comment: @{agent} Add checkout steps and ensure `.github/scripts/*` helpers exist so Orchestrator’s `require(...)` calls succeed end‑to‑end.
 
 4. Agents PR meta manager: add a short `/codex run` alias to reduce command typos
-Labels: agent:codex, agents, devops, enhancement, guardrail, workflows
+Labels: agents, devops, enhancement, guardrail, workflows
 
 Why
 The current long command string is error‑prone. A short `/codex run` alias should trigger the same behavior.
@@ -114,7 +114,7 @@ PR title prefix: [Agents] PR command alias
 PR kickoff comment: @{agent} Add `/codex run` as a friendly alias to the existing long meta-manager command; keep one‑agent‑label enforcement.
 
 5. Agents 63 Intake: fix triggers, YAML structure, and add concurrency to prevent duplicate processing
-Labels: agent:codex, agents, devops, automation, documentation, workflows
+Labels: agents, devops, automation, documentation, workflows
 
 Why
 Intake currently defines `workflow_call` at the root while also using `on:` and `workflow_dispatch`, which is invalid. It also needs concurrency and correct label triggers to match the wrapper.
