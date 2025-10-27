@@ -366,7 +366,7 @@ fires where” without diving into the full tables:
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
     - **Primary workflows.** `agents-70-orchestrator.yml`, the belt chain (`agents-71/72/73`),
-      the shared intake plus ChatGPT sync wrappers (`agents-63-issue-intake.yml`, `agents-63-chatgpt-issue-sync.yml`), `agents-64-verify-agent-assignment.yml`,
+      the shared intake (`agents-63-issue-intake.yml`), `agents-64-verify-agent-assignment.yml`,
       and `agents-guard.yml`.
     - **Triggers.** A mix of orchestrator cron/manual dispatches, labelled
       issues, schedules, and guarded pull requests when protected YAML changes.
@@ -552,15 +552,12 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 63 Issue Intake** – `.github/workflows/agents-63-issue-intake.yml`
   centralises ChatGPT imports and handles the `agent:codex` label trigger via a
   single reusable entry point.
-- **Agents 63 ChatGPT Issue Sync** – `.github/workflows/agents-63-chatgpt-issue-sync.yml`
-  keeps curated topic files (for example `Issues.txt`) aligned with tracked
-  issues by delegating to the intake workflow.
 - **Agents 64 PR Comment Commands** – `.github/workflows/agents-64-pr-comment-commands.yml`
   processes slash commands in PR comments to trigger workflow actions and
   automate common PR operations.
 - **Agents 64 Assignment Verifier** – `.github/workflows/agents-64-verify-agent-assignment.yml`
   audits that orchestrated work is assigned correctly and feeds the orchestrator.
-- **Guardrail** – The orchestrator, intake front, and `agents-63-*` wrappers are locked
+- **Guardrail** – The orchestrator and intake front are locked
   down by CODEOWNERS, branch protection, the Health 45 Agents Guard check, and a
   repository ruleset. See [Agents Workflow Protection Policy](./AGENTS_POLICY.md)
   for the change allowlist and override procedure.
@@ -615,7 +612,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/20 * * * *`), `workflow_dispatch` | Fan out consumer automation (readiness, diagnostics, keepalive sweep) and dispatch work; honours the `keepalive:paused` label and `keepalive_enabled` flag. | ⚪ Critical surface (triage immediately if red) | [Orchestrator runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-70-orchestrator.yml) |
 | **Agents 63 Issue Intake** (`agents-63-issue-intake.yml`, agents bucket) | `issues`, `workflow_call`, `workflow_dispatch` | Canonical front door for agent issue intake. Listens for `agent:codex` labels and services ChatGPT sync requests through the shared normalization pipeline. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-issue-intake.yml) |
-| **Agents 63 ChatGPT Issue Sync** (`agents-63-chatgpt-issue-sync.yml`, agents bucket) | `workflow_dispatch` | Manual wrapper that forwards curated topic lists into `agents-63-issue-intake.yml`. | ⚪ Critical surface (automation intake) | [Agents 63 sync runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-chatgpt-issue-sync.yml) |
 | **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-64-verify-agent-assignment.yml) |
 | **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/autofix.yml) |
 | **Reusable Python CI** (`reusable-10-ci-python.yml`, error-checking bucket) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
@@ -658,7 +654,7 @@ snapshots for audit trails.
   green, posting the consolidated summary comment as the informational "state of
   CI" snapshot—it is intentionally *not* configured as a required status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
-  to `agents-63-issue-intake.yml`, `agents-63-chatgpt-issue-sync.yml`, and
+  to `agents-63-issue-intake.yml` and
   `agents-70-orchestrator.yml` stay maintainer gated on top of the immutable
   guardrails.
 - **Types.** When mypy is pinned, run it in the pinned interpreter only to avoid
@@ -675,7 +671,7 @@ snapshots for audit trails.
 
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   the Gate summary job (inline), `maint-coverage-guard.yml`, health 40/41/42/43/44,
-  agents 70/75/63, `agents-guard.yml`, reusable 10/12/16/18, and
+  agents 70/63, `agents-guard.yml`, reusable 10/12/16/18, and
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers

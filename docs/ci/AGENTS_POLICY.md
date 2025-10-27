@@ -31,7 +31,6 @@ automation topology.
    `restrict_file_updates` block with the following paths and both
    "Block deletions" and "Block renames" toggled on:
    - `.github/workflows/agents-63-issue-intake.yml`
-   - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
    - `.github/workflows/agents-70-orchestrator.yml`
 
    > **2025-09-05 status:** the ruleset is currently **disabled** with no

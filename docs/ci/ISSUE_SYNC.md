@@ -1,8 +1,8 @@
 # Agents 63 issue sync label policy
 
-The Agents 63 issue intake workflow—invoked by the ChatGPT issue sync and Codex issue bridge wrappers—relies on a
+The Agents 63 issue intake workflow—invoked directly for manual ChatGPT sync and via label triggers for the Codex bridge—relies on a
 single, manually selected `agent:*` label to determine which automation is invited to work on a request. Auto-selection caused the bridge to summon the
-wrong automation, so both workflows enforce a stricter contract.
+wrong automation, so the workflow enforces a stricter contract across both entry paths.
 
 ## Manual agent selection
 
