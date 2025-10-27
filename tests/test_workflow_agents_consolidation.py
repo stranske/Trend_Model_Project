@@ -401,12 +401,11 @@ def test_agent_task_template_auto_labels_codex():
 
 
 def test_issue_intake_guard_checks_agent_label():
-    text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(
-        encoding="utf-8"
-    )
+    text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(encoding="utf-8")
     assert (
         "contains(github.event.label.name, 'agent:codex')" in text
-        or "contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex')" in text
+        or "contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex')"
+        in text
     ), "Issue intake must guard on the agent:codex label to trigger hand-off"
 
 
