@@ -2,13 +2,13 @@ name: Health 43 CI Signature Guard
 
 on:
   push:
-    branches: [ phase-2-dev ]
+    branches: [ phase-2-dev, main ]
     paths:
       - .github/workflows/pr-00-gate.yml
       - .github/signature-fixtures/**
       - .github/actions/signature-verify/**
   pull_request:
-    branches: [ phase-2-dev ]
+    branches: [ phase-2-dev, main ]
     paths:
       - .github/workflows/pr-00-gate.yml
       - .github/signature-fixtures/**
