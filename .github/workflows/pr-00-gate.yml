@@ -801,7 +801,7 @@ jobs:
               '### Keepalive checklist',
               '',
               '#### Scope',
-              '- [x] Small change in Gate’s summary job plus label logic in Autofix.',
+              '- [x] Small change in Gate's summary job plus label logic in Autofix.',
               '',
               '#### Tasks',
               `- [${task1}] In Gate summary, detect format/import-only failures and add autofix:clean.`,
@@ -830,3 +830,4 @@ jobs:
               anchorPattern: /<!--\s*keepalive-checklist:([^>]*)-->/i,
               fallbackMarker: '<!-- keepalive-checklist:',
             });
+
