@@ -15,6 +15,9 @@ const ALLOW_REMOVED_PATHS = new Set(
     // Keepalive consolidation retired the standalone keepalive sweeps.
     '.github/workflows/agents-75-keepalive-on-gate.yml',
     '.github/workflows/agents-keepalive-pr.yml',
+    // Issue intake now serves as the sole public entry point; the
+    // ChatGPT wrapper was intentionally removed.
+    '.github/workflows/agents-63-chatgpt-issue-sync.yml',
   ].map((entry) => entry.toLowerCase()),
 );
 

@@ -148,7 +148,7 @@ def test_deletion_blocks_with_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "removed",
             }
         ],
@@ -167,7 +167,7 @@ def test_custom_marker_propagates_to_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "removed",
             }
         ],
@@ -184,7 +184,7 @@ def test_default_marker_added_once():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "removed",
             }
         ],
@@ -193,6 +193,22 @@ def test_default_marker_added_once():
 
     assert result["commentBody"].startswith(get_default_marker_cached())
     assert result["commentBody"].count(get_default_marker_cached()) == 1
+
+
+@skip_if_no_node
+def test_chatgpt_sync_deletion_allowed():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+    )
+
+    assert result["blocked"] is False
+    assert not result["failureReasons"]
 
 
 @skip_if_no_node
@@ -236,7 +252,7 @@ def test_label_without_codeowner_still_blocks():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "modified",
             }
         ],
@@ -255,7 +271,7 @@ def test_label_and_codeowner_approval_passes():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "modified",
             }
         ],
@@ -278,7 +294,7 @@ def test_codeowner_author_counts_as_approval():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "modified",
             }
         ],
@@ -322,7 +338,7 @@ def test_codeowner_approval_without_label_passes():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-63-chatgpt-issue-sync.yml",
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
                 "status": "modified",
             }
         ],

@@ -45,7 +45,8 @@ jobs:
             const marker = '<!-- codex-activation-marker -->';
             const errorMarker = '<!-- codex-activation-error -->';
             const aliasCommands = ['/codex run', '/agent run'];
-            const aliasCommandSet = new Set(aliasCommands.map((value) => value.toLowerCase()));
+            const aliasCommandList = aliasCommands.map((value) => value.toLowerCase());
+            const aliasCommandSet = new Set(aliasCommandList);
 
             const { payload } = context;
             const { owner, repo } = context.repo;
@@ -117,8 +118,45 @@ jobs:
 
             const commandPrefix = `@${agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
 
+            const extractNormalizedLines = (text) => {
+              if (!text) return [];
+
+              const lines = [];
+              let inCodeFence = false;
+
+              for (const rawLine of text.split(/\r?\n/)) {
+                if (!rawLine) {
+                  continue;
+                }
+
+                const trimmedLine = rawLine.trim();
+                if (!trimmedLine) {
+                  continue;
+                }
+
+                if (trimmedLine.startsWith('```')) {
+                  inCodeFence = !inCodeFence;
+                  continue;
+                }
+
+                if (inCodeFence) {
+                  continue;
+                }
+
+                const withoutQuote = trimmedLine.replace(/^>+\s*/, '').trim();
+                if (!withoutQuote) {
+                  continue;
+                }
+
+                lines.push(withoutQuote);
+              }
+
+              return lines;
+            };
+
             const getActivationCommand = (rawText) => {
               if (!rawText) return null;
+
               const trimmed = rawText.trim();
               if (!trimmed) return null;
 
@@ -126,13 +164,14 @@ jobs:
                 return { type: 'full', value: commandPrefix };
               }
 
-              const normalizedLines = trimmed
-                .split(/\r?\n+/)
-                .map((line) => line.trim().toLowerCase())
-                .filter(Boolean);
-
-              if (normalizedLines.length > 0 && aliasCommandSet.has(normalizedLines[0])) {
-                return { type: 'alias', value: normalizedLines[0] };
+              const normalizedLines = extractNormalizedLines(rawText);
+              for (const line of normalizedLines) {
+                const lowered = line.toLowerCase();
+                for (const alias of aliasCommandList) {
+                  if (lowered === alias || lowered.startsWith(`${alias} `)) {
+                    return { type: 'alias', value: alias };
+                  }
+                }
               }
 
               return null;
