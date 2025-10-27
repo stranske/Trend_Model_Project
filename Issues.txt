@@ -1,147 +1,4 @@
-1. Autofix (Option B): keep standalone loop; run on `autofix` or `autofix:clean`; remove Gate’s embedded autofix job
-Labels: autofix, ci, devops, automation, enhancement, workflows
-
-Why
-Two competing autofix paths cause double pushes and comment noise. The standalone loop is resilient (retries, comment markers) and should be the single engine.
-
-Scope
-Enable the loop to run when either `autofix` or `autofix:clean` is present. Remove the in‑Gate `autofix` job. Keep Gate’s summary behavior that applies `autofix:clean` for cosmetic‑only failures.
-
-Non‑Goals
-Changing lint/type rules or widening file globs beyond Python.
-
-Tasks
-- Update `.github/workflows/autofix.yml` to ignore `agent:*` co‑labels and trigger on `autofix` OR `autofix:clean`.
-- Limit edits to `**/*.py` and `**/*.pyi`.
-- Remove the `autofix` job block from Gate’s workflow file.
-- After a successful loop push, strip `autofix*` labels to avoid retriggers.
-- Ensure loop no‑ops on forks or when `ACTIONS_BOT_PAT` is missing.
-
-Acceptance criteria
-- PRs labeled `autofix` or `autofix:clean` run the loop without any `agent:*` label.
-- Gate no longer runs its own autofix job.
-- Only Python files are changed; loop exits cleanly when nothing needs to change.
-
-Implementation notes
-Files: `.github/workflows/autofix.yml`, `.github/workflows/pr-00-gate.yml`. Ensure `ACTIONS_BOT_PAT` exists for pushes from the loop.
-
-PR title prefix: [CI][Autofix] Option B
-PR kickoff comment: @{agent} Enable the standalone autofix loop for `autofix*` labels, remove Gate’s internal autofix job, keep Gate’s summary/label behavior, and ensure only Python files are edited; strip `autofix*` labels after success.
-
-2. Agents 63: choose single public entrypoint (Issue Intake vs agent-specific wrapper) and retire the other
-Labels: agents, devops, automation, documentation, enhancement, workflows
-
-Why
-Having both “Issue Intake” and a Codex wrapper confuses contributors and increases maintenance. Keep one public entry and route everything through it.
-
-Scope
-Pick a canonical entrypoint and remove the other. If Intake wins, wire it with the same triggers as the wrapper and call the reusable bridge.
-
-Non‑Goals
-Changing agent logic or labels.
-
-Tasks
-- Decide Intake vs wrapper as the user-facing entry.
-- Wire the chosen one with `on: issues` label triggers and `workflow_dispatch` inputs.
-- Delete or move the non‑canonical workflow out of `.github/workflows/`.
-- Verify that labeling an issue with `agent:codex` triggers the expected flow.
-
-Acceptance criteria
-- Only one “front door” appears in Actions.
-- Labeling an issue with `agent:codex` creates the expected PR via the orchestrator.
-
-Implementation notes
-Files: `.github/workflows/agents-63-issue-intake.yml`, the agent-specific wrapper.
-
-PR title prefix: [Agents] Canonical entrypoint
-PR kickoff comment: @{agent} Keep a single public entrypoint for agent issues; wire it like the current wrapper and remove the duplicate.
-
-3. Agents 70 Orchestrator: restore helper scripts and add checkout steps so `require('./.github/scripts/...')` works
-Labels:  agents, devops, workflows, bug, maintenance
-
-Why
-The Orchestrator calls local helpers (`agents_orchestrator_resolve.js`, `agents_dispatch_summary.js`, `agents_belt_scan.js`) via `require`, but jobs don’t check out the repo before those script steps. Missing scripts or missing checkout breaks Resolve/Dispatch/Summary.
-
-Scope
-Ensure the helper scripts exist under `.github/scripts/` and add `actions/checkout@v4` with sparse paths before any `actions/github-script` `require(...)` calls in relevant jobs.
-
-Non‑Goals
-Changing orchestration semantics.
-
-Tasks
-- Commit or move scripts to `.github/scripts/`:
-  - `agents_orchestrator_resolve.js` (Resolve Parameters)
-  - `agents_dispatch_summary.js` (Summarise dispatch outcomes)
-  - `agents_belt_scan.js` (promotion queue scan)
-- In `resolve-params`, `belt-dispatch-summary`, and `belt-scan-ready-prs` jobs, add a checkout step with sparse-checkout for `.github/scripts/`.
-- Validate a dry run end‑to‑end and confirm summaries render.
-
-Acceptance criteria
-- Resolve job can import and run `agents_orchestrator_resolve.js`.
-- Dispatch summary and scan jobs complete successfully and append to the job summary.
-
-Implementation notes
-File: `.github/workflows/agents-70-orchestrator.yml`. Add `actions/checkout@v4` ahead of any `github-script` `require('./.github/scripts/...')`.
-
-PR title prefix: [Agents] Orchestrator script wiring
-PR kickoff comment: @{agent} Add checkout steps and ensure `.github/scripts/*` helpers exist so Orchestrator’s `require(...)` calls succeed end‑to‑end.
-
-4. Agents PR meta manager: add a short `/codex run` alias to reduce command typos
-Labels: agents, devops, enhancement, guardrail, workflows
-
-Why
-The current long command string is error‑prone. A short `/codex run` alias should trigger the same behavior.
-
-Scope
-Add a lightweight parser in PR meta manager to route `/codex run` to the existing command path and keep “exactly one `agent:*` label” enforcement.
-
-Non‑Goals
-Changing label semantics.
-
-Tasks
-- Extend PR comment listener to accept `/codex run`.
-- Provide a single clear error when multiple `agent:*` labels are present.
-- Validate behavior on a test PR.
-
-Acceptance criteria
-- `/codex run` performs identically to the long-form command.
-- Conflicting labels produce a single actionable error comment.
-
-Implementation notes
-File: `.github/workflows/agents-pr-meta-manager.yml`.
-
-PR title prefix: [Agents] PR command alias
-PR kickoff comment: @{agent} Add `/codex run` as a friendly alias to the existing long meta-manager command; keep one‑agent‑label enforcement.
-
-5. Agents 63 Intake: fix triggers, YAML structure, and add concurrency to prevent duplicate processing
-Labels: agents, devops, automation, documentation, workflows
-
-Why
-Intake currently defines `workflow_call` at the root while also using `on:` and `workflow_dispatch`, which is invalid. It also needs concurrency and correct label triggers to match the wrapper.
-
-Scope
-Move `workflow_call:` under `on:`, add `issues` label/unlabel triggers for `agent:codex`, and add a concurrency group to avoid double-processing.
-
-Non‑Goals
-Changing the reusable bridge logic.
-
-Tasks
-- Under `on:`, include: `issues` (opened/labeled/reopened) and `workflow_dispatch`.
-- Move the current `workflow_call` block under `on:` as `on: { workflow_call: { inputs: ... } }`.
-- Add `concurrency: { group: issue-${{ github.event.issue.number }}-intake, cancel-in-progress: true }`.
-- Verify a single run occurs per label churn.
-
-Acceptance criteria
-- YAML validates and Intake shows runs in Actions.
-- Labeling with `agent:codex` triggers exactly one intake run that hands off to the bridge.
-
-Implementation notes
-File: `.github/workflows/agents-63-issue-intake.yml`.
-
-PR title prefix: [Agents] Intake wiring
-PR kickoff comment: @{agent} Fix Intake YAML structure, add proper triggers and concurrency, and validate single-run behavior on label churn.
-
-6. Health guards: broaden branch filters so protections apply if the default branch changes
+1. Health guards: broaden branch filters so protections apply if the default branch changes
 Labels: devops, guardrail, config, documentation, workflows
 
 Why
@@ -167,7 +24,7 @@ Files: Health 43 CI Signature Guard, Health 44 Gate Branch Protection.
 PR title prefix: [Health] Branch filter hardening
 PR kickoff comment: @{agent} Add `main` alongside `phase-2-dev` in guard workflow triggers and document the default-branch expectation.
 
-7. Actions security: pin third‑party actions by commit SHA across Gate/Health/Agents
+2. Actions security: pin third‑party actions by commit SHA across Gate/Health/Agents
 Labels: devops, guardrail, security, enhancement, workflows
 
 Why
@@ -194,7 +51,7 @@ Files: `.github/workflows/*.yml`.
 PR title prefix: [Security] Pin actions
 PR kickoff comment: @{agent} Pin third‑party actions by SHA across Gate/Health/Agents and add a short doc on updating pins.
 
-8. Post‑CI consolidation: restrict or remove “Maint 46 Post CI” and centralize summary/status in Gate
+3. Post‑CI consolidation: restrict or remove “Maint 46 Post CI” and centralize summary/status in Gate
 Labels: ci, devops, maintenance, workflows, guardrail, documentation
 
 Why
@@ -221,7 +78,7 @@ Files: `.github/workflows/maint-46-post-ci.yml`, `.github/workflows/pr-00-gate.y
 PR title prefix: [CI] Post‑CI consolidation
 PR kickoff comment: @{agent} Make Gate the single summary/status source and restrict Maint 46 to recovery-only or retire it.
 
-9. Agents 71/72/73: make them reusable-only; remove any direct triggers; invoke via Orchestrator
+4. Agents 71/72/73: make them reusable-only; remove any direct triggers; invoke via Orchestrator
 Labels: agents, devops, workflows, refactor, guardrail, maintenance
 
 Why
@@ -248,7 +105,7 @@ Files: `.github/workflows/agents-71*-dispatcher.yml`, `agents-72*-worker.yml`, `
 PR title prefix: [Agents] Belt = reusable-only
 PR kickoff comment: @{agent} Drop public triggers for belt workflows; keep them workflow_call-only and validate Orchestrator fan-out.
 
-10. Clean up retired agent workflows from `.github/workflows` to reduce noise
+5. Clean up retired agent workflows from `.github/workflows` to reduce noise
 Labels: agents, maintenance, workflows, documentation
 
 Why
