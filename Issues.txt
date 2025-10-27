@@ -1,312 +1,268 @@
-1) Fix: Maint 46 Post CI fails to load due to invalid env.* usage
+1. Autofix (Option B): loop runs on autofix/autofix:clean without agent:*; remove Gate’s embedded autofix to avoid duplicates
 
-Title: Maint 46 Post CI: fix invalid env.* scoping and restore coverage comment
-
-Labels: agent:codex, devops, workflows, ci, health:coverage, bug, priority: high
-
-Body:
-
-Description
-
-maint-46-post-ci.yml fails to load because it references env.* in expression contexts that don’t expose env. This blocks the consolidated PR summary and coverage delta.
+Labels: agent:codex, autofix, ci, devops, automation, enhancement
 
 Why
+Right now there are two autofix paths:
 
-The Post CI step ties together Gate results and coverage reporting. While it’s broken, PRs lose the final summary and delta signal. The failure is reproducible in the workflow parser.
+Gate contains an embedded autofix job;
+
+A separate CI Autofix Loop workflow runs after Gate failures.
+
+The loop still expects an agent:* label, which blocks quick, human PR cleanups. Choose Option B: keep the loop, make it run on autofix or autofix:clean alone, and remove Gate’s embedded autofix job to avoid double‑runs. This aligns the user experience and cuts noise.
+
+Consistent, label‑driven flow that works for humans and agents.
+
+Single source of truth for autofix behavior; fewer edge cases.
 
 Scope
-Fix the workflow and any helper script pathing so the summary and coverage delta reliably post after Gate.
 
-Non-Goals
-Rewriting Gate or changing coverage tooling.
+Update .github/workflows/autofix.yml to run on autofix or autofix:clean without requiring any agent:* label.
+
+Remove or hard‑disable Gate’s internal autofix job while keeping Gate’s summary behavior (auto‑applying autofix:clean for cosmetic‑only failures, commenting status).
+
+Preserve strict edit scope to Python files only.
+
+Non‑Goals
+
+Changing ruff/black/mypy rules.
+
+Letting autofix touch non‑Python files.
 
 Tasks
 
- Replace env.* expressions with supported sources:
+- In autofix.yml, delete any hasAgent checks or co‑label gates; trigger on autofix or autofix:clean only.
 
- Move constants to vars.* or job‑level env: and pass via with:/step env.
+- Keep ALLOWED_GLOBS limited to **/*.py and **/*.pyi.
 
- Alternatively compute constants via actions/github-script and export outputs.
+- Remove or guard‑disable the autofix job inside Gate; keep Gate’s summary that detects cosmetic‑only failures and applies autofix:clean.
 
- Ensure summary step reads coverage artifact and posts delta to the PR.
+- After a successful push by the loop, remove the autofix/autofix:clean label so we don’t re‑trigger endlessly.
 
- Add a fast validation step (actionlint or act -n) to catch expression misuse.
-
- Prove fix on a throwaway PR, attach screenshot of summary.
+- Verify behavior on a test PR with only import/format errors; attach the before/after Gate summary screenshot.
 
 Acceptance criteria
 
- Workflow loads with no “Unrecognized named-value: env” errors.
+- A PR labeled autofix or autofix:clean triggers the loop even without any agent:* label.
 
- PRs show a single consolidated CI summary with coverage delta.
+- Gate no longer runs its own autofix job, but still comments and labels as before.
 
- No regression in Gate artifact naming/layout.
+- Only Python files are modified; loop exits cleanly when nothing to change.
 
 Implementation notes
 
-Files: .github/workflows/maint-46-post-ci.yml, .github/scripts/*post-ci*.{js,ts}
-Branch: codex/issue--maint-46-post-ci-fix
-PR title prefix: [Maint] Post CI fix
-Touch only: .github/workflows/maint-46-post-ci.yml, relevant .github/scripts/*post-ci*
-Copy/paste to PR comment (kickoff)
-@{agent} Work the tasks and acceptance criteria. After each change, update the checklist and repost the current scope/tasks/criteria so keepalive can track progress.
+Files: .github/workflows/autofix.yml, .github/workflows/pr-00-gate.yml, any helper scripts referenced by Gate’s summary.
+PR title prefix: [CI][Autofix] Option B
+PR kickoff comment (to paste after opening PR):
+@{agent} Apply Option B: enable the standalone autofix loop for 'autofix*' labels without requiring any 'agent:*' label; remove Gate's autofix job; keep Gate's summary/label behavior; ensure only Python files are edited; remove 'autofix*' labels after success.
 
-2) Consolidate: Health 42 + 44 into a single scheduled “Health Sweep”
+2. Agents 63: pick the canonical entrypoint (Issue Intake or agent‑specific wrappers) and retire the other
 
-Title: Health Sweep: merge Actionlint (42) and Branch‑Protection verify (44)
-
-Labels: agent:codex, devops, workflows, maintenance, health:repo, refactor, priority: medium
-
-Body:
-
-Description
-
-Fold Health 42 (Actionlint) and Health 44 (branch‑protection enforcement) into one scheduled workflow with two jobs: actionlint and branch-protection-verify. Keep PR‑time Actionlint via paths-filter, but run the verification/enforce piece on schedule.
+Labels: agent:codex, agents, devops, automation, docs, enhancement
 
 Why
 
-Same signal, fewer workflows to reason about; easier to keep required contexts aligned with reality. 
-GitHub
-+1
+You have Agents 63 Issue Intake plus agent‑specific wrappers like Agents 63 Codex Issue Bridge. Intake currently shows no runs, while the Codex wrapper is active. Decide the one entrypoint and remove the other to reduce surface area and “which button do I press?” confusion.
+
+One obvious path avoids mis‑triggers, reduces maintenance, and makes Orchestrator routing simpler.
 
 Scope
-Create health-40-sweep.yml with two jobs; retire the old scheduled runners.
 
-Non-Goals
-Changing which contexts are required.
+Pick the canonical workflow:
+
+If Intake wins: add the same triggers used by the Codex wrapper and internally call the reusable bridge; deprecate wrappers.
+
+If the Codex wrapper wins: delete Intake or move it to an archive folder and update docs.
+
+Non‑Goals
+
+Changing agent logic, labels, or orchestration.
 
 Tasks
 
- New .github/workflows/health-40-sweep.yml with:
+- Decide the canonical entrypoint and document it in docs/ci/AGENTS_POLICY.md.
 
- Job 1: actionlint (PR + schedule, use paths-filter for PRs).
+- Either wire Intake with the correct issues:/labels: triggers and a workflow_dispatch input set, or remove it entirely.
 
- Job 2: branch-protection-verify (schedule + manual dispatch).
+- Remove the non‑canonical workflow from .github/workflows/ to prevent accidental runs.
 
- Decommission redundant scheduled triggers in 42/44.
-
- Update docs to point to the new single sweep.
+- Validate on a test issue labeled agent:codex that the expected flow runs and produces a PR.
 
 Acceptance criteria
 
- Weekly scheduled sweep runs both checks and posts results.
+- Only one “front‑door” workflow is visible in Actions for creating agent‑driven issues.
 
- PRs still get Actionlint reviews only when workflow files change.
-
- No change to enforced required checks list. 
-GitHub
+- Labeling an issue with agent:codex results in the expected pipeline run and PR creation.
 
 Implementation notes
 
-Files: .github/workflows/health-42-actionlint.yml, .github/workflows/health-44-gate-branch-protection.yml, .github/workflows/health-40-sweep.yml
-Branch: codex/issue--health-sweep-consolidation
-PR title prefix: [Health] Consolidate health checks
-Touch only: the three workflows above, minor docs under docs/ci/
-Copy/paste to PR comment (kickoff)
-@{agent} Build the new sweep, remove duplicate schedules, and confirm both checks run as intended. Keep PR-time Actionlint behavior unchanged.
+Files: .github/workflows/agents-63-issue-intake.yml, .github/workflows/agents-63-codex-issue-bridge.yml, related docs.
+PR title prefix: [Agents] Canonical entrypoint
+PR kickoff comment:
+@{agent} Keep only one agents entrypoint. Implement the chosen path, remove the other, and verify a labeled issue flows to a PR via the orchestrator.
 
-3) Unify intake: one “Agents 63 Issue Intake” front‑end
+4. Agents PR meta: add short /codex run alias for the long comment command
 
-Title: Agents 63: unify ChatGPT Issue Sync + Codex Issue Bridge into a single intake front
-
-Labels: agent:codex, agents, workflows, devops, enhancement, docs, priority: medium
-
-Body:
-
-Description
-
-Present one “Issue Intake” entry that accepts {repo_file | raw_input | source_url} and outputs normalized, agent‑ready issues. Route internally to ChatGPT parsing or the Codex bridge without exposing two top‑level workflows. Preserve current label gating (exactly one agent:* required to trigger the bridge). 
-GitHub
-+1
+Labels: agent:codex, agents, devops, enhancement, guardrail
 
 Why
 
-Removes naming duplication and makes Orchestrator simpler while keeping your existing parsing and bridge behavior intact. 
-GitHub
+The merged PR meta manager expects a long, exact command string to start or update agent work. Humans typo; shocker. Add a short alias like /codex run that maps to the same behavior as the long form so contributors don’t have to copy a paragraph to poke the robot.
+
+Fewer fat‑fingered no‑ops, less comment thrash, smoother agent dispatch.
 
 Scope
-New agents-63-issue-intake.yml calls existing reusables internally; deprecate the two fronts.
 
-Non-Goals
-Changing parsing logic, changing bridge agent=codex behavior.
+Add a simple alias parser in the comment‑listener step that treats /codex run (and optionally /agent run) as equivalent to the long @{agent} ... command.
+
+Keep the “exactly one agent:* label” rule intact; improve error messaging when multiple agents are labeled.
+
+Non‑Goals
+
+Changing agent label semantics or PR body markers.
 
 Tasks
 
- Add agents-63-issue-intake.yml with inputs mirroring agents-63-chatgpt-issue-sync.yml. 
-GitHub
+- Extend the actions/github-script listener to route /codex run to the existing command path.
 
- Internally call the ChatGPT parser or the issue bridge based on inputs.
+- If multiple agent:* labels exist, post a single actionable comment listing them and instruction to remove extras.
 
- Keep label contract: exactly one agent:* to engage the bridge. 
-GitHub
-
- Update orchestrator/README references.
+- Validate on a test PR that /codex run updates the PR body marker section and dispatches work exactly like the long form.
 
 Acceptance criteria
 
- Intake accepts all three input modes; issues match existing format.
+- /codex run comment starts the same agent flow as the long command.
 
- Bridge still fires when agent:codex is applied. 
-GitHub
-
- Legacy fronts are left as thin wrappers or removed after a grace period.
+- Conflicting labels produce a clear, single error comment with guidance.
 
 Implementation notes
 
-Files: .github/workflows/agents-63-chatgpt-issue-sync.yml, .github/workflows/agents-63-codex-issue-bridge.yml, .github/workflows/agents-63-issue-intake.yml
-Branch: codex/issue--agents-63-intake-unify
-PR title prefix: [Agents] Unify issue intake
-Touch only: the three workflows, docs under docs/ci/AGENTS_POLICY.md
-Copy/paste to PR comment (kickoff)
-@{agent} Implement the intake front, route to existing reusables, and ensure label-based triggering remains identical to current behavior.
+Files: .github/workflows/agents-pr-meta-manager.yml
+PR title prefix: [Agents] PR command alias
+PR kickoff comment:
+@{agent} Add a '/codex run' alias in the PR meta manager and keep the one-agent-label rule with clear errors on conflicts.
 
-4) Merge PR meta: Listener + Body Writer into one workflow
+5. Agents 63 Intake: add the correct triggers and concurrency to match the active Codex wrapper
 
-Title: Agents PR Meta: merge comment command listener (64) and PR body writer (74)
+Labels: agent:codex, agents, devops, automation, docs
+Why
 
-Labels: agent:codex, workflows, devops, refactor, guardrail, priority: medium
+If you choose Issue Intake as the canonical entrypoint (see Issue 2), it needs the same event wiring the Codex Issue Bridge already has. Right now Intake shows no runs, so its triggers likely don’t match your flow.
 
-Body:
+No triggers, no runs. No runs, no robots.
 
-Description
+Scope
 
-Combine the PR comment command listener and the PR body writer into one workflow with a shared concurrency group. Keep marker‑based PR body updates to avoid clashes with human text.
+Mirror the wrapper’s on: issues label‑based triggers and workflow_dispatch inputs.
+
+Add a simple concurrency key to prevent double‑processing if labels churn.
+
+Non‑Goals
+
+Changing how the reusable bridge works.
+
+Tasks
+
+- Add on: issues for labeled/unlabeled events with filters for agent:codex.
+
+- Add workflow_dispatch with inputs {source, raw_input, source_url} matching current bridge expectations.
+
+- Add concurrency: group: issue-${{ github.event.issue.number }}-intake, cancel-in-progress: true.
+
+- Test on a sandbox issue and confirm a single intake run happens per label add/remove.
+
+Acceptance criteria
+
+- Intake reliably triggers when an issue is labeled agent:codex and does not double‑process during label churn.
+
+- The Codex bridge receives normalized inputs from Intake and creates a PR.
+
+Implementation notes
+
+Files: .github/workflows/agents-63-issue-intake.yml
+PR title prefix: [Agents] Intake wiring
+PR kickoff comment:
+@{agent} Add the correct triggers and concurrency to Agents 63 Intake so it mirrors the Codex wrapper behavior without double-processing.
+
+6. Health guards: update branch filters so protections apply if default branch changes
+
+Labels: agent:codex, devops, guardrail, config, documentation
 
 Why
 
-Eliminates cross‑workflow races and centralizes PR decoration logic.
+Some health and guard workflows use explicit phase-2-dev branch filters. If the default branch ever changes, those protections go dark. Since triggers can’t read default_branch dynamically, list both likely branches and document the expectation in CI docs. Example: CI Signature Guard currently targets phase-2-dev.
+
+Prevents “oops, we renamed the default branch and the guard stopped firing” headaches.
 
 Scope
-One workflow handling commands and body updates in separate jobs.
 
-Non-Goals
-Changing command syntax or markers.
+Add main alongside phase-2-dev in the on: filters for relevant Health/Guard workflows.
+
+Note the convention in docs/ci/ so future renames consider CI updates.
+
+Non‑Goals
+
+Changing job logic, only the triggers and docs.
 
 Tasks
 
- Create agents-pr-meta.yml with jobs:
+- Update branch lists in Health/Guard workflows to include both branches.
 
- listen_commands on issue_comment events.
+- Add a short note in docs/ci/BRANCHING.md about keeping CI triggers aligned with the default branch.
 
- update_body to maintain a single marker block.
-
- Use a common concurrency group keyed by PR number.
-
- Remove/retire the old two workflows.
+- Validate the triggers by pushing a no‑op change to workflow files on both branches (or using workflow_dispatch).
 
 Acceptance criteria
 
- Commands and body updates never run concurrently for the same PR.
+- Health/Guard workflows trigger on both phase-2-dev and main.
 
- Marker updates do not overwrite unrelated PR text.
+- Docs explain the requirement to keep triggers aligned on default branch changes.
 
 Implementation notes
 
-Files: .github/workflows/agents-64-pr-comment-command-listener.yml, .github/workflows/agents-74-pr-body-writer.yml, .github/workflows/agents-pr-meta.yml
-Branch: codex/issue--merge-pr-meta
-PR title prefix: [Agents] Merge PR meta workflows
-Touch only: the three workflows above
-Copy/paste to PR comment (kickoff)
-@{agent} Build the combined workflow and replace the two existing ones. Validate concurrency and no body thrash on a test PR.
+Files: ./github/workflows/health-43-ci-signature-guard.yml and any other guard with a branch filter.
+PR title prefix: [Health] Branch filter hardening
+PR kickoff comment:
+@{agent} Add main alongside phase-2-dev in guard workflow triggers and document the default-branch expectation.
 
-5) Autofix: auto‑label style‑only failures in Gate and widen loop scope
+7. Actions security: pin third‑party actions by commit SHA across Gate/Health/Agents
 
-Title: Gate + Autofix: auto‑label clean failures and allow loop on any PR with autofix:clean
-
-Labels: agent:codex, workflows, ci, devops, autofix, autofix:clean, enhancement, priority: high
-
-Body:
-
-Description
-
-When Gate detects failures limited to formatting/imports/other cosmetic issues, apply autofix:clean to the PR. Update the Autofix Loop to run whenever autofix:clean is present, not only on agent:* PRs, while keeping the ALLOWED_GLOBS restriction.
-
+Labels: agent:codex, devops, guardrail, enhancement
 Why
 
-This recovers time on human PRs without sacrificing safety; the loop already has tight edit scopes. 
-GitHub
-+1
+Most steps reference actions by major tag (@v4, @v5). Pinning third‑party actions by commit SHA is a low‑noise, high‑value supply‑chain hardening. Start with Gate, branch‑protection checks, and PR meta manager.
+
+Prevents surprise behavior if an upstream tag moves.
 
 Scope
-Small change in Gate’s summary job plus label logic in Autofix.
 
-Non-Goals
-Changing allowed file globs.
+Replace tags for non‑first‑party actions with exact SHAs; optionally pin actions/* too if you want full determinism.
+
+Add a short doc note and a tiny script/snippet to bump SHAs when needed.
+
+Non‑Goals
+
+Changing workflows’ logic.
 
 Tasks
 
- In Gate summary, detect format/import‑only failures and add autofix:clean. 
-GitHub
+- Enumerate all actions in Gate, Health 44, Agents PR meta; identify non‑actions/*.
 
- In autofix.yml, drop the agent:* co‑label requirement; trigger solely on autofix/autofix:clean. 
-GitHub
+- Pin them by SHA; record SHAs in comments.
 
- Keep ALLOWED_GLOBS as *.py, *.pyi; add explicit guard against non‑Python changes.
+- Add docs/ci/ACTIONS_PINNING.md with a one‑pager on updating pins.
 
-Acceptance criteria
-
- For cosmetic failures, PR gains autofix:clean automatically.
-
- Autofix Loop runs and pushes minimal import/format fixes.
-
- No edits outside allowed globs.
-
-Implementation notes
-
-Files: .github/workflows/pr-00-gate.yml, .github/workflows/autofix.yml, .github/scripts/*gate*
-Branch: codex/issue--gate-autolabel-autofix
-PR title prefix: [CI] Gate-driven autofix label & loop
-Touch only: the two workflows above and Gate summary script
-Copy/paste to PR comment (kickoff)
-@{agent} Implement label auto-add and relax the loop’s label gate while preserving allowed file globs.
-
-6) Guardrail: centralize required check names to avoid brittle branch‑protection drift
-
-Title: Branch protection: centralize required contexts and sync with enforcer
-
-Labels: agent:codex, workflows, devops, guardrail, health:repo, maintenance, priority: medium
-
-Body:
-
-Description
-
-Put required check names (e.g., “Gate / gate”, “Health 45 Agents Guard / Enforce agents workflow protections”) in a single config that both the enforcer and Gate summary read, so renames don’t silently break protection. 
-GitHub
-
-Why
-
-Names drift; protection silently weakens. One source of truth prevents foot‑guns.
-
-Scope
-New config file and minor updates to the enforcer and Gate summary job to read it.
-
-Non-Goals
-Adding or removing required checks.
-
-Tasks
-
- Add .github/config/required-contexts.json with canonical list.
-
- Update branch‑protection enforcer to consume the file. 
-GitHub
-
- Update Gate summary to reference the same list when reporting “required checks.”
-
- Document the rule and the update process in docs/ci/.
+- Validate by re‑running Gate and Health Sweep on a dummy PR.
 
 Acceptance criteria
 
- A single JSON file defines required contexts.
+- All non‑first‑party actions are pinned by SHA; runs remain green.
 
- Enforcer and Gate summary read the same list.
-
- Renaming a job requires updating one file, not code.
+- Docs exist for updating pins.
 
 Implementation notes
 
-Files: .github/config/required-contexts.json, .github/workflows/health-44-gate-branch-protection.yml, .github/workflows/pr-00-gate.yml, .github/scripts/*branch*
-Branch: codex/issue--required-contexts-source-of-truth
-PR title prefix: [Guardrail] Centralize required contexts
-Touch only: those files and minimal docs
-Copy/paste to PR comment (kickoff)
-@{agent} Add the config, wire it into enforcer + Gate summary, and document the process for updating required contexts.
+Files: affected .github/workflows/*.yml; new docs/ci/ACTIONS_PINNING.md.
+PR title prefix: [Security] Pin actions
+PR kickoff comment:
+@{agent} Pin third-party actions by SHA across Gate/Health/Agents and add a short doc explaining how to bump pins.
