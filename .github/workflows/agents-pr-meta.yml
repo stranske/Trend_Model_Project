@@ -45,6 +45,7 @@ jobs:
             const marker = '<!-- codex-activation-marker -->';
             const errorMarker = '<!-- codex-activation-error -->';
             const aliasCommands = ['/codex run', '/agent run'];
+            const aliasCommandSet = new Set(aliasCommands.map((value) => value.toLowerCase()));
 
             const { payload } = context;
             const { owner, repo } = context.repo;
@@ -119,13 +120,19 @@ jobs:
             const getActivationCommand = (rawText) => {
               if (!rawText) return null;
               const trimmed = rawText.trim();
+              if (!trimmed) return null;
+
               if (trimmed.startsWith(commandPrefix)) {
                 return { type: 'full', value: commandPrefix };
               }
 
-              const normalized = trimmed.toLowerCase();
-              if (aliasCommands.includes(normalized)) {
-                return { type: 'alias', value: normalized };
+              const normalizedLines = trimmed
+                .split(/\r?\n+/)
+                .map((line) => line.trim().toLowerCase())
+                .filter(Boolean);
+
+              if (normalizedLines.length > 0 && aliasCommandSet.has(normalizedLines[0])) {
+                return { type: 'alias', value: normalizedLines[0] };
               }
 
               return null;
