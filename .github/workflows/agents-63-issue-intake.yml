@@ -547,7 +547,6 @@ jobs:
               });
               return;
             }
-            metrics.topics_after_dedup = topics.length;
             const seenTopics = new Set();
             const deduped = [];
             let duplicateCount = 0;
