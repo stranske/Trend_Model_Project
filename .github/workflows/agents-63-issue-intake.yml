@@ -4,8 +4,9 @@ name: Agents 63 Issue Intake
 on:
   issues:
     types:
+      - opened
       - labeled
-      - unlabeled
+      - reopened
 
 concurrency:
   group: >
