@@ -92,7 +92,6 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-pr-meta.yml`](../../.github/workflows/agents-pr-meta.yml) manages PR metadata and automated status updates.
 * [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
-* [`agents-63-chatgpt-issue-sync.yml`](../../.github/workflows/agents-63-chatgpt-issue-sync.yml) turns curated topic lists into triaged GitHub issues via the shared parsing helpers.
 * [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) is the canonical front door. It now listens for `agent:codex` labels directly and routes both label triggers and ChatGPT sync requests through the shared normalization pipeline.
 * [`agents-64-pr-comment-commands.yml`](../../.github/workflows/agents-64-pr-comment-commands.yml) processes slash commands in PR comments to trigger workflow actions.
 * [`agents-64-verify-agent-assignment.yml`](../../.github/workflows/agents-64-verify-agent-assignment.yml) validates that labelled issues retain an approved agent assignee and publishes the verification outputs.

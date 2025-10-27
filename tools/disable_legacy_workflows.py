@@ -45,7 +45,6 @@ API_VERSION = "2022-11-28"
 
 # Canonical workflow inventory (filenames under .github/workflows/)
 CANONICAL_WORKFLOW_FILES: Set[str] = {
-    "agents-63-chatgpt-issue-sync.yml",
     "agents-63-issue-intake.yml",
     "agents-64-pr-comment-commands.yml",
     "agents-64-verify-agent-assignment.yml",
@@ -79,7 +78,6 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
 
 # Display names expected to remain active in the Actions UI.
 CANONICAL_WORKFLOW_NAMES: Set[str] = {
-    "Agents 63 ChatGPT Issue Sync",
     "Agents 63 Issue Intake",
     "Agents 64 Verify Agent Assignment",
     "Agents 70 Orchestrator",

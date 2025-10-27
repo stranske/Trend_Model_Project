@@ -99,7 +99,7 @@ This ensures backward compatibility with both old and new issue formats.
 
 ## ChatGPT Topic File Format
 
-The **Agents 63 ChatGPT Issue Sync** workflow processes topic files and creates/updates GitHub issues.
+The **Agents 63 Issue Intake** workflow processes topic files and creates/updates GitHub issues when dispatched in ChatGPT sync mode.
 
 ### File Format
 
