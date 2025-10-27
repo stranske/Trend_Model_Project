@@ -122,11 +122,23 @@ def test_agent_watchdog_workflow_absent():
     ), "Standalone agent-watchdog workflow must remain deleted"
 
 
-def test_codex_issue_bridge_present():
-    bridge = WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml"
+def test_issue_intake_handles_codex_events():
+    intake = WORKFLOWS_DIR / "agents-63-issue-intake.yml"
+    assert intake.exists(), "agents-63-issue-intake.yml must exist"
+
+    data = _load_workflow_yaml("agents-63-issue-intake.yml")
+    triggers = _workflow_on_section(data)
+    assert "issues" in triggers, "Issue intake must listen for issue events"
+    issue_trigger = triggers.get("issues") or {}
+    types = set(issue_trigger.get("types") or [])
+    assert {"opened", "labeled", "reopened"}.issubset(
+        types
+    ), "Issue intake must react to issue label lifecycle events"
+
+    text = intake.read_text(encoding="utf-8")
     assert (
-        bridge.exists()
-    ), "agents-63-codex-issue-bridge.yml must exist after Codex bridge restoration"
+        "agent:codex" in text and "agents:codex" in text
+    ), "Issue intake must guard on the codex agent labels"
 
 
 def test_codex_bootstrap_lite_surfaces_keepalive_mode():
@@ -388,21 +400,14 @@ def test_agent_task_template_auto_labels_codex():
     ), "Agent task template must auto-apply agents + agent:codex labels"
 
 
-def test_codex_issue_bridge_triggers_on_agent_label():
-    data = _load_workflow_yaml("agents-63-codex-issue-bridge.yml")
-    triggers = _workflow_on_section(data)
-    assert "issues" in triggers, "Codex issue bridge must listen for issue events"
-    issue_trigger = triggers["issues"] or {}
-    types = set(issue_trigger.get("types") or [])
-    assert {"opened", "labeled", "reopened"}.issubset(
-        types
-    ), "Issue bridge must react to issue label lifecycle events"
-    text = (WORKFLOWS_DIR / "agents-63-codex-issue-bridge.yml").read_text(
+def test_issue_intake_guard_checks_agent_label():
+    text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(
         encoding="utf-8"
     )
     assert (
-        "agent:codex" in text
-    ), "Issue bridge must guard on the agent:codex label to trigger hand-off"
+        "contains(github.event.label.name, 'agent:codex')" in text
+        or "contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex')" in text
+    ), "Issue intake must guard on the agent:codex label to trigger hand-off"
 
 
 def test_reusable_agents_jobs_have_timeouts():

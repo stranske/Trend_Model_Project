@@ -1,7 +1,7 @@
 # Agents Workflow Protection Plan
 
 ## Scope and Key Constraints
-- **Protect critical automation workflows**: `.github/workflows/agents-63-chatgpt-issue-sync.yml`, `.github/workflows/agents-63-codex-issue-bridge.yml`, and `.github/workflows/agents-70-orchestrator.yml` must remain intact unless a maintainer intentionally overrides safeguards.
+- **Protect critical automation workflows**: `.github/workflows/agents-63-chatgpt-issue-sync.yml`, `.github/workflows/agents-63-issue-intake.yml`, and `.github/workflows/agents-70-orchestrator.yml` must remain intact unless a maintainer intentionally overrides safeguards.
 - **Multi-layer safeguards only**: Implement protections via CODEOWNERS, branch protection (require Code Owner reviews), and repository rulesets that block deletion or renaming of the three workflows.
 - **Documentation updates**: Ensure policies are documented in `docs/AGENTS_POLICY.md` and referenced from `docs/ci/WORKFLOW_SYSTEM.md` without disrupting existing guidance.
 - **Operational continuity**: Safeguards must not break current CI or deployment pipelines; changes should be configuration-based and compatible with existing workflows.

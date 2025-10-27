@@ -66,7 +66,7 @@ other two rulesets apply to the phase branches exclusively.
 - Coordinate with a repository admin to enable `Tests Pass to Merge` and add a
   `restrict_file_updates` rule that lists:
   - `.github/workflows/agents-63-chatgpt-issue-sync.yml`
-  - `.github/workflows/agents-63-codex-issue-bridge.yml`
+  - `.github/workflows/agents-63-issue-intake.yml`
   - `.github/workflows/agents-70-orchestrator.yml`
 - Capture a screenshot of the GitHub UI after the update and link it here for
   auditability once the rule is active.

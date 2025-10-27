@@ -2,7 +2,7 @@
 
 ## Scope and Key Constraints
 - **Workflows covered**: All YAML files under `.github/workflows/`, including reusable components, must follow the new numbering-based naming scheme described in Issue #2492.
-- **Rename map fidelity**: File moves must exactly match the provided mapping, including deletions (e.g., removing `agent-watchdog.yml` if confirmed obsolete) and handling already compliant files (e.g., `agents-63-codex-issue-bridge.yml`).
+- **Rename map fidelity**: File moves must exactly match the provided mapping, including deletions (e.g., removing `agent-watchdog.yml` if confirmed obsolete) and handling already compliant files (e.g., `agents-63-issue-intake.yml`).
 - **Display names preserved**: Workflow `name:` fields should remain unchanged to avoid disrupting recognizable labels in the GitHub UI.
 - **Documentation alignment**: Any documentation referencing the old filenames (README, workflow guides, CI docs) must be updated in lockstep with the renames.
 - **Compatibility**: Downstream workflow callers (especially `pr-00-gate.yml`) must reference the new filenames so that automation continues to run without interruption.
