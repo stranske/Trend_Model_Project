@@ -56,6 +56,7 @@ def test_doc_only_summary_state() -> None:
     assert result.state == "success"
     assert "docs-only" in "\n".join(result.lines)
     assert any("| docs-only | success |" in line for line in result.lines)
+    assert result.format_failure is False
 
 
 def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
@@ -81,6 +82,7 @@ def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
     assert "Docker smoke skipped" in joined
     assert "| docker-smoke | success |" in joined
     assert result.cosmetic_failure is False
+    assert result.format_failure is False
 
 
 @pytest.mark.parametrize(
@@ -106,6 +108,7 @@ def test_summary_state_reflects_python_outcome(
     result = gate_summary.summarize(context)
     assert result.state == expected_state
     assert result.cosmetic_failure is False
+    assert result.format_failure is False
 
 
 def test_cosmetic_failure_detected(tmp_path: Path) -> None:
@@ -126,6 +129,7 @@ def test_cosmetic_failure_detected(tmp_path: Path) -> None:
     assert result.state == "failure"
     assert result.cosmetic_failure is True
     assert result.failure_checks == ("format",)
+    assert result.format_failure is True
 
 
 def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
@@ -145,6 +149,7 @@ def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
     result = gate_summary.summarize(context)
     assert result.state == "failure"
     assert result.cosmetic_failure is False
+    assert result.format_failure is False
 
 
 def test_cosmetic_failure_reports_all_allowed_checks(tmp_path: Path) -> None:
@@ -167,3 +172,4 @@ def test_cosmetic_failure_reports_all_allowed_checks(tmp_path: Path) -> None:
     assert result.state == "failure"
     assert result.cosmetic_failure is True
     assert result.failure_checks == ("format", "lint")
+    assert result.format_failure is True
