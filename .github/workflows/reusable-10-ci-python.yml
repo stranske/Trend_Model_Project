@@ -239,6 +239,16 @@ jobs:
             requirements.lock
             pyproject.toml
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         env:
           PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
@@ -266,6 +276,69 @@ jobs:
             echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
             pip install black ruff mypy pytest pytest-cov
           fi
+
+      - name: Validate test dependencies
+        id: test-deps
+        run: |
+          set -euo pipefail
+          echo "## Test Dependency Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run the dependency check script if it exists
+          if [ -f scripts/check_test_dependencies.sh ]; then
+            echo "Running dependency check script..." >> $GITHUB_STEP_SUMMARY
+            ./scripts/check_test_dependencies.sh >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          else
+            echo "⚠️ Dependency check script not found, running basic validation" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Basic Python version check
+            python_version=$(python --version 2>&1 | awk '{print $2}')
+            echo "✓ Python $python_version" >> $GITHUB_STEP_SUMMARY
+            
+            # Check key test packages
+            for pkg in pytest coverage hypothesis pandas numpy pydantic yaml requests jsonschema; do
+              if python -c "import $pkg" 2>/dev/null; then
+                echo "✓ $pkg" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "✗ $pkg (missing)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            
+            # Check optional tools
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Optional Tools" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for undeclared test dependencies
+        id: check-deps
+        continue-on-error: true
+        run: |
+          python scripts/sync_test_dependencies.py --verify
+            for tool in node npm uv; do
+              if command -v "$tool" &>/dev/null; then
+                version=$("$tool" --version 2>&1 | head -n1 || echo "unknown")
+                echo "✓ $tool ($version)" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "○ $tool (not installed - some tests may skip)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+      - name: Check for undeclared test dependencies
+        id: check-deps
+        continue-on-error: true
+        run: |
+          python scripts/sync_test_dependencies.py --verify
+
+      - name: Auto-fix missing dependencies
+        if: steps.check-deps.outcome == 'failure'
+        run: |
+          echo "⚠️ Found undeclared test dependencies. Auto-fixing..." >> $GITHUB_STEP_SUMMARY
+          python scripts/sync_test_dependencies.py --fix >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📝 Updated requirements.txt with missing dependencies." >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Build will fail - commit the updated requirements.txt" >> $GITHUB_STEP_SUMMARY
+          exit 1
 
       - name: Resolve mypy python pin
         if: ${{ inputs.typecheck && inputs['run-mypy'] }}
