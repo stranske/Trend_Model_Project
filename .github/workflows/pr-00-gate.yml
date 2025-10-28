@@ -13,27 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  label-only-gate:
-    name: Handle label-only events
-    if: github.event.action == 'labeled'
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Report success for label-only event
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.payload.pull_request?.head?.sha ?? context.sha,
-              state: 'success',
-              context: 'Gate / gate',
-              description: 'Label update - no CI required',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
-
   detect:
     name: detect changed files
     # Skip full CI on label-only events, but allow workflow to continue for autofix
