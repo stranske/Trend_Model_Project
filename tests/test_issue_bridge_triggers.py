@@ -5,6 +5,7 @@ Ensures that the Issue Bridge workflow correctly triggers when:
 1. An issue is created with the agent:codex label
 2. An issue is reopened with the agent:codex label
 3. The agent:codex label is added to an existing issue
+4. An agent:* label is removed from an issue (unlabeled event)
 """
 
 from __future__ import annotations
@@ -43,15 +44,15 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             "Workflow must listen for issue events",
         )
 
-    def test_workflow_triggers_on_opened_labeled_reopened(self) -> None:
-        """Ensure workflow triggers on opened, labeled, and reopened events."""
+    def test_workflow_triggers_on_opened_labeled_reopened_unlabeled(self) -> None:
+        """Ensure workflow triggers on opened, labeled, reopened, and unlabeled events."""
         data = self._load_workflow()
         # PyYAML may parse 'on' as boolean True
         triggers = data.get("on", data.get(True, {}))
         issue_trigger = triggers.get("issues", {})
         types = set(issue_trigger.get("types", []))
 
-        required_types = {"opened", "labeled", "reopened"}
+        required_types = {"opened", "labeled", "reopened", "unlabeled"}
         self.assertTrue(
             required_types.issubset(types),
             f"Workflow must trigger on {required_types}, got {types}",
@@ -113,8 +114,8 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             "Condition must check issue labels for all issue events",
         )
 
-    def test_condition_does_not_trigger_on_unlabeled(self) -> None:
-        """Ensure condition does NOT trigger on 'unlabeled' events."""
+    def test_condition_handles_unlabeled_correctly(self) -> None:
+        """Ensure condition properly handles 'unlabeled' events for agent:* labels."""
         # Get the normalize_inputs job condition
         data = self._load_workflow()
         jobs = data.get("jobs", {})
@@ -124,11 +125,18 @@ class TestIssueBridgeTriggers(unittest.TestCase):
         # Clean up whitespace
         clean_condition = " ".join(str(condition).split())
 
-        # The condition should NOT include unlabeled
-        self.assertNotIn(
+        # The condition SHOULD include unlabeled check with agent:* guard
+        self.assertIn(
             "github.event.action == 'unlabeled'",
             clean_condition,
-            "Condition must NOT trigger on 'unlabeled' events",
+            "Condition must include unlabeled event handling",
+        )
+
+        # And it must check that the label being removed starts with 'agent:'
+        self.assertIn(
+            "startsWith(github.event.label.name, 'agent:')",
+            clean_condition,
+            "Condition must verify the unlabeled event is for an agent:* label",
         )
 
     def test_condition_logic_structure(self) -> None:
