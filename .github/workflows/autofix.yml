@@ -434,7 +434,7 @@ jobs:
 
           output = os.environ['GITHUB_OUTPUT']
           with open(output, 'a', encoding='utf-8') as handle:
-              handle.write(f'changed={len(python_files) > 0}\n')
+              handle.write(f'changed={str(len(python_files) > 0).lower()}\n')
               handle.write(f'file_count={len(python_files)}\n')
               handle.write('files_json=' + json.dumps(python_files) + '\n')
               handle.write('non_python_files_json=' + json.dumps(non_python_files) + '\n')
