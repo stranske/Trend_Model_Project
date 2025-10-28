@@ -167,6 +167,7 @@ jobs:
             if (context.eventName === 'schedule' && ref && ref !== expectedRef) {
               core.setFailed(`Scheduled orchestrator runs must execute from ${expectedRef}, but received ${ref}.`);
             }
+      # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
@@ -216,6 +217,7 @@ jobs:
             }}
         with:
           script: |
+            // Do not remove checkout; local helper is required.
             const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
             await resolveOrchestratorParams({ github, context, core, env: process.env });
 
@@ -388,6 +390,7 @@ jobs:
           * Existing PR: [#${{ needs.belt-check-existing-pr.outputs.pr_number }}](${{ needs.belt-check-existing-pr.outputs.pr_url }})
           EOF
 
+      # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
@@ -409,6 +412,7 @@ jobs:
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
         with:
           script: |
+            // Do not remove checkout; local helper is required.
             const { appendDispatchSummary } = require('./.github/scripts/agents_dispatch_summary.js');
             await appendDispatchSummary({ core, context, env: process.env });
   belt-scan-ready-prs:
@@ -420,6 +424,7 @@ jobs:
     env:
       MAX_PROMOTIONS: ${{ needs.resolve-params.outputs.conveyor_max_merges }}
     steps:
+      # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
@@ -432,6 +437,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Do not remove checkout; local helper is required.
             const { identifyReadyCodexPRs } = require('./.github/scripts/agents_belt_scan.js');
             await identifyReadyCodexPRs({ github, context, core, env: process.env });
 
