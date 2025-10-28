@@ -9,7 +9,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/decode_raw_input.py"
 
 
-def run_decode(tmp_path: Path, *args: str, raw_payload: str | None = None) -> subprocess.CompletedProcess[str]:
+def run_decode(
+    tmp_path: Path, *args: str, raw_payload: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """Execute the decode script in a temporary working directory."""
     workdir = Path(tmp_path)
     if raw_payload is not None:
@@ -29,9 +31,7 @@ def load_decode_debug(workdir: Path) -> dict:
 
 def test_decode_json_rebuilds_enumerators_and_sections(tmp_path: Path) -> None:
     """JSON payloads should be normalised and split for the parser."""
-    raw = (
-        "1) Pipeline hardening Why Ensure reliability before release Tasks - Add smoke tests - Update docs"
-    )
+    raw = "1) Pipeline hardening Why Ensure reliability before release Tasks - Add smoke tests - Update docs"
     result = run_decode(tmp_path, raw_payload=json.dumps(raw))
     assert result.returncode == 0, result.stderr
 

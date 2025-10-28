@@ -115,11 +115,21 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
 
     workdir = tmp_path
     passthrough_source = workdir / "Issues.txt"
-    passthrough_source.write_text(issues_source.read_text(encoding="utf-8"), encoding="utf-8")
+    passthrough_source.write_text(
+        issues_source.read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
     decode_script = repo_root / ".github/scripts/decode_raw_input.py"
     decode_proc = subprocess.run(
-        [sys.executable, str(decode_script), "--passthrough", "--in", str(passthrough_source), "--source", "repo_file"],
+        [
+            sys.executable,
+            str(decode_script),
+            "--passthrough",
+            "--in",
+            str(passthrough_source),
+            "--source",
+            "repo_file",
+        ],
         cwd=workdir,
         capture_output=True,
         text=True,
