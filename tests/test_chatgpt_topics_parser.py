@@ -105,3 +105,45 @@ def test_lowercase_alpha_enumeration():
     assert enums == ["a", "b", "d"]
     continuity = [t["continuity_break"] for t in topics]
     assert continuity == [False, False, True]
+
+
+def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None:
+    """End-to-end check that Issues.txt flows through the workflow helpers."""
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    issues_source = repo_root / "Issues.txt"
+    assert issues_source.exists(), "Issues.txt must exist for pipeline test"
+
+    workdir = tmp_path
+    passthrough_source = workdir / "Issues.txt"
+    passthrough_source.write_text(issues_source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    decode_script = repo_root / ".github/scripts/decode_raw_input.py"
+    decode_proc = subprocess.run(
+        [sys.executable, str(decode_script), "--passthrough", "--in", str(passthrough_source), "--source", "repo_file"],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    assert decode_proc.returncode == 0, decode_proc.stderr
+
+    parser_proc = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    assert parser_proc.returncode == 0, parser_proc.stderr
+
+    topics_path = workdir / "topics.json"
+    assert topics_path.exists(), "Parser must emit topics.json"
+    topics = json.loads(topics_path.read_text(encoding="utf-8"))
+
+    assert len(topics) >= 2, "Issues.txt should describe multiple topics"
+    first = topics[0]
+    assert "agent:codex" in first["labels"]
+    assert "agents-70-orchestrator.yml" in first["sections"]["tasks"]
+    assert "checkout" in first["sections"]["acceptance_criteria"].lower()
+    assert "@{agent}" in first["sections"]["implementation_notes"]
+
+    # Ensure every topic captures acceptance criteria to satisfy automation checks.
+    assert all(topic["sections"]["acceptance_criteria"].strip() for topic in topics)
