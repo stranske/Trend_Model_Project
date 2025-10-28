@@ -184,7 +184,20 @@ jobs:
               per_page: 100,
             });
             const allowedExtensions = ['.py', '.pyi'];
-            const disallowedFiles = files
+            const pythonFiles = files
+              .map((file) => {
+                if (!file) return '';
+                if (typeof file === 'string') return file;
+                if (typeof file.filename === 'string') return file.filename;
+                return '';
+              })
+              .filter(Boolean)
+              .filter((filename) => {
+                const lower = filename.toLowerCase();
+                return allowedExtensions.some((ext) => lower.endsWith(ext));
+              });
+
+            const nonPythonFiles = files
               .map((file) => {
                 if (!file) return '';
                 if (typeof file === 'string') return file;
@@ -197,20 +210,25 @@ jobs:
                 return !allowedExtensions.some((ext) => lower.endsWith(ext));
               });
 
-            summary.addRaw(`Non-Python files detected: ${disallowedFiles.length}`).addEOL();
+            summary.addRaw(`Python files in PR: ${pythonFiles.length}`).addEOL();
+            summary.addRaw(`Non-Python files in PR: ${nonPythonFiles.length}`).addEOL();
 
-            if (disallowedFiles.length > 0) {
-              result.skip_reason = 'non-python-changes';
-              summary
-                .addRaw(
-                  `Detected non-Python changes; skipping autofix loop (${disallowedFiles.join(', ')})`
-                )
-                .addEOL();
+            if (pythonFiles.length === 0) {
+              result.skip_reason = 'no-python-files';
+              summary.addRaw('No Python files in PR; skipping autofix loop.').addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
               await summary.write();
               return;
+            }
+
+            if (nonPythonFiles.length > 0) {
+              summary
+                .addRaw(
+                  `Note: PR contains non-Python files (${nonPythonFiles.join(', ')}). Autofix will only commit changes to Python files.`
+                )
+                .addEOL();
             }
 
             const shortSha = (pr.head.sha || '').slice(0, 7);
@@ -405,19 +423,31 @@ jobs:
           allowed_raw = os.environ.get('ALLOWED_GLOBS', '')
           globs = [line.strip() for line in allowed_raw.splitlines() if line.strip()]
 
-          disallowed = []
+          python_files = []
+          non_python_files = []
           for file in files:
               path = PurePosixPath(file)
-              if not any(path.match(pattern) for pattern in globs):
-                  disallowed.append(file)
+              if any(path.match(pattern) for pattern in globs):
+                  python_files.append(file)
+              else:
+                  non_python_files.append(file)
 
           output = os.environ['GITHUB_OUTPUT']
           with open(output, 'a', encoding='utf-8') as handle:
-              handle.write('changed=true\n')
-              handle.write(f'file_count={len(files)}\n')
-              handle.write('files_json=' + json.dumps(files) + '\n')
-          if disallowed:
-              raise SystemExit(f'Detected disallowed file edits: {disallowed}')
+              handle.write(f'changed={str(len(python_files) > 0).lower()}\n')
+              handle.write(f'file_count={len(python_files)}\n')
+              handle.write('files_json=' + json.dumps(python_files) + '\n')
+              handle.write('non_python_files_json=' + json.dumps(non_python_files) + '\n')
+          
+          if non_python_files:
+              print(f'Warning: Non-Python files modified but will not be committed: {non_python_files}')
+              # Reset non-Python files to avoid committing them
+              for file in non_python_files:
+                  os.system(f'git checkout HEAD -- {file}')
+          
+          if not python_files:
+              print('No Python files were modified by autofix.')
+              exit(0)
           PY
 
       - name: Commit autofix changes
