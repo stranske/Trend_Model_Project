@@ -11,7 +11,7 @@ Non-Goals
 Changing orchestrator behavior, schedule, inputs, or belt semantics.
 
 Tasks
-- In `.github/workflows/agents-70-orchestrator.yml`, verify checkout exists before each `require('./.github/scripts/…')` usage:
+- In `.github/workflows/agents-70-orchestrator.yml`, verify checkout exists before each `require('./.github/scripts/...')` usage:
   - `resolve-params` requires `agents_orchestrator_resolve.js`
   - `belt-dispatch-summary` requires `agents_dispatch_summary.js`
   - `belt-scan-ready-prs` requires `agents_belt_scan.js`
