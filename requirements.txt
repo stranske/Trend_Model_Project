@@ -28,12 +28,22 @@ requests
 # httpx>=0.24.0
 # websockets>=11.0
 
-# Development tools
+# Development and testing tools
 pre-commit
 black
 isort
 ruff
 docformatter
 mypy
+
+# Testing dependencies
+pytest>=8.0
 pytest-cov
+pytest-rerunfailures
+hypothesis
+coverage
 jsonschema
+
+# Note: Node.js (v16+) and npm are required for JavaScript workflow tests
+# Install from: https://nodejs.org/
+# Optional: uv (for lockfile tests) - https://github.com/astral-sh/uv

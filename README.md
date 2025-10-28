@@ -504,8 +504,44 @@ Once the dependencies are installed, run the tests with coverage enabled:
 coverage run --rcfile .coveragerc.core -m pytest --maxfail=1 --disable-warnings
 coverage report -m
 ```
-All unit tests reside in the `tests/` directory and enforce 100 % branch
+All unit tests reside in the `tests/` directory and enforce 100 % branch
 coverage.
+
+### Automated Dependency Management
+
+The project includes a comprehensive automated system to ensure all test dependencies are properly declared and available. This system prevents tests from failing due to missing dependencies and maintains a clean, declarative `requirements.txt`.
+
+**Quick Reference:**
+```bash
+# Check if all test imports are declared
+python scripts/sync_test_dependencies.py
+
+# Auto-fix missing dependencies
+python scripts/sync_test_dependencies.py --fix
+uv pip compile pyproject.toml -o requirements.lock
+
+# Optional: Install pre-commit hook for automatic checking
+cp scripts/pre-commit-check-deps.sh .git/hooks/pre-commit
+```
+
+**Features:**
+- ✅ **Automatic Detection**: Enforcement tests fail if test files import undeclared packages
+- ✅ **Automatic Resolution**: Sync script can auto-add missing dependencies to `requirements.txt`
+- ✅ **CI Integration**: GitHub Actions automatically detects and shows fixes for missing dependencies
+- ✅ **Pre-commit Hook**: Optional local validation before pushing to CI
+- ✅ **Zero Skipped Tests**: All 2,102 tests pass with no skipped tests
+
+**Documentation:**
+- 📚 **Quick Start**: [DEPENDENCY_QUICKSTART.md](DEPENDENCY_QUICKSTART.md) - Commands and common workflows
+- 📖 **Complete Guide**: [docs/DEPENDENCY_SYSTEM_COMPLETE.md](docs/DEPENDENCY_SYSTEM_COMPLETE.md) - System overview and design
+- 🔧 **Workflow Details**: [docs/DEPENDENCY_WORKFLOW.md](docs/DEPENDENCY_WORKFLOW.md) - Step-by-step instructions
+- 🏗️ **Technical Deep Dive**: [docs/DEPENDENCY_ENFORCEMENT.md](docs/DEPENDENCY_ENFORCEMENT.md) - Architecture and implementation
+
+**Test Results:**
+- Total Tests: 2,102
+- Passing: 2,102 (100%)
+- Skipped: 0 ✅
+- Dependency Tests: 16/16 passing (validation + enforcement)
 
 Alternatively, after installing the dependencies, you can use the
 helper script to execute the test suite in one step. The script accepts a
