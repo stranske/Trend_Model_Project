@@ -48,7 +48,7 @@ Non-Goals
 Changing bridge wiring, parser behavior, or intake field names.
 
 Tasks
-- Review `.github/workflows/agents-63-issue-intake.yml` `on: issues.types`.
+- Review `.github/workflows/agents-63-issue-intake.yml` `on: issues.types` to determine if `unlabeled` is present; confirm that the triggers match the intended policy (either include `unlabeled` or document its absence).
 - If adopting unlabeled: include `- unlabeled` under `issues.types` and confirm the `normalize_inputs` guard condition still gates on presence of `agent:*` labels to avoid no-op runs.
 - If not adopting unlabeled: add a 1–2 line note to `docs/ci/AGENTS_POLICY.md` clarifying that Intake does not react to unlabeled events.
 - Validate with a sandbox issue: add/remove `agent:codex` and confirm either single-run (with unlabeled) or no run (without unlabeled), with concurrency preventing duplicates.
