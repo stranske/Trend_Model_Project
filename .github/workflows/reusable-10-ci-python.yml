@@ -308,12 +308,6 @@ jobs:
             # Check optional tools
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Optional Tools" >> $GITHUB_STEP_SUMMARY
-
-      - name: Check for undeclared test dependencies
-        id: check-deps
-        continue-on-error: true
-        run: |
-          python scripts/sync_test_dependencies.py --verify
             for tool in node npm uv; do
               if command -v "$tool" &>/dev/null; then
                 version=$("$tool" --version 2>&1 | head -n1 || echo "unknown")
