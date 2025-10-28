@@ -1,132 +1,64 @@
-1. Health guards: broaden branch filters so protections apply if the default branch changes
-Labels: devops, guardrail, config, documentation, workflows
+1. Agents 70 Orchestrator: confirm and lock in script checkout for local helpers (`.github/scripts/*`)
+Labels: agent:codex, agents, devops, guardrail, documentation
 
 Why
-Some guard workflows target a specific branch. If the default branch changes, protections silently stop.
+Jobs that `require('./.github/scripts/...')` must check out the repo first. The orchestrator currently includes targeted checkouts, but this should be verified and documented so future edits don’t regress and break Resolve/Summary/Scan at runtime.
 
 Scope
-Include both `phase-2-dev` and `main` in `on:` filters and add a short docs note.
+Audit the orchestrator and keep a checkout step ahead of every `actions/github-script` call that loads local helpers. Use sparse checkout of `.github/scripts` to keep runs fast. Add a short YAML comment to remind future editors not to delete the checkout.
 
-Non‑Goals
-Changing job logic.
+Non-Goals
+Changing orchestrator behavior, schedule, inputs, or belt semantics.
 
 Tasks
-- Update branch lists in Health/Guard workflows to include both branches.
-- Document the requirement in `docs/ci/BRANCHING.md`.
+- In `.github/workflows/agents-70-orchestrator.yml`, verify checkout exists before each `require('./.github/scripts/…')` usage:
+  - `resolve-params` requires `agents_orchestrator_resolve.js`
+  - `belt-dispatch-summary` requires `agents_dispatch_summary.js`
+  - `belt-scan-ready-prs` requires `agents_belt_scan.js`
+- If any job is missing checkout, add:
+  - `uses: actions/checkout@v4`
+  - `with: sparse-checkout: |` then `.github/scripts` and `sparse-checkout-cone-mode: false`
+- Run a `workflow_dispatch` dry run to prove all requires succeed and the job summary renders.
+- Add a one-line guard comment near each require: “Do not remove checkout; local helper is required.”
 
 Acceptance criteria
-- Guards run on both branches.
-- Docs explain keeping triggers aligned with the default branch.
+- All jobs that import from `.github/scripts` have a preceding checkout step.
+- A manual dry run completes with Resolve/Summary/Scan summaries present and no “Cannot find module” errors.
+- The orchestrator file contains brief comments warning against removing the checkout in these jobs.
 
 Implementation notes
-Files: Health 43 CI Signature Guard, Health 44 Gate Branch Protection.
+File: `.github/workflows/agents-70-orchestrator.yml`
+Helpers: `.github/scripts/agents_orchestrator_resolve.js`, `agents_dispatch_summary.js`, `agents_belt_scan.js`
 
-PR title prefix: [Health] Branch filter hardening
-PR kickoff comment: @{agent} Add `main` alongside `phase-2-dev` in guard workflow triggers and document the default-branch expectation.
+PR title prefix: [Agents] Orchestrator checkout guard
+PR kickoff comment: @{agent} Confirm checkout coverage before local helper `require(...)` calls; add sparse checkout where missing and annotate jobs so this doesn’t regress.
 
-2. Actions security: pin third‑party actions by commit SHA across Gate/Health/Agents
-Labels: devops, guardrail, security, enhancement, workflows
+2. Agents 63 Intake: align unlabeled policy with triggers (add `unlabeled` or codify “no‑unlabeled”)
+Labels: agent:codex, agents, devops, guardrail, documentation
 
 Why
-Using floating major tags (`@v3`, `@v4`) risks supply‑chain surprises. Pin SHAs for third-party actions.
+Intake now fires on `opened/reopened/labeled` with a concurrency group. Decide whether removing an `agent:*` label should trigger Intake too. Either add `unlabeled` to `on: issues` or explicitly document that unlabeled events are out of scope.
 
 Scope
-Replace tags with SHAs and add a short “how to bump” doc.
+Pick one policy:
+- Support unlabeled: add `unlabeled` to `on: issues.types`, ensuring the normalization guard and concurrency still avoid double-processing.
+- Or explicitly do not support unlabeled: keep triggers as-is and add a short doc note clarifying behavior so folks don’t expect it.
 
-Non‑Goals
-Changing workflow behavior.
-
-Tasks
-- Enumerate non‑`actions/*` uses and pin by SHA (and optionally pin `actions/*` for full determinism).
-- Write `docs/ci/ACTIONS_PINNING.md`.
-- Re‑run Gate and Health on a dummy PR to confirm behavior.
-
-Acceptance criteria
-- All non‑`actions/*` uses are pinned by SHA.
-- Docs explain bumping.
-
-Implementation notes
-Files: `.github/workflows/*.yml`.
-
-PR title prefix: [Security] Pin actions
-PR kickoff comment: @{agent} Pin third‑party actions by SHA across Gate/Health/Agents and add a short doc on updating pins.
-
-3. Post‑CI consolidation: restrict or remove “Maint 46 Post CI” and centralize summary/status in Gate
-Labels: ci, devops, maintenance, workflows, guardrail, documentation
-
-Why
-Maint 46 re‑discovers Gate runs, re‑downloads artifacts, re‑renders a summary, and re‑sets commit status. That duplicates Gate’s own `summary` job and risks drift.
-
-Scope
-Either delete Maint 46 or make it recovery‑only: run only when Gate’s `summary` didn’t complete. Remove status re‑post unless recovering. Document the policy.
-
-Non‑Goals
-Changing Gate’s coverage computation or PR comment structure.
+Non-Goals
+Changing bridge wiring, parser behavior, or intake field names.
 
 Tasks
-- Add a guard step in Maint 46 to check for Gate `summary` completion; exit early if present.
-- Remove duplicate commit‑status propagation unless in recovery mode.
-- Update CI docs to make Gate the source of truth.
+- Review `.github/workflows/agents-63-issue-intake.yml` `on: issues.types`.
+- If adopting unlabeled: include `- unlabeled` under `issues.types` and confirm the `normalize_inputs` guard condition still gates on presence of `agent:*` labels to avoid no-op runs.
+- If not adopting unlabeled: add a 1–2 line note to `docs/ci/AGENTS_POLICY.md` clarifying that Intake does not react to unlabeled events.
+- Validate with a sandbox issue: add/remove `agent:codex` and confirm either single-run (with unlabeled) or no run (without unlabeled), with concurrency preventing duplicates.
 
 Acceptance criteria
-- In the happy path, only Gate posts summary and status.
-- Maint 46 runs only when Gate failed before summarizing.
+- Triggers and policy are consistent: either unlabeled is supported and safe, or it’s explicitly documented as out of scope.
+- Label add/remove behavior matches the chosen policy in a live test, with no duplicate intake runs.
 
 Implementation notes
-Files: `.github/workflows/maint-46-post-ci.yml`, `.github/workflows/pr-00-gate.yml`.
+Files: `.github/workflows/agents-63-issue-intake.yml`, `docs/ci/AGENTS_POLICY.md`
 
-PR title prefix: [CI] Post‑CI consolidation
-PR kickoff comment: @{agent} Make Gate the single summary/status source and restrict Maint 46 to recovery-only or retire it.
-
-4. Agents 71/72/73: make them reusable-only; remove any direct triggers; invoke via Orchestrator
-Labels: agents, devops, workflows, refactor, guardrail, maintenance
-
-Why
-The belt dispatcher/worker/conveyor should not be public entrypoints. Reusable-only reduces accidental runs and keeps Orchestrator as the single driver.
-
-Scope
-Ensure these YAMLs are `workflow_call` only. Drop `workflow_dispatch` or other public triggers if present.
-
-Non‑Goals
-Changing belt logic.
-
-Tasks
-- Remove direct triggers from Agents 71/72/73.
-- Keep `workflow_call` with typed inputs.
-- Verify Orchestrator fan‑out still functions.
-
-Acceptance criteria
-- Belt workflows are no longer runnable from the Actions UI.
-- Orchestrator `uses: ./.github/workflows/agents-7x-...` still works.
-
-Implementation notes
-Files: `.github/workflows/agents-71*-dispatcher.yml`, `agents-72*-worker.yml`, `agents-73*-conveyor.yml`.
-
-PR title prefix: [Agents] Belt = reusable-only
-PR kickoff comment: @{agent} Drop public triggers for belt workflows; keep them workflow_call-only and validate Orchestrator fan-out.
-
-5. Clean up retired agent workflows from `.github/workflows` to reduce noise
-Labels: agents, maintenance, workflows, documentation
-
-Why
-“Retired” agent workflows still show up in Actions, increasing clutter and confusion.
-
-Scope
-Remove them from `.github/workflows/`; if you want a history, move them to `/retired/` outside Actions.
-
-Non‑Goals
-Changing active agent workflows.
-
-Tasks
-- Remove “Agents PR body writer (retired)” and “Agents PR comment commands (retired)” from `.github/workflows/`.
-- Add a README note in `/retired/` to explain where they went.
-
-Acceptance criteria
-- Retired workflows no longer appear in Actions.
-- Docs mention where to find archived versions.
-
-Implementation notes
-Files: the two “retired” agent workflow YAMLs under `.github/workflows/`.
-
-PR title prefix: [Maintenance] Remove retired agent workflows
-PR kickoff comment: @{agent} Remove retired agent workflows from `.github/workflows` and archive them under `/retired/` with a short note.
+PR title prefix: [Agents] Intake unlabeled policy
+PR kickoff comment: @{agent} Decide unlabeled policy for Intake. Either add `unlabeled` to triggers and verify concurrency/guards, or document that we ignore unlabeled; validate behavior on a sandbox issue.
