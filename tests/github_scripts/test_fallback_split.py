@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import fallback_split  # noqa: F401,E402
+
 SCRIPT = SCRIPT_DIR / "fallback_split.py"
 
 

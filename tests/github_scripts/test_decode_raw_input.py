@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import decode_raw_input  # noqa: F401,E402
+
 SCRIPT_PATH = SCRIPT_DIR / "decode_raw_input.py"
 
 
@@ -33,8 +34,9 @@ def run_decode_script(
         if raw_payload is not None:
             (workdir / "raw_input.json").write_text(raw_payload, encoding="utf-8")
         sys.argv = [str(SCRIPT_PATH), *argv]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
@@ -93,7 +95,13 @@ def test_decode_passthrough_and_null_payload(tmp_path: Path) -> None:
 
     missing_file = run_decode_script(
         tmp_path,
-        argv=("--passthrough", "--in", str(tmp_path / "absent.txt"), "--source", "repo_file"),
+        argv=(
+            "--passthrough",
+            "--in",
+            str(tmp_path / "absent.txt"),
+            "--source",
+            "repo_file",
+        ),
     )
     assert missing_file.returncode == 0
     assert not missing_file.input_path.exists()

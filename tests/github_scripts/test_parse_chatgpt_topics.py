@@ -38,8 +38,9 @@ def run_decode_script(
         if raw_payload is not None:
             (workdir / "raw_input.json").write_text(raw_payload, encoding="utf-8")
         sys.argv = [str(DECODE_SCRIPT_PATH), *argv]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(DECODE_SCRIPT_PATH), run_name="__main__")
@@ -58,7 +59,9 @@ def run_decode_script(
     )
 
 
-def run_parse_script(workdir: Path, *, env: dict[str, str] | None = None) -> SimpleNamespace:
+def run_parse_script(
+    workdir: Path, *, env: dict[str, str] | None = None
+) -> SimpleNamespace:
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     original_cwd = os.getcwd()
@@ -69,8 +72,9 @@ def run_parse_script(workdir: Path, *, env: dict[str, str] | None = None) -> Sim
         if env:
             os.environ.update(env)
         sys.argv = [str(SCRIPT_PATH)]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
