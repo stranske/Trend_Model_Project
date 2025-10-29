@@ -247,6 +247,8 @@ jobs:
       verify_issue_valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run }}
       options_json: ${{ needs.resolve-params.outputs.options_json }}
+    secrets:
+      service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
   verify-assignment:
     name: Verify Assignment
