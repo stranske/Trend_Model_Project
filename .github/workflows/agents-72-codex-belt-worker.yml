@@ -42,9 +42,6 @@ on:
       actions_bot_pat:
         required: true
 
-  repository_dispatch:
-    types: [codex-belt.work]
-
 permissions:
   contents: write
   issues: write
@@ -52,7 +49,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-${{ github.event_name == 'repository_dispatch' && (github.event.client_payload.branch || (github.event.client_payload.issue && format('codex/issue-{0}', github.event.client_payload.issue)) || (github.event.client_payload.issue_number && format('codex/issue-{0}', github.event.client_payload.issue_number))) || inputs.branch || github.event.inputs.branch || github.ref_name || github.run_id }}
+  group: codex-belt-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -84,7 +81,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const eventName = context.eventName;
             const coerce = (value) => {
               if (typeof value === 'boolean') {
                 return value;
@@ -104,17 +100,11 @@ jobs:
               return false;
             };
 
-            const payload = eventName === 'repository_dispatch'
-              ? (context.payload && context.payload.client_payload) || {}
-              : {};
-
             const dryRunInput = '${{ inputs.dry_run }}';
-            const dryRunValue = dryRunInput !== '' ? dryRunInput : payload.dry_run;
-            const dryRun = coerce(dryRunValue);
+            const dryRun = coerce(dryRunInput);
 
             const stepBranchInput = '${{ inputs.use_step_branch }}';
-            const stepBranchValue = stepBranchInput !== '' ? stepBranchInput : payload.use_step_branch;
-            const useStepBranch = coerce(stepBranchValue);
+            const useStepBranch = coerce(stepBranchInput);
 
             core.setOutput('dry_run', dryRun ? 'true' : 'false');
             core.setOutput('use_step_branch', useStepBranch ? 'true' : 'false');
@@ -125,11 +115,6 @@ jobs:
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const eventName = context.eventName;
-            const payload = eventName === 'repository_dispatch'
-              ? (context.payload && context.payload.client_payload) || {}
-              : {};
-
             const issueInput = '${{ inputs.issue }}'.trim();
             const branchInput = '${{ inputs.branch }}'.trim();
             const baseInput = '${{ inputs.base }}'.trim();
@@ -142,34 +127,22 @@ jobs:
 
             let issue = coerceNumber(issueInput);
             if (!issue) {
-              issue = coerceNumber(payload.issue ?? payload.issue_number);
+              core.setFailed('Worker missing issue number.');
+              return;
             }
 
             let branch = branchInput;
-            if (!branch && payload.branch) {
-              branch = String(payload.branch).trim();
-            }
             if (!branch && issue) {
               branch = `codex/issue-${issue}`;
             }
 
             let base = baseInput;
-            if (!base && payload.base) {
-              base = String(payload.base).trim();
-            }
 
             let source = sourceInput;
-            if (!source && payload.source) {
-              source = String(payload.source).trim();
-            }
             if (!source) {
-              source = eventName === 'repository_dispatch' ? 'dispatcher' : 'orchestrator';
+              source = 'orchestrator';
             }
 
-            if (!issue) {
-              core.setFailed('Worker missing issue number.');
-              return;
-            }
             if (!branch) {
               core.setFailed('Worker missing branch name.');
               return;
@@ -179,7 +152,7 @@ jobs:
             }
 
             const runId = context.runId;
-            const concurrencyKey = issue || payload.issue || payload.issue_number || runId;
+            const concurrencyKey = branch || issue || runId;
             const concurrencyGroup = concurrencyKey ? `codex-belt-${concurrencyKey}` : '';
             if (!concurrencyGroup) {
               core.setFailed('Unable to determine concurrency group.');
@@ -223,13 +196,8 @@ jobs:
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
           script: |
-            const eventName = context.eventName;
-            const payload = eventName === 'repository_dispatch'
-              ? (context.payload && context.payload.client_payload) || {}
-              : {};
-
             const rawMaxInput = '${{ inputs.max_parallel }}';
-            const rawMax = rawMaxInput !== '' ? Number(rawMaxInput) : Number(payload.max_parallel);
+            const rawMax = rawMaxInput !== '' ? Number(rawMaxInput) : Number.NaN;
             const maxParallel = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
             if (maxParallel <= 1) {
               core.setOutput('allowed', 'true');

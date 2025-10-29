@@ -12,7 +12,9 @@ allowed.
   release gate.
 - **Agents 63 – Issue intake** — unified entry point that now handles the
   `agent:codex` label trigger directly while continuing to service ChatGPT
-  topic imports via the reusable workflow surface.
+  topic imports via the reusable workflow surface. The workflow also watches
+  for issue `unlabeled` events and re-runs intake when an `agent:*` label is
+  removed so the automation tracks label churn without double-processing.
 - **Agents 63 – ChatGPT issue sync** — manual wrapper that exposes the curated
   import inputs while delegating to the shared intake workflow.
 
