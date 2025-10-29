@@ -134,6 +134,9 @@ def test_issue_intake_handles_codex_events():
     assert {"opened", "labeled", "reopened"}.issubset(
         types
     ), "Issue intake must react to issue label lifecycle events"
+    assert (
+        "unlabeled" in types
+    ), "Issue intake must rerun when agent labels are removed to stay in sync"
 
     text = intake.read_text(encoding="utf-8")
     assert (
@@ -385,6 +388,70 @@ def test_agents_orchestrator_schedule_preserved():
     assert cron_entries == [
         "*/20 * * * *"
     ], "Orchestrator schedule must stay on the 20-minute cadence"
+
+
+def test_orchestrator_jobs_checkout_scripts_before_local_requires():
+    data = _load_workflow_yaml("agents-70-orchestrator.yml")
+    jobs = data.get("jobs", {})
+
+    targets = {
+        "resolve-params": "./.github/scripts/agents_orchestrator_resolve.js",
+        "belt-dispatch-summary": "./.github/scripts/agents_dispatch_summary.js",
+        "belt-scan-ready-prs": "./.github/scripts/agents_belt_scan.js",
+    }
+
+    for job_name, helper_path in targets.items():
+        job = jobs.get(job_name)
+        assert job, f"Job {job_name} must exist in the orchestrator workflow"
+        steps = job.get("steps") or []
+        assert steps, f"Job {job_name} must define steps"
+
+        checkout_index = None
+        helper_index = None
+        helper_script = None
+
+        for index, step in enumerate(steps):
+            if not isinstance(step, dict):
+                continue
+
+            uses = step.get("uses")
+            if uses == "actions/checkout@v4" and checkout_index is None:
+                checkout_index = index
+
+            script_body = None
+            if isinstance(step.get("with"), dict):
+                script_body = step["with"].get("script")
+            if script_body is None and isinstance(step.get("run"), str):
+                script_body = step["run"]
+
+            if isinstance(script_body, str) and helper_path in script_body:
+                helper_index = index
+                helper_script = script_body
+                break
+
+        assert helper_index is not None, f"Job {job_name} must require {helper_path}"
+        assert (
+            checkout_index is not None
+        ), f"Job {job_name} must checkout orchestrator scripts"
+        assert (
+            checkout_index < helper_index
+        ), f"Checkout step must precede {helper_path} usage in job {job_name}"
+
+        checkout_step = steps[checkout_index]
+        checkout_with = checkout_step.get("with") or {}
+        sparse_checkout = str(checkout_with.get("sparse-checkout", ""))
+        paths = {line.strip() for line in sparse_checkout.splitlines() if line.strip()}
+        assert (
+            ".github/scripts" in paths
+        ), f"Job {job_name} must sparsely checkout .github/scripts before requiring helpers"
+        assert (
+            checkout_with.get("sparse-checkout-cone-mode") is False
+        ), "Sparse checkout must disable cone mode for nested scripts"
+
+        assert (
+            isinstance(helper_script, str)
+            and "Do not remove checkout; local helper is required." in helper_script
+        ), f"Job {job_name} must warn against removing the checkout guard"
 
 
 def test_bootstrap_step_defaults_label_when_missing():
