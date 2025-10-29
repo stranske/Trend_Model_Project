@@ -226,26 +226,15 @@ jobs:
               return;
             }
 
-            // For push events, only run autofix if test files are changed
+            // For push events, log whether test files are included
             if (isPushEvent) {
               const testFiles = pythonFiles.filter((filename) => {
                 const lower = filename.toLowerCase();
                 return lower.includes('/test_') || lower.includes('/tests/') || lower.startsWith('test_');
               });
+              const sourceFiles = pythonFiles.length - testFiles.length;
 
-              summary.addRaw(`Test files in PR: ${testFiles.length}`).addEOL();
-
-              if (testFiles.length === 0) {
-                result.skip_reason = 'no-test-files-on-push';
-                summary.addRaw('Push event with no test files; skipping autofix (will only run on label or for test files).').addEOL();
-                for (const [key, value] of Object.entries(result)) {
-                  core.setOutput(key, value);
-                }
-                await summary.write();
-                return;
-              }
-
-              summary.addRaw(`Push event triggered with ${testFiles.length} test file(s); autofix will run.`).addEOL();
+              summary.addRaw(`Push event: ${sourceFiles} source file(s), ${testFiles.length} test file(s); autofix will run.`).addEOL();
             }
 
             if (nonPythonFiles.length > 0) {
