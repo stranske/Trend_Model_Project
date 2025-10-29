@@ -634,10 +634,19 @@ jobs:
         run: |
           set -euo pipefail
           failures=()
+          
+          # Debug: print all outcomes
+          echo "FORMAT_OUTCOME=${FORMAT_OUTCOME}"
+          echo "RUFF_OUTCOME=${RUFF_OUTCOME}"
+          echo "MYPY_OUTCOME=${MYPY_OUTCOME}"
+          echo "PYTEST_OUTCOME=${PYTEST_OUTCOME}"
+          echo "COVERAGE_MIN_OUTCOME=${COVERAGE_MIN_OUTCOME}"
+          echo "COVERAGE_ENABLED=${COVERAGE_ENABLED}"
 
           record_outcome() {
             local label="$1"
             local outcome="$2"
+            echo "Checking ${label}: ${outcome}"
             if [ -z "${outcome}" ] || [ "${outcome}" = 'success' ] || [ "${outcome}" = 'skipped' ]; then
               return 0
             fi
@@ -655,11 +664,13 @@ jobs:
           if [ "${{ inputs.coverage && inputs['coverage-min'] != '' }}" = 'true' ]; then
             record_outcome "coverage minimum" "${COVERAGE_MIN_OUTCOME}"
           fi
-
+          
+          echo "Total failures: ${#failures[@]}"
           if [ "${#failures[@]}" -gt 0 ]; then
             printf 'CI checks failed: %s\n' "${failures[*]}" >&2
             exit 1
           fi
+          echo "All checks passed!"
 
       - name: Build CI metrics payload
         if: ${{ inputs['enable-metrics'] || inputs['enable-history'] || inputs['enable-classification'] }}

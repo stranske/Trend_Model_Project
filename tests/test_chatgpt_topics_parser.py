@@ -31,8 +31,9 @@ def run_decode_cli(workdir: pathlib.Path, *args: str) -> SimpleNamespace:
     try:
         os.chdir(workdir)
         sys.argv = [str(script), *args]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(script), run_name="__main__")
@@ -64,9 +65,12 @@ def run_parser_in_workdir(
     try:
         os.chdir(workdir)
         sys.argv = [str(SCRIPT)]
-        os.environ.update({key: value for key, value in overrides.items() if value is not None})
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        os.environ.update(
+            {key: value for key, value in overrides.items() if value is not None}
+        )
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(SCRIPT), run_name="__main__")
@@ -307,7 +311,9 @@ def test_parser_main_maps_empty_input(tmp_path: pathlib.Path, monkeypatch) -> No
     assert exc.value.code == 2
 
 
-def test_parser_main_maps_no_numbered_topics(tmp_path: pathlib.Path, monkeypatch) -> None:
+def test_parser_main_maps_no_numbered_topics(
+    tmp_path: pathlib.Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "input.txt").write_text("No enumerators here", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
@@ -325,7 +331,9 @@ def test_parser_main_reraises_other_system_exit(monkeypatch) -> None:
     assert str(exc.value) == "Unexpected failure"
 
 
-def test_parser_main_raises_on_empty_topics(monkeypatch, tmp_path: pathlib.Path) -> None:
+def test_parser_main_raises_on_empty_topics(
+    monkeypatch, tmp_path: pathlib.Path
+) -> None:
     monkeypatch.setattr(parse_module, "parse_topics", lambda: [])
     monkeypatch.chdir(tmp_path)
     with pytest.raises(SystemExit) as exc:
