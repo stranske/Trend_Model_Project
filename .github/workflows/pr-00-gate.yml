@@ -15,8 +15,6 @@ concurrency:
 jobs:
   detect:
     name: detect changed files
-    # Skip full CI on label-only events, but allow workflow to continue for autofix
-    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     outputs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
@@ -718,8 +716,8 @@ jobs:
         if: ${{ always() }}
         uses: actions/github-script@v7
         env:
-          STATE: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || (github.event.action == 'labeled' && 'success') || 'pending' }}
-          DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || (github.event.action == 'labeled' && 'Label update - no CI required') || 'Gate status pending' }}
+          STATE: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
+          DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || 'Gate status pending' }}
           TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
