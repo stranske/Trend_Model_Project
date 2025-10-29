@@ -228,9 +228,14 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
     assert "agents-70-orchestrator.yml" in first["sections"]["tasks"]
     assert "checkout" in first["sections"]["acceptance_criteria"].lower()
     assert "@{agent}" in first["sections"]["implementation_notes"]
+    assert "PR kickoff comment" in first["sections"]["implementation_notes"]
+    assert "PR title prefix" in first["sections"]["implementation_notes"]
 
     # Ensure every topic captures acceptance criteria to satisfy automation checks.
     assert all(topic["sections"]["acceptance_criteria"].strip() for topic in topics)
+
+    debug = json.loads((workdir / "decode_debug.json").read_text(encoding="utf-8"))
+    assert debug["source_used"] == "repo_file"
 
 
 def test_split_numbered_items_unknown_style(monkeypatch) -> None:
@@ -347,3 +352,46 @@ def test_parser_cli_error_prints_message(tmp_path: pathlib.Path) -> None:
     result = run_parser_in_workdir(workdir)
     assert result.returncode == 3
     assert result.stderr.strip() == "3"
+
+
+def test_split_numbered_items_marks_numeric_continuity_break() -> None:
+    sample = "1) Alpha milestone\n2) Beta milestone\n4) Delta skip"
+    items = parse_module._split_numbered_items(sample)
+    enums = [item["enumerator"] for item in items]
+    assert enums == ["1", "2", "4"]
+    breaks = [item["continuity_break"] for item in items]
+    assert breaks == [False, False, True]
+
+
+def test_parse_sections_collects_extras_and_aliases() -> None:
+    labels, sections, extras = parse_module._parse_sections(
+        [
+            "Labels: feat:alpha; guardrail",
+            "Intro context before sections",
+            "Why",
+            "Because the intake workflow needs coverage",
+            "Implementation note",
+            "Document guardrails",
+        ]
+    )
+    assert labels == ["feat:alpha", "guardrail"]
+    assert sections["why"] == ["Because the intake workflow needs coverage"]
+    assert sections["implementation_notes"] == ["Document guardrails"]
+    assert extras == ["Intro context before sections"]
+
+
+def test_parse_text_guid_is_stable_for_repeated_titles() -> None:
+    sample = "1) **Complex Title?!**\nWhy\nConsistency matters\n"
+    first = parse_module.parse_text(sample)
+    second = parse_module.parse_text(sample)
+    assert first[0]["title"] == "Complex Title?!"
+    assert first[0]["guid"] == second[0]["guid"]
+
+
+def test_parse_text_fallback_preserves_body_in_extras() -> None:
+    sample = "Single topic without enumerators\nBody line one\nBody line two"
+    topics = parse_module.parse_text(sample, allow_single_fallback=True)
+    assert len(topics) == 1
+    assert topics[0]["title"] == "Single topic without enumerators"
+    assert "Body line one" in topics[0]["extras"]
+    assert "Body line two" in topics[0]["extras"]

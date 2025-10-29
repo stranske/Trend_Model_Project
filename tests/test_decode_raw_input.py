@@ -185,3 +185,55 @@ def test_decode_empty_payload_skips_writing_input(tmp_path: Path) -> None:
     debug = load_decode_debug(tmp_path)
     assert debug["raw_len"] == 0
     assert debug["applied"] == []
+
+
+def test_decode_passthrough_records_custom_source(tmp_path: Path) -> None:
+    """Custom --source tags should flow through to diagnostics."""
+
+    src = tmp_path / "topics.txt"
+    src.write_text("1) Intake hardening", encoding="utf-8")
+
+    result = run_decode(
+        tmp_path,
+        "--passthrough",
+        "--in",
+        str(src),
+        "--source",
+        "bridge_manual",
+    )
+
+    assert result.returncode == 0, result.stderr
+    debug = load_decode_debug(tmp_path)
+    assert debug["source_used"] == "bridge_manual"
+
+
+def test_decode_null_payload_skips_input_creation(tmp_path: Path) -> None:
+    """Explicit JSON null payloads should emit diagnostics without input.txt."""
+
+    result = run_decode(tmp_path, raw_payload="null")
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / "input.txt").exists()
+
+    debug = load_decode_debug(tmp_path)
+    assert debug["raw_len"] == 0
+    assert debug["rebuilt_len"] == 0
+    assert debug["applied"] == []
+    assert debug["source_used"] == "raw_input"
+
+
+def test_decode_sections_heuristic_inserts_missing_markers(tmp_path: Path) -> None:
+    """Dense payloads should gain section headers so the parser can split blocks."""
+
+    payload = json.dumps(
+        "1) Intake workflow alignment Why Confirm triggers Implementation notes Document unlabeled handling Acceptance criteria Match policy"
+    )
+    result = run_decode(tmp_path, raw_payload=payload)
+    assert result.returncode == 0, result.stderr
+
+    output = (tmp_path / "input.txt").read_text(encoding="utf-8")
+    assert "\nWhy\n" in output
+    assert "\nImplementation notes\n" in output
+    assert "\nAcceptance criteria\n" in output
+
+    debug = load_decode_debug(tmp_path)
+    assert "sections" in debug["applied"], debug["applied"]
