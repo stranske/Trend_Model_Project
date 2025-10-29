@@ -40,17 +40,20 @@ test('identifyReadyCodexPRs filters and summarises ready PRs', async () => {
     {
       number: 10,
       head: { ref: 'codex/issue-101', sha: 'abc' },
-      draft: false
+      draft: false,
+      labels: [{ name: 'automerge' }]
     },
     {
       number: 20,
       head: { ref: 'feature', sha: 'def' },
-      draft: false
+      draft: false,
+      labels: []
     },
     {
       number: 30,
       head: { ref: 'codex/issue-102', sha: 'ghi' },
-      draft: true
+      draft: true,
+      labels: [{ name: 'automerge' }]
     }
   ];
 
