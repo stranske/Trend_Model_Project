@@ -340,7 +340,10 @@ def summarize(context: SummaryContext) -> SummaryResult:
     failure_checks: tuple[str, ...] = ()
     format_failure = False
 
-    if python_result != "success":
+    # Python CI skipped is OK if run_core is false (doc/workflow-only changes)
+    if python_result not in ("success", "skipped") or (
+        python_result == "skipped" and context.run_core
+    ):
         state = "failure"
         description = f"Python CI result: {python_result}."
         cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
