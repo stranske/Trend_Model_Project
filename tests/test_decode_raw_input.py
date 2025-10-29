@@ -29,8 +29,9 @@ def run_decode(
     try:
         os.chdir(workdir)
         sys.argv = [str(SCRIPT), *args]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(SCRIPT), run_name="__main__")
