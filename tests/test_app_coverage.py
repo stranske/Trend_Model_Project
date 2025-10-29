@@ -1508,7 +1508,9 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: DummyBox())
-    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: DummyBox())
+    monkeypatch.setattr(
+        app_module, "_build_weighting_options", lambda store: DummyBox()
+    )
     monkeypatch.setattr(app_module, "reset_weight_state", lambda store: None)
 
     monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
@@ -1532,13 +1534,19 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     }
 
     def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
-        return SimpleNamespace(output=store_obj.cfg.get("output", {}), sample_split=sample_split)
+        return SimpleNamespace(
+            output=store_obj.cfg.get("output", {}), sample_split=sample_split
+        )
 
     monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
 
     metrics = pd.DataFrame({"ret": [0.1, 0.2]})
     monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: metrics)
-    monkeypatch.setattr(app_module.pipeline, "run_full", lambda cfg: pytest.fail("run_full should not run"))
+    monkeypatch.setattr(
+        app_module.pipeline,
+        "run_full",
+        lambda cfg: pytest.fail("run_full should not run"),
+    )
 
     exported: list[tuple[str, dict[str, pd.DataFrame]]] = []
     monkeypatch.setattr(
@@ -1553,7 +1561,9 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     )
 
     saved: list[ParamStore] = []
-    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
+    monkeypatch.setattr(
+        app_module, "save_state", lambda store_obj: saved.append(store_obj)
+    )
 
     container = app_module.launch()
     run_btn = container.children[-1]

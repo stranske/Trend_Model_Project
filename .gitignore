@@ -61,3 +61,4 @@ ci/autofix/diagnostics.json
 # Python package build artifacts
 *.egg-info/
 trend_model.egg-info/
+coverage.xml
