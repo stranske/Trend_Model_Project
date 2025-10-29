@@ -55,9 +55,12 @@ jobs:
 
             summary.addHeading('CI autofix loop guard');
 
-            if (context.eventName !== 'pull_request_target') {
+            const isLabeledEvent = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
+            const isPushEvent = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+
+            if (!isLabeledEvent && !isPushEvent) {
               result.skip_reason = 'unsupported-event';
-              summary.addRaw('Autofix loop expects a pull_request_target event.').addEOL();
+              summary.addRaw(`Autofix loop expects labeled or push events; got ${context.eventName}/${context.payload.action}.`).addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
@@ -65,32 +68,26 @@ jobs:
               return;
             }
 
-            const action = context.payload.action;
-            if (action !== 'labeled') {
-              result.skip_reason = 'non-label-event';
-              summary.addRaw(`Ignoring pull_request_target action "${action}".`).addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+            let triggerLabel = '';
+            if (isLabeledEvent) {
+              const rawLabel = context.payload.label?.name;
+              triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
+              result.trigger_label = triggerLabel;
+              result.label_actor = String(context.payload.sender?.login || '');
+
+              summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
+
+              if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
+                result.skip_reason = 'unmatched-label';
+                summary.addRaw('Label is not autofix/autofix:clean; skipping.').addEOL();
+                for (const [key, value] of Object.entries(result)) {
+                  core.setOutput(key, value);
+                }
+                await summary.write();
+                return;
               }
-              await summary.write();
-              return;
-            }
-
-            const rawLabel = context.payload.label?.name;
-            const triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
-            result.trigger_label = triggerLabel;
-            result.label_actor = String(context.payload.sender?.login || '');
-
-            summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
-
-            if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
-              result.skip_reason = 'unmatched-label';
-              summary.addRaw('Label is not autofix/autofix:clean; skipping.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
-              }
-              await summary.write();
-              return;
+            } else {
+              summary.addRaw(`Triggered by push event: ${context.payload.action}`).addEOL();
             }
 
             const prNumber = Number(context.payload.pull_request?.number);
@@ -222,6 +219,18 @@ jobs:
               }
               await summary.write();
               return;
+            }
+
+            // For push events, log whether test files are included
+            if (isPushEvent) {
+              const testFiles = pythonFiles.filter((filename) => {
+                const lower = filename.toLowerCase();
+                // Match files in /tests/ directory or files/directories starting with test_
+                return lower.includes('/tests/') || /(^|\/)test_/.test(lower);
+              });
+              const sourceFiles = pythonFiles.length - testFiles.length;
+
+              summary.addRaw(`Push event: ${sourceFiles} source file(s), ${testFiles.length} test file(s); autofix will run.`).addEOL();
             }
 
             if (nonPythonFiles.length > 0) {
