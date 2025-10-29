@@ -1,0 +1,629 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pytest in /home/vscode/.local/lib/python3.11/site-packages (8.4.2)
+Requirement already satisfied: coverage in /home/vscode/.local/lib/python3.11/site-packages (7.11.0)
+Requirement already satisfied: pandas in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 1)) (2.3.3)
+Requirement already satisfied: numpy in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 2)) (2.3.4)
+Requirement already satisfied: xlsxwriter in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 3)) (3.2.9)
+Requirement already satisfied: pydantic>=2 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 4)) (2.12.3)
+Requirement already satisfied: openpyxl in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 5)) (3.1.5)
+Requirement already satisfied: PyYAML in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 6)) (6.0.3)
+Requirement already satisfied: types-PyYAML in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 7)) (6.0.12.20250915)
+Collecting types-requests (from -r requirements.txt (line 8))
+  Using cached types_requests-2.32.4.20250913-py3-none-any.whl.metadata (2.0 kB)
+Requirement already satisfied: hypothesis in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 9)) (6.142.3)
+Requirement already satisfied: pandera==0.20.4 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 10)) (0.20.4)
+Requirement already satisfied: matplotlib in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 11)) (3.10.7)
+Requirement already satisfied: fpdf2 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 12)) (2.8.4)
+Requirement already satisfied: ipywidgets in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 13)) (8.1.7)
+Requirement already satisfied: joblib>=1.4 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 14)) (1.5.2)
+Collecting nbformat (from -r requirements.txt (line 15))
+  Using cached nbformat-5.10.4-py3-none-any.whl.metadata (3.6 kB)
+Requirement already satisfied: streamlit>=1.30 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 16)) (1.50.0)
+Requirement already satisfied: streamlit-sortables in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 17)) (0.3.1)
+Requirement already satisfied: scipy in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 18)) (1.16.2)
+Requirement already satisfied: fastapi>=0.104.0 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 19)) (0.120.0)
+Requirement already satisfied: httpx>=0.25 in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 21)) (0.28.1)
+Requirement already satisfied: requests in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 22)) (2.32.5)
+Requirement already satisfied: pre-commit in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 32)) (4.3.0)
+Requirement already satisfied: black in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 33)) (24.8.0)
+Collecting isort (from -r requirements.txt (line 34))
+  Using cached isort-7.0.0-py3-none-any.whl.metadata (11 kB)
+Requirement already satisfied: ruff in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 35)) (0.6.3)
+Collecting docformatter (from -r requirements.txt (line 36))
+  Using cached docformatter-1.7.7-py3-none-any.whl.metadata (8.3 kB)
+Requirement already satisfied: mypy in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 37)) (1.18.2)
+Requirement already satisfied: pytest-cov in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 38)) (7.0.0)
+Requirement already satisfied: jsonschema in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 39)) (4.25.1)
+Requirement already satisfied: uvicorn[standard] in /home/vscode/.local/lib/python3.11/site-packages (from -r requirements.txt (line 20)) (0.38.0)
+Requirement already satisfied: multimethod<=1.10.0 in /home/vscode/.local/lib/python3.11/site-packages (from pandera==0.20.4->-r requirements.txt (line 10)) (1.10)
+Requirement already satisfied: packaging>=20.0 in /home/vscode/.local/lib/python3.11/site-packages (from pandera==0.20.4->-r requirements.txt (line 10)) (25.0)
+Requirement already satisfied: typeguard in /home/vscode/.local/lib/python3.11/site-packages (from pandera==0.20.4->-r requirements.txt (line 10)) (4.4.4)
+Requirement already satisfied: typing-inspect>=0.6.0 in /home/vscode/.local/lib/python3.11/site-packages (from pandera==0.20.4->-r requirements.txt (line 10)) (0.9.0)
+Requirement already satisfied: wrapt in /home/vscode/.local/lib/python3.11/site-packages (from pandera==0.20.4->-r requirements.txt (line 10)) (2.0.0)
+Requirement already satisfied: iniconfig>=1 in /home/vscode/.local/lib/python3.11/site-packages (from pytest) (2.3.0)
+Requirement already satisfied: pluggy<2,>=1.5 in /home/vscode/.local/lib/python3.11/site-packages (from pytest) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in /home/vscode/.local/lib/python3.11/site-packages (from pytest) (2.19.2)
+Requirement already satisfied: python-dateutil>=2.8.2 in /home/vscode/.local/lib/python3.11/site-packages (from pandas->-r requirements.txt (line 1)) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in /home/vscode/.local/lib/python3.11/site-packages (from pandas->-r requirements.txt (line 1)) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in /home/vscode/.local/lib/python3.11/site-packages (from pandas->-r requirements.txt (line 1)) (2025.2)
+Requirement already satisfied: annotated-types>=0.6.0 in /home/vscode/.local/lib/python3.11/site-packages (from pydantic>=2->-r requirements.txt (line 4)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.4 in /home/vscode/.local/lib/python3.11/site-packages (from pydantic>=2->-r requirements.txt (line 4)) (2.41.4)
+Requirement already satisfied: typing-extensions>=4.14.1 in /home/vscode/.local/lib/python3.11/site-packages (from pydantic>=2->-r requirements.txt (line 4)) (4.15.0)
+Requirement already satisfied: typing-inspection>=0.4.2 in /home/vscode/.local/lib/python3.11/site-packages (from pydantic>=2->-r requirements.txt (line 4)) (0.4.2)
+Requirement already satisfied: et-xmlfile in /home/vscode/.local/lib/python3.11/site-packages (from openpyxl->-r requirements.txt (line 5)) (2.0.0)
+Requirement already satisfied: urllib3>=2 in /home/vscode/.local/lib/python3.11/site-packages (from types-requests->-r requirements.txt (line 8)) (2.5.0)
+Requirement already satisfied: attrs>=22.2.0 in /home/vscode/.local/lib/python3.11/site-packages (from hypothesis->-r requirements.txt (line 9)) (25.4.0)
+Requirement already satisfied: sortedcontainers<3.0.0,>=2.1.0 in /home/vscode/.local/lib/python3.11/site-packages (from hypothesis->-r requirements.txt (line 9)) (2.4.0)
+Requirement already satisfied: contourpy>=1.0.1 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (4.60.1)
+Requirement already satisfied: kiwisolver>=1.3.1 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (1.4.9)
+Requirement already satisfied: pillow>=8 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (11.3.0)
+Requirement already satisfied: pyparsing>=3 in /home/vscode/.local/lib/python3.11/site-packages (from matplotlib->-r requirements.txt (line 11)) (3.2.5)
+Requirement already satisfied: defusedxml in /home/vscode/.local/lib/python3.11/site-packages (from fpdf2->-r requirements.txt (line 12)) (0.7.1)
+Requirement already satisfied: comm>=0.1.3 in /home/vscode/.local/lib/python3.11/site-packages (from ipywidgets->-r requirements.txt (line 13)) (0.2.3)
+Requirement already satisfied: ipython>=6.1.0 in /home/vscode/.local/lib/python3.11/site-packages (from ipywidgets->-r requirements.txt (line 13)) (9.6.0)
+Requirement already satisfied: traitlets>=4.3.1 in /home/vscode/.local/lib/python3.11/site-packages (from ipywidgets->-r requirements.txt (line 13)) (5.14.3)
+Requirement already satisfied: widgetsnbextension~=4.0.14 in /home/vscode/.local/lib/python3.11/site-packages (from ipywidgets->-r requirements.txt (line 13)) (4.0.14)
+Requirement already satisfied: jupyterlab_widgets~=3.0.15 in /home/vscode/.local/lib/python3.11/site-packages (from ipywidgets->-r requirements.txt (line 13)) (3.0.15)
+Collecting fastjsonschema>=2.15 (from nbformat->-r requirements.txt (line 15))
+  Using cached fastjsonschema-2.21.2-py3-none-any.whl.metadata (2.3 kB)
+Collecting jupyter-core!=5.0.*,>=4.12 (from nbformat->-r requirements.txt (line 15))
+  Using cached jupyter_core-5.9.1-py3-none-any.whl.metadata (1.5 kB)
+Requirement already satisfied: altair!=5.4.0,!=5.4.1,<6,>=4.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (5.5.0)
+Requirement already satisfied: blinker<2,>=1.5.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (1.9.0)
+Requirement already satisfied: cachetools<7,>=4.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (6.2.1)
+Requirement already satisfied: click<9,>=7.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (8.3.0)
+Requirement already satisfied: protobuf<7,>=3.20 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (6.33.0)
+Requirement already satisfied: pyarrow>=7.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (22.0.0)
+Requirement already satisfied: tenacity<10,>=8.1.0 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (9.1.2)
+Requirement already satisfied: toml<2,>=0.10.1 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (0.10.2)
+Requirement already satisfied: watchdog<7,>=2.1.5 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (6.0.0)
+Requirement already satisfied: gitpython!=3.1.19,<4,>=3.0.7 in /usr/local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (3.1.41)
+Requirement already satisfied: pydeck<1,>=0.8.0b4 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (0.9.1)
+Requirement already satisfied: tornado!=6.5.0,<7,>=6.0.3 in /home/vscode/.local/lib/python3.11/site-packages (from streamlit>=1.30->-r requirements.txt (line 16)) (6.5.2)
+Requirement already satisfied: starlette<0.49.0,>=0.40.0 in /home/vscode/.local/lib/python3.11/site-packages (from fastapi>=0.104.0->-r requirements.txt (line 19)) (0.48.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in /home/vscode/.local/lib/python3.11/site-packages (from fastapi>=0.104.0->-r requirements.txt (line 19)) (0.0.3)
+Requirement already satisfied: h11>=0.8 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (0.16.0)
+Requirement already satisfied: httptools>=0.6.3 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (0.7.1)
+Requirement already satisfied: python-dotenv>=0.13 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (1.1.1)
+Requirement already satisfied: uvloop>=0.15.1 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (0.22.1)
+Requirement already satisfied: watchfiles>=0.13 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (1.1.1)
+Requirement already satisfied: websockets>=10.4 in /home/vscode/.local/lib/python3.11/site-packages (from uvicorn[standard]->-r requirements.txt (line 20)) (15.0.1)
+Requirement already satisfied: anyio in /home/vscode/.local/lib/python3.11/site-packages (from httpx>=0.25->-r requirements.txt (line 21)) (4.11.0)
+Requirement already satisfied: certifi in /home/vscode/.local/lib/python3.11/site-packages (from httpx>=0.25->-r requirements.txt (line 21)) (2025.10.5)
+Requirement already satisfied: httpcore==1.* in /home/vscode/.local/lib/python3.11/site-packages (from httpx>=0.25->-r requirements.txt (line 21)) (1.0.9)
+Requirement already satisfied: idna in /home/vscode/.local/lib/python3.11/site-packages (from httpx>=0.25->-r requirements.txt (line 21)) (3.11)
+Requirement already satisfied: charset_normalizer<4,>=2 in /home/vscode/.local/lib/python3.11/site-packages (from requests->-r requirements.txt (line 22)) (3.4.4)
+Requirement already satisfied: cfgv>=2.0.0 in /home/vscode/.local/lib/python3.11/site-packages (from pre-commit->-r requirements.txt (line 32)) (3.4.0)
+Requirement already satisfied: identify>=1.0.0 in /home/vscode/.local/lib/python3.11/site-packages (from pre-commit->-r requirements.txt (line 32)) (2.6.15)
+Requirement already satisfied: nodeenv>=0.11.1 in /home/vscode/.local/lib/python3.11/site-packages (from pre-commit->-r requirements.txt (line 32)) (1.9.1)
+Requirement already satisfied: virtualenv>=20.10.0 in /home/vscode/.local/lib/python3.11/site-packages (from pre-commit->-r requirements.txt (line 32)) (20.35.3)
+Requirement already satisfied: mypy-extensions>=0.4.3 in /home/vscode/.local/lib/python3.11/site-packages (from black->-r requirements.txt (line 33)) (1.1.0)
+Requirement already satisfied: pathspec>=0.9.0 in /home/vscode/.local/lib/python3.11/site-packages (from black->-r requirements.txt (line 33)) (0.12.1)
+Requirement already satisfied: platformdirs>=2 in /home/vscode/.local/lib/python3.11/site-packages (from black->-r requirements.txt (line 33)) (4.5.0)
+Collecting untokenize<0.2.0,>=0.1.1 (from docformatter->-r requirements.txt (line 36))
+  Using cached untokenize-0.1.1-py3-none-any.whl
+Requirement already satisfied: jsonschema-specifications>=2023.03.6 in /home/vscode/.local/lib/python3.11/site-packages (from jsonschema->-r requirements.txt (line 39)) (2025.9.1)
+Requirement already satisfied: referencing>=0.28.4 in /home/vscode/.local/lib/python3.11/site-packages (from jsonschema->-r requirements.txt (line 39)) (0.37.0)
+Requirement already satisfied: rpds-py>=0.7.1 in /home/vscode/.local/lib/python3.11/site-packages (from jsonschema->-r requirements.txt (line 39)) (0.28.0)
+Requirement already satisfied: jinja2 in /home/vscode/.local/lib/python3.11/site-packages (from altair!=5.4.0,!=5.4.1,<6,>=4.0->streamlit>=1.30->-r requirements.txt (line 16)) (3.1.6)
+Requirement already satisfied: narwhals>=1.14.2 in /home/vscode/.local/lib/python3.11/site-packages (from altair!=5.4.0,!=5.4.1,<6,>=4.0->streamlit>=1.30->-r requirements.txt (line 16)) (2.9.0)
+Requirement already satisfied: gitdb<5,>=4.0.1 in /usr/local/lib/python3.11/site-packages (from gitpython!=3.1.19,<4,>=3.0.7->streamlit>=1.30->-r requirements.txt (line 16)) (4.0.12)
+Requirement already satisfied: decorator in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (5.2.1)
+Requirement already satisfied: ipython-pygments-lexers in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (1.1.1)
+Requirement already satisfied: jedi>=0.16 in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.19.2)
+Requirement already satisfied: matplotlib-inline in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.2.1)
+Requirement already satisfied: pexpect>4.3 in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (4.9.0)
+Requirement already satisfied: prompt_toolkit<3.1.0,>=3.0.41 in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (3.0.52)
+Requirement already satisfied: stack_data in /home/vscode/.local/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.6.3)
+Requirement already satisfied: six>=1.5 in /home/vscode/.local/lib/python3.11/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 1)) (1.17.0)
+Requirement already satisfied: sniffio>=1.1 in /home/vscode/.local/lib/python3.11/site-packages (from anyio->httpx>=0.25->-r requirements.txt (line 21)) (1.3.1)
+Requirement already satisfied: distlib<1,>=0.3.7 in /home/vscode/.local/lib/python3.11/site-packages (from virtualenv>=20.10.0->pre-commit->-r requirements.txt (line 32)) (0.4.0)
+Requirement already satisfied: filelock<4,>=3.12.2 in /home/vscode/.local/lib/python3.11/site-packages (from virtualenv>=20.10.0->pre-commit->-r requirements.txt (line 32)) (3.20.0)
+Requirement already satisfied: smmap<6,>=3.0.1 in /usr/local/lib/python3.11/site-packages (from gitdb<5,>=4.0.1->gitpython!=3.1.19,<4,>=3.0.7->streamlit>=1.30->-r requirements.txt (line 16)) (5.0.2)
+Requirement already satisfied: parso<0.9.0,>=0.8.4 in /home/vscode/.local/lib/python3.11/site-packages (from jedi>=0.16->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.8.5)
+Requirement already satisfied: MarkupSafe>=2.0 in /home/vscode/.local/lib/python3.11/site-packages (from jinja2->altair!=5.4.0,!=5.4.1,<6,>=4.0->streamlit>=1.30->-r requirements.txt (line 16)) (3.0.3)
+Requirement already satisfied: ptyprocess>=0.5 in /home/vscode/.local/lib/python3.11/site-packages (from pexpect>4.3->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.7.0)
+Requirement already satisfied: wcwidth in /home/vscode/.local/lib/python3.11/site-packages (from prompt_toolkit<3.1.0,>=3.0.41->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.2.14)
+Requirement already satisfied: executing>=1.2.0 in /home/vscode/.local/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (2.2.1)
+Requirement already satisfied: asttokens>=2.1.0 in /home/vscode/.local/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (3.0.0)
+Requirement already satisfied: pure-eval in /home/vscode/.local/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->-r requirements.txt (line 13)) (0.2.3)
+Using cached types_requests-2.32.4.20250913-py3-none-any.whl (20 kB)
+Using cached nbformat-5.10.4-py3-none-any.whl (78 kB)
+Using cached isort-7.0.0-py3-none-any.whl (94 kB)
+Using cached docformatter-1.7.7-py3-none-any.whl (33 kB)
+Using cached fastjsonschema-2.21.2-py3-none-any.whl (24 kB)
+Using cached jupyter_core-5.9.1-py3-none-any.whl (29 kB)
+Installing collected packages: untokenize, fastjsonschema, types-requests, jupyter-core, isort, docformatter, nbformat
+Successfully installed docformatter-1.7.7 fastjsonschema-2.21.2 isort-7.0.0 jupyter-core-5.9.1 nbformat-5.10.4 types-requests-2.32.4.20250913 untokenize-0.1.1
+
+[notice] A new release of pip is available: 24.0 -> 25.2
+[notice] To update, run: pip install --upgrade pip
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-8.4.2, pluggy-1.6.0
+rootdir: /workspaces/Trend_Model_Project
+configfile: pytest.ini
+plugins: anyio-4.11.0, rerunfailures-16.1, typeguard-4.4.4, cov-7.0.0, hypothesis-6.142.3
+collected 2086 items
+
+test_multi_period_selection.py .                                         [  0%]
+tests/app/test_competing_rules_policy.py ..                              [  0%]
+tests/app/test_data_page.py ...                                          [  0%]
+tests/app/test_data_schema.py .                                          [  0%]
+tests/app/test_demo_runner_component.py ......................           [  1%]
+tests/app/test_diversification_guard_policy.py .                         [  1%]
+tests/app/test_guardrails_component.py .......                           [  1%]
+tests/app/test_model_page_helpers.py ....                                [  1%]
+tests/app/test_policy_engine.py ..                                       [  2%]
+tests/app/test_policy_engine_extra.py .....                              [  2%]
+tests/app/test_rebalance_pipeline.py .......                             [  2%]
+tests/app/test_results_page.py ..                                        [  2%]
+tests/app/test_sim_diversification_guard_integration.py .                [  2%]
+tests/app/test_sim_min_tenure_integration.py .                           [  2%]
+tests/app/test_sim_runner_extra.py ................                      [  3%]
+tests/app/test_sim_runner_smoke.py .                                     [  3%]
+tests/app/test_sim_turnover_budget_integration.py .                      [  3%]
+tests/app/test_streamlit_state.py ..........                             [  4%]
+tests/app/test_turnover_budget_policy.py .                               [  4%]
+tests/backtesting/test_bootstrap.py .....                                [  4%]
+tests/backtesting/test_harness.py ..                                     [  4%]
+tests/github_scripts/test_gate_summary.py .......                        [  4%]
+tests/github_scripts/test_restore_branch_snapshots.py ...                [  5%]
+tests/golden/test_demo.py ....                                           [  5%]
+tests/proxy/test_server.py ...............                               [  5%]
+tests/smoke/test_app_launch.py ..                                        [  6%]
+tests/smoke/test_pipeline_smoke.py .                                     [  6%]
+tests/test_adaptive_bayes.py .....                                       [  6%]
+tests/test_agents_guard.py sssssssssssssssssss                           [  7%]
+tests/test_api_run_simulation.py ...                                     [  7%]
+tests/test_api_run_simulation_branches.py ...                            [  7%]
+tests/test_api_run_simulation_extra.py ....                              [  7%]
+tests/test_api_server.py .......                                         [  8%]
+tests/test_api_server_entrypoint.py ..                                   [  8%]
+tests/test_app_coverage.py ......................................        [  9%]
+tests/test_autofix_full_pipeline.py .                                    [ 10%]
+tests/test_autofix_pipeline.py ..                                        [ 10%]
+tests/test_autofix_pipeline_diverse.py .                                 [ 10%]
+tests/test_autofix_pipeline_live_docs.py .                               [ 10%]
+tests/test_autofix_pipeline_tools.py ..........                          [ 10%]
+tests/test_autofix_pr_comment.py .....                                   [ 10%]
+tests/test_autofix_repo_regressions.py ....                              [ 11%]
+tests/test_autofix_samples.py .....                                      [ 11%]
+tests/test_autofix_trigger_scenario2.py .....                            [ 11%]
+tests/test_automation_workflows.py ...............                       [ 12%]
+tests/test_avg_corr_metric.py .                                          [ 12%]
+tests/test_avgcorr_export.py ..                                          [ 12%]
+tests/test_block_bootstrap_engine.py ...                                 [ 12%]
+tests/test_build_autofix_pr_comment.py ............                      [ 13%]
+tests/test_cache_disable.py .                                            [ 13%]
+tests/test_chatgpt_topics_parser.py .........                            [ 13%]
+tests/test_ci_cosmetic_repair.py .....                                   [ 13%]
+tests/test_ci_coverage_delta.py .....                                    [ 14%]
+tests/test_ci_history.py ...                                             [ 14%]
+tests/test_ci_metrics.py .....                                           [ 14%]
+tests/test_ci_probe_faults.py ........                                   [ 14%]
+tests/test_cli.py .........                                              [ 15%]
+tests/test_cli_api_golden_master.py ..                                   [ 15%]
+tests/test_cli_cache_stats.py .                                          [ 15%]
+tests/test_cli_cache_stats_disabled.py .                                 [ 15%]
+tests/test_cli_cache_stats_extended.py ...                               [ 15%]
+tests/test_cli_check.py .....                                            [ 15%]
+tests/test_cli_installed.py .....                                        [ 16%]
+tests/test_cli_no_cache_flag.py .                                        [ 16%]
+tests/test_cli_no_structured_log.py .                                    [ 16%]
+tests/test_cli_smoke.py .....                                            [ 16%]
+tests/test_cli_trend_presets.py ..                                       [ 16%]
+tests/test_codex_belt_pipeline.py ...                                    [ 16%]
+tests/test_config.py .                                                   [ 16%]
+tests/test_config_bridge.py ......                                       [ 17%]
+tests/test_config_errors.py .                                            [ 17%]
+tests/test_config_fallback_additional.py ................                [ 17%]
+tests/test_config_fallback_minimal.py ..........                         [ 18%]
+tests/test_config_human_errors.py .....................                  [ 19%]
+tests/test_config_legacy.py ...                                          [ 19%]
+tests/test_config_load.py ......                                         [ 19%]
+tests/test_config_models.py ...                                          [ 19%]
+tests/test_config_models_additional.py ..............                    [ 20%]
+tests/test_config_models_coverage_extensions.py ............             [ 21%]
+tests/test_config_models_fallback_loader.py ....                         [ 21%]
+tests/test_config_models_fallback_unit.py .................              [ 22%]
+tests/test_config_path_discovery.py ......                               [ 22%]
+tests/test_config_pydantic_fallback.py ......                            [ 22%]
+tests/test_config_turnover_validation.py .................               [ 23%]
+tests/test_config_validation.py ....                                     [ 23%]
+tests/test_configure_presets.py ......                                   [ 24%]
+tests/test_constants.py .......                                          [ 24%]
+tests/test_constraint_optimizer.py .........                             [ 24%]
+tests/test_cov_cache_integration.py .                                    [ 24%]
+tests/test_coverage_trend.py .........                                   [ 25%]
+tests/test_data.py .......                                               [ 25%]
+tests/test_data_malformed_dates.py .......                               [ 25%]
+tests/test_data_schema.py ......                                         [ 26%]
+tests/test_default_export.py .                                           [ 26%]
+tests/test_determinism_cli.py ..                                         [ 26%]
+tests/test_disable_legacy_workflows.py .........                         [ 26%]
+tests/test_disclaimer.py .                                               [ 26%]
+tests/test_engine_incremental_cov.py ..                                  [ 26%]
+tests/test_experimental_api_removal.py ..                                [ 27%]
+tests/test_export_additional_coverage.py ..................              [ 27%]
+tests/test_export_bundle.py .........                                    [ 28%]
+tests/test_export_errors.py .                                            [ 28%]
+tests/test_export_formatter.py ...................                       [ 29%]
+tests/test_export_manifest_schema.py ..                                  [ 29%]
+tests/test_export_openpyxl_adapter.py ................                   [ 30%]
+tests/test_export_outputs.py ..                                          [ 30%]
+tests/test_exports.py .........                                          [ 30%]
+tests/test_frequency_missing.py ........                                 [ 31%]
+tests/test_gui.py ........                                               [ 31%]
+tests/test_gui_app_extended.py .....                                     [ 31%]
+tests/test_gui_app_simple.py ...........                                 [ 32%]
+tests/test_gui_launch_run.py ..                                          [ 32%]
+tests/test_gui_support.py .....                                          [ 32%]
+tests/test_gui_utils_extra.py .....                                      [ 32%]
+tests/test_hash_utils.py ....                                            [ 33%]
+tests/test_health_wrapper.py ........                                    [ 33%]
+tests/test_incremental_cov.py .                                          [ 33%]
+tests/test_io_utils.py ...........                                       [ 33%]
+tests/test_io_utils_cleanup.py ....                                      [ 34%]
+tests/test_io_validators_additional.py ....                              [ 34%]
+tests/test_io_validators_negative_paths.py ....                          [ 34%]
+tests/test_is_zero_everywhere_helper.py ......                           [ 34%]
+tests/test_issue_bridge_triggers.py ........                             [ 35%]
+tests/test_joblib_import.py ......                                       [ 35%]
+tests/test_joblib_shim.py .                                              [ 35%]
+tests/test_keepalive_workflow.py ssssssssss                              [ 36%]
+tests/test_label_rules_assert.py ..                                      [ 36%]
+tests/test_lockfile_consistency.py s..                                   [ 36%]
+tests/test_logging_helpers.py ....                                       [ 36%]
+tests/test_logging_integration.py .                                      [ 36%]
+tests/test_logging_module.py ......                                      [ 36%]
+tests/test_malformed_date_validation.py .....                            [ 37%]
+tests/test_market_data_validation.py .................                   [ 37%]
+tests/test_metric_cache.py .....                                         [ 38%]
+tests/test_metric_vectorise.py .                                         [ 38%]
+tests/test_metric_vectorise_param.py .....                               [ 38%]
+tests/test_metrics.py .....                                              [ 38%]
+tests/test_metrics_attribution.py ........                               [ 39%]
+tests/test_metrics_edgecases.py ....                                     [ 39%]
+tests/test_metrics_extra.py .........                                    [ 39%]
+tests/test_metrics_rolling.py .....                                      [ 39%]
+tests/test_metrics_summary.py .                                          [ 39%]
+tests/test_metrics_turnover_extra.py ..                                  [ 40%]
+tests/test_multi_period_engine.py .......                                [ 40%]
+tests/test_multi_period_engine_additional.py .....                       [ 40%]
+tests/test_multi_period_engine_branch_coverage.py .                      [ 40%]
+tests/test_multi_period_engine_cov_cache.py ...                          [ 40%]
+tests/test_multi_period_engine_debug.py .                                [ 40%]
+tests/test_multi_period_engine_extended.py .....                         [ 41%]
+tests/test_multi_period_engine_helpers_additional.py ....                [ 41%]
+tests/test_multi_period_engine_incremental_cov.py .............          [ 41%]
+tests/test_multi_period_engine_incremental_extra.py ....                 [ 42%]
+tests/test_multi_period_engine_incremental_fallback.py .                 [ 42%]
+tests/test_multi_period_engine_portfolio_unit.py ....                    [ 42%]
+tests/test_multi_period_engine_price_frames.py .........                 [ 42%]
+tests/test_multi_period_engine_price_frames_extra.py ........            [ 43%]
+tests/test_multi_period_engine_run_schedule_extra.py ..                  [ 43%]
+tests/test_multi_period_engine_threshold_bounds.py .                     [ 43%]
+tests/test_multi_period_engine_threshold_edgecases.py ........           [ 43%]
+tests/test_multi_period_engine_threshold_events_extended.py ..           [ 43%]
+tests/test_multi_period_engine_turnover_extended.py ...                  [ 43%]
+tests/test_multi_period_export.py .................                      [ 44%]
+tests/test_multi_period_rebalancer.py .......                            [ 45%]
+tests/test_multi_period_stub.py ..                                       [ 45%]
+tests/test_mypy_autofix.py .......                                       [ 45%]
+tests/test_na_as_zero_policy.py ...                                      [ 45%]
+tests/test_no_hardcoded_sleeps.py ...                                    [ 45%]
+tests/test_no_invalid_period_freq_aliases.py ..                          [ 45%]
+tests/test_optimizer.py .........                                        [ 46%]
+tests/test_optimizer_constraints.py ...........................          [ 47%]
+tests/test_optimizer_constraints_additional.py ..................        [ 48%]
+tests/test_optimizer_constraints_guardrails.py ..............            [ 49%]
+tests/test_perf_cache.py ..                                              [ 49%]
+tests/test_perf_cache_additional.py ...                                  [ 49%]
+tests/test_perf_cache_extended.py ........                               [ 49%]
+tests/test_pipeline.py .................                                 [ 50%]
+tests/test_pipeline_constraints_integration.py .                         [ 50%]
+tests/test_pipeline_indices.py ...                                       [ 50%]
+tests/test_pipeline_integration_direct.py ..                             [ 50%]
+tests/test_pipeline_optional_features.py ..................              [ 51%]
+tests/test_pipeline_warmup_autofix.py ..                                 [ 51%]
+tests/test_plugin_registry.py .....                                      [ 52%]
+tests/test_policy_engine_cov.py .........                                [ 52%]
+tests/test_portfolio_app_app_module.py ..........                        [ 52%]
+tests/test_portfolio_app_data_schema.py ......                           [ 53%]
+tests/test_portfolio_app_helpers.py .....                                [ 53%]
+tests/test_portfolio_app_io_utils.py .............                       [ 54%]
+tests/test_portfolio_app_main_entrypoint.py .                            [ 54%]
+tests/test_post_ci_summary.py ..........                                 [ 54%]
+tests/test_proxy.py ........                                             [ 55%]
+tests/test_proxy_cli.py ...                                              [ 55%]
+tests/test_proxy_server_additional.py .............                      [ 55%]
+tests/test_proxy_server_missing_optional.py .                            [ 55%]
+tests/test_proxy_server_runtime_extra.py ...                             [ 55%]
+tests/test_rank_selection.py ....                                        [ 56%]
+tests/test_rank_selection_additional.py ...................              [ 57%]
+tests/test_rank_selection_branch_gaps.py ...........................     [ 58%]
+tests/test_rank_selection_core_unit.py ................                  [ 59%]
+tests/test_rank_selection_coverage.py .................................. [ 60%]
+...                                                                      [ 60%]
+tests/test_rank_selection_extended.py .................................. [ 62%]
+........                                                                 [ 62%]
+tests/test_rank_selection_fix.py ..                                      [ 63%]
+tests/test_rank_selection_helper.py .......                              [ 63%]
+tests/test_rank_selection_miscellaneous.py ............................. [ 64%]
+.                                                                        [ 64%]
+tests/test_rank_transform.py .                                           [ 64%]
+tests/test_rebalancing_imports.py ....                                   [ 65%]
+tests/test_rebalancing_integration.py ...                                [ 65%]
+tests/test_rebalancing_strategies.py .....                               [ 65%]
+tests/test_regex_optimization.py ..                                      [ 65%]
+tests/test_regimes.py ......                                             [ 65%]
+tests/test_render_cosmetic_summary.py ..                                 [ 65%]
+tests/test_replacer.py ...                                               [ 66%]
+tests/test_reusable_ci_workflow.py ....                                  [ 66%]
+tests/test_rf_handling.py ....                                           [ 66%]
+tests/test_risk.py ...                                                   [ 66%]
+tests/test_robust_weighting.py ................................          [ 68%]
+tests/test_rolling_cache.py ....                                         [ 68%]
+tests/test_rolling_cache_additional_paths.py .........                   [ 68%]
+tests/test_run_analysis.py .......                                       [ 69%]
+tests/test_run_analysis_cli.py ...                                       [ 69%]
+tests/test_run_analysis_cli_default.py .                                 [ 69%]
+tests/test_run_analysis_cli_export.py .                                  [ 69%]
+tests/test_run_full.py .....                                             [ 69%]
+tests/test_run_multi_analysis_additional.py ..                           [ 69%]
+tests/test_run_multi_analysis_cli.py ..                                  [ 69%]
+tests/test_score_frame.py .....                                          [ 69%]
+tests/test_script_error_handling.py ......                               [ 70%]
+tests/test_selector.py .......                                           [ 70%]
+tests/test_selector_cache.py .                                           [ 70%]
+tests/test_selector_plugins.py ........                                  [ 71%]
+tests/test_selector_weighting.py .....                                   [ 71%]
+tests/test_selector_window_cache.py .                                    [ 71%]
+tests/test_shift_safe_pipeline.py ....                                   [ 71%]
+tests/test_shift_safe_regression.py ..                                   [ 71%]
+tests/test_signal_presets.py ....                                        [ 71%]
+tests/test_signals_engine.py .....                                       [ 72%]
+tests/test_sim_runner_cov.py ................                            [ 72%]
+tests/test_simulate_codex_bootstrap.py .....                             [ 73%]
+tests/test_single_period_run_avg_corr.py .                               [ 73%]
+tests/test_sitecustomize_joblib_guard.py ..............                  [ 73%]
+tests/test_spec_loader.py ........                                       [ 74%]
+tests/test_streamlit_app_import.py .                                     [ 74%]
+tests/test_streamlit_configure_guardrails.py .                           [ 74%]
+tests/test_streamlit_demo_runner.py ..                                   [ 74%]
+tests/test_streamlit_disclaimer_component.py .                           [ 74%]
+tests/test_streamlit_fallback_banner.py .                                [ 74%]
+tests/test_streamlit_run_page.py .................................       [ 76%]
+tests/test_streamlit_run_page_new.py ........                            [ 76%]
+tests/test_streamlit_smoke_ci.py ........                                [ 76%]
+tests/test_streamlit_state.py ......                                     [ 77%]
+tests/test_structured_logging.py .                                       [ 77%]
+tests/test_threshold_hold_alignment.py .                                 [ 77%]
+tests/test_threshold_policy.py ..                                        [ 77%]
+tests/test_timefreq.py .......                                           [ 77%]
+tests/test_transaction_costs_and_turnover.py ..                          [ 77%]
+tests/test_trend_analysis_init.py ....                                   [ 77%]
+tests/test_trend_analysis_package.py ..                                  [ 77%]
+tests/test_trend_analysis_package_init.py ....                           [ 78%]
+tests/test_trend_analysis_typing_contract.py ...                         [ 78%]
+tests/test_trend_cli.py ................................                 [ 79%]
+tests/test_trend_cli_entrypoints.py .........................            [ 81%]
+tests/test_trend_config_model.py .................                       [ 81%]
+tests/test_trend_config_model_negative_paths.py ...................      [ 82%]
+tests/test_trend_init_public_interface.py ...                            [ 82%]
+tests/test_trend_model_app.py ....                                       [ 83%]
+tests/test_trend_model_cli.py ...........                                [ 83%]
+tests/test_trend_model_sitecustomize.py ....                             [ 83%]
+tests/test_trend_package_public_interface.py ...                         [ 83%]
+tests/test_trend_portfolio_app_helpers.py .............................. [ 85%]
+.......                                                                  [ 85%]
+tests/test_trend_portfolio_app_main.py ...                               [ 85%]
+tests/test_trend_portfolio_app_module_entry.py ..                        [ 86%]
+tests/test_trend_portfolio_app_run_execute.py .                          [ 86%]
+tests/test_trend_presets.py ....                                         [ 86%]
+tests/test_trend_signals.py .....                                        [ 86%]
+tests/test_turnover_cap_strategy.py ............                         [ 87%]
+tests/test_turnover_vectorization.py ....                                [ 87%]
+tests/test_unified_api_integration.py .                                  [ 87%]
+tests/test_unified_report.py ...                                         [ 87%]
+tests/test_util_frequency_missing.py .......                             [ 87%]
+tests/test_util_hash.py ........                                         [ 88%]
+tests/test_validate_quarantine_ttl.py ..                                 [ 88%]
+tests/test_validators.py ...............                                 [ 88%]
+tests/test_viz_charts.py .........                                       [ 89%]
+tests/test_viz_charts_edgecases.py ..                                    [ 89%]
+tests/test_vol_drawdown_strategies.py ...............                    [ 90%]
+tests/test_vol_floor_and_warmup.py ....                                  [ 90%]
+tests/test_walkforward_engine.py ................                        [ 91%]
+tests/test_weight_engine_logging.py .....                                [ 91%]
+tests/test_weight_engines.py ...                                         [ 91%]
+tests/test_weight_engines_pathological.py ...................            [ 92%]
+tests/test_weighting.py .....                                            [ 92%]
+tests/test_weighting_edges.py ................                           [ 93%]
+tests/test_weighting_engines_extended.py ...                             [ 93%]
+tests/test_weighting_robustness.py ......................                [ 94%]
+tests/test_workflow_agents_consolidation.py ............................ [ 96%]
+.........                                                                [ 96%]
+tests/test_workflow_archival_issue2823.py ..                             [ 96%]
+tests/test_workflow_autofix_guard.py ...                                 [ 96%]
+tests/test_workflow_multi_failure.py .                                   [ 96%]
+tests/test_workflow_multi_failure_demo.py ...                            [ 96%]
+tests/test_workflow_naming.py .......                                    [ 97%]
+tests/test_workflow_selftest_consolidation.py ............               [ 97%]
+tests/tools/test_coverage_guard.py .......                               [ 98%]
+tests/tools/test_enforce_gate_branch_protection.py ..................... [ 99%]
+............                                                             [ 99%]
+tests/tools/test_resolve_mypy_pin.py ......                              [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_agents_guard.py:146: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:164: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:182: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:198: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:214: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:231: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:250: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:269: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:292: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:312: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:336: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:360: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:378: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:395: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:412: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:428: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:443: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:456: Node.js not available (required for agents-guard.js tests)
+SKIPPED [1] tests/test_agents_guard.py:483: Node.js not available (required for agents-guard.js tests)
+SKIPPED [10] tests/test_keepalive_workflow.py:15: Node.js is required for keepalive harness tests
+SKIPPED [1] tests/test_lockfile_consistency.py:43: uv CLI not installed
+========== 2056 passed, 30 skipped, 88 warnings in 218.82s (0:03:38) ===========
+Name                                                     Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------------------
+.github/scripts/gate_summary.py                            229    229     62      0     0%   1-436
+.github/scripts/label_rules_assert.py                       42     42     20      0     0%   10-84
+.github/scripts/render_cosmetic_summary.py                  42     42     12      0     0%   7-66
+.github/scripts/restore_branch_snapshots.py                129    129     38      0     0%   1-213
+app/__init__.py                                              0      0      0      0   100%
+app/streamlit/__init__.py                                    0      0      0      0   100%
+app/streamlit/pages/03_Run.py                              196    196     62      0     0%   3-387
+app/streamlit/state.py                                      47     47     16      0     0%   3-106
+scripts/__init__.py                                          0      0      0      0   100%
+scripts/auto_type_hygiene.py                               136    136     66      0     0%   24-212
+scripts/build_autofix_pr_comment.py                        175    175     72      0     0%   15-319
+scripts/ci_cosmetic_repair.py                              257    257     92      0     0%   21-582
+scripts/ci_coverage_delta.py                                61     61     14      0     0%   3-112
+scripts/ci_history.py                                       77     77     20      0     0%   9-148
+scripts/ci_metrics.py                                      119    119     26      0     0%   17-237
+scripts/classify_test_failures.py                          123    123     44      0     0%   19-203
+scripts/fix_cosmetic_aggregate.py                           23     23      4      0     0%   9-39
+scripts/fix_numpy_asserts.py                                62     62     28      0     0%   10-90
+scripts/mypy_autofix.py                                    225    225    100      0     0%   23-405
+scripts/mypy_return_autofix.py                             142    142     60      0     0%   18-216
+scripts/render_mypy_summary.py                              39     39     14      0     0%   10-61
+scripts/update_autofix_expectations.py                      51     51     14      0     0%   9-100
+sitecustomize.py                                            17     17      2      0     0%   3-40
+src/trend/__init__.py                                        8      8      2      0     0%   9-25
+src/trend/cli.py                                           308    308     90      0     0%   1-556
+src/trend/reporting/__init__.py                              3      3      0      0     0%   3-7
+src/trend/reporting/unified.py                             614    614    254      0     0%   3-1018
+src/trend_analysis/__init__.py                              27     27      4      0     0%   3-94
+src/trend_analysis/_autofix_trigger_sample.py               13     13      0      0     0%   1-35
+src/trend_analysis/_autofix_violation_case2.py              19     19      4      0     0%   16-59
+src/trend_analysis/_autofix_violation_case3.py              15     15      0      0     0%   1-36
+src/trend_analysis/_ci_probe_faults.py                      15     15      0      0     0%   8-36
+src/trend_analysis/_typing.py                               10     10      0      0     0%   1-19
+src/trend_analysis/api.py                                   85     85     14      0     0%   1-302
+src/trend_analysis/automation_multifailure.py                4      4      0      0     0%   9-16
+src/trend_analysis/backtesting/__init__.py                   3      3      0      0     0%   3-6
+src/trend_analysis/backtesting/bootstrap.py                 63     63     24      0     0%   3-131
+src/trend_analysis/backtesting/harness.py                  208    208     78      0     0%   3-373
+src/trend_analysis/config/__init__.py                        3      3      0      0     0%   4-20
+src/trend_analysis/config/bridge.py                         24     24      6      0     0%   13-81
+src/trend_analysis/config/legacy.py                         47     47     10      0     0%   3-109
+src/trend_analysis/config/model.py                         248    248     96      0     0%   10-415
+src/trend_analysis/config/models.py                        404    404    160      0     0%   8-828
+src/trend_analysis/constants.py                              6      6      0      0     0%   8-16
+src/trend_analysis/core/__init__.py                          0      0      0      0   100%
+src/trend_analysis/core/metric_cache.py                     49     49     10      0     0%   1-115
+src/trend_analysis/core/rank_selection.py                  503    503    220      0     0%   12-1545
+src/trend_analysis/data.py                                 218    218    102      0     0%   1-401
+src/trend_analysis/engine/__init__.py                        2      2      0      0     0%   3-5
+src/trend_analysis/engine/optimizer.py                     170    170     90      0     0%   1-278
+src/trend_analysis/engine/walkforward.py                   161    161     62      0     0%   3-308
+src/trend_analysis/export/__init__.py                      865    865    340      0     0%   3-1632
+src/trend_analysis/export/bundle.py                        180    180     50      0     0%   1-411
+src/trend_analysis/io/__init__.py                            4      4      0      0     0%   3-23
+src/trend_analysis/io/market_data.py                       407    407    134      0     0%   9-793
+src/trend_analysis/io/utils.py                              58     58     14      0     0%   3-108
+src/trend_analysis/io/validators.py                        164    164     56      0     0%   3-299
+src/trend_analysis/logging.py                               85     85     30      0     0%   1-249
+src/trend_analysis/metrics/__init__.py                     189    189     76      0     0%   8-423
+src/trend_analysis/metrics/attribution.py                   35     35     12      0     0%   19-136
+src/trend_analysis/metrics/rolling.py                       31     31      8      0     0%   3-69
+src/trend_analysis/metrics/summary.py                       21     21      0      0     0%   3-64
+src/trend_analysis/metrics/turnover.py                      15     15      2      0     0%   9-56
+src/trend_analysis/multi_period/__init__.py                  2      2      0      0     0%   3-5
+src/trend_analysis/multi_period/engine.py                  536    536    210      0     0%   18-1191
+src/trend_analysis/multi_period/replacer.py                 83     83     36      0     0%   12-171
+src/trend_analysis/multi_period/scheduler.py                25     25      2      0     0%   7-77
+src/trend_analysis/perf/cache.py                           112    112     26      0     0%   13-245
+src/trend_analysis/perf/rolling_cache.py                    74     74     18      0     0%   3-135
+src/trend_analysis/pipeline.py                             611    611    200      0     0%   1-1462
+src/trend_analysis/plugins/__init__.py                      40     40      0      0     0%   11-139
+src/trend_analysis/presets.py                              178    178     60      0     0%   3-324
+src/trend_analysis/rebalancing.py                            8      8      0      0     0%   9-45
+src/trend_analysis/rebalancing/__init__.py                   2      2      0      0     0%   1-13
+src/trend_analysis/rebalancing/strategies.py               160    160     32      0     0%   10-368
+src/trend_analysis/regimes.py                              277    277    128      0     0%   3-551
+src/trend_analysis/reporting/__init__.py                    14     14      0      0     0%   3-34
+src/trend_analysis/risk.py                                 101    101     26      0     0%   11-232
+src/trend_analysis/run_analysis.py                          58     58     24      0     0%   1-129
+src/trend_analysis/run_multi_analysis.py                    32     32      0      0     0%   1-75
+src/trend_analysis/selector.py                              39     39      4      0     0%   1-66
+src/trend_analysis/signal_presets.py                        42     42     10      0     0%   3-137
+src/trend_analysis/signals.py                               57     57     18      0     0%   9-93
+src/trend_analysis/timefreq.py                              34     34     10      0     0%   17-105
+src/trend_analysis/typing.py                                14     14      0      0     0%   3-33
+src/trend_analysis/util/__init__.py                          0      0      0      0   100%
+src/trend_analysis/util/frequency.py                        84     84     26      0     0%   3-155
+src/trend_analysis/util/hash.py                             32     32     10      0     0%   9-71
+src/trend_analysis/util/joblib_shim.py                      13     13      0      0     0%   9-27
+src/trend_analysis/util/missing.py                         116    116     28      0     0%   3-236
+src/trend_analysis/viz/__init__.py                           2      2      0      0     0%   9-18
+src/trend_analysis/viz/charts.py                            66     66     12      0     0%   3-133
+src/trend_analysis/weighting.py                            112    112     36      0     0%   1-176
+src/trend_analysis/weights/__init__.py                       5      5      0      0     0%   3-8
+src/trend_analysis/weights/equal_risk_contribution.py       66     66     18      0     0%   1-106
+src/trend_analysis/weights/hierarchical_risk_parity.py      83     83     20      0     0%   1-124
+src/trend_analysis/weights/risk_parity.py                   28     28      8      0     0%   1-52
+src/trend_analysis/weights/robust_weighting.py             160    160     44      0     0%   3-355
+src/trend_model/__init__.py                                  1      1      0      0     0%   7
+src/trend_model/_sitecustomize.py                           34     34     10      0     0%   4-79
+src/trend_model/app.py                                      12     12      0      0     0%   3-41
+src/trend_model/cli.py                                      96     96     16      0     0%   3-199
+src/trend_model/spec.py                                    177    177     32      0     0%   3-305
+src/trend_portfolio_app/__init__.py                          0      0      0      0   100%
+src/trend_portfolio_app/__main__.py                         15     15      4      0     0%   8-35
+src/trend_portfolio_app/app.py                             257    257    108      0     0%   1-464
+src/trend_portfolio_app/data_schema.py                      80     80     18      0     0%   1-140
+src/trend_portfolio_app/event_log.py                        22     22      2      0     0%   1-32
+src/trend_portfolio_app/health_wrapper.py                   36     36      2      0     0%   9-114
+src/trend_portfolio_app/health_wrapper_runner.py             8      8      2      0     0%   9-19
+src/trend_portfolio_app/io_utils.py                         62     62     14      0     0%   1-116
+src/trend_portfolio_app/metrics_extra.py                    53     53      8      0     0%   1-77
+src/trend_portfolio_app/monte_carlo/engine.py               38     38      6      0     0%   1-51
+src/trend_portfolio_app/policy_engine.py                   143    143     70      0     0%   1-230
+src/trend_portfolio_app/sim_runner.py                      286    286    102      0     0%   1-502
+streamlit_app/__init__.py                                    0      0      0      0   100%
+streamlit_app/app.py                                        14     14      4      0     0%   2-29
+streamlit_app/components/__init__.py                         0      0      0      0   100%
+streamlit_app/components/analysis_runner.py                154    154     34      0     0%   3-300
+streamlit_app/components/charts.py                          37     37      8      0     0%   3-115
+streamlit_app/components/data_cache.py                      49     49      2      0     0%   3-100
+streamlit_app/components/demo_runner.py                    143    143     30      0     0%   3-352
+streamlit_app/components/disclaimer.py                      21     21      8      0     0%   3-44
+streamlit_app/components/guardrails.py                     118    118     40      0     0%   14-263
+streamlit_app/config_bridge.py                              14     14      0      0     0%   7-54
+streamlit_app/pages/1_Data.py                              138    138     48      0     0%   3-202
+streamlit_app/pages/2_Configure.py                         125    125     46      0     0%   3-208
+streamlit_app/pages/2_Model.py                             133    133     30      0     0%   3-277
+streamlit_app/pages/3_Results.py                             8      8      0      0     0%   3-14
+streamlit_app/pages/3_Run.py                               158    158     46      0     0%   1-288
+streamlit_app/pages/4_Results.py                           108    108     24      0     0%   3-177
+test_multi_period_selection.py                             129    129     50      0     0%   10-226
+test_upload_app.py                                          55     55      8      0     0%   3-118
+tools/__init__.py                                            1      1      0      0     0%   3
+tools/coverage_guard.py                                    331    331    118      0     0%   3-549
+tools/coverage_trend.py                                    157    157     60      0     0%   3-264
+tools/disable_legacy_workflows.py                          147    147     58      0     0%   33-354
+tools/enforce_gate_branch_protection.py                    307    307    124      0     0%   4-635
+tools/post_ci_summary.py                                   517    517    270      0     0%   8-786
+tools/resolve_mypy_pin.py                                   75     75     22      0     0%   1-140
+tools/simulate_codex_bootstrap.py                           50     50     10      0     0%   9-112
+tools/test_failure_signature.py                             28     28      4      0     0%   15-55
+tools/validate_quarantine_ttl.py                           102    102     38      0     0%   1-172
+----------------------------------------------------------------------------------------------------
+TOTAL                                                    15181  15181   5196      0     0%
