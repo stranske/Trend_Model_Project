@@ -225,7 +225,8 @@ jobs:
             if (isPushEvent) {
               const testFiles = pythonFiles.filter((filename) => {
                 const lower = filename.toLowerCase();
-                return lower.includes('/test_') || lower.includes('/tests/') || lower.startsWith('test_');
+                // Match files in /tests/ directory or files/directories starting with test_
+                return lower.includes('/tests/') || /(^|\/)test_/.test(lower);
               });
               const sourceFiles = pythonFiles.length - testFiles.length;
 
