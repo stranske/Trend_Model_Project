@@ -1,27 +1,109 @@
+import contextlib
+import importlib.util
+import io
 import json
 import os
 import pathlib
-import subprocess
+import runpy
 import sys
+from types import SimpleNamespace
+
+import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
 TOPICS_PATH = pathlib.Path("topics.json")
 
+_MODULE_SPEC = importlib.util.spec_from_file_location(
+    "parse_chatgpt_topics_module", SCRIPT
+)
+parse_module = importlib.util.module_from_spec(_MODULE_SPEC)
+assert _MODULE_SPEC and _MODULE_SPEC.loader
+_MODULE_SPEC.loader.exec_module(parse_module)
+
+
+def run_decode_cli(workdir: pathlib.Path, *args: str) -> SimpleNamespace:
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    script = REPO_ROOT / ".github/scripts/decode_raw_input.py"
+    original_cwd = os.getcwd()
+    original_argv = sys.argv
+    try:
+        os.chdir(workdir)
+        sys.argv = [str(script), *args]
+        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
+            stderr_buffer
+        ):
+            try:
+                runpy.run_path(str(script), run_name="__main__")
+                code = 0
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+    finally:
+        os.chdir(original_cwd)
+        sys.argv = original_argv
+    return SimpleNamespace(
+        returncode=code,
+        stdout=stdout_buffer.getvalue(),
+        stderr=stderr_buffer.getvalue(),
+    )
+
+
+def run_parser_in_workdir(
+    workdir: pathlib.Path, env: dict | None = None
+) -> SimpleNamespace:
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    overrides = env or {}
+    original_env: dict[str, str | None] = {
+        key: os.environ.get(key) for key in overrides
+    }
+    original_cwd = os.getcwd()
+    original_argv = sys.argv
+
+    try:
+        os.chdir(workdir)
+        sys.argv = [str(SCRIPT)]
+        os.environ.update({key: value for key, value in overrides.items() if value is not None})
+        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
+            stderr_buffer
+        ):
+            try:
+                runpy.run_path(str(SCRIPT), run_name="__main__")
+                code = 0
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+    finally:
+        for key, value in original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        os.chdir(original_cwd)
+        sys.argv = original_argv
+
+    return SimpleNamespace(
+        returncode=code,
+        stdout=stdout_buffer.getvalue(),
+        stderr=stderr_buffer.getvalue(),
+    )
+
 
 def run_parser(text: str, env: dict | None = None) -> tuple[int, str, str, list[dict]]:
-    """Helper to invoke the parser script in a subprocess for exit code
-    semantics."""
+    """Helper to execute the parser script in-process and capture exit codes."""
+
     tmp = pathlib.Path("input.txt")
     tmp.write_text(text, encoding="utf-8")
     TOPICS_PATH.unlink(missing_ok=True)
-    proc = subprocess.run(
-        [sys.executable, str(SCRIPT)],
-        capture_output=True,
-        text=True,
-        env={**os.environ, **(env or {})},
+
+    result = run_parser_in_workdir(pathlib.Path.cwd(), env=env)
+
+    return (
+        result.returncode,
+        result.stdout,
+        result.stderr,
+        read_topics(),
     )
-    return proc.returncode, proc.stdout, proc.stderr, read_topics()
 
 
 def read_topics() -> list[dict]:
@@ -119,29 +201,17 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
         issues_source.read_text(encoding="utf-8"), encoding="utf-8"
     )
 
-    decode_script = repo_root / ".github/scripts/decode_raw_input.py"
-    decode_proc = subprocess.run(
-        [
-            sys.executable,
-            str(decode_script),
-            "--passthrough",
-            "--in",
-            str(passthrough_source),
-            "--source",
-            "repo_file",
-        ],
-        cwd=workdir,
-        capture_output=True,
-        text=True,
+    decode_proc = run_decode_cli(
+        workdir,
+        "--passthrough",
+        "--in",
+        str(passthrough_source),
+        "--source",
+        "repo_file",
     )
     assert decode_proc.returncode == 0, decode_proc.stderr
 
-    parser_proc = subprocess.run(
-        [sys.executable, str(SCRIPT)],
-        cwd=workdir,
-        capture_output=True,
-        text=True,
-    )
+    parser_proc = run_parser_in_workdir(workdir)
     assert parser_proc.returncode == 0, parser_proc.stderr
 
     topics_path = workdir / "topics.json"
@@ -157,3 +227,115 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
 
     # Ensure every topic captures acceptance criteria to satisfy automation checks.
     assert all(topic["sections"]["acceptance_criteria"].strip() for topic in topics)
+
+
+def test_split_numbered_items_unknown_style(monkeypatch) -> None:
+    original_fullmatch = parse_module.re.fullmatch
+
+    def fake_fullmatch(pattern, string, flags=0):  # type: ignore[override]
+        if string == "B":
+            return None
+        return original_fullmatch(pattern, string, flags)
+
+    monkeypatch.setattr(parse_module.re, "fullmatch", fake_fullmatch)
+    sample = "A) First topic\nB) Second topic"
+    items = parse_module._split_numbered_items(sample)
+    assert items[1]["enumerator"] == "B"
+    assert items[1]["continuity_break"] is False
+
+
+def test_parse_sections_supports_label_separators() -> None:
+    labels, sections, extras = parse_module._parse_sections(
+        [
+            "Labels: alpha; beta, gamma",
+            "Why",
+            "Rationale",
+        ]
+    )
+    assert labels == ["alpha", "beta", "gamma"]
+    assert sections["why"] == ["Rationale"]
+    assert extras == []
+
+
+def test_parse_text_single_topic_empty_raises_system_exit() -> None:
+    with pytest.raises(SystemExit) as exc:
+        parse_module.parse_text("   \n", allow_single_fallback=True)
+    assert exc.value.code == 2
+
+
+def test_parse_text_handles_string_lines(monkeypatch) -> None:
+    def fake_split(_text: str):
+        return [
+            {
+                "title": "Example",
+                "lines": "Single line body",
+                "enumerator": "1",
+            }
+        ]
+
+    monkeypatch.setattr(parse_module, "_split_numbered_items", fake_split)
+    topics = parse_module.parse_text("ignored")
+    assert topics[0]["extras"] == "Single line body"
+
+
+def test_parse_text_handles_unknown_line_type(monkeypatch) -> None:
+    def fake_split(_text: str):
+        return [
+            {
+                "title": "Example",
+                "lines": None,
+                "enumerator": "1",
+            }
+        ]
+
+    monkeypatch.setattr(parse_module, "_split_numbered_items", fake_split)
+    topics = parse_module.parse_text("ignored")
+    assert topics[0]["extras"] == ""
+
+
+def test_parser_main_missing_input_file(tmp_path: pathlib.Path) -> None:
+    result = run_parser_in_workdir(tmp_path)
+    assert result.returncode == 1
+    assert "No input.txt" in result.stderr
+
+
+def test_parser_main_maps_empty_input(tmp_path: pathlib.Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.txt").write_text("   ", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        parse_module.main()
+    assert exc.value.code == 2
+
+
+def test_parser_main_maps_no_numbered_topics(tmp_path: pathlib.Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.txt").write_text("No enumerators here", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        parse_module.main()
+    assert exc.value.code == 3
+
+
+def test_parser_main_reraises_other_system_exit(monkeypatch) -> None:
+    def boom() -> list[dict]:
+        raise SystemExit("Unexpected failure")
+
+    monkeypatch.setattr(parse_module, "parse_topics", boom)
+    with pytest.raises(SystemExit) as exc:
+        parse_module.main()
+    assert str(exc.value) == "Unexpected failure"
+
+
+def test_parser_main_raises_on_empty_topics(monkeypatch, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(parse_module, "parse_topics", lambda: [])
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        parse_module.main()
+    assert exc.value.code == 4
+
+
+def test_parser_cli_error_prints_message(tmp_path: pathlib.Path) -> None:
+    workdir = tmp_path
+    (workdir / "input.txt").write_text("Plain text without numbers", encoding="utf-8")
+    result = run_parser_in_workdir(workdir)
+    assert result.returncode == 3
+    assert result.stderr.strip() == "3"
