@@ -430,7 +430,9 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
                 break
 
         assert helper_index is not None, f"Job {job_name} must require {helper_path}"
-        assert checkout_index is not None, f"Job {job_name} must checkout orchestrator scripts"
+        assert (
+            checkout_index is not None
+        ), f"Job {job_name} must checkout orchestrator scripts"
         assert (
             checkout_index < helper_index
         ), f"Checkout step must precede {helper_path} usage in job {job_name}"
