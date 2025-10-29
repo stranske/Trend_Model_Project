@@ -4,6 +4,11 @@ on:
   pull_request_target:
     types:
       - labeled
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - reopened
 
 permissions:
   contents: write
@@ -55,9 +60,12 @@ jobs:
 
             summary.addHeading('CI autofix loop guard');
 
-            if (context.eventName !== 'pull_request_target') {
+            const isLabeledEvent = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
+            const isPushEvent = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+
+            if (!isLabeledEvent && !isPushEvent) {
               result.skip_reason = 'unsupported-event';
-              summary.addRaw('Autofix loop expects a pull_request_target event.').addEOL();
+              summary.addRaw(`Autofix loop expects labeled or push events; got ${context.eventName}/${context.payload.action}.`).addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
@@ -65,32 +73,26 @@ jobs:
               return;
             }
 
-            const action = context.payload.action;
-            if (action !== 'labeled') {
-              result.skip_reason = 'non-label-event';
-              summary.addRaw(`Ignoring pull_request_target action "${action}".`).addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+            let triggerLabel = '';
+            if (isLabeledEvent) {
+              const rawLabel = context.payload.label?.name;
+              triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
+              result.trigger_label = triggerLabel;
+              result.label_actor = String(context.payload.sender?.login || '');
+
+              summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
+
+              if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
+                result.skip_reason = 'unmatched-label';
+                summary.addRaw('Label is not autofix/autofix:clean; skipping.').addEOL();
+                for (const [key, value] of Object.entries(result)) {
+                  core.setOutput(key, value);
+                }
+                await summary.write();
+                return;
               }
-              await summary.write();
-              return;
-            }
-
-            const rawLabel = context.payload.label?.name;
-            const triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
-            result.trigger_label = triggerLabel;
-            result.label_actor = String(context.payload.sender?.login || '');
-
-            summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
-
-            if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
-              result.skip_reason = 'unmatched-label';
-              summary.addRaw('Label is not autofix/autofix:clean; skipping.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
-              }
-              await summary.write();
-              return;
+            } else {
+              summary.addRaw(`Triggered by push event: ${context.payload.action}`).addEOL();
             }
 
             const prNumber = Number(context.payload.pull_request?.number);
@@ -222,6 +224,28 @@ jobs:
               }
               await summary.write();
               return;
+            }
+
+            // For push events, only run autofix if test files are changed
+            if (isPushEvent) {
+              const testFiles = pythonFiles.filter((filename) => {
+                const lower = filename.toLowerCase();
+                return lower.includes('/test_') || lower.includes('/tests/') || lower.startsWith('test_');
+              });
+
+              summary.addRaw(`Test files in PR: ${testFiles.length}`).addEOL();
+
+              if (testFiles.length === 0) {
+                result.skip_reason = 'no-test-files-on-push';
+                summary.addRaw('Push event with no test files; skipping autofix (will only run on label or for test files).').addEOL();
+                for (const [key, value] of Object.entries(result)) {
+                  core.setOutput(key, value);
+                }
+                await summary.write();
+                return;
+              }
+
+              summary.addRaw(`Push event triggered with ${testFiles.length} test file(s); autofix will run.`).addEOL();
             }
 
             if (nonPythonFiles.length > 0) {
