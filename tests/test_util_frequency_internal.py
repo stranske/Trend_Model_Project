@@ -67,7 +67,9 @@ def test_as_datetime_index_rejects_non_datetimes() -> None:
         ("foo", None),
     ],
 )
-def test_map_inferred_normalises_pandas_codes(freq: str | None, expected: str | None) -> None:
+def test_map_inferred_normalises_pandas_codes(
+    freq: str | None, expected: str | None
+) -> None:
     """The inference mapper should collapse Pandas frequency aliases to our codes."""
 
     assert _map_inferred(freq) == expected
@@ -122,7 +124,9 @@ def test_detect_frequency_handles_single_observation() -> None:
     assert summary.resampled is False
 
 
-def test_detect_frequency_uses_inferred_business_day(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_uses_inferred_business_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Business-day inference should collapse to the daily cadence."""
 
     idx = pd.date_range("2024-01-01", periods=5, freq="B")
@@ -138,7 +142,9 @@ def test_detect_frequency_uses_inferred_business_day(monkeypatch: pytest.MonkeyP
     assert summary.target_label == FREQUENCY_LABELS["M"]
 
 
-def test_detect_frequency_falls_back_when_infer_freq_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_falls_back_when_infer_freq_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Errors from ``pd.infer_freq`` should trigger the diff-based classifier."""
 
     idx = pd.DatetimeIndex(
