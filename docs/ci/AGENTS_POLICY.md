@@ -14,7 +14,10 @@ allowed.
   `agent:codex` label trigger directly while continuing to service ChatGPT
   topic imports via the reusable workflow surface. The workflow also watches
   for issue `unlabeled` events and re-runs intake when an `agent:*` label is
-  removed so the automation tracks label churn without double-processing.
+  removed so the automation tracks label churn without double-processing. The
+  concurrency group (`issue-${{ github.event.issue.number }}-intake`) keeps a
+  single run active per issue, while the `normalize_inputs` guard only permits
+  unlabeled executions when the removed label carries the `agent:` prefix.
 - **Agents 63 – ChatGPT issue sync** — manual wrapper that exposes the curated
   import inputs while delegating to the shared intake workflow.
 
