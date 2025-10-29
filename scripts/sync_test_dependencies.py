@@ -106,6 +106,9 @@ PROJECT_MODULES = {
     "gate_summary",
     "restore_branch_snapshots",
     "test_test_dependencies",
+    "decode_raw_input",
+    "fallback_split",
+    "parse_chatgpt_topics",
 }
 
 # Module name to package name mappings for known exceptions

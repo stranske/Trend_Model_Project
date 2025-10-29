@@ -10,7 +10,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / ".github/scripts/fallback_split.py"
+SCRIPT_DIR = REPO_ROOT / ".github" / "scripts"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+import fallback_split  # noqa: F401,E402
+
+SCRIPT = SCRIPT_DIR / "fallback_split.py"
 
 
 def run_fallback(tmp_path: Path) -> SimpleNamespace:
