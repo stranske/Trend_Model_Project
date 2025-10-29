@@ -447,18 +447,22 @@ jobs:
             }
 
             function buildPreamble(sections) {
-              const lines = [
-                '<!-- pr-preamble:start -->',
-                '## Summary',
-                sections.summary || '_No summary provided by the source issue._',
-                '',
-                '## Testing',
-                sections.testing || '_No testing instructions provided by the source issue._',
-                '',
-                '## CI readiness',
-                sections.ci || '_No CI readiness notes provided by the source issue._',
-                '<!-- pr-preamble:end -->',
-              ];
+              const lines = ['<!-- pr-preamble:start -->'];
+              
+              // Only include sections that have actual content from the issue
+              if (sections.summary && sections.summary.trim()) {
+                lines.push('## Summary', sections.summary, '');
+              }
+              
+              if (sections.testing && sections.testing.trim()) {
+                lines.push('## Testing', sections.testing, '');
+              }
+              
+              if (sections.ci && sections.ci.trim()) {
+                lines.push('## CI readiness', sections.ci, '');
+              }
+              
+              lines.push('<!-- pr-preamble:end -->');
               return lines.join('\n');
             }
 
