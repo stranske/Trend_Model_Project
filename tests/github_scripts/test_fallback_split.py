@@ -21,8 +21,9 @@ def run_fallback(tmp_path: Path) -> SimpleNamespace:
     try:
         os.chdir(tmp_path)
         sys.argv = [str(SCRIPT)]
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(
-            stderr_buffer
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
         ):
             try:
                 runpy.run_path(str(SCRIPT), run_name="__main__")
