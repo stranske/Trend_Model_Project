@@ -17,9 +17,15 @@ import pytest
 
 
 def _normalize_lockfile_content(content: str) -> str:
-    """Strip unstable comment lines and normalise the compile command."""
+    """Strip unstable comment lines and normalise the compile command.
+
+    Skips '# via' comments entirely because uv's dependency resolution can produce
+    different transitive dependency lists across Python versions, leading to
+    spurious test failures when the lockfile is functionally equivalent.
+    """
 
     lines = []
+
     for line in content.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -34,9 +40,22 @@ def _normalize_lockfile_content(content: str) -> str:
                 r"\d{2}:\d{2}", stripped
             ):
                 continue
+
+            # Skip '# via' lines in all forms:
+            # - "# via" (standalone header)
+            # - "#   package" (indented list item)
+            # - "# via package" (single-line form)
+            if (
+                stripped == "# via"
+                or stripped.startswith("#   ")
+                or re.match(r"^#\s+via\s+\w", stripped)
+            ):
+                continue
+
             lines.append(stripped)
         else:
             lines.append(stripped)
+
     return "\n".join(lines) + ("\n" if lines else "")
 
 
@@ -72,12 +91,41 @@ pkg==1.0.0
     # via something
 """
 
+    # After normalization, '# via' lines are completely removed
     expected = """#    uv pip compile pyproject.toml -o requirements.lock
 pkg==1.0.0
-# via something
 """
 
     assert _normalize_lockfile_content(sample) == expected
+
+
+def test_normalize_via_comments() -> None:
+    """Check that via comments are normalized across Python versions."""
+
+    # Simulate Python 3.11 output with ipython in via list
+    sample_311 = """typing-extensions==4.15.0
+    # via
+    #   ipython
+    #   pydantic
+    #   pydantic-core
+"""
+
+    # Simulate Python 3.12 output without ipython in via list
+    sample_312 = """typing-extensions==4.15.0
+    # via
+    #   pydantic
+    #   pydantic-core
+"""
+
+    # Both should normalize to the same output (skipping via comments)
+    normalized_311 = _normalize_lockfile_content(sample_311)
+    normalized_312 = _normalize_lockfile_content(sample_312)
+
+    # The normalization should skip all '# via' comments
+    assert normalized_311 == normalized_312
+    assert "typing-extensions==4.15.0" in normalized_311
+    assert "# via" not in normalized_311
+    assert "#   pydantic" not in normalized_311
 
 
 def test_lockfile_up_to_date_mock() -> None:
