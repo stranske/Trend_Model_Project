@@ -98,6 +98,61 @@ class TestLoadSaveState:
                     assert weight_file.exists()
 
 
+@pytest.fixture()
+def reset_version_cache():
+    """Ensure the cached default version does not leak between tests."""
+
+    original = getattr(app_module, "_DEFAULT_VERSION_CACHE", None)
+    app_module._DEFAULT_VERSION_CACHE = None
+    try:
+        yield
+    finally:
+        app_module._DEFAULT_VERSION_CACHE = original
+
+
+class TestEnsureVersion:
+    """Cover `_ensure_version` branches for config defaults."""
+
+    def test_preserves_existing_version(self, reset_version_cache):
+        """Should not mutate cache or hit defaults when version exists."""
+
+        cfg = {"version": " 2 "}
+        app_module._DEFAULT_VERSION_CACHE = "cached"
+
+        app_module._ensure_version(cfg)
+
+        assert cfg["version"].strip() == "2"
+        assert app_module._DEFAULT_VERSION_CACHE == "cached"
+
+    def test_reads_default_version_from_file(
+        self, tmp_path: Path, monkeypatch, reset_version_cache
+    ) -> None:
+        """Populate missing version from the defaults YAML payload."""
+
+        default_file = tmp_path / "defaults.yml"
+        default_file.write_text("version: '7'\n", encoding="utf-8")
+        monkeypatch.setattr(app_module, "DEFAULTS", default_file)
+
+        cfg: dict[str, str] = {}
+        app_module._ensure_version(cfg)
+
+        assert cfg["version"] == "7"
+
+    def test_falls_back_to_hardcoded_version(
+        self, tmp_path: Path, monkeypatch, reset_version_cache
+    ) -> None:
+        """Use fallback value when defaults file lacks a version entry."""
+
+        default_file = tmp_path / "defaults.yml"
+        default_file.write_text("other: value\n", encoding="utf-8")
+        monkeypatch.setattr(app_module, "DEFAULTS", default_file)
+
+        cfg: dict[str, str] = {}
+        app_module._ensure_version(cfg)
+
+        assert cfg["version"] == "1"
+
+
 class TestBuildStep0:
     """Test the _build_step0 function for config loading UI."""
 
@@ -169,6 +224,46 @@ class TestBuildStep0:
 
             # Verify upload observer was set
             mock_upload.observe.assert_called()
+
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_upload_refreshes_grid(
+        self, mock_list_cfgs: Mock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Uploading a config should update the DataGrid view and mark dirty."""
+
+        mock_list_cfgs.return_value = ["demo"]
+
+        mock_widgets = MagicMock()
+        monkeypatch.setattr(app_module, "widgets", mock_widgets)
+
+        upload = MagicMock()
+        upload.value = {"new.yml": {"content": b"mode: all"}}
+        mock_widgets.FileUpload.return_value = upload
+        mock_widgets.Dropdown.return_value = MagicMock()
+        mock_widgets.Button.return_value = MagicMock()
+        mock_widgets.VBox.return_value = MagicMock()
+        mock_widgets.HBox.return_value = MagicMock()
+
+        grid = MagicMock()
+        grid.data = []
+        grid.hold_trait_notifications.return_value = _cm_mock()
+
+        with (
+            patch("trend_analysis.gui.app.HAS_DATAGRID", True),
+            patch("trend_analysis.gui.app.DataGrid", return_value=grid),
+            patch("trend_analysis.gui.app.reset_weight_state") as mock_reset,
+        ):
+            store = ParamStore()
+            _build_step0(store)
+
+            upload_callback = upload.observe.call_args[0][0]
+            upload_callback({"new": upload.value}, store=store)
+
+        assert store.cfg == {"mode": "all"}
+        assert store.dirty is True
+        assert grid.data == [store.cfg]
+        grid.hold_trait_notifications.assert_called()
+        mock_reset.assert_called_once_with(store)
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
@@ -1089,6 +1184,7 @@ def test_build_manual_override_datagrid(monkeypatch):
     grid.callbacks["cell_edited"]({"row": 0, "column": 0, "new": "noop"})
 
     grid.callbacks["cell_edited"]({"row": 1, "column": 1, "new": False})
+    grid.callbacks["cell_edited"]({"row": 1, "column": 1, "new": True})
     grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "0.3"})
     grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": None})
     grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "-1"})
@@ -1096,7 +1192,8 @@ def test_build_manual_override_datagrid(monkeypatch):
     manual = store.cfg["portfolio"]["manual_list"]
     weights = store.cfg["portfolio"]["custom_weights"]
 
-    assert "FundB" not in manual and weights["FundA"] == 0.3
+    assert manual.count("FundB") == 1 and weights["FundA"] == 0.3
+    assert store.dirty is True
 
 
 def test_build_manual_override_datagrid_missing_on(monkeypatch):
@@ -1402,3 +1499,68 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     assert run_calls, "Expected pipeline.run to be invoked"
     assert saved == [], "save_state should not be called when metrics are empty"
     assert store.cfg["output"]["format"] == "excel"
+
+
+def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
+    """Execute alternative exporter paths when format is not Excel."""
+
+    monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
+    monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "_build_rank_options", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "_build_manual_override", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "reset_weight_state", lambda store: None)
+
+    monkeypatch.setattr(app_module.widgets, "Dropdown", DummyDropdown)
+    monkeypatch.setattr(app_module.widgets, "Checkbox", DummyCheckbox)
+    monkeypatch.setattr(app_module.widgets, "ToggleButtons", DummyToggleButtons)
+    monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
+    monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "Label", DummyLabel)
+    monkeypatch.setattr(app_module.widgets, "Output", DummyBox)
+    monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
+
+    store = ParamStore()
+    store.cfg = {"output": {"format": "json", "path": str(tmp_path / "payload")}}
+    monkeypatch.setattr(app_module, "load_state", lambda: store)
+
+    sample_split = {
+        "in_start": "2022-01",
+        "in_end": "2022-06",
+        "out_start": "2022-07",
+        "out_end": "2022-12",
+    }
+
+    def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
+        return SimpleNamespace(output=store_obj.cfg.get("output", {}), sample_split=sample_split)
+
+    monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
+
+    metrics = pd.DataFrame({"ret": [0.1, 0.2]})
+    monkeypatch.setattr(app_module.pipeline, "run", lambda cfg: metrics)
+    monkeypatch.setattr(app_module.pipeline, "run_full", lambda cfg: pytest.fail("run_full should not run"))
+
+    exported: list[tuple[str, dict[str, pd.DataFrame]]] = []
+    monkeypatch.setattr(
+        app_module.export,
+        "EXPORTERS",
+        {"json": lambda data, path, _: exported.append((path, data))},
+    )
+    monkeypatch.setattr(
+        app_module.export,
+        "export_to_excel",
+        lambda *args, **kwargs: pytest.fail("excel exporter should not fire"),
+    )
+
+    saved: list[ParamStore] = []
+    monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
+
+    container = app_module.launch()
+    run_btn = container.children[-1]
+
+    run_btn.click()
+
+    assert exported and exported[0][0].endswith("payload")
+    assert "metrics" in exported[0][1]
+    assert saved == [store]
+    assert store.dirty is False
