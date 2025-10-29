@@ -4,11 +4,6 @@ on:
   pull_request_target:
     types:
       - labeled
-  pull_request:
-    types:
-      - synchronize
-      - opened
-      - reopened
 
 permissions:
   contents: write
