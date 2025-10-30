@@ -37,7 +37,6 @@ docformatter
 mypy
 
 # Testing dependencies
-health_summarize
 pytest>=8.0
 pytest-cov
 pytest-rerunfailures
