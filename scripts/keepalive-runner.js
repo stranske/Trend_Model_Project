@@ -363,8 +363,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      // Check if there's been an @agent command followed by a commit
-      // Keepalive should wait for a commit after any @agent mention before posting again
+      // Check if there's been a RECENT @agent command without a subsequent commit
+      // Only wait if the mention is within the idle window - older mentions are stale
       const agentMentionPattern = /@(codex|claude|agent)\b/i;
       const agentMentionComments = comments
         .filter((comment) => agentMentionPattern.test(comment.body || ''))
@@ -373,47 +373,48 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       if (agentMentionComments.length > 0) {
         const latestMentionComment = agentMentionComments[agentMentionComments.length - 1];
         const latestMentionTs = new Date(latestMentionComment.created_at).getTime();
+        const minutesSinceMention = (now - latestMentionTs) / 60000;
         
-        // Get all commits on the PR (with pagination)
-        let allCommits = [];
-        let page = 1;
-        let fetched;
-        do {
-          const { data: commitsPage } = await github.rest.pulls.listCommits({
-            owner,
-            repo,
-            pull_number: prNumber,
-            per_page: 100,
-            page,
+        // Only check for commits if the @agent mention is recent (within idle period)
+        // Older mentions are stale and shouldn't block keepalive
+        if (minutesSinceMention <= idleMinutes) {
+          // Get all commits on the PR (with pagination)
+          let allCommits = [];
+          let page = 1;
+          let fetched;
+          do {
+            const { data: commitsPage } = await github.rest.pulls.listCommits({
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+              page,
+            });
+            fetched = commitsPage.length;
+            allCommits = allCommits.concat(commitsPage);
+            page += 1;
+          } while (fetched === 100);
+          
+          // Find the most recent commit
+          const sortedCommits = allCommits.sort((a, b) => {
+            const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
+            const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
+            return bDate - aDate;
           });
-          fetched = commitsPage.length;
-          allCommits = allCommits.concat(commitsPage);
-          page += 1;
-        } while (fetched === 100);
-        
-        // Find the most recent commit
-        const sortedCommits = allCommits.sort((a, b) => {
-          const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
-          const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
-          return bDate - aDate;
-        });
-        
-        if (sortedCommits.length > 0) {
-          const latestCommit = sortedCommits[0];
-          const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
-          if (!Number.isFinite(latestCommitTs)) {
+          
+          if (sortedCommits.length > 0) {
+            const latestCommit = sortedCommits[0];
+            const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
+            if (Number.isFinite(latestCommitTs) && latestMentionTs > latestCommitTs) {
+              // The recent @agent mention is newer than the latest commit - wait for agent to commit
+              recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+              continue;
+            }
+          } else {
+            // No commits yet, but there's a recent @agent mention - wait for agent to commit
+            recordSkip(`waiting for first commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
             continue;
           }
-          // If the latest @agent mention is newer than the latest commit, wait for a commit
-          if (latestMentionTs > latestCommitTs) {
-            const minutesSinceMention = (now - latestMentionTs) / 60000;
-            recordSkip(`waiting for commit after @agent command: latest commit is older than mention (${minutesSinceMention.toFixed(1)} minutes ago)`);
-            continue;
-          }
-        } else {
-          const minutesSinceMention = (now - latestMentionTs) / 60000;
-          recordSkip(`waiting for commit after @agent command: no commits found (${minutesSinceMention.toFixed(1)} minutes ago)`);
-          continue;
         }
       }
 
