@@ -25,6 +25,7 @@ _LAZY_SUBMODULES = {
     "api": "trend_analysis.api",
     "selector": "trend_analysis.selector",
     "weighting": "trend_analysis.weighting",
+    "weights": "trend_analysis.weights",
     "run_multi_analysis": "trend_analysis.run_multi_analysis",
 }
 
