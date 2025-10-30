@@ -3,7 +3,7 @@
 const DEFAULT_READINESS_AGENTS = 'copilot,codex';
 const DEFAULT_VERIFY_ISSUE_ASSIGNEES =
   'copilot,chatgpt-codex-connector,stranske-automation-bot';
-const DEFAULT_KEEPALIVE_INSTRUCTION = '@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.';
+const DEFAULT_KEEPALIVE_INSTRUCTION = `
 const DEFAULT_OPTIONS_JSON = '{}';
 const KEEPALIVE_PAUSE_LABEL = 'keepalive:paused';
 
