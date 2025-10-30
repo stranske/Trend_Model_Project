@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-
 import yaml
+
 from trend_analysis import cli
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
