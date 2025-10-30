@@ -13,9 +13,9 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
+import yaml
 
 import trend_analysis.gui.app as app_module
-import yaml
 from trend_analysis.gui.app import (
     _build_rank_options,
     _build_step0,

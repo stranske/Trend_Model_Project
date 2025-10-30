@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-
 import yaml
+
 from trend_analysis.config import Config
 from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.multi_period.scheduler import generate_periods

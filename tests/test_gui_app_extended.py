@@ -7,8 +7,8 @@ from typing import Callable
 
 import pandas as pd
 import pytest
-
 import yaml
+
 from trend_analysis.gui import app
 from trend_analysis.gui.store import ParamStore
 

@@ -203,8 +203,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   }
   targetLabels = dedupe(targetLabels);
 
-  const commandRaw = options.keepalive_command ?? '@codex plan-and-execute';
-  const command = String(commandRaw).trim() || '@codex plan-and-execute';
+  const commandRaw = options.keepalive_command ?? '@codex';
+  const command = String(commandRaw).trim() || '@codex';
   const commandLower = command.toLowerCase();
 
   const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive-marker -->';
@@ -397,7 +397,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         headerPattern: keepaliveHeaderPattern,
       });
       const latestKeepalive = keepaliveCandidates[0];
-      if (latestKeepalive) {
+      if (latestKeepalive && !triggeredByGate) {
         const lastKeepaliveTs = latestKeepalive.timestamp;
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
         if (minutesSinceKeepalive < repeatMinutes) {
