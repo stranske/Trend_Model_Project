@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -63,7 +62,9 @@ def test_doc_url_for_pull_request(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _write_signature_fixture(tmp_path: Path, jobs: list[dict[str, str]]) -> tuple[Path, Path]:
+def _write_signature_fixture(
+    tmp_path: Path, jobs: list[dict[str, str]]
+) -> tuple[Path, Path]:
     jobs_path = tmp_path / "jobs.json"
     jobs_path.write_text(json.dumps(jobs), encoding="utf-8")
     expected_path = tmp_path / "expected.txt"
@@ -295,7 +296,9 @@ def test_write_summary_appends_table(tmp_path: Path) -> None:
     assert "| X | Y | – |" in text
 
 
-def test_main_executes_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_executes_end_to_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     jobs = [{"name": "Tests", "step": "pytest", "stack": "trace"}]
     jobs_path, expected_path = _write_signature_fixture(tmp_path, jobs)
 
@@ -338,12 +341,14 @@ def test_main_executes_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 def test_main_handles_empty_inputs(tmp_path: Path) -> None:
-    code = summarize.main([
-        "--write-json",
-        str(tmp_path / "rows.json"),
-        "--write-summary",
-        str(tmp_path / "summary.md"),
-    ])
+    code = summarize.main(
+        [
+            "--write-json",
+            str(tmp_path / "rows.json"),
+            "--write-summary",
+            str(tmp_path / "summary.md"),
+        ]
+    )
     assert code == 0
     rows_json = tmp_path / "rows.json"
     assert rows_json.exists()
