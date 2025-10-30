@@ -9,9 +9,8 @@ from typing import TYPE_CHECKING, Any, Dict, cast
 
 import ipywidgets as widgets
 import pandas as pd
-from IPython.display import FileLink, Javascript, display
-
 import yaml
+from IPython.display import FileLink, Javascript, display
 
 from ..config import Config
 from ..config.models import DEFAULTS
