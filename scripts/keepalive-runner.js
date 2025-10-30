@@ -60,6 +60,59 @@ function normaliseLogin(login) {
   return base.replace(/\[bot\]$/i, '');
 }
 
+function parseAgentLoginEntries(source, fallbackEntries) {
+  const rawEntries = String(source ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const entries = (rawEntries.length ? rawEntries : fallbackEntries).map((value) => value.trim());
+  const seen = new Set();
+  const result = [];
+
+  for (const login of entries) {
+    if (!login) {
+      continue;
+    }
+
+    const normalized = normaliseLogin(login);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    result.push({ original: login, normalized });
+  }
+
+  return result;
+}
+
+function extractUncheckedTasks(body, limit = 5) {
+  if (!body) {
+    return [];
+  }
+
+  const lines = String(body)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const tasks = [];
+  for (const line of lines) {
+    const match = line.match(/^- \[ \]\s*(.+)$/i);
+    if (match) {
+      const task = match[1].trim();
+      if (task) {
+        tasks.push(task);
+      }
+    }
+    if (tasks.length >= limit) {
+      break;
+    }
+  }
+  return tasks;
+}
+
 function escapeRegExp(value) {
   return String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
@@ -219,14 +272,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
 
-  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector,stranske-automation-bot';
-  let agentLogins = String(agentSource)
-    .split(',')
-    .map(normaliseLogin)
-    .filter(Boolean);
-  if (!agentLogins.length) {
-    agentLogins = ['chatgpt-codex-connector', 'stranske-automation-bot'];
-  }
+  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector,chatgpt-codex-connector[bot],stranske-automation-bot';
+  const agentEntries = parseAgentLoginEntries(agentSource, [
+    'chatgpt-codex-connector',
+    'chatgpt-codex-connector[bot]',
+    'stranske-automation-bot',
+  ]);
+  let agentLogins = agentEntries.map(({ normalized }) => normalized);
   agentLogins = dedupe(agentLogins);
 
   const owner = context.repo.owner;
@@ -244,7 +296,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
     .addEOL();
   summary
-    .addRaw(`Agent logins: ${agentLogins.map((login) => `**${login}**`).join(', ')}`)
+    .addRaw(
+      `Agent logins: ${agentLogins
+        .map((login) => `**${login}**`)
+        .join(', ')}`
+    )
     .addEOL();
 
   const paginatePulls = github.paginate.iterator(
@@ -363,59 +419,55 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      // Check if there's been a RECENT @agent command without a subsequent commit
-      // Skip this check if triggered by Gate (Gate wants immediate keepalive)
-      // Only wait if the mention is within the idle window - older mentions are stale
+      // Skip the mention guard for Gate-triggered sweeps to keep responsiveness high.
       if (!triggeredByGate) {
         const agentMentionPattern = /@(codex|claude|agent)\b/i;
         const agentMentionComments = comments
           .filter((comment) => agentMentionPattern.test(comment.body || ''))
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        
+
         if (agentMentionComments.length > 0) {
           const latestMentionComment = agentMentionComments[agentMentionComments.length - 1];
           const latestMentionTs = new Date(latestMentionComment.created_at).getTime();
-          const minutesSinceMention = (now - latestMentionTs) / 60000;
-          
-          // Only check for commits if the @agent mention is recent (within idle period)
-          // Older mentions are stale and shouldn't block keepalive
-          if (minutesSinceMention <= idleMinutes) {
-            // Get all commits on the PR (with pagination)
-            let allCommits = [];
-            let page = 1;
-            let fetched;
-            do {
-              const { data: commitsPage } = await github.rest.pulls.listCommits({
-                owner,
-                repo,
-                pull_number: prNumber,
-                per_page: 100,
-                page,
+
+          if (Number.isFinite(latestMentionTs)) {
+            const minutesSinceMention = (now - latestMentionTs) / 60000;
+            const mentionWindow = Math.max(idleMinutes, 1);
+
+            if (minutesSinceMention <= mentionWindow) {
+              let allCommits = [];
+              let page = 1;
+              let fetched;
+              do {
+                const { data: commitsPage } = await github.rest.pulls.listCommits({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  per_page: 100,
+                  page,
+                });
+                fetched = commitsPage.length;
+                allCommits = allCommits.concat(commitsPage);
+                page += 1;
+              } while (fetched === 100);
+
+              const sortedCommits = allCommits.sort((a, b) => {
+                const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
+                const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
+                return bDate - aDate;
               });
-              fetched = commitsPage.length;
-              allCommits = allCommits.concat(commitsPage);
-              page += 1;
-            } while (fetched === 100);
-            
-            // Find the most recent commit
-            const sortedCommits = allCommits.sort((a, b) => {
-              const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
-              const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
-              return bDate - aDate;
-            });
-            
-            if (sortedCommits.length > 0) {
-              const latestCommit = sortedCommits[0];
-              const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
-              if (Number.isFinite(latestCommitTs) && latestMentionTs > latestCommitTs) {
-                // The recent @agent mention is newer than the latest commit - wait for agent to commit
-                recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+
+              if (sortedCommits.length > 0) {
+                const latestCommit = sortedCommits[0];
+                const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
+                if (Number.isFinite(latestCommitTs) && latestMentionTs > latestCommitTs) {
+                  recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+                  continue;
+                }
+              } else {
+                recordSkip(`waiting for first commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
                 continue;
               }
-            } else {
-              // No commits yet, but there's a recent @agent mention - wait for agent to commit
-              recordSkip(`waiting for first commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
-              continue;
             }
           }
         }
@@ -458,7 +510,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const completed = Math.max(0, totalTasks - outstanding);
       const itemWord = outstanding === 1 ? 'item' : 'items';
       const verb = outstanding === 1 ? 'remains' : 'remain';
-      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, update the checklist, and confirm once everything is complete.`;
+      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
+
+      const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -474,6 +528,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       if (instruction) {
         bodyParts.push('', instruction);
       }
+      if (outstandingTasks.length) {
+        bodyParts.push('', 'Outstanding tasks to tackle next:');
+        for (const task of outstandingTasks) {
+          bodyParts.push(`- ${task}`);
+        }
+      }
       if (marker) {
         bodyParts.push('', marker);
       }
@@ -483,9 +543,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       // This is critical so the agent actually engages when mentioned
       try {
         // Get the current assignees from the PR data we already have
-        const currentLogins = (pr.assignees || []).map(a => normaliseLogin(a.login));
-        const missingAgents = agentLogins.filter(login => !currentLogins.includes(login));
-        
+        const currentLogins = (pr.assignees || []).map((a) => normaliseLogin(a.login));
+        const missingAgents = agentEntries
+          .filter(({ normalized }) => !currentLogins.includes(normalized))
+          .map(({ original }) => original);
+
         if (missingAgents.length > 0) {
           core.info(`#${prNumber}: adding missing agent assignees: ${missingAgents.join(', ')}`);
           await github.rest.issues.addAssignees({
