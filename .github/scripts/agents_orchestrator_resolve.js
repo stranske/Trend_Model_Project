@@ -208,12 +208,15 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   }
 
   // Inject default keepalive instruction if not already present
-  if (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template) {
-    parsedOptions.keepalive_instruction = DEFAULT_KEEPALIVE_INSTRUCTION;
-  }
+  const finalParsedOptions = {
+    ...parsedOptions,
+    ...( (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template)
+          ? { keepalive_instruction: DEFAULT_KEEPALIVE_INSTRUCTION }
+          : {} )
+  };
 
   // Re-serialize with injected defaults
-  const finalOptionsJson = JSON.stringify(parsedOptions);
+  const finalOptionsJson = JSON.stringify(finalParsedOptions);
 
   const beltOptions = nested(parsedOptions.belt ?? parsedOptions.codex_belt);
   const dispatcherOptions = nested(beltOptions.dispatcher ?? parsedOptions.dispatcher);
