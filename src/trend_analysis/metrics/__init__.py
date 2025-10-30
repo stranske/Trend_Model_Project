@@ -10,6 +10,7 @@ from __future__ import annotations
 import builtins as _bi
 import sys
 import types
+from importlib import import_module
 from typing import Callable, cast
 
 import numpy as np
@@ -419,10 +420,9 @@ sys.modules.setdefault("tests.legacy_metrics", _legacy)
 setattr(_bi, "annualize_return", annualize_return)
 setattr(_bi, "annualize_volatility", annualize_volatility)
 
-# Public submodule to expose summary helpers
-from . import (  # noqa: E402
-    attribution,  # noqa: F401
-    rolling,  # noqa: F401
-    summary,  # noqa: F401
-    turnover,  # noqa: F401
-)
+# Public submodules exposed via attribute assignment for compatibility while
+# keeping Ruff satisfied about unused imports.
+attribution = import_module(".attribution", __name__)
+rolling = import_module(".rolling", __name__)
+summary = import_module(".summary", __name__)
+turnover = import_module(".turnover", __name__)

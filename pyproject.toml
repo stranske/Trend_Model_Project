@@ -142,6 +142,10 @@ module = "streamlit_app.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+module = "health_summarize.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 module = "app.streamlit.*"
 ignore_errors = true
 
