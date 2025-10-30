@@ -374,16 +374,25 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const latestMentionComment = agentMentionComments[agentMentionComments.length - 1];
         const latestMentionTs = new Date(latestMentionComment.created_at).getTime();
         
-        // Get all commits on the PR
-        const { data: commits } = await github.rest.pulls.listCommits({
-          owner,
-          repo,
-          pull_number: prNumber,
-          per_page: 100,
-        });
+        // Get all commits on the PR (with pagination)
+        let allCommits = [];
+        let page = 1;
+        let fetched;
+        do {
+          const { data: commitsPage } = await github.rest.pulls.listCommits({
+            owner,
+            repo,
+            pull_number: prNumber,
+            per_page: 100,
+            page,
+          });
+          fetched = commitsPage.length;
+          allCommits = allCommits.concat(commitsPage);
+          page += 1;
+        } while (fetched === 100);
         
         // Find the most recent commit
-        const sortedCommits = commits.sort((a, b) => {
+        const sortedCommits = allCommits.sort((a, b) => {
           const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
           const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
           return bDate - aDate;
