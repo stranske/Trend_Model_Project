@@ -405,9 +405,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           // If the latest @agent mention is newer than the latest commit, wait for a commit
           if (latestMentionTs > latestCommitTs) {
             const minutesSinceMention = (now - latestMentionTs) / 60000;
-            recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+            recordSkip(`waiting for commit after @agent command: latest commit is older than mention (${minutesSinceMention.toFixed(1)} minutes ago)`);
             continue;
           }
+        } else {
+          const minutesSinceMention = (now - latestMentionTs) / 60000;
+          recordSkip(`waiting for commit after @agent command: no commits found (${minutesSinceMention.toFixed(1)} minutes ago)`);
+          continue;
         }
       }
 
