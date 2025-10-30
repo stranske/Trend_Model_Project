@@ -341,7 +341,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       // Check if there's been at least one human-initiated agent command (@codex, @claude, etc)
-      const agentMentionPattern = /@(codex|claude|agent)\b/i;
+      // Dynamically build agent mention pattern from agentLogins
+      function escapeRegExp(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+      const agentLoginPattern = agentLogins
+        .map((login) => escapeRegExp(login))
+        .join('|');
+      const agentMentionPattern = new RegExp(`@(${agentLoginPattern})\\b`, 'i');
       const humanCommandComments = comments
         .filter((comment) => {
           const login = normaliseLogin(comment.user?.login);
