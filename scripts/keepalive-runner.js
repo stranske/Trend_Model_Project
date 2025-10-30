@@ -192,6 +192,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   // When orchestrator is triggered by Gate completion, we want immediate keepalive activation
   const triggeredByGate = coerceBool(options.triggered_by_gate, false);
   const effectiveIdleMinutes = triggeredByGate ? 0 : idleMinutes;
+  // When checking for recent commands, always use the full idle period even if triggered by Gate
+  // This prevents keepalive from interrupting fresh human commands
 
   const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
   let targetLabels = String(labelSource)
@@ -361,16 +363,61 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      // Also check if there's been a recent command after the last agent comment
-      const commandComments = comments
-        .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      if (commandComments.length > 0) {
-        const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
-        const minutesSinceCommand = (now - latestCommandTs) / 60000;
-        if (latestCommandTs > lastAgentTs && minutesSinceCommand < effectiveIdleMinutes) {
-          recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${effectiveIdleMinutes})`);
-          continue;
+      // Check if there's been a RECENT @agent command without a subsequent commit
+      // Skip this check if triggered by Gate (Gate wants immediate keepalive)
+      // Only wait if the mention is within the idle window - older mentions are stale
+      if (!triggeredByGate) {
+        const agentMentionPattern = /@(codex|claude|agent)\b/i;
+        const agentMentionComments = comments
+          .filter((comment) => agentMentionPattern.test(comment.body || ''))
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        
+        if (agentMentionComments.length > 0) {
+          const latestMentionComment = agentMentionComments[agentMentionComments.length - 1];
+          const latestMentionTs = new Date(latestMentionComment.created_at).getTime();
+          const minutesSinceMention = (now - latestMentionTs) / 60000;
+          
+          // Only check for commits if the @agent mention is recent (within idle period)
+          // Older mentions are stale and shouldn't block keepalive
+          if (minutesSinceMention <= idleMinutes) {
+            // Get all commits on the PR (with pagination)
+            let allCommits = [];
+            let page = 1;
+            let fetched;
+            do {
+              const { data: commitsPage } = await github.rest.pulls.listCommits({
+                owner,
+                repo,
+                pull_number: prNumber,
+                per_page: 100,
+                page,
+              });
+              fetched = commitsPage.length;
+              allCommits = allCommits.concat(commitsPage);
+              page += 1;
+            } while (fetched === 100);
+            
+            // Find the most recent commit
+            const sortedCommits = allCommits.sort((a, b) => {
+              const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
+              const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
+              return bDate - aDate;
+            });
+            
+            if (sortedCommits.length > 0) {
+              const latestCommit = sortedCommits[0];
+              const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
+              if (Number.isFinite(latestCommitTs) && latestMentionTs > latestCommitTs) {
+                // The recent @agent mention is newer than the latest commit - wait for agent to commit
+                recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+                continue;
+              }
+            } else {
+              // No commits yet, but there's a recent @agent mention - wait for agent to commit
+              recordSkip(`waiting for first commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+              continue;
+            }
+          }
         }
       }
 
@@ -431,6 +478,27 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         bodyParts.push('', marker);
       }
       const body = bodyParts.join('\n');
+      
+      // Ensure agent connectors are assigned before posting keepalive
+      // This is critical so the agent actually engages when mentioned
+      try {
+        // Get the current assignees from the PR data we already have
+        const currentLogins = (pr.assignees || []).map(a => normaliseLogin(a.login));
+        const missingAgents = agentLogins.filter(login => !currentLogins.includes(login));
+        
+        if (missingAgents.length > 0) {
+          core.info(`#${prNumber}: adding missing agent assignees: ${missingAgents.join(', ')}`);
+          await github.rest.issues.addAssignees({
+            owner,
+            repo,
+            issue_number: prNumber,
+            assignees: missingAgents,
+          });
+        }
+      } catch (error) {
+        core.warning(`#${prNumber}: failed to ensure agent assignees: ${error.message}`);
+      }
+      
       if (dryRun) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
