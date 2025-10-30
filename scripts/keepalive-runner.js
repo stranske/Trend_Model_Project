@@ -217,13 +217,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
 
-  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector';
+  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector,stranske-automation-bot';
   let agentLogins = String(agentSource)
     .split(',')
     .map(normaliseLogin)
     .filter(Boolean);
   if (!agentLogins.length) {
-    agentLogins = ['chatgpt-codex-connector'];
+    agentLogins = ['chatgpt-codex-connector', 'stranske-automation-bot'];
   }
   agentLogins = dedupe(agentLogins);
 
