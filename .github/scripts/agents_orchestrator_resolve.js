@@ -3,6 +3,7 @@
 const DEFAULT_READINESS_AGENTS = 'copilot,codex';
 const DEFAULT_VERIFY_ISSUE_ASSIGNEES =
   'copilot,chatgpt-codex-connector,stranske-automation-bot';
+const DEFAULT_KEEPALIVE_INSTRUCTION = '@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.';
 const DEFAULT_OPTIONS_JSON = '{}';
 const KEEPALIVE_PAUSE_LABEL = 'keepalive:paused';
 
@@ -206,6 +207,14 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     core.warning(`options_json could not be parsed (${error.message}); using defaults.`);
   }
 
+  // Inject default keepalive instruction if not already present
+  if (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template) {
+    parsedOptions.keepalive_instruction = DEFAULT_KEEPALIVE_INSTRUCTION;
+  }
+
+  // Re-serialize with injected defaults
+  const finalOptionsJson = JSON.stringify(parsedOptions);
+
   const beltOptions = nested(parsedOptions.belt ?? parsedOptions.codex_belt);
   const dispatcherOptions = nested(beltOptions.dispatcher ?? parsedOptions.dispatcher);
   const workerOptions = nested(beltOptions.worker ?? parsedOptions.worker);
@@ -281,7 +290,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     ),
     draft_pr: toBoolString(merged.draft_pr, DEFAULTS.draft_pr),
     dry_run: dryRun,
-    options_json: sanitisedOptions,
+    options_json: finalOptionsJson,
     dispatcher_force_issue: dispatcherForceIssue,
     worker_max_parallel: workerMaxParallel,
     conveyor_max_merges: conveyorMaxMerges
