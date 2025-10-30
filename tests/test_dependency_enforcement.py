@@ -107,6 +107,7 @@ PROJECT_MODULES = {
     "decode_raw_input",
     "fallback_split",
     "parse_chatgpt_topics",
+    "health_summarize",  # .github/scripts/health_summarize.py
 }
 
 
