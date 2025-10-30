@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import trend_analysis.util.frequency as frequency
+
 from trend_analysis.util.frequency import (
     FREQUENCY_LABELS,
     FrequencySummary,
@@ -49,6 +51,32 @@ def test_as_datetime_index_rejects_non_datetimes() -> None:
 
     with pytest.raises(ValueError):
         _as_datetime_index(["2024-01-01", "not-a-date", 10])
+
+
+def test_as_datetime_index_recovers_from_initial_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If the first DatetimeIndex attempt fails we should coerce and retry."""
+
+    calls = {"count": 0}
+
+    class FlakyDatetimeIndex(pd.DatetimeIndex):
+        def __new__(cls, *args: object, **kwargs: object) -> "FlakyDatetimeIndex":
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise TypeError("cannot construct directly")
+            return super().__new__(cls, *args, **kwargs)
+
+    monkeypatch.setattr(frequency.pd, "DatetimeIndex", FlakyDatetimeIndex)
+
+    idx = _as_datetime_index(["2024-01-01", "2024-01-02", "2024-01-03"])
+
+    assert calls["count"] == 2
+    assert list(idx) == [
+        pd.Timestamp("2024-01-01"),
+        pd.Timestamp("2024-01-02"),
+        pd.Timestamp("2024-01-03"),
+    ]
 
 
 @pytest.mark.parametrize(

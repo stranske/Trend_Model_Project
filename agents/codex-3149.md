@@ -16,7 +16,7 @@
   - [ ] run_analysis.py
   - [ ] market_data.py
   - [ ] signal_presets.py
-  - [ ] frequency.py
+  - [x] frequency.py
   - [ ] signals.py
   - [ ] bootstrap.p
   - [ ] risk.py
@@ -33,3 +33,27 @@
 ---
 
 _Repost this checklist after each update and tick items only when the associated acceptance criteria have been fully satisfied._
+
+### Latest coverage snapshot (sorted by current coverage)
+
+| File | Coverage |
+| --- | --- |
+| trend_analysis/cli.py | 0% |
+| trend_analysis/presets.py | 0% |
+| trend_analysis/run_analysis.py | 0% |
+| trend_analysis/signal_presets.py | 0% |
+| trend_analysis/multi_period/engine.py | 0% |
+| trend_analysis/pipeline.py | 7% |
+| trend_analysis/engine/optimizer.py | 7% |
+| trend_analysis/export/bundle.py | 7% |
+| trend_analysis/data.py | 8% |
+| trend_analysis/regimes.py | 9% |
+| trend_analysis/io/validators.py | 10% |
+| trend_analysis/backtesting/bootstrap.py | 11% |
+| trend_analysis/io/market_data.py | 13% |
+| trend_analysis/backtesting/harness.py | 14% |
+| trend_analysis/risk.py | 21% |
+| trend_analysis/config/model.py | 23% |
+| trend_analysis/signals.py | 27% |
+| trend_analysis/__init__.py | 81% |
+| trend_analysis/util/frequency.py | 100% |
