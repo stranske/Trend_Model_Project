@@ -478,12 +478,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       // Ensure agent connectors are assigned before posting keepalive
       // This is critical so the agent actually engages when mentioned
       try {
-        const { data: currentAssignees } = await github.rest.issues.listAssignees({
-          owner,
-          repo,
-          issue_number: prNumber,
-        });
-        const currentLogins = currentAssignees.map(a => normaliseLogin(a.login));
+        // Get the current assignees from the PR data we already have
+        const currentLogins = (pr.assignees || []).map(a => normaliseLogin(a.login));
         const missingAgents = agentLogins.filter(login => !currentLogins.includes(login));
         
         if (missingAgents.length > 0) {
