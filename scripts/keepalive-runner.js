@@ -401,7 +401,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         if (sortedCommits.length > 0) {
           const latestCommit = sortedCommits[0];
           const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
-          
+          if (!Number.isFinite(latestCommitTs)) {
+            continue;
+          }
           // If the latest @agent mention is newer than the latest commit, wait for a commit
           if (latestMentionTs > latestCommitTs) {
             const minutesSinceMention = (now - latestMentionTs) / 60000;
