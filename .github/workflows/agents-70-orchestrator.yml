@@ -3,6 +3,9 @@ name: Agents 70 Orchestrator
 on:
   schedule:
     - cron: '*/20 * * * *'
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
   repository_dispatch:
     types:
       - agents-orchestrator-ping

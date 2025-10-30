@@ -38,6 +38,7 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             .github/scripts/agents-guard.js
+            .github/workflows/agents-guard.yml
 
       - name: Verify pull_request_target safety invariants
         if: github.event_name == 'pull_request_target'
@@ -61,6 +62,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/agents-guard.js
+            .github/workflows/agents-guard.yml
 
       - name: Evaluate protected file changes
         id: evaluate

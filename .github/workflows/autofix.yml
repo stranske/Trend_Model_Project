@@ -252,6 +252,7 @@ jobs:
             const marker = '<!-- autofix-loop:';
             let previousAttempts = 0;
             let commentId = '';
+            let lastAutofixSha = '';
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
@@ -272,6 +273,7 @@ jobs:
                 const payload = JSON.parse(payloadRaw);
                 if (Number(payload.pr) !== pr.number) continue;
                 previousAttempts = Number(payload.attempts || payload.attempt || 0) || 0;
+                lastAutofixSha = String(payload.head || payload.head_sha || '').trim();
                 commentId = String(comment.id);
                 break;
               } catch (error) {
@@ -279,11 +281,19 @@ jobs:
               }
             }
 
-            summary.addRaw(`Previous attempts: ${previousAttempts}`).addEOL();
+            // Reset attempt counter if head SHA has changed since last autofix
+            // This allows autofix to run on new commits even after hitting the limit
+            const currentSha = String(pr.head.sha || '').trim();
+            if (lastAutofixSha && currentSha && lastAutofixSha !== currentSha) {
+              summary.addRaw(`New commit detected (${currentSha.slice(0, 7)} ≠ ${lastAutofixSha.slice(0, 7)}); resetting attempt counter.`).addEOL();
+              previousAttempts = 0;
+            }
+
+            summary.addRaw(`Previous attempts for this commit: ${previousAttempts}`).addEOL();
 
             if (previousAttempts >= maxAttempts) {
               result.skip_reason = 'max-attempts-reached';
-              summary.addRaw('Maximum autofix attempts reached; skipping.').addEOL();
+              summary.addRaw(`Maximum autofix attempts (${maxAttempts}) reached for commit ${currentSha.slice(0, 7)}; skipping.`).addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }

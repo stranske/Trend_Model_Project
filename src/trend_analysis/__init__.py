@@ -23,8 +23,10 @@ _EAGER_SUBMODULES = [
 # Modules that may drag optional / heavy deps; imported on first attribute access.
 _LAZY_SUBMODULES = {
     "api": "trend_analysis.api",
+    "cli": "trend_analysis.cli",
     "selector": "trend_analysis.selector",
     "weighting": "trend_analysis.weighting",
+    "weights": "trend_analysis.weights",
     "run_multi_analysis": "trend_analysis.run_multi_analysis",
 }
 

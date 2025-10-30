@@ -214,11 +214,16 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   }
 
   // Inject default keepalive instruction if not already present
+  // Also detect if this orchestrator run was triggered by Gate completion
+  const triggeredByGate = context.eventName === 'workflow_run' && 
+                          context.payload?.workflow_run?.name === 'Gate';
+  
   const finalParsedOptions = {
     ...parsedOptions,
     ...( (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template)
           ? { keepalive_instruction: DEFAULT_KEEPALIVE_INSTRUCTION }
-          : {} )
+          : {} ),
+    ...(triggeredByGate ? { triggered_by_gate: true } : {})
   };
 
   // Re-serialize with injected defaults
