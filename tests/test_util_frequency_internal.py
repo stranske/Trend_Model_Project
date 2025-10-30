@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 import trend_analysis.util.frequency as frequency
-
 from trend_analysis.util.frequency import (
     FREQUENCY_LABELS,
     FrequencySummary,

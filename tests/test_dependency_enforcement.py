@@ -265,7 +265,7 @@ def test_external_tools_are_documented() -> None:
     if str(tests_dir) not in sys.path:
         sys.path.insert(0, str(tests_dir))
 
-    from test_test_dependencies import REQUIRED_CLI_TOOLS, OPTIONAL_CLI_TOOLS
+    from test_test_dependencies import OPTIONAL_CLI_TOOLS, REQUIRED_CLI_TOOLS
 
     documented_tools = set(REQUIRED_CLI_TOOLS.keys()) | set(OPTIONAL_CLI_TOOLS.keys())
 
