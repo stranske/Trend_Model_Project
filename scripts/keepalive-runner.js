@@ -460,6 +460,31 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         bodyParts.push('', marker);
       }
       const body = bodyParts.join('\n');
+      
+      // Ensure agent connectors are assigned before posting keepalive
+      // This is critical so the agent actually engages when mentioned
+      try {
+        const { data: currentAssignees } = await github.rest.issues.listAssignees({
+          owner,
+          repo,
+          issue_number: prNumber,
+        });
+        const currentLogins = currentAssignees.map(a => normaliseLogin(a.login));
+        const missingAgents = agentLogins.filter(login => !currentLogins.includes(login));
+        
+        if (missingAgents.length > 0) {
+          core.info(`#${prNumber}: adding missing agent assignees: ${missingAgents.join(', ')}`);
+          await github.rest.issues.addAssignees({
+            owner,
+            repo,
+            issue_number: prNumber,
+            assignees: missingAgents,
+          });
+        }
+      } catch (error) {
+        core.warning(`#${prNumber}: failed to ensure agent assignees: ${error.message}`);
+      }
+      
       if (dryRun) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
