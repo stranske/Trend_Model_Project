@@ -203,8 +203,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   }
   targetLabels = dedupe(targetLabels);
 
-  const commandRaw = options.keepalive_command ?? '@codex plan-and-execute';
-  const command = String(commandRaw).trim() || '@codex plan-and-execute';
+  const commandRaw = options.keepalive_command ?? '@codex';
+  const command = String(commandRaw).trim() || '@codex';
   const commandLower = command.toLowerCase();
 
   const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive-marker -->';
@@ -340,6 +340,21 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.info(`#${prNumber}: keepalive opted-in via sentinel comment ${sentinel.comment?.html_url || ''}.`);
       }
 
+      // Check if there's been at least one human-initiated agent command (@codex, @claude, etc)
+      const agentMentionPattern = /@(codex|claude|agent)\b/i;
+      const humanCommandComments = comments
+        .filter((comment) => {
+          const login = normaliseLogin(comment.user?.login);
+          const isBot = agentLogins.includes(login);
+          const body = comment.body || '';
+          const hasAgentMention = agentMentionPattern.test(body);
+          return !isBot && hasAgentMention;
+        });
+      if (!humanCommandComments.length) {
+        recordSkip('no human-initiated agent command yet');
+        continue;
+      }
+
       const botComments = comments
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
@@ -397,7 +412,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         headerPattern: keepaliveHeaderPattern,
       });
       const latestKeepalive = keepaliveCandidates[0];
-      if (latestKeepalive) {
+      if (latestKeepalive && !triggeredByGate) {
         const lastKeepaliveTs = latestKeepalive.timestamp;
         const minutesSinceKeepalive = (now - lastKeepaliveTs) / 60000;
         if (minutesSinceKeepalive < repeatMinutes) {
