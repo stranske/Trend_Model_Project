@@ -197,17 +197,23 @@ def test_keepalive_upgrades_legacy_comment() -> None:
 
 
 def test_keepalive_skips_non_codex_branches() -> None:
+    """Keepalive now works on any branch with the agent:codex label.
+
+    This test previously expected keepalive to skip non-codex/issue-* branches,
+    but that restriction was removed to make keepalive more flexible.
+    Now keepalive triggers based on labels and checklist presence, not branch names.
+    """
     data = _run_scenario("non_codex_branch")
-    assert data["created_comments"] == []
-    assert data["updated_comments"] == []
+
+    # Keepalive should now trigger because:
+    # - PR has agent:codex label
+    # - Has @codex plan-and-execute command
+    # - Has Codex comment with unchecked checklist item
+    # - Enough idle time has passed
+    assert len(data["created_comments"]) == 1
+    assert "@codex plan-and-execute" in data["created_comments"][0]["body"]
+    assert "1/1 checklist item remains unchecked" in data["created_comments"][0]["body"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
-    assert "Skipped keepalive count: 1" in raw
-
-    details = _details(summary, "Skipped pull requests")
-    assert details is not None
-    assert any(
-        "#111" in item and "head branch not codex/issue-*" in item
-        for item in details["items"]
-    )
+    assert "Triggered keepalive count: 1" in raw
