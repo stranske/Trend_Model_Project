@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
 
 import pandas as pd
 import streamlit as st
-
 import yaml
+
 from trend_analysis import pipeline
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config

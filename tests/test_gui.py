@@ -3,8 +3,9 @@ import importlib
 import sys
 from types import SimpleNamespace
 
-import trend_analysis.gui as gui
 import yaml
+
+import trend_analysis.gui as gui
 
 
 def test_paramstore_roundtrip(tmp_path):

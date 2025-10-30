@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping
 
+import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -22,8 +23,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-import yaml
 
 # ---------------------------------------------------------------------------
 # Helpers
