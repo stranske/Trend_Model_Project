@@ -192,6 +192,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   // When orchestrator is triggered by Gate completion, we want immediate keepalive activation
   const triggeredByGate = coerceBool(options.triggered_by_gate, false);
   const effectiveIdleMinutes = triggeredByGate ? 0 : idleMinutes;
+  // When checking for recent commands, always use the full idle period even if triggered by Gate
+  // This prevents keepalive from interrupting fresh human commands
+  const commandIdleMinutes = idleMinutes;
 
   const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
   let targetLabels = String(labelSource)
@@ -361,16 +364,42 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      // Also check if there's been a recent command after the last agent comment
-      const commandComments = comments
-        .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
+      // Check if there's been an @agent command followed by a commit
+      // Keepalive should wait for a commit after any @agent mention before posting again
+      const agentMentionPattern = /@(codex|claude|agent)\b/i;
+      const agentMentionComments = comments
+        .filter((comment) => agentMentionPattern.test(comment.body || ''))
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      if (commandComments.length > 0) {
-        const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
-        const minutesSinceCommand = (now - latestCommandTs) / 60000;
-        if (latestCommandTs > lastAgentTs && minutesSinceCommand < effectiveIdleMinutes) {
-          recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${effectiveIdleMinutes})`);
-          continue;
+      
+      if (agentMentionComments.length > 0) {
+        const latestMentionComment = agentMentionComments[agentMentionComments.length - 1];
+        const latestMentionTs = new Date(latestMentionComment.created_at).getTime();
+        
+        // Get all commits on the PR
+        const { data: commits } = await github.rest.pulls.listCommits({
+          owner,
+          repo,
+          pull_number: prNumber,
+          per_page: 100,
+        });
+        
+        // Find the most recent commit
+        const sortedCommits = commits.sort((a, b) => {
+          const aDate = new Date(a.commit.committer?.date || a.commit.author?.date || 0);
+          const bDate = new Date(b.commit.committer?.date || b.commit.author?.date || 0);
+          return bDate - aDate;
+        });
+        
+        if (sortedCommits.length > 0) {
+          const latestCommit = sortedCommits[0];
+          const latestCommitTs = new Date(latestCommit.commit.committer?.date || latestCommit.commit.author?.date).getTime();
+          
+          // If the latest @agent mention is newer than the latest commit, wait for a commit
+          if (latestMentionTs > latestCommitTs) {
+            const minutesSinceMention = (now - latestMentionTs) / 60000;
+            recordSkip(`waiting for commit after @agent command (${minutesSinceMention.toFixed(1)} minutes ago)`);
+            continue;
+          }
         }
       }
 
