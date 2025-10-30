@@ -219,7 +219,9 @@ def test_finalise_validated_frame_transfers_metadata() -> None:
     assert result.attrs["market_data_missing_policy_limit"] == 2
 
 
-def test_validate_payload_coerces_policy_and_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_coerces_policy_and_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     recorded: dict[str, Any] = {}
 
     def fake_validate(payload: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
@@ -263,7 +265,9 @@ def test_validate_payload_coerces_policy_and_limit(monkeypatch: pytest.MonkeyPat
     assert "Date" not in result.columns
 
 
-def test_validate_payload_policy_without_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_policy_without_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, Any] = {}
 
     def fake_validate(payload: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
@@ -384,7 +388,9 @@ def test_load_csv_coerces_legacy_kwargs(
     assert captured["missing_limit"] == 3
 
 
-def test_load_csv_legacy_nan_limit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_csv_legacy_nan_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     csv = tmp_path / "legacy_nan.csv"
     csv.write_text("Date,A\n2024-01-31,1.0\n")
 
@@ -444,7 +450,9 @@ def test_load_csv_logs_missing_file(
     assert str(missing) in caplog.text
 
 
-def test_load_csv_directory_error(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_directory_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     directory = tmp_path / "folder"
     directory.mkdir()
 
@@ -509,7 +517,9 @@ def test_load_csv_parser_error_logs(
     assert "bad parse" in caplog.text
 
 
-def test_load_parquet_invokes_validation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_invokes_validation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     parquet_file = tmp_path / "data.parquet"
     parquet_file.write_bytes(b"")
 
@@ -618,7 +628,9 @@ def test_load_parquet_permission_error_raises(
         data_mod.load_parquet(str(parquet_file), errors="raise")
 
 
-def test_load_parquet_directory_error(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_directory_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     directory = tmp_path / "folder"
     directory.mkdir()
 
@@ -640,7 +652,9 @@ def test_validate_dataframe_passes_origin(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(data_mod, "_validate_payload", fake_validate)
 
-    result = data_mod.validate_dataframe(payload, origin="in-memory", include_date_column=False)
+    result = data_mod.validate_dataframe(
+        payload, origin="in-memory", include_date_column=False
+    )
 
     assert isinstance(result, pd.DataFrame)
     assert captured["origin"] == "in-memory"
@@ -663,7 +677,9 @@ def test_identify_risk_free_fund_logs_choice(caplog: pytest.LogCaptureFixture) -
     assert "Risk-free column" in caplog.text
 
 
-def test_ensure_datetime_raises_on_malformed_dates(caplog: pytest.LogCaptureFixture) -> None:
+def test_ensure_datetime_raises_on_malformed_dates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     frame = pd.DataFrame({"Date": ["2024-01-31", "not-a-date"]})
 
     with caplog.at_level("ERROR"):
