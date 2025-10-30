@@ -66,12 +66,11 @@ function parseAgentLoginEntries(source, fallbackEntries) {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const entries = rawEntries.length ? rawEntries : fallbackEntries;
+  const entries = (rawEntries.length ? rawEntries : fallbackEntries).map((value) => value.trim());
   const seen = new Set();
   const result = [];
 
-  for (const entry of entries) {
-    const login = entry.trim();
+  for (const login of entries) {
     if (!login) {
       continue;
     }
