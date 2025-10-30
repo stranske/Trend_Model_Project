@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import cast
 
 import pandas as pd
-
 import yaml
+
 from trend_analysis.config import Config
 from trend_analysis.export import (
     combined_summary_frame,

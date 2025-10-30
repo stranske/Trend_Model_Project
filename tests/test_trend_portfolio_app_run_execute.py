@@ -7,9 +7,9 @@ from typing import Any
 
 import pandas as pd
 import pytest
+import yaml
 
 import trend_analysis.pipeline as pipeline_mod
-import yaml
 from tests.test_trend_portfolio_app_helpers import _DummyStreamlit
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 
