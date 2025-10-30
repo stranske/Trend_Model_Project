@@ -100,7 +100,7 @@ function extractUncheckedTasks(body, limit = 5) {
 
   const tasks = [];
   for (const line of lines) {
-    const match = line.match(/^- \[ \] \s*(.+)$/i);
+    const match = line.match(/^- \[ \]\s*(.+)$/i);
     if (match) {
       const task = match[1].trim();
       if (task) {
