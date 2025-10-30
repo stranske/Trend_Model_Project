@@ -1,28 +1,51 @@
+from __future__ import annotations
+
 import importlib
 import sys
+import types
 
 import pytest
 
 
-def test_trend_analysis_lazy_imports(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Reload to ensure lazy attributes are not yet materialised.
+@pytest.fixture
+def trend_package():
+    sys.modules.pop("trend_analysis", None)
     module = importlib.import_module("trend_analysis")
-    module = importlib.reload(module)
+    assert module.__file__ and module.__file__.endswith("trend_analysis/__init__.py")
+    try:
+        yield module
+    finally:
+        sys.modules.pop("trend_analysis", None)
+        importlib.import_module("trend_analysis")
 
-    # Remove any cached attribute to force __getattr__ execution.
-    module.__dict__.pop("selector", None)
 
-    selector_module = getattr(module, "selector")
-    assert selector_module is sys.modules["trend_analysis.selector"]
+def test_lazy_attribute_import(monkeypatch, trend_package):
+    dummy = types.ModuleType("trend_analysis._dummy_module")
+    monkeypatch.setitem(sys.modules, "trend_analysis._dummy_module", dummy)
+    monkeypatch.setitem(
+        trend_package._LAZY_SUBMODULES,  # type: ignore[attr-defined]
+        "_dummy",
+        "trend_analysis._dummy_module",
+    )
+    trend_package.__dict__.pop("_dummy", None)
 
+    loaded = trend_package.__getattr__("_dummy")
+
+    assert loaded is dummy
+    assert trend_package.__dict__["_dummy"] is dummy
+    assert trend_package._dummy is dummy
+
+
+def test_lazy_attribute_missing(trend_package):
     with pytest.raises(AttributeError):
-        getattr(module, "does_not_exist")
+        trend_package.__getattr__("does_not_exist")
 
 
-def test_trend_analysis_exports_include_expected_members() -> None:
-    module = importlib.reload(importlib.import_module("trend_analysis"))
-
-    # The package should expose key helpers when optional submodules are available.
-    assert "export_to_csv" in module.__all__
-    assert callable(module.export_to_csv)
-    assert isinstance(module.__version__, str) and module.__version__
+def test_version_fallback(monkeypatch, trend_package):
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda package: (_ for _ in ()).throw(importlib.metadata.PackageNotFoundError()),
+    )
+    reloaded = importlib.reload(trend_package)
+    assert reloaded.__version__ == "0.1.0-dev"

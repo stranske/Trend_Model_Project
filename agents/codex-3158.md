@@ -52,3 +52,4 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - `src/trend_analysis/engine/optimizer.py`
   - `src/trend_analysis/multi_period/engine.py`
 - The failing integration test needs to be addressed (or temporarily skipped) before tightening coverage gates; until that is resolved we should expect subsequent coverage runs to exit with a failure code.
+- **2025-10-30:** Added in-repo typing stubs for `yaml` under `src/trend_analysis/stubs/` and pointed mypy to the directory via `mypy_path`. This keeps the `test_selector_weighting_autofix_diagnostics` integration run from failing when `yaml` stubs are absent. Also introduced focused unit tests for `trend_analysis.__init__` that exercise the lazy import machinery and metadata fallback so the module can accumulate coverage once the full suite runs under coverage.
