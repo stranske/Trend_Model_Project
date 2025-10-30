@@ -189,6 +189,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const idleMinutes = coerceNumber(options.keepalive_idle_minutes, 10, { min: 0 });
   const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
+  // When orchestrator is triggered by Gate completion, we want immediate keepalive activation
+  const triggeredByGate = coerceBool(options.triggered_by_gate, false);
+  const effectiveIdleMinutes = triggeredByGate ? 0 : idleMinutes;
+
   const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
   let targetLabels = String(labelSource)
     .split(',')
@@ -308,11 +312,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.info(`#${prNumber}: skipped – ${reason}`);
       };
 
-      if (!headRef.toLowerCase().startsWith('codex/issue-')) {
-        recordSkip('head branch not codex/issue-*');
-        continue;
-      }
-
       if (labelNames.includes(pausedLabel)) {
         recordSkip('keepalive paused via agents:paused label', { paused: true });
         continue;
@@ -341,14 +340,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.info(`#${prNumber}: keepalive opted-in via sentinel comment ${sentinel.comment?.html_url || ''}.`);
       }
 
-      const commandComments = comments
-        .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      if (!commandComments.length) {
-        recordSkip(`no ${command} command yet`);
-        continue;
-      }
-
       const botComments = comments
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
@@ -365,16 +356,22 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const minutesSinceAgent = (now - lastAgentTs) / 60000;
-      if (minutesSinceAgent < idleMinutes) {
-        recordSkip(`last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${idleMinutes})`);
+      if (minutesSinceAgent < effectiveIdleMinutes) {
+        recordSkip(`last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${effectiveIdleMinutes})`);
         continue;
       }
 
-      const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
-      const minutesSinceCommand = (now - latestCommandTs) / 60000;
-      if (latestCommandTs > lastAgentTs && minutesSinceCommand < idleMinutes) {
-        recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${idleMinutes})`);
-        continue;
+      // Also check if there's been a recent command after the last agent comment
+      const commandComments = comments
+        .filter((comment) => (comment.body || '').toLowerCase().includes(commandLower))
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      if (commandComments.length > 0) {
+        const latestCommandTs = new Date(commandComments[commandComments.length - 1].created_at).getTime();
+        const minutesSinceCommand = (now - latestCommandTs) / 60000;
+        if (latestCommandTs > lastAgentTs && minutesSinceCommand < effectiveIdleMinutes) {
+          recordSkip(`waiting for Codex response to the latest command (${minutesSinceCommand.toFixed(1)} minutes < ${effectiveIdleMinutes})`);
+          continue;
+        }
       }
 
       const checklistComments = botComments
