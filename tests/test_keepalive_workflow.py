@@ -64,7 +64,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     summary = data["summary"]
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [101]
-    assert created[0]["body"].startswith("@codex plan-and-execute")
+    assert created[0]["body"].startswith("@codex")
     assert (
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
         in created[0]["body"]
@@ -161,7 +161,7 @@ def test_keepalive_handles_paged_comments() -> None:
     data = _run_scenario("paged_comments")
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [808]
-    assert created[0]["body"].startswith("@codex plan-and-execute")
+    assert created[0]["body"].startswith("@codex")
     assert data["updated_comments"] == []
     summary = data["summary"]
     raw = _raw_entries(summary)
@@ -207,11 +207,11 @@ def test_keepalive_skips_non_codex_branches() -> None:
 
     # Keepalive should now trigger because:
     # - PR has agent:codex label
-    # - Has @codex plan-and-execute command
+    # - Has @codex command
     # - Has Codex comment with unchecked checklist item
     # - Enough idle time has passed
     assert len(data["created_comments"]) == 1
-    assert "@codex plan-and-execute" in data["created_comments"][0]["body"]
+    assert "@codex" in data["created_comments"][0]["body"]
     assert "1/1 checklist item remains unchecked" in data["created_comments"][0]["body"]
 
     summary = data["summary"]
@@ -233,7 +233,7 @@ def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
     created = data["created_comments"]
     assert len(created) == 1
     assert created[0]["issue_number"] == 101
-    assert "@codex plan-and-execute" in created[0]["body"]
+    assert "@codex" in created[0]["body"]
     assert "2/2 checklist items remain unchecked" in created[0]["body"]
 
     summary = data["summary"]
