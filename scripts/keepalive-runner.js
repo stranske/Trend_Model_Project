@@ -82,7 +82,7 @@ function parseAgentLoginEntries(source, fallbackEntries) {
     }
 
     seen.add(normalized);
-    result.push({ login, normalized });
+    result.push({ original: login, normalized });
   }
 
   return result;
@@ -278,7 +278,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     'chatgpt-codex-connector[bot]',
     'stranske-automation-bot',
   ]);
-  const agentLogins = agentEntries.map(({ normalized }) => normalized);
+  let agentLogins = agentEntries.map(({ normalized }) => normalized);
+  agentLogins = dedupe(agentLogins);
 
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -296,8 +297,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     .addEOL();
   summary
     .addRaw(
-      `Agent logins: ${agentEntries
-        .map(({ login }) => `**${login}**`)
+      `Agent logins: ${agentLogins
+        .map((login) => `**${login}**`)
         .join(', ')}`
     )
     .addEOL();
@@ -545,7 +546,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const currentLogins = (pr.assignees || []).map((a) => normaliseLogin(a.login));
         const missingAgents = agentEntries
           .filter(({ normalized }) => !currentLogins.includes(normalized))
-          .map(({ login }) => login);
+          .map(({ original }) => original);
 
         if (missingAgents.length > 0) {
           core.info(`#${prNumber}: adding missing agent assignees: ${missingAgents.join(', ')}`);
