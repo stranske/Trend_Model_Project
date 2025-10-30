@@ -273,8 +273,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
 
-  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector[bot],stranske-automation-bot';
+  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector,chatgpt-codex-connector[bot],stranske-automation-bot';
   const agentEntries = parseAgentLoginEntries(agentSource, [
+    'chatgpt-codex-connector',
     'chatgpt-codex-connector[bot]',
     'stranske-automation-bot',
   ]);
