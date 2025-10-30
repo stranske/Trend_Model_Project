@@ -413,9 +413,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "Checking for undeclared test dependencies..."
-          python scripts/sync_test_dependencies.py --fix || {
-            echo "✓ Test dependencies synchronized"
-          }
+          python scripts/sync_test_dependencies.py --fix
+          echo "✓ Test dependencies synchronized"
           if git diff --quiet requirements.txt; then
             echo "✓ No dependency changes needed"
           else
