@@ -8,7 +8,6 @@ from types import ModuleType
 from typing import Any, Generator
 
 import pytest
-
 import yaml
 
 

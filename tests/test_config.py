@@ -1,4 +1,5 @@
 import yaml
+
 from trend_analysis import config
 
 

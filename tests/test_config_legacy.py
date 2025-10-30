@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-
 import yaml
+
 from trend_analysis.config import legacy
 
 
