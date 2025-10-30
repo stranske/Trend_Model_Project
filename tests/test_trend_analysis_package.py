@@ -45,7 +45,9 @@ def test_version_fallback(monkeypatch, trend_package):
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda package: (_ for _ in ()).throw(importlib.metadata.PackageNotFoundError()),
+        lambda package: (_ for _ in ()).throw(
+            importlib.metadata.PackageNotFoundError()
+        ),
     )
     reloaded = importlib.reload(trend_package)
     assert reloaded.__version__ == "0.1.0-dev"
