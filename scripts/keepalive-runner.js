@@ -340,28 +340,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.info(`#${prNumber}: keepalive opted-in via sentinel comment ${sentinel.comment?.html_url || ''}.`);
       }
 
-      // Check if there's been at least one human-initiated agent command (@codex, @claude, etc)
-      // Dynamically build agent mention pattern from agentLogins
-      function escapeRegExp(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      }
-      const agentLoginPattern = agentLogins
-        .map((login) => escapeRegExp(login))
-        .join('|');
-      const agentMentionPattern = new RegExp(`@(${agentLoginPattern})\\b`, 'i');
-      const humanCommandComments = comments
-        .filter((comment) => {
-          const login = normaliseLogin(comment.user?.login);
-          const isBot = agentLogins.includes(login);
-          const body = comment.body || '';
-          const hasAgentMention = agentMentionPattern.test(body);
-          return !isBot && hasAgentMention;
-        });
-      if (!humanCommandComments.length) {
-        recordSkip('no human-initiated agent command yet');
-        continue;
-      }
-
       const botComments = comments
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));

@@ -271,10 +271,10 @@ jobs:
           # Source version pins from shared config to stay consistent with autofix
           if [ -f .github/workflows/autofix-versions.env ]; then
             source .github/workflows/autofix-versions.env
-            pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}"
+            pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}"
           else
             echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
-            pip install black ruff isort mypy pytest pytest-cov
+            pip install black ruff isort docformatter mypy pytest pytest-cov
           fi
 
       - name: Validate test dependencies
