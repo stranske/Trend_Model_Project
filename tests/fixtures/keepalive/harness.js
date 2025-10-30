@@ -175,13 +175,35 @@ async function runScenario(scenario) {
     return { data: entry };
   };
 
+  const listCommits = async ({ owner, repo, pull_number, per_page = 100 }) => {
+    // Mock: return empty commits array for tests
+    // The keepalive logic will see no commits and proceed normally
+    return { data: [] };
+  };
+
+  const listAssignees = async ({ owner, repo, issue_number }) => {
+    // Mock: return empty assignees array for tests
+    // The keepalive logic will add the required agent assignees
+    return { data: [] };
+  };
+
+  const addAssignees = async ({ owner, repo, issue_number, assignees }) => {
+    // Mock: no-op for tests, just return success
+    return { data: {} };
+  };
+
   const github = {
     rest: {
-      pulls: { list: listPulls },
+      pulls: { 
+        list: listPulls,
+        listCommits,
+      },
       issues: {
         listComments,
         createComment,
         updateComment,
+        listAssignees,
+        addAssignees,
       },
     },
     paginate: {
