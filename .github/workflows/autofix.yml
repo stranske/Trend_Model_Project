@@ -4,6 +4,11 @@ on:
   pull_request_target:
     types:
       - labeled
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - reopened
 
 permissions:
   contents: write
@@ -402,6 +407,20 @@ jobs:
           set -euo pipefail
           source .venv/bin/activate
           black .
+
+      - name: Sync test dependencies
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          echo "Checking for undeclared test dependencies..."
+          python scripts/sync_test_dependencies.py --fix
+          echo "✓ Test dependencies synchronized"
+          if git diff --quiet requirements.txt; then
+            echo "✓ No dependency changes needed"
+          else
+            echo "✓ Updated requirements.txt with missing test dependencies"
+            git add requirements.txt
+          fi
 
       - name: Install uv for lockfile management
         if: steps.context.outputs.should_run == 'true'
