@@ -446,7 +446,7 @@ jobs:
           }
           
           # Normalize and compare (using same logic as test)
-          python - <<'PY'
+          LOCKFILE_STATUS=$(python - <<'PY'
           import re
           import sys
           from pathlib import Path
@@ -474,19 +474,20 @@ jobs:
           existing = normalize(Path("requirements.lock").read_text())
           
           if compiled == existing:
-              print("✓ Lockfile is up to date")
-              sys.exit(0)
+              print("CURRENT")
           else:
-              print("✗ Lockfile is out of date - will regenerate")
-              sys.exit(1)
+              print("OUTDATED")
           PY
+          )
           
-          if [ $? -eq 0 ]; then
-            echo "Lockfile is current; no update needed."
-          else
-            echo "Lockfile out of date; regenerating..."
+          if [ "$LOCKFILE_STATUS" = "CURRENT" ]; then
+            echo "✓ Lockfile is up to date"
+          elif [ "$LOCKFILE_STATUS" = "OUTDATED" ]; then
+            echo "✗ Lockfile is out of date - regenerating..."
             uv pip compile pyproject.toml -o requirements.lock
             echo "✓ requirements.lock updated"
+          else
+            echo "Warning: Could not determine lockfile status"
           fi
 
       - name: Remove temporary virtualenv
