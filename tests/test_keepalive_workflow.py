@@ -217,3 +217,25 @@ def test_keepalive_skips_non_codex_branches() -> None:
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
+
+
+def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
+    """When triggered by Gate completion, keepalive should bypass idle check.
+
+    This tests that triggered_by_gate option sets effectiveIdleMinutes to 0,
+    allowing immediate keepalive even if last Codex activity was < idle_minutes ago.
+    """
+    data = _run_scenario("gate_trigger")
+
+    # The PR has a Codex comment from 2 minutes ago (11:58 AM, now is 12:00 PM)
+    # Normal idle threshold is 10 minutes, so this would usually be skipped
+    # But triggered_by_gate=true should bypass the idle check
+    created = data["created_comments"]
+    assert len(created) == 1
+    assert created[0]["issue_number"] == 101
+    assert "@codex plan-and-execute" in created[0]["body"]
+    assert "2/2 checklist items remain unchecked" in created[0]["body"]
+
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Triggered keepalive count: 1" in raw
