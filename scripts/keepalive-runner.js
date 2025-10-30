@@ -194,7 +194,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const effectiveIdleMinutes = triggeredByGate ? 0 : idleMinutes;
   // When checking for recent commands, always use the full idle period even if triggered by Gate
   // This prevents keepalive from interrupting fresh human commands
-  const commandIdleMinutes = idleMinutes;
 
   const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
   let targetLabels = String(labelSource)
