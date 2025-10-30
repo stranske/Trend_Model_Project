@@ -348,7 +348,7 @@ jobs:
           set -euo pipefail
           git config user.name "stranske-automation-bot"
           git config user.email "stranske-automation-bot@users.noreply.github.com"
-          git checkout -B "${{ steps.context.outputs.branch_name }}" "${{ steps.context.outputs.head_sha }}"
+          git checkout "${{ steps.context.outputs.head_ref }}"
 
       - name: Extract formatter pins
         if: steps.context.outputs.should_run == 'true'
@@ -568,7 +568,7 @@ jobs:
         if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed == 'true'
         run: |
           set -euo pipefail
-          git push origin "${{ steps.context.outputs.branch_name }}"
+          git push origin "HEAD:${{ steps.context.outputs.head_ref }}"
 
       - name: Update PR comment and labels
         if: steps.context.outputs.should_run == 'true'
