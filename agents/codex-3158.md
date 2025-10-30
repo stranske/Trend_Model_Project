@@ -4,7 +4,7 @@
 Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage.
 
 ## Tasks
-- [ ] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
+- [x] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
 - [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
   - [ ] __init__.py
   - [ ] data.py
@@ -29,3 +29,26 @@ Add test coverage for any program functionality with test coverage under 95% or 
 ## Acceptance Criteria
 - [ ] Test coverage exceeds 95% for each file.
 - [ ] Essential functions for the program have full test coverage.
+
+## Progress Notes
+
+- **2025-10-30:** Ran `coverage run` with the `core` profile to capture current coverage. The suite aborted early because `tests/test_selector_weighting.py::test_selector_weighting_autofix_diagnostics` fails when `auto_type_hygiene` introduces a `# type: ignore` comment. Coverage data still captured the following baseline (all registering 0% coverage and therefore top priority):
+  - `src/trend_analysis/__init__.py`
+  - `src/trend_analysis/data.py`
+  - `src/trend_analysis/presets.py`
+  - `src/trend_analysis/backtesting/harness.py`
+  - `src/trend_analysis/regimes.py`
+  - `src/trend_analysis/pipeline.py`
+  - `src/trend_analysis/io/validators.py`
+  - `src/trend_analysis/run_analysis.py`
+  - `src/trend_analysis/io/market_data.py`
+  - `src/trend_analysis/signal_presets.py`
+  - `src/trend_analysis/util/frequency.py`
+  - `src/trend_analysis/signals.py`
+  - `src/trend_analysis/backtesting/bootstrap.py`
+  - `src/trend_analysis/risk.py`
+  - `src/trend_analysis/export/bundle.py`
+  - `src/trend_analysis/cli.py`
+  - `src/trend_analysis/engine/optimizer.py`
+  - `src/trend_analysis/multi_period/engine.py`
+- The failing integration test needs to be addressed (or temporarily skipped) before tightening coverage gates; until that is resolved we should expect subsequent coverage runs to exit with a failure code.
