@@ -48,8 +48,8 @@ def safe_dump_all(
     stream: TextIO | None = ...,
     *,
     default_flow_style: bool | None = ...,
-    sort_keys: bool = ...,
-    allow_unicode: bool = ...,
+    sort_keys: bool | None = ...,
+    allow_unicode: bool | None = ...,
 ) -> str: ...
 def add_constructor(
     tag: str, constructor: Any, Loader: type[Any] | None = ...

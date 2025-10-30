@@ -677,6 +677,32 @@ Common Pitfalls to Avoid
 
 ## Development Workflow
 
+### Git and PR Management
+
+**CRITICAL: Always verify PR status before pushing**
+
+Before running `git push` (or `git push --force-with-lease`), **always** check that the target PR is still open:
+
+```bash
+# Check PR status before pushing
+gh pr view <PR_NUMBER> --json state,mergedAt,closed
+
+# Or check the current branch's PR
+gh pr view --json state,mergedAt,closed
+```
+
+**Rules:**
+- ❌ **NEVER** push to a PR that has `"state": "MERGED"` or `"state": "CLOSED"`
+- ❌ **NEVER** push to a branch whose PR was already merged (check `mergedAt` is not null)
+- ✅ **ONLY** push to PRs with `"state": "OPEN"` and `"closed": false`
+- ✅ If the PR is closed/merged, create a new branch and new PR instead
+
+**Why this matters:**
+- Pushing to merged PRs pollutes git history
+- It bypasses code review and CI checks
+- Changes won't be picked up by the target branch
+- It creates confusion about what code is actually deployed
+
 ### Multi-Period Analysis Debugging
 
 When debugging multi-period issues:
