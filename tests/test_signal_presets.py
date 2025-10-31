@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from trend_analysis.signals import TrendSpec
 from trend_analysis.signal_presets import (
     TrendSpecPreset,
     default_preset_name,
@@ -11,6 +10,7 @@ from trend_analysis.signal_presets import (
     list_trend_spec_presets,
     resolve_trend_spec,
 )
+from trend_analysis.signals import TrendSpec
 
 
 def test_list_trend_spec_presets_contains_expected_names() -> None:
