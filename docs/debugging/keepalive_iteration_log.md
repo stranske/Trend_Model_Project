@@ -22,3 +22,9 @@
 3. Adjust orchestrator summaries so the “skipped: PR exists” guard only fires when keepalive is disabled.
 4. (Optional) Add a precheck to halt keepalive once acceptance criteria are satisfied to avoid redundant work.
 5. Re-run keepalive flows on an active PR to verify the worker now delivers incremental commits.
+
+## Implementation notes (worker guard relaxation)
+- Modify `.github/workflows/agents-70-orchestrator.yml` so the belt worker's `if` clause permits execution when `enable_keepalive` is `true`, even if a PR already exists.
+- Retain the guard summary for the non-keepalive path, but switch the message to “keepalive override active” when the worker is allowed to continue.
+- Bubble the same logic into the dispatch summary so round-two runs show the worker result instead of a forced skip.
+- Keep the PAT pass-through unchanged (`actions_bot_pat` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
