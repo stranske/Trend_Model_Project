@@ -56,9 +56,11 @@ def test_trend_analysis_exports_available() -> None:
     assert callable(trend_analysis.export_to_json)
 
 
-def test_trend_analysis_handles_missing_optional_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trend_analysis_handles_missing_optional_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: set[str] = set()
-    module = _reload_with_imports(
+    _reload_with_imports(
         monkeypatch,
         missing={
             "trend_analysis.data",
