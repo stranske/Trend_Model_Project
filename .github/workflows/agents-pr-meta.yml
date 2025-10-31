@@ -32,6 +32,169 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  keepalive_dispatch:
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    name: Detect keepalive round comments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate keepalive comment
+        id: detect
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot
+          KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const normaliseLogin = (login) => (login || '').trim().toLowerCase().replace(/\[bot\]$/i, '');
+
+            const allowedLogins = new Set(
+              (process.env.ALLOWED_LOGINS || '')
+                .split(',')
+                .map((value) => normaliseLogin(value))
+                .filter(Boolean)
+            );
+
+            const { comment, issue } = context.payload;
+            const { owner, repo } = context.repo;
+            const body = comment?.body || '';
+            const author = normaliseLogin(comment?.user?.login);
+
+            const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
+            const hasKeepaliveMarker = body.includes(process.env.KEEPALIVE_MARKER || '');
+
+            const result = {
+              dispatch: 'false',
+              reason: 'not-keepalive',
+            };
+
+            if (!roundMatch) {
+              core.info('Comment does not contain keepalive round marker; skipping.');
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            if (!allowedLogins.has(author)) {
+              result.reason = 'unauthorised-author';
+              core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            if (!hasKeepaliveMarker) {
+              result.reason = 'missing-sentinel';
+              core.info('Keepalive dispatch skipped: comment missing codex keepalive marker.');
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            const round = Number.parseInt(roundMatch[1], 10);
+            if (!Number.isFinite(round) || round <= 0) {
+              result.reason = 'invalid-round';
+              core.info('Keepalive dispatch skipped: invalid round marker.');
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            const prNumber = issue.number;
+            let pull;
+            try {
+              const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              pull = response.data;
+            } catch (error) {
+              result.reason = 'pull-fetch-failed';
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} (${message}).`);
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            const extractIssueNumber = (pr) => {
+              const candidates = [];
+              const branch = pr?.head?.ref || '';
+              const branchMatch = branch.match(/issue-+([0-9]+)/i);
+              if (branchMatch) {
+                candidates.push(branchMatch[1]);
+              }
+
+              const title = pr?.title || '';
+              const titleMatch = title.match(/#([0-9]+)/);
+              if (titleMatch) {
+                candidates.push(titleMatch[1]);
+              }
+
+              const bodyText = pr?.body || '';
+              for (const match of bodyText.matchAll(/#([0-9]+)/g)) {
+                if (match[1]) {
+                  candidates.push(match[1]);
+                }
+              }
+
+              for (const value of candidates) {
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isNaN(parsed)) {
+                  return parsed;
+                }
+              }
+
+              return null;
+            };
+
+            const issueNumber = extractIssueNumber(pull);
+            if (!issueNumber) {
+              result.reason = 'missing-issue-reference';
+              core.info('Keepalive dispatch skipped: unable to determine linked issue number.');
+              core.setOutput('dispatch', result.dispatch);
+              core.setOutput('reason', result.reason);
+              return;
+            }
+
+            result.dispatch = 'true';
+            result.reason = 'keepalive-detected';
+
+            core.setOutput('dispatch', result.dispatch);
+            core.setOutput('reason', result.reason);
+            core.setOutput('issue', String(issueNumber));
+            core.setOutput('round', String(round));
+            core.setOutput('branch', pull?.head?.ref || '');
+
+      - name: Dispatch orchestrator keepalive
+        if: steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = '${{ steps.detect.outputs.issue }}';
+            const round = '${{ steps.detect.outputs.round }}';
+            const { owner, repo } = context.repo;
+
+            const payload = {
+              keepalive_enabled: true,
+              params: {
+                dispatcher_force_issue: issueNumber,
+                worker_max_parallel: 1,
+              },
+            };
+
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'agents-orchestrator-ping',
+              client_payload: payload,
+            });
+
+            core.info(`Dispatched Agents 70 Orchestrator for issue #${issueNumber} (keepalive round ${round}).`);
+
+      - name: Report keepalive dispatch outcome
+        if: steps.detect.outputs.dispatch != 'true'
+        run: |
+          echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason }}"
+
   listen_commands:
     if: github.event_name == 'issue_comment' && github.event.issue.pull_request
     runs-on: ubuntu-latest
