@@ -28,3 +28,26 @@
 - Retain the guard summary for the non-keepalive path, but switch the message to “keepalive override active” when the worker is allowed to continue.
 - Bubble the same logic into the dispatch summary so round-two runs show the worker result instead of a forced skip.
 - Keep the PAT pass-through unchanged (`actions_bot_pat` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
+
+## Escalation options (recorded)
+1. **Repository dispatch → Orchestrator** – When PR-meta sees a new keepalive `Round N` comment, fire an `agents-orchestrator-ping` `repository_dispatch` with `keepalive_enabled: true` and `params` that force the dispatcher to the linked issue (`dispatcher_force_issue`, `worker_max_parallel: 1`). This reuses the existing headless belt worker via Agents 70.
+2. **Direct belt workflows** – Instead of the orchestrator, call `Agents 71 Codex Belt Dispatcher` (or `Agents 72 Codex Belt Worker`) directly from PR-meta with explicit `issue`/`branch` inputs so the worker re-engages without involving the chat connector.
+3. **Round parser hardening** – Treat `<!-- keepalive-round:N -->` as the stable sentinel, verify the author is one of our automation accounts, and optionally ensure the Gate check suite reports “concluded” before dispatching. This keeps false positives out of the escalation path.
+
+## Keepalive dispatch options
+- `enable_keepalive` – master toggle; set to `'true'` to allow follow-up rounds to bypass the existing-PR guard.
+- `keepalive_idle_minutes` – idle threshold before a new round posts the instruction comment (default 10).
+- `keepalive_repeat_minutes` – cooldown between rounds to prevent comment spam (default 30).
+- `keepalive_labels` – optional comma-separated label filter so the sweep only targets matching issues or PRs.
+- `keepalive_command` – custom instruction text; defaults to the orchestrator's canned `@codex plan-and-execute` prompt.
+- `keepalive_pause_label` – label that pauses keepalive on specific threads when present (`keepalive:paused`).
+
+> Pass the values above via the orchestrator's `params_json` payload, e.g. `{ "enable_keepalive": true, "keepalive_idle_minutes": 15 }`. Nested overrides belong inside the embedded `options_json` field when dispatched from composite workflows.
+
+## Verification checklist (post-update)
+1. Manually dispatch **Agents 70 Orchestrator** with `enable_keepalive: true` (or include the flag in `params_json`).
+2. Confirm the Actions summary shows “keepalive override active – worker may resume existing branch.”
+3. Inspect the **Codex Belt Worker** job; it should run even when an existing PR is detected.
+4. Validate that a fresh `Keepalive Round N` comment appears on the target issue/PR with the correct marker `<!-- keepalive-round:N -->`.
+5. Check the worker logs for commit pushes or task execution to ensure the branch received updates after the keepalive round.
+6. If the run fails, capture the Actions URL, PR number, and worker logs, and add a new bullet in “What failed before” with observed symptoms.
