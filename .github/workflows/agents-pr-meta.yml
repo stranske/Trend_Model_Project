@@ -36,13 +36,6 @@ jobs:
     if: github.event_name == 'issue_comment' && github.event.issue.pull_request
     name: Detect keepalive round comments
     runs-on: ubuntu-latest
-    outputs:
-      dispatch: ${{ steps.detect.outputs.dispatch }}
-      reason: ${{ steps.detect.outputs.reason }}
-      issue: ${{ steps.detect.outputs.issue }}
-      round: ${{ steps.detect.outputs.round }}
-      branch: ${{ steps.detect.outputs.branch }}
-      base: ${{ steps.detect.outputs.base }}
     steps:
       - name: Evaluate keepalive comment
         id: detect
@@ -124,7 +117,7 @@ jobs:
             const extractIssueNumber = (pr) => {
               const candidates = [];
               const branch = pr?.head?.ref || '';
-              const branchMatch = branch.match(/issue-([0-9]+)/i);
+              const branchMatch = branch.match(/issue-+([0-9]+)/i);
               if (branchMatch) {
                 candidates.push(branchMatch[1]);
               }
@@ -169,30 +162,38 @@ jobs:
             core.setOutput('issue', String(issueNumber));
             core.setOutput('round', String(round));
             core.setOutput('branch', pull?.head?.ref || '');
-            core.setOutput('base', pull?.base?.ref || '');
 
-      - name: Register keepalive detection
+      - name: Dispatch orchestrator keepalive
         if: steps.detect.outputs.dispatch == 'true'
-        run: |
-          echo "Keepalive round ${{ steps.detect.outputs.round }} detected for issue ${{ steps.detect.outputs.issue }} on branch ${{ steps.detect.outputs.branch }}"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = '${{ steps.detect.outputs.issue }}';
+            const round = '${{ steps.detect.outputs.round }}';
+            const { owner, repo } = context.repo;
+
+            const payload = {
+              keepalive_enabled: true,
+              params: {
+                dispatcher_force_issue: issueNumber,
+                worker_max_parallel: 1,
+              },
+            };
+
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'agents-orchestrator-ping',
+              client_payload: payload,
+            });
+
+            core.info(`Dispatched Agents 70 Orchestrator for issue #${issueNumber} (keepalive round ${round}).`);
 
       - name: Report keepalive dispatch outcome
         if: steps.detect.outputs.dispatch != 'true'
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason }}"
-
-  keepalive_worker:
-    needs: keepalive_dispatch
-    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
-    uses: ./.github/workflows/agents-72-codex-belt-worker.yml
-    with:
-      issue: ${{ needs.keepalive_dispatch.outputs.issue }}
-      branch: ${{ needs.keepalive_dispatch.outputs.branch }}
-      base: ${{ needs.keepalive_dispatch.outputs.base }}
-      source: keepalive
-      max_parallel: 1
-    secrets:
-      actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
   listen_commands:
     if: github.event_name == 'issue_comment' && github.event.issue.pull_request
