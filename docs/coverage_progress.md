@@ -4,10 +4,10 @@
 Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage
 
 ## Tasks
-- [ ] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
+- [x] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
 - [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
   - [ ] __init__.py
-  - [ ] data.py
+  - [x] data.py
   - [ ] presets.py
   - [ ] harness.py
   - [ ] regimes.py
@@ -33,7 +33,8 @@ Add test coverage for any program functionality with test coverage under 95% or 
 ## Current status
 - Removed the unavailable `health_summarize` dependency from `requirements.txt` and added an in-repo fallback module so the coverage script can install successfully on Python 3.12.
 - Ran targeted coverage with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 coverage run --source=trend_analysis.util.frequency -m pytest tests/test_util_frequency_internal.py tests/test_frequency_missing.py tests/test_util_frequency_missing.py`, confirming 100% statement and branch coverage for `trend_analysis.util.frequency` (all 38 tests passed in 7.17s).
+- Captured a fresh coverage snapshot for the broader package to identify the lowest-coverage modules (`python -m coverage report -m`), noting that `trend_analysis/data.py` was previously at 49% coverage.
+- Added extensive regression and error-handling tests in `tests/test_data.py`, lifting `trend_analysis/data.py` to 97% statement coverage (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --data-file=.coverage_data --source=trend_analysis.data -m pytest tests/test_data.py).
 
 ## Next steps
-- Re-run soft coverage for the broader module set now that the dependency issues are resolved, capturing the lowest-coverage files under the `trend_analysis` namespace.
-- Continue lifting coverage file-by-file, starting with the remaining modules listed above that still report <95% coverage or lack tests entirely.
+- Prioritise the remaining submodules from the coverage report (e.g. `presets.py`, `validators.py`, `market_data.py`) and continue expanding targeted tests until each clears the 95% threshold.
