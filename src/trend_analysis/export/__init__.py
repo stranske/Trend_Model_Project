@@ -18,6 +18,7 @@ except Exception:  # pragma: no cover - openpyxl not installed
 import numpy as np
 import pandas as pd
 
+from . import bundle as bundle  # noqa: F401  # re-exported module for tests/compat
 from .bundle import export_bundle
 
 Formatter = Callable[[pd.DataFrame], pd.DataFrame]
@@ -1653,4 +1654,5 @@ __all__ = [
     "export_phase1_multi_metrics",
     "export_multi_period_metrics",
     "export_bundle",
+    "bundle",
 ]

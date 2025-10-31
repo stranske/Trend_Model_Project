@@ -30,6 +30,10 @@ _LAZY_SUBMODULES = {
     "run_multi_analysis": "trend_analysis.run_multi_analysis",
 }
 
+# Purge stale lazy-loaded attributes so reload() restores deferred imports.
+for _lazy_attr in list(_LAZY_SUBMODULES):
+    globals().pop(_lazy_attr, None)
+
 for _name in _EAGER_SUBMODULES:
     try:  # pragma: no cover - import side effects
         globals()[_name] = importlib.import_module(f"trend_analysis.{_name}")
@@ -55,6 +59,8 @@ config: Any
 data: Any
 pipeline: Any
 export: Any
+signals: Any
+backtesting: Any
 api: Any
 selector: Any
 weighting: Any
