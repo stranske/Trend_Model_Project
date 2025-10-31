@@ -66,11 +66,12 @@ function parseAgentLoginEntries(source, fallbackEntries) {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const entries = (rawEntries.length ? rawEntries : fallbackEntries).map((value) => value.trim());
+  const entries = rawEntries.length ? rawEntries : fallbackEntries;
   const seen = new Set();
   const result = [];
 
-  for (const login of entries) {
+  for (const entry of entries) {
+    const login = entry.trim();
     if (!login) {
       continue;
     }
@@ -99,7 +100,7 @@ function extractUncheckedTasks(body, limit = 5) {
 
   const tasks = [];
   for (const line of lines) {
-    const match = line.match(/^- \[ \]\s*(.+)$/i);
+    const match = line.match(/^- \[ \] \s*(.+)$/i);
     if (match) {
       const task = match[1].trim();
       if (task) {
@@ -202,6 +203,33 @@ function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern 
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
 
+function extractKeepaliveRound(body) {
+  const match = String(body || '').match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
+  if (match) {
+    const round = Number(match[1]);
+    if (Number.isFinite(round) && round > 0) {
+      return round;
+    }
+  }
+  return null;
+}
+
+function computeNextRound(candidates) {
+  if (!Array.isArray(candidates) || !candidates.length) {
+    return 1;
+  }
+
+  const rounds = candidates
+    .map((candidate) => extractKeepaliveRound(candidate.body))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (rounds.length) {
+    return Math.max(...rounds) + 1;
+  }
+
+  return candidates.length + 1;
+}
+
 function summariseList(items, limit = 20) {
   if (items.length <= limit) {
     return items;
@@ -272,9 +300,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
 
-  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector,chatgpt-codex-connector[bot],stranske-automation-bot';
+  const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector[bot],stranske-automation-bot';
   const agentEntries = parseAgentLoginEntries(agentSource, [
-    'chatgpt-codex-connector',
     'chatgpt-codex-connector[bot]',
     'stranske-automation-bot',
   ]);
@@ -514,6 +541,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
+      const nextRound = computeNextRound(keepaliveCandidates);
+      const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
+
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
         remaining: String(outstanding),
@@ -525,6 +555,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const bodyParts = [command];
+      bodyParts.push('', `**Keepalive Round ${nextRound}**`);
       if (instruction) {
         bodyParts.push('', instruction);
       }
@@ -537,6 +568,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       if (marker) {
         bodyParts.push('', marker);
       }
+      bodyParts.push('', roundMarker);
       const body = bodyParts.join('\n');
       
       // Ensure agent connectors are assigned before posting keepalive
@@ -564,19 +596,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       if (dryRun) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
-      } else if (latestKeepalive && latestKeepalive.id) {
-        await github.rest.issues.updateComment({
-          owner,
-          repo,
-          comment_id: latestKeepalive.id,
-          body,
-        });
-        refreshed.push(`#${prNumber} – keepalive refreshed (remaining tasks: ${outstanding})`);
-        core.info(`#${prNumber}: keepalive refreshed (remaining tasks: ${outstanding}).`);
       } else {
         await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-        triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding})`);
-        core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}).`);
+        triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound})`);
+        core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}).`);
       }
     }
   }

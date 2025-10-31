@@ -65,10 +65,12 @@ def test_keepalive_idle_threshold_logic() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [101]
     assert created[0]["body"].startswith("@codex")
+    assert "**Keepalive Round 1**" in created[0]["body"]
     assert (
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
         in created[0]["body"]
     )
+    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
 
     details = _details(summary, "Triggered keepalive comments")
@@ -110,7 +112,8 @@ def test_keepalive_dedupes_configuration() -> None:
 
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [505]
-    assert created[0]["body"].endswith("<!-- codex-keepalive-marker -->")
+    assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
+    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
         in created[0]["body"]
@@ -149,7 +152,8 @@ def test_keepalive_respects_paused_label() -> None:
     assert details is not None and any("#404" in item for item in details["items"])
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [505]
-    assert created[0]["body"].endswith("<!-- codex-keepalive-marker -->")
+    assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
+    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
         in created[0]["body"]
@@ -162,6 +166,8 @@ def test_keepalive_handles_paged_comments() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [808]
     assert created[0]["body"].startswith("@codex")
+    assert "**Keepalive Round 1**" in created[0]["body"]
+    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     summary = data["summary"]
     raw = _raw_entries(summary)
@@ -169,31 +175,38 @@ def test_keepalive_handles_paged_comments() -> None:
     assert "Refreshed keepalive count: 0" in raw
 
 
-def test_keepalive_refreshes_existing_comment() -> None:
+def test_keepalive_posts_new_comment_for_next_round() -> None:
     data = _run_scenario("refresh")
-    assert data["created_comments"] == []
-    updated = data["updated_comments"]
-    assert [item["comment_id"] for item in updated] == [123456]
-    assert updated[0]["body"].endswith("<!-- codex-keepalive-marker -->")
+    created = data["created_comments"]
+    assert len(created) == 1
+    body = created[0]["body"]
+    assert "**Keepalive Round 2**" in body
+    assert "<!-- keepalive-round:2 -->" in body
+    assert "<!-- codex-keepalive-marker -->" in body
+    assert created[0]["issue_number"] == 909
+    assert data["updated_comments"] == []
 
     summary = data["summary"]
     raw = _raw_entries(summary)
-    assert "Triggered keepalive count: 0" in raw
-    assert "Refreshed keepalive count: 1" in raw
+    assert "Triggered keepalive count: 1" in raw
+    assert "Refreshed keepalive count: 0" in raw
 
 
 def test_keepalive_upgrades_legacy_comment() -> None:
     data = _run_scenario("legacy_keepalive")
-    assert data["created_comments"] == []
-
-    updated = data["updated_comments"]
-    assert [item["comment_id"] for item in updated] == [4242]
-    assert updated[0]["body"].endswith("<!-- codex-keepalive-marker -->")
+    created = data["created_comments"]
+    assert len(created) == 1
+    body = created[0]["body"]
+    assert "**Keepalive Round 2**" in body
+    assert "<!-- keepalive-round:2 -->" in body
+    assert "<!-- codex-keepalive-marker -->" in body
+    assert created[0]["issue_number"] == 909
+    assert data["updated_comments"] == []
 
     summary = data["summary"]
     raw = _raw_entries(summary)
-    assert "Triggered keepalive count: 0" in raw
-    assert "Refreshed keepalive count: 1" in raw
+    assert "Triggered keepalive count: 1" in raw
+    assert "Refreshed keepalive count: 0" in raw
 
 
 def test_keepalive_skips_non_codex_branches() -> None:
