@@ -14,8 +14,8 @@ from trend_analysis.presets import (
     _coerce_int,
     _coerce_optional_float,
     _coerce_optional_int,
-    _load_yaml,
     _freeze_mapping,
+    _load_yaml,
     _normalise_metric_weights,
     apply_trend_preset,
     get_trend_preset,
@@ -79,16 +79,18 @@ def test_coerce_optional_float(value, minimum, expected):
 
 
 def test_build_trend_spec_normalises_min_periods():
-    spec = _build_trend_spec({
-        "signals": {
-            "window": 20,
-            "min_periods": 30,
-            "lag": 2,
-            "vol_adjust": True,
-            "vol_target": "0.1",
-            "zscore": True,
+    spec = _build_trend_spec(
+        {
+            "signals": {
+                "window": 20,
+                "min_periods": 30,
+                "lag": 2,
+                "vol_adjust": True,
+                "vol_target": "0.1",
+                "zscore": True,
+            }
         }
-    })
+    )
     assert spec.window == 20
     assert spec.min_periods == 20
     assert spec.vol_adjust is True
@@ -154,7 +156,9 @@ def test_preset_registry_reads_files(tmp_path: Path, monkeypatch):
         "metrics": {"sharpe": 1},
     }
     (config_dir / "alpha.yml").write_text(yaml.safe_dump(payload), encoding="utf-8")
-    (config_dir / "beta.yml").write_text(yaml.safe_dump({"signals": {"window": 10}}), encoding="utf-8")
+    (config_dir / "beta.yml").write_text(
+        yaml.safe_dump({"signals": {"window": 10}}), encoding="utf-8"
+    )
 
     monkeypatch.setattr("trend_analysis.presets.PRESETS_DIR", config_dir)
 
@@ -216,7 +220,9 @@ def test_apply_trend_preset_with_non_mapping_sections(tmp_path: Path, monkeypatc
     monkeypatch.setattr("trend_analysis.presets.PRESETS_DIR", config_dir)
 
     preset = get_trend_preset("alpha")
-    target = SimpleNamespace(signals=None, vol_adjust=MappingProxyType({"enabled": True}), run=())
+    target = SimpleNamespace(
+        signals=None, vol_adjust=MappingProxyType({"enabled": True}), run=()
+    )
     apply_trend_preset(target, preset)
 
     assert isinstance(target.signals, dict)
@@ -232,7 +238,9 @@ def test_apply_trend_preset_with_none_sections(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("trend_analysis.presets.PRESETS_DIR", config_dir)
 
     preset = get_trend_preset("alpha")
-    target = SimpleNamespace(signals=None, vol_adjust=None, run=MappingProxyType({"legacy": True}))
+    target = SimpleNamespace(
+        signals=None, vol_adjust=None, run=MappingProxyType({"legacy": True})
+    )
     apply_trend_preset(target, preset)
 
     assert target.signals["window"] == 6
