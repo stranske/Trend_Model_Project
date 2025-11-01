@@ -27,6 +27,7 @@ _LAZY_SUBMODULES = {
     "selector": "trend_analysis.selector",
     "weighting": "trend_analysis.weighting",
     "weights": "trend_analysis.weights",
+    "presets": "trend_analysis.presets",
     "run_multi_analysis": "trend_analysis.run_multi_analysis",
 }
 
@@ -64,6 +65,7 @@ backtesting: Any
 api: Any
 selector: Any
 weighting: Any
+presets: Any
 run_multi_analysis: Any
 
 if "data" in globals():
@@ -108,6 +110,7 @@ __all__ = [
     "api",
     "export",
     "signals",
+    "presets",
     "selector",
     "weighting",
     "load_csv",

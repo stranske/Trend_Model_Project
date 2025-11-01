@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -12,7 +14,10 @@ import yaml
 
 from .signals import TrendSpec
 
-PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+LOGGER = logging.getLogger(__name__)
+
+_DEFAULT_PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+PRESETS_DIR = _DEFAULT_PRESETS_DIR
 
 # Metric aliases exposed for UI components and pipeline wiring.
 UI_METRIC_ALIASES: Mapping[str, str] = MappingProxyType(
@@ -217,27 +222,77 @@ def _load_yaml(path: Path) -> Mapping[str, Any]:
     return data
 
 
+def _candidate_preset_dirs() -> tuple[Path, ...]:
+    """Return preset directories ordered by precedence.
+
+    The search order prefers the repository copy, then ancestor directories
+    discovered while walking up from this module, and finally an optional
+    environment override. Later directories have higher precedence: when two
+    presets share the same slug, the version discovered later replaces the
+    earlier one and a warning is emitted.
+    """
+
+    current = Path(__file__).resolve()
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+
+    def _register(path: Path) -> None:
+        try:
+            resolved = path.expanduser().resolve(strict=False)
+        except RuntimeError:  # pragma: no cover - extremely defensive
+            resolved = path
+        if resolved in seen:
+            return
+        if resolved.is_dir():
+            seen.add(resolved)
+            candidates.append(resolved)
+
+    # Base directory within the source tree or editable install
+    _register(PRESETS_DIR)
+
+    include_defaults = PRESETS_DIR == _DEFAULT_PRESETS_DIR
+    if include_defaults:
+        for parent in current.parents:
+            alt = parent / "config" / "presets"
+            _register(alt)
+
+    env_dir = os.environ.get("TREND_PRESETS_DIR")
+    if env_dir:
+        _register(Path(env_dir))
+
+    return tuple(candidates)
+
+
 @lru_cache(maxsize=None)
 def _preset_registry() -> Mapping[str, TrendPreset]:
     registry: dict[str, TrendPreset] = {}
-    if not PRESETS_DIR.exists():
-        return MappingProxyType(registry)
-    for path in sorted(PRESETS_DIR.glob("*.yml")):
-        slug = path.stem.lower()
-        raw = _load_yaml(path)
-        if not raw:
-            continue
-        label = str(raw.get("name") or slug.title())
-        description = str(raw.get("description") or "")
-        spec = _build_trend_spec(raw)
-        preset = TrendPreset(
-            slug=slug,
-            label=label,
-            description=description,
-            trend_spec=spec,
-            _config=_freeze_mapping(dict(raw)),
-        )
-        registry[slug] = preset
+    origins: dict[str, Path] = {}
+    for directory in _candidate_preset_dirs():
+        for path in sorted(directory.glob("*.yml")):
+            slug = path.stem.lower()
+            raw = _load_yaml(path)
+            if not raw:
+                continue
+            label = str(raw.get("name") or slug.title())
+            description = str(raw.get("description") or "")
+            spec = _build_trend_spec(raw)
+            preset = TrendPreset(
+                slug=slug,
+                label=label,
+                description=description,
+                trend_spec=spec,
+                _config=_freeze_mapping(dict(raw)),
+            )
+            if slug in registry:
+                previous = origins.get(slug) or "<unknown>"
+                LOGGER.warning(
+                    "Duplicate trend preset slug '%s' from %s overrides definition from %s",
+                    slug,
+                    path,
+                    previous,
+                )
+            registry[slug] = preset
+            origins[slug] = path
     return MappingProxyType(registry)
 
 
