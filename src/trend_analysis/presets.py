@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -12,6 +13,9 @@ from typing import Any, Mapping, MutableMapping
 import yaml
 
 from .signals import TrendSpec
+
+
+LOGGER = logging.getLogger(__name__)
 
 PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
 
@@ -223,7 +227,9 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
 
     The search order prefers the repository copy, then ancestor directories
     discovered while walking up from this module, and finally an optional
-    environment override. Later entries override earlier ones.
+    environment override. Later directories have higher precedence: when two
+    presets share the same slug, the version discovered later replaces the
+    earlier one and a warning is emitted.
     """
 
     current = Path(__file__).resolve()
@@ -258,6 +264,7 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
 @lru_cache(maxsize=None)
 def _preset_registry() -> Mapping[str, TrendPreset]:
     registry: dict[str, TrendPreset] = {}
+    origins: dict[str, Path] = {}
     for directory in _candidate_preset_dirs():
         for path in sorted(directory.glob("*.yml")):
             slug = path.stem.lower()
@@ -274,7 +281,16 @@ def _preset_registry() -> Mapping[str, TrendPreset]:
                 trend_spec=spec,
                 _config=_freeze_mapping(dict(raw)),
             )
+            if slug in registry:
+                previous = origins.get(slug) or "<unknown>"
+                LOGGER.warning(
+                    "Duplicate trend preset slug '%s' from %s overrides definition from %s",
+                    slug,
+                    path,
+                    previous,
+                )
             registry[slug] = preset
+            origins[slug] = path
     return MappingProxyType(registry)
 
 
