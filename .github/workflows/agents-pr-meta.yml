@@ -124,7 +124,7 @@ jobs:
             const extractIssueNumber = (pr) => {
               const candidates = [];
               const branch = pr?.head?.ref || '';
-              const branchMatch = branch.match(/issue-+([0-9]+)/i);
+              const branchMatch = branch.match(/issue-([0-9]+)/i);
               if (branchMatch) {
                 candidates.push(branchMatch[1]);
               }
