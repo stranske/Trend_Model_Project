@@ -27,6 +27,7 @@ from trend_analysis.presets import (
     normalise_metric_key,
     pipeline_metric_key,
 )
+from trend_analysis.signals import TrendSpec
 
 
 def write_preset(path: Path, **fields: Any) -> Path:
@@ -146,6 +147,24 @@ def test_trend_preset_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert metrics_pipeline["Sharpe"] == defaults["metrics"]["sharpe"]
 
 
+def test_vol_adjust_defaults_handles_mapping_proxy() -> None:
+    spec = TrendSpec(window=42, min_periods=None, lag=2, vol_adjust=False, vol_target=None, zscore=False)
+    proxy_window = MappingProxyType({"length": 7})
+    config = _freeze_mapping({"vol_adjust": MappingProxyType({"window": proxy_window})})
+    preset = TrendPreset(
+        slug="custom",
+        label="Custom",
+        description="",
+        trend_spec=spec,
+        _config=config,
+    )
+
+    defaults = preset.vol_adjust_defaults()
+    assert defaults["enabled"] is False
+    assert defaults["target_vol"] is None
+    assert defaults["window"] == {"length": 7}
+
+
 def test_apply_trend_preset_merges_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -198,6 +217,47 @@ def test_metric_alias_helpers() -> None:
     assert normalise_metric_key("") is None
     assert pipeline_metric_key("max_drawdown") == "MaxDrawdown"
     assert pipeline_metric_key("unknown") is None
+    assert pipeline_metric_key("") is None
+
+
+def test_candidate_dirs_include_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    presets._preset_registry.cache_clear()
+    monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
+    monkeypatch.setattr(presets, "PRESETS_DIR", presets._DEFAULT_PRESETS_DIR)
+
+    candidates = presets._candidate_preset_dirs()
+    assert presets._DEFAULT_PRESETS_DIR in candidates
+    assert len(candidates) >= 1
+
+
+def test_candidate_dirs_env_override_and_deduplicate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base_dir = tmp_path / "presets"
+    base_dir.mkdir()
+    monkeypatch.setattr(presets, "PRESETS_DIR", base_dir)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(base_dir))
+    presets._preset_registry.cache_clear()
+
+    candidates = presets._candidate_preset_dirs()
+    assert candidates == (base_dir,)
+
+
+def test_get_trend_preset_matches_display_label(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    preset_dir = tmp_path / "presets"
+    preset_dir.mkdir()
+    write_preset(
+        preset_dir / "growth_fund.yml",
+        name="Growth Fund",
+        signals={"window": 20, "lag": 1, "vol_adjust": False, "zscore": False},
+    )
+    monkeypatch.setattr(presets, "PRESETS_DIR", preset_dir)
+    presets._preset_registry.cache_clear()
+
+    preset = get_trend_preset("Growth Fund")
+    assert preset.slug == "growth_fund"
 
     # Ensure alias tables remain immutable
     with pytest.raises(TypeError):
