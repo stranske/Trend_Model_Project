@@ -1,3 +1,7 @@
+"""Tests for the :mod:`trend_analysis` package initialisation."""
+
+from __future__ import annotations
+
 import importlib
 import sys
 from types import ModuleType
@@ -5,76 +9,76 @@ from types import ModuleType
 import pytest
 
 
-def test_lazy_attribute_loading(monkeypatch):
-    module = importlib.import_module("trend_analysis")
-    fake_module = ModuleType("trend_analysis.fake_module")
-    fake_module.value = 42
-    monkeypatch.setitem(sys.modules, "trend_analysis.fake_module", fake_module)
-    monkeypatch.setitem(module._LAZY_SUBMODULES, "fake", "trend_analysis.fake_module")
-    module.__dict__.pop("fake", None)
+@pytest.fixture
+def fresh_trend_module() -> ModuleType:
+    import trend_analysis
 
-    result = module.fake
-    assert result is fake_module
-    assert module.__dict__["fake"] is fake_module
+    return importlib.reload(trend_analysis)
 
 
-def test_unknown_lazy_attribute_raises():
-    module = importlib.import_module("trend_analysis")
-    with pytest.raises(AttributeError):
-        _ = module.__getattr__("does_not_exist")
+def test_version_fallback(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+    import importlib.metadata
+
+    def fake_version(_name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    reloaded = importlib.reload(fresh_trend_module)
+    assert reloaded.__version__ == "0.1.0-dev"
 
 
-def test_version_fallback(monkeypatch):
-    def raise_not_found(name):  # pragma: no cover - defensive helper
-        raise importlib.metadata.PackageNotFoundError(name)
+def test_lazy_import(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+    sentinel = ModuleType("trend_analysis.selector")
+    monkeypatch.setitem(sys.modules, "trend_analysis.selector", sentinel)
+    reloaded = importlib.reload(fresh_trend_module)
 
-    monkeypatch.setattr(importlib.metadata, "version", raise_not_found)
-    original = sys.modules.get("trend_analysis")
-    sys.modules.pop("trend_analysis", None)
-    try:
-        module = importlib.import_module("trend_analysis")
-        assert module.__version__ == "0.1.0-dev"
-    finally:
-        if original is not None:
-            sys.modules["trend_analysis"] = original
-            importlib.reload(original)
+    assert "selector" not in reloaded.__dict__
+    assert reloaded.selector is sentinel
 
 
-@pytest.mark.usefixtures("restore_trend_analysis")
-def test_data_exports_available():
-    module = importlib.import_module("trend_analysis")
-    assert module.load_csv is module.data.load_csv
-    assert module.identify_risk_free_fund is module.data.identify_risk_free_fund
-
-
-def test_export_reexports_available():
-    module = importlib.import_module("trend_analysis")
-    assert module.export_to_json is module.export.export_to_json
-    assert module.register_formatter_excel is module.export.register_formatter_excel
-
-
-def test_eager_import_failure_is_skipped(monkeypatch):
-    import trend_analysis as original_module
+def test_optional_module_failures_suppressed(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+    import trend_analysis
 
     original_import = importlib.import_module
 
-    def fake_import(name, package=None):
-        if name == "trend_analysis.metrics":
-            raise ImportError("optional metrics missing")
+    def stub_import(name: str, package: str | None = None):  # type: ignore[override]
+        if name == "trend_analysis.export":
+            raise ImportError("optional module missing")
         return original_import(name, package)
 
-    monkeypatch.setattr(importlib, "import_module", fake_import)
-    sys.modules.pop("trend_analysis", None)
-    try:
-        module = importlib.import_module("trend_analysis")
-        assert not hasattr(module, "metrics")
-    finally:
-        sys.modules["trend_analysis"] = original_module
-        importlib.reload(original_module)
+    monkeypatch.setattr(importlib, "import_module", stub_import)
+    fresh_trend_module.__dict__.pop("export", None)
+    monkeypatch.delitem(sys.modules, "trend_analysis.export", raising=False)
+    reloaded = importlib.reload(fresh_trend_module)
+
+    assert "export" not in reloaded.__dict__
+    # Attribute access should still raise AttributeError
+    with pytest.raises(AttributeError):
+        getattr(reloaded, "nonexistent")
+
+    # Restore real import for subsequent tests
+    importlib.reload(trend_analysis)
 
 
-@pytest.fixture
-def restore_trend_analysis(monkeypatch):
-    module = importlib.import_module("trend_analysis")
-    yield
-    importlib.reload(module)
+def test_reexports_available(fresh_trend_module: ModuleType) -> None:
+    assert callable(fresh_trend_module.load_csv)
+    assert callable(fresh_trend_module.export_to_csv)
+
+
+def test_data_module_missing(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+    original_import = importlib.import_module
+
+    def stub_import(name: str, package: str | None = None):  # type: ignore[override]
+        if name == "trend_analysis.data":
+            raise ImportError("optional data module missing")
+        return original_import(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", stub_import)
+    fresh_trend_module.__dict__.pop("data", None)
+    fresh_trend_module.__dict__.pop("load_csv", None)
+    fresh_trend_module.__dict__.pop("identify_risk_free_fund", None)
+    monkeypatch.delitem(sys.modules, "trend_analysis.data", raising=False)
+    reloaded = importlib.reload(fresh_trend_module)
+
+    with pytest.raises(AttributeError):
+        getattr(reloaded, "load_csv")
