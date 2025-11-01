@@ -14,7 +14,6 @@ import yaml
 
 from .signals import TrendSpec
 
-
 LOGGER = logging.getLogger(__name__)
 
 PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
