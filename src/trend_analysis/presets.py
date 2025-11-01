@@ -13,7 +13,8 @@ import yaml
 
 from .signals import TrendSpec
 
-PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+_DEFAULT_PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
+PRESETS_DIR = _DEFAULT_PRESETS_DIR
 
 # Metric aliases exposed for UI components and pipeline wiring.
 UI_METRIC_ALIASES: Mapping[str, str] = MappingProxyType(
@@ -244,9 +245,11 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
     # Base directory within the source tree or editable install
     _register(PRESETS_DIR)
 
-    for parent in current.parents:
-        alt = parent / "config" / "presets"
-        _register(alt)
+    include_defaults = PRESETS_DIR == _DEFAULT_PRESETS_DIR
+    if include_defaults:
+        for parent in current.parents:
+            alt = parent / "config" / "presets"
+            _register(alt)
 
     env_dir = os.environ.get("TREND_PRESETS_DIR")
     if env_dir:
