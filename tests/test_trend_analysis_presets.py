@@ -148,7 +148,14 @@ def test_trend_preset_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_vol_adjust_defaults_handles_mapping_proxy() -> None:
-    spec = TrendSpec(window=42, min_periods=None, lag=2, vol_adjust=False, vol_target=None, zscore=False)
+    spec = TrendSpec(
+        window=42,
+        min_periods=None,
+        lag=2,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=False,
+    )
     proxy_window = MappingProxyType({"length": 7})
     config = _freeze_mapping({"vol_adjust": MappingProxyType({"window": proxy_window})})
     preset = TrendPreset(
