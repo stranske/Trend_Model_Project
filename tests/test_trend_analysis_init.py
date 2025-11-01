@@ -16,7 +16,9 @@ def fresh_trend_module() -> ModuleType:
     return importlib.reload(trend_analysis)
 
 
-def test_version_fallback(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+def test_version_fallback(
+    monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType
+) -> None:
     import importlib.metadata
 
     def fake_version(_name: str) -> str:
@@ -27,7 +29,9 @@ def test_version_fallback(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: M
     assert reloaded.__version__ == "0.1.0-dev"
 
 
-def test_lazy_import(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+def test_lazy_import(
+    monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType
+) -> None:
     sentinel = ModuleType("trend_analysis.selector")
     monkeypatch.setitem(sys.modules, "trend_analysis.selector", sentinel)
     reloaded = importlib.reload(fresh_trend_module)
@@ -36,7 +40,9 @@ def test_lazy_import(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: Module
     assert reloaded.selector is sentinel
 
 
-def test_optional_module_failures_suppressed(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+def test_optional_module_failures_suppressed(
+    monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType
+) -> None:
     import trend_analysis
 
     original_import = importlib.import_module
@@ -65,7 +71,9 @@ def test_reexports_available(fresh_trend_module: ModuleType) -> None:
     assert callable(fresh_trend_module.export_to_csv)
 
 
-def test_data_module_missing(monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType) -> None:
+def test_data_module_missing(
+    monkeypatch: pytest.MonkeyPatch, fresh_trend_module: ModuleType
+) -> None:
     original_import = importlib.import_module
 
     def stub_import(name: str, package: str | None = None):  # type: ignore[override]

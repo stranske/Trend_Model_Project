@@ -72,7 +72,9 @@ def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     presets._preset_registry.cache_clear()
 
 
-def test_preset_registry_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_preset_registry_loading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     create_registry(tmp_path, monkeypatch)
 
     registry = presets._preset_registry()
@@ -99,7 +101,9 @@ def test_list_helpers_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert labels == ("Alpha", "Zulu")
 
 
-def test_get_trend_preset_by_slug_and_label(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_trend_preset_by_slug_and_label(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     create_registry(tmp_path, monkeypatch)
 
     alpha_by_slug = get_trend_preset("alpha")
@@ -142,7 +146,9 @@ def test_trend_preset_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert metrics_pipeline["Sharpe"] == defaults["metrics"]["sharpe"]
 
 
-def test_apply_trend_preset_merges_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_trend_preset_merges_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     create_registry(tmp_path, monkeypatch)
     preset = get_trend_preset("zulu")
 
@@ -164,7 +170,9 @@ def test_apply_trend_preset_merges_config(tmp_path: Path, monkeypatch: pytest.Mo
     assert empty.run["trend_preset"] == "zulu"
 
 
-def test_apply_trend_preset_branch_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_trend_preset_branch_variants(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     create_registry(tmp_path, monkeypatch)
     preset = get_trend_preset("alpha")
 
@@ -231,7 +239,9 @@ def test_internal_helper_functions() -> None:
     assert _coerce_optional_float("bad") is None
     assert _coerce_optional_float(-0.1, minimum=0.0) is None
 
-    weights = _normalise_metric_weights({"Sharpe": "2", "invalid": object(), "return_ann": "bad"})
+    weights = _normalise_metric_weights(
+        {"Sharpe": "2", "invalid": object(), "return_ann": "bad"}
+    )
     assert weights == {"sharpe": 2.0}
 
     frozen = _freeze_mapping({"key": 1})
@@ -239,7 +249,9 @@ def test_internal_helper_functions() -> None:
         frozen["key"] = 2  # type: ignore[index]
 
 
-def test_vol_adjust_defaults_and_metrics_pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_vol_adjust_defaults_and_metrics_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     create_registry(tmp_path, monkeypatch)
     zulu = get_trend_preset("zulu")
 
