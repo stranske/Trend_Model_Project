@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from trend_analysis.signals import TrendSpec
 from trend_analysis.signal_presets import (
     TrendSpecPreset,
     default_preset_name,
