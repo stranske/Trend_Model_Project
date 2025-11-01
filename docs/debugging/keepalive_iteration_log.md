@@ -29,6 +29,17 @@
 - 🔍 Failure occurs before the orchestrator starts, so no belt worker is invoked; keepalive remains idle.
 - 📌 Conclusion: escalation option 1 is blocked without elevating credentials. The keepalive path must trigger the belt workflows directly.
 
+## Attempt — Direct belt worker dispatch (Nov 2025)
+- ✅ `agents-pr-meta` recognises keepalive round comments and assembles the worker payload (`issue`, `branch`, `base`).
+- ❌ Workflow runs triggered by keepalive comments end with **startup_failure** because the `keepalive_worker` job requires `secrets.ACTIONS_BOT_PAT`, and GitHub withholds repository secrets from `issue_comment` dispatches authored by automation accounts. Recent examples: runs 18997968818 and 18997967860 (both cancelled before any jobs executed).
+- 🔍 Since the reusable worker never starts, no commits or task execution occur—confirming that option 2 remains blocked without a PAT that can be shared with the comment-triggered workflow.
+- 📌 Next step: either move the keepalive path back through Agents 70 (with PAT credentials) or provision an alternative credential scope that the PR-meta workflow can access when reacting to automation-authored comments.
+
+## Attempt — Orchestrator relay with PAT (Nov 2025)
+- ✅ Updated `agents-pr-meta` to dispatch **Agents 70 Orchestrator** directly whenever a keepalive round comment is detected. The job now uses `secrets.ACTIONS_BOT_PAT` to call `actions.createWorkflowDispatch`, forwarding `dispatcher_force_issue`, branch/base metadata, and an explicit `keepalive_enabled` flag.
+- ⏳ Pending verification: need to observe a follow-up run to confirm the orchestrator honours the forced issue, invokes the belt worker, and resumes task execution on the existing PR branch.
+- 📌 If GitHub still blocks the dispatch (e.g. PAT missing or insufficient scope), capture the run ID and revisit credential strategy.
+
 ## Implementation notes (worker guard relaxation)
 - Modify `.github/workflows/agents-70-orchestrator.yml` so the belt worker's `if` clause permits execution when `enable_keepalive` is `true`, even if a PR already exists.
 - Retain the guard summary for the non-keepalive path, but switch the message to “keepalive override active” when the worker is allowed to continue.

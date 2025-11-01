@@ -181,18 +181,65 @@ jobs:
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason }}"
 
-  keepalive_worker:
+  keepalive_orchestrator:
     needs: keepalive_dispatch
     if: needs.keepalive_dispatch.outputs.dispatch == 'true'
-    uses: ./.github/workflows/agents-72-codex-belt-worker.yml
-    with:
-      issue: ${{ needs.keepalive_dispatch.outputs.issue }}
-      branch: ${{ needs.keepalive_dispatch.outputs.branch }}
-      base: ${{ needs.keepalive_dispatch.outputs.base }}
-      source: keepalive
-      max_parallel: 1
-    secrets:
-      actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+    name: Dispatch keepalive orchestrator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Agents 70 run for keepalive
+        id: orchestrator
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          script: |
+            const issue = Number('${{ needs.keepalive_dispatch.outputs.issue }}');
+            const branch = '${{ needs.keepalive_dispatch.outputs.branch }}';
+            const base = '${{ needs.keepalive_dispatch.outputs.base }}';
+            const round = Number('${{ needs.keepalive_dispatch.outputs.round }}');
+
+            const { owner, repo } = context.repo;
+            const workflowId = 'agents-70-orchestrator.yml';
+            const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+
+            const params = {
+              enable_keepalive: true,
+              dispatcher_force_issue: issue ? String(issue) : '',
+            };
+
+            const options = {
+              keepalive_enabled: true,
+              keepalive_source: 'agents-pr-meta',
+              keepalive_round: round || 0,
+              keepalive_branch: branch,
+              keepalive_base: base,
+            };
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              ref,
+              inputs: {
+                keepalive_enabled: 'true',
+                params_json: JSON.stringify(params),
+                options_json: JSON.stringify(options),
+                dry_run: 'false',
+              },
+            });
+
+            core.summary
+              .addHeading('Keepalive orchestrator dispatch')
+              .addRaw(`Workflow: ${workflowId}`)
+              .addEOL()
+              .addRaw(`Issue: ${issue ? `#${issue}` : 'unknown'}`)
+              .addEOL()
+              .addRaw(`Round: ${round || 'n/a'}`)
+              .addEOL()
+              .addRaw(`Branch: ${branch || '(not detected)'}`)
+              .addEOL()
+              .addRaw(`Base: ${base || '(not detected)'}`)
+              .write();
 
   listen_commands:
     if: github.event_name == 'issue_comment' && github.event.issue.pull_request
