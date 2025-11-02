@@ -52,6 +52,12 @@
 - Bubble the same logic into the dispatch summary so round-two runs show the worker result instead of a forced skip.
 - Keep the PAT pass-through unchanged (`actions_bot_pat` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
 
+## Patch — Hidden markers and concurrency (Nov 2025)
+- Keepalive comments now always start with `<!-- keepalive-round:N -->` followed by `<!-- codex-keepalive-marker -->`, matching the sentinel contract used by PR-meta.
+- Each round explicitly reminds the agent to keep the checklist current and post a summary when the round concludes; the legacy command listener is disabled so keepalive is the single automation trigger.
+- Orchestrator concurrency keys on the PR (falling back to the ref) and no longer cancels in-flight runs, so consecutive keepalive rounds cannot interrupt one another.
+- The keepalive sweep declares write permissions up front, avoiding token-scope regressions when posting round comments.
+
 ## Escalation options (recorded)
 1. **Repository dispatch → Orchestrator** – _Blocked_. PR-meta lacks token scope to call `repos.createDispatchEvent`, resulting in 403s and no orchestrator run. Escalation path disabled unless a PAT is wired in.
 2. **Direct belt workflows** – ✅ Implemented November 2025. PR-meta now invokes `Agents 72 Codex Belt Worker` directly with the detected issue/branch so the worker re-engages without involving the chat connector.

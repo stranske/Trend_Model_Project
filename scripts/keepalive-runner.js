@@ -538,12 +538,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const completed = Math.max(0, totalTasks - outstanding);
       const itemWord = outstanding === 1 ? 'item' : 'items';
       const verb = outstanding === 1 ? 'remains' : 'remain';
-      const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
+  const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
 
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
       const nextRound = computeNextRound(keepaliveCandidates);
-      const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
+  const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -555,8 +555,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         instruction = instruction.split(`{${token}}`).join(value);
       }
 
-      const bodyParts = [canonicalMarker, roundMarker, '', command];
+      const bodyParts = [roundMarker, canonicalMarker, '', command];
       bodyParts.push('', `**Keepalive Round ${nextRound}**`);
+      bodyParts.push('', 'Continue incremental work toward acceptance criteria. Use the current checklist and update task statuses.');
+      bodyParts.push('Post an updated summary when this round completes.');
       if (instruction) {
         bodyParts.push('', instruction);
       }
