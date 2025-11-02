@@ -26,19 +26,19 @@ fonttools==4.60.1
     #   matplotlib
 fpdf2==2.8.5
     # via trend-model (pyproject.toml)
-hypothesis==6.142.5
+hypothesis==6.143.0
     # via trend-model (pyproject.toml)
 ipython==9.6.0
     # via ipywidgets
 ipython-pygments-lexers==1.1.1
     # via ipython
-ipywidgets==8.1.7
+ipywidgets==8.1.8
     # via trend-model (pyproject.toml)
 jedi==0.19.2
     # via ipython
 joblib==1.5.2
     # via trend-model (pyproject.toml)
-jupyterlab-widgets==3.0.15
+jupyterlab-widgets==3.0.16
     # via ipywidgets
 kiwisolver==1.4.9
     # via matplotlib
@@ -135,7 +135,7 @@ tzdata==2025.2
     # via pandas
 wcwidth==0.2.14
     # via prompt-toolkit
-widgetsnbextension==4.0.14
+widgetsnbextension==4.0.15
     # via ipywidgets
 wrapt==2.0.0
     # via pandera
