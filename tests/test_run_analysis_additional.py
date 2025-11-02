@@ -30,7 +30,9 @@ def _base_config() -> SimpleNamespace:
     )
 
 
-def test_main_passes_missing_policy(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_passes_missing_policy(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     cfg = _base_config()
     cfg.data["missing_policy"] = "zeros"
     cfg.data["missing_limit"] = 7
@@ -51,11 +53,18 @@ def test_main_passes_missing_policy(monkeypatch: pytest.MonkeyPatch, capsys: pyt
             "missing_policy": missing_policy,
             "missing_limit": missing_limit,
         }
-        return pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=2, freq="M"), "Fund": [0.01, 0.02]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Fund": [0.01, 0.02],
+            }
+        )
 
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: DummyResult())
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *args, **kwargs: "Summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *args, **kwargs: "Summary"
+    )
 
     result = run_analysis.main(["-c", "config.yml"])
     assert result == 0
@@ -66,7 +75,9 @@ def test_main_passes_missing_policy(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     assert captured["kwargs"]["errors"] == "raise"
 
 
-def test_main_maps_nan_policy_when_signature_uses_nan(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_maps_nan_policy_when_signature_uses_nan(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     cfg = _base_config()
     cfg.data.pop("missing_policy", None)
     cfg.data.pop("missing_limit", None)
@@ -78,16 +89,29 @@ def test_main_maps_nan_policy_when_signature_uses_nan(monkeypatch: pytest.Monkey
     def fake_load(_path: str) -> SimpleNamespace:
         return cfg
 
-    def fake_load_csv(path: str, *, errors: str = "log", nan_policy: object = None, nan_limit: object = None) -> pd.DataFrame:
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str = "log",
+        nan_policy: object = None,
+        nan_limit: object = None,
+    ) -> pd.DataFrame:
         captured["errors"] = errors
         captured["nan_policy"] = nan_policy
         captured["nan_limit"] = nan_limit
-        return pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=2, freq="M"), "Fund": [0.01, 0.02]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Fund": [0.01, 0.02],
+            }
+        )
 
     monkeypatch.setattr(run_analysis, "load", fake_load)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: DummyResult())
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *args, **kwargs: "Summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *args, **kwargs: "Summary"
+    )
 
     assert run_analysis.main(["-c", "cfg.yml"]) == 0
     out = capsys.readouterr().out

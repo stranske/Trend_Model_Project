@@ -115,7 +115,9 @@ def test_rolling_signals_cover_validation_and_smoothing() -> None:
     assert np.isclose(vol.iloc[-1], expected_vol * np.sqrt(12))
 
     with pytest.raises(ValueError):
-        _rolling_volatility_signal(series, window=0, smoothing=1, periods_per_year=None, annualise=False)
+        _rolling_volatility_signal(
+            series, window=0, smoothing=1, periods_per_year=None, annualise=False
+        )
 
 
 def test_default_periods_per_year_mappings() -> None:
@@ -191,14 +193,22 @@ def test_compute_regime_series_without_cache_returns_labels() -> None:
 def test_compute_regime_series_handles_empty_input() -> None:
     settings = RegimeSettings(enabled=True)
     empty_series = pd.Series(dtype=float)
-    assert _compute_regime_series(empty_series, settings, freq="M", periods_per_year=12).empty
-    nan_series = pd.Series([np.nan, np.nan], index=pd.date_range("2024-01-31", periods=2, freq="M"))
-    assert _compute_regime_series(nan_series, settings, freq="M", periods_per_year=12).empty
+    assert _compute_regime_series(
+        empty_series, settings, freq="M", periods_per_year=12
+    ).empty
+    nan_series = pd.Series(
+        [np.nan, np.nan], index=pd.date_range("2024-01-31", periods=2, freq="M")
+    )
+    assert _compute_regime_series(
+        nan_series, settings, freq="M", periods_per_year=12
+    ).empty
 
 
 def test_compute_regimes_disabled_returns_empty() -> None:
     settings = RegimeSettings(enabled=False)
-    proxy = pd.Series([0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M"))
+    proxy = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M")
+    )
     result = compute_regimes(proxy, settings, freq="M", periods_per_year=12)
     assert result.empty
 
@@ -246,7 +256,11 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
     settings = RegimeSettings(enabled=True, min_obs=10)
     regimes = pd.Series(dtype="string")
     table, notes = aggregate_performance_by_regime(
-        returns_map={"Fund": pd.Series([0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M"))},
+        returns_map={
+            "Fund": pd.Series(
+                [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M")
+            )
+        },
         risk_free=0.0,
         regimes=regimes,
         settings=settings,
@@ -256,7 +270,9 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
     assert "unavailable" in notes[0]
 
     regimes = pd.Series(
-        ["Risk-On", "Risk-Off"], index=pd.date_range("2024-01-31", periods=2, freq="M"), dtype="string"
+        ["Risk-On", "Risk-Off"],
+        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        dtype="string",
     )
     series = pd.Series([0.01, -0.02], index=regimes.index)
     table, notes = aggregate_performance_by_regime(
@@ -275,7 +291,9 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
 
 def test_build_regime_payload_handling(monkeypatch: pytest.MonkeyPatch) -> None:
     dates = pd.date_range("2024-01-31", periods=3, freq="M")
-    data = pd.DataFrame({"Date": dates, "Proxy": [0.01, 0.02, -0.01], "Fund": [0.02, 0.01, 0.03]})
+    data = pd.DataFrame(
+        {"Date": dates, "Proxy": [0.01, 0.02, -0.01], "Fund": [0.02, 0.01, 0.03]}
+    )
     returns_map = {"Fund": data.set_index("Date")["Fund"]}
 
     # Disabled configuration short-circuits early.
@@ -357,14 +375,18 @@ def test_build_regime_payload_handling(monkeypatch: pytest.MonkeyPatch) -> None:
         assert payload["summary"] in payload["notes"] or payload["summary"] is None
 
 
-def test_build_regime_payload_handles_missing_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_handles_missing_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2024-01-31", periods=2, freq="M")
     data = pd.DataFrame({"Date": dates, "Proxy": [0.01, 0.02], "Fund": [0.02, 0.01]})
     returns_map = {"Fund": data.set_index("Date")["Fund"]}
 
     monkeypatch.setattr(
         "trend_analysis.regimes.compute_regimes",
-        lambda *_args, **_kwargs: pd.Series([pd.NA, pd.NA], index=dates, dtype="string"),
+        lambda *_args, **_kwargs: pd.Series(
+            [pd.NA, pd.NA], index=dates, dtype="string"
+        ),
     )
 
     payload = build_regime_payload(
@@ -387,7 +409,9 @@ def test_build_regime_payload_handles_missing_labels(monkeypatch: pytest.MonkeyP
     assert any("forward/backward fill" in note.lower() for note in payload["notes"])
 
 
-def test_build_regime_payload_generates_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_generates_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2024-01-31", periods=6, freq="M")
     data = pd.DataFrame(
         {
@@ -426,6 +450,7 @@ def test_build_regime_payload_generates_summary(monkeypatch: pytest.MonkeyPatch)
 
     assert not payload["table"].empty
     assert isinstance(payload["summary"], str)
-    assert "risk-on" in payload["summary"].lower() or "risk-off" in payload["summary"].lower()
-
-
+    assert (
+        "risk-on" in payload["summary"].lower()
+        or "risk-off" in payload["summary"].lower()
+    )

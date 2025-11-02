@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import io
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import io
 import pandas as pd
 import pytest
 
@@ -20,9 +20,9 @@ from trend_analysis.io.market_data import (
 )
 from trend_analysis.io.validators import (
     ValidationResult,
-    _ValidationSummary,
     _build_result,
     _read_uploaded_file,
+    _ValidationSummary,
     create_sample_template,
     detect_frequency,
     load_and_validate_upload,
@@ -45,7 +45,9 @@ def _metadata_with_warnings() -> MarketDataMetadata:
         missing_policy="drop",
         missing_policy_overrides={"FundA": "ffill"},
         missing_policy_limits={"FundA": 2},
-        missing_policy_filled={"FundA": MissingPolicyFillDetails(method="ffill", count=3)},
+        missing_policy_filled={
+            "FundA": MissingPolicyFillDetails(method="ffill", count=3)
+        },
         missing_policy_dropped=["FundC"],
         missing_policy_summary="ffill applied to FundA; FundC dropped",
     )
@@ -121,7 +123,9 @@ def test_read_uploaded_file_parquet_stream(monkeypatch: pytest.MonkeyPatch) -> N
     assert list(loaded.columns) == ["A"]
 
 
-def test_read_uploaded_file_fallback_and_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_fallback_and_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     csv_like = SimpleNamespace(name="mystery.csv")
 
     def fake_read_csv(obj: Any) -> pd.DataFrame:
@@ -171,7 +175,9 @@ def test_read_uploaded_file_propagates_file_errors(
         _read_uploaded_file(stream)
 
 
-def test_read_uploaded_file_path_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_path_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     csv_path = tmp_path / "invalid.csv"
     csv_path.write_text("bad")
 
@@ -206,9 +212,16 @@ def test_read_uploaded_file_lower_name_errors(
         _read_uploaded_file(stub)
 
 
-def test_load_and_validate_upload_returns_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_and_validate_upload_returns_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     metadata = _metadata_with_warnings()
-    frame = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=metadata.rows, freq="M"), "FundA": 0.01})
+    frame = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-31", periods=metadata.rows, freq="M"),
+            "FundA": 0.01,
+        }
+    )
 
     monkeypatch.setattr(
         "trend_analysis.io.validators._read_uploaded_file",
@@ -219,7 +232,9 @@ def test_load_and_validate_upload_returns_metadata(monkeypatch: pytest.MonkeyPat
         assert source == "uploaded.csv"
         return ValidatedMarketData(frame=data.set_index("Date"), metadata=metadata)
 
-    monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", fake_validate)
+    monkeypatch.setattr(
+        "trend_analysis.io.validators.validate_market_data", fake_validate
+    )
 
     loaded_frame, meta = load_and_validate_upload("dummy")
     assert isinstance(meta["validation"], ValidationResult)
@@ -229,10 +244,14 @@ def test_load_and_validate_upload_returns_metadata(monkeypatch: pytest.MonkeyPat
     assert loaded_frame.index.name == "Date"
 
 
-def test_create_sample_template_has_expected_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_sample_template_has_expected_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     template = create_sample_template()
     assert template.shape == (12, 7)
     assert template.columns[0] == "Date"
+
+
 def test_validation_result_report_includes_metadata() -> None:
     metadata = _metadata_with_warnings()
     result = ValidationResult(
@@ -271,4 +290,3 @@ def test_detect_frequency_returns_code(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda _index: {"label": "unknown", "code": "M"},
     )
     assert detect_frequency(df) == "M"
-
