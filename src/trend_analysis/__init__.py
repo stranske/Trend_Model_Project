@@ -24,6 +24,7 @@ _EAGER_SUBMODULES = [
 _LAZY_SUBMODULES = {
     "api": "trend_analysis.api",
     "cli": "trend_analysis.cli",
+    "io": "trend_analysis.io",
     "selector": "trend_analysis.selector",
     "weighting": "trend_analysis.weighting",
     "weights": "trend_analysis.weights",
@@ -61,6 +62,7 @@ data: Any
 pipeline: Any
 export: Any
 signals: Any
+io: Any
 backtesting: Any
 api: Any
 selector: Any
@@ -109,6 +111,7 @@ __all__ = [
     "backtesting",
     "api",
     "export",
+    "io",
     "signals",
     "presets",
     "selector",

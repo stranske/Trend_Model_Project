@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from typing import Mapping
 
 import numpy as np
 import pandas as pd
@@ -462,3 +463,47 @@ def test_backtest_result_summary_filters_weights() -> None:
     weights_summary = summary["weights"]
     assert list(weights_summary) == [idx[1].isoformat()]
     assert summary["metrics"]["sharpe"] == 1.0
+
+
+def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) -> None:
+    index = pd.date_range("2020-01-01", periods=20, freq="B")
+    returns = pd.DataFrame({"A": 0.01, "B": 0.005}, index=index)
+
+    def strategy(window: pd.DataFrame) -> Mapping[str, float]:
+        # Keep the strategy deterministic so the turnover expectation is stable.
+        return {"A": 0.6, "B": 0.4}
+
+    recorded_window: list[int] = []
+
+    def capture_sharpe(
+        series: pd.Series, periods_per_year: int, window: int
+    ) -> pd.Series:
+        recorded_window.append(window)
+        return pd.Series(0.0, index=series.index)
+
+    with monkeypatch.context() as mp:
+        mp.setattr(
+            "trend_analysis.backtesting.harness._rolling_sharpe",
+            capture_sharpe,
+        )
+        result = run_backtest(
+            returns,
+            strategy,
+            rebalance_freq="2B",
+            window_size=5,
+            rolling_sharpe_window=3,
+            initial_weights={"A": 1.0},
+        )
+
+    # The custom rolling window should be forwarded to the helper exactly once.
+    assert recorded_window == [3]
+
+    # Initial weights of 100% in ``A`` should result in an initial turnover of 0.8
+    # when the strategy moves to a 60/40 mix.
+    first_turnover = result.turnover.iloc[0]
+    assert math.isclose(first_turnover, 0.8, rel_tol=1e-9)
+
+    # Confirm that weights recorded in the result respect the strategy output.
+    first_weights = result.weights.iloc[0]
+    assert math.isclose(first_weights["A"], 0.6)
+    assert math.isclose(first_weights["B"], 0.4)
