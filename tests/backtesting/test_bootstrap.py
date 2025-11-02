@@ -33,9 +33,13 @@ def test_init_rng_reuses_generators_and_validate_inputs_types() -> None:
     rng = np.random.default_rng(123)
     assert _init_rng(rng) is rng
 
-    base = _make_result(pd.Series([0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME")))
+    base = _make_result(
+        pd.Series([0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
+    )
     with pytest.raises(TypeError, match="returns must be a pandas Series"):
-        _validate_inputs(replace(base, returns=pd.DataFrame(base.returns)), n=1, block=1)
+        _validate_inputs(
+            replace(base, returns=pd.DataFrame(base.returns)), n=1, block=1
+        )
     with pytest.raises(TypeError, match="equity_curve must be a pandas Series"):
         _validate_inputs(
             replace(base, equity_curve=base.equity_curve.to_frame()), n=1, block=1
@@ -50,7 +54,9 @@ def test_bootstrap_equity_sanitises_non_finite_alignment() -> None:
     faulty_equity.iloc[0] = np.inf
     result = replace(result, equity_curve=faulty_equity)
 
-    band = bootstrap_equity(result, n=10, block=2, random_state=np.random.default_rng(7))
+    band = bootstrap_equity(
+        result, n=10, block=2, random_state=np.random.default_rng(7)
+    )
     assert np.isfinite(band.to_numpy(dtype=float)).all()
 
 
