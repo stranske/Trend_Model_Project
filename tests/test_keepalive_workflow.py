@@ -65,8 +65,8 @@ def test_keepalive_idle_threshold_logic() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [101]
     body_lines = created[0]["body"].splitlines()
-    assert body_lines[0] == "<!-- codex-keepalive-marker -->"
-    assert body_lines[1] == "<!-- keepalive-round:1 -->"
+    assert body_lines[0] == "<!-- keepalive-round:1 -->"
+    assert body_lines[1] == "<!-- codex-keepalive-marker -->"
     assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert (
@@ -169,8 +169,8 @@ def test_keepalive_handles_paged_comments() -> None:
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [808]
     body_lines = created[0]["body"].splitlines()
-    assert body_lines[0] == "<!-- codex-keepalive-marker -->"
-    assert body_lines[1] == "<!-- keepalive-round:1 -->"
+    assert body_lines[0] == "<!-- keepalive-round:1 -->"
+    assert body_lines[1] == "<!-- codex-keepalive-marker -->"
     assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
