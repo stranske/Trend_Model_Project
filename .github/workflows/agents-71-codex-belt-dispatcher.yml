@@ -18,6 +18,22 @@ on:
     secrets:
       actions_bot_pat:
         required: true
+    outputs:
+      issue:
+        description: 'Issue selected for dispatch'
+        value: ${{ jobs.dispatch.outputs.issue }}
+      branch:
+        description: 'Codex branch tied to the selected issue'
+        value: ${{ jobs.dispatch.outputs.branch }}
+      base:
+        description: 'Base branch used for the automation PR'
+        value: ${{ jobs.dispatch.outputs.base }}
+      reason:
+        description: 'Reason the dispatcher selected the issue'
+        value: ${{ jobs.dispatch.outputs.reason }}
+      dry_run:
+        description: 'Dispatcher dry-run mode flag'
+        value: ${{ jobs.dispatch.outputs.dry_run }}
 
 permissions:
   contents: write
