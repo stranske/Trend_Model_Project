@@ -199,6 +199,8 @@ def test_read_uploaded_file_path_failures(
         (RuntimeError("boom"), "Failed to read"),
     ],
 )
+
+
 def test_read_uploaded_file_lower_name_errors(
     monkeypatch: pytest.MonkeyPatch, exc: Exception, msg: str
 ) -> None:
@@ -244,9 +246,7 @@ def test_load_and_validate_upload_returns_metadata(
     assert loaded_frame.index.name == "Date"
 
 
-def test_create_sample_template_has_expected_shape(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
     assert template.shape == (12, 7)
     assert template.columns[0] == "Date"

@@ -18,6 +18,7 @@ from trend_analysis.pipeline import (
     _section_get,
     _unwrap_cfg,
 )
+from trend_analysis.util.frequency import FrequencySummary
 
 
 def test_cfg_helpers_handle_mappings_and_objects() -> None:
@@ -100,7 +101,7 @@ def test_prepare_input_data_applies_missing_policy() -> None:
         missing_policy={"default": "ffill"},
         missing_limit={"default": 1},
     )
-    assert isinstance(summary, type(summary))  # ensure FrequencySummary returned
+    assert isinstance(summary, FrequencySummary)
     assert normalised is False
     assert "FundA" in processed.columns
     assert missing.policy["FundA"] == "ffill"
