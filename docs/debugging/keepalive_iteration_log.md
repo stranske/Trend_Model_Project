@@ -58,6 +58,13 @@
 - Orchestrator concurrency keys on the PR (falling back to the ref) and no longer cancels in-flight runs, so consecutive keepalive rounds cannot interrupt one another.
 - The keepalive sweep declares write permissions up front, avoiding token-scope regressions when posting round comments.
 
+## Regression — Belt dispatcher outputs missing (Nov 2025)
+- 🧪 Run [19013589507](https://github.com/stranske/Trend_Model_Project/actions/runs/19013589507) shows the keepalive dispatch reaching Agents 70, but every downstream job that relies on `needs.belt-dispatch.outputs.*` receives empty strings.
+- 🔍 Root cause: `.github/workflows/agents-71-codex-belt-dispatcher.yml` defines job-level outputs but never exposes them via `workflow_call.outputs`, so callers cannot read the selected issue/branch/base.
+- 📉 Side effect: `Guard existing Codex PRs` and `Codex Belt Worker` short-circuit because the issue/branch inputs resolve to blanks, leaving keepalive comments with no follow-up commits.
+- 🔧 Fix: declare workflow-level outputs (issue, branch, base, reason, dry_run) that forward `jobs.dispatch.outputs.*`; confirm downstream guards detect the existing PR and launch the worker when `enable_keepalive` is `true`.
+- ✅ Verification: rerun keepalive after patch and ensure the dispatch summary records the selected issue/branch while the worker job executes instead of `skipped`.
+
 ## Escalation options (recorded)
 1. **Repository dispatch → Orchestrator** – _Blocked_. PR-meta lacks token scope to call `repos.createDispatchEvent`, resulting in 403s and no orchestrator run. Escalation path disabled unless a PAT is wired in.
 2. **Direct belt workflows** – ✅ Implemented November 2025. PR-meta now invokes `Agents 72 Codex Belt Worker` directly with the detected issue/branch so the worker re-engages without involving the chat connector.
