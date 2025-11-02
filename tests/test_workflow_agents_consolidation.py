@@ -354,11 +354,12 @@ def test_agents_orchestrator_has_concurrency_defaults():
 
     concurrency = data.get("concurrency") or {}
     assert (
-        concurrency.get("group") == "orchestrator-${{ github.ref }}"
-    ), "Orchestrator must serialize runs per ref"
+        concurrency.get("group")
+        == "agents-70-orchestrator-${{ github.event.client_payload.pr || github.event.issue.number || github.ref }}"
+    ), "Orchestrator must serialize runs per PR/issue/ref"
     assert (
-        concurrency.get("cancel-in-progress") is True
-    ), "Orchestrator concurrency must cancel in-progress runs"
+        concurrency.get("cancel-in-progress") is False
+    ), "Orchestrator concurrency must keep existing runs alive"
 
     jobs = data.get("jobs", {})
     orchestrate = jobs.get("orchestrate", {})
