@@ -16,14 +16,14 @@ from trend_analysis.pipeline import (
     _cfg_value,
     _derive_split_from_periods,
     _policy_from_config,
-    _preprocessing_summary,
     _prepare_input_data,
+    _preprocessing_summary,
     _resolve_sample_split,
     _section_get,
     _unwrap_cfg,
 )
-from trend_analysis.util.missing import MissingPolicyResult
 from trend_analysis.util.frequency import FrequencySummary
+from trend_analysis.util.missing import MissingPolicyResult
 
 
 class DummyMapping(Mapping[str, Any]):
@@ -69,7 +69,9 @@ def test_cfg_helpers_handle_mixed_inputs() -> None:
 
 
 def test_preprocessing_summary_includes_missing_info() -> None:
-    summary = _preprocessing_summary("D", normalised=True, missing_summary="ffill applied")
+    summary = _preprocessing_summary(
+        "D", normalised=True, missing_summary="ffill applied"
+    )
     assert "Cadence: Daily" in summary
     assert "monthly" in summary.lower()
     assert "ffill applied" in summary
@@ -137,7 +139,9 @@ def test_derive_split_ratio_fallback_when_date_split_invalid() -> None:
 
 
 def test_resolve_sample_split_derives_missing_fields() -> None:
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=6, freq="ME"), "A": np.arange(6)})
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2020-01-31", periods=6, freq="ME"), "A": np.arange(6)}
+    )
     split_cfg = {"method": "date", "date": "2020-03"}
     resolved = _resolve_sample_split(df, split_cfg)
     assert resolved["in_end"] == "2020-03"
@@ -152,7 +156,9 @@ def test_resolve_sample_split_derives_missing_fields() -> None:
         _resolve_sample_split(pd.DataFrame({"value": [1, 2]}), {})
 
 
-def test_prepare_input_data_resamples_and_applies_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prepare_input_data_resamples_and_applies_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2020-01-01", periods=4, freq="D"),
@@ -161,7 +167,9 @@ def test_prepare_input_data_resamples_and_applies_policy(monkeypatch: pytest.Mon
         }
     )
 
-    summary = FrequencySummary(code="D", label="Daily", resampled=True, target="M", target_label="Monthly")
+    summary = FrequencySummary(
+        code="D", label="Daily", resampled=True, target="M", target_label="Monthly"
+    )
     fake_result = MissingPolicyResult(
         policy={"A": "drop", "B": "drop"},
         default_policy="drop",

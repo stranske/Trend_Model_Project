@@ -11,14 +11,14 @@ import pytest
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
     MarketDataMode,
+    MarketDataValidationError,
     MissingPolicyFillDetails,
 )
 from trend_analysis.io.validators import (
-    _ValidationSummary,
     _read_uploaded_file,
+    _ValidationSummary,
     detect_frequency,
 )
-from trend_analysis.io.market_data import MarketDataValidationError
 
 
 def test_validation_summary_emits_all_warning_types() -> None:
@@ -41,9 +41,7 @@ def test_validation_summary_emits_all_warning_types() -> None:
         missing_policy="drop",
         missing_policy_summary="Filled 2 cells",
         missing_policy_dropped=["B"],
-        missing_policy_filled={
-            "A": MissingPolicyFillDetails(method="ffill", count=2)
-        },
+        missing_policy_filled={"A": MissingPolicyFillDetails(method="ffill", count=2)},
         frequency_missing_periods=2,
         frequency_max_gap_periods=1,
     )
@@ -58,14 +56,18 @@ def test_validation_summary_emits_all_warning_types() -> None:
     assert any("policy applied" in warning for warning in warnings)
 
 
-def test_detect_frequency_handles_irregular_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_handles_irregular_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     index = pd.date_range("2023-01-01", periods=3, freq="D")
 
     with monkeypatch.context() as mp:
         mp.setattr(
             "trend_analysis.io.validators.classify_frequency",
             lambda idx: (_ for _ in ()).throw(
-                MarketDataValidationError("Irregular spacing", issues=["irregular cadence"])
+                MarketDataValidationError(
+                    "Irregular spacing", issues=["irregular cadence"]
+                )
             ),
         )
         label = detect_frequency(pd.DataFrame(index=index))

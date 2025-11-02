@@ -20,11 +20,25 @@ class DummyResult:
 @pytest.fixture(autouse=True)
 def _no_export_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch.context() as mp:
-        mp.setattr(run_analysis_mod.export, "format_summary_text", lambda *args, **kwargs: "summary")
-        mp.setattr(run_analysis_mod.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: None)
-        mp.setattr(run_analysis_mod.export, "summary_frame_from_result", lambda details: pd.DataFrame())
+        mp.setattr(
+            run_analysis_mod.export,
+            "format_summary_text",
+            lambda *args, **kwargs: "summary",
+        )
+        mp.setattr(
+            run_analysis_mod.export,
+            "make_summary_formatter",
+            lambda *args, **kwargs: lambda df: None,
+        )
+        mp.setattr(
+            run_analysis_mod.export,
+            "summary_frame_from_result",
+            lambda details: pd.DataFrame(),
+        )
         mp.setattr(run_analysis_mod.export, "export_data", lambda *args, **kwargs: None)
-        mp.setattr(run_analysis_mod.export, "export_to_excel", lambda *args, **kwargs: None)
+        mp.setattr(
+            run_analysis_mod.export, "export_to_excel", lambda *args, **kwargs: None
+        )
         yield
 
 
@@ -47,7 +61,11 @@ def _make_config() -> SimpleNamespace:
 
 def _make_result() -> DummyResult:
     metrics = pd.DataFrame({"metric": [1.0]})
-    details = {"summary": "ok", "performance_by_regime": pd.DataFrame(), "regime_notes": []}
+    details = {
+        "summary": "ok",
+        "performance_by_regime": pd.DataFrame(),
+        "regime_notes": [],
+    }
     return DummyResult(metrics, details)
 
 
@@ -65,12 +83,19 @@ def test_main_passes_missing_policy_kwargs(monkeypatch: pytest.MonkeyPatch) -> N
         captured["errors"] = errors
         captured["missing_policy"] = missing_policy
         captured["missing_limit"] = missing_limit
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "A": [0.01, 0.02, 0.03]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+                "A": [0.01, 0.02, 0.03],
+            }
+        )
 
     with monkeypatch.context() as mp:
         mp.setattr(run_analysis_mod, "load", lambda path: cfg)
         mp.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-        mp.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result())
+        mp.setattr(
+            run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result()
+        )
 
         rc = run_analysis_mod.main(["-c", "config.yml"])
 
@@ -84,16 +109,25 @@ def test_main_falls_back_to_nan_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _make_config()
     captured: dict[str, Any] = {}
 
-    def fake_load_csv(path: str, *, errors: str | None = None, nan_policy=None, nan_limit=None) -> pd.DataFrame:
+    def fake_load_csv(
+        path: str, *, errors: str | None = None, nan_policy=None, nan_limit=None
+    ) -> pd.DataFrame:
         captured["errors"] = errors
         captured["nan_policy"] = nan_policy
         captured["nan_limit"] = nan_limit
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "A": [0.01, 0.02, 0.03]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+                "A": [0.01, 0.02, 0.03],
+            }
+        )
 
     with monkeypatch.context() as mp:
         mp.setattr(run_analysis_mod, "load", lambda path: cfg)
         mp.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-        mp.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result())
+        mp.setattr(
+            run_analysis_mod.api, "run_simulation", lambda cfg, df: _make_result()
+        )
 
         rc = run_analysis_mod.main(["-c", "config.yml"])
 

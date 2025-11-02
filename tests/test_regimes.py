@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -285,14 +284,18 @@ def test_compute_regime_series_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_compute_regimes_disabled_returns_empty() -> None:
-    series = pd.Series([0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="M"))
+    series = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="M")
+    )
     settings = RegimeSettings(enabled=False)
     result = compute_regimes(series, settings, freq="M")
     assert result.empty
 
 
 def test_rolling_volatility_signal_validates_window() -> None:
-    series = pd.Series([0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="M"))
+    series = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="M")
+    )
     with pytest.raises(ValueError, match="window must be positive"):
         _rolling_volatility_signal(
             series,
