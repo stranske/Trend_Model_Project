@@ -199,8 +199,6 @@ def test_read_uploaded_file_path_failures(
         (RuntimeError("boom"), "Failed to read"),
     ],
 )
-
-
 def test_read_uploaded_file_lower_name_errors(
     monkeypatch: pytest.MonkeyPatch, exc: Exception, msg: str
 ) -> None:
