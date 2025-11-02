@@ -242,7 +242,7 @@ jobs:
               .write();
 
   listen_commands:
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    if: ${{ false }}  # Disabled; keepalive detection is the single entry point
     runs-on: ubuntu-latest
     steps:
       - name: Handle PR comment command
