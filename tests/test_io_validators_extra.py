@@ -212,6 +212,7 @@ def test_read_uploaded_file_lower_name_errors(
         _read_uploaded_file(stub)
 
 
+
 def test_load_and_validate_upload_returns_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -244,9 +245,8 @@ def test_load_and_validate_upload_returns_metadata(
     assert loaded_frame.index.name == "Date"
 
 
-def test_create_sample_template_has_expected_shape(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+
+def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
     assert template.shape == (12, 7)
     assert template.columns[0] == "Date"
