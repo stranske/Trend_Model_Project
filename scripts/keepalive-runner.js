@@ -556,7 +556,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const bodyParts = [canonicalMarker, roundMarker, '', command];
-  bodyParts.push('', `**Keepalive Round ${nextRound}**`);
+      bodyParts.push('', `**Keepalive Round ${nextRound}**`);
       if (instruction) {
         bodyParts.push('', instruction);
       }
