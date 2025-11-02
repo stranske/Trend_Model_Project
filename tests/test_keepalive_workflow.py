@@ -64,7 +64,10 @@ def test_keepalive_idle_threshold_logic() -> None:
     summary = data["summary"]
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [101]
-    assert created[0]["body"].startswith("@codex")
+    body_lines = created[0]["body"].splitlines()
+    assert body_lines[0] == "<!-- codex-keepalive-marker -->"
+    assert body_lines[1] == "<!-- keepalive-round:1 -->"
+    assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert (
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
@@ -165,7 +168,10 @@ def test_keepalive_handles_paged_comments() -> None:
     data = _run_scenario("paged_comments")
     created = data["created_comments"]
     assert [item["issue_number"] for item in created] == [808]
-    assert created[0]["body"].startswith("@codex")
+    body_lines = created[0]["body"].splitlines()
+    assert body_lines[0] == "<!-- codex-keepalive-marker -->"
+    assert body_lines[1] == "<!-- keepalive-round:1 -->"
+    assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert data["updated_comments"] == []

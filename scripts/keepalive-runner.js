@@ -290,8 +290,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const command = String(commandRaw).trim() || '@codex';
   const commandLower = command.toLowerCase();
 
-  const markerRaw = options.keepalive_marker ?? '<!-- codex-keepalive-marker -->';
-  const marker = String(markerRaw);
+  const canonicalMarker = '<!-- codex-keepalive-marker -->';
+  const markerRaw = options.keepalive_marker ?? canonicalMarker;
+  const marker = String(markerRaw || '').trim() || canonicalMarker;
 
   const sentinelRaw = options.keepalive_sentinel ?? '[keepalive]';
   const sentinelPattern = new RegExp(escapeRegExp(sentinelRaw), 'i');
@@ -554,7 +555,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         instruction = instruction.split(`{${token}}`).join(value);
       }
 
-      const bodyParts = [command];
+      const bodyParts = [canonicalMarker, roundMarker, '', command];
       bodyParts.push('', `**Keepalive Round ${nextRound}**`);
       if (instruction) {
         bodyParts.push('', instruction);
@@ -565,10 +566,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           bodyParts.push(`- ${task}`);
         }
       }
-      if (marker) {
+      if (marker && marker !== canonicalMarker) {
         bodyParts.push('', marker);
       }
-      bodyParts.push('', roundMarker);
       const body = bodyParts.join('\n');
       
       // Ensure agent connectors are assigned before posting keepalive
