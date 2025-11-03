@@ -1,5 +1,35 @@
 <!-- bootstrap for codex on issue #3225 -->
 
+# Codex Agent Bootstrap for Issue #3225
+
+This document bootstraps the Codex agent workstream scoped to
+[issue #3225](https://github.com/Trend_Model_Project/Trend_Model_Project/issues/3225).
+It explains the agent's purpose, operating assumptions, and the concrete
+delivery plan for the associated tooling maintenance effort.
+
+## Purpose
+
+The Codex agent coordinates the recurring maintenance of our shared toolchain
+pins (formatters, linters, and test runners) so local development and CI remain
+in sync. Updates are limited to packages monitored by the Tool Version Check in
+`.github/workflows/autofix-versions.env`.
+
+## Usage Instructions
+
+- Ensure the base project environment is provisioned following
+  [`scripts/setup_env.sh`](../scripts/setup_env.sh).
+- Use `python scripts/sync_tool_versions.py --apply` to propagate version bumps
+  from the pin file into `pyproject.toml` and `requirements.txt`.
+- Validate the synchronization with `python scripts/sync_tool_versions.py --check`
+  before marking the tasks below complete.
+
+## Configuration Details
+
+- No bespoke configuration is required for this bootstrap; it relies on the
+  repository's standard scripts and configuration files.
+- Tool-specific settings continue to live alongside the main project
+  configuration (e.g., `pyproject.toml` for Ruff and Black settings).
+
 # Tool Pin Maintenance Plan (Issue #3225)
 
 ## Scope & Key Constraints
