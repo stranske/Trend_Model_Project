@@ -286,7 +286,9 @@ def test_validation_result_report_includes_metadata() -> None:
 def test_validation_result_report_omits_optional_metadata() -> None:
     """Ensure optional fields are skipped when absent."""
 
-    result = ValidationResult(True, [], [], frequency=None, date_range=None, metadata=None)
+    result = ValidationResult(
+        True, [], [], frequency=None, date_range=None, metadata=None
+    )
     report = result.get_report()
     assert "✅ Schema validation passed" in report
     assert "Detected frequency" not in report
