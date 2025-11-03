@@ -152,6 +152,20 @@ def test_read_uploaded_file_fallback_and_errors(
         _read_uploaded_file(object())
 
 
+def test_read_uploaded_file_stream_generic_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.BytesIO(b"payload")
+    stream.name = "upload.csv"
+
+    def explode(_obj: Any) -> pd.DataFrame:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pd, "read_csv", explode)
+    with pytest.raises(ValueError, match="Failed to read file"):
+        _read_uploaded_file(stream)
+
+
 @pytest.mark.parametrize(
     "exc,msg",
     [
@@ -269,6 +283,19 @@ def test_validation_result_report_includes_metadata() -> None:
     assert "❌" in failure.get_report()
 
 
+def test_validation_result_report_omits_optional_metadata() -> None:
+    """Ensure optional fields are skipped when absent."""
+
+    result = ValidationResult(
+        True, [], [], frequency=None, date_range=None, metadata=None
+    )
+    report = result.get_report()
+    assert "✅ Schema validation passed" in report
+    assert "Detected frequency" not in report
+    assert "Date range" not in report
+    assert "Detected mode" not in report
+
+
 def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> None:
     index = pd.date_range("2024-01-01", periods=3, freq="M")
     df = pd.DataFrame(index=index)
@@ -288,3 +315,16 @@ def test_detect_frequency_returns_code(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda _index: {"label": "unknown", "code": "M"},
     )
     assert detect_frequency(df) == "M"
+
+
+def test_detect_frequency_returns_unknown_on_generic_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index = pd.date_range("2024-01-01", periods=3, freq="ME")
+    df = pd.DataFrame(index=index)
+
+    def raise_error(_index: pd.Index) -> dict[str, str]:
+        raise MarketDataValidationError("Validation failed")
+
+    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", raise_error)
+    assert detect_frequency(df) == "unknown"
