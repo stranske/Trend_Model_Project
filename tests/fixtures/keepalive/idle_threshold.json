@@ -53,8 +53,8 @@
           "created_at": "2024-05-18T09:45:00Z"
         },
         {
-          "user": {"login": "actions-bot"},
-          "body": "<!-- codex-keepalive-marker -->",
+          "user": {"login": "stranske-automation-bot"},
+          "body": "<!-- keepalive-round:1 -->\n<!-- codex-keepalive-marker -->",
           "created_at": "2024-05-18T11:50:00Z"
         }
       ]

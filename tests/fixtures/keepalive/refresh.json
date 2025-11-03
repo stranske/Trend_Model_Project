@@ -22,8 +22,8 @@
         },
         {
           "id": 123456,
-          "user": {"login": "actions-bot"},
-          "body": "@codex plan-and-execute\n\nCodex, 1/2 checklist item remains unchecked (completed 1).\n\n<!-- codex-keepalive-marker -->",
+          "user": {"login": "stranske-automation-bot"},
+          "body": "<!-- keepalive-round:1 -->\n<!-- codex-keepalive-marker -->\n\n@codex plan-and-execute\n\nCodex, 1/2 checklist item remains unchecked (completed 1).",
           "created_at": "2024-05-18T09:00:00Z",
           "updated_at": "2024-05-18T09:00:00Z"
         }

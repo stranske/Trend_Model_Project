@@ -82,6 +82,15 @@ def _assert_single_dispatch(data: dict, issue: int) -> dict:
     return payload
 
 
+def _assert_keepalive_author(comments: list[dict]) -> None:
+    assert comments, "expected keepalive comment to be created"
+    for comment in comments:
+        author = comment.get("user", {}).get("login")
+        assert (
+            author == "stranske-automation-bot"
+        ), f"keepalive comment author mismatch: {author}"
+
+
 def test_keepalive_skip_requested() -> None:
     data = _run_scenario("skip_opt_out")
     summary = data["summary"]
@@ -97,6 +106,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     data = _run_scenario("idle_threshold")
     summary = data["summary"]
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert [item["issue_number"] for item in created] == [101]
     body_lines = created[0]["body"].splitlines()
     assert body_lines[0] == "<!-- keepalive-round:1 -->"
@@ -164,6 +174,7 @@ def test_keepalive_dedupes_configuration() -> None:
     ]
 
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert [item["issue_number"] for item in created] == [505]
     assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
@@ -190,6 +201,7 @@ def test_keepalive_waits_for_recent_command() -> None:
     summary = data["summary"]
 
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert [item["issue_number"] for item in created] == [707]
     assert (
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
@@ -256,6 +268,7 @@ def test_keepalive_skips_unapproved_comment_author() -> None:
 def test_keepalive_handles_paged_comments() -> None:
     data = _run_scenario("paged_comments")
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert [item["issue_number"] for item in created] == [808]
     body_lines = created[0]["body"].splitlines()
     assert body_lines[0] == "<!-- keepalive-round:1 -->"
@@ -281,6 +294,7 @@ def test_keepalive_handles_paged_comments() -> None:
 def test_keepalive_posts_new_comment_for_next_round() -> None:
     data = _run_scenario("refresh")
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert len(created) == 1
     body = created[0]["body"]
     assert "**Keepalive Round 2**" in body
@@ -306,6 +320,7 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
 def test_keepalive_upgrades_legacy_comment() -> None:
     data = _run_scenario("legacy_keepalive")
     created = data["created_comments"]
+    _assert_keepalive_author(created)
     assert len(created) == 1
     body = created[0]["body"]
     assert "**Keepalive Round 2**" in body
@@ -330,21 +345,23 @@ def test_keepalive_skips_non_codex_branches() -> None:
     Now keepalive triggers based on labels and checklist presence, not branch names.
     """
     data = _run_scenario("non_codex_branch")
+    created = data["created_comments"]
+    _assert_keepalive_author(created)
 
     # Keepalive should now trigger because:
     # - PR has agent:codex label
     # - Has @codex command
     # - Has Codex comment with unchecked checklist item
     # - Enough idle time has passed
-    assert len(data["created_comments"]) == 1
-    assert "@codex" in data["created_comments"][0]["body"]
-    assert "1/1 checklist item remains unchecked" in data["created_comments"][0]["body"]
+    assert len(created) == 1
+    assert "@codex" in created[0]["body"]
+    assert "1/1 checklist item remains unchecked" in created[0]["body"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     payload = _assert_single_dispatch(data, 111)
-    assert payload["comment_id"] == data["created_comments"][0]["id"]
+    assert payload["comment_id"] == created[0]["id"]
     assert payload["head"] == "feature/non-codex-update"
 
 
