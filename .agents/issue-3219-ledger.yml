@@ -21,8 +21,8 @@ tasks:
   - id: task-03
     title: Use the PR number (context.payload.pull_request.number) as issue_number
       when assigning on the PR conversation.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:39:22Z'
     finished_at: null
     commit: ''
     notes: []
