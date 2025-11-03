@@ -166,16 +166,23 @@ async function runScenario(scenario) {
     return { data: slice };
   };
 
+  const commentAuthor = () => {
+    const identity = scenario.identity || {};
+    return identity.keepalive_author || identity.service_bot || 'stranske-automation-bot';
+  };
+
   const createComment = async ({ issue_number, body }) => {
     const entry = { issue_number, body };
     entry.id = allocateCommentId();
     entry.html_url = `https://example.test/${issue_number}#comment-${entry.id}`;
+    entry.user = { login: commentAuthor() };
     createdComments.push(entry);
     return { data: entry };
   };
 
   const updateComment = async ({ comment_id, body }) => {
     const entry = { comment_id, body };
+    entry.user = { login: commentAuthor() };
     updatedComments.push(entry);
     return { data: entry };
   };

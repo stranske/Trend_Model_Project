@@ -198,6 +198,20 @@ def test_keepalive_respects_paused_label() -> None:
     assert payload["comment_id"] == created[0]["id"]
 
 
+def test_keepalive_skips_unapproved_comment_author() -> None:
+    data = _run_scenario("unauthorised_author")
+
+    created = data["created_comments"]
+    assert len(created) == 1
+    assert created[0]["issue_number"] == 313
+    assert "@codex" in created[0]["body"]
+
+    _assert_no_dispatch(data)
+
+    warnings = data["logs"]["warnings"]
+    assert any("not in dispatch allow list" in warning for warning in warnings)
+
+
 def test_keepalive_handles_paged_comments() -> None:
     data = _run_scenario("paged_comments")
     created = data["created_comments"]
