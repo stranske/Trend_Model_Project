@@ -15,6 +15,9 @@ async function main() {
   const info = [];
   const warnings = [];
   const outputs = {};
+  const calls = {
+    reactionsCreated: [],
+  };
 
   const core = {
     info: (message) => info.push(String(message)),
@@ -32,6 +35,7 @@ async function main() {
   const context = {
     payload: {
       comment: {
+        id: comment.id || undefined,
         body: comment.body || '',
         user: { login: comment.user?.login || 'stranske-automation-bot' },
       },
@@ -43,6 +47,19 @@ async function main() {
 
   const pull = scenario.pull || {};
   const pullError = scenario.pullError;
+
+  const reactionsByComment = (() => {
+    const raw = scenario.reactions;
+    if (Array.isArray(raw)) {
+      return new Map([[String(comment?.id || '0'), raw]]);
+    }
+    if (raw && typeof raw === 'object') {
+      return new Map(
+        Object.entries(raw).map(([key, value]) => [String(key), Array.isArray(value) ? value : []])
+      );
+    }
+    return new Map();
+  })();
 
   const github = {
     rest: {
@@ -61,6 +78,37 @@ async function main() {
           return { data };
         },
       },
+      reactions: {
+        listForIssueComment: async ({ comment_id }) => {
+          if (scenario.reactionsListError) {
+            throw new Error(scenario.reactionsListError);
+          }
+          const key = String(comment_id ?? '');
+          const data = reactionsByComment.get(key) || [];
+          return { data };
+        },
+        createForIssueComment: async ({ comment_id, content }) => {
+          calls.reactionsCreated.push({ comment_id, content });
+          if (scenario.reactionsCreateError) {
+            const error = new Error(scenario.reactionsCreateError);
+            if (scenario.reactionsCreateStatus) {
+              error.status = scenario.reactionsCreateStatus;
+            }
+            throw error;
+          }
+          const key = String(comment_id ?? '');
+          const existing = reactionsByComment.get(key) || [];
+          reactionsByComment.set(key, existing.concat({ content }));
+          return { data: { content } };
+        },
+      },
+    },
+    paginate: async (method, params) => {
+      const response = await method(params);
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [];
     },
   };
 
@@ -77,6 +125,7 @@ async function main() {
     info,
     warnings,
     result,
+    calls,
   };
 
   process.stdout.write(JSON.stringify(payload));
