@@ -67,7 +67,9 @@ def _assert_no_dispatch(data: dict) -> None:
     assert _dispatch_events(data) == []
 
 
-def _assert_single_dispatch(data: dict, issue: int) -> dict:
+def _assert_single_dispatch(
+    data: dict, issue: int, *, round_expected: int | None = None
+) -> dict:
     dispatches = _dispatch_events(data)
     assert len(dispatches) == 1
     event = dispatches[0]
@@ -79,6 +81,12 @@ def _assert_single_dispatch(data: dict, issue: int) -> dict:
     assert payload["head"]
     assert payload["comment_id"]
     assert payload["comment_url"].startswith("https://example.test/")
+    assert payload["trace"], "Dispatch payload must include keepalive trace"
+    assert isinstance(payload["trace"], str)
+    if round_expected is not None:
+        assert payload["round"] == round_expected
+    else:
+        assert isinstance(payload["round"], int) and payload["round"] >= 1
     return payload
 
 
@@ -109,6 +117,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     body_lines = created[0]["body"].splitlines()
     assert body_lines[0] == "<!-- keepalive-round:1 -->"
     assert body_lines[1] == "<!-- codex-keepalive-marker -->"
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert (
@@ -117,7 +126,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     )
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 101)
+    payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
     assert payload["comment_url"].endswith(f"#comment-{created[0]['id']}")
 
@@ -176,12 +185,13 @@ def test_keepalive_dedupes_configuration() -> None:
     assert [item["issue_number"] for item in created] == [505]
     assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
         in created[0]["body"]
     )
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 505)
+    payload = _assert_single_dispatch(data, 505, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
 
     details = _details(summary, "Triggered keepalive comments")
@@ -205,8 +215,9 @@ def test_keepalive_waits_for_recent_command() -> None:
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
         in created[0]["body"]
     )
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 707)
+    payload = _assert_single_dispatch(data, 707, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
 
     raw = _raw_entries(summary)
@@ -234,12 +245,13 @@ def test_keepalive_respects_paused_label() -> None:
     assert [item["issue_number"] for item in created] == [505]
     assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
         in created[0]["body"]
     )
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 505)
+    payload = _assert_single_dispatch(data, 505, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
 
 
@@ -251,6 +263,7 @@ def test_keepalive_skips_unapproved_comment_author() -> None:
     assert len(created) == 1
     assert created[0]["issue_number"] == 313
     assert "@codex" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
 
     _assert_no_dispatch(data)
 
@@ -273,11 +286,12 @@ def test_keepalive_handles_paged_comments() -> None:
     body_lines = created[0]["body"].splitlines()
     assert body_lines[0] == "<!-- keepalive-round:1 -->"
     assert body_lines[1] == "<!-- codex-keepalive-marker -->"
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert "@codex" in body_lines[3]
     assert "**Keepalive Round 1**" in created[0]["body"]
     assert "<!-- keepalive-round:1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 808)
+    payload = _assert_single_dispatch(data, 808, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
     summary = data["summary"]
     raw = _raw_entries(summary)
@@ -300,9 +314,10 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
     assert "**Keepalive Round 2**" in body
     assert "<!-- keepalive-round:2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
+    assert "<!-- keepalive-trace:" in body
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 909)
+    payload = _assert_single_dispatch(data, 909, round_expected=2)
     assert payload["comment_id"] == created[0]["id"]
 
     summary = data["summary"]
@@ -326,9 +341,10 @@ def test_keepalive_upgrades_legacy_comment() -> None:
     assert "**Keepalive Round 2**" in body
     assert "<!-- keepalive-round:2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
+    assert "<!-- keepalive-trace:" in body
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
-    payload = _assert_single_dispatch(data, 909)
+    payload = _assert_single_dispatch(data, 909, round_expected=2)
     assert payload["comment_id"] == created[0]["id"]
 
     summary = data["summary"]
@@ -354,12 +370,13 @@ def test_keepalive_skips_non_codex_branches() -> None:
     assert len(created) == 1
     _assert_keepalive_authors(created)
     assert "@codex" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
     assert "1/1 checklist item remains unchecked" in created[0]["body"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
-    payload = _assert_single_dispatch(data, 111)
+    payload = _assert_single_dispatch(data, 111, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
     assert payload["head"] == "feature/non-codex-update"
 
@@ -381,9 +398,10 @@ def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
     assert created[0]["issue_number"] == 101
     assert "@codex" in created[0]["body"]
     assert "2/2 checklist items remain unchecked" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
-    payload = _assert_single_dispatch(data, 101)
+    payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
