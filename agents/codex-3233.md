@@ -14,7 +14,7 @@
   - [ ] `harness.py`
   - [ ] `regimes.py`
   - [ ] `pipeline.py`
-  - [ ] `validators.py`
+  - [x] `validators.py`
   - [ ] `run_analysis.py`
   - [ ] `market_data.py`
   - [ ] `signal_presets.py`
@@ -40,7 +40,7 @@ Latest manual “soft gate” coverage sampling (see pytest invocations recorded
 | Module | Coverage | Notes |
 | --- | --- | --- |
 | `trend_analysis/backtesting/bootstrap.py` | 11% | `pytest tests/test_block_bootstrap_engine.py --cov=trend_analysis.backtesting.bootstrap --cov-report=term-missing`【b752fd†L1-L13】 |
-| `trend_analysis/io/validators.py` | 77% | `pytest tests/test_validators.py tests/test_validators_extended.py --cov=trend_analysis.io.validators --cov-report=term-missing`【68497f†L1-L27】 |
+| `trend_analysis/io/validators.py` | 100% | Focused validator suites now report full coverage after exercising optional metadata reporting, frequency fallbacks, and generic upload failures.【5974e5†L1-L37】 |
 | `trend_analysis/pipeline.py` | 87% | Combined pipeline-focused suite (`pytest tests -k "pipeline" --cov=trend_analysis.pipeline --cov-report=term-missing`) hit an existing live-docs autofix failure and left 63 statements uncovered.【8a1e92†L1-L159】 |
 | `trend_analysis/io/market_data.py` | 89% | `pytest tests/test_market_data_validation.py tests/test_data.py tests/test_data_malformed_dates.py tests/test_data_schema.py --cov=trend_analysis.io.market_data --cov-report=term-missing`【05421d†L1-L28】 |
 | `trend_analysis/cli.py` | 90% | `pytest tests/test_cli.py … tests/test_cli_trend_presets.py --cov=trend_analysis.cli --cov-report=term-missing` (multiple CLI suites).【1c10ea†L1-L27】 |
@@ -64,4 +64,4 @@ Representative modules already clearing the bar include:
 ### Outstanding coverage blockers
 
 - The pipeline-focused runs repeatedly fail on `test_autofix_pipeline_repairs_live_documents` because optional tooling (ruff, black, mypy, docformatter) rewrites expectations; manual reconciliation or sandboxing is needed before the suite can provide stable coverage.【8a1e92†L24-L159】
-- High-touch modules (e.g. `market_data.py`, `validators.py`, `config/model.py`) still need targeted tests to exercise error paths, legacy option coercion, and IO plumbing so that coverage can rise above 95% without muting functionality.
+- High-touch modules (e.g. `market_data.py`, `config/model.py`) still need targeted tests to exercise error paths, legacy option coercion, and IO plumbing so that coverage can rise above 95% without muting functionality.
