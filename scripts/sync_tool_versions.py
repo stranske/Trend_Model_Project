@@ -24,7 +24,7 @@ import dataclasses
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Pattern, Tuple
 
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
@@ -37,13 +37,13 @@ class ToolConfig:
 
     env_key: str
     package_name: str
-    pyproject_pattern: re.Pattern
+    pyproject_pattern: Pattern[str]
     pyproject_format: str
-    requirements_pattern: re.Pattern
+    requirements_pattern: Pattern[str]
     requirements_format: str
 
 
-def _compile(pattern: str) -> re.Pattern:
+def _compile(pattern: str) -> Pattern[str]:
     return re.compile(pattern, flags=re.MULTILINE)
 
 
