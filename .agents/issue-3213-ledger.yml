@@ -1,0 +1,12 @@
+version: 1
+issue: 3213
+base: phase-2-dev
+branch: codex/issue-3213
+tasks:
+  - id: task-01
+    title: Initialise durable progress ledger from issue tasks
+    status: done
+    started_at: '2025-11-03T04:17:36Z'
+    finished_at: '2025-11-03T04:17:41Z'
+    commit: e6708a67c85f2d458ec575b52c7bd6780fcfc3ed
+    notes: []
