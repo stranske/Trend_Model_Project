@@ -3,6 +3,14 @@ import pytest
 
 from trend_analysis.io.market_data import (
     MarketDataValidationError,
+    _coerce_limit_value,
+    _coerce_numeric,
+    _normalise_policy_value,
+    _resolve_datetime_index,
+    _summarise_missing_policy,
+    _infer_mode,
+    apply_missing_policy,
+    classify_frequency,
     validate_market_data,
 )
 
@@ -268,3 +276,97 @@ def test_validate_market_data_accepts_datetime_index() -> None:
     frame.index = dates
     validated = validate_market_data(frame)
     assert validated.index.equals(dates)
+
+
+def test_normalise_policy_value_rejects_unknown() -> None:
+    with pytest.raises(ValueError):
+        _normalise_policy_value("invalid")
+
+
+def test_coerce_limit_value_validation() -> None:
+    with pytest.raises(ValueError):
+        _coerce_limit_value("not-int")
+    with pytest.raises(ValueError):
+        _coerce_limit_value(-1)
+    assert _coerce_limit_value(5) == 5
+
+
+def test_apply_missing_policy_empty_frame_returns_defaults() -> None:
+    frame = pd.DataFrame()
+    result, summary = apply_missing_policy(frame, policy="drop")
+    assert result.empty
+    assert summary["policy"] == "drop"
+    assert summary["limit"] is None
+
+
+def test_apply_missing_policy_enforces_gap_limit() -> None:
+    frame = pd.DataFrame({"A": [1.0, None, None, 2.0]})
+    result, summary = apply_missing_policy(frame, policy="ffill", limit=1)
+    # Column should be dropped because gap exceeds limit
+    assert "A" not in result.columns
+    assert summary["dropped"] == ["A"]
+
+
+def test_apply_missing_policy_zero_fill() -> None:
+    frame = pd.DataFrame({"A": [1.0, None, 2.0]})
+    result, summary = apply_missing_policy(frame, policy="zero")
+    assert result["A"].iloc[1] == 0.0
+    assert summary["filled"]["A"].method == "zero"
+
+
+def test_summarise_missing_policy_handles_various_sources() -> None:
+    details = {
+        "policy": "ffill",
+        "limit": 2,
+        "policy_map": {"A": "ffill", "B": "drop"},
+        "filled": {"A": {"method": "ffill", "count": 3}},
+        "dropped": ["B"],
+    }
+    summary = _summarise_missing_policy(details)
+    assert "policy=ffill" in summary
+    assert "filled=A" in summary
+    assert "dropped=B" in summary
+
+
+def test_classify_frequency_irregular_spacing_raises() -> None:
+    idx = pd.DatetimeIndex(["2020-01-31", "2020-02-28", "2020-05-31"])
+    with pytest.raises(MarketDataValidationError):
+        classify_frequency(idx)
+
+
+def test_classify_frequency_gap_tolerance_exceeded() -> None:
+    idx = pd.date_range("2020-01-31", periods=4, freq="2M")
+    with pytest.raises(MarketDataValidationError):
+        classify_frequency(idx, max_gap_limit=0)
+
+
+def test_resolve_datetime_index_duplicates_raise() -> None:
+    df = pd.DataFrame(
+        [
+            ["2020-01-31", 1.0, 1.5],
+            ["2020-02-29", 2.0, 2.5],
+        ],
+        columns=["Date", "A", "A"],
+    )
+    with pytest.raises(MarketDataValidationError):
+        _resolve_datetime_index(df, source=None)
+
+
+def test_coerce_numeric_reports_non_numeric_columns() -> None:
+    df = pd.DataFrame({"A": [1, 2], "B": ["x", "y"]})
+    numeric, issues = _coerce_numeric(df)
+    assert "Column 'B'" in issues[0]
+    assert numeric.shape[1] == 1
+
+
+def test_infer_mode_ambiguous_columns_raise() -> None:
+    df = pd.DataFrame({"A": ["x", "y", "z"]})
+    with pytest.raises(MarketDataValidationError):
+        _infer_mode(df)
+
+
+def test_validate_market_data_policy_drops_everything() -> None:
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
+    df = pd.DataFrame({"Date": dates, "A": [None, None, None]})
+    with pytest.raises(MarketDataValidationError):
+        validate_market_data(df, missing_policy="drop")

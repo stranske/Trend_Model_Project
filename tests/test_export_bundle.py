@@ -280,3 +280,63 @@ def test_export_bundle_env_version_fallback(monkeypatch, tmp_path):
         meta = json.load(z.open("run_meta.json"))
 
     assert meta["environment"].get("trend_analysis") == "0"
+
+
+def test_export_bundle_accepts_dict_portfolio(tmp_path):
+    portfolio = {"2020-01-31": 0.01, "2020-02-29": -0.02}
+    run = DummyRun(
+        portfolio=portfolio,  # type: ignore[arg-type]
+        config={},
+        seed=None,
+        input_path=None,
+        summary_override={"total_return": 0.0},
+    )
+    out = tmp_path / "dict_bundle.zip"
+    export_bundle(run, out)
+    assert out.exists()
+
+
+def test_export_bundle_rejects_list_portfolio(tmp_path):
+    run = DummyRun(
+        portfolio=[0.1, 0.2],  # type: ignore[arg-type]
+        config={},
+        seed=None,
+        input_path=None,
+    )
+    out = tmp_path / "list_bundle.zip"
+    with pytest.raises(ValueError, match="Cannot convert portfolio"):
+        export_bundle(run, out)
+
+
+def test_export_bundle_warns_on_generic_portfolio(tmp_path):
+    class WeirdPortfolio:
+        def __iter__(self):
+            return iter([0.1, 0.2])
+
+    run = DummyRun(
+        portfolio=WeirdPortfolio(),  # type: ignore[arg-type]
+        config={},
+        seed=None,
+        input_path=None,
+        summary_override={"total_return": 0.0},
+    )
+    out = tmp_path / "warn_bundle.zip"
+    with pytest.warns(UserWarning):
+        export_bundle(run, out)
+
+
+def test_export_bundle_records_log_file(tmp_path):
+    input_path = _write_input(tmp_path)
+    run = DummyRun(
+        portfolio=pd.Series([0.01], index=pd.date_range("2020-01-31", periods=1, freq="ME")),
+        config={},
+        seed=1,
+        input_path=input_path,
+    )
+    run.log_file = tmp_path / "run.log"
+    run.log_file.write_text("log", encoding="utf-8")
+    out = tmp_path / "log_bundle.zip"
+    export_bundle(run, out)
+    with zipfile.ZipFile(out) as z:
+        meta = json.loads(z.read("run_meta.json").decode("utf-8"))
+    assert meta["log_file"].endswith("run.log")

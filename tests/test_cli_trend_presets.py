@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -41,7 +42,7 @@ def base_config() -> object:
 
 
 def test_apply_trend_spec_preset_sets_signals(base_config: object) -> None:
-    preset = get_trend_spec_preset("Aggressive")
+    preset = get_trend_spec_preset("Balanced")
     _apply_trend_spec_preset(base_config, preset)
     signals = getattr(base_config, "signals")
     assert signals["window"] == preset.spec.window
@@ -50,12 +51,35 @@ def test_apply_trend_spec_preset_sets_signals(base_config: object) -> None:
     assert pytest.approx(signals.get("vol_target", 0.0), rel=1e-6) == pytest.approx(
         preset.spec.vol_target or 0.0
     )
-    assert getattr(base_config, "trend_spec_preset") == "Aggressive"
+    assert getattr(base_config, "trend_spec_preset") == "Balanced"
 
 
 def test_apply_trend_spec_preset_on_mapping() -> None:
-    preset = get_trend_spec_preset("Balanced")
+    preset = get_trend_spec_preset("Conservative")
     cfg: dict[str, object] = {}
     _apply_trend_spec_preset(cfg, preset)
-    assert cfg["trend_spec_preset"] == "Balanced"
+    assert cfg["trend_spec_preset"] == "Conservative"
     assert cfg["signals"]["window"] == preset.spec.window
+
+
+@dataclass(init=False)
+class FrozenConfig:
+    signals: dict[str, object]
+    trend_spec_preset: str | None = None
+
+    def __init__(
+        self, signals: dict[str, object], trend_spec_preset: str | None = None
+    ) -> None:
+        object.__setattr__(self, "signals", signals)
+        object.__setattr__(self, "trend_spec_preset", trend_spec_preset)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise ValueError("frozen")
+
+
+def test_apply_trend_spec_preset_uses_object_setattr() -> None:
+    preset = get_trend_spec_preset("Aggressive")
+    cfg = FrozenConfig(signals={})
+    _apply_trend_spec_preset(cfg, preset)
+    assert cfg.signals["window"] == preset.spec.window
+    assert cfg.trend_spec_preset == "Aggressive"

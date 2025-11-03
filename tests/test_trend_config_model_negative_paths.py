@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -285,3 +286,72 @@ def test_load_trend_config_requires_mapping(tmp_path):
 
     with pytest.raises(TypeError, match="must contain a mapping"):
         config_model.load_trend_config(cfg_path)
+
+
+def test_candidate_roots_includes_parent(tmp_path, monkeypatch):
+    base = tmp_path / "config"
+    base.mkdir()
+    monkeypatch.chdir(tmp_path)
+    roots = list(config_model._candidate_roots(base))
+    assert roots[0] == base
+    assert roots[1] == tmp_path
+    assert Path.cwd() in roots
+
+
+def test_data_settings_missing_policy_invalid_type(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("date,nav\n", encoding="utf-8")
+    with pytest.raises(ValidationError) as exc:
+        config_model.DataSettings.model_validate(
+            {
+                "csv_path": str(csv_path),
+                "managers_glob": None,
+                "date_column": "Date",
+                "frequency": "D",
+                "missing_policy": 123,
+            },
+            context={"base_path": tmp_path},
+        )
+    assert "data.missing_policy" in str(exc.value)
+
+
+def test_data_settings_missing_limit_invalid_type(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("date,nav\n", encoding="utf-8")
+    with pytest.raises(ValidationError) as exc:
+        config_model.DataSettings.model_validate(
+            {
+                "csv_path": str(csv_path),
+                "managers_glob": None,
+                "date_column": "Date",
+                "frequency": "D",
+                "missing_limit": "not-int",
+            },
+            context={"base_path": tmp_path},
+        )
+    assert "data.missing_limit" in str(exc.value)
+
+
+def test_risk_settings_reject_negative_floor():
+    with pytest.raises(ValidationError) as exc:
+        config_model.RiskSettings.model_validate({"target_vol": 0.1, "floor_vol": -0.1})
+    assert "vol_adjust.floor_vol cannot be negative" in str(exc.value)
+
+    with pytest.raises(ValidationError):
+        config_model.RiskSettings.model_validate({"target_vol": 0.1, "warmup_periods": -1})
+
+
+def test_resolve_config_path_uses_environment(tmp_path, monkeypatch):
+    cfg = tmp_path / "demo.yml"
+    cfg.write_text("data: {}\n", encoding="utf-8")
+    monkeypatch.setenv("TREND_CONFIG", str(cfg))
+    resolved = config_model._resolve_config_path(None)
+    assert resolved == cfg.resolve()
+
+
+def test_validate_trend_config_reports_location(tmp_path):
+    cfg_path = tmp_path / "demo.yml"
+    cfg_path.write_text("data: {}\n", encoding="utf-8")
+    with pytest.raises(ValueError) as exc:
+        config_model.validate_trend_config({}, base_path=tmp_path)
+    assert "data" in str(exc.value)
