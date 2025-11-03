@@ -223,13 +223,23 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
     topics = json.loads(topics_path.read_text(encoding="utf-8"))
 
     assert len(topics) >= 2, "Issues.txt should describe multiple topics"
-    first = topics[0]
-    assert "agent:codex" in first["labels"]
-    assert "agents-70-orchestrator.yml" in first["sections"]["tasks"]
-    assert "checkout" in first["sections"]["acceptance_criteria"].lower()
-    assert "@{agent}" in first["sections"]["implementation_notes"]
-    assert "PR kickoff comment" in first["sections"]["implementation_notes"]
-    assert "PR title prefix" in first["sections"]["implementation_notes"]
+    # Topics order may change; find the Agents 70 orchestrator topic by
+    # the presence of the workflow filename in its tasks section.
+    match = None
+    for t in topics:
+        tasks = t.get("sections", {}).get("tasks", "")
+        if "agents-70-orchestrator.yml" in tasks:
+            match = t
+            break
+    assert (
+        match is not None
+    ), "Could not find Agents 70 orchestrator topic in parsed topics"
+    assert "agent:codex" in match["labels"]
+    assert "agents-70-orchestrator.yml" in match["sections"]["tasks"]
+    assert "checkout" in match["sections"]["acceptance_criteria"].lower()
+    assert "@{agent}" in match["sections"]["implementation_notes"]
+    assert "PR kickoff comment" in match["sections"]["implementation_notes"]
+    assert "PR title prefix" in match["sections"]["implementation_notes"]
 
     # Ensure every topic captures acceptance criteria to satisfy automation checks.
     assert all(topic["sections"]["acceptance_criteria"].strip() for topic in topics)
