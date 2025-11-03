@@ -29,10 +29,10 @@ tasks:
   - id: task-04
     title: If the filtered list is empty, log and skip the assignment step instead
       of failing the sweep.
-    status: doing
+    status: done
     started_at: '2025-11-03T05:41:36Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-03T05:41:41Z'
+    commit: 9b52c3c1c6fbc5f6e092c5d92531afcf72ea4604
     notes: []
   - id: task-05
     title: "Add light logging so the sweep summary shows the final assignee list or\
