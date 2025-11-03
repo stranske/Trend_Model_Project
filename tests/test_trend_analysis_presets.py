@@ -172,6 +172,29 @@ def test_vol_adjust_defaults_handles_mapping_proxy() -> None:
     assert defaults["window"] == {"length": 7}
 
 
+def test_vol_adjust_defaults_sets_missing_values() -> None:
+    spec = TrendSpec(
+        window=55,
+        min_periods=10,
+        lag=1,
+        vol_adjust=True,
+        vol_target=0.3,
+        zscore=False,
+    )
+    preset = TrendPreset(
+        slug="growth",
+        label="Growth",
+        description="",
+        trend_spec=spec,
+        _config=_freeze_mapping({}),
+    )
+
+    defaults = preset.vol_adjust_defaults()
+    assert defaults["enabled"] is True
+    assert defaults["target_vol"] == 0.3
+    assert defaults["window"] == {"length": 55}
+
+
 def test_apply_trend_preset_merges_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -271,6 +294,39 @@ def test_get_trend_preset_matches_display_label(
         UI_METRIC_ALIASES["new"] = "value"  # type: ignore[index]
     with pytest.raises(TypeError):
         PIPELINE_METRIC_ALIASES["new"] = "value"  # type: ignore[index]
+
+
+def test_preset_registry_warns_on_duplicate_slug(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    base_dir = tmp_path / "base"
+    override_dir = tmp_path / "override"
+    base_dir.mkdir()
+    override_dir.mkdir()
+
+    write_preset(
+        base_dir / "alpha.yml",
+        name="Alpha",
+        signals={"window": 20, "lag": 1, "vol_adjust": False, "zscore": False},
+    )
+    write_preset(
+        override_dir / "alpha.yml",
+        name="Alpha Override",
+        signals={"window": 25, "lag": 1, "vol_adjust": False, "zscore": False},
+    )
+
+    monkeypatch.setattr(presets, "PRESETS_DIR", base_dir)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(override_dir))
+    presets._preset_registry.cache_clear()
+
+    with caplog.at_level("WARNING"):
+        registry = presets._preset_registry()
+
+    assert "Duplicate trend preset slug 'alpha'" in caplog.text
+    # Override should win due to search order
+    assert registry["alpha"].label == "Alpha Override"
+
+    presets._preset_registry.cache_clear()
 
 
 def test_registry_empty_when_directory_missing(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -227,6 +227,33 @@ def test_validate_payload_policy_handles_non_string(
     assert result is not None
 
 
+def test_validate_payload_normalises_before_validation(
+    monkeypatch: pytest.MonkeyPatch, validated: ValidatedMarketData
+) -> None:
+    captured: dict[str, pd.DataFrame] = {}
+
+    def fake_validate(payload: pd.DataFrame, **kwargs: object) -> ValidatedMarketData:
+        captured["payload"] = payload
+        return validated
+
+    monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
+    payload = pd.DataFrame(
+        {"Date": ["2024-01-01"], "FundA": ["1.5%"], "FundB": ["(2.0%)"]}
+    )
+
+    result = _validate_payload(
+        payload,
+        origin="memory",
+        errors="raise",
+        include_date_column=False,
+    )
+
+    assert result is not None
+    normalised = captured["payload"]
+    assert pytest.approx(normalised["FundA"].iloc[0]) == 0.015
+    assert pytest.approx(normalised["FundB"].iloc[0]) == -0.02
+
+
 def test_validate_payload_logs_and_suppresses_errors(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
