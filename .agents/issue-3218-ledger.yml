@@ -15,8 +15,8 @@ tasks:
     title: "Require the hidden sentinel <!-- codex-keepalive-marker -->, author allow\u2011\
       list (stranske-automation-bot and approved humans), and an agent:* label guard\
       \ before dispatching."
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:20:49Z'
     finished_at: null
     commit: ''
     notes: []
