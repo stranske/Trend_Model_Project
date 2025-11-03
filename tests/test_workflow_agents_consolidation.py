@@ -215,12 +215,18 @@ def test_agents_pr_meta_keepalive_configuration():
     workflow = _load_workflow_yaml("agents-pr-meta.yml")
     triggers = _workflow_on_section(workflow)
     issue_comment = triggers.get("issue_comment", {})
-    assert issue_comment.get("types") == ["created"], "Keepalive detection must trigger on comment creation only"
+    assert issue_comment.get("types") == [
+        "created"
+    ], "Keepalive detection must trigger on comment creation only"
 
     jobs = workflow.get("jobs", {})
     keepalive_dispatch = jobs.get("keepalive_dispatch", {})
     detect_step = next(
-        (step for step in keepalive_dispatch.get("steps", []) if step.get("id") == "detect"),
+        (
+            step
+            for step in keepalive_dispatch.get("steps", [])
+            if step.get("id") == "detect"
+        ),
         {},
     )
     env = detect_step.get("env", {})
@@ -229,8 +235,10 @@ def test_agents_pr_meta_keepalive_configuration():
 
     keepalive_orchestrator = jobs.get("keepalive_orchestrator", {})
     assert (
-        keepalive_orchestrator.get("if") == "needs.keepalive_dispatch.outputs.dispatch == 'true'"
+        keepalive_orchestrator.get("if")
+        == "needs.keepalive_dispatch.outputs.dispatch == 'true'"
     ), "Orchestrator dispatch must be gated on keepalive detection"
+
 
 def test_keepalive_job_defined_once():
     data = _load_workflow_yaml("reusable-16-agents.yml")
