@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Implement isAssignable(login) to return false for bot/app accounts (e.g.,
       login.endsWith('[bot]') or connector app names).
-    status: doing
+    status: done
     started_at: '2025-11-03T05:31:21Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-03T05:31:28Z'
+    commit: 17f689a6809e08f0c0af52f124e8e4a695e98abe
     notes: []
   - id: task-02
     title: Filter the desired assignee set with isAssignable before calling issues.addAssignees.
