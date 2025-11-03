@@ -1,0 +1,44 @@
+version: 1
+issue: 3219
+base: phase-2-dev
+branch: codex/issue-3219
+tasks:
+  - id: task-01
+    title: Implement isAssignable(login) to return false for bot/app accounts (e.g.,
+      login.endsWith('[bot]') or connector app names).
+    status: doing
+    started_at: '2025-11-03T05:31:21Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Filter the desired assignee set with isAssignable before calling issues.addAssignees.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Use the PR number (context.payload.pull_request.number) as issue_number
+      when assigning on the PR conversation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: If the filtered list is empty, log and skip the assignment step instead
+      of failing the sweep.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: "Add light logging so the sweep summary shows the final assignee list or\
+      \ \u201Cskipped (no human assignees).\u201D"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
