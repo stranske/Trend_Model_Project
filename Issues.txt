@@ -150,7 +150,7 @@ Acceptance criteria
   2. Exactly one orchestrator run starts via workflow_dispatch carrying that TRACE; no previous run is canceled by this one.
 
   3. If any gate fails, the PR shows a single‑line comment in the format:
-    **Keepalive {round}** \{trace}` skipped: <reason-code>` and the orchestrator step summary contains the same reason.
+    **Keepalive {round}** `{trace}` skipped: <reason-code>` and the orchestrator step summary contains the same reason.
 
   4. If gates pass, the belt/worker runs and either produces a new commit or posts a PR comment that includes TRACE and the reason for not committing (e.g., “no code changes needed”).
 
