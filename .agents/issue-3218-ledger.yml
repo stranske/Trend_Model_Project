@@ -33,8 +33,8 @@ tasks:
     title: 'If Route B: in the Codex Keepalive Sweep job, after creating the keepalive
       comment, call repos.createDispatchEvent with the same event_type and payload.
       Use secrets.ACTIONS_BOT_PAT.'
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:25:20Z'
     finished_at: null
     commit: ''
     notes: []
