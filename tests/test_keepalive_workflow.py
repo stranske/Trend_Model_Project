@@ -93,7 +93,10 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert "Skipped 0 paused PRs." in raw
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#101 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#101 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_dry_run_records_previews() -> None:
@@ -110,7 +113,10 @@ def test_keepalive_dry_run_records_previews() -> None:
     assert "Skipped 0 paused PRs." in raw
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#404 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#404 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_dedupes_configuration() -> None:
@@ -140,7 +146,10 @@ def test_keepalive_dedupes_configuration() -> None:
     assert details is not None and any("#505" in entry for entry in details["items"])
 
     assignee_entries = _assignee_entries(summary)
-    assert any("#505 – ensured assignees:" in entry and "Helper-Bot" in entry for entry in assignee_entries)
+    assert any(
+        "#505 – ensured assignees:" in entry and "Helper-Bot" in entry
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_waits_for_recent_command() -> None:
@@ -162,7 +171,10 @@ def test_keepalive_waits_for_recent_command() -> None:
     assert "Skipped 0 paused PRs." in raw
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#707 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#707 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_respects_paused_label() -> None:
@@ -183,7 +195,10 @@ def test_keepalive_respects_paused_label() -> None:
     assert data["updated_comments"] == []
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#505 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#505 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_handles_paged_comments() -> None:
@@ -203,7 +218,10 @@ def test_keepalive_handles_paged_comments() -> None:
     assert "Refreshed keepalive count: 0" in raw
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#808 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#808 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_posts_new_comment_for_next_round() -> None:
@@ -223,7 +241,10 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
     assert "Refreshed keepalive count: 0" in raw
 
     assignee_entries = _assignee_entries(summary)
-    assert any(entry.startswith("#909 – assignment skipped (no human assignees)") for entry in assignee_entries)
+    assert any(
+        entry.startswith("#909 – assignment skipped (no human assignees)")
+        for entry in assignee_entries
+    )
 
 
 def test_keepalive_upgrades_legacy_comment() -> None:
