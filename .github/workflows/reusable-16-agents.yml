@@ -622,13 +622,8 @@ jobs:
           exit 1
       - name: Generate keepalive trace token
         run: |
-          python - <<'PY' >> "$GITHUB_ENV"
-import secrets
-import time
-
-trace = f"{int(time.time())}-{secrets.token_hex(4)}"
-print(f"KEEPALIVE_TRACE={trace}")
-PY
+          trace="$(python -c 'import secrets, time; print(f"{int(time.time())}-{secrets.token_hex(4)}")')"
+          printf 'KEEPALIVE_TRACE=%s\n' "$trace" >> "$GITHUB_ENV"
       - name: Resume Codex on unattended checklists
         uses: actions/github-script@v7
         env:
