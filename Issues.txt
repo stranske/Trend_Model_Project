@@ -35,7 +35,7 @@ Altering the visible wording of the instruction, other than inserting the two hi
 
 Tasks
 
-- In the keepalive poster:
+- Update the keepalive poster in .github/workflows/agents-70-orchestrator.yml:
 
 - Add the two hidden HTML markers at the top of the comment body, substituting the computed round number for {roundNumber}.
 
@@ -60,11 +60,9 @@ Acceptance criteria
 - On issue_comment.created from stranske-automation-bot, Agents PR meta manager:
 
     - recognizes the comment as keepalive (reason=keepalive-detected),
-
-    - runs Dispatch keepalive orchestrator (not skipped) and emits the required repository_dispatch keepalive run.
-
-    - the connector acknowledges the repository_dispatch event and starts the automated keepalive actions.
-
+    - emits repository_dispatch event_type codex-pr-comment-command,
+    - runs Dispatch keepalive orchestrator (not skipped).
+    - the Codex connector acknowledges the keepalive dispatch without manual intervention.
     - No duplicate dispatch occurs on issue_comment.edited.
 
 Implementation notes
@@ -77,6 +75,11 @@ the helper that assembles the keepalive comment body (e.g., scripts/keepalive-ru
 
 Use the same PAT already used for bot-authored comments (posting as stranske-automation-bot).
 
+Keep the visible instruction compatible with the connector's templating (preserve the "@{agent}" placeholder so downstream automation stays aligned).
+
+Coordinate wording with the PR kickoff comment so both surfaces present a consistent call-to-action.
+
+Keep the PR title prefix guidance aligned so the connector recognises the automation source on new pull requests.
 Call out the `@{agent}` placeholder in the visible instruction so the PR kickoff comment automation stays aligned with the bootstrap "PR title prefix" guidance.
 
 2. PR‑meta: re‑enable guarded listen_commands to emit Codex dispatch for keepalive rounds
