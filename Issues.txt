@@ -39,6 +39,8 @@ Tasks
 
 - Add the two hidden HTML markers at the top of the comment body, substituting the computed round number for {roundNumber}.
 
+- Update `.github/workflows/agents-70-orchestrator.yml` so the Codex Keepalive Sweep step prepends the markers before the visible instruction text.
+
 - Verify the step uses a token that posts as stranske-automation-bot.
 
 - Ensure the poster uses create semantics (e.g., peter-evans/create-issue-comment@v3), not “edit,” so issue_comment.created fires.
@@ -78,6 +80,7 @@ Keep the visible instruction compatible with the connector's templating (preserv
 Coordinate wording with the PR kickoff comment so both surfaces present a consistent call-to-action.
 
 Keep the PR title prefix guidance aligned so the connector recognises the automation source on new pull requests.
+Call out the `@{agent}` placeholder in the visible instruction so the PR kickoff comment automation stays aligned with the bootstrap "PR title prefix" guidance.
 
 2. PR‑meta: re‑enable guarded listen_commands to emit Codex dispatch for keepalive rounds
 
@@ -163,5 +166,8 @@ Implementation notes
 File: .github/workflows/agents-pr-meta.yml
 
 Token: ACTIONS_BOT_PAT (must have repo + workflow).
+
+- Include the literal `@{agent}` placeholder in the repository_dispatch payload so the PR kickoff comment automation maps the request to the correct worker.
+- Keep the bootstrap “PR title prefix” guidance aligned with the orchestrator comment so downstream tooling stays in sync with the PR kickoff comment copy.
 
 If you later choose to drive dispatch directly from the keepalive sweep instead, open a separate issue to track that alternate path and keep this translator disabled to avoid double‑dispatch.
