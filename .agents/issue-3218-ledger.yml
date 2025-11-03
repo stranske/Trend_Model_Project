@@ -15,10 +15,10 @@ tasks:
     title: "Require the hidden sentinel <!-- codex-keepalive-marker -->, author allow\u2011\
       list (stranske-automation-bot and approved humans), and an agent:* label guard\
       \ before dispatching."
-    status: doing
+    status: done
     started_at: '2025-11-03T05:20:49Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-03T05:20:56Z'
+    commit: f382c10ace48167b3cf535926ba2394fff878c42
     notes: []
   - id: task-03
     title: 'Emit repository_dispatch with event_type: codex-pr-comment-command and
