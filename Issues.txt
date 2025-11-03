@@ -145,16 +145,16 @@ Acceptance criteria
 
 - On a test PR with agents:keepalive and agent:codex:
 
-  1. A keepalive instruction comment (from Issue 1) triggers PR‑meta with ok: true, reason: ok, and the expected round and trace.
+  - A keepalive instruction comment (from Issue 1) triggers PR‑meta with ok: true, reason: ok, and the expected round and trace.
 
-  2. Exactly one orchestrator run starts via workflow_dispatch carrying that TRACE; no previous run is canceled by this one.
+  - Exactly one orchestrator run starts via workflow_dispatch carrying that TRACE; no previous run is canceled by this one.
 
-  3. If any gate fails, the PR shows a single‑line comment in the format:
+  - If any gate fails, the PR shows a single‑line comment in the format:
     **Keepalive {round}** `{trace}` skipped: <reason-code>` and the orchestrator step summary contains the same reason.
 
-  4. If gates pass, the belt/worker runs and either produces a new commit or posts a PR comment that includes TRACE and the reason for not committing (e.g., “no code changes needed”).
+  - If gates pass, the belt/worker runs and either produces a new commit or posts a PR comment that includes TRACE and the reason for not committing (e.g., “no code changes needed”).
 
-  5. Running two consecutive keepalive rounds produces two distinct traces, two orchestrator runs, and no duplicate dispatches; no run is silently canceled.
+  - Running two consecutive keepalive rounds produces two distinct traces, two orchestrator runs, and no duplicate dispatches; no run is silently canceled.
 
 Implementation notes
 
