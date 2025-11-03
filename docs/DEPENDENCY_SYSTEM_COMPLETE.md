@@ -36,6 +36,14 @@ The test dependency management system is now **fully automated** from detection 
 - **Installation**: `cp scripts/pre-commit-check-deps.sh .git/hooks/pre-commit`
 - **Status**: Available but not required
 
+### 5. Tool Version Synchronisation (New)
+- **File**: `scripts/sync_tool_versions.py`
+- **Function**: Keeps `pyproject.toml` and `requirements.txt` aligned with the shared pins in `.github/workflows/autofix-versions.env`
+- **Modes**:
+  - `--check`: Fails if any pinned formatter/test tool drifts from the canonical version (used automatically by validation scripts)
+  - `--apply`: Rewrites both manifests so every tool reference matches the canonical version
+- **Status**: Enforced by `dev_check.sh`, `validate_fast.sh`, and `check_branch.sh`
+
 ## Complete Automation Chain
 
 ```
@@ -62,8 +70,9 @@ The test dependency management system is now **fully automated** from detection 
 ┌─────────────────────────────────────────────────────────────┐
 │ CI: Auto-Fix Step Runs                                      │
 │ └─ python scripts/sync_test_dependencies.py --fix           │
-│    └─ Shows diff in job summary                             │
-│       └─ Still exits 1 (forces explicit commit)             │
+│    ├─ Shows diff in job summary                             │
+│    ├─ python scripts/sync_tool_versions.py --check          │
+│    └─ Still exits 1 (forces explicit commit)                │
 └─────────────────────────────────────────────────────────────┘
                         │
                         ▼
@@ -172,13 +181,14 @@ chmod +x .git/hooks/pre-commit
 ### CI Behavior
 When a PR is opened:
 1. CI installs dependencies from `requirements.lock`
-2. Runs all tests including enforcement tests
-3. If undeclared imports detected:
+2. Validates `pyproject.toml` and `requirements.txt` with `python scripts/sync_tool_versions.py --check`
+3. Runs all tests including enforcement tests
+4. If undeclared imports detected:
    - Shows error with fix command
    - Runs auto-fix and shows diff
    - Build still fails (forces developer to commit fix)
-4. Developer runs fix locally and pushes update
-5. CI re-runs and passes ✅
+5. Developer runs fix locally and pushes update
+6. CI re-runs and passes ✅
 
 ## External Tools Management
 
@@ -209,6 +219,13 @@ The CI workflow automatically installs these tools:
     export PATH="$HOME/.cargo/bin:$PATH"
     uv --version
 ```
+
+## Scheduled Maintenance Cadence
+
+- **Weekly (Mondays 08:00 UTC)** – `Maint 50 Tool Version Check` raises an issue whenever formatter/test-tool pins in `.github/workflows/autofix-versions.env` fall behind PyPI releases.
+- **Twice Monthly (1st & 15th at 04:00 UTC)** – `Maint 51 Dependency Refresh` regenerates `requirements.lock`, verifies alignment with `scripts/sync_tool_versions.py --check`, and opens a pull request when updates are required.
+
+This cadence keeps workflow tooling synchronised while ensuring the dependency snapshot never drifts far from upstream releases.
 
 ## Documentation
 

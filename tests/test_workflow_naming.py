@@ -188,6 +188,7 @@ EXPECTED_NAMES = {
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
+    "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "pr-00-gate.yml": "Gate",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",

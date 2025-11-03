@@ -114,6 +114,17 @@ ensure_package_version isort "$ISORT_VERSION"
 ensure_package_version docformatter "$DOCFORMATTER_VERSION"
 ensure_package_version mypy "$MYPY_VERSION"
 
+if ! python scripts/sync_tool_versions.py --check >/dev/null 2>&1; then
+    if [[ "$FIX_MODE" == true ]]; then
+        echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
+        python scripts/sync_tool_versions.py --apply >/dev/null
+    else
+        echo -e "${RED}✗ Tool version pins are out of sync. Re-run with --fix or run 'python scripts/sync_tool_versions.py --apply'.${NC}" >&2
+        python scripts/sync_tool_versions.py --check
+        exit 1
+    fi
+fi
+
 # When running under pytest, exit early to keep test suite fast
 if [[ -n "${PYTEST_CURRENT_TEST:-}" ]]; then
     echo -e "${YELLOW}Test environment detected – skipping validation.${NC}"

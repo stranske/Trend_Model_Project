@@ -30,18 +30,18 @@ requests
 
 # Development and testing tools
 pre-commit
-black
-isort
-ruff
-docformatter
-mypy
+black==25.9.0
+isort==7.0.0
+ruff==0.14.2
+docformatter==1.7.7
+mypy==1.18.2
 
 # Testing dependencies
-pytest>=8.0
-pytest-cov
+pytest==8.4.2
+pytest-cov==7.0.0
 pytest-rerunfailures
 hypothesis
-coverage
+coverage==7.11.0
 jsonschema
 
 # Note: Node.js (v16+) and npm are required for JavaScript workflow tests

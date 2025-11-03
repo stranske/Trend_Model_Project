@@ -124,6 +124,18 @@ ensure_package_version isort "$ISORT_VERSION"
 ensure_package_version docformatter "$DOCFORMATTER_VERSION"
 ensure_package_version mypy "$MYPY_VERSION"
 
+# Ensure repo-wide tool pins stay aligned before running further checks.
+if ! python scripts/sync_tool_versions.py --check >/dev/null 2>&1; then
+    if [[ "$FIX_MODE" == true ]]; then
+        echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
+        python scripts/sync_tool_versions.py --apply >/dev/null
+    else
+        echo -e "${RED}✗ Tool version pins are out of sync. Run 'python scripts/sync_tool_versions.py --apply' or re-run with --fix.${NC}" >&2
+        python scripts/sync_tool_versions.py --check
+        exit 1
+    fi
+fi
+
 # Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
 if ! command -v flake8 >/dev/null 2>&1; then
     FLK_BIN=$(python - <<'PY'
