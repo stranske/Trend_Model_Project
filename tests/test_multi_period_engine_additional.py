@@ -165,6 +165,124 @@ def test_run_combines_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyCfg()
+    cfg.data = {"csv_path": "demo.csv", "nan_policy": "drop", "nan_limit": 3}
+    cfg.performance = {"enable_cache": False}
+
+    period = SimpleNamespace(
+        in_start="2020-01",
+        in_end="2020-01",
+        out_start="2020-02",
+        out_end="2020-02",
+    )
+    monkeypatch.setattr(engine, "generate_periods", lambda _: [period])
+
+    loaded = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "FundA": [0.01, 0.02, 0.03],
+        }
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str,
+        missing_policy: object,
+        missing_limit: object,
+    ) -> pd.DataFrame:
+        captured.update(
+            {
+                "path": path,
+                "errors": errors,
+                "policy": missing_policy,
+                "limit": missing_limit,
+            }
+        )
+        return loaded
+
+    monkeypatch.setattr(engine, "load_csv", fake_load_csv)
+
+    policy_args: dict[str, object] = {}
+
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: object,
+        limit: object,
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        policy_args["policy"] = policy
+        policy_args["limit"] = limit
+        return frame, {"policy": policy, "limit": limit}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+    monkeypatch.setattr(engine, "_run_analysis", lambda *a, **k: {"ok": True})
+
+    result = engine.run(cfg)
+
+    assert result and captured["path"] == "demo.csv"
+    assert captured["errors"] == "raise"
+    assert captured["policy"] == "drop"
+    assert captured["limit"] == 3
+    assert policy_args == {"policy": "drop", "limit": 3}
+
+
+def test_run_skips_missing_policy_with_price_frames(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = DummyCfg()
+    cfg.data = {"csv_path": "unused.csv"}
+    cfg.performance = {"enable_cache": False}
+
+    period = SimpleNamespace(
+        in_start="2020-01",
+        in_end="2020-01",
+        out_start="2020-02",
+        out_end="2020-02",
+    )
+    monkeypatch.setattr(engine, "generate_periods", lambda _: [period])
+
+    called = False
+
+    def fail_apply_missing_policy(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError(
+            "apply_missing_policy should not run when price frames provided"
+        )
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fail_apply_missing_policy)
+    monkeypatch.setattr(
+        engine, "load_csv", lambda *a, **k: (_ for _ in ()).throw(AssertionError())
+    )
+
+    captured_frames: list[pd.DataFrame] = []
+
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: object, **kwargs: object
+    ) -> dict[str, object]:
+        captured_frames.append(df.copy())
+        return {"ok": True}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    price_frames = {
+        "p1": pd.DataFrame({"Date": [pd.Timestamp("2020-01-31")], "FundA": [0.1]}),
+        "p2": pd.DataFrame({"Date": [pd.Timestamp("2020-02-29")], "FundB": [0.2]}),
+    }
+
+    results = engine.run(cfg, price_frames=price_frames)
+
+    assert results and len(captured_frames) == 1
+    combined = captured_frames[0]
+    assert set(combined.columns) == {"Date", "FundA", "FundB"}
+    # Missing-policy helper should not run when price frames supply clean data.
+    assert called is False
+
+
 def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
     class CovPayload:
         def __init__(self, diag: np.ndarray) -> None:

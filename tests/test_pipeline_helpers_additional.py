@@ -19,8 +19,10 @@ from trend_analysis.pipeline import (
     _prepare_input_data,
     _preprocessing_summary,
     _resolve_sample_split,
+    _run_analysis,
     _section_get,
     _unwrap_cfg,
+    compute_signal,
 )
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
@@ -45,6 +47,17 @@ class DummyMapping(Mapping[str, Any]):
         if default is ...:
             raise TypeError("Unexpected ellipsis default")
         return self._data.get(key, default)
+
+
+@pytest.fixture(name="monthly_frame")
+def fixture_monthly_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "A": [0.01, 0.02, 0.03, 0.04],
+            "B": [0.0, 0.01, -0.02, 0.03],
+        }
+    )
 
 
 def test_cfg_helpers_handle_mixed_inputs() -> None:
@@ -204,3 +217,126 @@ def test_prepare_input_data_resamples_and_applies_policy(
     assert list(monthly.columns) == ["Date", "A", "B"]
     # Resampled monthly DataFrame should collapse to the end of the month.
     assert all(monthly["Date"].dt.is_month_end)
+
+
+class GetterTypeError:
+    def get(self, key):
+        raise KeyError(key)
+
+
+class GetterKeyError:
+    def get(self, key, default=None):
+        raise KeyError(key)
+
+
+def test_section_get_handles_partial_getters() -> None:
+    weird = GetterTypeError()
+    assert _section_get(weird, "missing", default=5) == 5
+
+    always = GetterKeyError()
+    assert _section_get(always, "missing", default=7) == 7
+
+    attr_only = SimpleNamespace(answer=11)
+    assert _section_get(attr_only, "answer", default=0) == 11
+
+
+def test_build_trend_spec_invalid_values_fallbacks() -> None:
+    cfg = {
+        "signals": {
+            "window": "bad",
+            "min_periods": "bad",
+            "lag": "bad",
+            "vol_adjust": True,
+            "vol_target": -1,
+            "zscore": "",
+        }
+    }
+    vol_cfg = {"enabled": True, "target_vol": 0.3}
+    spec = _build_trend_spec(cfg, vol_cfg)
+    assert spec.window == 63
+    assert spec.min_periods is None
+    assert spec.lag == 1
+    assert spec.vol_target is None
+    assert spec.zscore is False
+
+
+def test_resolve_sample_split_invalid_dates_raise() -> None:
+    df = pd.DataFrame({"Date": ["not-a-date", "still bad"], "A": [1, 2]})
+    with pytest.raises(ValueError, match="no valid dates"):
+        _resolve_sample_split(df, {})
+
+
+def test_prepare_input_data_requires_date_column(monthly_frame: pd.DataFrame) -> None:
+    with pytest.raises(ValueError, match="'Date' column"):
+        _prepare_input_data(
+            monthly_frame.rename(columns={"Date": "When"}),
+            date_col="Date",
+            missing_policy=None,
+            missing_limit=None,
+        )
+
+
+def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    empty_result = MissingPolicyResult(
+        policy={},
+        default_policy="drop",
+        limit={},
+        default_limit=None,
+        filled={},
+        dropped_assets=(),
+        summary="none",
+    )
+
+    def prepare_empty(*args, **kwargs):
+        return (
+            pd.DataFrame(),
+            FrequencySummary("M", "Monthly", False, "M", "Monthly"),
+            empty_result,
+            False,
+        )
+
+    monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_empty)
+    assert (
+        _run_analysis(
+            pd.DataFrame({"Date": []}),
+            "2020-01",
+            "2020-02",
+            "2020-03",
+            "2020-04",
+            0.1,
+            0.0,
+        )
+        is None
+    )
+
+    def prepare_no_values(*args, **kwargs):
+        frame = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
+        return (
+            frame,
+            FrequencySummary("M", "Monthly", False, "M", "Monthly"),
+            empty_result,
+            False,
+        )
+
+    monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_no_values)
+    assert (
+        _run_analysis(
+            pd.DataFrame({"Date": ["2020-01-01"]}),
+            "2020-01",
+            "2020-02",
+            "2020-03",
+            "2020-04",
+            0.1,
+            0.0,
+        )
+        is None
+    )
+
+
+def test_compute_signal_error_paths(monthly_frame: pd.DataFrame) -> None:
+    with pytest.raises(KeyError):
+        compute_signal(monthly_frame, column="missing")
+    with pytest.raises(ValueError):
+        compute_signal(monthly_frame, column="A", window=0)
+    with pytest.raises(ValueError):
+        compute_signal(monthly_frame, column="A", window=2, min_periods=0)
