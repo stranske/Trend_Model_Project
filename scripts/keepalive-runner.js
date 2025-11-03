@@ -343,6 +343,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let agentLogins = agentEntries.map(({ normalized }) => normalized);
   agentLogins = dedupe(agentLogins);
 
+  const allowedAuthorEntries = parseAgentLoginEntries(
+    options.keepalive_allowed_authors ?? env.KEEPALIVE_ALLOWED_AUTHORS,
+    ['stranske-automation-bot']
+  );
+  const allowedKeepaliveAuthors = new Set(
+    allowedAuthorEntries.map(({ normalized }) => normalized)
+  );
+
   const owner = context.repo.owner;
   const repo = context.repo.repo;
   const now = Date.now();
@@ -361,6 +369,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     .addRaw(
       `Agent logins: ${agentLogins
         .map((login) => `**${login}**`)
+        .join(', ')}`
+    )
+    .addEOL();
+  summary
+    .addRaw(
+      `Dispatch allow-list: ${allowedAuthorEntries
+        .map(({ normalized }) => `**${normalized}**`)
         .join(', ')}`
     )
     .addEOL();
@@ -640,11 +655,18 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const commentData = response?.data || {};
         const commentId = commentData.id;
         const commentUrl = commentData.html_url || '';
+        const commentAuthor = normaliseLogin(commentData.user?.login);
         const hasRoundMarker = typeof body === 'string' && body.includes(roundMarker);
         const hasKeepaliveMarker = typeof body === 'string' && body.includes(canonicalMarker);
 
         if (!hasRoundMarker || !hasKeepaliveMarker) {
           core.warning(`#${prNumber}: keepalive comment missing required markers; connector dispatch skipped.`);
+        } else if (!commentAuthor) {
+          core.warning(`#${prNumber}: keepalive comment author could not be determined; connector dispatch skipped.`);
+        } else if (!allowedKeepaliveAuthors.has(commentAuthor)) {
+          core.warning(
+            `#${prNumber}: keepalive comment author @${commentAuthor} not in dispatch allow list; connector dispatch skipped.`
+          );
         } else {
           try {
             await dispatchKeepaliveCommand({
