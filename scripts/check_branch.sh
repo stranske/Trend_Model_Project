@@ -92,6 +92,21 @@ echo "Latest commit: $(git log --oneline -1)"
 echo "Commit author: $(git log -1 --format='%an <%ae>')"
 echo ""
 
+if ! python scripts/sync_tool_versions.py --check >/dev/null 2>&1; then
+    if [[ "$FIX_MODE" == true ]]; then
+        echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
+        if ! python scripts/sync_tool_versions.py --apply >/dev/null 2>&1; then
+            echo -e "${RED}✗ Failed to align tool pins automatically.${NC}" >&2
+            python scripts/sync_tool_versions.py --check
+            exit 1
+        fi
+    else
+        echo -e "${RED}✗ Tool version pins are out of sync. Re-run with --fix or run 'python scripts/sync_tool_versions.py --apply'.${NC}" >&2
+        python scripts/sync_tool_versions.py --check
+        exit 1
+    fi
+fi
+
 # Show recent commits for context
 echo -e "${BLUE}Recent commits:${NC}"
 git log --oneline -5

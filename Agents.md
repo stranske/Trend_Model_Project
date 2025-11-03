@@ -10,6 +10,11 @@ sole automation entry point. They linger only in git history alongside the
 ledger notes in [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md), which documents
 their removal and the consolidated keep vs retire roster.
 
+## Communication guard-rails
+- When a request contains multiple tasks, explicitly recap which items are complete and which remain before handing control back.
+- Call out any suggestion that is only a partial fix, and list the follow-up steps required for it to succeed.
+- Highlight assumptions about workflow or automation status (e.g., scheduled runs, failing jobs) and offer to pull the live data when needed.
+
 ## Demo pipeline (maintenance / CI)
 
 1. **Bootstrap environment**
