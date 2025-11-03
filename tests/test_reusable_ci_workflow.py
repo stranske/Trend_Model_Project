@@ -67,7 +67,10 @@ def test_artifact_names_normalized() -> None:
         raise AssertionError(f"Expected step `{name}` to exist")
 
     coverage_step = _step("Upload coverage artifact")
-    assert coverage_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage"
+    assert (
+        coverage_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}"
+    )
     assert coverage_step["with"]["retention-days"] == 7
 
     metrics_step = _step("Upload metrics artifact")

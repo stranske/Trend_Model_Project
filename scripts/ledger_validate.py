@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-import yaml  # type: ignore
+import yaml
 
 
 VALID_STATUSES = {"todo", "doing", "done"}
@@ -66,6 +66,26 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
     return errors
 
 
+def _fetch_commit(commit: str) -> bool:
+    try:
+        subprocess.check_call(
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--depth",
+                "1",
+                "origin",
+                commit,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
 def _commit_files(commit: str) -> List[str]:
     try:
         output = subprocess.check_output(
@@ -73,11 +93,34 @@ def _commit_files(commit: str) -> List[str]:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise LedgerError(f"unknown commit {commit}") from exc
+        if _fetch_commit(commit):
+            output = subprocess.check_output(
+                ["git", "show", "--pretty=format:", "--name-only", commit],
+                text=True,
+            )
+        else:
+            raise LedgerError(f"unknown commit {commit}") from exc
 
     stripped_lines = (line.strip() for line in output.splitlines())
     files = [line for line in stripped_lines if line]
     return files
+
+
+def _commit_subject(commit: str) -> str:
+    try:
+        output = subprocess.check_output(
+            ["git", "show", "--no-patch", "--pretty=format:%s", commit],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        if _fetch_commit(commit):
+            output = subprocess.check_output(
+                ["git", "show", "--no-patch", "--pretty=format:%s", commit],
+                text=True,
+            )
+        else:
+            raise LedgerError(f"unknown commit {commit}") from exc
+    return output.strip()
 
 
 def _validate_task(
@@ -142,10 +185,34 @@ def _validate_task(
                         errors.append(
                             f"{ledger_path}: {context}.commit {commit} has no changed files"
                         )
-                    elif all(name.startswith(".agents/") for name in files):
-                        errors.append(
-                            f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"
-                        )
+                    else:
+                        ledger_relative = ledger_path.as_posix()
+                        if all(name.startswith(".agents/") for name in files):
+                            allowed_sidecars = {
+                                ledger_relative,
+                                ".agents/.ledger-summary.md",
+                                ".agents/.ledger-start.json",
+                            }
+                            extra_files = [
+                                name for name in files if name not in allowed_sidecars
+                            ]
+
+                            try:
+                                subject = _commit_subject(commit)
+                            except LedgerError as exc:
+                                errors.append(
+                                    f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
+                                )
+                                subject = ""
+
+                            if (
+                                extra_files
+                                or ledger_relative not in files
+                                or not subject.lower().startswith("chore(ledger):")
+                            ):
+                                errors.append(
+                                    f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"
+                                )
         else:
             if commit and not HEX_RE.match(commit.lower()):
                 errors.append(f"{context}.commit must be empty or a Git SHA")
@@ -242,7 +309,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         if not ledgers:
             print("No ledger files found.")
-        for path, problems in results.items():
+        for ledger_key, problems in results.items():
             for problem in problems:
                 print(problem, file=sys.stderr)
         if not results and ledgers:
