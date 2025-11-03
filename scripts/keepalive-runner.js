@@ -220,7 +220,7 @@ function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern 
         comment,
         id: comment.id,
         body,
-        timestamp: new Date(comment.updated_at || comment.created_at).getTime(),
+        timestamp: new Date(comment.created_at).getTime(),
       };
     })
     .filter(Boolean)
@@ -299,11 +299,43 @@ function summariseList(items, limit = 20) {
   ];
 }
 
+function generateTraceSeed(rawSeed) {
+  const base = String(rawSeed || '').trim();
+  if (base) {
+    return base;
+  }
+
+  const random = Math.random().toString(36).slice(2, 10);
+  return `${Date.now()}-${random}`;
+}
+
+function sanitiseTraceComponent(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .slice(0, 64);
+}
+
+function buildTraceToken({ seed, prNumber, round }) {
+  const safeSeed = sanitiseTraceComponent(seed) || `${Date.now()}`;
+  const safePr = sanitiseTraceComponent(prNumber);
+  const safeRound = sanitiseTraceComponent(round);
+  const parts = [safeSeed];
+  if (safePr) {
+    parts.push(`pr${safePr}`);
+  }
+  if (safeRound) {
+    parts.push(`r${safeRound}`);
+  }
+  return parts.join('-');
+}
+
 async function runKeepalive({ core, github, context, env = process.env }) {
   const rawOptions = env.OPTIONS_JSON || '{}';
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
   const options = parseJson(rawOptions, {});
   const summary = core.summary;
+  const traceSeed = generateTraceSeed(env.KEEPALIVE_TRACE || env.keepalive_trace || '');
   const pausedLabel = 'agents:paused';
 
   const addHeading = () => {
@@ -385,6 +417,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const previews = [];
   const assignmentSummaries = [];
   const paused = [];
+  const roundTraces = [];
   const skipped = [];
   let skippedCount = 0;
   let scanned = 0;
@@ -400,6 +433,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .join(', ')}`
     )
     .addEOL();
+  summary.addRaw(`Trace seed: ${traceSeed}`).addEOL();
   summary
     .addRaw(
       `Dispatch allow-list: ${allowedAuthorEntries
@@ -624,7 +658,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
       const nextRound = computeNextRound(keepaliveCandidates);
-      const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
+      const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
+      const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
+      const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -636,7 +672,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         instruction = instruction.split(`{${token}}`).join(value);
       }
 
-      const bodyParts = [roundMarker, canonicalMarker, '', command];
+      const bodyParts = [roundMarker, canonicalMarker, traceMarker, command];
       bodyParts.push('', `**Keepalive Round ${nextRound}**`);
       bodyParts.push('', 'Continue incremental work toward acceptance criteria. Use the current checklist and update task statuses.');
       bodyParts.push('Post an updated summary when this round completes.');
@@ -694,12 +730,21 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
       
       if (dryRun) {
-        previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
-        core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
+        previews.push(
+          `#${prNumber} – keepalive preview (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken})`
+        );
+        core.info(
+          `#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
+        );
       } else {
         const response = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-        triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound})`);
-        core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}).`);
+        triggered.push(
+          `#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken})`
+        );
+        roundTraces.push(`Round ${nextRound} → Trace ${traceToken} (#${prNumber})`);
+        core.info(
+          `#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
+        );
 
         const commentData = response?.data || {};
         const commentId = commentData.id;
@@ -707,8 +752,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         const commentAuthor = normaliseLogin(commentData.user?.login);
         const hasRoundMarker = typeof body === 'string' && body.includes(roundMarker);
         const hasKeepaliveMarker = typeof body === 'string' && body.includes(canonicalMarker);
+        const hasTraceMarker = typeof body === 'string' && body.includes(traceMarker);
 
-        if (!hasRoundMarker || !hasKeepaliveMarker) {
+        if (!hasRoundMarker || !hasKeepaliveMarker || !hasTraceMarker) {
           core.warning(`#${prNumber}: keepalive comment missing required markers; connector dispatch skipped.`);
         } else if (!commentAuthor) {
           core.warning(`#${prNumber}: keepalive comment author could not be determined; connector dispatch skipped.`);
@@ -731,6 +777,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
                 comment_url: commentUrl,
                 base: pr.base?.ref || '',
                 head: pr.head?.ref || headRef,
+                trace: traceToken,
+                round: nextRound,
               },
             });
           } catch (error) {
@@ -764,6 +812,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       summary.addRaw('No unattended Codex tasks detected.');
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
+    if (roundTraces.length) {
+      summary.addDetails('Keepalive round traces', summariseList(roundTraces));
+    }
     if (refreshed.length) {
       summary.addDetails('Refreshed keepalive comments', summariseList(refreshed));
     }
