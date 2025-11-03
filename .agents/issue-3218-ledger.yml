@@ -24,8 +24,8 @@ tasks:
     title: 'Emit repository_dispatch with event_type: codex-pr-comment-command and
       payload including { issue: <PR number>, agent: "codex", comment_id, comment_url,
       base, head } using secrets.ACTIONS_BOT_PAT.'
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:23:11Z'
     finished_at: null
     commit: ''
     notes: []
