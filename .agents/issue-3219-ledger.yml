@@ -13,8 +13,8 @@ tasks:
     notes: []
   - id: task-02
     title: Filter the desired assignee set with isAssignable before calling issues.addAssignees.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:35:49Z'
     finished_at: null
     commit: ''
     notes: []
