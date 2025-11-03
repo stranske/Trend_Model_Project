@@ -367,6 +367,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let agentLogins = agentEntries.map(({ normalized }) => normalized);
   agentLogins = dedupe(agentLogins);
 
+  const maxPrs = coerceNumber(options.keepalive_max_prs ?? env.KEEPALIVE_MAX_PRS, 40, { min: 1 });
+
   const allowedAuthorEntries = parseAgentLoginEntries(
     options.keepalive_allowed_authors ?? env.KEEPALIVE_ALLOWED_AUTHORS,
     ['stranske-automation-bot']
@@ -386,6 +388,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const skipped = [];
   let skippedCount = 0;
   let scanned = 0;
+  let limitReached = false;
   addHeading();
   summary
     .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
@@ -455,6 +458,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   for await (const page of paginatePulls) {
     for (const pr of page.data) {
+      if (scanned >= maxPrs) {
+        limitReached = true;
+        break;
+      }
       scanned += 1;
       const labelNames = (pr.labels || []).map((label) =>
         (typeof label === 'string' ? label : label?.name || '').toLowerCase()
@@ -734,6 +741,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
     }
+    if (limitReached) {
+      break;
+    }
+  }
+
+  if (limitReached) {
+    summary.addRaw(`Processing capped at first ${maxPrs} pull requests to respect API limits.`).addEOL();
   }
 
   if (dryRun) {
