@@ -288,7 +288,12 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     def prepare_empty(*args, **kwargs):
-        return pd.DataFrame(), FrequencySummary("M", "Monthly", False, "M", "Monthly"), empty_result, False
+        return (
+            pd.DataFrame(),
+            FrequencySummary("M", "Monthly", False, "M", "Monthly"),
+            empty_result,
+            False,
+        )
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_empty)
     assert (
@@ -306,7 +311,12 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def prepare_no_values(*args, **kwargs):
         frame = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
-        return frame, FrequencySummary("M", "Monthly", False, "M", "Monthly"), empty_result, False
+        return (
+            frame,
+            FrequencySummary("M", "Monthly", False, "M", "Monthly"),
+            empty_result,
+            False,
+        )
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_no_values)
     assert (

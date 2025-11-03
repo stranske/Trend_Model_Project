@@ -230,7 +230,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert policy_args == {"policy": "drop", "limit": 3}
 
 
-def test_run_skips_missing_policy_with_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_skips_missing_policy_with_price_frames(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = DummyCfg()
     cfg.data = {"csv_path": "unused.csv"}
     cfg.performance = {"enable_cache": False}
@@ -248,26 +250,28 @@ def test_run_skips_missing_policy_with_price_frames(monkeypatch: pytest.MonkeyPa
     def fail_apply_missing_policy(*_args, **_kwargs):
         nonlocal called
         called = True
-        raise AssertionError("apply_missing_policy should not run when price frames provided")
+        raise AssertionError(
+            "apply_missing_policy should not run when price frames provided"
+        )
 
     monkeypatch.setattr(engine, "apply_missing_policy", fail_apply_missing_policy)
-    monkeypatch.setattr(engine, "load_csv", lambda *a, **k: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(
+        engine, "load_csv", lambda *a, **k: (_ for _ in ()).throw(AssertionError())
+    )
 
     captured_frames: list[pd.DataFrame] = []
 
-    def fake_run_analysis(df: pd.DataFrame, *args: object, **kwargs: object) -> dict[str, object]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *args: object, **kwargs: object
+    ) -> dict[str, object]:
         captured_frames.append(df.copy())
         return {"ok": True}
 
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
 
     price_frames = {
-        "p1": pd.DataFrame(
-            {"Date": [pd.Timestamp("2020-01-31")], "FundA": [0.1]}
-        ),
-        "p2": pd.DataFrame(
-            {"Date": [pd.Timestamp("2020-02-29")], "FundB": [0.2]}
-        ),
+        "p1": pd.DataFrame({"Date": [pd.Timestamp("2020-01-31")], "FundA": [0.1]}),
+        "p2": pd.DataFrame({"Date": [pd.Timestamp("2020-02-29")], "FundB": [0.2]}),
     }
 
     results = engine.run(cfg, price_frames=price_frames)

@@ -338,7 +338,9 @@ def test_risk_settings_reject_negative_floor():
     assert "vol_adjust.floor_vol cannot be negative" in str(exc.value)
 
     with pytest.raises(ValidationError):
-        config_model.RiskSettings.model_validate({"target_vol": 0.1, "warmup_periods": -1})
+        config_model.RiskSettings.model_validate(
+            {"target_vol": 0.1, "warmup_periods": -1}
+        )
 
 
 def test_resolve_config_path_uses_environment(tmp_path, monkeypatch):

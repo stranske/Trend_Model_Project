@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import trend_analysis.risk as risk
 from trend_analysis.engine.optimizer import ConstraintViolation
 from trend_analysis.risk import (
     RiskWindow,
@@ -87,7 +88,6 @@ def test_compute_constrained_weights_respects_turnover_cap() -> None:
 
     assert diagnostics.turnover_value <= 0.2000001
     assert abs(weights.sum() - 1.0) < 1e-9
-import trend_analysis.risk as risk
 
 
 def test_periods_per_year_from_code_defaults() -> None:
@@ -100,9 +100,7 @@ def test_realised_volatility_validates_inputs() -> None:
     with pytest.raises(ValueError):
         risk.realised_volatility(pd.DataFrame(), risk.RiskWindow(length=3))
     with pytest.raises(ValueError):
-        risk.realised_volatility(
-            pd.DataFrame({"A": [0.1]}), risk.RiskWindow(length=0)
-        )
+        risk.realised_volatility(pd.DataFrame({"A": [0.1]}), risk.RiskWindow(length=0))
     with pytest.raises(ValueError):
         risk.realised_volatility(
             pd.DataFrame({"A": [0.1, -0.2]}),
@@ -126,9 +124,27 @@ def test_enforce_turnover_cap_with_previous() -> None:
 
 def test_compute_constrained_weights_validates_inputs() -> None:
     with pytest.raises(ValueError):
-        risk.compute_constrained_weights({}, pd.DataFrame(), window=risk.RiskWindow(2), target_vol=0.1, periods_per_year=12, floor_vol=None, long_only=True, max_weight=None)
+        risk.compute_constrained_weights(
+            {},
+            pd.DataFrame(),
+            window=risk.RiskWindow(2),
+            target_vol=0.1,
+            periods_per_year=12,
+            floor_vol=None,
+            long_only=True,
+            max_weight=None,
+        )
     with pytest.raises(ValueError):
-        risk.compute_constrained_weights({}, pd.DataFrame({"A": [0.1]}), window=risk.RiskWindow(2), target_vol=0.1, periods_per_year=12, floor_vol=None, long_only=True, max_weight=None)
+        risk.compute_constrained_weights(
+            {},
+            pd.DataFrame({"A": [0.1]}),
+            window=risk.RiskWindow(2),
+            target_vol=0.1,
+            periods_per_year=12,
+            floor_vol=None,
+            long_only=True,
+            max_weight=None,
+        )
 
     returns = pd.DataFrame({"A": [0.01, 0.02], "B": [0.02, 0.01]})
     base = {"A": 0.0, "B": 0.0}

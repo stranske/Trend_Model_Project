@@ -328,7 +328,9 @@ def test_export_bundle_warns_on_generic_portfolio(tmp_path):
 def test_export_bundle_records_log_file(tmp_path):
     input_path = _write_input(tmp_path)
     run = DummyRun(
-        portfolio=pd.Series([0.01], index=pd.date_range("2020-01-31", periods=1, freq="ME")),
+        portfolio=pd.Series(
+            [0.01], index=pd.date_range("2020-01-31", periods=1, freq="ME")
+        ),
         config={},
         seed=1,
         input_path=input_path,
