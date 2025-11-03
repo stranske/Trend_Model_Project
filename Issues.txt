@@ -100,7 +100,7 @@ Accept options_json, parse keepalive_trace, round, and pr.
 Set concurrency.cancel-in-progress = false and key the group by keepalive_trace (or pr+trace) so later events don’t cancel the run.
 
 Before any early exit (Gate not green, labels missing, branch mismatch, etc.), post a one‑line PR comment:
-**Keepalive {round}** \{trace}` skipped: <reason-code>` and write the same to the job summary.
+**Keepalive {round}** `{trace}` skipped: <reason-code>` and write the same to the job summary.
 
 Assignee enforcement: treat app/bot logins as non‑assignable, use the PR number with issues.addAssignees, and skip gracefully if no human assignees remain.
 
