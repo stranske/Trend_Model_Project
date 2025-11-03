@@ -345,6 +345,8 @@ def test_keepalive_skips_non_codex_branches() -> None:
     Now keepalive triggers based on labels and checklist presence, not branch names.
     """
     data = _run_scenario("non_codex_branch")
+    created = data["created_comments"]
+    _assert_keepalive_author(created)
 
     # Keepalive should now trigger because:
     # - PR has agent:codex label
@@ -360,7 +362,7 @@ def test_keepalive_skips_non_codex_branches() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     payload = _assert_single_dispatch(data, 111)
-    assert payload["comment_id"] == data["created_comments"][0]["id"]
+    assert payload["comment_id"] == created[0]["id"]
     assert payload["head"] == "feature/non-codex-update"
 
 
