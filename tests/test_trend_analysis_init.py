@@ -35,7 +35,9 @@ def test_lazy_getattr_imports_module(monkeypatch, fresh_trend_analysis):
             return sentinel
         return original_import(name, package)
 
-    monkeypatch.setattr(package, "_LAZY_SUBMODULES", {"selector": "trend_analysis.selector"})
+    monkeypatch.setattr(
+        package, "_LAZY_SUBMODULES", {"selector": "trend_analysis.selector"}
+    )
     monkeypatch.delattr(package, "selector", raising=False)
     monkeypatch.setattr(importlib, "import_module", fake_import)
 
