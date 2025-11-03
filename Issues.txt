@@ -90,9 +90,8 @@ Treat a comment as a valid activation only if:
 
   - the body contains both hidden markers:
 
+    <!-- keepalive-round: {roundNumber} -->
     <!-- codex-keepalive-marker -->
-
-    <!-- keepalive-round: N -->
 
 When valid, emit:
 
