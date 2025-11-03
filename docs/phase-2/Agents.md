@@ -268,6 +268,8 @@ Dependency hygiene
 
 Heavy imports (numpy, pandas, scipy) at top of each module are fine.
 
+Keep formatter/test tool versions in lock-step by running `python scripts/sync_tool_versions.py --check` (use `--apply` if drift is detected) before committing config or workflow changes.
+
 No circular imports. pipeline.py orchestrates; nothing imports it.
 
 Tests

@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.backtesting import BacktestResult, bootstrap_equity
+from trend_analysis.backtesting.bootstrap import _init_rng, _validate_inputs
 
 
 def _make_result(returns: pd.Series) -> BacktestResult:
@@ -26,6 +27,60 @@ def _make_result(returns: pd.Series) -> BacktestResult:
         window_size=1,
         training_windows={},
     )
+
+
+def test_init_rng_reuses_generators_and_validate_inputs_types() -> None:
+    rng = np.random.default_rng(123)
+    assert _init_rng(rng) is rng
+
+    base = _make_result(
+        pd.Series([0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME"))
+    )
+    with pytest.raises(TypeError, match="returns must be a pandas Series"):
+        _validate_inputs(
+            replace(base, returns=pd.DataFrame(base.returns)), n=1, block=1
+        )
+    with pytest.raises(TypeError, match="equity_curve must be a pandas Series"):
+        _validate_inputs(
+            replace(base, equity_curve=base.equity_curve.to_frame()), n=1, block=1
+        )
+
+
+def test_bootstrap_equity_sanitises_non_finite_alignment() -> None:
+    idx = pd.date_range("2024-01-31", periods=3, freq="ME")
+    returns = pd.Series([0.05, 0.0, 0.01], index=idx)
+    result = _make_result(returns)
+    faulty_equity = result.equity_curve.copy()
+    faulty_equity.iloc[0] = np.inf
+    result = replace(result, equity_curve=faulty_equity)
+
+    band = bootstrap_equity(
+        result, n=10, block=2, random_state=np.random.default_rng(7)
+    )
+    assert np.isfinite(band.to_numpy(dtype=float)).all()
+
+
+def test_bootstrap_equity_handles_zero_denominator_and_extreme_base_value() -> None:
+    idx = pd.date_range("2025-01-31", periods=3, freq="ME")
+    returns = pd.Series([-1.0, 0.02, 0.01], index=idx)
+    base_result = _make_result(returns)
+
+    zero_band = bootstrap_equity(base_result, n=5, block=1, random_state=0)
+    assert np.isfinite(zero_band.iloc[1:].to_numpy(dtype=float)).all()
+
+    near_zero_returns = pd.Series([-0.999999, 0.02, 0.01], index=idx)
+    near_zero_result = _make_result(near_zero_returns)
+    amplified_equity = near_zero_result.equity_curve.copy()
+    amplified_equity.iloc[0] = np.float64(1e308)
+    near_zero_result = replace(near_zero_result, equity_curve=amplified_equity)
+
+    extreme_band = bootstrap_equity(
+        near_zero_result,
+        n=5,
+        block=1,
+        random_state=np.random.default_rng(9),
+    )
+    assert np.isfinite(extreme_band.to_numpy(dtype=float)).all()
 
 
 def test_bootstrap_equity_constant_returns_aligns_with_realised():

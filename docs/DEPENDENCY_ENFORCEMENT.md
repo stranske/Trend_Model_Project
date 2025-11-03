@@ -86,6 +86,9 @@ python scripts/sync_test_dependencies.py --fix
 
 # Verify mode - exit 1 if changes needed (for CI)
 python scripts/sync_test_dependencies.py --verify
+
+# Confirm formatter/test tool pins match the canonical versions
+python scripts/sync_tool_versions.py --check
 ```
 
 #### What It Does

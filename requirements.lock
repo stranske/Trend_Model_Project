@@ -26,7 +26,7 @@ fonttools==4.60.1
     #   matplotlib
 fpdf2==2.8.5
     # via trend-model (pyproject.toml)
-hypothesis==6.143.1
+hypothesis==6.144.0
     # via trend-model (pyproject.toml)
 ipython==9.6.0
     # via ipywidgets
