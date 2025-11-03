@@ -64,6 +64,8 @@ const NON_ASSIGNABLE_LOGINS = new Set([
   'copilot',
   'chatgpt-codex-connector',
   'stranske-automation-bot',
+  'github-actions',
+  'dependabot'
 ]);
 
 function isAssignable(login) {

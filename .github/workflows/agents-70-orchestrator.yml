@@ -47,7 +47,18 @@ permissions:
   actions: write
 
 concurrency:
-  group: agents-70-orchestrator-${{ github.event.client_payload.pr || github.event.issue.number || github.ref }}
+  group: >-
+    agents-70-orchestrator-${{
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.options_json)
+      || (github.event_name == 'repository_dispatch'
+        && github.event.client_payload
+        && (
+          github.event.client_payload.options_json
+          || (github.event.client_payload.options && toJson(github.event.client_payload.options))
+        )
+      )
+      || github.run_id
+    }}
   cancel-in-progress: false
 
 jobs:
@@ -157,6 +168,9 @@ jobs:
       dispatcher_force_issue: ${{ steps.resolve.outputs.dispatcher_force_issue }}
       worker_max_parallel: ${{ steps.resolve.outputs.worker_max_parallel }}
       conveyor_max_merges: ${{ steps.resolve.outputs.conveyor_max_merges }}
+      keepalive_trace: ${{ steps.resolve.outputs.keepalive_trace }}
+      keepalive_round: ${{ steps.resolve.outputs.keepalive_round }}
+      keepalive_pr: ${{ steps.resolve.outputs.keepalive_pr }}
     steps:
       - name: Confirm default-branch execution context
         uses: actions/github-script@v7
@@ -224,9 +238,230 @@ jobs:
             const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
             await resolveOrchestratorParams({ github, context, core, env: process.env });
 
+  keepalive-guard:
+    name: Evaluate keepalive gate
+    needs: resolve-params
+    if: needs.resolve-params.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed || 'true' }}
+      reason: ${{ steps.guard.outputs.reason || '' }}
+    steps:
+      - name: Evaluate keepalive prerequisites
+        id: guard
+        uses: actions/github-script@v7
+        env:
+          KEEPALIVE_ENABLED: ${{ needs.resolve-params.outputs.enable_keepalive }}
+          KEEPALIVE_TRACE: ${{ needs.resolve-params.outputs.keepalive_trace }}
+          KEEPALIVE_ROUND: ${{ needs.resolve-params.outputs.keepalive_round }}
+          KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const normalise = (value) => String(value || '').trim();
+            const toBool = (value) => {
+              const norm = normalise(value).toLowerCase();
+              return ['true', '1', 'yes', 'on'].includes(norm);
+            };
+
+            const isAssignable = (login) => {
+              const raw = normalise(login);
+              if (!raw) {
+                return false;
+              }
+              if (/\[bot\]$/i.test(raw)) {
+                return false;
+              }
+              const lowered = raw.toLowerCase();
+              const blocked = new Set([
+                'chatgpt-codex-connector',
+                'stranske-automation-bot',
+                'github-actions',
+                'dependabot',
+                'copilot'
+              ]);
+              return !blocked.has(lowered);
+            };
+
+            const keepaliveEnabled = toBool(process.env.KEEPALIVE_ENABLED);
+            const trace = normalise(process.env.KEEPALIVE_TRACE);
+            const round = normalise(process.env.KEEPALIVE_ROUND);
+            const prRaw = normalise(process.env.KEEPALIVE_PR);
+            const summary = core.summary;
+            summary.addHeading('Keepalive gate evaluation');
+
+            const renderLine = (reason) => `**Keepalive ${round || '?' }** \`${trace || 'unknown'}\` skipped: ${reason}`;
+
+            const setOutputs = (proceed, reason) => {
+              core.setOutput('proceed', proceed ? 'true' : 'false');
+              core.setOutput('reason', reason || '');
+            };
+
+            if (!keepaliveEnabled || !trace) {
+              setOutputs(true, '');
+              summary
+                .addRaw('Keepalive gating not required for this run.')
+                .addEOL()
+                .write();
+              return;
+            }
+
+            const prNumber = Number(prRaw);
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              const reason = 'missing-pr-number';
+              summary
+                .addRaw(renderLine(reason))
+                .addEOL()
+                .write();
+              setOutputs(false, reason);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            let pr;
+            try {
+              const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              pr = response.data;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to load PR #${prNumber}: ${message}`);
+              const reason = 'pr-fetch-failed';
+              summary
+                .addRaw(renderLine(reason))
+                .addEOL();
+              if (message) {
+                summary.addRaw(`Details: ${message}`).addEOL();
+              }
+              summary.write();
+              setOutputs(false, reason);
+              return;
+            }
+
+            const reasons = [];
+            if (!pr) {
+              reasons.push('missing-pr');
+            } else {
+              if ((pr.state || '').toLowerCase() !== 'open') {
+                reasons.push('pr-not-open');
+              }
+              if (pr.draft) {
+                reasons.push('pr-draft');
+              }
+              const labelNames = new Set(
+                (pr.labels || [])
+                  .map((label) => (typeof label === 'string' ? label : label?.name || ''))
+                  .map((name) => name.trim().toLowerCase())
+                  .filter(Boolean)
+              );
+              if (!labelNames.has('agents:keepalive')) {
+                reasons.push('missing-label:agents-keepalive');
+              }
+              if (!labelNames.has('agent:codex')) {
+                reasons.push('missing-label:agent-codex');
+              }
+
+              const headSha = pr.head?.sha || '';
+              if (!headSha) {
+                reasons.push('missing-head-sha');
+              } else {
+                try {
+                  const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+                    owner,
+                    repo,
+                    ref: headSha,
+                  });
+                  const statuses = combined?.statuses || [];
+                  const gateStatuses = statuses.filter((status) => {
+                    const ctx = (status.context || '').toLowerCase();
+                    return ctx === 'gate / gate' || ctx === 'gate' || ctx.endsWith('/ gate');
+                  });
+                  const gateHealthy = gateStatuses.length
+                    ? gateStatuses.every((status) => (status.state || '').toLowerCase() === 'success')
+                    : (combined.state || '').toLowerCase() === 'success';
+                  if (!gateHealthy) {
+                    reasons.push('gate-not-green');
+                  }
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  core.warning(`Unable to evaluate gate status for ${headSha}: ${message}`);
+                }
+              }
+
+              const currentAssignees = (pr.assignees || []).map((assignee) => assignee?.login).filter(Boolean);
+              const humanAssignees = currentAssignees.filter(isAssignable);
+
+              if (!humanAssignees.length) {
+                const candidateLogins = [];
+                const author = pr.user?.login;
+                if (isAssignable(author)) {
+                  candidateLogins.push(author);
+                }
+                for (const reviewer of pr.requested_reviewers || []) {
+                  if (isAssignable(reviewer?.login)) {
+                    candidateLogins.push(reviewer.login);
+                  }
+                }
+
+                const uniqueCandidates = [];
+                const seen = new Set();
+                for (const login of candidateLogins) {
+                  const normalised = login.toLowerCase();
+                  if (!seen.has(normalised)) {
+                    seen.add(normalised);
+                    uniqueCandidates.push(login);
+                  }
+                }
+
+                if (uniqueCandidates.length) {
+                  try {
+                    await github.rest.issues.addAssignees({
+                      owner,
+                      repo,
+                      issue_number: prNumber,
+                      assignees: uniqueCandidates,
+                    });
+                    summary.addRaw(`Assigned human owners to PR #${prNumber}: ${uniqueCandidates.join(', ')}`).addEOL();
+                  } catch (assignmentError) {
+                    const message = assignmentError instanceof Error ? assignmentError.message : String(assignmentError);
+                    summary.addRaw(`Failed to assign humans to PR #${prNumber}: ${message}`).addEOL();
+                  }
+                } else {
+                  summary.addRaw(`No human assignees available for PR #${prNumber}; continuing without assignment.`).addEOL();
+                }
+              }
+            }
+
+            if (reasons.length) {
+              const reasonText = reasons.join(', ');
+              const line = renderLine(reasonText);
+              summary.addRaw(line).addEOL().write();
+              try {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: line,
+                });
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to post keepalive skip comment on PR #${prNumber}: ${message}`);
+              }
+              setOutputs(false, reasonText);
+              return;
+            }
+
+            summary
+              .addRaw(`Keepalive ${round || '?'} trace \`${trace}\`: proceed`)
+              .addEOL()
+              .write();
+
+            setOutputs(true, '');
+
   orchestrate:
     name: Dispatch Agents Toolkit
-    needs: resolve-params
+    needs:
+      - resolve-params
+      - keepalive-guard
     uses: ./.github/workflows/reusable-16-agents.yml
     # Job timeouts live inside reusable-16-agents.yml to satisfy workflow_call constraints.
     with:
@@ -255,8 +490,13 @@ jobs:
 
   verify-assignment:
     name: Verify Assignment
-    needs: resolve-params
-    if: needs.resolve-params.outputs.enable_verify_issue == 'true' && needs.resolve-params.outputs.verify_issue_number != ''
+    needs:
+      - resolve-params
+      - keepalive-guard
+    if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
+      needs.resolve-params.outputs.enable_verify_issue == 'true' &&
+      needs.resolve-params.outputs.verify_issue_number != ''
     uses: ./.github/workflows/agents-64-verify-agent-assignment.yml
     with:
       issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
@@ -266,8 +506,10 @@ jobs:
     name: Record Verification Outcome
     needs:
       - resolve-params
+      - keepalive-guard
       - verify-assignment
     if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.enable_verify_issue == 'true' &&
       needs.resolve-params.outputs.verify_issue_number != '' &&
       needs.verify-assignment.result == 'success'
@@ -294,7 +536,9 @@ jobs:
 
   belt-dispatch:
     name: Codex Belt Dispatcher
-    needs: resolve-params
+    needs:
+      - resolve-params
+      - keepalive-guard
     uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
     with:
       force_issue: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
@@ -306,8 +550,12 @@ jobs:
     name: Guard existing Codex PRs
     needs:
       - belt-dispatch
+      - keepalive-guard
       - resolve-params
-    if: needs.belt-dispatch.outputs.issue != '' && needs.belt-dispatch.outputs.branch != ''
+    if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
+      needs.belt-dispatch.outputs.issue != '' &&
+      needs.belt-dispatch.outputs.branch != ''
     runs-on: ubuntu-latest
     outputs:
       pr_exists: ${{ steps.lookup.outputs.pr_exists || 'false' }}
@@ -371,6 +619,7 @@ jobs:
       - belt-dispatch
       - belt-check-existing-pr
     if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.worker_max_parallel != '0' &&
       needs.belt-dispatch.outputs.issue != ''
       && (
@@ -395,6 +644,8 @@ jobs:
       - belt-dispatch
       - belt-worker
       - belt-check-existing-pr
+      - keepalive-guard
+      - resolve-params
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -440,9 +691,107 @@ jobs:
             // Do not remove checkout; local helper is required.
             const { appendDispatchSummary } = require('./.github/scripts/agents_dispatch_summary.js');
             await appendDispatchSummary({ core, context, env: process.env });
+
+      - name: Record keepalive worker outcome
+        if: |
+          needs.keepalive-guard.outputs.proceed != 'false' &&
+          needs.resolve-params.outputs.keepalive_trace != ''
+        uses: actions/github-script@v7
+        env:
+          KEEPALIVE_TRACE: ${{ needs.resolve-params.outputs.keepalive_trace }}
+          KEEPALIVE_ROUND: ${{ needs.resolve-params.outputs.keepalive_round }}
+          KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr || needs.belt-worker.outputs.pr_number || '' }}
+          WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
+          WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
+          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const normalise = (value) => String(value || '').trim();
+            const trace = normalise(process.env.KEEPALIVE_TRACE);
+            const round = normalise(process.env.KEEPALIVE_ROUND);
+            const workerResult = normalise(process.env.WORKER_RESULT) || 'unknown';
+            const branch = normalise(process.env.WORKER_BRANCH);
+            const dryRun = normalise(process.env.WORKER_DRY_RUN).toLowerCase() === 'true';
+            const prCandidate = normalise(process.env.KEEPALIVE_PR);
+            const prNumber = Number(prCandidate);
+            const { owner, repo } = context.repo;
+
+            let headSha = '';
+            if (branch) {
+              try {
+                const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                headSha = data?.commit?.sha || '';
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Unable to determine head SHA for ${branch}: ${message}`);
+              }
+            }
+
+            const summary = core.summary;
+            summary
+              .addHeading('Keepalive worker outcome')
+              .addTable([
+                [
+                  { data: 'Round', header: true },
+                  { data: 'Trace', header: true },
+                  { data: 'Result', header: true },
+                  { data: 'Head SHA', header: true }
+                ],
+                [
+                  round || '—',
+                  trace || '—',
+                  workerResult,
+                  headSha || '(unavailable)'
+                ]
+              ])
+              .write();
+
+            if (!trace) {
+              core.info('No keepalive trace detected; skipping worker outcome comment.');
+              return;
+            }
+
+            if (!prNumber || !Number.isFinite(prNumber)) {
+              core.info('No PR number resolved for keepalive worker outcome; skipping comment.');
+              return;
+            }
+
+            const loweredResult = workerResult.toLowerCase();
+            const shouldComment = headSha || loweredResult !== 'skipped';
+
+            if (!shouldComment) {
+              core.info('Keepalive worker skipped; no outcome comment posted.');
+              return;
+            }
+
+            const shortSha = headSha ? headSha.slice(0, 12) : 'unknown';
+            let details = `worker ${workerResult}`;
+            if (dryRun) {
+              details += ' (dry run)';
+            }
+            if (headSha) {
+              details += ` – head ${shortSha}`;
+            }
+
+            const body = `**Keepalive ${round || '?'}** \`${trace}\` worker: ${details}.`;
+
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to post keepalive worker outcome for PR #${prNumber}: ${message}`);
+            }
   belt-scan-ready-prs:
     name: Scan Codex promotion queue
-    needs: resolve-params
+    needs:
+      - resolve-params
+      - keepalive-guard
     runs-on: ubuntu-latest
     outputs:
       items: ${{ steps.scan.outputs.items || '[]' }}
@@ -471,7 +820,9 @@ jobs:
     needs:
       - resolve-params
       - belt-scan-ready-prs
+      - keepalive-guard
     if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.conveyor_max_merges != '0' &&
       needs.belt-scan-ready-prs.outputs.items != '' &&
       needs.belt-scan-ready-prs.outputs.items != '[]'
@@ -493,7 +844,8 @@ jobs:
     needs:
       - resolve-params
       - belt-conveyor
-    if: needs.resolve-params.outputs.dry_run != 'true'
+      - keepalive-guard
+    if: needs.keepalive-guard.outputs.proceed != 'false' && needs.resolve-params.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Merge Codex PRs tagged for automerge
