@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'If Route A: remove or replace if: ${{ false }} on the listen_commands
       job so it runs on issue_comment.created.'
-    status: doing
+    status: done
     started_at: '2025-11-03T05:18:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-03T05:18:49Z'
+    commit: d5f6cb50907ade2652718394fe2b87f019bcd61e
     notes: []
   - id: task-02
     title: "Require the hidden sentinel <!-- codex-keepalive-marker -->, author allow\u2011\
