@@ -66,6 +66,26 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
     return errors
 
 
+def _fetch_commit(commit: str) -> bool:
+    try:
+        subprocess.check_call(
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--depth",
+                "1",
+                "origin",
+                commit,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
 def _commit_files(commit: str) -> List[str]:
     try:
         output = subprocess.check_output(
@@ -73,7 +93,13 @@ def _commit_files(commit: str) -> List[str]:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise LedgerError(f"unknown commit {commit}") from exc
+        if _fetch_commit(commit):
+            output = subprocess.check_output(
+                ["git", "show", "--pretty=format:", "--name-only", commit],
+                text=True,
+            )
+        else:
+            raise LedgerError(f"unknown commit {commit}") from exc
 
     stripped_lines = (line.strip() for line in output.splitlines())
     files = [line for line in stripped_lines if line]
@@ -87,7 +113,13 @@ def _commit_subject(commit: str) -> str:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise LedgerError(f"unknown commit {commit}") from exc
+        if _fetch_commit(commit):
+            output = subprocess.check_output(
+                ["git", "show", "--no-patch", "--pretty=format:%s", commit],
+                text=True,
+            )
+        else:
+            raise LedgerError(f"unknown commit {commit}") from exc
     return output.strip()
 
 
