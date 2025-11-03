@@ -127,247 +127,95 @@ jobs:
               .write();
 
   listen_commands:
-    if: ${{ false }}  # Disabled; keepalive detection is the single entry point
+    needs: keepalive_dispatch
+    if: >-
+      ${{ github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Handle PR comment command
-        id: handle
+      - name: Dispatch codex keepalive command
+        id: dispatch
         uses: actions/github-script@v7
+        env:
+          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
+          HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
-            const marker = '<!-- codex-activation-marker -->';
-            const errorMarker = '<!-- codex-activation-error -->';
-            const aliasCommands = ['/codex run', '/agent run'];
-            const aliasCommandList = aliasCommands.map((value) => value.toLowerCase());
-            const aliasCommandSet = new Set(aliasCommandList);
-
             const { payload } = context;
             const { owner, repo } = context.repo;
-            const issueNumber = payload.issue.number;
-            const comment = payload.comment;
-            const labels = (payload.issue.labels || []).map(label => {
-              if (typeof label === 'string') return label;
-              return label?.name || '';
-            });
 
-            const agentLabels = labels.filter(name => typeof name === 'string' && name.toLowerCase().startsWith('agent:'));
-            if (agentLabels.length !== 1) {
-              const reason = agentLabels.length === 0
-                ? 'No `agent:*` label found on this pull request.'
-                : `Multiple agent labels found (${agentLabels.join(', ')}).`;
-
-              const guidance = agentLabels.length === 0
-                ? 'Add exactly one `agent:*` label (for example, `agent:codex`) and re-run the command.'
-                : 'Remove the extra `agent:*` labels so only one remains, then re-run the command.';
-
-              const labelList = agentLabels.length > 0
-                ? `\n\nApplied agent labels: ${agentLabels.join(', ')}`
-                : '';
-
-              const body = `${errorMarker}\n`
-                + '**Codex activation blocked**\n\n'
-                + `${reason}${labelList}\n\n`
-                + `${guidance}`;
-
-              const existingComments = await github.paginate(
-                github.rest.issues.listComments,
-                {
-                  owner,
-                  repo,
-                  issue_number: issueNumber,
-                  per_page: 100,
-                }
-              );
-
-              const existing = existingComments.find(c => (c.body || '').includes(errorMarker));
-
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: existing.id,
-                  body,
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: issueNumber,
-                  body,
-                });
-              }
-
-              core.setOutput('dispatched', 'false');
-              core.setOutput('reason', 'invalid-agent-label');
+            const pullNumber = payload.issue?.number;
+            if (!pullNumber) {
+              core.setFailed('Unable to determine pull request number from issue_comment payload.');
               return;
             }
 
-            const agentLabel = agentLabels[0];
-            const agent = agentLabel.split(':')[1]?.trim();
-            if (!agent) {
-              core.setFailed(`Unable to resolve agent from label: ${agentLabel}`);
-              return;
+            const base = process.env.BASE || '';
+            const head = process.env.HEAD || '';
+
+            if (!base || !head) {
+              core.warning('Keepalive metadata missing base/head from detection; fetching pull request details.');
             }
 
-            const commandPrefix = `@${agent} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
+            let resolvedBase = base;
+            let resolvedHead = head;
 
-            const extractNormalizedLines = (text) => {
-              if (!text) return [];
-
-              const lines = [];
-              let inCodeFence = false;
-
-              for (const rawLine of text.split(/\r?\n/)) {
-                if (!rawLine) {
-                  continue;
-                }
-
-                const trimmedLine = rawLine.trim();
-                if (!trimmedLine) {
-                  continue;
-                }
-
-                if (trimmedLine.startsWith('```')) {
-                  inCodeFence = !inCodeFence;
-                  continue;
-                }
-
-                if (inCodeFence) {
-                  continue;
-                }
-
-                const withoutQuote = trimmedLine.replace(/^>+\s*/, '').trim();
-                if (!withoutQuote) {
-                  continue;
-                }
-
-                lines.push(withoutQuote);
-              }
-
-              return lines;
-            };
-
-            const getActivationCommand = (rawText) => {
-              if (!rawText) return null;
-
-              const trimmed = rawText.trim();
-              if (!trimmed) return null;
-
-              if (trimmed.startsWith(commandPrefix)) {
-                return { type: 'full', value: commandPrefix };
-              }
-
-              const normalizedLines = extractNormalizedLines(rawText);
-              for (const line of normalizedLines) {
-                const lowered = line.toLowerCase();
-                for (const alias of aliasCommandList) {
-                  if (lowered === alias || lowered.startsWith(`${alias} `)) {
-                    return { type: 'alias', value: alias };
-                  }
-                }
-              }
-
-              return null;
-            };
-
-            const bodyText = (comment.body || '').trim();
-            const activationCommand = getActivationCommand(bodyText);
-            if (!activationCommand) {
-              core.setOutput('dispatched', 'false');
-              core.setOutput('reason', 'no-match');
-              return;
-            }
-
-            const comments = await github.paginate(
-              github.rest.issues.listComments,
-              {
+            if (!resolvedBase || !resolvedHead) {
+              const pull = await github.rest.pulls.get({
                 owner,
                 repo,
-                issue_number: issueNumber,
-                per_page: 100,
-              }
-            );
+                pull_number: pullNumber,
+              });
 
-            const activationComments = comments.filter(c => getActivationCommand((c.body || '').trim()));
-            if (activationComments.length === 0 || activationComments[activationComments.length - 1].id !== comment.id) {
-              core.info('Command superseded by a newer comment; skipping dispatch.');
-              core.setOutput('dispatched', 'false');
-              core.setOutput('reason', 'superseded');
+              resolvedBase = resolvedBase || pull.data.base?.ref || '';
+              resolvedHead = resolvedHead || pull.data.head?.ref || '';
+            }
+
+            if (!resolvedBase || !resolvedHead) {
+              core.setFailed('Unable to determine pull request base/head branches.');
               return;
             }
 
-            const pull = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: issueNumber,
-            });
+            const commentId = payload.comment?.id;
+            const commentUrl = payload.comment?.html_url;
 
-            const payloadData = {
-              issue: issueNumber,
-              base: pull.data.base.ref,
-              head: pull.data.head.ref,
-              agent,
-              comment_id: comment.id,
-              comment_url: comment.html_url,
+            if (!commentId || !commentUrl) {
+              core.setFailed('Comment metadata missing id or url.');
+              return;
+            }
+
+            const clientPayload = {
+              issue: pullNumber,
+              base: resolvedBase,
+              head: resolvedHead,
+              agent: 'codex',
+              comment_id: commentId,
+              comment_url: commentUrl,
             };
 
             await github.rest.repos.createDispatchEvent({
               owner,
               repo,
               event_type: 'codex-pr-comment-command',
-              client_payload: payloadData,
+              client_payload: clientPayload,
             });
 
-            const errorComment = comments.find(c => (c.body || '').includes(errorMarker));
-            if (errorComment) {
-              await github.rest.issues.deleteComment({
-                owner,
-                repo,
-                comment_id: errorComment.id,
-              });
-            }
+            core.summary
+              .addHeading('Codex keepalive dispatch')
+              .addRaw(`Pull request: #${pullNumber}`)
+              .addEOL()
+              .addRaw(`Base branch: ${clientPayload.base}`)
+              .addEOL()
+              .addRaw(`Head branch: ${clientPayload.head}`)
+              .addEOL()
+              .addRaw(`Comment ID: ${clientPayload.comment_id}`)
+              .addEOL()
+              .addLink('Comment URL', clientPayload.comment_url)
+              .write();
 
-            const activationBody = `${marker}\n`
-              + `Codex activation dispatched for **@${agent}** from [comment #${comment.id}](${comment.html_url}).\n\n`
-              + `- Pull request: #${issueNumber}\n`
-              + `- Base branch: ${pull.data.base.ref}\n`
-              + `- Head branch: ${pull.data.head.ref}\n`
-              + `- Comment ID: ${comment.id}`;
-
-            const activationComment = comments.find(c => (c.body || '').includes(marker));
-            if (activationComment) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: activationComment.id,
-                body: activationBody,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                body: activationBody,
-              });
-            }
-
-            core.setOutput('dispatched', 'true');
-            core.setOutput('agent', agent);
-            core.setOutput('comment-id', String(comment.id));
-
-      - name: Log dispatch result
-        if: steps.handle.outputs.dispatched == 'true'
-        run: |
-          echo "Dispatched agent ${AGENT} for comment ${COMMENT}"
-        env:
-          AGENT: ${{ steps.handle.outputs.agent }}
-          COMMENT: ${{ steps.handle.outputs['comment-id'] }}
-
-      - name: Report skipped reason
-        if: steps.handle.outputs.dispatched != 'true'
-        run: |
-          echo "Dispatch skipped: ${{ steps.handle.outputs.reason }}"
+            core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
   update_body:
     if: github.event_name != 'issue_comment'
