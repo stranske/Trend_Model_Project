@@ -29,8 +29,8 @@ tasks:
   - id: task-04
     title: If the filtered list is empty, log and skip the assignment step instead
       of failing the sweep.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:41:36Z'
     finished_at: null
     commit: ''
     notes: []
