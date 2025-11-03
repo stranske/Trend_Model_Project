@@ -149,6 +149,8 @@ Acceptance criteria
 
   - Exactly one orchestrator run starts via workflow_dispatch carrying that TRACE; no previous run is canceled by this one.
 
+  - The PR‑meta workflow emits a repository_dispatch event for codex-pr-comment-command containing the keepalive trace and round.
+
   - If any gate fails, the PR shows a single‑line comment in the format:
     **Keepalive {round}** `{trace}` skipped: <reason-code>` and the orchestrator step summary contains the same reason.
 

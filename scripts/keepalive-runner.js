@@ -648,17 +648,17 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-      const totalTasks = latestChecklist.total;
-      const outstanding = latestChecklist.unchecked;
-      const completed = Math.max(0, totalTasks - outstanding);
-      const itemWord = outstanding === 1 ? 'item' : 'items';
-      const verb = outstanding === 1 ? 'remains' : 'remain';
-  const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
+    const totalTasks = latestChecklist.total;
+    const outstanding = latestChecklist.unchecked;
+    const completed = Math.max(0, totalTasks - outstanding);
+    const itemWord = outstanding === 1 ? 'item' : 'items';
+    const verb = outstanding === 1 ? 'remains' : 'remain';
+    const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
 
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
-      const nextRound = computeNextRound(keepaliveCandidates);
-      const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
+  const nextRound = computeNextRound(keepaliveCandidates);
+  const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
       const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
       const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
 
