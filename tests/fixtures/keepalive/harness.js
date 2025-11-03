@@ -119,6 +119,7 @@ async function runScenario(scenario) {
   const warnings = [];
   const notices = [];
   let failedMessage = null;
+  const dispatchEvents = [];
 
   const core = {
     summary,
@@ -134,6 +135,9 @@ async function runScenario(scenario) {
     number: pull.number,
     head: {
       ref: pull.head?.ref || `codex/issue-${pull.number}`,
+    },
+    base: {
+      ref: pull.base?.ref || 'main',
     },
     labels: Array.from(pull.labels || []).map((label) =>
       typeof label === 'string' ? { name: label } : label
@@ -165,6 +169,7 @@ async function runScenario(scenario) {
   const createComment = async ({ issue_number, body }) => {
     const entry = { issue_number, body };
     entry.id = allocateCommentId();
+    entry.html_url = `https://example.test/${issue_number}#comment-${entry.id}`;
     createdComments.push(entry);
     return { data: entry };
   };
@@ -192,9 +197,14 @@ async function runScenario(scenario) {
     return { data: {} };
   };
 
+  const dispatchEvent = async ({ owner, repo, event_type, client_payload }) => {
+    dispatchEvents.push({ owner, repo, event_type, client_payload });
+    return { data: {} };
+  };
+
   const github = {
     rest: {
-      pulls: { 
+      pulls: {
         list: listPulls,
         listCommits,
       },
@@ -204,6 +214,9 @@ async function runScenario(scenario) {
         updateComment,
         listAssignees,
         addAssignees,
+      },
+      repos: {
+        createDispatchEvent: dispatchEvent,
       },
     },
     paginate: {
@@ -232,6 +245,18 @@ async function runScenario(scenario) {
         };
       },
     },
+    getOctokit: (token) => {
+      if (!token) {
+        throw new Error('Token is required');
+      }
+      return {
+        rest: {
+          repos: {
+            createDispatchEvent: dispatchEvent,
+          },
+        },
+      };
+    },
   };
 
   const context = {
@@ -242,7 +267,7 @@ async function runScenario(scenario) {
   };
 
   const originalEnv = {};
-  const envOverrides = scenario.env || {};
+  const envOverrides = { ACTIONS_BOT_PAT: 'dummy-token', ...(scenario.env || {}) };
   for (const [key, value] of Object.entries(envOverrides)) {
     originalEnv[key] = process.env[key];
     process.env[key] = String(value);
@@ -273,6 +298,7 @@ async function runScenario(scenario) {
     logs: { info, warnings, notices, failedMessage },
     created_comments: createdComments,
     updated_comments: updatedComments,
+    dispatch_events: dispatchEvents,
   };
 }
 

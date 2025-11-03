@@ -203,6 +203,40 @@ function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern 
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
 
+async function dispatchKeepaliveCommand({
+  core,
+  github,
+  owner,
+  repo,
+  token,
+  payload,
+}) {
+  const trimmedToken = String(token ?? '').trim();
+  if (!trimmedToken) {
+    throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
+  }
+
+  if (typeof github.getOctokit !== 'function') {
+    throw new Error('github.getOctokit is not available for keepalive dispatch.');
+  }
+
+  const octokit = github.getOctokit(trimmedToken);
+  if (!octokit?.rest?.repos?.createDispatchEvent) {
+    throw new Error('Octokit instance missing repos.createDispatchEvent for keepalive dispatch.');
+  }
+
+  await octokit.rest.repos.createDispatchEvent({
+    owner,
+    repo,
+    event_type: 'codex-pr-comment-command',
+    client_payload: payload,
+  });
+
+  core.info(
+    `Emitted repository_dispatch codex-pr-comment-command for PR #${payload.issue} (comment ${payload.comment_id}).`
+  );
+}
+
 function extractKeepaliveRound(body) {
   const match = String(body || '').match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
   if (match) {
@@ -599,9 +633,41 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
       } else {
-        await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+        const response = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
         triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound})`);
         core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}).`);
+
+        const commentData = response?.data || {};
+        const commentId = commentData.id;
+        const commentUrl = commentData.html_url || '';
+        const hasRoundMarker = typeof body === 'string' && body.includes(roundMarker);
+        const hasKeepaliveMarker = typeof body === 'string' && body.includes(canonicalMarker);
+
+        if (!hasRoundMarker || !hasKeepaliveMarker) {
+          core.warning(`#${prNumber}: keepalive comment missing required markers; connector dispatch skipped.`);
+        } else {
+          try {
+            await dispatchKeepaliveCommand({
+              core,
+              github,
+              owner,
+              repo,
+              token: env.ACTIONS_BOT_PAT || env.actions_bot_pat || '',
+              payload: {
+                issue: prNumber,
+                agent: 'codex',
+                comment_id: commentId,
+                comment_url: commentUrl,
+                base: pr.base?.ref || '',
+                head: pr.head?.ref || headRef,
+              },
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
+            throw error;
+          }
+        }
       }
     }
   }
