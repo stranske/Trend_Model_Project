@@ -148,29 +148,48 @@ function isDockerRelated(filename) {
   return false;
 }
 
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = error.status || error?.response?.status;
+  if (status !== 403) {
+    return false;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  return message.includes('rate limit') || message.includes('ratelimit');
+}
+
 async function listChangedFiles({ github, context }) {
   const pull = context?.payload?.pull_request;
   const number = pull?.number;
   if (!github || !context || !number) {
     return [];
   }
-  const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    pull_number: number,
-    per_page: 100,
-  });
-  const files = [];
-  for await (const page of iterator) {
-    if (Array.isArray(page.data)) {
-      for (const item of page.data) {
-        if (item && typeof item.filename === 'string') {
-          files.push(item.filename);
+  try {
+    const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: number,
+      per_page: 100,
+    });
+    const files = [];
+    for await (const page of iterator) {
+      if (Array.isArray(page.data)) {
+        for (const item of page.data) {
+          if (item && typeof item.filename === 'string') {
+            files.push(item.filename);
+          }
         }
       }
     }
+    return files;
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return null;
+    }
+    throw error;
   }
-  return files;
 }
 
 function classifyChanges(filenames) {
@@ -220,6 +239,23 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
     } else {
       changedFiles = await listChangedFiles({ github, context });
     }
+  }
+
+  if (changedFiles === null) {
+    const outputs = {
+      doc_only: 'false',
+      run_core: 'true',
+      reason: 'rate_limited',
+      docker_changed: 'true',
+    };
+    const warn = core?.warning ? core.warning.bind(core) : console.warn.bind(console);
+    warn('Rate limit reached while determining changed files; assuming code changes.');
+    if (core) {
+      for (const [key, value] of Object.entries(outputs)) {
+        core.setOutput(key, value);
+      }
+    }
+    return { outputs, details: null };
   }
 
   const { docOnly, dockerChanged, reason } = classifyChanges(changedFiles);

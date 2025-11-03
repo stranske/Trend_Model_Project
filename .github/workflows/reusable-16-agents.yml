@@ -592,6 +592,7 @@ jobs:
     timeout-minutes: 25
     env:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -614,11 +615,17 @@ jobs:
               return;
             }
             core.info('Verified keepalive identity: stranske-automation-bot.');
+      - name: Ensure dispatch PAT present
+        if: ${{ env.ACTIONS_BOT_PAT == '' }}
+        run: |
+          echo "::error::ACTIONS_BOT_PAT is required so keepalive dispatches can trigger the connector." >&2
+          exit 1
       - name: Resume Codex on unattended checklists
         uses: actions/github-script@v7
         env:
           OPTIONS_JSON: ${{ inputs.options_json }}
           DRY_RUN: ${{ inputs.dry_run }}
+          ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT }}
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |

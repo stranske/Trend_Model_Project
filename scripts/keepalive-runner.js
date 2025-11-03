@@ -227,6 +227,40 @@ function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern 
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
 
+async function dispatchKeepaliveCommand({
+  core,
+  github,
+  owner,
+  repo,
+  token,
+  payload,
+}) {
+  const trimmedToken = String(token ?? '').trim();
+  if (!trimmedToken) {
+    throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
+  }
+
+  if (typeof github.getOctokit !== 'function') {
+    throw new Error('github.getOctokit is not available for keepalive dispatch.');
+  }
+
+  const octokit = github.getOctokit(trimmedToken);
+  if (!octokit?.rest?.repos?.createDispatchEvent) {
+    throw new Error('Octokit instance missing repos.createDispatchEvent for keepalive dispatch.');
+  }
+
+  await octokit.rest.repos.createDispatchEvent({
+    owner,
+    repo,
+    event_type: 'codex-pr-comment-command',
+    client_payload: payload,
+  });
+
+  core.info(
+    `Emitted repository_dispatch codex-pr-comment-command for PR #${payload.issue} (comment ${payload.comment_id}).`
+  );
+}
+
 function extractKeepaliveRound(body) {
   const match = String(body || '').match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
   if (match) {
@@ -333,6 +367,16 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let agentLogins = agentEntries.map(({ normalized }) => normalized);
   agentLogins = dedupe(agentLogins);
 
+  const maxPrs = coerceNumber(options.keepalive_max_prs ?? env.KEEPALIVE_MAX_PRS, 40, { min: 1 });
+
+  const allowedAuthorEntries = parseAgentLoginEntries(
+    options.keepalive_allowed_authors ?? env.KEEPALIVE_ALLOWED_AUTHORS,
+    ['stranske-automation-bot']
+  );
+  const allowedKeepaliveAuthors = new Set(
+    allowedAuthorEntries.map(({ normalized }) => normalized)
+  );
+
   const owner = context.repo.owner;
   const repo = context.repo.repo;
   const now = Date.now();
@@ -344,6 +388,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const skipped = [];
   let skippedCount = 0;
   let scanned = 0;
+  let limitReached = false;
   addHeading();
   summary
     .addRaw(`Target labels: ${targetLabels.map((label) => `**${label}**`).join(', ')}`)
@@ -352,6 +397,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     .addRaw(
       `Agent logins: ${agentLogins
         .map((login) => `**${login}**`)
+        .join(', ')}`
+    )
+    .addEOL();
+  summary
+    .addRaw(
+      `Dispatch allow-list: ${allowedAuthorEntries
+        .map(({ normalized }) => `**${normalized}**`)
         .join(', ')}`
     )
     .addEOL();
@@ -406,6 +458,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   for await (const page of paginatePulls) {
     for (const pr of page.data) {
+      if (scanned >= maxPrs) {
+        limitReached = true;
+        break;
+      }
       scanned += 1;
       const labelNames = (pr.labels || []).map((label) =>
         (typeof label === 'string' ? label : label?.name || '').toLowerCase()
@@ -641,11 +697,57 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         previews.push(`#${prNumber} – keepalive preview (remaining tasks: ${outstanding})`);
         core.info(`#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}).`);
       } else {
-        await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+        const response = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
         triggered.push(`#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound})`);
         core.info(`#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}).`);
+
+        const commentData = response?.data || {};
+        const commentId = commentData.id;
+        const commentUrl = commentData.html_url || '';
+        const commentAuthor = normaliseLogin(commentData.user?.login);
+        const hasRoundMarker = typeof body === 'string' && body.includes(roundMarker);
+        const hasKeepaliveMarker = typeof body === 'string' && body.includes(canonicalMarker);
+
+        if (!hasRoundMarker || !hasKeepaliveMarker) {
+          core.warning(`#${prNumber}: keepalive comment missing required markers; connector dispatch skipped.`);
+        } else if (!commentAuthor) {
+          core.warning(`#${prNumber}: keepalive comment author could not be determined; connector dispatch skipped.`);
+        } else if (!allowedKeepaliveAuthors.has(commentAuthor)) {
+          core.warning(
+            `#${prNumber}: keepalive comment author @${commentAuthor} not in dispatch allow list; connector dispatch skipped.`
+          );
+        } else {
+          try {
+            await dispatchKeepaliveCommand({
+              core,
+              github,
+              owner,
+              repo,
+              token: env.ACTIONS_BOT_PAT || env.actions_bot_pat || '',
+              payload: {
+                issue: prNumber,
+                agent: 'codex',
+                comment_id: commentId,
+                comment_url: commentUrl,
+                base: pr.base?.ref || '',
+                head: pr.head?.ref || headRef,
+              },
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
+            throw error;
+          }
+        }
       }
     }
+    if (limitReached) {
+      break;
+    }
+  }
+
+  if (limitReached) {
+    summary.addRaw(`Processing capped at first ${maxPrs} pull requests to respect API limits.`).addEOL();
   }
 
   if (dryRun) {

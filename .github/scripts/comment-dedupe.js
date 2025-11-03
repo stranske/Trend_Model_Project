@@ -6,6 +6,18 @@ function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = error.status || error?.response?.status;
+  if (status !== 403) {
+    return false;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  return message.includes('rate limit') || message.includes('ratelimit');
+}
+
 function isPullRequestEvent(context) {
   return context?.eventName === 'pull_request';
 }
@@ -81,12 +93,21 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
   const repo = context.repo.repo;
   const issue_number = context.payload.pull_request.number;
 
-  const comments = await github.paginate(github.rest.issues.listComments, {
-    owner,
-    repo,
-    issue_number,
-    per_page: 100,
-  });
+  let comments;
+  try {
+    comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number,
+      per_page: 100,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      warn(core, 'Rate limit while fetching existing comments; skipping docs-only comment management.');
+      return;
+    }
+    throw error;
+  }
 
   const { target, duplicates } = selectMarkerComment(comments, { marker, baseMessage });
   const desired = body;
@@ -97,21 +118,45 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
     if (current === desired) {
       info(core, `Existing docs-only comment ${targetId} is up to date.`);
     } else {
-      await github.rest.issues.updateComment({ owner, repo, comment_id: targetId, body: desired });
-      info(core, `Updated docs-only comment ${targetId}.`);
+      try {
+        await github.rest.issues.updateComment({ owner, repo, comment_id: targetId, body: desired });
+        info(core, `Updated docs-only comment ${targetId}.`);
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          warn(core, `Rate limit while updating docs-only comment ${targetId}; leaving existing content.`);
+          return;
+        }
+        throw error;
+      }
     }
   } else {
-    const created = await github.rest.issues.createComment({ owner, repo, issue_number, body: desired });
-    targetId = created?.data?.id;
-    info(core, `Created docs-only comment ${targetId}.`);
+    try {
+      const created = await github.rest.issues.createComment({ owner, repo, issue_number, body: desired });
+      targetId = created?.data?.id;
+      info(core, `Created docs-only comment ${targetId}.`);
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        warn(core, 'Rate limit while creating docs-only comment; skipping.');
+        return;
+      }
+      throw error;
+    }
   }
 
   for (const duplicate of duplicates) {
     if (!duplicate || duplicate.id === targetId) {
       continue;
     }
-    await github.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id });
-    info(core, `Removed duplicate docs-only comment ${duplicate.id}.`);
+    try {
+      await github.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id });
+      info(core, `Removed duplicate docs-only comment ${duplicate.id}.`);
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        warn(core, `Rate limit while deleting duplicate comment ${duplicate.id}; leaving remaining duplicates.`);
+        break;
+      }
+      throw error;
+    }
   }
 }
 
@@ -126,12 +171,21 @@ async function removeMarkerComments({ github, context, core, marker, baseMessage
   const issue_number = context.payload.pull_request.number;
   const legacyBodies = new Set(baseMessages.map(value => trim(value)).filter(Boolean));
 
-  const comments = await github.paginate(github.rest.issues.listComments, {
-    owner,
-    repo,
-    issue_number,
-    per_page: 100,
-  });
+  let comments;
+  try {
+    comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number,
+      per_page: 100,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      warn(core, 'Rate limit while fetching comments for cleanup; skipping.');
+      return;
+    }
+    throw error;
+  }
 
   const targets = comments.filter(comment => {
     if (!comment || typeof comment.body !== 'string') {
@@ -160,8 +214,16 @@ async function removeMarkerComments({ github, context, core, marker, baseMessage
   }
 
   for (const comment of targets) {
-    await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
-    info(core, `Removed docs-only fast-pass comment ${comment.id}.`);
+    try {
+      await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
+      info(core, `Removed docs-only fast-pass comment ${comment.id}.`);
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        warn(core, `Rate limit while removing docs-only comment ${comment.id}; aborting further removals.`);
+        break;
+      }
+      throw error;
+    }
   }
 }
 
@@ -254,22 +316,47 @@ async function upsertAnchoredComment({
   const owner = context.repo.owner;
   const repo = context.repo.repo;
 
-  const comments = await github.paginate(github.rest.issues.listComments, {
-    owner,
-    repo,
-    issue_number: pr,
-    per_page: 100,
-  });
+  let comments;
+  try {
+    comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: pr,
+      per_page: 100,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      warn(core, 'Rate limit while fetching comments for consolidated status; skipping update.');
+      return;
+    }
+    throw error;
+  }
 
   const targetAnchor = extractAnchoredMetadata(commentBody, anchorPattern);
   const existing = findAnchoredComment(comments, { anchorPattern, fallbackMarker, targetAnchor });
 
   if (existing) {
-    await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: commentBody });
-    info(core, 'Updated existing consolidated status comment.');
+    try {
+      await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: commentBody });
+      info(core, 'Updated existing consolidated status comment.');
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        warn(core, 'Rate limit while updating consolidated status comment; leaving existing content.');
+        return;
+      }
+      throw error;
+    }
   } else {
-    await github.rest.issues.createComment({ owner, repo, issue_number: pr, body: commentBody });
-    info(core, 'Created consolidated status comment.');
+    try {
+      await github.rest.issues.createComment({ owner, repo, issue_number: pr, body: commentBody });
+      info(core, 'Created consolidated status comment.');
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        warn(core, 'Rate limit while creating consolidated status comment; skipping.');
+        return;
+      }
+      throw error;
+    }
   }
 }
 

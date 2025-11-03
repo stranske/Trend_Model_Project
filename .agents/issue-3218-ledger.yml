@@ -1,0 +1,48 @@
+version: 1
+issue: 3218
+base: phase-2-dev
+branch: codex/issue-3218
+tasks:
+  - id: task-01
+    title: 'If Route A: remove or replace if: ${{ false }} on the listen_commands
+      job so it runs on issue_comment.created.'
+    status: done
+    started_at: '2025-11-03T05:18:43Z'
+    finished_at: '2025-11-03T05:18:49Z'
+    commit: d5f6cb50907ade2652718394fe2b87f019bcd61e
+    notes: []
+  - id: task-02
+    title: "Require the hidden sentinel <!-- codex-keepalive-marker -->, author allow\u2011\
+      list (stranske-automation-bot and approved humans), and an agent:* label guard\
+      \ before dispatching."
+    status: done
+    started_at: '2025-11-03T05:20:49Z'
+    finished_at: '2025-11-03T05:20:56Z'
+    commit: f382c10ace48167b3cf535926ba2394fff878c42
+    notes: []
+  - id: task-03
+    title: 'Emit repository_dispatch with event_type: codex-pr-comment-command and
+      payload including { issue: <PR number>, agent: "codex", comment_id, comment_url,
+      base, head } using secrets.ACTIONS_BOT_PAT.'
+    status: done
+    started_at: '2025-11-03T05:23:11Z'
+    finished_at: '2025-11-03T05:23:16Z'
+    commit: 6b3e06525cbebd5839d0d355b03210f63b67e6bf
+    notes: []
+  - id: task-04
+    title: 'If Route B: in the Codex Keepalive Sweep job, after creating the keepalive
+      comment, call repos.createDispatchEvent with the same event_type and payload.
+      Use secrets.ACTIONS_BOT_PAT.'
+    status: done
+    started_at: '2025-11-03T05:25:20Z'
+    finished_at: '2025-11-03T05:25:25Z'
+    commit: 764ca89ccdf08f36b8a95b08e842b8514709c334
+    notes: []
+  - id: task-05
+    title: Verify that only comments containing both keepalive hidden markers and
+      an allowed author produce a dispatch; ignore edits.
+    status: done
+    started_at: '2025-11-03T05:27:29Z'
+    finished_at: '2025-11-03T05:27:34Z'
+    commit: a484bb545388c09b7840883a8dc5ba89f4ba26d5
+    notes: []
