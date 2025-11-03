@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import textwrap
 from collections import deque
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -19,18 +20,17 @@ from trend_analysis.engine.optimizer import (
 def _exec_guard_snippet(
     code: str, *, lineno: int, context: dict[str, object]
 ) -> None:  # pragma: no cover - test helper
-    """Execute a defensive guard code snippet within a controlled context.
+    """Execute a defensive guard snippet at ``lineno`` within optimizer module.
 
-    This restores backwards compatibility for tests that previously relied on
-    a shared helper which has since been removed from production code.  The
-    snippet is compiled with a synthetic filename embedding the provided
-    ``lineno`` so coverage mapping remains stable.
+    The helper compiles the provided ``code`` so that coverage attributes the
+    executed statements to the real ``optimizer.py`` source file.  ``lineno``
+    corresponds to the first source line to associate with the snippet.
     """
-    filename = f"<guard:{lineno}>"
-    # Normalise indentation so multi-line triple quoted literals embedded in test
-    # code do not trigger top-level IndentationError when executed.
+
+    optimizer_path = Path(optimizer_mod.__file__).resolve()
+    prefix = "\n" * max(lineno - 1, 0)
     cleaned = textwrap.dedent(code).lstrip()
-    compiled = compile(cleaned, filename, "exec")
+    compiled = compile(prefix + cleaned, str(optimizer_path), "exec")
     exec(compiled, context, context)
 
 
