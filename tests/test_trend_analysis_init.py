@@ -1,4 +1,4 @@
-"""Tests for the package init module to ensure lazy loading and exports work."""
+"""Focused coverage for :mod:`trend_analysis` package initialisation."""
 
 from __future__ import annotations
 
@@ -9,101 +9,108 @@ from types import ModuleType
 import pytest
 
 
-def _drop_module() -> None:
+@pytest.fixture()
+def fresh_trend_analysis():
+    """Provide a freshly reloaded copy of the package for isolated tests."""
+
+    if "trend_analysis" in sys.modules:
+        module = importlib.reload(sys.modules["trend_analysis"])
+    else:
+        module = importlib.import_module("trend_analysis")
+    try:
+        yield module
+    finally:
+        importlib.reload(module)
+
+
+def test_lazy_getattr_imports_module(monkeypatch, fresh_trend_analysis):
+    """Accessing lazy attributes should import the declared module."""
+
+    package = fresh_trend_analysis
+    sentinel = ModuleType("trend_analysis.selector")
+    original_import = importlib.import_module
+
+    def fake_import(name: str, package: str | None = None):
+        if name == "trend_analysis.selector":
+            return sentinel
+        return original_import(name, package)
+
+    monkeypatch.setattr(package, "_LAZY_SUBMODULES", {"selector": "trend_analysis.selector"})
+    monkeypatch.delattr(package, "selector", raising=False)
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+
+    loaded = package.selector
+    assert loaded is sentinel
+    assert package.selector is sentinel  # cached for subsequent lookups
+
+
+def test_missing_attribute_raises_attribute_error(fresh_trend_analysis):
+    package = fresh_trend_analysis
+    with pytest.raises(AttributeError):
+        getattr(package, "does_not_exist")
+
+
+def test_version_fallback_when_package_metadata_missing(monkeypatch):
+    """Reloading should populate the development fallback version."""
+
+    from importlib.metadata import PackageNotFoundError
+
+    # Ensure a clean import path for the package under test
     sys.modules.pop("trend_analysis", None)
 
+    import trend_analysis as ta
 
-@pytest.fixture(autouse=True)
-def reload_trend_analysis_after_test():
-    """Reload the trend_analysis package after each test to reset globals."""
+    def raise_missing(name: str) -> str:
+        raise PackageNotFoundError
 
-    importlib.import_module("trend_analysis")
-    yield
-    _drop_module()
-    importlib.import_module("trend_analysis")
+    monkeypatch.setattr(importlib.metadata, "version", raise_missing)
+    reloaded = importlib.reload(ta)
+    assert reloaded.__version__ == "0.1.0-dev"
 
-
-def _reload_with(
-    monkeypatch, *, import_module=None, metadata_version=None
-) -> ModuleType:
-    """Reload trend_analysis with optional patches and return the module."""
-
-    _drop_module()
-
-    if import_module is not None:
-        monkeypatch.setattr(importlib, "import_module", import_module)
-
-    if metadata_version is not None:
-        monkeypatch.setattr(importlib.metadata, "version", metadata_version)
-
-    return importlib.import_module("trend_analysis")
+    # Restore the real version loader for subsequent imports
+    importlib.reload(reloaded)
 
 
-def test_getattr_imports_lazy_module(monkeypatch):
-    module = importlib.import_module("trend_analysis")
-    module.__dict__.pop("cli", None)
+def test_public_exports_include_load_csv(fresh_trend_analysis):
+    package = fresh_trend_analysis
+    data_module = importlib.import_module("trend_analysis.data")
 
-    imported = module.__getattr__("cli")
-
-    assert imported is importlib.import_module("trend_analysis.cli")
-    assert module.cli is imported
+    assert package.load_csv is data_module.load_csv
+    assert package.identify_risk_free_fund is data_module.identify_risk_free_fund
 
 
-def test_getattr_missing_attribute():
-    module = importlib.import_module("trend_analysis")
+def test_optional_import_failures_are_handled(monkeypatch):
+    """Missing optional dependencies should not break package import."""
 
-    with pytest.raises(AttributeError):
-        module.__getattr__("not_a_real_attribute")
+    sys.modules.pop("trend_analysis", None)
 
+    original_import = importlib.import_module
 
-def test_eager_import_skips_missing_module(monkeypatch):
-    real_import = importlib.import_module
+    def fake_import(name: str, package: str | None = None):
+        if name in {"trend_analysis.data", "trend_analysis.export"}:
+            raise ImportError("optional dependency missing")
+        return original_import(name, package)
 
-    def fake_import(name, package=None):
-        if name == "trend_analysis.data":
-            raise ImportError("data optional dependency unavailable")
-        return real_import(name, package=package)
+    monkeypatch.setattr(importlib, "import_module", fake_import)
 
-    module = _reload_with(monkeypatch, import_module=fake_import)
+    import trend_analysis as ta
 
-    assert "data" not in module.__dict__
-    assert "export" in module.__dict__  # unaffected eager import
+    reloaded = importlib.reload(ta)
 
+    assert not hasattr(reloaded, "load_csv")
+    assert not hasattr(reloaded, "export_data")
 
-def test_conditional_exports_when_submodules_available():
-    module = importlib.import_module("trend_analysis")
-
-    assert "load_csv" in module.__all__
-    assert callable(module.load_csv)
-    assert callable(module.identify_risk_free_fund)
+    importlib.reload(reloaded)
 
 
-def test_export_guard_when_module_missing(monkeypatch):
-    real_import = importlib.import_module
+def test_version_metadata_success_path(monkeypatch):
+    """Ensure the package records the resolved distribution version."""
 
-    def fake_import(name, package=None):
-        if name == "trend_analysis.export":
-            raise ImportError("export module unavailable")
-        return real_import(name, package=package)
+    sys.modules.pop("trend_analysis", None)
+    import trend_analysis as ta
 
-    module = _reload_with(monkeypatch, import_module=fake_import)
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "9.9.9")
+    reloaded = importlib.reload(ta)
+    assert reloaded.__version__ == "9.9.9"
 
-    assert "export" not in module.__dict__
-    assert not hasattr(module, "export_to_csv")
-    assert not hasattr(module, "export_to_json")
-    assert not hasattr(module, "export_to_excel")
-
-
-def test_version_from_metadata(monkeypatch):
-    module = _reload_with(monkeypatch, metadata_version=lambda _: "1.2.3")
-
-    assert module.__version__ == "1.2.3"
-
-
-def test_version_fallback_when_package_missing(monkeypatch):
-    def raise_missing(_: str) -> str:
-        raise importlib.metadata.PackageNotFoundError
-
-    module = _reload_with(monkeypatch, metadata_version=raise_missing)
-
-    assert module.__version__ == "0.1.0-dev"
+    importlib.reload(reloaded)
