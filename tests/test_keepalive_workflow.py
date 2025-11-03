@@ -346,17 +346,15 @@ def test_keepalive_skips_non_codex_branches() -> None:
     """
     data = _run_scenario("non_codex_branch")
     created = data["created_comments"]
-    _assert_keepalive_author(created)
-
     # Keepalive should now trigger because:
     # - PR has agent:codex label
     # - Has @codex command
     # - Has Codex comment with unchecked checklist item
     # - Enough idle time has passed
-    assert len(data["created_comments"]) == 1
-    _assert_keepalive_authors(data["created_comments"])
-    assert "@codex" in data["created_comments"][0]["body"]
-    assert "1/1 checklist item remains unchecked" in data["created_comments"][0]["body"]
+    assert len(created) == 1
+    _assert_keepalive_authors(created)
+    assert "@codex" in created[0]["body"]
+    assert "1/1 checklist item remains unchecked" in created[0]["body"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
