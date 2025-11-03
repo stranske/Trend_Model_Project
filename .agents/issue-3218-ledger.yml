@@ -41,8 +41,8 @@ tasks:
   - id: task-05
     title: Verify that only comments containing both keepalive hidden markers and
       an allowed author produce a dispatch; ignore edits.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-03T05:27:29Z'
     finished_at: null
     commit: ''
     notes: []
