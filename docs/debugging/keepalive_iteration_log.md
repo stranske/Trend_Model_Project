@@ -59,12 +59,26 @@
 - The keepalive sweep declares write permissions up front, avoiding token-scope regressions when posting round comments.
 
 ## Regression — Belt dispatcher outputs missing (Nov 2025)
-- 🧪 Run [19013589507](https://github.com/stranske/Trend_Model_Project/actions/runs/19013589507) shows the keepalive dispatch reaching Agents 70, but every downstream job that relies on `needs.belt-dispatch.outputs.*` receives empty strings.
-- 🔍 Root cause: `.github/workflows/agents-71-codex-belt-dispatcher.yml` defines job-level outputs but never exposes them via `workflow_call.outputs`, so callers cannot read the selected issue/branch/base.
-- 📉 Side effect: `Guard existing Codex PRs` and `Codex Belt Worker` short-circuit because the issue/branch inputs resolve to blanks, leaving keepalive comments with no follow-up commits.
-- 🔧 Fix: declare workflow-level outputs (issue, branch, base, reason, dry_run) that forward `jobs.dispatch.outputs.*`; confirm downstream guards detect the existing PR and launch the worker when `enable_keepalive` is `true`.
-- ✅ Verification: rerun keepalive after patch and ensure the dispatch summary records the selected issue/branch while the worker job executes instead of `skipped`.
 
+## Regression — Ledger validation blocks keepalive (Nov 2025)
+- 🧪 Run [19021825748](https://github.com/stranske/Trend_Model_Project/actions/runs/19021825748) was dispatched from keepalive round 8 (`stranske-automation-bot` comment) and resolved `enable_keepalive: true`, so the worker was allowed to continue on the existing PR branch.
+- ❌ `Codex Belt Worker / Prepare Codex automation PR` failed during `Validate ledger schema (final)` with `tasks[0].commit 91e08ebd6d60e67d0a5d7fc9af4c13cb1691cb82 must include non-ledger changes`.
+- 🔍 Commit `91e08ebd6d60e67d0a5d7fc9af4c13cb1691cb82` (authored by `stranske-automation-bot`) only touched `.agents/issue-3209-ledger.yml`, so the validator rejects it; the worker aborts before pushing any follow-up changes.
+- 📉 Net effect: keepalive comments continue posting, but the branch never receives updates and the summary still reports `skipped: PR exists`, masking the ledger failure.
+- 🛠️ Next steps: adjust the ledger workflow so keepalive runs either reference a commit with real code changes or relax the validator for pure ledger bootstrap commits; also update the orchestrator summary to surface the actual worker failure when keepalive overrides are active.
+
+## Noise — Connector autop replies (Nov 2025)
+- 🔁 Every keepalive round triggered an immediate `chatgpt-codex-connector` reply of “To use Codex here, create a Codex account…,” resulting in eight duplicate noise comments on PR #3210.
+- ⚖️ These replies violate the “prune unhelpful bot chatter” goal and bury the human keepalive instructions (`@codex` checklist plus capitalised emphasis) under boilerplate.
+- 📌 Suppress the connector’s marketing stub for keepalive-authored comments while retaining the genuine status summaries triggered by real commits.
+- 🧹 Ensure only the human keepalive prompt, the automation round comment, and the agent’s work summaries remain visible so the human instruction continues to anchor the workflow.
+
+## Mitigation — Ledger + Connector adjustments (Dec 2025)
+- ✅ Ledger validator now allows `chore(ledger): …` commits that only touch the active ledger file (plus ledger sidecars) so bootstrap tasks stop failing the non-ledger guard.
+- ✅ Keepalive-triggered belt worker runs skip reposting the `@codex start` activation comment, preventing the connector from spamming marketing replies every round.
+- ✅ Orchestrator summary now surfaces downstream worker failures directly, keeping ledger-validation errors visible instead of falling back to the “skipped: PR exists” guard message.
+- ✅ Gate-completion dispatch now marks keepalive sweeps as gate-triggered unconditionally, so every Gate run resets the idle timer and bypasses the cooldown checks.
+- 🔄 Follow-up: trigger a fresh keepalive round to confirm the worker progresses past ledger validation and that the connector noise no longer appears.
 ## Escalation options (recorded)
 1. **Repository dispatch → Orchestrator** – _Blocked_. PR-meta lacks token scope to call `repos.createDispatchEvent`, resulting in 403s and no orchestrator run. Escalation path disabled unless a PAT is wired in.
 2. **Direct belt workflows** – ✅ Implemented November 2025. PR-meta now invokes `Agents 72 Codex Belt Worker` directly with the detected issue/branch so the worker re-engages without involving the chat connector.

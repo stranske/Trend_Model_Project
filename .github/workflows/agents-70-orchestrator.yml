@@ -385,6 +385,7 @@ jobs:
       source: ${{ needs.belt-dispatch.outputs.reason }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
       max_parallel: ${{ fromJson(needs.resolve-params.outputs.worker_max_parallel || '1') }}
+      keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
@@ -404,6 +405,14 @@ jobs:
           ## Codex belt worker guard
           * Status: skipped: PR exists.
           * Existing PR: [#${{ needs.belt-check-existing-pr.outputs.pr_number }}](${{ needs.belt-check-existing-pr.outputs.pr_url }})
+          EOF
+
+      - name: Highlight worker failure
+        if: needs.belt-worker.result == 'failure'
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ## Codex belt worker
+          * Result: failure – see Agents 72 logs for details.
           EOF
 
       # Do not remove checkout; local helper is required.
