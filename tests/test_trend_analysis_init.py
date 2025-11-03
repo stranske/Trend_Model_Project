@@ -17,13 +17,15 @@ def _drop_module() -> None:
 def reload_trend_analysis_after_test():
     """Reload the trend_analysis package after each test to reset globals."""
 
-    module = importlib.import_module("trend_analysis")
+    importlib.import_module("trend_analysis")
     yield
     _drop_module()
     importlib.import_module("trend_analysis")
 
 
-def _reload_with(monkeypatch, *, import_module=None, metadata_version=None) -> ModuleType:
+def _reload_with(
+    monkeypatch, *, import_module=None, metadata_version=None
+) -> ModuleType:
     """Reload trend_analysis with optional patches and return the module."""
 
     _drop_module()

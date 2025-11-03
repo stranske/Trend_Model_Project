@@ -38,6 +38,11 @@ on:
         required: false
         default: 1
         type: number
+      keepalive:
+        description: 'True when invocation originates from a keepalive sweep'
+        required: false
+        default: false
+        type: boolean
     secrets:
       actions_bot_pat:
         required: true
@@ -825,7 +830,7 @@ jobs:
             }
 
       - name: Post activation comment
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number && inputs.keepalive != true }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTIONS_BOT_PAT }}
