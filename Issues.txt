@@ -1,64 +1,98 @@
-1. Agents 70 Orchestrator: confirm and lock in script checkout for local helpers (`.github/scripts/*`)
-Labels: agent:codex, agents, devops, guardrail, documentation
+1. Agents PR Meta & Orchestrator: enable connector dispatch for keepalive rounds
+
+Labels: agent:codex, agents, agents:keepalive, devops, ci, automation, enhancement
 
 Why
-Jobs that `require('./.github/scripts/...')` must check out the repo first. The orchestrator currently includes targeted checkouts, but this should be verified and documented so future edits don’t regress and break Resolve/Summary/Scan at runtime.
+Keepalive comments authored by stranske-automation-bot are detected and the orchestrator is dispatched, but the agent connector does not start work from bot comments unless it also receives the expected repository dispatch signal. The current listen_commands route is disabled, and the keepalive sweep does not emit a connector dispatch; result is visible upsell replies from the connector and no work. This issue wires a single, reliable dispatch path from keepalive to the connector.
 
 Scope
-Audit the orchestrator and keep a checkout step ahead of every `actions/github-script` call that loads local helpers. Use sparse checkout of `.github/scripts` to keep runs fast. Add a short YAML comment to remind future editors not to delete the checkout.
+Implement exactly one of the two supported routes (choose one; not both):
 
-Non-Goals
-Changing orchestrator behavior, schedule, inputs, or belt semantics.
+Route A: Re‑enable the listen_commands path in agents-pr-meta.yml for bot/human keepalive instructions that include the hidden sentinel.
+
+Route B: From the keepalive sweep inside the orchestrator, immediately emit the repository_dispatch event to the connector after posting the keepalive comment (using the keepalive comment id/URL in the payload).
+
+Non‑Goals
+
+Changing acceptance criteria or Gate logic
+
+Altering comment text beyond the existing hidden marker protocol
+
+Any refactor of dispatcher/worker behavior unrelated to the dispatch handoff
 
 Tasks
-- In `.github/workflows/agents-70-orchestrator.yml`, verify checkout exists before each `require('./.github/scripts/...')` usage:
-  - `resolve-params` requires `agents_orchestrator_resolve.js`
-  - `belt-dispatch-summary` requires `agents_dispatch_summary.js`
-  - `belt-scan-ready-prs` requires `agents_belt_scan.js`
-- If any job is missing checkout, add:
-  - `uses: actions/checkout@v4`
-  - `with: sparse-checkout: |` then `.github/scripts` and `sparse-checkout-cone-mode: false`
-- Run a `workflow_dispatch` dry run to prove all requires succeed and the job summary renders.
-- Add a one-line guard comment near each require: “Do not remove checkout; local helper is required.”
+
+Update .github/workflows/agents-pr-meta.yml
+
+- If Route A: remove or replace if: ${{ false }} on the listen_commands job so it runs on issue_comment.created.
+
+- Require the hidden sentinel <!-- codex-keepalive-marker -->, author allow‑list (stranske-automation-bot and approved humans), and an agent:* label guard before dispatching.
+
+- Emit repository_dispatch with event_type: codex-pr-comment-command and payload including { issue: <PR number>, agent: "codex", comment_id, comment_url, base, head } using secrets.ACTIONS_BOT_PAT.
+
+Or update .github/workflows/agents-70-orchestrator.yml
+
+- If Route B: in the Codex Keepalive Sweep job, after creating the keepalive comment, call repos.createDispatchEvent with the same event_type and payload. Use secrets.ACTIONS_BOT_PAT.
+
+- Verify that only comments containing both keepalive hidden markers and an allowed author produce a dispatch; ignore edits.
 
 Acceptance criteria
-- All jobs that import from `.github/scripts` have a preceding checkout step.
-- A manual dry run completes with Resolve/Summary/Scan summaries present and no “Cannot find module” errors.
-- The orchestrator file contains brief comments warning against removing the checkout in these jobs.
+
+- On a PR with agents:keepalive and agent:codex, when a keepalive comment with both hidden markers is created by stranske-automation-bot, a repository_dispatch event with type codex-pr-comment-command is emitted once (no duplicates).
+
+- The connector acknowledges and begins work on the PR (evidenced by either a new agent commit or its “work started” signal per normal behavior).
+
+- A test PR confirms the dispatch path works for two consecutive rounds without manual intervention; no extra dispatches occur on comment edits.
 
 Implementation notes
-File: `.github/workflows/agents-70-orchestrator.yml`
-Helpers: `.github/scripts/agents_orchestrator_resolve.js`, `agents_dispatch_summary.js`, `agents_belt_scan.js`
+Files: .github/workflows/agents-pr-meta.yml, .github/workflows/agents-70-orchestrator.yml
+PR title prefix: [Agents] Keepalive → connector dispatch
+PR kickoff comment: @{agent} Wire keepalive to connector by emitting codex-pr-comment-command dispatch on each bot‑authored keepalive instruction containing the hidden markers, then validate two consecutive rounds on a sandbox PR.
 
-PR title prefix: [Agents] Orchestrator checkout guard
-PR kickoff comment: @{agent} Confirm checkout coverage before local helper `require(...)` calls; add sparse checkout where missing and annotate jobs so this doesn’t regress.
+2. Agents 70 Orchestrator: fix keepalive sweep assignee pre‑check (skip bots; use PR number)
 
-2. Agents 63 Intake: align unlabeled policy with triggers (add `unlabeled` or codify “no‑unlabeled”)
-Labels: agent:codex, agents, devops, guardrail, documentation
+Labels: agent:codex, agents, agents:keepalive, devops, ci, bug
 
 Why
-Intake now fires on `opened/reopened/labeled` with a concurrency group. Decide whether removing an `agent:*` label should trigger Intake too. Either add `unlabeled` to `on: issues` or explicitly document that unlabeled events are out of scope.
+The Codex Keepalive Sweep attempts to “ensure” PR assignees and fails with “Not Found” when targeting non‑assignable logins (apps/bots) or when using the wrong issue number context. This short‑circuits the sweep and blocks subsequent work. We need to make assignee enforcement human‑only and ensure the PR number is used for the PR thread.
 
 Scope
-Pick one policy:
-- Support unlabeled: add `unlabeled` to `on: issues.types`, ensuring the normalization guard and concurrency still avoid double-processing.
-- Or explicitly do not support unlabeled: keep triggers as-is and add a short doc note clarifying behavior so folks don’t expect it.
 
-Non-Goals
-Changing bridge wiring, parser behavior, or intake field names.
+Treat app/bot identities as non‑assignable and skip adding assignees for them.
+
+Ensure issues.addAssignees targets the PR’s issue_number (the PR number), not a source issue id.
+
+Keep all other keepalive behavior intact.
+
+Non‑Goals
+
+Changing labels, acceptance criteria, or Gate coupling
+
+Any change to the keepalive comment template besides existing hidden markers
 
 Tasks
-- Review `.github/workflows/agents-63-issue-intake.yml` `on: issues.types` to determine if `unlabeled` is present; confirm that the triggers match the intended policy (either include `unlabeled` or document its absence).
-- If adopting unlabeled: include `- unlabeled` under `issues.types` and confirm the `normalize_inputs` guard condition still gates on presence of `agent:*` labels to avoid no-op runs.
-- If not adopting unlabeled: add a 1–2 line note to `docs/ci/AGENTS_POLICY.md` clarifying that Intake does not react to unlabeled events.
-- Validate with a sandbox issue: add/remove `agent:codex` and confirm either single-run (with unlabeled) or no run (without unlabeled), with concurrency preventing duplicates.
+
+In .github/workflows/agents-70-orchestrator.yml (keepalive sweep helper):
+
+- Implement isAssignable(login) to return false for bot/app accounts (e.g., login.endsWith('[bot]') or connector app names).
+
+- Filter the desired assignee set with isAssignable before calling issues.addAssignees.
+
+- Use the PR number (context.payload.pull_request.number) as issue_number when assigning on the PR conversation.
+
+- If the filtered list is empty, log and skip the assignment step instead of failing the sweep.
+
+- Add light logging so the sweep summary shows the final assignee list or “skipped (no human assignees).”
 
 Acceptance criteria
-- Triggers and policy are consistent: either unlabeled is supported and safe, or it’s explicitly documented as out of scope.
-- Label add/remove behavior matches the chosen policy in a live test, with no duplicate intake runs.
+
+- Keepalive sweep no longer fails with “Not Found” on assignee enforcement.
+
+- For PRs with only bot/app assignees configured, the sweep proceeds and explicitly logs that assignment was skipped.
+
+- For PRs where human assignees are present, they are successfully added using the PR number, and the sweep continues to subsequent steps.
 
 Implementation notes
-Files: `.github/workflows/agents-63-issue-intake.yml`, `docs/ci/AGENTS_POLICY.md`
-
-PR title prefix: [Agents] Intake unlabeled policy
-PR kickoff comment: @{agent} Decide unlabeled policy for Intake. Either add `unlabeled` to triggers and verify concurrency/guards, or document that we ignore unlabeled; validate behavior on a sandbox issue.
+File: .github/workflows/agents-70-orchestrator.yml
+PR title prefix: [Agents] Keepalive sweep: assignee enforcement fix
+PR kickoff comment: @{agent} Make assignee enforcement human‑only and target the PR number; skip gracefully when no human assignees exist so the keepalive sweep can proceed.
