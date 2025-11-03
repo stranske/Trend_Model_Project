@@ -60,6 +60,30 @@ function normaliseLogin(login) {
   return base.replace(/\[bot\]$/i, '');
 }
 
+const NON_ASSIGNABLE_LOGINS = new Set([
+  'copilot',
+  'chatgpt-codex-connector',
+  'stranske-automation-bot',
+]);
+
+function isAssignable(login) {
+  const raw = String(login ?? '').trim();
+  if (!raw) {
+    return false;
+  }
+
+  if (/\[bot\]$/i.test(raw)) {
+    return false;
+  }
+
+  const normalized = normaliseLogin(raw);
+  if (!normalized || NON_ASSIGNABLE_LOGINS.has(normalized)) {
+    return false;
+  }
+
+  return true;
+}
+
 function parseAgentLoginEntries(source, fallbackEntries) {
   const rawEntries = String(source ?? '')
     .split(',')
@@ -357,6 +381,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const triggered = [];
   const refreshed = [];
   const previews = [];
+  const assignmentSummaries = [];
   const paused = [];
   const skipped = [];
   let skippedCount = 0;
@@ -624,24 +649,41 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       
       // Ensure agent connectors are assigned before posting keepalive
       // This is critical so the agent actually engages when mentioned
+      // Ensure agent connectors are assigned before posting keepalive
       try {
         // Get the current assignees from the PR data we already have
         const currentLogins = (pr.assignees || []).map((a) => normaliseLogin(a.login));
-        const missingAgents = agentEntries
+        const desiredAssignees = agentEntries
           .filter(({ normalized }) => !currentLogins.includes(normalized))
           .map(({ original }) => original);
 
-        if (missingAgents.length > 0) {
-          core.info(`#${prNumber}: adding missing agent assignees: ${missingAgents.join(', ')}`);
-          await github.rest.issues.addAssignees({
-            owner,
-            repo,
-            issue_number: prNumber,
-            assignees: missingAgents,
-          });
+        if (desiredAssignees.length === 0) {
+          assignmentSummaries.push(`#${prNumber} – assignment skipped (existing assignees ok)`);
+        } else {
+          const assignableAssignees = desiredAssignees.filter(isAssignable);
+          const skippedAssignees = desiredAssignees.filter((login) => !isAssignable(login));
+
+          if (skippedAssignees.length > 0) {
+            core.info(`#${prNumber}: ignoring non-assignable logins: ${skippedAssignees.join(', ')}`);
+          }
+
+          if (assignableAssignees.length > 0) {
+            core.info(`#${prNumber}: adding human assignees: ${assignableAssignees.join(', ')}`);
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: prNumber,
+              assignees: assignableAssignees,
+            });
+            assignmentSummaries.push(`#${prNumber} – ensured assignees: ${assignableAssignees.join(', ')}`);
+          } else {
+            core.info(`#${prNumber}: no assignable human assignees available; skipping assignment.`);
+            assignmentSummaries.push(`#${prNumber} – assignment skipped (no human assignees)`);
+          }
         }
       } catch (error) {
         core.warning(`#${prNumber}: failed to ensure agent assignees: ${error.message}`);
+        assignmentSummaries.push(`#${prNumber} – assignee update failed: ${error.message}`);
       }
       
       if (dryRun) {
@@ -719,6 +761,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   summary.addRaw(`Skipped keepalive count: ${skippedCount}`).addEOL();
   if (paused.length) {
     summary.addDetails('Paused pull requests', summariseList(paused));
+  }
+  if (assignmentSummaries.length) {
+    summary.addDetails('Assignee enforcement', summariseList(assignmentSummaries));
   }
   const pausedLineTemplate = `Skipped ${paused.length} paused PRs.`;
   const pausedLine = paused.length === 1
