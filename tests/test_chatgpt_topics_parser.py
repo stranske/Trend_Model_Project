@@ -236,7 +236,9 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
     ), "Could not find Agents 70 orchestrator topic in parsed topics"
     assert "agent:codex" in match["labels"]
     assert "agents-70-orchestrator.yml" in match["sections"]["tasks"]
-    assert "checkout" in match["sections"]["acceptance_criteria"].lower()
+    acceptance = match["sections"]["acceptance_criteria"].lower()
+    assert "repository_dispatch" in acceptance
+    assert "connector acknowledges" in acceptance
     assert "@{agent}" in match["sections"]["implementation_notes"]
     assert "PR kickoff comment" in match["sections"]["implementation_notes"]
     assert "PR title prefix" in match["sections"]["implementation_notes"]

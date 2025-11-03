@@ -45,6 +45,16 @@ def _details(summary: dict, title_prefix: str) -> dict | None:
     return None
 
 
+def _assignee_entries(summary: dict) -> list[str]:
+    details = _details(summary, "Assignee enforcement")
+    if not details:
+        return []
+    items = details.get("items", [])
+    if not isinstance(items, list):
+        return []
+    return [str(item) for item in items]
+
+
 def _extract_marked_values(line: str) -> list[str]:
     return re.findall(r"\*\*([^*]+)\*\*", line)
 
@@ -235,9 +245,10 @@ def test_keepalive_skips_unapproved_comment_author() -> None:
     warnings = data["logs"]["warnings"]
     assert any("not in dispatch allow list" in warning for warning in warnings)
 
+    summary = data["summary"]
     assignee_entries = _assignee_entries(summary)
     assert any(
-        entry.startswith("#505 – assignment skipped (no human assignees)")
+        entry.startswith("#313 – assignment skipped (no human assignees)")
         for entry in assignee_entries
     )
 
