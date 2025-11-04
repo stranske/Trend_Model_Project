@@ -144,6 +144,82 @@ function escapeRegExp(value) {
   return String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
+function normaliseNewlines(value) {
+  return String(value ?? '').replace(/\r\n/g, '\n');
+}
+
+function extractScopeTasksAcceptanceSections(source) {
+  const normalised = normaliseNewlines(source);
+  if (!normalised.trim()) {
+    return '';
+  }
+
+  const startMarker = '<!-- auto-status-summary:start -->';
+  const endMarker = '<!-- auto-status-summary:end -->';
+  const startIndex = normalised.indexOf(startMarker);
+  const endIndex = normalised.indexOf(endMarker);
+
+  let segment = normalised;
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    segment = normalised.slice(startIndex + startMarker.length, endIndex);
+  }
+
+  const titles = ['Scope', 'Tasks', 'Acceptance criteria'];
+  const sections = [];
+
+  for (const title of titles) {
+    const pattern = new RegExp(`^####\\s+${escapeRegExp(title)}\\s*\\n([\\s\\S]*?)(?=^####\\s+|(?![\\s\\S]))`, 'im');
+    const match = segment.match(pattern);
+    if (!match) {
+      return '';
+    }
+
+    const headerLine = `#### ${title}`;
+    const content = normaliseNewlines(match[1] || '').trim();
+    sections.push(content ? `${headerLine}\n${content}` : headerLine);
+  }
+
+  return sections.join('\n\n').trim();
+}
+
+function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
+  const overrideBlock = String(override || '').trim();
+  if (overrideBlock) {
+    const extractedOverride = extractScopeTasksAcceptanceSections(overrideBlock);
+    if (extractedOverride) {
+      return extractedOverride;
+    }
+  }
+
+  const sources = [];
+  if (prBody) {
+    sources.push(prBody);
+  }
+
+  for (const comment of comments || []) {
+    const body = comment?.body || '';
+    if (!body) {
+      continue;
+    }
+
+    if (
+      body.includes('auto-status-summary') ||
+      /####\s+(Scope|Tasks|Acceptance criteria)/i.test(body)
+    ) {
+      sources.push(body);
+    }
+  }
+
+  for (const source of sources) {
+    const extracted = extractScopeTasksAcceptanceSections(source);
+    if (extracted) {
+      return extracted;
+    }
+  }
+
+  return '';
+}
+
 function detectKeepaliveSentinel(comments, { sentinelPattern, headerPattern, agentLogins }) {
   if (!Array.isArray(comments) || !comments.length) {
     return null;
@@ -279,15 +355,19 @@ function computeNextRound(candidates) {
     return 1;
   }
 
-  const rounds = candidates
-    .map((candidate) => extractKeepaliveRound(candidate.body))
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  if (rounds.length) {
-    return Math.max(...rounds) + 1;
+  const identifiers = new Set();
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    const id = candidate.id || candidate.comment?.id;
+    if (id !== undefined && id !== null) {
+      identifiers.add(id);
+    }
   }
 
-  return candidates.length + 1;
+  const count = identifiers.size || candidates.length;
+  return count + 1;
 }
 
 function summariseList(items, limit = 20) {
@@ -378,9 +458,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   }
   targetLabels = dedupe(targetLabels);
 
-  const commandRaw = options.keepalive_command ?? '@codex';
-  const command = String(commandRaw).trim() || '@codex';
-  const commandLower = command.toLowerCase();
+  const defaultCommand =
+    '@codex Continue with the remaining tasks; re-post the Scope/Tasks/Acceptance block and check off only when acceptance criteria are satisfied.';
+  const commandRaw = options.keepalive_command ?? defaultCommand;
+  const command = String(commandRaw).trim() || defaultCommand;
 
   const canonicalMarker = '<!-- codex-keepalive-marker -->';
   const markerRaw = options.keepalive_marker ?? canonicalMarker;
@@ -392,6 +473,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   const instructionTemplateRaw = options.keepalive_instruction ?? '';
   const instructionTemplate = String(instructionTemplateRaw).trim();
+
+  const scopeOverrideRaw = options.keepalive_scope_block ?? '';
+  const scopeOverride = String(scopeOverrideRaw).trim();
 
   const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector[bot],stranske-automation-bot';
   const agentEntries = parseAgentLoginEntries(agentSource, [
@@ -660,9 +744,21 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
   const nextRound = computeNextRound(keepaliveCandidates);
-  const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
+  const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
       const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
       const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
+
+      const scopeBlock = findScopeTasksAcceptanceBlock({
+        prBody: pr.body || '',
+        comments,
+        override: scopeOverride,
+      });
+
+      if (!scopeBlock) {
+        core.warning(`#${prNumber}: missing scope/tasks/acceptance block; keepalive comment skipped.`);
+        recordSkip('scope/tasks/acceptance block unavailable');
+        continue;
+      }
 
       let instruction = instructionTemplate || defaultInstruction;
       const replacements = {
@@ -675,6 +771,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       }
 
       const bodyParts = [roundMarker, canonicalMarker, traceMarker, command];
+      bodyParts.push('', scopeBlock);
       bodyParts.push('', `**Keepalive Round ${nextRound}**`);
       bodyParts.push('', 'Continue incremental work toward acceptance criteria. Use the current checklist and update task statuses.');
       bodyParts.push('Post an updated summary when this round completes.');
@@ -743,7 +840,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         triggered.push(
           `#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken})`
         );
-        roundTraces.push(`Round ${nextRound} → Trace ${traceToken} (#${prNumber})`);
+        roundTraces.push(`Round = ${nextRound}, Trace = ${traceToken} (#${prNumber})`);
         core.info(
           `#${prNumber}: keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
         );
