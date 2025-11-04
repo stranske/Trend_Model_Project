@@ -24,13 +24,13 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 
 | Task Group | Task | Status | Latest Evidence |
 | --- | --- | --- | --- |
-| PR-meta detector | Ensure `actions/checkout@v4` occurs before loading detector script. | ❌ Not satisfied | Current workflow definition not yet reviewed in this context; awaiting evidence from upcoming PR. |
-| PR-meta detector | Enforce allowed authors + hidden markers, surface structured outputs. | ❌ Not satisfied | Detector logs still report missing marker handling; no run showing new parsing logic. |
-| PR-meta detector | Add 🚀 dedupe and dispatch both orchestrator (`workflow_dispatch`) and connector (`repository_dispatch`) with contextual payload. | ❌ Not satisfied | No workflow logs referencing the new dispatch calls. |
-| PR-meta detector | Emit summary table on every run. | ❌ Not satisfied | Latest detector runs terminate early without summary output segment. |
-| Orchestrator | Parse `options_json`, export TRACE/ROUND/PR, and configure `concurrency` without cancel-in-progress. | ❌ Not satisfied | Modern orchestrator invocations still cancel on overlap; concurrency block unchanged. |
-| Orchestrator | Before bailing, post `Keepalive … skipped:` PR comment and mirror reason in `$GITHUB_STEP_SUMMARY`. | ❌ Not satisfied | Failure handling currently silent; no PR comments or summaries citing reason codes. |
-| Orchestrator | Filter assignees to humans; skip gracefully when none remain. | ❌ Not satisfied | Assignee enforcement still fails closed when filtered list is empty; no evidence of new guard. |
+| PR-meta detector | Ensure `actions/checkout@v4` occurs before loading detector script. | ⏳ In progress | Checkout step confirmed in `.github/workflows/agents-pr-meta.yml` (commit `777ce17d`); awaiting next detector run for runtime confirmation. |
+| PR-meta detector | Enforce allowed authors + hidden markers, surface structured outputs. | ⏳ In progress | `.github/scripts/agents_pr_meta_keepalive.js` now emits `comment_id`/`comment_url` and maps missing markers to `missing-round` (commit `946b0b3e`); need live run to confirm outputs. |
+| PR-meta detector | Add 🚀 dedupe and dispatch both orchestrator (`workflow_dispatch`) and connector (`repository_dispatch`) with contextual payload. | ⏳ In progress | Repository dispatch now forwards round/trace plus fallback metadata (commit `777ce17d`); validation pending next accepted keepalive. |
+| PR-meta detector | Emit summary table on every run. | ⏳ In progress | Summary step updated with comment column in `agents-pr-meta.yml`; require detector run to capture rendered table. |
+| Orchestrator | Parse `options_json`, export TRACE/ROUND/PR, and configure `concurrency` without cancel-in-progress. | ⏳ In progress | Parameter resolver already populates keepalive metadata; current focus is verifying next orchestrator run respects overrides without cancellation. |
+| Orchestrator | Before bailing, post `Keepalive … skipped:` PR comment and mirror reason in `$GITHUB_STEP_SUMMARY`. | ⏳ In progress | Guard now posts formatted skip line (commit `2ce66b54`); waiting for a guard-triggered run to capture evidence. |
+| Orchestrator | Filter assignees to humans; skip gracefully when none remain. | ⏳ In progress | Guard auto-assigns humans where possible (pre-existing) and now auto-applies `agents:keepalive` / `agent:codex` labels (commit `e3dc4c65`); require live run to confirm behaviour. |
 
 ## Evidence Log
 
