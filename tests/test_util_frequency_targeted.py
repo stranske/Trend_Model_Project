@@ -55,7 +55,9 @@ def test_as_datetime_index_rejects_invalid_values(values: list[str]) -> None:
         ("???", None),
     ],
 )
-def test_map_inferred_handles_common_aliases(candidate: str | None, expected: str | None) -> None:
+def test_map_inferred_handles_common_aliases(
+    candidate: str | None, expected: str | None
+) -> None:
     assert freq._map_inferred(candidate) == expected
 
 
@@ -94,10 +96,14 @@ def test_detect_frequency_single_entry_defaults_to_monthly() -> None:
     assert summary.resampled is False
 
 
-def test_detect_frequency_falls_back_when_infer_freq_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_falls_back_when_infer_freq_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     idx = pd.date_range("2024-01-31", periods=6, freq="M")
 
-    monkeypatch.setattr(pd, "infer_freq", lambda _: (_ for _ in ()).throw(ValueError("boom")))
+    monkeypatch.setattr(
+        pd, "infer_freq", lambda _: (_ for _ in ()).throw(ValueError("boom"))
+    )
 
     summary = freq.detect_frequency(idx)
 
@@ -105,13 +111,15 @@ def test_detect_frequency_falls_back_when_infer_freq_fails(monkeypatch: pytest.M
 
 
 def test_detect_frequency_classifies_weekly_series_without_infer_freq() -> None:
-    idx = pd.DatetimeIndex([
-        "2024-01-05",
-        "2024-01-12",
-        "2024-01-19",
-        "2024-01-26",
-        "2024-02-02",
-    ])
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-05",
+            "2024-01-12",
+            "2024-01-19",
+            "2024-01-26",
+            "2024-02-02",
+        ]
+    )
 
     summary = freq.detect_frequency(idx[::-1])
 
@@ -122,11 +130,13 @@ def test_detect_frequency_classifies_weekly_series_without_infer_freq() -> None:
 
 
 def test_detect_frequency_flags_irregular_spacing() -> None:
-    idx = pd.DatetimeIndex([
-        "2024-01-01",
-        "2024-01-05",
-        "2024-02-20",
-    ])
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-01",
+            "2024-01-05",
+            "2024-02-20",
+        ]
+    )
 
     with pytest.raises(ValueError):
         freq.detect_frequency(idx)
