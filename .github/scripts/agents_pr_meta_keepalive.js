@@ -136,6 +136,30 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   const prNumber = issue?.number;
 
+  outputs.pr = prNumber ? String(prNumber) : '';
+  outputs.round = String(round);
+  outputs.trace = trace;
+
+  let pull;
+  try {
+    const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+    pull = response.data;
+  } catch (error) {
+    outputs.reason = 'pull-fetch-failed';
+    const message = error instanceof Error ? error.message : String(error);
+    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} (${message}).`);
+    setAllOutputs();
+    return outputs;
+  }
+
+  outputs.branch = pull?.head?.ref || '';
+  outputs.base = pull?.base?.ref || '';
+
+  const issueNumber = extractIssueNumberFromPull(pull);
+  if (issueNumber) {
+    outputs.issue = String(issueNumber);
+  }
+
   let hasRocket = false;
   try {
     const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
@@ -152,41 +176,20 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   if (hasRocket) {
     outputs.reason = 'duplicate-keepalive';
-    outputs.trace = trace;
-    outputs.pr = prNumber ? String(prNumber) : '';
     core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
     setAllOutputs();
     return outputs;
   }
 
-  let pull;
-  try {
-    const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-    pull = response.data;
-  } catch (error) {
-    outputs.reason = 'pull-fetch-failed';
-    const message = error instanceof Error ? error.message : String(error);
-    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} (${message}).`);
-    setBasicOutputs();
-    return outputs;
-  }
-
-  const issueNumber = extractIssueNumberFromPull(pull);
   if (!issueNumber) {
     outputs.reason = 'missing-issue-reference';
     core.info('Keepalive dispatch skipped: unable to determine linked issue number.');
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
   outputs.dispatch = 'true';
   outputs.reason = 'keepalive-detected';
-  outputs.issue = String(issueNumber);
-  outputs.round = String(round);
-  outputs.branch = pull?.head?.ref || '';
-  outputs.base = pull?.base?.ref || '';
-  outputs.trace = trace;
-  outputs.pr = prNumber ? String(prNumber) : '';
 
   try {
     await github.rest.reactions.createForIssueComment({
