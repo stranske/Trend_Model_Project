@@ -1,5 +1,7 @@
 'use strict';
 
+const { makeTrace } = require('./keepalive_contract.js');
+
 const DEFAULT_READINESS_AGENTS = 'copilot,codex';
 const DEFAULT_VERIFY_ISSUE_ASSIGNEES =
   'copilot,chatgpt-codex-connector,stranske-automation-bot';
@@ -233,11 +235,14 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   const workerOptions = nested(beltOptions.worker ?? parsedOptions.worker);
   const conveyorOptions = nested(beltOptions.conveyor ?? parsedOptions.conveyor);
 
-  const keepaliveTrace = toString(finalParsedOptions.keepalive_trace ?? parsedOptions.keepalive_trace, '');
-  const keepaliveRound = toString(
+  const previousRoundRaw = toString(
     finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
     ''
   );
+  const parsedPreviousRound = Number.parseInt(previousRoundRaw, 10);
+  const keepaliveRound = Number.isFinite(parsedPreviousRound) && parsedPreviousRound > 0
+    ? String(parsedPreviousRound + 1)
+    : '1';
   const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '');
 
   const dispatcherForceIssue = toString(
@@ -283,6 +288,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   }
 
   const keepaliveEffective = keepalivePaused ? 'false' : keepaliveRequested;
+  const keepaliveTrace = keepaliveEffective === 'true' ? makeTrace() : '';
 
   const outputs = {
     enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
