@@ -85,6 +85,22 @@ function loadKeepaliveRunner() {
 
 let commentSequence = 1;
 
+const DEFAULT_SCOPE_BLOCK = `<!-- auto-status-summary:start -->
+## Automated Status Summary
+#### Scope
+Maintain Codex keepalive coverage for unattended tasks.
+
+#### Tasks
+- [ ] Ensure keepalive posts new instruction comments.
+- [ ] Include hidden markers and @codex directive.
+- [ ] Record round and trace metadata.
+
+#### Acceptance criteria
+- [ ] Keepalive comment created each round with markers.
+- [ ] issue_comment.created event recorded for stranske-automation-bot.
+- [ ] Comment includes Scope/Tasks/Acceptance block.
+<!-- auto-status-summary:end -->`;
+
 function allocateCommentId(existingId) {
   if (existingId !== undefined && existingId !== null) {
     return existingId;
@@ -142,6 +158,7 @@ async function runScenario(scenario) {
     labels: Array.from(pull.labels || []).map((label) =>
       typeof label === 'string' ? { name: label } : label
     ),
+    body: pull.body || DEFAULT_SCOPE_BLOCK,
   }));
 
   const commentMap = new Map();
