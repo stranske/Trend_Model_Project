@@ -45,6 +45,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-04 23:24 | Added comment metadata + specific missing-round reason to detector | `.github/scripts/agents_pr_meta_keepalive.js` now emits comment ID/URL and differentiates missing round markers via `missing-round`; summary table gains a Comment column. Confirmation awaits next detector execution. |
 | 2025-11-04 23:31 | Forwarded keepalive round/trace with repository dispatch | Codex dispatch now attaches round/trace and falls back to detector comment metadata, enabling trace continuity checks once a valid keepalive fires. Awaiting new dispatch for evidence. |
 | 2025-11-04 23:38 | Keepalive guard auto-labels PR before failing | `keepalive-guard` attempts to apply `agents:keepalive` and `agent:codex` labels automatically before recording a skip reason; new behaviour to be validated when a label-missing scenario reoccurs. |
+| 2025-11-04 23:48 | Added harness + pytest coverage for comment metadata + missing-round reason | `tests/test_agents_pr_meta_keepalive.py` now asserts the detector outputs comment ID/URL and returns `missing-round` when round markers are absent, using new fixtures under `tests/fixtures/agents_pr_meta/`. |
 
 ## Next Verification Steps
 
