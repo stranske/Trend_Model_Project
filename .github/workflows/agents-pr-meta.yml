@@ -46,6 +46,9 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Evaluate keepalive comment
         id: detect
         uses: actions/github-script@v7
