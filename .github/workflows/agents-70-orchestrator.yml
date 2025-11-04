@@ -137,6 +137,92 @@ jobs:
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();
+
+            const normalise = (value) => String(value ?? '').trim();
+            const toBool = (value) => {
+              if (typeof value === 'boolean') {
+                return value;
+              }
+              if (typeof value === 'number') {
+                return value !== 0;
+              }
+              const lowered = normalise(value).toLowerCase();
+              if (!lowered) {
+                return false;
+              }
+              return ['true', '1', 'yes', 'on'].includes(lowered);
+            };
+
+            const parseMaybeJson = (input) => {
+              if (!input) {
+                return null;
+              }
+              if (typeof input === 'object') {
+                return input;
+              }
+              if (typeof input === 'string') {
+                const trimmed = input.trim();
+                if (!trimmed) {
+                  return null;
+                }
+                try {
+                  return JSON.parse(trimmed);
+                } catch (error) {
+                  core.debug?.(`idle-precheck: failed to parse JSON: ${error.message || error}`);
+                }
+              }
+              return null;
+            };
+
+            let keepaliveRequested = false;
+            let keepaliveTrace = '';
+            const keepaliveSources = new Set();
+
+            const markKeepalive = (source, trace) => {
+              keepaliveRequested = true;
+              if (source) {
+                keepaliveSources.add(source);
+              }
+              if (!keepaliveTrace && typeof trace === 'string' && trace.trim()) {
+                keepaliveTrace = trace.trim();
+              }
+            };
+
+            const eventName = context.eventName;
+            if (eventName === 'workflow_dispatch') {
+              const inputs = context.payload?.inputs || {};
+              if (toBool(inputs.keepalive_enabled ?? '')) {
+                markKeepalive('workflow_dispatch.keepalive_enabled');
+              }
+              const params = parseMaybeJson(inputs.params_json);
+              if (params && toBool(params.enable_keepalive)) {
+                markKeepalive('workflow_dispatch.params_json');
+              }
+              const options = parseMaybeJson(inputs.options_json);
+              if (options) {
+                const trace = options.keepalive_trace || options.trace;
+                if (trace) {
+                  markKeepalive('workflow_dispatch.options_json', trace);
+                }
+              }
+            } else if (eventName === 'repository_dispatch') {
+              const payload = context.payload?.client_payload || {};
+              if (toBool(payload.keepalive_enabled)) {
+                markKeepalive('repository_dispatch.keepalive_enabled');
+              }
+              const params = parseMaybeJson(payload.params_json || payload.params);
+              if (params && toBool(params.enable_keepalive)) {
+                markKeepalive('repository_dispatch.params');
+              }
+              const options = parseMaybeJson(payload.options_json || payload.options);
+              if (options) {
+                const trace = options.keepalive_trace || options.trace;
+                if (trace) {
+                  markKeepalive('repository_dispatch.options', trace);
+                }
+              }
+            }
+
             let count = 0;
 
             await github.paginate(
@@ -160,7 +246,7 @@ jobs:
                     })
                   ) {
                     count += 1;
-                    if (count > 0) {
+                    if (count > 0 && !keepaliveRequested) {
                       done();
                       break;
                     }
@@ -170,7 +256,7 @@ jobs:
               }
             );
 
-            const hasWork = count > 0;
+            const hasWork = keepaliveRequested || count > 0;
             const elapsed = Math.round((Date.now() - started) / 100) / 10;
             core.setOutput('has_work', hasWork ? 'true' : 'false');
 
@@ -179,6 +265,15 @@ jobs:
             summary.addEOL();
             summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`);
             summary.addEOL();
+            if (keepaliveRequested) {
+              const sources = Array.from(keepaliveSources);
+              summary
+                .addRaw(`Keepalive override: requested via ${sources.length ? sources.join(', ') : 'inputs'}.`)
+                .addEOL();
+              if (keepaliveTrace) {
+                summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
+              }
+            }
             if (!hasWork) {
               summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
             }
@@ -186,6 +281,9 @@ jobs:
 
             if (!hasWork) {
               core.info('Idle, skipping orchestrator dispatch.');
+            } else if (keepaliveRequested) {
+              const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
+              core.info(`Keepalive request detected${traceInfo}; proceeding regardless of open agent issues.`);
             } else {
               core.info(`Detected ${count} agent-triage issues; proceeding.`);
             }

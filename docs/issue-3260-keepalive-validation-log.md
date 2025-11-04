@@ -14,10 +14,10 @@ _Comprehensive evidence log for acceptance criteria and tasks tied to Issue #326
 
 | Acceptance Criterion | Status | Latest Evidence |
 | --- | --- | --- |
-| New instruction comment created each cycle with required markers and `@codex`. | ❌ Not satisfied | Issue comment run `Agents PR meta manager` [#19078140841](https://github.com/stranske/Trend_Model_Project/actions/runs/19078140841) logged `Comment does not contain keepalive round marker; skipping.` (2025-11-04 17:57 UTC). No new instruction comment appears on PR [#3258](https://github.com/stranske/Trend_Model_Project/pull/3258). |
-| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Orchestrator push run [#19078171337](https://github.com/stranske/Trend_Model_Project/actions/runs/19078171337) failed before posting any comment; no live instruction comment exists to confirm author. |
-| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Detector run [#19078140841](https://github.com/stranske/Trend_Model_Project/actions/runs/19078140841) output `Keepalive dispatch skipped: not-keepalive`, so neither ack loop nor fallback triggered. |
-| Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Orchestrator run [#19078171337](https://github.com/stranske/Trend_Model_Project/actions/runs/19078171337) produced no jobs; summary step `Summarise keepalive instruction` never executed. |
+| New instruction comment created each cycle with required markers and `@codex`. | ❌ Not satisfied | Latest detector run `Agents PR meta manager` [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) recorded `Keepalive dispatch skipped: not-keepalive`; PR [#3258](https://github.com/stranske/Trend_Model_Project/pull/3258) still lacks a fresh instruction comment carrying the hidden markers. |
+| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Orchestrator push run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) terminated before any jobs executed, so no instruction comment or author is available for verification. |
+| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Detector runs [#19078140841](https://github.com/stranske/Trend_Model_Project/actions/runs/19078140841) and [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) both emitted `Keepalive dispatch skipped: not-keepalive`, leaving the ack/fallback path untested. |
+| Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Recent orchestrator runs ([#19078171337](https://github.com/stranske/Trend_Model_Project/actions/runs/19078171337), [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666)) stopped prior to the `Summarise keepalive instruction` step, so no summary was produced. |
 
 ## Task List Status
 
@@ -31,7 +31,7 @@ _Source checklist copied from Issue #3255 / PR #3258 instructions; statuses re
 | • `bundle.py` coverage ≥95%. | ✅ Completed | Same comment [3486180287](https://github.com/stranske/Trend_Model_Project/pull/3258#issuecomment-3486180287). |
 | • `validators.py` coverage ≥95%. | ✅ Completed | Comment [3486420049](https://github.com/stranske/Trend_Model_Project/pull/3258#issuecomment-3486420049). |
 | • `cli.py` coverage ≥95%. | ✅ Completed | Comment [3487373129](https://github.com/stranske/Trend_Model_Project/pull/3258#issuecomment-3487373129). |
-| Remaining files (`__init__.py`, `data.py`, `presets.py`, etc.) each ≥95%. | ❌ Not satisfied | Coverage report within failed Gate run [#19078172801](https://github.com/stranske/Trend_Model_Project/actions/runs/19078172801) shows many modules still below 95%; effort ongoing. |
+| Remaining files (`__init__.py`, `data.py`, `presets.py`, etc.) each ≥95%. | ❌ Not satisfied | Gate run [#19084629367](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629367) succeeded but the bundled coverage summary continues to list numerous modules under 95%; further lifts required before marking complete. |
 
 ## Evidence Log
 
@@ -40,6 +40,10 @@ _Source checklist copied from Issue #3255 / PR #3258 instructions; statuses re
 | 2025-11-04 17:57 | `Agents PR meta manager` run [#19078140841](https://github.com/stranske/Trend_Model_Project/actions/runs/19078140841) | Detector skipped keepalive: "Comment does not contain keepalive round marker; skipping." Confirms AC #1, #3 unmet. |
 | 2025-11-04 17:59 | Gate workflow run [#19078172801](https://github.com/stranske/Trend_Model_Project/actions/runs/19078172801) | Python 3.12 leg failed with `AttributeError` in `test_apply_trend_spec_preset_handles_mapping_and_frozen`; all Gate-dependent tasks remain incomplete. |
 | 2025-11-04 18:04 | Orchestrator push run [#19078171337](https://github.com/stranske/Trend_Model_Project/actions/runs/19078171337) | Run failed to start jobs → no instruction comment or summary emitted; AC #1, #2, #4 still pending. |
+| 2025-11-04 22:25 | `Agents PR meta manager` run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) | Keepalive detection table reported `ok = false`, `reason = not-keepalive`; no dispatch triggered, markers still missing. |
+| 2025-11-04 22:24 | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) | Workflow concluded with failure before any jobs executed; no skip comment or summary, so acceptance criteria remain unmet. |
+| 2025-11-04 22:31 | Gate workflow run [#19084629367](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629367) | CI/tests passed; coverage artifacts confirm remaining modules under 95%, so coverage checklist still open. |
+| 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Ensures future keepalive runs bypass the idle skip when the detector supplies a trace; awaiting next workflow execution to validate behaviour. |
 
 ## Next Verification Steps
 

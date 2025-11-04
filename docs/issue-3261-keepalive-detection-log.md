@@ -14,11 +14,11 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 
 | Acceptance Criterion | Status | Latest Evidence |
 | --- | --- | --- |
-| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ❌ Not satisfied | No post-issue detector run with hidden markers yet; most recent keepalive detection evidence predates Issue #3261 requirements. |
-| Exactly one orchestrator workflow_dispatch fires with matching TRACE and no cancellations triggered by other keepalive rounds. | ❌ Not satisfied | Orchestrator runs following Issue #3261 creation have either been cancelled pre-job or have not carried TRACE markers; waiting for compliant cycle. |
-| Exactly one repository_dispatch (`codex-pr-comment-command`) emitted per accepted instruction comment. | ❌ Not satisfied | No recent repository_dispatch payload observed in Gate summaries after Issue #3261 sync run [#19060644912](https://github.com/stranske/Trend_Model_Project/actions/runs/19060644912). |
-| Guard failures yield one-line PR comment `Keepalive {round} {trace} skipped: <reason>` and matching summary entry. | ❌ Not satisfied | Existing guard failures (e.g., orchestrator cancellations on Issue #3260) did not post the explicit comment or summary rows mandated here. |
-| Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches. | ❌ Not satisfied | No consecutive compliant rounds recorded since the issue sync; pending first successful validation run. |
+| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ❌ Not satisfied | Latest detector run `Agents PR meta manager` [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) reported `ok = false`, `reason = not-keepalive`; hidden markers still missing. |
+| Exactly one orchestrator workflow_dispatch fires with matching TRACE and no cancellations triggered by other keepalive rounds. | ❌ Not satisfied | Orchestrator workflow_dispatch [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) ended before executing jobs, so no TRACE propagation or successful dispatch was recorded. |
+| Exactly one repository_dispatch (`codex-pr-comment-command`) emitted per accepted instruction comment. | ❌ Not satisfied | Detector run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) skipped dispatching; Gate summaries still show no repository_dispatch payloads after the new runs. |
+| Guard failures yield one-line PR comment `Keepalive {round} {trace} skipped: <reason>` and matching summary entry. | ❌ Not satisfied | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) failed pre-job and produced neither the skip comment nor the summary rows required by the issue. |
+| Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches. | ❌ Not satisfied | Detector/orchestrator pair [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) / [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) both failed validation, so the consecutive-round requirement remains unmet. |
 
 ## Task List Status
 
@@ -38,6 +38,9 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | --- | --- | --- |
 | 2025-11-02 09:14 | Issue synced by workflow run [#19060644912](https://github.com/stranske/Trend_Model_Project/actions/runs/19060644912) | Issue body imported from topic GUID `c99d3476-9806-5144-8a69-98a586644cbd`. Serves as baseline; no compliant detector/orchestrator runs recorded yet. |
 | 2025-11-04 17:59 | Gate workflow run [#19078172801](https://github.com/stranske/Trend_Model_Project/actions/runs/19078172801) | Demonstrates current failure mode (AttributeError in coverage tests) but lacks TRACE propagation or skip-comment output required by Issue #3261. |
+| 2025-11-04 22:24 | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) | Workflow concluded before any job-level steps executed; no TRACE export, skip comment, or summary output captured. |
+| 2025-11-04 22:25 | `Agents PR meta manager` run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) | Detection table showed `ok = false`, `reason = not-keepalive`; dispatch hooks remained dormant awaiting hidden markers and allowed author. |
+| 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Should allow detector-triggered runs to reach keepalive jobs even when no additional agent issues are open; validation pending next run. |
 
 ## Next Verification Steps
 
