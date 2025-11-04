@@ -75,11 +75,24 @@ DEFAULT_COMMAND = (
 
 def _assert_scope_block(body: str) -> None:
     assert "#### Scope" in body
-    assert "Maintain Codex keepalive coverage for unattended tasks." in body
+    assert (
+        "For every keepalive round, create a new instruction comment (do not edit any prior bot comment)."
+        in body
+    )
+    assert "Always include hidden markers at the top of the comment body:" in body
     assert "#### Tasks" in body
-    assert "- [ ] Ensure keepalive posts new instruction comments." in body
+    assert "- [ ] Generate a unique KEEPALIVE_TRACE" in body
+    assert (
+        "- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:"
+        in body
+    )
+    assert "- [ ] Write Round = N and TRACE = … into the step summary for correlation." in body
     assert "#### Acceptance criteria" in body
-    assert "- [ ] Comment includes Scope/Tasks/Acceptance block." in body
+    assert (
+        "- [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers"
+        in body
+    )
+    assert "- [ ] The posted comment contains the current Scope/Tasks/Acceptance block." in body
 
 
 def _assert_single_dispatch(

@@ -88,17 +88,52 @@ let commentSequence = 1;
 const DEFAULT_SCOPE_BLOCK = `<!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-Maintain Codex keepalive coverage for unattended tasks.
+For every keepalive round, create a new instruction comment (do not edit any prior bot comment).
+
+Always include hidden markers at the top of the comment body:
+
+<!-- keepalive-round: {N} -->
+
+<!-- codex-keepalive-marker -->
+
+<!-- keepalive-trace: {TRACE} -->
+
+Visible content must begin with @codex followed by the current scope / tasks / acceptance criteria the agent should act on.
+
+Non-Goals
+
+Changing Gate semantics, acceptance criteria, labels, or agent selection
+
+Modifying the separate status/checklist updater (it may continue to edit the status block)
 
 #### Tasks
-- [ ] Ensure keepalive posts new instruction comments.
-- [ ] Include hidden markers and @codex directive.
-- [ ] Record round and trace metadata.
+- [ ] In the keepalive poster (Codex Keepalive Sweep):
+
+- [ ] Generate a unique KEEPALIVE_TRACE (e.g., epoch-second + short random suffix).
+
+- [ ] Compute the next round number; do not infer it from an edited comment.
+
+- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:
+
+<!-- keepalive-round: {N} -->
+<!-- codex-keepalive-marker -->
+<!-- keepalive-trace: {TRACE} -->
+@codex Continue with the remaining tasks; re-post the Scope/Tasks/Acceptance block and check off only when acceptance criteria are satisfied.
+
+<Scope/Tasks/Acceptance…>
+
+- [ ] Authenticate with the bot PAT that posts as stranske-automation-bot.
+
+- [ ] Write Round = N and TRACE = … into the step summary for correlation.
 
 #### Acceptance criteria
-- [ ] Keepalive comment created each round with markers.
-- [ ] issue_comment.created event recorded for stranske-automation-bot.
-- [ ] Comment includes Scope/Tasks/Acceptance block.
+- [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers and an @codex instruction.
+
+- [ ] An issue_comment.created run appears in Actions showing author = stranske-automation-bot.
+
+- [ ] The posted comment contains the current Scope/Tasks/Acceptance block.
+
+- [ ] The poster’s step summary shows Round and TRACE values.
 <!-- auto-status-summary:end -->`;
 
 function allocateCommentId(existingId) {
