@@ -130,7 +130,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [101]
     body_lines = created[0]["body"].splitlines()
-    assert body_lines[0] == "<!-- keepalive-round:1 -->"
+    assert body_lines[0] == "<!-- keepalive-round: 1 -->"
     assert body_lines[1] == "<!-- codex-keepalive-marker -->"
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert body_lines[3] == DEFAULT_COMMAND
@@ -140,7 +140,7 @@ def test_keepalive_idle_threshold_logic() -> None:
         "Codex, 1/2 checklist item remains unchecked (completed 1)."
         in created[0]["body"]
     )
-    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
@@ -200,7 +200,7 @@ def test_keepalive_dedupes_configuration() -> None:
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [505]
     assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
-    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
@@ -264,7 +264,7 @@ def test_keepalive_respects_paused_label() -> None:
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [505]
     assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
-    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert (
         "Codex, 1/1 checklist item remains unchecked (completed 0)."
@@ -305,13 +305,13 @@ def test_keepalive_handles_paged_comments() -> None:
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [808]
     body_lines = created[0]["body"].splitlines()
-    assert body_lines[0] == "<!-- keepalive-round:1 -->"
+    assert body_lines[0] == "<!-- keepalive-round: 1 -->"
     assert body_lines[1] == "<!-- codex-keepalive-marker -->"
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert body_lines[3] == DEFAULT_COMMAND
     _assert_scope_block(created[0]["body"])
     assert "**Keepalive Round 1**" in created[0]["body"]
-    assert "<!-- keepalive-round:1 -->" in created[0]["body"]
+    assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 808, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
@@ -334,7 +334,7 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
     assert len(created) == 1
     body = created[0]["body"]
     assert "**Keepalive Round 2**" in body
-    assert "<!-- keepalive-round:2 -->" in body
+    assert "<!-- keepalive-round: 2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
     assert "<!-- keepalive-trace:" in body
     assert DEFAULT_COMMAND in body
@@ -363,7 +363,7 @@ def test_keepalive_upgrades_legacy_comment() -> None:
     assert len(created) == 1
     body = created[0]["body"]
     assert "**Keepalive Round 2**" in body
-    assert "<!-- keepalive-round:2 -->" in body
+    assert "<!-- keepalive-round: 2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
     assert "<!-- keepalive-trace:" in body
     assert DEFAULT_COMMAND in body

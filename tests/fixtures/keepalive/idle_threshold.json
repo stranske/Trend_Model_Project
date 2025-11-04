@@ -54,7 +54,7 @@
         },
         {
           "user": {"login": "stranske-automation-bot"},
-          "body": "<!-- keepalive-round:1 -->\n<!-- codex-keepalive-marker -->\n\n@codex plan-and-execute\n\n**Keepalive Round 1**\n\nContinue incremental work toward acceptance criteria. Use the current checklist and update task statuses.\nPost an updated summary when this round completes.\n",
+          "body": "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n\n@codex plan-and-execute\n\n**Keepalive Round 1**\n\nContinue incremental work toward acceptance criteria. Use the current checklist and update task statuses.\nPost an updated summary when this round completes.\n",
           "created_at": "2024-05-18T11:50:00Z"
         }
       ]

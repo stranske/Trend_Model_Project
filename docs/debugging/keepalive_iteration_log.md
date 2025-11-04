@@ -17,7 +17,7 @@
 - 🔍 Root cause: `belt-worker` job skips whenever a PR already exists (`pr_exists == 'true'`). Keepalive rounds run against the active PR, so the worker never re-engages. Step summary logs “Result: skipped: PR exists.”
 
 ## Updated resolution strategy
-1. Keep posting **new** keepalive instruction comments with `@codex` and `<!-- keepalive-round:N -->` markers (working as intended).
+1. Keep posting **new** keepalive instruction comments with `@codex` and `<!-- keepalive-round: N -->` markers (working as intended).
 2. Allow `belt-worker` to run when keepalive is enabled even if the PR already exists, so follow-up rounds can push commits to the same branch.
 3. Adjust orchestrator summaries so the “skipped: PR exists” guard only fires when keepalive is disabled.
 4. (Optional) Add a precheck to halt keepalive once acceptance criteria are satisfied to avoid redundant work.
@@ -43,7 +43,7 @@
 ## Attempt — Keepalive sentinel handshake (Nov 2025)
 - ✅ `agents-pr-meta` now compiles a "Dispatch keepalive orchestrator" job and evaluates the same branch/issue metadata used in manual runs.
 - ❌ Runs triggered by automation-authored keepalive comments exit with **Status: Skipped**; all jobs short-circuit because the dispatch guard resolves to `false`.
-- 🔍 Detector script requires two hidden markers—`<!-- codex-keepalive-marker -->` and `<!-- keepalive-round:N -->`—plus an allow-listed author. Current keepalive comments from `stranske-automation-bot` only contain plain text (`"Keepalive Round N"` + `@codex`), so the sentinel check never passes.
+- 🔍 Detector script requires two hidden markers—`<!-- codex-keepalive-marker -->` and `<!-- keepalive-round: N -->`—plus an allow-listed author. Current keepalive comments from `stranske-automation-bot` only contain plain text (`"Keepalive Round N"` + `@codex`), so the sentinel check never passes.
 - 📌 Net effect: orchestrator dispatch is skipped, no repository_dispatch/workflow_dispatch is issued, and the keepalive loop stalls despite the sweep posting comments successfully.
 
 ## Implementation notes (worker guard relaxation)
@@ -53,7 +53,7 @@
 - Keep the PAT pass-through unchanged (`actions_bot_pat` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
 
 ## Patch — Hidden markers and concurrency (Nov 2025)
-- Keepalive comments now always start with `<!-- keepalive-round:N -->` followed by `<!-- codex-keepalive-marker -->`, matching the sentinel contract used by PR-meta.
+- Keepalive comments now always start with `<!-- keepalive-round: N -->` followed by `<!-- codex-keepalive-marker -->`, matching the sentinel contract used by PR-meta.
 - Each round explicitly reminds the agent to keep the checklist current and post a summary when the round concludes; the legacy command listener is disabled so keepalive is the single automation trigger.
 - Orchestrator concurrency keys on the PR (falling back to the ref) and no longer cancels in-flight runs, so consecutive keepalive rounds cannot interrupt one another.
 - The keepalive sweep declares write permissions up front, avoiding token-scope regressions when posting round comments.
@@ -82,8 +82,8 @@
 ## Escalation options (recorded)
 1. **Repository dispatch → Orchestrator** – _Blocked_. PR-meta lacks token scope to call `repos.createDispatchEvent`, resulting in 403s and no orchestrator run. Escalation path disabled unless a PAT is wired in.
 2. **Direct belt workflows** – ✅ Implemented November 2025. PR-meta now invokes `Agents 72 Codex Belt Worker` directly with the detected issue/branch so the worker re-engages without involving the chat connector.
-3. **Round parser hardening** – Treat `<!-- keepalive-round:N -->` as the stable sentinel, verify the author is one of our automation accounts, and optionally ensure the Gate check suite reports “concluded” before dispatching. This keeps false positives out of the escalation path.
-4. **Option A — Inject hidden sentinels** – Update the keepalive comment template in Agents 70 so each posted round includes both `<!-- codex-keepalive-marker -->` and `<!-- keepalive-round:N -->`, satisfying the detector without touching PR-meta.
+3. **Round parser hardening** – Treat `<!-- keepalive-round: N -->` as the stable sentinel, verify the author is one of our automation accounts, and optionally ensure the Gate check suite reports “concluded” before dispatching. This keeps false positives out of the escalation path.
+4. **Option A — Inject hidden sentinels** – Update the keepalive comment template in Agents 70 so each posted round includes both `<!-- codex-keepalive-marker -->` and `<!-- keepalive-round: N -->`, satisfying the detector without touching PR-meta.
 5. **Option B — Relax detector heuristics** – Modify `.github/workflows/agents-pr-meta.yml` so the keepalive path accepts either the hidden markers or the current plain-text pattern (`"Keepalive Round"` plus `@codex`) while retaining the author allow list.
 
 ## Keepalive dispatch options
@@ -100,6 +100,6 @@
 1. Manually dispatch **Agents 70 Orchestrator** with `enable_keepalive: true` (or include the flag in `params_json`).
 2. Confirm the Actions summary shows “keepalive override active – worker may resume existing branch.”
 3. Inspect the **Codex Belt Worker** job; it should run even when an existing PR is detected.
-4. Validate that a fresh `Keepalive Round N` comment appears on the target issue/PR with the correct marker `<!-- keepalive-round:N -->`.
+4. Validate that a fresh `Keepalive Round N` comment appears on the target issue/PR with the correct marker `<!-- keepalive-round: N -->`.
 5. Check the worker logs for commit pushes or task execution to ensure the branch received updates after the keepalive round.
 6. If the run fails, capture the Actions URL, PR number, and worker logs, and add a new bullet in “What failed before” with observed symptoms.

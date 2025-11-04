@@ -744,7 +744,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
 
   const nextRound = computeNextRound(keepaliveCandidates);
-  const roundMarker = `<!-- keepalive-round:${nextRound} -->`;
+  const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
       const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
       const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
 
