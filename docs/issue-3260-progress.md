@@ -27,3 +27,4 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_keepalive_workflow.py` (12 passed) to confirm helper + keepalive workflow coverage.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_agents_consolidation.py` (39 passed) to validate orchestration + PR-meta integration paths.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_naming.py` (7 passed) to ensure workflow naming conventions stay aligned after changes.
+- 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_autofix_guard.py` (3 passed) to verify autofix guard workflow behaviour remains intact.
