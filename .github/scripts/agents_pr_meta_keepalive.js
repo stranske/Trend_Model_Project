@@ -180,7 +180,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
 
   outputs.dispatch = 'true';
-  outputs.reason = 'ok';
+  outputs.reason = 'keepalive-detected';
   outputs.issue = String(issueNumber);
   outputs.round = String(round);
   outputs.branch = pull?.head?.ref || '';
