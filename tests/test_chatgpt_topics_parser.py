@@ -14,11 +14,60 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
 TOPICS_PATH = pathlib.Path("topics.json")
 
+SAMPLE_KEEPALIVE_ISSUES = """1. Agents keepalive: synthetic spec for parser validation
+
+Labels: agents, agents:keepalive, agent:codex, ci
+
+Why
+Codex keepalive specifications should parse without coupling to the live Issues.txt file.
+
+Scope
+- Always create a new instruction comment for every keepalive round.
+- Include hidden markers before the @codex instruction.
+- Preserve the Scope/Tasks/Acceptance block in notifications.
+
+Tasks
+- In the keepalive poster (Codex Keepalive Sweep):
+    - Generate a unique trace token for each round.
+    - Compute the next round number via the helper.
+    - Call agents-70-orchestrator.yml to dispatch the keepalive workflow.
+    - Post the comment body with markers, the @codex instruction, and the Scope/Tasks/Acceptance block.
+    - Authenticate with stranske-automation-bot credentials.
+    - Append Round and TRACE values to the step summary.
+- Update agents-70-orchestrator.yml guardrails when prerequisites change.
+
+Acceptance criteria
+- Each keepalive cycle adds a new comment with the hidden markers and @codex instruction.
+- A repository_dispatch codex-pr-comment-command event fires for the new instruction comment and the connector acknowledges the command.
+- The posted comment contains the current Scope/Tasks/Acceptance block.
+- The poster's step summary shows Round and TRACE values.
+
+Implementation notes
+Keep the current author allow-list including stranske-automation-bot and maintainers.
+When writing sample instructions, reference @{agent}, call out the PR kickoff comment template for onboarding, and remind teams about the required PR title prefix.
+
+2. Documentation sync placeholder
+
+Labels: docs, housekeeping
+
+Why
+Ensure the parser handles multiple topics within the same document.
+
+Tasks
+- Confirm summary sections render correctly.
+- Capture acceptance entries for downstream automation.
+
+Acceptance criteria
+- Parser emits topics.json with this record.
+- Acceptance criteria text is non-empty.
+"""
+
 _MODULE_SPEC = importlib.util.spec_from_file_location(
     "parse_chatgpt_topics_module", SCRIPT
 )
+if _MODULE_SPEC is None or _MODULE_SPEC.loader is None:
+    raise RuntimeError("Unable to load parse_chatgpt_topics module")
 parse_module = importlib.util.module_from_spec(_MODULE_SPEC)
-assert _MODULE_SPEC and _MODULE_SPEC.loader
 _MODULE_SPEC.loader.exec_module(parse_module)
 
 
@@ -194,16 +243,15 @@ def test_lowercase_alpha_enumeration():
 
 
 def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None:
-    """End-to-end check that Issues.txt flows through the workflow helpers."""
-    repo_root = pathlib.Path(__file__).resolve().parents[1]
-    issues_source = repo_root / "Issues.txt"
-    assert issues_source.exists(), "Issues.txt must exist for pipeline test"
+    """End-to-end check that the parser handles Issues-style input.
+
+    The real Issues.txt file bootstraps automation, so the test uses a
+    synthetic sample to avoid coupling automation to documentation text.
+    """
 
     workdir = tmp_path
     passthrough_source = workdir / "Issues.txt"
-    passthrough_source.write_text(
-        issues_source.read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    passthrough_source.write_text(SAMPLE_KEEPALIVE_ISSUES, encoding="utf-8")
 
     decode_proc = run_decode_cli(
         workdir,
@@ -222,7 +270,7 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
     assert topics_path.exists(), "Parser must emit topics.json"
     topics = json.loads(topics_path.read_text(encoding="utf-8"))
 
-    assert len(topics) >= 2, "Issues.txt should describe multiple topics"
+    assert len(topics) >= 2, "Sample Issues spec should describe multiple topics"
     # Topics order may change; find the Agents 70 orchestrator topic by
     # the presence of the workflow filename in its tasks section.
     match = None
