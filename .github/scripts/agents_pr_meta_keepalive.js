@@ -188,24 +188,67 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return outputs;
   }
 
-  outputs.dispatch = 'true';
-  outputs.reason = 'keepalive-detected';
-
+  let reactionStatus = 0;
+  let reactionContent = '';
   try {
-    await github.rest.reactions.createForIssueComment({
+    const response = await github.rest.reactions.createForIssueComment({
       owner,
       repo,
       comment_id: commentId,
       content: 'rocket',
     });
+    reactionStatus = Number(response?.status || 0);
+    reactionContent = String(response?.data?.content || '').toLowerCase();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error && error.status === 409) {
-      core.info(`Rocket reaction already present on comment ${commentId}; continuing.`);
-    } else {
-      core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
+      outputs.dispatch = 'false';
+      outputs.reason = 'duplicate-keepalive';
+      core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via conflict).`);
+      setAllOutputs();
+      return outputs;
     }
+
+    let hasRocket = false;
+    try {
+      const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+        owner,
+        repo,
+        comment_id: commentId,
+        per_page: 100,
+      });
+      hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+    } catch (readError) {
+      const readMessage = readError instanceof Error ? readError.message : String(readError);
+      core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${readMessage}`);
+    }
+
+    if (hasRocket) {
+      outputs.dispatch = 'false';
+      outputs.reason = 'duplicate-keepalive';
+      core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
+      setAllOutputs();
+      return outputs;
+    }
+
+    core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
   }
+
+  if (outputs.dispatch === 'false') {
+    setAllOutputs();
+    return outputs;
+  }
+
+  if (reactionStatus === 200 && reactionContent === 'rocket') {
+    outputs.dispatch = 'false';
+    outputs.reason = 'duplicate-keepalive';
+    core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`);
+    setAllOutputs();
+    return outputs;
+  }
+
+  outputs.dispatch = 'true';
+  outputs.reason = 'keepalive-detected';
 
   setAllOutputs();
   return outputs;
