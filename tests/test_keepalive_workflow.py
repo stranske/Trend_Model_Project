@@ -86,13 +86,19 @@ def _assert_scope_block(body: str) -> None:
         "- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:"
         in body
     )
-    assert "- [ ] Write Round = N and TRACE = … into the step summary for correlation." in body
+    assert (
+        "- [ ] Write Round = N and TRACE = … into the step summary for correlation."
+        in body
+    )
     assert "#### Acceptance criteria" in body
     assert (
         "- [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers"
         in body
     )
-    assert "- [ ] The posted comment contains the current Scope/Tasks/Acceptance block." in body
+    assert (
+        "- [ ] The posted comment contains the current Scope/Tasks/Acceptance block."
+        in body
+    )
 
 
 def _assert_single_dispatch(
