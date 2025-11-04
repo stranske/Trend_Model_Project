@@ -169,7 +169,9 @@ def test_main_handles_empty_details(monkeypatch, config_factory, capsys):
     assert captured.out == "No results\n"
 
 
-def test_main_formats_summary_and_exports_without_excel(monkeypatch, config_factory, capsys):
+def test_main_formats_summary_and_exports_without_excel(
+    monkeypatch, config_factory, capsys
+):
     cfg = config_factory()
     cfg.export["directory"] = "out"
     cfg.export["formats"] = ["json"]
@@ -191,10 +193,14 @@ def test_main_formats_summary_and_exports_without_excel(monkeypatch, config_fact
     )
 
     formatted_summary = "summary text"
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: formatted_summary)
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *a: formatted_summary
+    )
 
     export_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *a, **k: export_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *a, **k: export_calls.append((a, k))
+    )
 
     assert run_analysis.main(["--config", "config.yml"]) == 0
 
@@ -230,10 +236,14 @@ def test_main_skips_export_when_directory_missing(monkeypatch, config_factory, c
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary text")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *a: "summary text"
+    )
 
     export_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *a, **k: export_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *a, **k: export_calls.append((a, k))
+    )
 
     assert run_analysis.main(["--config", "config.yml"]) == 0
 
@@ -244,7 +254,9 @@ def test_main_skips_export_when_directory_missing(monkeypatch, config_factory, c
 
 def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsys):
     cfg = config_factory()
-    cfg.export.update({"directory": "out", "formats": ["xlsx", "json"], "filename": "analysis"})
+    cfg.export.update(
+        {"directory": "out", "formats": ["xlsx", "json"], "filename": "analysis"}
+    )
 
     monkeypatch.setattr(run_analysis, "load", lambda path: cfg)
 
@@ -267,10 +279,14 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *a: "summary"
+    )
 
     summary_frame = pd.DataFrame({"summary": [1]})
-    monkeypatch.setattr(run_analysis.export, "summary_frame_from_result", lambda details: summary_frame)
+    monkeypatch.setattr(
+        run_analysis.export, "summary_frame_from_result", lambda details: summary_frame
+    )
 
     formatter_called = {}
 
@@ -278,13 +294,21 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
         formatter_called["called"] = True
         return "formatter"
 
-    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", fake_make_formatter)
+    monkeypatch.setattr(
+        run_analysis.export, "make_summary_formatter", fake_make_formatter
+    )
 
     excel_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_to_excel", lambda *a, **k: excel_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export,
+        "export_to_excel",
+        lambda *a, **k: excel_calls.append((a, k)),
+    )
 
     data_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *a, **k: data_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *a, **k: data_calls.append((a, k))
+    )
 
     assert run_analysis.main(["--config", "config.yml"]) == 0
 
@@ -293,7 +317,9 @@ def test_main_exports_excel_and_other_formats(monkeypatch, config_factory, capsy
     excel_args, excel_kwargs = excel_calls[0]
     assert excel_args[1] == "out/analysis.xlsx"
     assert excel_kwargs == {"default_sheet_formatter": "formatter"}
-    assert "summary" in excel_args[0]["summary"].columns[0] or "summary" in excel_args[0]
+    assert (
+        "summary" in excel_args[0]["summary"].columns[0] or "summary" in excel_args[0]
+    )
 
     assert data_calls
     data_args, data_kwargs = data_calls[0]
@@ -375,8 +401,14 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
         lambda *_: DummyResult(metrics=metrics, details=details),
     )
 
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *a: "summary")
-    monkeypatch.setattr(run_analysis.export, "summary_frame_from_result", lambda details: pd.DataFrame({"summary": [2]}))
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *a: "summary"
+    )
+    monkeypatch.setattr(
+        run_analysis.export,
+        "summary_frame_from_result",
+        lambda details: pd.DataFrame({"summary": [2]}),
+    )
 
     formatter_called = {}
 
@@ -387,10 +419,16 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
     monkeypatch.setattr(run_analysis.export, "make_summary_formatter", fake_formatter)
 
     excel_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_to_excel", lambda *a, **k: excel_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export,
+        "export_to_excel",
+        lambda *a, **k: excel_calls.append((a, k)),
+    )
 
     data_calls = []
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *a, **k: data_calls.append((a, k)))
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *a, **k: data_calls.append((a, k))
+    )
 
     assert run_analysis.main(["--config", "config.yml"]) == 0
 
@@ -399,6 +437,8 @@ def test_main_applies_default_export_targets(monkeypatch, config_factory, capsys
     assert formatter_called.get("called")
     assert excel_calls
     excel_args, excel_kwargs = excel_calls[0]
-    assert excel_args[1] == str(Path(run_analysis.DEFAULT_OUTPUT_DIRECTORY) / "analysis.xlsx")
+    assert excel_args[1] == str(
+        Path(run_analysis.DEFAULT_OUTPUT_DIRECTORY) / "analysis.xlsx"
+    )
     assert excel_kwargs == {"default_sheet_formatter": "formatter"}
     assert data_calls == []
