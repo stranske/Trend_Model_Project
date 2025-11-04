@@ -43,6 +43,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Should allow detector-triggered runs to reach keepalive jobs even when no additional agent issues are open; validation pending next run. |
 | 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard | Guarantees guard failures leave a `Keepalive {round} {trace} skipped: <reason>` comment plus matching summary; awaiting new skip event for validation. |
 | 2025-11-04 23:24 | Added comment metadata + specific missing-round reason to detector | `.github/scripts/agents_pr_meta_keepalive.js` now emits comment ID/URL and differentiates missing round markers via `missing-round`; summary table gains a Comment column. Confirmation awaits next detector execution. |
+| 2025-11-04 23:31 | Forwarded keepalive round/trace with repository dispatch | Codex dispatch now attaches round/trace and falls back to detector comment metadata, enabling trace continuity checks once a valid keepalive fires. Awaiting new dispatch for evidence. |
 
 ## Next Verification Steps
 

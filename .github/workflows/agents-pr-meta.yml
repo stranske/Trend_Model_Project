@@ -165,6 +165,10 @@ jobs:
         env:
           BASE: ${{ needs.keepalive_dispatch.outputs.base }}
           HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
@@ -179,6 +183,8 @@ jobs:
 
             const base = process.env.BASE || '';
             const head = process.env.HEAD || '';
+            const round = process.env.ROUND || '';
+            const trace = process.env.TRACE || '';
 
             if (!base || !head) {
               core.warning('Keepalive metadata missing base/head from detection; fetching pull request details.');
@@ -206,9 +212,14 @@ jobs:
             const commentId = payload.comment?.id;
             const commentUrl = payload.comment?.html_url;
 
+            const fallbackCommentId = process.env.COMMENT_ID || '';
+            const fallbackCommentUrl = process.env.COMMENT_URL || '';
+
             if (!commentId || !commentUrl) {
-              core.setFailed('Comment metadata missing id or url.');
-              return;
+              if (!fallbackCommentId || !fallbackCommentUrl) {
+                core.setFailed('Comment metadata missing id or url.');
+                return;
+              }
             }
 
             const clientPayload = {
@@ -216,8 +227,10 @@ jobs:
               base: resolvedBase,
               head: resolvedHead,
               agent: 'codex',
-              comment_id: commentId,
-              comment_url: commentUrl,
+              comment_id: commentId || fallbackCommentId,
+              comment_url: commentUrl || fallbackCommentUrl,
+              round,
+              trace,
             };
 
             await github.rest.repos.createDispatchEvent({
@@ -238,6 +251,10 @@ jobs:
               .addRaw(`Comment ID: ${clientPayload.comment_id}`)
               .addEOL()
               .addLink('Comment URL', clientPayload.comment_url)
+              .addEOL()
+              .addRaw(`Round: ${round || '(unknown)'}`)
+              .addEOL()
+              .addRaw(`Trace: ${trace || '(missing)'}`)
               .write();
 
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
