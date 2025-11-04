@@ -234,11 +234,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
   }
 
-  if (outputs.dispatch === 'false') {
-    setAllOutputs();
-    return outputs;
-  }
-
   if (reactionStatus === 200 && reactionContent === 'rocket') {
     outputs.dispatch = 'false';
     outputs.reason = 'duplicate-keepalive';
