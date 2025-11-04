@@ -14,7 +14,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 
 | Acceptance Criterion | Status | Latest Evidence |
 | --- | --- | --- |
-| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ❌ Not satisfied | Latest detector run `Agents PR meta manager` [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) reported `ok = false`, `reason = not-keepalive`; hidden markers still missing. |
+| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ❌ Not satisfied | Latest detector run `Agents PR meta manager` [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) reported `ok = false`, `reason = not-keepalive`; code now maps future missing markers to `missing-round` and surfaces comment metadata, pending live validation. |
 | Exactly one orchestrator workflow_dispatch fires with matching TRACE and no cancellations triggered by other keepalive rounds. | ❌ Not satisfied | Orchestrator workflow_dispatch [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) ended before executing jobs, so no TRACE propagation or successful dispatch was recorded. |
 | Exactly one repository_dispatch (`codex-pr-comment-command`) emitted per accepted instruction comment. | ❌ Not satisfied | Detector run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) skipped dispatching; Gate summaries still show no repository_dispatch payloads after the new runs. |
 | Guard failures yield one-line PR comment `Keepalive {round} {trace} skipped: <reason>` and matching summary entry. | ❌ Not satisfied | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) failed pre-job and produced neither the skip comment nor the summary rows required by the issue. |
@@ -42,6 +42,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-04 22:25 | `Agents PR meta manager` run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) | Detection table showed `ok = false`, `reason = not-keepalive`; dispatch hooks remained dormant awaiting hidden markers and allowed author. |
 | 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Should allow detector-triggered runs to reach keepalive jobs even when no additional agent issues are open; validation pending next run. |
 | 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard | Guarantees guard failures leave a `Keepalive {round} {trace} skipped: <reason>` comment plus matching summary; awaiting new skip event for validation. |
+| 2025-11-04 23:24 | Added comment metadata + specific missing-round reason to detector | `.github/scripts/agents_pr_meta_keepalive.js` now emits comment ID/URL and differentiates missing round markers via `missing-round`; summary table gains a Comment column. Confirmation awaits next detector execution. |
 
 ## Next Verification Steps
 

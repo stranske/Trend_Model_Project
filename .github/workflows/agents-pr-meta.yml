@@ -46,6 +46,8 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr }}
       author: ${{ steps.detect.outputs.author }}
+    comment_id: ${{ steps.detect.outputs.comment_id }}
+    comment_url: ${{ steps.detect.outputs.comment_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,9 +68,9 @@ jobs:
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ## Keepalive detection
-          | ok | reason | author | pr | round | trace |
-          | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ok | reason | author | comment | pr | round | trace |
+          | --- | --- | --- | --- | --- | --- | --- |
+          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.detect.outputs.comment_id && steps.detect.outputs.comment_url && format('[#{0}]({1})', steps.detect.outputs.comment_id, steps.detect.outputs.comment_url) || steps.detect.outputs.comment_id || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
           EOF
 
       - name: Register keepalive detection
