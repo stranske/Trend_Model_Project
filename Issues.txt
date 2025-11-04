@@ -1,155 +1,150 @@
-1. Agents keepalive: always create a new instruction comment with required hidden markers and TRACE
+1. Agents keepalive poster: always create a new instruction comment (hidden markers + TRACE) and post as stranske via ACTIONS_BOT_PAT (fallback to SERVICE_BOT_PAT) with PR‑meta ack & safe fallback
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement
 
 Why
-PR‑meta only listens to issue_comment.created. When the keepalive updater edits an existing status/checklist comment, no event is emitted, so the detector never runs and the loop stalls. Separately, detection requires hidden markers; when they’re missing, keepalive is ignored. We must make it impossible to post anything other than a brand‑new instruction comment that includes the required markers on each round.
+PR‑meta triggers only on issue_comment.created. Editing an existing status/checklist comment never creates that event, so detection/dispatch doesn’t run. Detection also requires hidden markers. Finally, to maximize agent compliance, the instruction comment should be authored by stranske (using ACTIONS_BOT_PAT), with a safe fallback to SERVICE_BOT_PAT. We also need a short ack step so the poster can confirm PR‑meta saw the comment and, if not, emit a fallback dispatch to avoid silent stalls.
 
 Scope
 
-For every keepalive round, create a new instruction comment (do not edit any prior bot comment).
+- For each keepalive round, create a new instruction comment (do not edit any prior comment).
 
-Always include hidden markers at the top of the comment body:
+- The instruction comment must start with all of:
 
-<!-- keepalive-round: {N} -->
+  <!-- keepalive-round: {N} -->
+  <!-- codex-keepalive-marker -->
+  <!-- keepalive-trace: {TRACE} -->
+  followed by @codex and the Scope/Tasks/Acceptance block to act on.
 
-<!-- codex-keepalive-marker -->
+- Post as stranske using ACTIONS_BOT_PAT; if absent/unavailable, fallback to SERVICE_BOT_PAT.
 
-<!-- keepalive-trace: {TRACE} -->
-
-Visible content must begin with @codex followed by the current scope / tasks / acceptance criteria the agent should act on.
+- After posting, add 👀 to the comment and poll for PR‑meta’s 🚀 reaction for ~60s; if not seen, emit the same repository dispatch your PR‑meta would send (safe fallback), and write a one‑line reason with {round} + {trace}.
 
 Non‑Goals
 
-Changing Gate semantics, acceptance criteria, labels, or agent selection
+Changing Gate semantics, labels, or acceptance criteria
 
-Modifying the separate status/checklist updater (it may continue to edit the status block)
+Modifying the separate “Automated Status Summary / Checklist” updater (it can continue to edit status)
 
 Tasks
 
-- In the keepalive poster (Codex Keepalive Sweep):
+- Add/confirm a small helper (e.g., .github/scripts/keepalive_contract.js) that exports:
 
-  - Generate a unique KEEPALIVE_TRACE (e.g., epoch‑second + short random suffix).
+  - makeTrace() → unique short trace id,
 
-  - Compute the next round number; do not infer it from an edited comment.
+  - renderInstruction({ round, trace, body }) → returns the required markers + @codex + supplied Scope/Tasks/Acceptance body.
 
-  - Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:
+- In .github/workflows/agents-70-orchestrator.yml (Codex Keepalive Sweep or its helper):
 
-    <!-- keepalive-round: {N} -->
-    <!-- codex-keepalive-marker -->
-    <!-- keepalive-trace: {TRACE} -->
-    @codex Continue with the remaining tasks; re‑post the Scope/Tasks/Acceptance block and check off only when acceptance criteria are satisfied.
+  - Compute round (next integer) and trace = makeTrace().
 
-    <Scope/Tasks/Acceptance…>
+  - Select token: token = secrets.ACTIONS_BOT_PAT ?? secrets.SERVICE_BOT_PAT and set author = stranske | stranske-automation-bot.
 
-  - Authenticate with the bot PAT that posts as stranske‑automation‑bot.
+  - Create the instruction comment via issues.createComment (or peter-evans/create-issue-comment@v3) with body = renderInstruction(...).
 
-  - Write Round = N and TRACE = … into the step summary for correlation.
+  - Record comment_id, round, trace, author to $GITHUB_STEP_SUMMARY.
+
+  - Ack step: add 👀 reaction to comment_id; poll for 🚀 for ~60s.
+
+  - Fallback (only if 🚀 not seen): emit repository_dispatch codex-pr-comment-command with { issue, base, head, agent:'codex', comment_id, comment_url } using ACTIONS_BOT_PAT; post a one‑line PR comment:
+  **Keepalive {round}** \{trace}` fallback: PR‑meta ack not observed in TTL – emitted connector dispatch.`
 
 Acceptance criteria
 
-- Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers and an @codex instruction.
+- Each keepalive cycle creates exactly one new instruction comment (no edits), whose body begins with the three hidden markers and an @codex instruction.
 
-- An issue_comment.created run appears in Actions showing author = stranske‑automation‑bot.
+- The instruction comment author is stranske when ACTIONS_BOT_PAT is present; otherwise stranske‑automation‑bot.
 
-- The posted comment contains the current Scope/Tasks/Acceptance block.
+- An Agents PR meta manager run appears for issue_comment.created tied to that comment; if ack is missed, a fallback repository_dispatch is emitted and a one‑line fallback comment appears on the PR.
 
-- The poster’s step summary shows Round and TRACE values.
+- The keepalive poster step summary includes Round, Trace, Author, and CommentId.
 
 Implementation notes
 
-Likely touchpoint: the job or helper that posts “Keepalive Round N” (inside Agents 70 Orchestrator / “Codex Keepalive Sweep”).
+Use existing secrets: ACTIONS_BOT_PAT (preferred) and SERVICE_BOT_PAT. Do not introduce new PATs.
 
-Keep the existing status/checklist updater unchanged; this issue governs only the instruction comment.
+Guard usage to origin repo PRs (skip forks); mask secrets; don’t log response bodies.
 
-2. Keepalive pipeline: PR‑meta detection + dispatch with dedupe; Orchestrator carries TRACE, avoids cancel, and posts skip reasons
+Keep status/checklist updater unchanged; this issue governs only the instruction comment.
+
+2. Keepalive pipeline hardening: PR‑meta detection + dispatch (dedupe, stranske/bot authors); orchestrator carries TRACE, avoids cancel, and posts explicit “skipped: reason”
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-After #3246 and #3251, the detector script is present and PR‑meta checks out the repo. We need to lock in the invariants so once a proper instruction comment is created, the system either dispatches the next round or emits a clear, machine‑readable reason (no silent stalls), and multiple triggers don’t cause duplicates.
+After the poster creates a proper instruction comment, the system must either dispatch the next round or produce a clear, machine‑readable reason in the PR. We must dedupe by comment, accept stranske and stranske‑automation‑bot as valid authors, pass a TRACE through orchestrator, avoid canceling runs mid‑loop, and skip assignee enforcement for bot/app logins.
 
 Scope
 
-PR‑meta (on issue_comment.created for PRs):
+PR‑meta (issue_comment.created on PRs):
 
-Author allow‑list includes stranske-automation-bot and designated maintainers (current list is fine).
+  - Allowed authors: stranske, stranske-automation-bot (connector can stay allowed if needed).
 
-Require both hidden markers (codex-keepalive-marker and keepalive-round: N).
+  - Require hidden markers (<!-- codex-keepalive-marker --> and <!-- keepalive-round: N -->); parse {round} and optional {trace} (<!-- keepalive-trace: … -->).
 
-Extract N, TRACE, PR #, base and head.
+  - Dedupe by adding 🚀 to the instruction comment; skip if already present.
 
-Dedupe by adding 🚀 reaction to the comment; skip if already present.
+  - If valid and not duplicate:
 
-If valid, set outputs and:
+    - Dispatch Agents‑70 Orchestrator via actions.createWorkflowDispatch with options_json: {"keepalive_trace":"{trace}","round":"{N}","pr":<PR>} using ACTIONS_BOT_PAT.
 
-Dispatch Agents 70 Orchestrator with options_json carrying { keepalive_trace, round, pr }.
+    - Emit repository_dispatch codex-pr-comment-command with { issue, base, head, agent:'codex', comment_id, comment_url } using ACTIONS_BOT_PAT.
 
-Dispatch repository_dispatch codex-pr-comment-command with { issue, base, head, agent:'codex', comment_id, comment_url }.
+  - Always write a summary table (ok | reason | author | pr | round | trace).
 
-Write a Keepalive detection summary table (ok | reason | round | trace | pr).
+Orchestrator (agents-70-orchestrator.yml):
 
-Orchestrator (Agents 70):
+  - Parse options_json; export TRACE, ROUND, PR to env.
 
-Accept options_json; parse TRACE, ROUND, PR.
+  - Set concurrency.cancel-in-progress = false and key by PR-TRACE (or TRACE) so successive rounds don’t cancel each other.
 
-Set concurrency.cancel-in-progress = false and key the group to keep different traces from canceling each other.
+  - Before any early exit (Gate not green, labels missing, branch mismatch, etc.), post a one‑line PR comment:
+  **Keepalive {round}** \{trace}` skipped: <reason-code>and mirror it in$GITHUB_STEP_SUMMARY`.
 
-Before any early exit (Gate not green, labels missing, branch mismatch, no human assignees after filtering bots, etc.), post a one‑line PR comment:
-**Keepalive {round}** \{trace}` skipped: <reason-code>` and write the same to the job summary.
-
-Proceed to belt/worker when keepalive is enabled, even if a PR already exists.
+  - Assignee enforcement: filter out bots/apps; use PR number in issues.addAssignees; if none remain after filtering, skip gracefully (do not fail).
 
 Non‑Goals
 
-Changing Gate logic, acceptance criteria content, or connector semantics
+Triggering on issue_comment.edited (creation only)
 
-Accepting issue_comment.edited as a trigger (creation only)
+Changing acceptance criteria or Gate logic
 
 Tasks
 
-- PR‑meta (.github/workflows/agents-pr-meta.yml):
+- PR‑m- eta (.github/workflows/agents-pr-meta.yml):
 
-  - Confirm actions/checkout@v4 precedes the detection script (already present; keep it).
+  - Ensure actions/checkout@v4 precedes requiring the detector script.
 
-  - Ensure the detector enforces markers + allow‑list, sets outputs, and adds 🚀 reaction for dedupe.
+  - Accept stranske and stranske‑automation‑bot as authors; enforce hidden markers; set outputs.
 
-  - Ensure createWorkflowDispatch to Agents 70 Orchestrator includes options_json with keepalive_trace, round, pr.
+  - Add 🚀 dedupe, orchestrator workflow_dispatch, and repository_dispatch (connector) with comment_id/comment_url + resolved base/head.
 
-  - Ensure repos.createDispatchEvent emits codex-pr-comment-command with the comment metadata (id/url) and resolved base/head, using ACTIONS_BOT_PAT.
-
-  - Keep the summary table emission.
+  - Emit the summary table on every run.
 
 - Orchestrator (.github/workflows/agents-70-orchestrator.yml):
 
-  - Parse options_json and export TRACE, ROUND, PR to env.
+  - Parse options_json; set TRACE, ROUND, PR.
 
-  - Set concurrency to avoid canceling distinct keepalive runs.
+  - Set concurrency as above; add explicit bail checks that post one‑line “skipped: reason” and write summary.
 
-  - Implement explicit guard checks and always post the one‑line “skipped: reason‑code” comment + step summary on early exit.
-
-  - Filter assignees to exclude bot/app logins; skip assignment gracefully if no eligible humans remain.
-
-  - Run worker when keepalive is enabled.
+  - Filter assignees to humans; skip if none remain.
 
 Acceptance criteria
 
-- On a test PR with agents:keepalive and agent:codex:
+- A proper instruction comment created by stranske (via ACTIONS_BOT_PAT) or the bot yields a PR‑meta run with ok: true, reason: keepalive-detected, and populated round, trace, pr, author.
 
-  - A proper instruction comment (from Issue 1) yields a PR‑meta run with ok: true, reason: keepalive-detected, and populated round, trace, pr.
+- Exactly one orchestrator run starts via workflow_dispatch with the same TRACE; none are canceled by other keepalive runs.
 
-  - Exactly one Orchestrator run starts via workflow_dispatch carrying that TRACE; earlier keepalive runs aren’t canceled.
+- Exactly one repository_dispatch (codex-pr-comment-command) is emitted for that comment.
 
-  - listen_commands emits a single codex-pr-comment-command with the correct comment_id/comment_url and resolved base/head.
+- If any guard fails, the PR shows a one‑line skipped comment with {round} and {trace}, and the same reason appears in the run summary.
 
-  - If any guard fails, the PR shows **Keepalive {round}** \{trace}` skipped: <reason-code>`; the same appears in the run summary.
-
-  - Two consecutive keepalive rounds produce two distinct traces, two orchestrator runs, and no duplicates; neither run is silently canceled.
+- Two consecutive rounds produce two distinct traces, two orchestrator runs, and no duplicates.
 
 Implementation notes
 
-Keep the current author allow‑list (stranske-automation-bot, chatgpt-codex-connector, maintainers).
+Use existing secrets only: ACTIONS_BOT_PAT (preferred) and SERVICE_BOT_PAT.
 
-ACTIONS_BOT_PAT must have repo + workflow scope (already set).
+Keep triggers limited to origin‑repo PRs (skip forks) to protect secrets.
 
-The detector’s hidden marker string is currently <!-- codex-keepalive-marker -->; don’t rename without updating both the poster and detector.
+Keep the hidden marker string exactly <!-- codex-keepalive-marker -->.
