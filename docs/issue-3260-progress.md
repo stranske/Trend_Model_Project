@@ -6,7 +6,7 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 
 | Task | Status | Verification Notes |
 | --- | --- | --- |
-| Helper module exports `makeTrace` and `renderInstruction`. | Complete | Confirmed helper in `.github/scripts/keepalive_contract.js` normalises inputs and prepends required markers. |
+| Helper module exports `makeTrace` and `renderInstruction`. | Complete | Confirmed helper in `.github/scripts/keepalive_contract.js` normalizes inputs and prepends required markers. |
 | Orchestrator computes round/trace, selects token, posts comment via helper. | Complete | `Prepare keepalive instruction` step in `.github/workflows/agents-70-orchestrator.yml` resolves round/trace, chooses PAT, and renders instruction. |
 | Summary records round, trace, author, comment ID. | Complete | `Summarise keepalive instruction` step writes all four fields to `$GITHUB_STEP_SUMMARY`. |
 | Reaction ack loop with 👀/🚀 handling. | Complete | `Ack keepalive instruction` step adds 👀 then polls for 🚀 for up to 60s (5s cadence). |
