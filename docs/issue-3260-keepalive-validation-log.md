@@ -44,6 +44,7 @@ _Source checklist copied from Issue #3255 / PR #3258 instructions; statuses re
 | 2025-11-04 22:24 | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) | Workflow concluded with failure before any jobs executed; no skip comment or summary, so acceptance criteria remain unmet. |
 | 2025-11-04 22:31 | Gate workflow run [#19084629367](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629367) | CI/tests passed; coverage artifacts confirm remaining modules under 95%, so coverage checklist still open. |
 | 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Ensures future keepalive runs bypass the idle skip when the detector supplies a trace; awaiting next workflow execution to validate behaviour. |
+| 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard | Skip path now posts `Keepalive {round} {trace} skipped: <reason>` and mirrors the same line in the step summary. Validation pending next orchestrator guard skip. |
 
 ## Next Verification Steps
 

@@ -453,7 +453,12 @@ jobs:
             const summary = core.summary;
             summary.addHeading('Keepalive gate evaluation');
 
-            const renderLine = (reason) => `**Keepalive ${round || '?' }** \`${trace || 'unknown'}\` skipped: ${reason}`;
+            const renderLine = (reason) => {
+              const labelRound = round || '?';
+              const labelTrace = trace || 'unknown';
+              const labelReason = reason || 'unspecified';
+              return `Keepalive ${labelRound} ${labelTrace} skipped: ${labelReason}`;
+            };
 
             const setOutputs = (proceed, reason) => {
               core.setOutput('proceed', proceed ? 'true' : 'false');

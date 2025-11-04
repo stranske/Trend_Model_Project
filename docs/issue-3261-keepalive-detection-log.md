@@ -41,6 +41,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-04 22:24 | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) | Workflow concluded before any job-level steps executed; no TRACE export, skip comment, or summary output captured. |
 | 2025-11-04 22:25 | `Agents PR meta manager` run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) | Detection table showed `ok = false`, `reason = not-keepalive`; dispatch hooks remained dormant awaiting hidden markers and allowed author. |
 | 2025-11-04 23:08 | Updated `.github/workflows/agents-70-orchestrator.yml` idle precheck to honour explicit keepalive dispatches | Should allow detector-triggered runs to reach keepalive jobs even when no additional agent issues are open; validation pending next run. |
+| 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard | Guarantees guard failures leave a `Keepalive {round} {trace} skipped: <reason>` comment plus matching summary; awaiting new skip event for validation. |
 
 ## Next Verification Steps
 
