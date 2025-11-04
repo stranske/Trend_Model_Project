@@ -49,13 +49,19 @@ permissions:
 concurrency:
   group: >-
     agents-70-orchestrator-${{
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.options_json)
-      || (github.event_name == 'repository_dispatch'
+      (github.event_name == 'workflow_dispatch'
+        && fromJson(github.event.inputs.options_json || '{}').keepalive_trace)
+      || (
+        github.event_name == 'repository_dispatch'
         && github.event.client_payload
-        && (
+        && fromJson(
           github.event.client_payload.options_json
-          || (github.event.client_payload.options && toJson(github.event.client_payload.options))
-        )
+          || (
+            github.event.client_payload.options
+            && toJson(github.event.client_payload.options)
+          )
+          || '{}'
+        ).keepalive_trace
       )
       || github.run_id
     }}
@@ -297,6 +303,46 @@ jobs:
               core.setOutput('reason', reason || '');
             };
 
+            const { owner, repo } = context.repo;
+
+            const appendDetails = (details) => {
+              if (!details) {
+                return;
+              }
+              const entries = Array.isArray(details) ? details : [details];
+              for (const entry of entries) {
+                if (entry) {
+                  summary.addRaw(String(entry)).addEOL();
+                }
+              }
+            };
+
+            const finaliseSkip = async (reason, details) => {
+              const line = renderLine(reason);
+              summary.addRaw(line).addEOL();
+              appendDetails(details);
+              await summary.write();
+
+              const commentable = Number.isFinite(prNumber) && prNumber > 0;
+              if (commentable) {
+                try {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    body: line,
+                  });
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  core.warning(`Failed to post keepalive skip comment on PR #${prNumber}: ${message}`);
+                }
+              } else {
+                core.warning('Unable to determine pull request number for keepalive skip comment.');
+              }
+
+              setOutputs(false, reason);
+            };
+
             if (!keepaliveEnabled || !trace) {
               setOutputs(true, '');
               summary
@@ -308,16 +354,10 @@ jobs:
 
             const prNumber = Number(prRaw);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              const reason = 'missing-pr-number';
-              summary
-                .addRaw(renderLine(reason))
-                .addEOL()
-                .write();
-              setOutputs(false, reason);
+              await finaliseSkip('missing-pr-number');
               return;
             }
 
-            const { owner, repo } = context.repo;
             let pr;
             try {
               const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
@@ -325,15 +365,7 @@ jobs:
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Unable to load PR #${prNumber}: ${message}`);
-              const reason = 'pr-fetch-failed';
-              summary
-                .addRaw(renderLine(reason))
-                .addEOL();
-              if (message) {
-                summary.addRaw(`Details: ${message}`).addEOL();
-              }
-              summary.write();
-              setOutputs(false, reason);
+              await finaliseSkip('pr-fetch-failed', message ? `Details: ${message}` : null);
               return;
             }
 
@@ -433,20 +465,7 @@ jobs:
 
             if (reasons.length) {
               const reasonText = reasons.join(', ');
-              const line = renderLine(reasonText);
-              summary.addRaw(line).addEOL().write();
-              try {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: prNumber,
-                  body: line,
-                });
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                core.warning(`Failed to post keepalive skip comment on PR #${prNumber}: ${message}`);
-              }
-              setOutputs(false, reasonText);
+              await finaliseSkip(reasonText);
               return;
             }
 
