@@ -490,6 +490,7 @@ jobs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
       author: ${{ steps.prepare.outputs.author || '' }}
+      dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
       comment_id: ${{ steps.post.outputs.comment_id || '' }}
       comment_url: ${{ steps.post.outputs.comment_url || '' }}
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
@@ -518,6 +519,7 @@ jobs:
           ROUND_HINT: ${{ needs.resolve-params.outputs.keepalive_round }}
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
@@ -579,6 +581,12 @@ jobs:
             const trace = makeTrace();
             const body = renderInstruction({ round, trace, body: instruction });
             const actionsAvailable = (process.env.ACTIONS_AVAILABLE || '').toLowerCase() === 'true';
+            const serviceAvailable = (process.env.SERVICE_AVAILABLE || '').toLowerCase() === 'true';
+            const dispatchMode = actionsAvailable
+              ? 'actions'
+              : serviceAvailable
+                ? 'service'
+                : 'none';
             const author = actionsAvailable ? 'stranske' : 'stranske-automation-bot';
 
             core.setOutput('round', String(round));
@@ -587,6 +595,7 @@ jobs:
             core.setOutput('author', author);
             core.setOutput('pr_number', String(prNumber));
             core.setOutput('actions_available', actionsAvailable ? 'true' : 'false');
+            core.setOutput('dispatch_mode', dispatchMode);
 
       - name: Create keepalive instruction comment
         id: post
@@ -669,7 +678,7 @@ jobs:
             core.setOutput('acknowledged', acknowledged ? 'true' : 'false');
 
       - name: Emit fallback dispatch
-        if: steps.ack.outputs.acknowledged != 'true' && steps.prepare.outputs.actions_available == 'true'
+        if: steps.ack.outputs.acknowledged != 'true' && steps.prepare.outputs.dispatch_mode != 'none'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -678,8 +687,9 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
+          DISPATCH_MODE: ${{ steps.prepare.outputs.dispatch_mode }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             const commentId = Number(process.env.COMMENT_ID || 0);
@@ -692,11 +702,18 @@ jobs:
             let base = '';
             let head = '';
             let issueNumber = Number(process.env.ISSUE_NUMBER || 0);
+            let forked = false;
 
             try {
               const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               base = pr?.base?.ref || '';
               head = pr?.head?.ref || '';
+              const headRepo = pr?.head?.repo?.full_name || '';
+              const forkFlag = pr?.head?.repo?.fork;
+              const repoFullName = `${owner}/${repo}`.toLowerCase();
+              if (forkFlag || (headRepo && headRepo.toLowerCase() !== repoFullName)) {
+                forked = true;
+              }
               if (!issueNumber) {
                 const match = (pr?.head?.ref || '').match(/issue-+(\d+)/i);
                 if (match) {
@@ -713,6 +730,11 @@ jobs:
               return;
             }
 
+            if (forked) {
+              core.info('Fallback dispatch skipped: pull request originates from a fork.');
+              return;
+            }
+
             const payload = {
               issue: issueNumber || prNumber,
               base,
@@ -722,6 +744,7 @@ jobs:
               comment_url: process.env.COMMENT_URL || '',
               round: process.env.ROUND || '',
               trace: process.env.TRACE || '',
+              dispatch_mode: process.env.DISPATCH_MODE || '',
             };
 
             await github.rest.repos.createDispatchEvent({
