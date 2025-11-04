@@ -47,18 +47,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: >-
-    agents-70-orchestrator-${{
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.options_json)
-      || (github.event_name == 'repository_dispatch'
-        && github.event.client_payload
-        && (
-          github.event.client_payload.options_json
-          || (github.event.client_payload.options && toJson(github.event.client_payload.options))
-        )
-      )
-      || github.run_id
-    }}
+  group: agents-70-orchestrator-${{ inputs.options_json || github.run_id }}
   cancel-in-progress: false
 
 jobs:
