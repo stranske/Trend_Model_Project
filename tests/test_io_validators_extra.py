@@ -25,8 +25,8 @@ from trend_analysis.io.validators import (
     _ValidationSummary,
     create_sample_template,
     detect_frequency,
-    validate_returns_schema,
     load_and_validate_upload,
+    validate_returns_schema,
 )
 
 
@@ -415,9 +415,7 @@ def test_detect_frequency_returns_label(monkeypatch: pytest.MonkeyPatch) -> None
         assert idx is index
         return {"label": "Monthly", "code": "M"}
 
-    monkeypatch.setattr(
-        "trend_analysis.io.validators.classify_frequency", classify
-    )
+    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", classify)
     assert detect_frequency(df) == "Monthly"
 
 
