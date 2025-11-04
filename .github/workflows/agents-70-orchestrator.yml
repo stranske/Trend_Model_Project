@@ -49,21 +49,67 @@ permissions:
 concurrency:
   group: >-
     agents-70-orchestrator-${{
-      (github.event_name == 'workflow_dispatch'
-        && fromJson(github.event.inputs.options_json || '{}').keepalive_trace)
-      || (
-        github.event_name == 'repository_dispatch'
-        && github.event.client_payload
-        && fromJson(
-          github.event.client_payload.options_json
-          || (
-            github.event.client_payload.options
-            && toJson(github.event.client_payload.options)
+      format(
+        '{0}-{1}',
+        (
+          github.event_name == 'workflow_dispatch'
+          && (
+            fromJson(github.event.inputs.options_json || '{}').pr
+            || fromJson(github.event.inputs.options_json || '{}').keepalive_pr
+            || github.event.inputs.pr_number
+            || 'workflow'
           )
-          || '{}'
-        ).keepalive_trace
+        )
+        || (
+          github.event_name == 'repository_dispatch'
+          && github.event.client_payload
+          && (
+            fromJson(
+              github.event.client_payload.options_json
+              || (
+                github.event.client_payload.options
+                && toJson(github.event.client_payload.options)
+              )
+              || '{}'
+            ).pr
+            || fromJson(
+              github.event.client_payload.options_json
+              || (
+                github.event.client_payload.options
+                && toJson(github.event.client_payload.options)
+              )
+              || '{}'
+            ).keepalive_pr
+            || github.event.client_payload.pr
+            || github.event.client_payload.issue
+            || 'dispatch'
+          )
+        )
+        || github.run_id,
+        (
+          github.event_name == 'workflow_dispatch'
+          && (
+            fromJson(github.event.inputs.options_json || '{}').keepalive_trace
+            || github.run_id
+          )
+        )
+        || (
+          github.event_name == 'repository_dispatch'
+          && github.event.client_payload
+          && (
+            fromJson(
+              github.event.client_payload.options_json
+              || (
+                github.event.client_payload.options
+                && toJson(github.event.client_payload.options)
+              )
+              || '{}'
+            ).keepalive_trace
+            || github.run_id
+          )
+        )
+        || github.run_id
       )
-      || github.run_id
     }}
   cancel-in-progress: false
 
@@ -270,15 +316,28 @@ jobs:
               return ['true', '1', 'yes', 'on'].includes(norm);
             };
 
-            const isAssignable = (login) => {
+            const toCandidate = (input) => ({
+              login: typeof input === 'string' ? input : input?.login || '',
+              type: typeof input === 'string' ? '' : input?.type || ''
+            });
+
+            const isAssignable = (candidate) => {
+              const { login, type } = toCandidate(candidate);
               const raw = normalise(login);
               if (!raw) {
                 return false;
               }
-              if (/\[bot\]$/i.test(raw)) {
+              if (/\[bot\]$/i.test(login) || /\[bot\]$/i.test(raw)) {
+                return false;
+              }
+              const loweredType = String(type || '').toLowerCase();
+              if (loweredType === 'bot' || loweredType === 'app') {
                 return false;
               }
               const lowered = raw.toLowerCase();
+              if (lowered.endsWith('-bot')) {
+                return false;
+              }
               const blocked = new Set([
                 'chatgpt-codex-connector',
                 'stranske-automation-bot',
@@ -420,16 +479,19 @@ jobs:
               }
 
               const currentAssignees = (pr.assignees || []).map((assignee) => assignee?.login).filter(Boolean);
-              const humanAssignees = currentAssignees.filter(isAssignable);
+              const humanAssignees = (pr.assignees || [])
+                .filter((assignee) => isAssignable(assignee))
+                .map((assignee) => assignee.login)
+                .filter(Boolean);
 
               if (!humanAssignees.length) {
                 const candidateLogins = [];
-                const author = pr.user?.login;
+                const author = pr.user;
                 if (isAssignable(author)) {
-                  candidateLogins.push(author);
+                  candidateLogins.push(author.login);
                 }
                 for (const reviewer of pr.requested_reviewers || []) {
-                  if (isAssignable(reviewer?.login)) {
+                  if (isAssignable(reviewer)) {
                     candidateLogins.push(reviewer.login);
                   }
                 }

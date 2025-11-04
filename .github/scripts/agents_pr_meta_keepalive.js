@@ -64,6 +64,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     base: '',
     trace: '',
     pr: '',
+    author: '',
   };
 
   const setBasicOutputs = () => {
@@ -79,12 +80,16 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('base', outputs.base);
     core.setOutput('trace', outputs.trace);
     core.setOutput('pr', outputs.pr);
+    core.setOutput('author', outputs.author);
   };
 
   const { comment, issue } = context.payload || {};
   const { owner, repo } = context.repo || {};
   const body = comment?.body || '';
-  const author = normaliseLogin(comment?.user?.login);
+  const authorRaw = comment?.user?.login || '';
+  const author = normaliseLogin(authorRaw);
+
+  outputs.author = authorRaw;
 
   const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
   const hasKeepaliveMarker = body.includes(keepaliveMarker);
@@ -92,29 +97,21 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   if (!roundMatch) {
     core.info('Comment does not contain keepalive round marker; skipping.');
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
   if (!allowedLogins.has(author)) {
     outputs.reason = 'unauthorised-author';
     core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
   if (!hasKeepaliveMarker) {
     outputs.reason = 'missing-sentinel';
     core.info('Keepalive dispatch skipped: comment missing codex keepalive marker.');
-    setBasicOutputs();
-    return outputs;
-  }
-
-  const trace = traceMatch ? traceMatch[1].trim() : '';
-  if (!trace) {
-    outputs.reason = 'missing-trace';
-    core.info('Keepalive dispatch skipped: keepalive trace marker missing.');
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
@@ -122,7 +119,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (!Number.isFinite(round) || round <= 0) {
     outputs.reason = 'invalid-round';
     core.info('Keepalive dispatch skipped: invalid round marker.');
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
@@ -130,7 +127,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (!commentId) {
     outputs.reason = 'missing-comment-id';
     core.warning('Keepalive dispatch skipped: unable to determine comment id for dedupe.');
-    setBasicOutputs();
+    setAllOutputs();
     return outputs;
   }
 
@@ -138,6 +135,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
+  const trace = traceMatch ? traceMatch[1].trim() : '';
   outputs.trace = trace;
 
   let pull;
@@ -154,6 +152,19 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.branch = pull?.head?.ref || '';
   outputs.base = pull?.base?.ref || '';
+
+  const headRepo = pull?.head?.repo;
+  const baseRepo = pull?.base?.repo;
+  if (
+    headRepo &&
+    baseRepo &&
+    (headRepo.fork || (headRepo.owner?.login && baseRepo.owner?.login && headRepo.owner.login !== baseRepo.owner.login))
+  ) {
+    outputs.reason = 'fork-pr';
+    core.info('Keepalive dispatch skipped: pull request originates from a fork.');
+    setAllOutputs();
+    return outputs;
+  }
 
   const issueNumber = extractIssueNumberFromPull(pull);
   if (issueNumber) {

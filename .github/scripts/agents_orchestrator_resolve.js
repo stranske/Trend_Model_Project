@@ -235,15 +235,15 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   const workerOptions = nested(beltOptions.worker ?? parsedOptions.worker);
   const conveyorOptions = nested(beltOptions.conveyor ?? parsedOptions.conveyor);
 
-  const previousRoundRaw = toString(
+  let keepaliveTrace = toString(
+    finalParsedOptions.keepalive_trace ?? parsedOptions.keepalive_trace,
+    ''
+  ).trim();
+  let keepaliveRound = toString(
     finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
     ''
-  );
-  const parsedPreviousRound = Number.parseInt(previousRoundRaw, 10);
-  const keepaliveRound = Number.isFinite(parsedPreviousRound) && parsedPreviousRound > 0
-    ? String(parsedPreviousRound + 1)
-    : '1';
-  const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '');
+  ).trim();
+  const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '').trim();
 
   const dispatcherForceIssue = toString(
     dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,
@@ -288,7 +288,13 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   }
 
   const keepaliveEffective = keepalivePaused ? 'false' : keepaliveRequested;
-  const keepaliveTrace = keepaliveEffective === 'true' ? makeTrace() : '';
+  if (!keepaliveRound && keepaliveEffective === 'true') {
+    keepaliveRound = '1';
+  }
+
+  if (!keepaliveTrace && keepaliveEffective === 'true') {
+    keepaliveTrace = makeTrace();
+  }
 
   const outputs = {
     enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
