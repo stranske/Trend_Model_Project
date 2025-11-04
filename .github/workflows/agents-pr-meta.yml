@@ -105,15 +105,14 @@ jobs:
               dispatcher_force_issue: issue ? String(issue) : '',
             };
 
+            const roundValue = Number.isFinite(round) && round > 0 ? String(round) : '';
+            const fallbackPr = Number(context.payload?.issue?.number || 0);
+            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? prNumber : fallbackPr;
+
             const options = {
               keepalive_trace: trace,
-              round: round || 0,
-              pr: prNumber || Number(context.payload?.issue?.number || 0),
-              keepalive_enabled: true,
-              keepalive_source: 'agents-pr-meta',
-              keepalive_round: round || 0,
-              keepalive_branch: branch,
-              keepalive_base: base,
+              round: roundValue,
+              pr: prValue,
             };
 
             await github.rest.actions.createWorkflowDispatch({
