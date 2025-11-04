@@ -114,32 +114,6 @@ function parseAgentLoginEntries(source, fallbackEntries) {
   return result;
 }
 
-function extractUncheckedTasks(body, limit = 5) {
-  if (!body) {
-    return [];
-  }
-
-  const lines = String(body)
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const tasks = [];
-  for (const line of lines) {
-    const match = line.match(/^- \[ \] \s*(.+)$/i);
-    if (match) {
-      const task = match[1].trim();
-      if (task) {
-        tasks.push(task);
-      }
-    }
-    if (tasks.length >= limit) {
-      break;
-    }
-  }
-  return tasks;
-}
-
 function escapeRegExp(value) {
   return String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
@@ -471,9 +445,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const sentinelPattern = new RegExp(escapeRegExp(sentinelRaw), 'i');
   const keepaliveHeaderPattern = /###\s*Keepalive:\s*(on|enabled)/i;
 
-  const instructionTemplateRaw = options.keepalive_instruction ?? '';
-  const instructionTemplate = String(instructionTemplateRaw).trim();
-
   const scopeOverrideRaw = options.keepalive_scope_block ?? '';
   const scopeOverride = String(scopeOverrideRaw).trim();
 
@@ -734,19 +705,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-    const totalTasks = latestChecklist.total;
-    const outstanding = latestChecklist.unchecked;
-    const completed = Math.max(0, totalTasks - outstanding);
-    const itemWord = outstanding === 1 ? 'item' : 'items';
-    const verb = outstanding === 1 ? 'remains' : 'remain';
-    const defaultInstruction = `Codex, ${outstanding}/${totalTasks} checklist ${itemWord} ${verb} unchecked (completed ${completed}). Continue executing the plan, write the code and tests needed for the next unchecked tasks, update the checklist, and confirm once everything is complete.`;
-
-      const outstandingTasks = extractUncheckedTasks(latestChecklist.comment.body || '', 5);
-
+  const totalTasks = latestChecklist.total;
+  const outstanding = latestChecklist.unchecked;
   const nextRound = computeNextRound(keepaliveCandidates);
   const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
-      const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
-      const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
+    const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
+    const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
 
       const scopeBlock = findScopeTasksAcceptanceBlock({
         prBody: pr.body || '',
@@ -760,30 +724,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      let instruction = instructionTemplate || defaultInstruction;
-      const replacements = {
-        remaining: String(outstanding),
-        total: String(totalTasks),
-        completed: String(completed),
-      };
-      for (const [token, value] of Object.entries(replacements)) {
-        instruction = instruction.split(`{${token}}`).join(value);
-      }
-
       const bodyParts = [roundMarker, canonicalMarker, traceMarker, command];
       bodyParts.push('', scopeBlock);
-      bodyParts.push('', `**Keepalive Round ${nextRound}**`);
-      bodyParts.push('', 'Continue incremental work toward acceptance criteria. Use the current checklist and update task statuses.');
-      bodyParts.push('Post an updated summary when this round completes.');
-      if (instruction) {
-        bodyParts.push('', instruction);
-      }
-      if (outstandingTasks.length) {
-        bodyParts.push('', 'Outstanding tasks to tackle next:');
-        for (const task of outstandingTasks) {
-          bodyParts.push(`- ${task}`);
-        }
-      }
       if (marker && marker !== canonicalMarker) {
         bodyParts.push('', marker);
       }
