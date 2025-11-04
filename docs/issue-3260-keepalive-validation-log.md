@@ -47,6 +47,7 @@ _Source checklist copied from Issue #3255 / PR #3258 instructions; statuses re
 | 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard | Skip path now posts `Keepalive {round} {trace} skipped: <reason>` and mirrors the same line in the step summary. Validation pending next orchestrator guard skip. |
 | 2025-11-04 23:24 | Enhanced keepalive detector outputs (comment metadata + specific missing-round reason) | `.github/scripts/agents_pr_meta_keepalive.js` now surfaces comment ID/URL and returns `missing-round` when the marker is absent; detection summary table adds a Comment column. Awaiting the next detector run for verification. |
 | 2025-11-04 23:31 | Propagated round/trace into repository_dispatch payload | `listen_commands` step now forwards round/trace (with comment fallbacks) so orchestrator and connectors receive full keepalive metadata; validation pending next dispatch event. |
+| 2025-11-04 23:38 | Keepalive guard now auto-applies missing `agents:keepalive` / `agent:codex` labels | `keepalive-guard` attempts to add required labels before skipping, logging successes/failures and only bailing when label updates fail; awaiting a run that previously skipped for missing labels. |
 
 ## Next Verification Steps
 

@@ -16,36 +16,6 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
-  workflow_dispatch:
-    inputs:
-      # Keepalive controls — toggle the sweep or combine with keepalive:paused label.
-      keepalive_enabled:
-        description: 'Enable Codex keepalive sweep for this run'
-        required: false
-        default: 'true'
-        type: boolean
-      params_json:
-        description: 'JSON payload of orchestrator params'
-        required: false
-        default: '{}'
-        type: string
-      options_json:
-        description: 'Optional JSON overrides forwarded to reusable agents workflow'
-        required: false
-        default: '{}'
-        type: string
-      dry_run:
-        description: 'Preview orchestrator actions without writes'
-        required: false
-        default: 'false'
-        type: boolean
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
-
 concurrency:
   group: >-
     agents-70-orchestrator-${{
@@ -547,12 +517,46 @@ jobs:
                   .map((name) => name.trim().toLowerCase())
                   .filter(Boolean)
               );
-              if (!labelNames.has('agents:keepalive')) {
-                reasons.push('missing-label:agents-keepalive');
-              }
-              if (!labelNames.has('agent:codex')) {
-                reasons.push('missing-label:agent-codex');
-              }
+
+              const ensureLabel = async (label) => {
+                const normalised = String(label || '').trim();
+                if (!normalised) {
+                  return false;
+                }
+                const lowered = normalised.toLowerCase();
+                if (labelNames.has(lowered)) {
+                  return true;
+                }
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: [normalised],
+                  });
+                  labelNames.add(lowered);
+                  summary
+                    .addRaw(`Applied missing label for keepalive guard: ${normalised}`)
+                    .addEOL();
+                  return true;
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  summary
+                    .addRaw(`Failed to add label ${normalised} to PR #${prNumber}: ${message}`)
+                    .addEOL();
+                  return false;
+                }
+              };
+
+              const ensureCriticalLabel = async (label) => {
+                const ok = await ensureLabel(label);
+                if (!ok) {
+                  reasons.push(`missing-label:${label}`);
+                }
+              };
+
+              await ensureCriticalLabel('agents:keepalive');
+              await ensureCriticalLabel('agent:codex');
 
               const headSha = pr.head?.sha || '';
               if (!headSha) {
