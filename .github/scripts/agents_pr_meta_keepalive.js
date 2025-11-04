@@ -62,6 +62,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     round: '',
     branch: '',
     base: '',
+    trace: '',
+    pr: '',
   };
 
   const setBasicOutputs = () => {
@@ -75,6 +77,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('round', outputs.round);
     core.setOutput('branch', outputs.branch);
     core.setOutput('base', outputs.base);
+    core.setOutput('trace', outputs.trace);
+    core.setOutput('pr', outputs.pr);
   };
 
   const { comment, issue } = context.payload || {};
@@ -84,6 +88,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
   const hasKeepaliveMarker = body.includes(keepaliveMarker);
+  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
 
   if (!roundMatch) {
     core.info('Comment does not contain keepalive round marker; skipping.');
@@ -105,6 +110,14 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return outputs;
   }
 
+  const trace = traceMatch ? traceMatch[1].trim() : '';
+  if (!trace) {
+    outputs.reason = 'missing-trace';
+    core.info('Keepalive dispatch skipped: keepalive trace marker missing.');
+    setBasicOutputs();
+    return outputs;
+  }
+
   const round = Number.parseInt(roundMatch[1], 10);
   if (!Number.isFinite(round) || round <= 0) {
     outputs.reason = 'invalid-round';
@@ -113,7 +126,39 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return outputs;
   }
 
+  const commentId = comment?.id;
+  if (!commentId) {
+    outputs.reason = 'missing-comment-id';
+    core.warning('Keepalive dispatch skipped: unable to determine comment id for dedupe.');
+    setBasicOutputs();
+    return outputs;
+  }
+
   const prNumber = issue?.number;
+
+  let hasRocket = false;
+  try {
+    const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+      owner,
+      repo,
+      comment_id: commentId,
+      per_page: 100,
+    });
+    hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${message}`);
+  }
+
+  if (hasRocket) {
+    outputs.reason = 'duplicate-keepalive';
+    outputs.trace = trace;
+    outputs.pr = prNumber ? String(prNumber) : '';
+    core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
+    setAllOutputs();
+    return outputs;
+  }
+
   let pull;
   try {
     const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
@@ -140,6 +185,24 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.round = String(round);
   outputs.branch = pull?.head?.ref || '';
   outputs.base = pull?.base?.ref || '';
+  outputs.trace = trace;
+  outputs.pr = prNumber ? String(prNumber) : '';
+
+  try {
+    await github.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: commentId,
+      content: 'rocket',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (error && error.status === 409) {
+      core.info(`Rocket reaction already present on comment ${commentId}; continuing.`);
+    } else {
+      core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
+    }
+  }
 
   setAllOutputs();
   return outputs;

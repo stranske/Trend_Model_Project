@@ -233,6 +233,13 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   const workerOptions = nested(beltOptions.worker ?? parsedOptions.worker);
   const conveyorOptions = nested(beltOptions.conveyor ?? parsedOptions.conveyor);
 
+  const keepaliveTrace = toString(finalParsedOptions.keepalive_trace ?? parsedOptions.keepalive_trace, '');
+  const keepaliveRound = toString(
+    finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
+    ''
+  );
+  const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '');
+
   const dispatcherForceIssue = toString(
     dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,
     DEFAULTS.dispatcher_force_issue
@@ -306,7 +313,10 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     options_json: finalOptionsJson,
     dispatcher_force_issue: dispatcherForceIssue,
     worker_max_parallel: workerMaxParallel,
-    conveyor_max_merges: conveyorMaxMerges
+    conveyor_max_merges: conveyorMaxMerges,
+    keepalive_trace: keepaliveTrace,
+    keepalive_round: keepaliveRound,
+    keepalive_pr: keepalivePr
   };
 
   const orderedKeys = [
@@ -335,7 +345,10 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     'options_json',
     'dispatcher_force_issue',
     'worker_max_parallel',
-    'conveyor_max_merges'
+    'conveyor_max_merges',
+    'keepalive_trace',
+    'keepalive_round',
+    'keepalive_pr'
   ];
 
   for (const key of orderedKeys) {

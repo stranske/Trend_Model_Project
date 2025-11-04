@@ -46,6 +46,12 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     assert outputs["round"] == "3"
     assert outputs["branch"] == "codex/issue-3227-keepalive"
     assert outputs["base"] == "phase-2-dev"
+    assert outputs["trace"] == "manual-resend"
+    assert outputs["pr"] == "3230"
+
+    calls = data.get("calls", {})
+    created = calls.get("reactionsCreated", [])
+    assert created == [{"comment_id": 987654321, "content": "rocket"}]
 
 
 def test_keepalive_detection_requires_marker() -> None:

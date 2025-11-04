@@ -1,6 +1,7 @@
 {
   "comment": {
-    "body": "<!-- keepalive-round:3 -->\n<!-- codex-keepalive-marker -->\n\n@codex continue please",
+    "id": 987654321,
+    "body": "<!-- keepalive-round:3 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: manual-resend -->\n\n@codex continue please",
     "user": { "login": "stranske-automation-bot" }
   },
   "issue": { "number": 3230 },
@@ -10,5 +11,6 @@
     "body": "Implements #3227",
     "head": { "ref": "codex/issue-3227-keepalive" },
     "base": { "ref": "phase-2-dev" }
-  }
+  },
+  "reactions": []
 }
