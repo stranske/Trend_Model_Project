@@ -66,6 +66,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-05 14:56 | `Agents PR meta manager` run [#19106134709](https://github.com/stranske/Trend_Model_Project/actions/runs/19106134709) | Pull-request trigger skipped the keepalive detection/dispatch jobs entirely, confirming the auto-path still omits the orchestrator even after the manual workflow_dispatch succeeded; this entry locks the corrected understanding into the audit trail. |
 | 2025-11-05 19:24 | Local harness run `pytest tests/test_agents_pr_meta_keepalive.py` | Added automation safeguards: detector now ignores autofix status comments (`reason = automation-comment`) and blocks human-posted round escalations (`reason = manual-round`). Fixtures `automation_autofix.json` and `manual_round.json` cover the regression. |
 | 2025-11-06 02:05 | Updated `.github/scripts/agents_orchestrator_resolve.js` workflow_run PR mapping | Resolver now extracts the PR number from Gate-triggered payloads or associated commits, ensuring `KEEPALIVE_PR` is populated for guard jobs. Validation awaits the next detector→orchestrator cycle. |
+| 2025-11-06 02:22 | Tightened orchestrator concurrency for keepalive PRs | `.github/workflows/agents-70-orchestrator.yml` now groups workflow_run and dispatch events by `keepalive_pr`, preventing multiple keepalive agents from running simultaneously on the same pull request. Pending validation on PRs 3289 and 3258. |
 
 ## Next Verification Steps
 

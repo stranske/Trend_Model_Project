@@ -1,4 +1,10 @@
+import logging
+import os
+import stat
 from datetime import datetime
+from pathlib import Path
+from typing import Mapping
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -17,531 +23,704 @@ def sample_metadata() -> MarketDataMetadata:
     return MarketDataMetadata(
         mode=MarketDataMode.RETURNS,
         frequency="D",
-        frequency_detected="D",
         frequency_label="daily",
-        frequency_median_spacing_days=1.0,
-        frequency_missing_periods=0,
-        frequency_max_gap_periods=0,
-        frequency_tolerance_periods=1,
-        start=datetime(2020, 1, 1),
-        end=datetime(2020, 1, 2),
-        rows=2,
-        columns=["FundA", "FundB"],
+        start=datetime(2024, 1, 1),
+        end=datetime(2024, 1, 3),
+        rows=3,
+        columns=["AAA", "BBB"],
         missing_policy="drop",
-        missing_policy_summary="all clear",
+        missing_policy_limit=5,
+        missing_policy_summary="drop:AAA",
     )
 
 
-def test_normalise_policy_alias_handles_aliases():
-    assert data._normalise_policy_alias(None) == "drop"
-    assert data._normalise_policy_alias("  ") == "drop"
+@pytest.fixture()
+def validated_payload(sample_metadata: MarketDataMetadata) -> ValidatedMarketData:
+    frame = pd.DataFrame(
+        {
+            "AAA": [1.0, 2.0, 3.0],
+            "BBB": [2.0, 4.0, 6.0],
+        },
+        index=pd.DatetimeIndex(
+            [
+                datetime(2024, 1, 1),
+                datetime(2024, 1, 2),
+                datetime(2024, 1, 3),
+            ],
+            name="Date",
+        ),
+    )
+    frame.attrs["custom"] = "kept"
+    return ValidatedMarketData(frame=frame, metadata=sample_metadata)
+
+
+def test_normalise_policy_alias_variants():
+    assert data._normalise_policy_alias(None) == data.DEFAULT_POLICY_FALLBACK
+    assert data._normalise_policy_alias("  ") == data.DEFAULT_POLICY_FALLBACK
     assert data._normalise_policy_alias("Both") == "ffill"
-    assert data._normalise_policy_alias("zeros") == "zero"
-    assert data._normalise_policy_alias("custom") == "custom"
+    assert data._normalise_policy_alias("zero_fill") == "zero"
+    assert data._normalise_policy_alias("DROP") == "drop"
 
 
-def test_coerce_limit_entry_accepts_numbers_and_rejects_invalid():
-    assert data._coerce_limit_entry(None) is None
-    assert data._coerce_limit_entry("none") is None
-    assert data._coerce_limit_entry("10") == 10
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, None),
+        ("", None),
+        ("none", None),
+        (10, 10),
+        ("7", 7),
+    ],
+)
+def test_coerce_limit_entry_valid(value, expected):
+    assert data._coerce_limit_entry(value) == expected
+
+
+@pytest.mark.parametrize("value", ["abc", {}])
+def test_coerce_limit_entry_invalid(value):
     with pytest.raises(ValueError):
-        data._coerce_limit_entry("not-a-number")
+        data._coerce_limit_entry(value)
+
+
+def test_coerce_limit_entry_negative():
     with pytest.raises(ValueError):
         data._coerce_limit_entry(-1)
 
 
-def test_coerce_policy_kwarg_validates_type():
-    assert data._coerce_policy_kwarg(None) is None
-    assert data._coerce_policy_kwarg("drop") == "drop"
-    sentinel = {"*": "drop"}
-    assert data._coerce_policy_kwarg(sentinel) is sentinel
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, None),
+        ("policy", "policy"),
+        ({"AAA": "drop"}, {"AAA": "drop"}),
+    ],
+)
+def test_coerce_policy_kwarg_valid(value, expected):
+    assert data._coerce_policy_kwarg(value) == expected
+
+
+@pytest.mark.parametrize("value", [123, ["drop"]])
+def test_coerce_policy_kwarg_invalid(value):
     with pytest.raises(TypeError):
-        data._coerce_policy_kwarg(42)
+        data._coerce_policy_kwarg(value)
 
 
-def test_coerce_limit_kwarg_accepts_mappings_and_strings():
-    assert data._coerce_limit_kwarg(None) is None
-    limits = {"col": 5}
-    assert data._coerce_limit_kwarg(limits) is limits
-    assert data._coerce_limit_kwarg(3) == 3
-    assert data._coerce_limit_kwarg(3.0) == 3
-    assert data._coerce_limit_kwarg("none") is None
-    assert data._coerce_limit_kwarg("7") == 7
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, None),
+        (5, 5),
+        (3.0, 3),
+        ("9", 9),
+        ("none", None),
+        ({"AAA": 1, "BBB": "none"}, {"AAA": 1, "BBB": "none"}),
+    ],
+)
+def test_coerce_limit_kwarg_valid(value, expected):
+    assert data._coerce_limit_kwarg(value) == expected
+
+
+@pytest.mark.parametrize("value", [object(), "not-int", [1, 2, 3]])
+def test_coerce_limit_kwarg_invalid(value):
     with pytest.raises(TypeError):
-        data._coerce_limit_kwarg([])
-    with pytest.raises(TypeError):
-        data._coerce_limit_kwarg("abc")
+        data._coerce_limit_kwarg(value)
 
 
-def test_finalise_validated_frame_includes_metadata(sample_metadata):
+@pytest.mark.parametrize(
+    "mode, readable",
+    [
+        (stat.S_IRUSR, True),
+        (stat.S_IRGRP, True),
+        (stat.S_IROTH, True),
+        (0, False),
+    ],
+)
+def test_is_readable(mode, readable):
+    assert data._is_readable(mode) is readable
+
+
+def test_finalise_validated_frame_includes_metadata(validated_payload):
+    result = data._finalise_validated_frame(validated_payload, include_date_column=True)
+    assert list(result.columns) == ["Date", "AAA", "BBB"]
+    assert result.attrs["custom"] == "kept"
+    market_attrs = result.attrs["market_data"]
+    assert market_attrs["metadata"] is validated_payload.metadata
+    assert result.attrs["market_data_mode"] == validated_payload.metadata.mode.value
+    assert result.attrs["market_data_missing_policy_summary"] == "drop:AAA"
+
+
+def test_finalise_validated_frame_without_date(validated_payload):
+    result = data._finalise_validated_frame(
+        validated_payload, include_date_column=False
+    )
+    assert "Date" not in result.columns
+    assert result.index.equals(validated_payload.frame.index)
+
+
+def test_normalise_numeric_strings_handles_formats():
     frame = pd.DataFrame(
-        {"FundA": [1.0, 2.0], "FundB": [0.5, 0.25]},
-        index=pd.DatetimeIndex([
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 2),
-        ], name="Date"),
-    )
-    validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
-
-    with_date = data._finalise_validated_frame(validated, include_date_column=True)
-    without_date = data._finalise_validated_frame(validated, include_date_column=False)
-
-    assert list(with_date.columns) == ["Date", "FundA", "FundB"]
-    assert with_date.attrs["market_data"]["metadata"] is sample_metadata
-    assert with_date.attrs["market_data_mode"] == sample_metadata.mode.value
-    assert with_date.attrs["market_data_frequency"] == sample_metadata.frequency
-    assert without_date.index.name == "Date"
-    assert without_date.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
-
-
-def test_normalise_numeric_strings_converts_percentages_and_parentheses():
-    raw = pd.DataFrame(
         {
-            "Date": ["2020-01-01", "2020-01-02"],
-            "Percent": ["50%", "25%"],
-            "Comma": ["1,200", "2,400"],
-            "Paren": ["(12)", "(0)"],
-            "Mixed": ["abc", None],
+            "Date": ["2024-01-01", "2024-01-02"],
+            "plain": ["1", "2"],
+            "commas": ["1,234", "2,345"],
+            "percent": ["10%", "20%"],
+            "paren": ["(5)", "(10)"],
+            "mixed": ["abc", "3"],
+            "already_numeric": [1.0, 2.0],
+            "all_text": ["abc", "def"],
         }
     )
-    cleaned = data._normalise_numeric_strings(raw)
 
-    pd.testing.assert_series_equal(
-        cleaned["Percent"],
-        pd.Series([0.5, 0.25], name="Percent"),
-        check_dtype=False,
-    )
-    pd.testing.assert_series_equal(
-        cleaned["Comma"],
-        pd.Series([1200.0, 2400.0], name="Comma"),
-        check_dtype=False,
-    )
-    pd.testing.assert_series_equal(
-        cleaned["Paren"],
-        pd.Series([-12.0, 0.0], name="Paren"),
-        check_dtype=False,
-    )
-    # Columns that cannot be coerced should remain untouched
-    pd.testing.assert_series_equal(
-        cleaned["Mixed"],
-        pd.Series(["abc", None], name="Mixed", dtype=object),
-    )
+    cleaned = data._normalise_numeric_strings(frame)
+
+    assert cleaned["plain"].tolist() == [1.0, 2.0]
+    assert cleaned["commas"].tolist() == [1234.0, 2345.0]
+    assert cleaned["percent"].tolist() == [0.1, 0.2]
+    assert cleaned["paren"].tolist() == [-5.0, -10.0]
+    assert cleaned["mixed"].isna().iloc[0]
+    assert cleaned["mixed"].iloc[1] == 3.0
+    assert cleaned["already_numeric"].tolist() == [1.0, 2.0]
+    assert cleaned["all_text"].tolist() == ["abc", "def"]
 
 
-def test_validate_payload_normalises_policy_and_limit(monkeypatch, sample_metadata):
-    df = pd.DataFrame(
-        {
-            "Date": ["2020-01-01", "2020-01-02"],
-            "FundA": ["1,200", "2,400"],
-            "FundB": ["50%", "25%"],
-        }
-    )
-    calls: dict[str, object] = {}
+class _WeirdPolicy(dict):
+    """Mapping that reports a ``*`` key without yielding it in ``items()``."""
 
-    def fake_validate(payload, *, source, missing_policy, missing_limit):
-        calls["payload"] = payload.copy()
-        calls["source"] = source
-        calls["missing_policy"] = missing_policy
-        calls["missing_limit"] = missing_limit
-        return ValidatedMarketData(frame=payload.set_index("Date"), metadata=sample_metadata)
+    def __contains__(self, key):  # pragma: no cover - behaviour verified via use
+        if key == "*":
+            return True
+        return super().__contains__(key)
+
+
+def test_validate_payload_policy_coercions(monkeypatch, validated_payload):
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
+
+    policy = _WeirdPolicy({"AAA": None, "BBB": 5})
+    limit = {"AAA": "10", "BBB": None}
+
+    def fake_validate(frame: pd.DataFrame, *, missing_policy, missing_limit, **kwargs):
+        assert missing_policy["AAA"] == data.DEFAULT_POLICY_FALLBACK
+        assert missing_policy["BBB"] == "5"
+        assert missing_policy["*"] == data.DEFAULT_POLICY_FALLBACK
+        assert missing_limit == {"AAA": 10, "BBB": None}
+        return validated_payload
 
     monkeypatch.setattr(data, "validate_market_data", fake_validate)
 
-    class StarMapping(dict):
-        def __contains__(self, item: object) -> bool:
-            return item == "*" or super().__contains__(item)
-
     result = data._validate_payload(
-        df,
-        origin="unit-test",
-        errors="log",
-        include_date_column=False,
-        missing_policy=StarMapping(
-            {"FundA": "Both", "FundB": None, 123: "FFILL", "Other": 42}
-        ),
-        missing_limit={"FundA": "10", "FundB": None, "*": "5", 456: "0"},
-    )
-
-    assert isinstance(result, pd.DataFrame)
-    assert result.index.name == "Date"
-    assert result.attrs["market_data_missing_policy"] == sample_metadata.missing_policy
-    assert list(result.columns) == ["FundA", "FundB"]
-
-    payload = calls["payload"]
-    pd.testing.assert_series_equal(
-        payload["FundA"],
-        pd.Series([1200.0, 2400.0], name="FundA"),
-        check_dtype=False,
-    )
-    pd.testing.assert_series_equal(
-        payload["FundB"],
-        pd.Series([0.5, 0.25], name="FundB"),
-        check_dtype=False,
-    )
-    assert calls["source"] == "unit-test"
-    assert calls["missing_policy"] == {
-        "FundA": "ffill",
-        "FundB": "drop",
-        "*": "drop",
-        "123": "ffill",
-        "Other": "42",
-    }
-    assert calls["missing_limit"] == {
-        "FundA": 10,
-        "FundB": None,
-        "*": 5,
-        "456": 0,
-    }
-
-    calls.clear()
-    data._validate_payload(
-        df,
-        origin="unit-test",
-        errors="log",
-        include_date_column=False,
-        missing_policy={"FundA": "Both", "*": "zeros"},
-        missing_limit=None,
-    )
-    assert calls["missing_policy"]["*"] == "zero"
-
-
-def test_validate_payload_logs_errors_and_returns_none(monkeypatch, caplog):
-    df = pd.DataFrame({"Date": ["2020-01-01"], "FundA": ["bad"]})
-
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("Could not be parsed: invalid date")
-
-    monkeypatch.setattr(data, "validate_market_data", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data._validate_payload(
-        df,
-        origin="failing.csv",
+        payload,
+        origin="policy.csv",
         errors="log",
         include_date_column=True,
+        missing_policy=policy,
+        missing_limit=limit,
     )
+
+    assert result.attrs["market_data_columns"] == list(
+        validated_payload.metadata.columns
+    )
+
+
+def test_validate_payload_success(monkeypatch, validated_payload):
+    payload = pd.DataFrame(
+        {
+            "Date": ["2024-01-01", "2024-01-02"],
+            "AAA": ["1", "2"],
+        }
+    )
+
+    def fake_validate(
+        frame: pd.DataFrame,
+        *,
+        source: str,
+        missing_policy: Mapping[str, str] | str,
+        missing_limit: Mapping[str, int | None] | int | None,
+    ) -> ValidatedMarketData:
+        assert source == "origin.csv"
+        assert isinstance(missing_policy, dict)
+        assert missing_policy["AAA"] == "ffill"
+        assert missing_policy["*"] == data.DEFAULT_POLICY_FALLBACK
+        assert isinstance(missing_limit, dict)
+        assert missing_limit["AAA"] is None
+        assert missing_limit["*"] == 5
+        # Ensure numeric strings normalised before validation
+        assert frame["AAA"].tolist() == [1.0, 2.0]
+        return validated_payload
+
+    monkeypatch.setattr(data, "validate_market_data", fake_validate)
+
+    result = data._validate_payload(
+        payload,
+        origin="origin.csv",
+        errors="log",
+        include_date_column=True,
+        missing_policy={"AAA": "bfill", "*": "drop"},
+        missing_limit={"AAA": "none", "*": "5"},
+    )
+
+    assert list(result.columns) == ["Date", "AAA", "BBB"]
+    assert result.attrs["market_data_rows"] == validated_payload.metadata.rows
+
+
+def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
+
+    def fake_validate(frame: pd.DataFrame, *, source: str, **kwargs):
+        assert kwargs["missing_policy"] == "ffill"
+        assert kwargs["missing_limit"] == 2
+        return validated_payload
+
+    monkeypatch.setattr(data, "validate_market_data", fake_validate)
+
+    result = data._validate_payload(
+        payload,
+        origin="inline",
+        errors="log",
+        include_date_column=False,
+        missing_policy="both",
+        missing_limit="2",
+    )
+
+    assert result.index.equals(validated_payload.frame.index)
+
+
+def test_validate_payload_logs_market_data_error(monkeypatch, caplog):
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
+
+    monkeypatch.setattr(
+        data,
+        "validate_market_data",
+        MagicMock(
+            side_effect=MarketDataValidationError("Date column could not be parsed")
+        ),
+    )
+
+    with caplog.at_level(logging.ERROR):
+        result = data._validate_payload(
+            payload,
+            origin="broken.csv",
+            errors="log",
+            include_date_column=True,
+        )
 
     assert result is None
-    assert "Unable to parse Date values" in caplog.text
+    assert "Unable to parse Date values in broken.csv" in caplog.text
 
 
-def test_validate_payload_logs_non_parse_errors(monkeypatch, caplog):
-    df = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1]})
+def test_validate_payload_logs_without_parse_hint(monkeypatch, caplog):
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
 
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("General validation failure")
-
-    monkeypatch.setattr(data, "validate_market_data", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data._validate_payload(
-        df,
-        origin="other.csv",
-        errors="log",
-        include_date_column=True,
+    monkeypatch.setattr(
+        data,
+        "validate_market_data",
+        MagicMock(side_effect=MarketDataValidationError("Validation failed")),
     )
+
+    with caplog.at_level(logging.ERROR):
+        result = data._validate_payload(
+            payload,
+            origin="broken.csv",
+            errors="log",
+            include_date_column=True,
+        )
 
     assert result is None
     assert "Unable to parse" not in caplog.text
 
 
-def test_validate_payload_propagates_errors(monkeypatch):
-    df = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1]})
-
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("Could not be parsed")
-
-    monkeypatch.setattr(data, "validate_market_data", fake_validate)
+def test_validate_payload_raises_when_requested(monkeypatch):
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
+    monkeypatch.setattr(
+        data,
+        "validate_market_data",
+        MagicMock(side_effect=MarketDataValidationError("bad")),
+    )
 
     with pytest.raises(MarketDataValidationError):
         data._validate_payload(
-            df,
-            origin="boom",
+            payload,
+            origin="broken.csv",
             errors="raise",
             include_date_column=True,
         )
 
 
-def test_load_csv_happy_path(tmp_path, monkeypatch, sample_metadata):
-    csv_path = tmp_path / "market.csv"
-    csv_path.write_text("Date,FundA\n2020-01-01,1\n", encoding="utf-8")
+def test_load_csv_success(tmp_path, monkeypatch):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "data.csv"
+    frame.to_csv(csv_path, index=False)
 
-    sentinel = pd.DataFrame({"FundA": [1.0]})
+    sentinel = object()
+    called_kwargs = {}
 
-    def fake_validate(payload, **kwargs):
-        assert kwargs["origin"] == str(csv_path)
-        assert kwargs["include_date_column"] is False
-        assert kwargs["missing_policy"] == "Both"
-        assert kwargs["missing_limit"] == 2
+    def fake_validate(raw: pd.DataFrame, **kwargs):
+        called_kwargs.update(kwargs)
         return sentinel
 
     monkeypatch.setattr(data, "_validate_payload", fake_validate)
 
-    result = data.load_csv(
+    result = data.load_csv(str(csv_path), missing_policy="drop")
+
+    assert result is sentinel
+    assert called_kwargs["missing_policy"] == "drop"
+    assert called_kwargs["origin"] == str(csv_path)
+
+
+def test_load_csv_legacy_kwargs(tmp_path, monkeypatch):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "legacy.csv"
+    frame.to_csv(csv_path, index=False)
+
+    captured = {}
+
+    def fake_validate(raw: pd.DataFrame, **kwargs):
+        captured.update(kwargs)
+        return raw
+
+    monkeypatch.setattr(data, "_validate_payload", fake_validate)
+
+    data.load_csv(
         str(csv_path),
-        include_date_column=False,
-        nan_policy="Both",
-        nan_limit="2",
+        nan_policy="zeros",
+        nan_limit="3",
+        missing_limit="4",
     )
 
-    pd.testing.assert_frame_equal(result, sentinel)
+    assert captured["missing_policy"] == "zeros"
+    assert captured["missing_limit"] == "4"
 
 
-def test_load_csv_returns_none_for_missing_file(caplog):
-    caplog.set_level("ERROR")
-    result = data.load_csv("/non/existent.csv")
+def test_load_csv_legacy_nan_limit(tmp_path, monkeypatch):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "legacy_fallback.csv"
+    frame.to_csv(csv_path, index=False)
+
+    captured = {}
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda raw, **kwargs: captured.update(kwargs) or raw
+    )
+
+    data.load_csv(str(csv_path), nan_limit="7")
+
+    assert captured["missing_limit"] == 7
+
+
+def test_load_csv_missing_file_logs_error(monkeypatch, caplog):
+    missing_path = "nonexistent.csv"
+    monkeypatch.setattr(Path, "exists", MagicMock(return_value=False))
+
+    with caplog.at_level(logging.ERROR):
+        result = data.load_csv(missing_path)
+
     assert result is None
-    assert "/non/existent.csv" in caplog.text
+    assert missing_path in caplog.text
 
 
-def test_load_csv_logs_permission_issue(tmp_path, monkeypatch, caplog):
+def test_load_csv_permission_denied(monkeypatch, tmp_path, caplog):
     csv_path = tmp_path / "restricted.csv"
-    csv_path.write_text("Date,FundA\n2020-01-01,1\n", encoding="utf-8")
+    csv_path.write_text("Date,AAA\n2024-01-01,1\n")
 
-    caplog.set_level("ERROR")
-    monkeypatch.setattr(data, "_is_readable", lambda mode: False)
+    monkeypatch.setattr(data, "_validate_payload", MagicMock(return_value=None))
+    monkeypatch.setattr(data, "_is_readable", MagicMock(return_value=False))
 
-    result = data.load_csv(str(csv_path))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_csv(str(csv_path))
 
     assert result is None
-    assert "Permission denied accessing file" in caplog.text
+    assert "Permission denied" in caplog.text
 
 
-def test_load_csv_raises_permission_error_when_requested(tmp_path, monkeypatch):
-    csv_path = tmp_path / "restricted_raise.csv"
-    csv_path.write_text("Date,FundA\n2020-01-01,1\n", encoding="utf-8")
+def test_load_csv_permission_raise(monkeypatch, tmp_path):
+    csv_path = tmp_path / "restricted.csv"
+    csv_path.write_text("Date,AAA\n2024-01-01,1\n")
 
-    monkeypatch.setattr(data, "_is_readable", lambda mode: False)
+    monkeypatch.setattr(data, "_is_readable", MagicMock(return_value=False))
 
     with pytest.raises(PermissionError):
         data.load_csv(str(csv_path), errors="raise")
 
 
-def test_load_csv_handles_directory_target(tmp_path, caplog):
-    directory = tmp_path / "dir"
+def test_load_csv_raises_when_requested(monkeypatch):
+    missing_path = "missing.csv"
+    monkeypatch.setattr(Path, "exists", MagicMock(return_value=False))
+
+    with pytest.raises(FileNotFoundError):
+        data.load_csv(missing_path, errors="raise")
+
+
+def test_load_csv_directory_error(monkeypatch, tmp_path, caplog):
+    directory = tmp_path / "folder"
     directory.mkdir()
 
-    caplog.set_level("ERROR")
-    result = data.load_csv(str(directory))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_csv(str(directory))
 
     assert result is None
     assert str(directory) in caplog.text
 
 
-def test_load_csv_logs_market_validation_errors(tmp_path, monkeypatch, caplog):
-    csv_path = tmp_path / "market.csv"
-    csv_path.write_text("Date,FundA\n2020-01-01,1\n", encoding="utf-8")
+def test_load_csv_handles_validation_error(monkeypatch, tmp_path, caplog):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "bad.csv"
+    frame.to_csv(csv_path, index=False)
 
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("Could not be parsed: missing date")
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("Unable to parse Date")),
+    )
 
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data.load_csv(str(csv_path))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_csv(str(csv_path))
 
     assert result is None
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_csv_logs_non_parse_market_errors(tmp_path, monkeypatch, caplog):
-    csv_path = tmp_path / "market2.csv"
-    csv_path.write_text("Date,FundA\n2020-01-01,1\n", encoding="utf-8")
+def test_load_csv_handles_validation_error_without_hint(monkeypatch, tmp_path, caplog):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "bad_plain.csv"
+    frame.to_csv(csv_path, index=False)
 
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("General validation failure")
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("Other failure")),
+    )
 
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data.load_csv(str(csv_path))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_csv(str(csv_path))
 
     assert result is None
     assert "Unable to parse" not in caplog.text
 
 
-def test_load_parquet_propagates_permission_error(tmp_path, monkeypatch):
-    parquet_path = tmp_path / "market.parquet"
+def test_load_csv_handles_validation_error_raise(monkeypatch, tmp_path):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    csv_path = tmp_path / "bad_raise.csv"
+    frame.to_csv(csv_path, index=False)
+
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("cannot parse")),
+    )
+
+    with pytest.raises(MarketDataValidationError):
+        data.load_csv(str(csv_path), errors="raise")
+
+
+def test_load_parquet_success(tmp_path, monkeypatch):
+    parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 
-    monkeypatch.setattr(data, "_is_readable", lambda mode: False)
+    raw = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [2]})
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
+
+    sentinel = object()
+    monkeypatch.setattr(data, "_validate_payload", MagicMock(return_value=sentinel))
+
+    result = data.load_parquet(str(parquet_path), missing_limit=3)
+
+    assert result is sentinel
+
+
+def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
+    parquet_path = tmp_path / "legacy.parquet"
+    parquet_path.write_bytes(b"")
+
+    raw = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [2]})
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
+
+    captured = {}
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
+    )
+
+    data.load_parquet(
+        str(parquet_path),
+        nan_policy="bfill",
+        nan_limit="8",
+        missing_limit="9",
+    )
+
+    assert captured["missing_policy"] == "bfill"
+    assert captured["missing_limit"] == "9"
+
+
+def test_load_parquet_legacy_nan_limit(tmp_path, monkeypatch):
+    parquet_path = tmp_path / "legacy_fallback.parquet"
+    parquet_path.write_bytes(b"")
+
+    raw = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [2]})
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
+
+    captured = {}
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
+    )
+
+    data.load_parquet(str(parquet_path), nan_limit="6")
+
+    assert captured["missing_limit"] == 6
+
+
+def test_load_parquet_permission_error(monkeypatch, tmp_path):
+    parquet_path = tmp_path / "unreadable.parquet"
+    parquet_path.write_bytes(b"")
+
+    mode = os.stat(parquet_path).st_mode
+    monkeypatch.setattr(
+        Path, "stat", MagicMock(return_value=os.stat_result((mode,) + (0,) * 9))
+    )
+    monkeypatch.setattr(data, "_is_readable", MagicMock(return_value=False))
 
     with pytest.raises(PermissionError):
         data.load_parquet(str(parquet_path), errors="raise")
 
 
-def test_load_parquet_happy_path(tmp_path, monkeypatch):
-    parquet_path = tmp_path / "market.parquet"
+def test_load_parquet_handles_validation_error(monkeypatch, tmp_path, caplog):
+    parquet_path = tmp_path / "bad.parquet"
     parquet_path.write_bytes(b"")
 
-    sentinel = pd.DataFrame({"FundA": [1.0]})
-
-    def fake_read_parquet(path):
-        assert path == str(parquet_path)
-        return pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1]})
-
-    def fake_validate(payload, **kwargs):
-        assert kwargs["origin"] == str(parquet_path)
-        return sentinel
-
-    monkeypatch.setattr(data.pd, "read_parquet", fake_read_parquet)
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    result = data.load_parquet(str(parquet_path))
-    pd.testing.assert_frame_equal(result, sentinel)
-
-
-def test_load_parquet_applies_legacy_kwargs(tmp_path, monkeypatch):
-    parquet_path = tmp_path / "legacy.parquet"
-    parquet_path.write_bytes(b"")
-
-    def fake_read_parquet(path):
-        return pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1]})
-
-    def fake_validate(payload, **kwargs):
-        assert kwargs["missing_policy"] == "legacy"
-        assert kwargs["missing_limit"] == 4
-        return pd.DataFrame({"FundA": [1]})
-
-    monkeypatch.setattr(data.pd, "read_parquet", fake_read_parquet)
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    result = data.load_parquet(
-        str(parquet_path),
-        nan_policy="legacy",
-        nan_limit="4",
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=pd.DataFrame()))
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("Could not be parsed")),
     )
 
-    pd.testing.assert_frame_equal(result, pd.DataFrame({"FundA": [1]}))
-
-
-def test_load_parquet_logs_market_validation_errors(tmp_path, monkeypatch, caplog):
-    parquet_path = tmp_path / "invalid.parquet"
-    parquet_path.write_bytes(b"")
-
-    monkeypatch.setattr(data.pd, "read_parquet", lambda path: pd.DataFrame())
-
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("Unable to parse dates")
-
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data.load_parquet(str(parquet_path))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_parquet(str(parquet_path))
 
     assert result is None
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_parquet_logs_non_parse_market_errors(tmp_path, monkeypatch, caplog):
-    parquet_path = tmp_path / "invalid2.parquet"
+def test_load_parquet_handles_validation_error_without_hint(
+    monkeypatch, tmp_path, caplog
+):
+    parquet_path = tmp_path / "bad_plain.parquet"
     parquet_path.write_bytes(b"")
 
-    monkeypatch.setattr(data.pd, "read_parquet", lambda path: pd.DataFrame())
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=pd.DataFrame()))
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("Other failure")),
+    )
 
-    def fake_validate(*_args, **_kwargs):
-        raise MarketDataValidationError("General validation failure")
-
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    caplog.set_level("ERROR")
-    result = data.load_parquet(str(parquet_path))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_parquet(str(parquet_path))
 
     assert result is None
     assert "Unable to parse" not in caplog.text
 
 
-def test_load_parquet_handles_missing_paths(caplog):
-    caplog.set_level("ERROR")
-    result = data.load_parquet("/nonexistent.parquet")
+def test_load_parquet_handles_validation_error_raise(monkeypatch, tmp_path):
+    parquet_path = tmp_path / "bad2.parquet"
+    parquet_path.write_bytes(b"")
+
+    monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=pd.DataFrame()))
+    monkeypatch.setattr(
+        data,
+        "_validate_payload",
+        MagicMock(side_effect=MarketDataValidationError("bad")),
+    )
+
+    with pytest.raises(MarketDataValidationError):
+        data.load_parquet(str(parquet_path), errors="raise")
+
+
+def test_load_parquet_missing_file_logs(monkeypatch, caplog):
+    monkeypatch.setattr(Path, "exists", MagicMock(return_value=False))
+
+    with caplog.at_level(logging.ERROR):
+        result = data.load_parquet("missing.parquet")
+
     assert result is None
-    assert "/nonexistent.parquet" in caplog.text
+    assert "missing.parquet" in caplog.text
 
 
-def test_load_parquet_handles_directory_target(tmp_path, caplog):
-    directory = tmp_path / "pq_dir"
+def test_load_parquet_directory_error(monkeypatch, tmp_path, caplog):
+    directory = tmp_path / "dir"
     directory.mkdir()
 
-    caplog.set_level("ERROR")
-    result = data.load_parquet(str(directory))
+    with caplog.at_level(logging.ERROR):
+        result = data.load_parquet(str(directory))
 
     assert result is None
     assert str(directory) in caplog.text
 
 
-def test_validate_dataframe_delegates(monkeypatch):
-    sentinel = pd.DataFrame({"FundA": [1]})
+def test_load_parquet_empty_data_error(monkeypatch, tmp_path, caplog):
+    parquet_path = tmp_path / "empty.parquet"
+    parquet_path.write_bytes(b"")
 
-    def fake_validate(payload, **kwargs):
-        assert kwargs["origin"] == "dataframe"
-        return sentinel
-
-    monkeypatch.setattr(data, "_validate_payload", fake_validate)
-
-    df = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1]})
-    result = data.validate_dataframe(df, include_date_column=False)
-    pd.testing.assert_frame_equal(result, sentinel)
-
-
-def test_identify_risk_free_fund_picks_lowest_standard_deviation(caplog):
-    caplog.set_level("INFO")
-    df = pd.DataFrame(
-        {
-            "Date": ["2020-01-01", "2020-01-02"],
-            "FundA": [1.0, 1.2],
-            "FundB": [0.5, 0.6],
-            "Text": ["x", "y"],
-        }
+    monkeypatch.setattr(
+        pd, "read_parquet", MagicMock(side_effect=pd.errors.EmptyDataError("empty"))
     )
-    assert data.identify_risk_free_fund(df) == "FundB"
-    assert "Risk-free column: FundB" in caplog.text
+
+    with caplog.at_level(logging.ERROR):
+        result = data.load_parquet(str(parquet_path))
+
+    assert result is None
+    assert "empty" in caplog.text
 
 
-def test_identify_risk_free_fund_returns_none_without_numeric_columns():
-    df = pd.DataFrame({"Date": ["2020-01-01"], "Label": ["x"]})
+def test_validate_dataframe_delegates(monkeypatch):
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "AAA": [1]})
+    sentinel = object()
+    monkeypatch.setattr(data, "_validate_payload", MagicMock(return_value=sentinel))
+
+    result = data.validate_dataframe(frame, include_date_column=False)
+
+    assert result is sentinel
+
+
+def test_identify_risk_free_fund_returns_none_for_non_numeric():
+    df = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["x"]})
     assert data.identify_risk_free_fund(df) is None
 
 
+def test_identify_risk_free_fund_selects_lowest_std(caplog):
+    df = pd.DataFrame(
+        {
+            "Date": ["2024-01-01", "2024-01-02", "2024-01-03"],
+            "AAA": [1.0, 1.5, 1.3],
+            "BBB": [2.0, 3.0, 5.0],
+        }
+    )
+
+    with caplog.at_level(logging.INFO):
+        result = data.identify_risk_free_fund(df)
+
+    assert result == "AAA"
+    assert "Risk-free column: AAA" in caplog.text
+
+
 def test_ensure_datetime_parses_known_format():
-    df = pd.DataFrame({"Date": ["01/31/25", "02/01/25"]})
+    df = pd.DataFrame({"Date": ["01/01/24", "01/02/24"]})
     converted = data.ensure_datetime(df.copy())
     assert pd.api.types.is_datetime64_any_dtype(converted["Date"])
 
 
-def test_ensure_datetime_falls_back_to_generic_parsing():
-    df = pd.DataFrame({"Date": ["2020-01-01", "2020-02-01"]})
-    converted = data.ensure_datetime(df)
+def test_ensure_datetime_raises_on_malformed_dates(caplog):
+    df = pd.DataFrame({"Date": ["01-01-2024", "bad"]})
+
+    with pytest.raises(ValueError):
+        data.ensure_datetime(df)
+
+    assert "malformed" in caplog.text.lower()
+
+
+def test_ensure_datetime_generic_parse_without_errors():
+    df = pd.DataFrame({"Date": ["2024-01-01", "2024-01-02"]})
+    converted = data.ensure_datetime(df.copy())
     assert pd.api.types.is_datetime64_any_dtype(converted["Date"])
 
 
-def test_ensure_datetime_skips_when_column_missing():
+def test_ensure_datetime_noop_when_column_missing():
     df = pd.DataFrame({"Other": [1, 2]})
     result = data.ensure_datetime(df.copy())
     assert result.equals(df)
-
-
-def test_ensure_datetime_noop_for_existing_datetime():
-    df = pd.DataFrame({"Date": pd.to_datetime(["2020-01-01"])})
-    result = data.ensure_datetime(df.copy())
-    assert pd.api.types.is_datetime64_any_dtype(result["Date"])
-
-
-def test_ensure_datetime_raises_on_malformed_dates(caplog):
-    df = pd.DataFrame({"Date": ["not-a-date", "still bad"]})
-    caplog.set_level("ERROR")
-    with pytest.raises(ValueError):
-        data.ensure_datetime(df)
-    assert "malformed date(s)" in caplog.text.lower()
-
-
-@pytest.mark.parametrize(
-    "mode, expected",
-    [
-        (0o000, False),
-        (0o400, True),
-        (0o040, True),
-        (0o004, True),
-    ],
-)
-def test_is_readable_checks_permission_bits(mode, expected):
-    assert data._is_readable(mode) is expected

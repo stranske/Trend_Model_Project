@@ -6,7 +6,7 @@
 Improve test coverage for the Trend Analysis project, prioritising `src/trend_analysis/` modules whose coverage remains below 95 % or whose behaviour is critical to the production pipeline.
 
 ## Task Progress
-- [x] Run soft coverage and prepare a ranked list of sub-95 % files (see "Coverage Findings").
+- [x] Run soft coverage (full-suite `coverage run -m pytest`) and prepare a ranked list of sub-95 % files (see "Coverage Findings").
 - [ ] Increase test coverage incrementally for one related area at a time
   - [x] `src/trend_analysis/__init__.py` – dedicated package import tests in `tests/trend_analysis/test_package_init.py`
   - [x] `src/trend_analysis/data.py` – comprehensive loader and helper tests in `tests/trend_analysis/test_data.py`
@@ -45,7 +45,7 @@ Coverage was gathered with targeted runs such as `python -m coverage run -m pyte
 | `src/trend_analysis/cli.py` | 0 % | CLI entry points lack smoke or integration tests. |
 | `src/trend_analysis/multi_period/engine.py` | 0 % | Complex scheduler/walk-forward logic uncovered. |
 
-See the full `coverage report` output for additional modules requiring attention.【a31d97†L1-L77】
+See the full `coverage report` output for additional modules requiring attention.【b9bb1e†L1-L111】
 
 ## Next Steps
 1. Exercise success and failure paths in `src/trend_analysis/pipeline.py`, ideally by orchestrating stubbed components.
@@ -54,4 +54,4 @@ See the full `coverage report` output for additional modules requiring attention
 4. Re-run targeted coverage after each module-focused test addition and update this log accordingly.
 5. Sweep remaining low-coverage modules listed above, using the `test_presets.py` structure as a template for registry-heavy helpers.
 
-*Last updated: 2025-11-05*
+*Last updated: 2025-02-16*
