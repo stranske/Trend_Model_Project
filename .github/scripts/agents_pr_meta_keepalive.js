@@ -306,7 +306,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return outputs;
   }
 
-  let autopatched = false;
   let blockedByManualRound = false;
   let highestRoundCache = null;
   const ensureHighestRound = async () => {
@@ -351,7 +350,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
             roundMatch = [null, String(patched.round)];
             traceMatch = [null, patched.trace];
             hasKeepaliveMarker = true;
-            autopatched = true;
           }
         }
       } catch (error) {
