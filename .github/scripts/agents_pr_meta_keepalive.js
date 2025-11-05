@@ -150,9 +150,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     do {
       previous = current;
       current = current
+        .replace(/&amp;/gi, '&')
         .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&amp;/gi, '&');
+        .replace(/&gt;/gi, '>');
     } while (current !== previous);
     return current;
   };
