@@ -4,6 +4,30 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 ---
 
+## Scope
+
+- [ ] Issue 3260 — Keepalive poster enhancements validated with live evidence.
+- [ ] Issue 3261 — Keepalive detection and dispatch hardening confirmed in production runs.
+
+## Task List
+
+- [ ] Capture proof that instruction comments are emitted with required markers and mention on every cycle.
+- [ ] Demonstrate acknowledgement loop behaviour, including fallback dispatch when 🚀 is absent.
+- [ ] Show detector-to-orchestrator hand-off through repository dispatch with populated round/trace metadata.
+- [ ] Record guard skip formatting and labelling outputs for failing keepalive rounds.
+
+## Acceptance Criteria
+
+- [ ] New instruction comment created each cycle with required markers and `@codex` mention.
+- [ ] Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback.
+- [ ] PR-meta acknowledgement observed, or fallback dispatch and PR comment emitted when acknowledgement is missing.
+- [ ] Step summary includes `Round`, `Trace`, `Author`, and `CommentId` fields.
+- [ ] Valid instruction comment triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated metadata fields.
+- [ ] Exactly one orchestrator `workflow_dispatch` fires per accepted instruction comment with matching TRACE and no conflicting cancellations.
+- [ ] Exactly one `codex-pr-comment-command` repository_dispatch is emitted per accepted instruction comment.
+- [ ] Guard failures yield PR comment `Keepalive {round} {trace} skipped: <reason>` plus a matching summary entry.
+- [ ] Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches.
+
 ## Issue 3260 — Keepalive Poster Enhancements Progress
 
 ### Task Tracking
