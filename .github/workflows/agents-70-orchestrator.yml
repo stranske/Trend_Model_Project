@@ -3,6 +3,27 @@ name: Agents 70 Orchestrator
 on:
   schedule:
     - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      params_json:
+        description: 'JSON payload of orchestrator parameters to merge with defaults.'
+        required: false
+        default: '{}'
+      options_json:
+        description: 'Advanced orchestrator options encoded as JSON.'
+        required: false
+        default: '{}'
+      dry_run:
+        description: 'Execute orchestrator in dry-run mode (no write operations).'
+        required: false
+        default: 'false'
+      keepalive_enabled:
+        description: 'Enable Codex keepalive sweep for this run (set false to pause).'
+        required: false
+        default: 'true'
+      pr_number:
+        description: 'Optional pull request number when targeting a specific branch.'
+        required: false
   workflow_run:
     workflows: [Gate]
     types: [completed]
