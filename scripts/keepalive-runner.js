@@ -460,7 +460,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   const allowedAuthorEntries = parseAgentLoginEntries(
     options.keepalive_allowed_authors ?? env.KEEPALIVE_ALLOWED_AUTHORS,
-    ['stranske-automation-bot']
+    ['stranske-automation-bot', 'stranske']
   );
   const allowedKeepaliveAuthors = new Set(
     allowedAuthorEntries.map(({ normalized }) => normalized)
