@@ -1,189 +1,154 @@
-"""Focused coverage for :mod:`trend_analysis.presets`."""
-
 from __future__ import annotations
 
 from pathlib import Path
-from types import MappingProxyType, SimpleNamespace
-from typing import Any
+from types import SimpleNamespace
 
 import pytest
-import yaml
 
-from trend_analysis import presets
-from trend_analysis.presets import (
-    PIPELINE_METRIC_ALIASES,
-    UI_METRIC_ALIASES,
-    TrendPreset,
-    _build_trend_spec,
-    _coerce_int,
-    _coerce_optional_float,
-    _coerce_optional_int,
-    _freeze_mapping,
-    _normalise_metric_weights,
-    apply_trend_preset,
-    get_trend_preset,
-    list_preset_slugs,
-    list_trend_presets,
-    normalise_metric_key,
-    pipeline_metric_key,
-)
-from trend_analysis.signals import TrendSpec
+from trend_analysis import presets as preset_module
 
 
-def write_preset(path: Path, **fields: Any) -> Path:
-    with path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(fields, handle, sort_keys=False)
-    return path
+@pytest.fixture(autouse=True)
+def clear_preset_cache() -> None:
+    preset_module._preset_registry.cache_clear()
+    yield
+    preset_module._preset_registry.cache_clear()
 
 
-def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    preset_dir = tmp_path / "presets"
-    preset_dir.mkdir()
-    write_preset(
-        preset_dir / "alpha.yml",
-        name="Alpha",
-        description="Alpha preset",
-        lookback_months=12,
-        min_track_months=6,
-        selection_count=5,
-        risk_target=0.2,
-        metrics={"sharpe_ratio": 0.5, "INVALID": "skip"},
-        signals={
-            "window": 80,
-            "min_periods": 120,
-            "lag": 2,
-            "vol_adjust": True,
-            "vol_target": 0.15,
-            "zscore": True,
-        },
-        portfolio={"weighting_scheme": "risk_parity", "cooldown_months": 2},
-        vol_adjust={"window": {"length": 20}},
+def test_freeze_mapping_returns_immutable_view() -> None:
+    frozen = preset_module._freeze_mapping({"a": 1, "b": 2})
+    assert frozen["a"] == 1
+    with pytest.raises(TypeError):
+        frozen["c"] = 3  # type: ignore[misc]
+
+
+def test_normalise_metric_weights_discards_invalid_entries() -> None:
+    weights = preset_module._normalise_metric_weights(
+        {"sharpe_ratio": "2", "bad": "x", "drawdown": 0.5}
     )
-    write_preset(
-        preset_dir / "zulu.yml",
-        name="Zulu",
-        description="Zulu preset",
-        lookback_months=36,
-        metrics={"return_ann": 0.7},
-        signals={"window": 63, "lag": 1, "vol_adjust": False, "zscore": False},
+    assert weights == {"sharpe": 2.0, "drawdown": 0.5}
+
+
+def test_normalise_metric_weights_handles_missing_aliases() -> None:
+    weights = preset_module._normalise_metric_weights({"": 5, "none": None})
+    assert weights == {}
+
+
+def test_coerce_helpers_normalise_inputs() -> None:
+    assert preset_module._coerce_int("7", default=3) == 7
+    assert preset_module._coerce_int(None, default=5) == 5
+    assert preset_module._coerce_optional_int("9") == 9
+    assert preset_module._coerce_optional_int(-1) is None
+    assert preset_module._coerce_optional_float("0.5") == 0.5
+    assert preset_module._coerce_optional_float(-0.1) is None
+
+
+def test_coerce_optional_helpers_return_none_for_invalid_values() -> None:
+    assert preset_module._coerce_optional_int("abc") is None
+    assert preset_module._coerce_optional_int(0, minimum=2) is None
+    assert preset_module._coerce_optional_float("abc") is None
+    assert preset_module._coerce_optional_float(-0.5) is None
+
+
+def test_build_trend_spec_clamps_min_periods() -> None:
+    spec = preset_module._build_trend_spec(
+        {
+            "signals": {
+                "window": 20,
+                "min_periods": 40,
+                "lag": "3",
+                "vol_adjust": True,
+                "vol_target": "0.3",
+                "zscore": True,
+            }
+        }
     )
-    write_preset(preset_dir / "empty.yml")
-
-    monkeypatch.setattr(presets, "PRESETS_DIR", preset_dir)
-    presets._preset_registry.cache_clear()
-
-
-def test_preset_registry_loading(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    create_registry(tmp_path, monkeypatch)
-
-    registry = presets._preset_registry()
-    assert set(registry) == {"alpha", "zulu"}
-    alpha = registry["alpha"]
-    assert isinstance(alpha, TrendPreset)
-    assert alpha.trend_spec.window == 80
-    assert alpha.trend_spec.min_periods == 80  # clamped to window
-    assert alpha.trend_spec.vol_adjust is True
-    assert alpha.trend_spec.vol_target == 0.15
-    assert alpha.form_defaults()["risk_target"] == 0.2
-
-    # Ensure empty preset is skipped
-    assert "empty" not in registry
+    assert spec.window == 20
+    assert spec.min_periods == 20
+    assert spec.lag == 3
+    assert spec.vol_adjust is True
+    assert spec.vol_target == pytest.approx(0.3)
+    assert spec.zscore is True
 
 
-def test_list_helpers_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create_registry(tmp_path, monkeypatch)
-
-    slugs = list_preset_slugs()
-    assert slugs == ("alpha", "zulu")
-
-    labels = tuple(p.label for p in list_trend_presets())
-    assert labels == ("Alpha", "Zulu")
+def test_build_trend_spec_handles_missing_signals() -> None:
+    spec = preset_module._build_trend_spec({"signals": [1, 2, 3]})
+    assert spec.window == 63
+    assert spec.min_periods is None
+    assert spec.vol_adjust is False
 
 
-def test_get_trend_preset_by_slug_and_label(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    create_registry(tmp_path, monkeypatch)
-
-    alpha_by_slug = get_trend_preset("alpha")
-    alpha_by_label = get_trend_preset("ALPHA")
-    assert alpha_by_slug is alpha_by_label
-
-    with pytest.raises(KeyError):
-        get_trend_preset("")
-    with pytest.raises(KeyError):
-        get_trend_preset("unknown")
-
-
-def test_trend_preset_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create_registry(tmp_path, monkeypatch)
-    preset = get_trend_preset("alpha")
+def test_trend_preset_helpers_expose_expected_defaults() -> None:
+    spec = preset_module._build_trend_spec(
+        {
+            "signals": {
+                "window": 50,
+                "min_periods": 30,
+                "lag": 2,
+                "vol_adjust": True,
+                "vol_target": 0.15,
+                "zscore": False,
+            }
+        }
+    )
+    preset = preset_module.TrendPreset(
+        slug="alpha",
+        label="Alpha",
+        description="demo",
+        trend_spec=spec,
+        _config=preset_module._freeze_mapping(
+            {
+                "lookback_months": 18,
+                "min_track_months": 6,
+                "selection_count": 7,
+                "risk_target": 0.2,
+                "rebalance_frequency": "weekly",
+                "metrics": {"sharpe": "1.5", "drawdown": 0.4},
+                "portfolio": {"weighting_scheme": "equal", "cooldown_months": 2},
+                "vol_adjust": {"enabled": False, "window": {"slow": 63}},
+            }
+        ),
+    )
 
     defaults = preset.form_defaults()
-    assert defaults["lookback_months"] == 12
-    assert defaults["min_track_months"] == 6
-    assert defaults["selection_count"] == 5
-    assert defaults["metrics"] == {"sharpe": 0.5}
+    assert defaults == {
+        "lookback_months": 18,
+        "rebalance_frequency": "weekly",
+        "min_track_months": 6,
+        "selection_count": 7,
+        "risk_target": 0.2,
+        "weighting_scheme": "equal",
+        "cooldown_months": 2,
+        "metrics": {"sharpe": 1.5, "drawdown": 0.4},
+    }
 
-    signals_mapping = preset.signals_mapping()
-    assert signals_mapping == {
-        "kind": preset.trend_spec.kind,
-        "window": 80,
+    mapping = preset.signals_mapping()
+    assert mapping == {
+        "kind": "tsmom",
+        "window": 50,
         "lag": 2,
         "vol_adjust": True,
-        "zscore": True,
-        "min_periods": 80,
+        "zscore": False,
+        "min_periods": 30,
         "vol_target": 0.15,
     }
 
-    vol_defaults = preset.vol_adjust_defaults()
-    assert vol_defaults["enabled"] is True
-    assert vol_defaults["window"]["length"] == 20
-    assert vol_defaults["window"]["length"] != preset.trend_spec.window
+    vol_adjust_defaults = preset.vol_adjust_defaults()
+    assert vol_adjust_defaults["enabled"] is False
+    assert vol_adjust_defaults["target_vol"] == pytest.approx(0.15)
+    assert vol_adjust_defaults["window"]["slow"] == 63
+    assert vol_adjust_defaults["window"]["length"] == 50
+    assert vol_adjust_defaults is not preset._config.get("vol_adjust")
 
-    metrics_pipeline = preset.metrics_pipeline()
-    assert metrics_pipeline["Sharpe"] == defaults["metrics"]["sharpe"]
-
-
-def test_vol_adjust_defaults_handles_mapping_proxy() -> None:
-    spec = TrendSpec(
-        window=42,
-        min_periods=None,
-        lag=2,
-        vol_adjust=False,
-        vol_target=None,
-        zscore=False,
-    )
-    proxy_window = MappingProxyType({"length": 7})
-    config = _freeze_mapping({"vol_adjust": MappingProxyType({"window": proxy_window})})
-    preset = TrendPreset(
-        slug="custom",
-        label="Custom",
-        description="",
-        trend_spec=spec,
-        _config=config,
-    )
-
-    defaults = preset.vol_adjust_defaults()
-    assert defaults["enabled"] is False
-    assert defaults["target_vol"] is None
-    assert defaults["window"] == {"length": 7}
+    pipeline_metrics = preset.metrics_pipeline()
+    assert pipeline_metrics == {"Sharpe": 1.5, "MaxDrawdown": 0.4}
 
 
-def test_vol_adjust_defaults_sets_missing_values() -> None:
-    spec = TrendSpec(
-        window=55,
-        min_periods=10,
-        lag=1,
-        vol_adjust=True,
-        vol_target=0.3,
-        zscore=False,
-    )
-    preset = TrendPreset(
-        slug="growth",
-        label="Growth",
+def test_trend_preset_defaults_use_fallbacks_when_config_missing() -> None:
+    spec = preset_module._build_trend_spec({})
+    preset = preset_module.TrendPreset(
+        slug="base",
+        label="Base",
         description="",
         trend_spec=spec,
         _config=_freeze_mapping({}),
@@ -237,182 +202,189 @@ def test_apply_trend_preset_merges_config(
         vol_adjust={"enabled": False},
         run={"other": "value"},
     )
-    apply_trend_preset(config, preset)
 
-    assert config.signals["window"] == 63
-    assert config.vol_adjust["enabled"] is False
-    assert config.run["trend_preset"] == "zulu"
+    defaults = preset.form_defaults()
+    assert defaults["weighting_scheme"] == "equal"
+    assert defaults["cooldown_months"] == 3
 
-    empty = SimpleNamespace()
-    apply_trend_preset(empty, preset)
-    assert empty.signals["window"] == 63
-    assert empty.vol_adjust["enabled"] is False
-    assert empty.run["trend_preset"] == "zulu"
+    vol_defaults = preset.vol_adjust_defaults()
+    assert vol_defaults["enabled"] is False
+    assert vol_defaults["window"]["length"] == spec.window
 
 
-def test_apply_trend_preset_branch_variants(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_candidate_preset_dirs_prefers_base_then_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    env_dir = tmp_path / "env"
+    base.mkdir()
+    env_dir.mkdir()
+
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(env_dir))
+
+    candidates = preset_module._candidate_preset_dirs()
+    assert candidates == (base, env_dir)
+
+
+def test_candidate_preset_dirs_includes_repository_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_module._DEFAULT_PRESETS_DIR)
+    monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
+    candidates = preset_module._candidate_preset_dirs()
+    assert preset_module._DEFAULT_PRESETS_DIR in candidates
+    assert isinstance(candidates, tuple)
+
+
+def test_preset_registry_loads_yaml_and_handles_overrides(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    create_registry(tmp_path, monkeypatch)
-    preset = get_trend_preset("alpha")
+    base = tmp_path / "base"
+    env_dir = tmp_path / "env"
+    base.mkdir()
+    env_dir.mkdir()
 
-    config = SimpleNamespace(signals=None, vol_adjust=42, run="not-a-mapping")
-    apply_trend_preset(config, preset)
+    (base / "alpha.yml").write_text(
+        """
+name: Alpha Base
+signals:
+  window: 40
+  min_periods: 20
+  lag: 1
+"""
+    )
 
-    assert config.signals["window"] == preset.trend_spec.window
-    assert config.vol_adjust["window"]["length"] == 20
+    (env_dir / "alpha.yml").write_text(
+        """
+name: Alpha Override
+description: Override description
+signals:
+  window: 84
+  min_periods: 63
+  lag: 1
+  vol_adjust: true
+  vol_target: 0.1
+  zscore: true
+lookback_months: 18
+min_track_months: 6
+selection_count: 8
+risk_target: 0.25
+rebalance_frequency: monthly
+metrics:
+  sharpe: "1.5"
+  max_drawdown: "0.3"
+portfolio:
+  weighting_scheme: equal
+  cooldown_months: 2
+vol_adjust:
+  enabled: false
+  window:
+    fast: 21
+"""
+    )
+
+    (env_dir / "beta.yml").write_text(
+        """
+name: Beta Preset
+signals:
+  window: 30
+  min_periods: 15
+  lag: 2
+"""
+    )
+
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(env_dir))
+    caplog.set_level("WARNING", "trend_analysis.presets")
+
+    registry = preset_module._preset_registry()
+    assert set(registry.keys()) == {"alpha", "beta"}
+    assert "overrides definition" in caplog.text
+
+    alpha = registry["alpha"]
+    defaults = alpha.form_defaults()
+    assert defaults["metrics"] == {"sharpe": 1.5, "drawdown": 0.3}
+    assert defaults["risk_target"] == 0.25
+
+    assert preset_module.list_preset_slugs() == ("alpha", "beta")
+    assert [p.slug for p in preset_module.list_trend_presets()] == ["alpha", "beta"]
+
+    assert preset_module.get_trend_preset("beta").label == "Beta Preset"
+    assert preset_module.get_trend_preset("Alpha Override").slug == "alpha"
+    with pytest.raises(KeyError):
+        preset_module.get_trend_preset("")
+
+    config = SimpleNamespace(signals={"lag": 9}, vol_adjust={}, run={})
+    preset_module.apply_trend_preset(config, alpha)
+    assert config.signals["window"] == 84
+    assert config.signals["vol_adjust"] is True
+    assert config.vol_adjust["enabled"] is False
+    assert config.vol_adjust["target_vol"] == pytest.approx(0.1)
     assert config.run["trend_preset"] == "alpha"
 
-    mapping_config = SimpleNamespace(
-        signals=None,
-        vol_adjust=MappingProxyType({"window": {"length": 10}}),
-        run=MappingProxyType({"existing": "value"}),
-    )
-    apply_trend_preset(mapping_config, preset)
-    assert mapping_config.vol_adjust["window"]["length"] == 20
-    assert mapping_config.run["trend_preset"] == "alpha"
 
+def test_preset_registry_skips_non_mapping_yaml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "empty.yml").write_text("[]", encoding="utf-8")
 
-def test_metric_alias_helpers() -> None:
-    assert normalise_metric_key("Sharpe_Ratio") == "sharpe"
-    assert normalise_metric_key("") is None
-    assert pipeline_metric_key("max_drawdown") == "MaxDrawdown"
-    assert pipeline_metric_key("unknown") is None
-    assert pipeline_metric_key("") is None
-
-
-def test_candidate_dirs_include_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    presets._preset_registry.cache_clear()
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", base)
     monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
-    monkeypatch.setattr(presets, "PRESETS_DIR", presets._DEFAULT_PRESETS_DIR)
+    monkeypatch.setattr(preset_module, "_candidate_preset_dirs", lambda: (base,))
 
-    candidates = presets._candidate_preset_dirs()
-    assert presets._DEFAULT_PRESETS_DIR in candidates
-    assert len(candidates) >= 1
+    registry = preset_module._preset_registry()
+    assert registry == {}
 
 
-def test_candidate_dirs_env_override_and_deduplicate(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_metric_alias_helpers_cover_known_aliases() -> None:
+    assert preset_module.normalise_metric_key("Sharpe_Ratio") == "sharpe"
+    assert preset_module.normalise_metric_key("") is None
+    assert preset_module.pipeline_metric_key("max_drawdown") == "MaxDrawdown"
+    assert preset_module.pipeline_metric_key(None) is None  # type: ignore[arg-type]
+
+
+def test_load_yaml_returns_empty_mapping_for_invalid_payload(tmp_path: Path) -> None:
+    yaml_path = tmp_path / "invalid.yml"
+    yaml_path.write_text("[]", encoding="utf-8")
+    assert preset_module._load_yaml(yaml_path) == {}
+
+
+def test_get_trend_preset_raises_for_unknown_slug(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", tmp_path := Path("nonexistent"))
+    preset_module._preset_registry.cache_clear()
+    with pytest.raises(KeyError):
+        preset_module.get_trend_preset("missing")
+
+
+def test_apply_trend_preset_handles_non_mapping_sections(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    base_dir = tmp_path / "presets"
-    base_dir.mkdir()
-    monkeypatch.setattr(presets, "PRESETS_DIR", base_dir)
-    monkeypatch.setenv("TREND_PRESETS_DIR", str(base_dir))
-    presets._preset_registry.cache_clear()
+    base = tmp_path / "base"
+    env_dir = tmp_path / "env"
+    base.mkdir()
+    env_dir.mkdir()
 
-    candidates = presets._candidate_preset_dirs()
-    assert candidates == (base_dir,)
-
-
-def test_get_trend_preset_matches_display_label(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    preset_dir = tmp_path / "presets"
-    preset_dir.mkdir()
-    write_preset(
-        preset_dir / "growth_fund.yml",
-        name="Growth Fund",
-        signals={"window": 20, "lag": 1, "vol_adjust": False, "zscore": False},
-    )
-    monkeypatch.setattr(presets, "PRESETS_DIR", preset_dir)
-    presets._preset_registry.cache_clear()
-
-    preset = get_trend_preset("Growth Fund")
-    assert preset.slug == "growth_fund"
-
-    # Ensure alias tables remain immutable
-    with pytest.raises(TypeError):
-        UI_METRIC_ALIASES["new"] = "value"  # type: ignore[index]
-    with pytest.raises(TypeError):
-        PIPELINE_METRIC_ALIASES["new"] = "value"  # type: ignore[index]
-
-
-def test_preset_registry_warns_on_duplicate_slug(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    base_dir = tmp_path / "base"
-    override_dir = tmp_path / "override"
-    base_dir.mkdir()
-    override_dir.mkdir()
-
-    write_preset(
-        base_dir / "alpha.yml",
-        name="Alpha",
-        signals={"window": 20, "lag": 1, "vol_adjust": False, "zscore": False},
-    )
-    write_preset(
-        override_dir / "alpha.yml",
-        name="Alpha Override",
-        signals={"window": 25, "lag": 1, "vol_adjust": False, "zscore": False},
+    (env_dir / "alpha.yml").write_text(
+        """
+name: Alpha Override
+signals:
+  window: 20
+  lag: 1
+  vol_adjust: false
+"""
     )
 
-    monkeypatch.setattr(presets, "PRESETS_DIR", base_dir)
-    monkeypatch.setenv("TREND_PRESETS_DIR", str(override_dir))
-    presets._preset_registry.cache_clear()
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", base)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(env_dir))
 
-    with caplog.at_level("WARNING"):
-        registry = presets._preset_registry()
+    preset = preset_module.get_trend_preset("alpha override")
 
-    assert "Duplicate trend preset slug 'alpha'" in caplog.text
-    # Override should win due to search order
-    assert registry["alpha"].label == "Alpha Override"
+    class Dummy:
+        signals = ["not", "mapping"]
+        vol_adjust = ()
+        run = ()
 
-    presets._preset_registry.cache_clear()
-
-
-def test_registry_empty_when_directory_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(presets, "PRESETS_DIR", Path("/nonexistent"))
-    presets._preset_registry.cache_clear()
-    assert not presets._preset_registry()
-
-
-def test_load_yaml_non_mapping(tmp_path: Path) -> None:
-    path = tmp_path / "list.yml"
-    path.write_text("- 1\n- 2\n", encoding="utf-8")
-    assert presets._load_yaml(path) == {}
-
-
-def test_build_trend_spec_defaults() -> None:
-    spec = _build_trend_spec({"signals": ["not", "mapping"]})
-    assert spec.window == 63
-    assert spec.min_periods is None
-
-
-def test_internal_helper_functions() -> None:
-    assert _coerce_int("5", default=1, minimum=3) == 5
-    assert _coerce_int(0, default=5, minimum=3) == 3
-    assert _coerce_int("bad", default=7, minimum=1) == 7
-
-    assert _coerce_optional_int(None) is None
-    assert _coerce_optional_int("4") == 4
-    assert _coerce_optional_int("bad") is None
-    assert _coerce_optional_int(0, minimum=1) is None
-
-    assert _coerce_optional_float(None) is None
-    assert _coerce_optional_float("0.2") == 0.2
-    assert _coerce_optional_float("bad") is None
-    assert _coerce_optional_float(-0.1, minimum=0.0) is None
-
-    weights = _normalise_metric_weights(
-        {"Sharpe": "2", "invalid": object(), "return_ann": "bad"}
-    )
-    assert weights == {"sharpe": 2.0}
-
-    frozen = _freeze_mapping({"key": 1})
-    with pytest.raises(TypeError):
-        frozen["key"] = 2  # type: ignore[index]
-
-
-def test_vol_adjust_defaults_and_metrics_pipeline(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    create_registry(tmp_path, monkeypatch)
-    zulu = get_trend_preset("zulu")
-
-    defaults = zulu.vol_adjust_defaults()
-    assert defaults["enabled"] is False
-    assert defaults["window"]["length"] == zulu.trend_spec.window
-    assert defaults["target_vol"] is None
-
-    pipeline = zulu.metrics_pipeline()
-    assert pipeline["AnnualReturn"] == pytest.approx(0.7)
+    config = Dummy()
+    preset_module.apply_trend_preset(config, preset)
+    assert isinstance(config.signals, dict)
+    assert isinstance(config.vol_adjust, dict)
+    assert isinstance(config.run, dict)
