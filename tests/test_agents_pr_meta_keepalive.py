@@ -67,6 +67,7 @@ def test_keepalive_detection_handles_after_markers() -> None:
     assert outputs["round"] == "5"
     assert outputs["trace"] == "manual-test-2025-11-05-01-35"
 
+
 def test_keepalive_detection_requires_marker() -> None:
     data = _run_scenario("missing_marker")
     outputs = data["outputs"]
