@@ -17,6 +17,7 @@ async function main() {
   const outputs = {};
   const calls = {
     reactionsCreated: [],
+    commentsUpdated: [],
   };
 
   const core = {
@@ -49,6 +50,17 @@ async function main() {
   const pull = scenario.pull || {};
   const pullError = scenario.pullError;
 
+  const issueNumberKey = String(issueNumber || '0');
+  const commentStore = new Map();
+  const baseComments = Array.isArray(scenario.comments) ? scenario.comments : [];
+  commentStore.set(
+    issueNumberKey,
+    baseComments.map((entry) => ({
+      id: entry.id,
+      body: entry.body,
+    }))
+  );
+
   const reactionsByComment = (() => {
     const raw = scenario.reactions;
     if (Array.isArray(raw)) {
@@ -77,6 +89,24 @@ async function main() {
             base: { ref: pull.base?.ref || '' },
           };
           return { data };
+        },
+      },
+      issues: {
+        listComments: async ({ issue_number }) => {
+          const key = String(issue_number || '0');
+          const existing = commentStore.get(key) || [];
+          return { data: existing.map((item) => ({ ...item })) };
+        },
+        updateComment: async ({ comment_id, body }) => {
+          const key = String(issueNumber || '0');
+          const comments = commentStore.get(key) || [];
+          for (const entry of comments) {
+            if (String(entry.id) === String(comment_id)) {
+              entry.body = body;
+            }
+          }
+          calls.commentsUpdated.push({ comment_id, body });
+          return { data: { id: comment_id, body } };
         },
       },
       reactions: {

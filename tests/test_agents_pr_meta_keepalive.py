@@ -98,3 +98,21 @@ def test_keepalive_detection_validates_author() -> None:
     outputs = data["outputs"]
     assert outputs["dispatch"] == "false"
     assert outputs["reason"] == "unauthorised-author"
+
+
+def test_keepalive_detection_autofixes_missing_markers() -> None:
+    data = _run_scenario("autofix_instruction")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "true"
+    assert outputs["reason"] == "keepalive-detected"
+    assert outputs["round"] == "1"
+    trace = outputs["trace"]
+    assert isinstance(trace, str) and len(trace) >= 8
+
+    calls = data.get("calls", {})
+    updates = calls.get("commentsUpdated", [])
+    assert len(updates) == 1
+    updated_body = updates[0]["body"]
+    assert updated_body.startswith(
+        "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace:"
+    )
