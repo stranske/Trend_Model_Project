@@ -150,7 +150,9 @@ def test_finalise_validated_frame_includes_metadata(validated_payload):
 
 
 def test_finalise_validated_frame_without_date(validated_payload):
-    result = data._finalise_validated_frame(validated_payload, include_date_column=False)
+    result = data._finalise_validated_frame(
+        validated_payload, include_date_column=False
+    )
     assert "Date" not in result.columns
     assert result.index.equals(validated_payload.frame.index)
 
@@ -214,7 +216,9 @@ def test_validate_payload_policy_coercions(monkeypatch, validated_payload):
         missing_limit=limit,
     )
 
-    assert result.attrs["market_data_columns"] == list(validated_payload.metadata.columns)
+    assert result.attrs["market_data_columns"] == list(
+        validated_payload.metadata.columns
+    )
 
 
 def test_validate_payload_success(monkeypatch, validated_payload):
@@ -286,7 +290,9 @@ def test_validate_payload_logs_market_data_error(monkeypatch, caplog):
     monkeypatch.setattr(
         data,
         "validate_market_data",
-        MagicMock(side_effect=MarketDataValidationError("Date column could not be parsed")),
+        MagicMock(
+            side_effect=MarketDataValidationError("Date column could not be parsed")
+        ),
     )
 
     with caplog.at_level(logging.ERROR):
@@ -390,7 +396,9 @@ def test_load_csv_legacy_nan_limit(tmp_path, monkeypatch):
     frame.to_csv(csv_path, index=False)
 
     captured = {}
-    monkeypatch.setattr(data, "_validate_payload", lambda raw, **kwargs: captured.update(kwargs) or raw)
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda raw, **kwargs: captured.update(kwargs) or raw
+    )
 
     data.load_csv(str(csv_path), nan_limit="7")
 
@@ -525,7 +533,9 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
     monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
 
     captured = {}
-    monkeypatch.setattr(data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
+    )
 
     data.load_parquet(
         str(parquet_path),
@@ -546,18 +556,23 @@ def test_load_parquet_legacy_nan_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
 
     captured = {}
-    monkeypatch.setattr(data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(
+        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
+    )
 
     data.load_parquet(str(parquet_path), nan_limit="6")
 
     assert captured["missing_limit"] == 6
+
 
 def test_load_parquet_permission_error(monkeypatch, tmp_path):
     parquet_path = tmp_path / "unreadable.parquet"
     parquet_path.write_bytes(b"")
 
     mode = os.stat(parquet_path).st_mode
-    monkeypatch.setattr(Path, "stat", MagicMock(return_value=os.stat_result((mode,) + (0,) * 9)))
+    monkeypatch.setattr(
+        Path, "stat", MagicMock(return_value=os.stat_result((mode,) + (0,) * 9))
+    )
     monkeypatch.setattr(data, "_is_readable", MagicMock(return_value=False))
 
     with pytest.raises(PermissionError):
@@ -582,7 +597,9 @@ def test_load_parquet_handles_validation_error(monkeypatch, tmp_path, caplog):
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_parquet_handles_validation_error_without_hint(monkeypatch, tmp_path, caplog):
+def test_load_parquet_handles_validation_error_without_hint(
+    monkeypatch, tmp_path, caplog
+):
     parquet_path = tmp_path / "bad_plain.parquet"
     parquet_path.write_bytes(b"")
 
@@ -598,6 +615,7 @@ def test_load_parquet_handles_validation_error_without_hint(monkeypatch, tmp_pat
 
     assert result is None
     assert "Unable to parse" not in caplog.text
+
 
 def test_load_parquet_handles_validation_error_raise(monkeypatch, tmp_path):
     parquet_path = tmp_path / "bad2.parquet"
@@ -639,7 +657,9 @@ def test_load_parquet_empty_data_error(monkeypatch, tmp_path, caplog):
     parquet_path = tmp_path / "empty.parquet"
     parquet_path.write_bytes(b"")
 
-    monkeypatch.setattr(pd, "read_parquet", MagicMock(side_effect=pd.errors.EmptyDataError("empty")))
+    monkeypatch.setattr(
+        pd, "read_parquet", MagicMock(side_effect=pd.errors.EmptyDataError("empty"))
+    )
 
     with caplog.at_level(logging.ERROR):
         result = data.load_parquet(str(parquet_path))
