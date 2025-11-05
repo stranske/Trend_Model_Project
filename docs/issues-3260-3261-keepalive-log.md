@@ -2,6 +2,8 @@
 
 _A consolidated evidence log for the keepalive poster (Issue #3260) and detector/dispatcher hardening (Issue #3261). Status tables remain evidence-first: no item flips to “complete” without a linked workflow run, log excerpt, or PR artifact._
 
+> **Status management**: Leave the scope, task, and acceptance criteria checkboxes unchecked until supporting evidence satisfies the paired acceptance criterion. Checking off an item should include an evidence link so the keepalive workflow continues reminding us only while work remains.
+
 ---
 
 ## Scope
