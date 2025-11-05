@@ -216,10 +216,46 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     core.warning(`options_json could not be parsed (${error.message}); using defaults.`);
   }
 
+  const { owner, repo } = context.repo;
+
   // Inject default keepalive instruction if not already present
   // Also detect if this orchestrator run was triggered by the Gate workflow
   const triggeredByGate = context.eventName === 'workflow_run';
-  
+
+  let workflowRunPr = '';
+  if (triggeredByGate) {
+    const runPayload = context.payload?.workflow_run;
+    if (runPayload) {
+      const pullRequests = Array.isArray(runPayload.pull_requests) ? runPayload.pull_requests : [];
+      const directMatch = pullRequests.find((pr) => Number.isFinite(pr?.number));
+      if (directMatch && Number.isFinite(directMatch.number)) {
+        workflowRunPr = String(directMatch.number);
+      } else {
+        const headSha = toString(runPayload.head_sha || '', '').trim();
+        if (headSha) {
+          try {
+            const associated = await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              {
+                owner,
+                repo,
+                commit_sha: headSha,
+                per_page: 100,
+              }
+            );
+            const matched = associated.find((pr) => pr?.head?.sha === headSha);
+            if (matched && Number.isFinite(matched.number)) {
+              workflowRunPr = String(matched.number);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            core.warning(`Unable to map workflow_run head ${headSha} to pull request: ${message}`);
+          }
+        }
+      }
+    }
+  }
+
   const finalParsedOptions = {
     ...parsedOptions,
     ...( (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template)
@@ -227,6 +263,10 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
           : {} ),
     ...(triggeredByGate ? { triggered_by_gate: true } : {})
   };
+
+  if (workflowRunPr && !finalParsedOptions.pr) {
+    finalParsedOptions.pr = workflowRunPr;
+  }
 
   // Re-serialize with injected defaults
   const finalOptionsJson = JSON.stringify(finalParsedOptions);
@@ -244,7 +284,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
     ''
   ).trim();
-  const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '').trim();
+  let keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr ?? workflowRunPr, '').trim();
 
   const dispatcherForceIssue = toString(
     dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,
@@ -274,7 +314,6 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     { min: 1, max: 10 }
   );
 
-  const { owner, repo } = context.repo;
   let keepalivePaused = false;
 
   if (keepaliveRequested === 'true') {
@@ -301,6 +340,14 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
 
   if (!keepaliveTrace && keepaliveEffective === 'true') {
     keepaliveTrace = makeTrace();
+  }
+
+  if (triggeredByGate) {
+    if (keepalivePr) {
+      core.info(`Keepalive workflow_run mapped to pull request #${keepalivePr}.`);
+    } else {
+      core.warning('Keepalive workflow_run payload did not include a pull request number.');
+    }
   }
 
   const outputs = {
