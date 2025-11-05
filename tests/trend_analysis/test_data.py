@@ -76,10 +76,13 @@ def test_coerce_limit_kwarg_accepts_mappings_and_strings():
 def test_finalise_validated_frame_includes_metadata(sample_metadata):
     frame = pd.DataFrame(
         {"FundA": [1.0, 2.0], "FundB": [0.5, 0.25]},
-        index=pd.DatetimeIndex([
-            datetime(2020, 1, 1),
-            datetime(2020, 1, 2),
-        ], name="Date"),
+        index=pd.DatetimeIndex(
+            [
+                datetime(2020, 1, 1),
+                datetime(2020, 1, 2),
+            ],
+            name="Date",
+        ),
     )
     validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
 
@@ -91,7 +94,10 @@ def test_finalise_validated_frame_includes_metadata(sample_metadata):
     assert with_date.attrs["market_data_mode"] == sample_metadata.mode.value
     assert with_date.attrs["market_data_frequency"] == sample_metadata.frequency
     assert without_date.index.name == "Date"
-    assert without_date.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
+    assert (
+        without_date.attrs["market_data_frequency_label"]
+        == sample_metadata.frequency_label
+    )
 
 
 def test_normalise_numeric_strings_converts_percentages_and_parentheses():
@@ -143,7 +149,9 @@ def test_validate_payload_normalises_policy_and_limit(monkeypatch, sample_metada
         calls["source"] = source
         calls["missing_policy"] = missing_policy
         calls["missing_limit"] = missing_limit
-        return ValidatedMarketData(frame=payload.set_index("Date"), metadata=sample_metadata)
+        return ValidatedMarketData(
+            frame=payload.set_index("Date"), metadata=sample_metadata
+        )
 
     monkeypatch.setattr(data, "validate_market_data", fake_validate)
 
