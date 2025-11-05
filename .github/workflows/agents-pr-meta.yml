@@ -185,6 +185,12 @@ jobs:
           && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Ensure connector dispatch token available
+        if: ${{ !secrets.ACTIONS_BOT_PAT && !secrets.SERVICE_BOT_PAT }}
+        run: |
+          echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+          exit 1
+
       - name: Dispatch codex keepalive command
         id: dispatch
         uses: actions/github-script@v7
@@ -196,7 +202,7 @@ jobs:
           COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
           COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { payload } = context;
             const { owner, repo } = context.repo;
