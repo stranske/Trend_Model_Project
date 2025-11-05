@@ -38,7 +38,10 @@ def stubbed_imports():
     real_import_module = importlib.import_module
 
     def _reload_with(
-        stubs: dict[str, Any], *, version: str | None = "1.2.3", missing: set[str] | None = None
+        stubs: dict[str, Any],
+        *,
+        version: str | None = "1.2.3",
+        missing: set[str] | None = None,
     ):
         _clear_trend_analysis_modules()
         missing = set(missing or ())
@@ -123,17 +126,42 @@ def package_stubs():
 def test_eager_submodules_imported(package_stubs, stubbed_imports):
     module, import_mock = stubbed_imports(package_stubs)
 
-    for name in ["metrics", "config", "data", "pipeline", "export", "signals", "backtesting"]:
+    for name in [
+        "metrics",
+        "config",
+        "data",
+        "pipeline",
+        "export",
+        "signals",
+        "backtesting",
+    ]:
         attr = getattr(module, name)
         assert attr is package_stubs[f"{PACKAGE}.{name}"]
 
-    expected_calls = [call(f"{PACKAGE}.{name}") for name in ["metrics", "config", "data", "pipeline", "export", "signals", "backtesting"]]
+    expected_calls = [
+        call(f"{PACKAGE}.{name}")
+        for name in [
+            "metrics",
+            "config",
+            "data",
+            "pipeline",
+            "export",
+            "signals",
+            "backtesting",
+        ]
+    ]
     import_mock.assert_has_calls(expected_calls, any_order=True)
 
-    assert module.identify_risk_free_fund is package_stubs[f"{PACKAGE}.data"].identify_risk_free_fund
+    assert (
+        module.identify_risk_free_fund
+        is package_stubs[f"{PACKAGE}.data"].identify_risk_free_fund
+    )
     assert module.load_csv is package_stubs[f"{PACKAGE}.data"].load_csv
     assert module.export_to_csv is package_stubs[f"{PACKAGE}.export"].export_to_csv
-    assert module.combined_summary_frame is package_stubs[f"{PACKAGE}.export"].combined_summary_frame
+    assert (
+        module.combined_summary_frame
+        is package_stubs[f"{PACKAGE}.export"].combined_summary_frame
+    )
 
 
 def test_lazy_imports_are_cached(package_stubs, stubbed_imports):
@@ -144,7 +172,16 @@ def test_lazy_imports_are_cached(package_stubs, stubbed_imports):
         sys.modules.setdefault(name, resolved)
         return resolved
 
-    lazy_names = ["api", "cli", "io", "selector", "weighting", "weights", "presets", "run_multi_analysis"]
+    lazy_names = [
+        "api",
+        "cli",
+        "io",
+        "selector",
+        "weighting",
+        "weights",
+        "presets",
+        "run_multi_analysis",
+    ]
 
     with patch("importlib.import_module", side_effect=fake_import) as import_mock:
         first = getattr(module, "api")
@@ -188,4 +225,3 @@ def test_optional_modules_absent(package_stubs, stubbed_imports):
     # Data/export helpers should not be exposed when modules fail to import
     assert not hasattr(module, "load_csv")
     assert not hasattr(module, "export_to_csv")
-
