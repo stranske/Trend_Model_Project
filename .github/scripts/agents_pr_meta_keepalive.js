@@ -54,6 +54,7 @@ async function autopatchKeepaliveComment({
   prNumber,
   comment,
   currentBody,
+  highestRound,
 }) {
   const trimmed = normaliseBody(currentBody);
   if (!isLikelyInstruction(trimmed)) {
@@ -64,8 +65,22 @@ async function autopatchKeepaliveComment({
     return null;
   }
 
-  const highestRound = await computeHighestRound({ github, owner, repo, prNumber });
-  const nextRound = highestRound + 1;
+  let effectiveHighestRound = highestRound;
+  if (!Number.isFinite(effectiveHighestRound)) {
+    effectiveHighestRound = await computeHighestRound({ github, owner, repo, prNumber });
+  }
+
+  if (effectiveHighestRound >= 1) {
+    core.info(
+      `Skipping keepalive autopatch for comment ${comment.id}: next round (${effectiveHighestRound + 1}) must originate from automation.`
+    );
+    return {
+      blocked: true,
+      highestRound: effectiveHighestRound,
+    };
+  }
+
+  const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
   const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed });
 
@@ -84,6 +99,7 @@ async function autopatchKeepaliveComment({
     body: patchedBody,
     round: nextRound,
     trace,
+    blocked: false,
   };
 }
 
@@ -265,7 +281,46 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     hasKeepaliveMarker = Boolean(findFirstMatch(workingBody, markerPatterns));
   }
 
+  const isAutomationStatusComment = () => {
+    const trimmedBody = normaliseBody(body);
+    if (!trimmedBody) {
+      return false;
+    }
+    if (trimmedBody.includes('<!-- autofix-loop:')) {
+      return true;
+    }
+    if (trimmedBody.toLowerCase().startsWith('autofix attempt')) {
+      return true;
+    }
+    const automationAuthors = new Set(['chatgpt-codex-connector']);
+    if (automationAuthors.has(author) && !isLikelyInstruction(trimmedBody)) {
+      return true;
+    }
+    return false;
+  };
+
+  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment()) {
+    outputs.reason = 'automation-comment';
+    core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
+    setAllOutputs();
+    return outputs;
+  }
+
   let autopatched = false;
+  let blockedByManualRound = false;
+  let highestRoundCache = null;
+  const ensureHighestRound = async () => {
+    if (highestRoundCache === null) {
+      highestRoundCache = await computeHighestRound({
+        github,
+        owner,
+        repo,
+        prNumber: contextIssueNumber,
+      });
+    }
+    return highestRoundCache;
+  };
+
   if (
     (!roundMatch || !hasKeepaliveMarker) &&
     isAuthorAllowed &&
@@ -274,26 +329,43 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     owner &&
     repo
   ) {
-    try {
-      const patched = await autopatchKeepaliveComment({
-        core,
-        github,
-        owner,
-        repo,
-        prNumber: contextIssueNumber,
-        comment,
-        currentBody: body,
-      });
-      if (patched) {
-        roundMatch = [null, String(patched.round)];
-        traceMatch = [null, patched.trace];
-        hasKeepaliveMarker = true;
-        autopatched = true;
+    const highestRound = await ensureHighestRound();
+    if (highestRound >= 1) {
+      blockedByManualRound = true;
+    } else {
+      try {
+        const patched = await autopatchKeepaliveComment({
+          core,
+          github,
+          owner,
+          repo,
+          prNumber: contextIssueNumber,
+          comment,
+          currentBody: body,
+          highestRound,
+        });
+        if (patched) {
+          if (patched.blocked) {
+            blockedByManualRound = true;
+          } else {
+            roundMatch = [null, String(patched.round)];
+            traceMatch = [null, patched.trace];
+            hasKeepaliveMarker = true;
+            autopatched = true;
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        core.warning(`Auto-inserting keepalive markers failed: ${message}`);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      core.warning(`Auto-inserting keepalive markers failed: ${message}`);
     }
+  }
+
+  if (blockedByManualRound) {
+    outputs.reason = 'manual-round';
+    core.info('Keepalive dispatch skipped: subsequent keepalive rounds must be initiated by automation.');
+    setAllOutputs();
+    return outputs;
   }
 
   if (!roundMatch) {
