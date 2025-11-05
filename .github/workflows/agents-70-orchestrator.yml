@@ -688,10 +688,14 @@ jobs:
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
     steps:
       - name: Ensure keepalive token available
-        if: ${{ secrets.ACTIONS_BOT_PAT == '' && secrets.SERVICE_BOT_PAT == '' }}
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
-          echo "::error::Keepalive instruction comments require ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-          exit 1
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Keepalive instruction comments require ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
 
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
