@@ -46,8 +46,8 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr }}
       author: ${{ steps.detect.outputs.author }}
-    comment_id: ${{ steps.detect.outputs.comment_id }}
-    comment_url: ${{ steps.detect.outputs.comment_url }}
+      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_url: ${{ steps.detect.outputs.comment_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
