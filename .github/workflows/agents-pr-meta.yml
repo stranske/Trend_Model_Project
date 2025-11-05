@@ -64,13 +64,33 @@ jobs:
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             await detectKeepalive({ core, github, context, env: process.env });
 
+      - name: Prepare keepalive summary context
+        id: summary_context
+        run: |
+          set -euo pipefail
+          comment_id="${COMMENT_ID:-}"
+          comment_url="${COMMENT_URL:-}"
+
+          if [[ -n "${comment_id}" && -n "${comment_url}" ]]; then
+            value="[#${comment_id}](${comment_url})"
+          elif [[ -n "${comment_id}" ]]; then
+            value="${comment_id}"
+          else
+            value="—"
+          fi
+
+          printf 'comment=%s\n' "${value}" >>"${GITHUB_OUTPUT}"
+        env:
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
+
       - name: Summarise keepalive evaluation
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ## Keepalive detection
           | ok | reason | author | comment | pr | round | trace |
           | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.detect.outputs.comment_id && steps.detect.outputs.comment_url && format('[#{0}]({1})', steps.detect.outputs.comment_id, steps.detect.outputs.comment_url) || steps.detect.outputs.comment_id || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
           EOF
 
       - name: Register keepalive detection
@@ -89,11 +109,17 @@ jobs:
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
     steps:
+      - name: Ensure keepalive dispatch token available
+        if: ${{ !secrets.ACTIONS_BOT_PAT && !secrets.SERVICE_BOT_PAT }}
+        run: |
+          echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+          exit 1
+
       - name: Dispatch Agents 70 run for keepalive
         id: orchestrator
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const issue = Number('${{ needs.keepalive_dispatch.outputs.issue }}');
             const prNumber = Number('${{ needs.keepalive_dispatch.outputs.pr }}');
