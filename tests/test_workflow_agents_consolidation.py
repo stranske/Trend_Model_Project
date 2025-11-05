@@ -51,6 +51,9 @@ def test_agents_orchestrator_inputs_and_uses():
         "bootstrap_issues_label:" in text
     ), "Orchestrator must forward bootstrap label configuration"
     assert (
+        "keepalive_max_retries" in text
+    ), "Orchestrator must expose keepalive retry configuration"
+    assert (
         "./.github/workflows/reusable-16-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
 
@@ -436,6 +439,7 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
 
     targets = {
         "resolve-params": "./.github/scripts/agents_orchestrator_resolve.js",
+        "keepalive-guard": "./.github/scripts/keepalive_guard_utils.js",
         "belt-dispatch-summary": "./.github/scripts/agents_dispatch_summary.js",
         "belt-scan-ready-prs": "./.github/scripts/agents_belt_scan.js",
     }

@@ -36,7 +36,8 @@ const DEFAULTS = {
   dry_run: 'false',
   dispatcher_force_issue: '',
   worker_max_parallel: '1',
-  conveyor_max_merges: '2'
+  conveyor_max_merges: '2',
+  keepalive_max_retries: '5',
 };
 
 const toString = (value, fallback = '') => {
@@ -215,10 +216,46 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     core.warning(`options_json could not be parsed (${error.message}); using defaults.`);
   }
 
+  const { owner, repo } = context.repo;
+
   // Inject default keepalive instruction if not already present
   // Also detect if this orchestrator run was triggered by the Gate workflow
   const triggeredByGate = context.eventName === 'workflow_run';
-  
+
+  let workflowRunPr = '';
+  if (triggeredByGate) {
+    const runPayload = context.payload?.workflow_run;
+    if (runPayload) {
+      const pullRequests = Array.isArray(runPayload.pull_requests) ? runPayload.pull_requests : [];
+      const directMatch = pullRequests.find((pr) => Number.isFinite(pr?.number));
+      if (directMatch && Number.isFinite(directMatch.number)) {
+        workflowRunPr = String(directMatch.number);
+      } else {
+        const headSha = toString(runPayload.head_sha || '', '').trim();
+        if (headSha) {
+          try {
+            const associated = await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              {
+                owner,
+                repo,
+                commit_sha: headSha,
+                per_page: 100,
+              }
+            );
+            const matched = associated.find((pr) => pr?.head?.sha === headSha);
+            if (matched && Number.isFinite(matched.number)) {
+              workflowRunPr = String(matched.number);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            core.warning(`Unable to map workflow_run head ${headSha} to pull request: ${message}`);
+          }
+        }
+      }
+    }
+  }
+
   const finalParsedOptions = {
     ...parsedOptions,
     ...( (!parsedOptions.keepalive_instruction && !parsedOptions.keepalive_instruction_template)
@@ -226,6 +263,10 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
           : {} ),
     ...(triggeredByGate ? { triggered_by_gate: true } : {})
   };
+
+  if (workflowRunPr && !finalParsedOptions.pr) {
+    finalParsedOptions.pr = workflowRunPr;
+  }
 
   // Re-serialize with injected defaults
   const finalOptionsJson = JSON.stringify(finalParsedOptions);
@@ -243,7 +284,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
     ''
   ).trim();
-  const keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr, '').trim();
+  let keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr ?? workflowRunPr, '').trim();
 
   const dispatcherForceIssue = toString(
     dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,
@@ -267,7 +308,12 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     DEFAULTS.enable_keepalive
   );
 
-  const { owner, repo } = context.repo;
+  const keepaliveMaxRetries = toBoundedIntegerString(
+    keepalive.max_retries ?? merged.keepalive_max_retries ?? finalParsedOptions.keepalive_max_retries,
+    DEFAULTS.keepalive_max_retries,
+    { min: 1, max: 10 }
+  );
+
   let keepalivePaused = false;
 
   if (keepaliveRequested === 'true') {
@@ -296,6 +342,14 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     keepaliveTrace = makeTrace();
   }
 
+  if (triggeredByGate) {
+    if (keepalivePr) {
+      core.info(`Keepalive workflow_run mapped to pull request #${keepalivePr}.`);
+    } else {
+      core.warning('Keepalive workflow_run payload did not include a pull request number.');
+    }
+  }
+
   const outputs = {
     enable_readiness: toBoolString(merged.enable_readiness, DEFAULTS.enable_readiness),
     readiness_agents: readinessAgents,
@@ -315,6 +369,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     keepalive_requested: keepaliveRequested,
     keepalive_paused_label: keepalivePaused ? 'true' : 'false',
     keepalive_pause_label: KEEPALIVE_PAUSE_LABEL,
+  keepalive_max_retries: keepaliveMaxRetries,
     enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
     bootstrap_issues_label: toString(
       merged.bootstrap_issues_label ?? bootstrap.label,
@@ -350,6 +405,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     'keepalive_requested',
     'keepalive_paused_label',
     'keepalive_pause_label',
+  'keepalive_max_retries',
     'enable_bootstrap',
     'bootstrap_issues_label',
     'draft_pr',
