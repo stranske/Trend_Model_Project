@@ -388,6 +388,13 @@ jobs:
       proceed: ${{ steps.guard.outputs.proceed || 'true' }}
       reason: ${{ steps.guard.outputs.reason || '' }}
     steps:
+      - name: Checkout guard helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
       - name: Evaluate keepalive prerequisites
         id: guard
         uses: actions/github-script@v7
@@ -396,9 +403,16 @@ jobs:
           KEEPALIVE_TRACE: ${{ needs.resolve-params.outputs.keepalive_trace }}
           KEEPALIVE_ROUND: ${{ needs.resolve-params.outputs.keepalive_round }}
           KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr }}
+          KEEPALIVE_MAX_RETRIES: ${{ needs.resolve-params.outputs.keepalive_max_retries || '5' }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
+            // Do not remove checkout; local helper is required.
+            const {
+              SKIP_MARKER,
+              analyseSkipComments,
+              isGateReason,
+            } = require('./.github/scripts/keepalive_guard_utils.js');
             const normalise = (value) => String(value || '').trim();
             const toBool = (value) => {
               const norm = normalise(value).toLowerCase();
@@ -470,7 +484,7 @@ jobs:
               }
             };
 
-            const finaliseSkip = async (reason, details) => {
+            const finaliseSkip = async (reason, details, options = {}) => {
               const line = renderLine(reason);
               summary.addRaw(line).addEOL();
               appendDetails(details);
@@ -479,11 +493,17 @@ jobs:
               const commentable = Number.isFinite(prNumber) && prNumber > 0;
               if (commentable) {
                 try {
+                  const skipCount = Number(options.skipCount);
+                  const commentLines = [SKIP_MARKER];
+                  if (Number.isFinite(skipCount) && skipCount > 0) {
+                    commentLines.push(`<!-- keepalive-skip-count: ${skipCount} -->`);
+                  }
+                  commentLines.push(line);
                   await github.rest.issues.createComment({
                     owner,
                     repo,
                     issue_number: prNumber,
-                    body: line,
+                    body: commentLines.join('\n'),
                   });
                 } catch (error) {
                   const message = error instanceof Error ? error.message : String(error);
@@ -540,57 +560,53 @@ jobs:
               }
               if (pr.draft) {
                 addReason('pr-draft');
-              }
-              const labelNames = new Set(
-                (pr.labels || [])
-                  .map((label) => (typeof label === 'string' ? label : label?.name || ''))
-                  .map((name) => name.trim().toLowerCase())
-                  .filter(Boolean)
-              );
+                if (reasons.length) {
+                  const maxRetries = Math.max(1, Number(process.env.KEEPALIVE_MAX_RETRIES || '5'));
+                  let skipHistory = { total: 0, highestCount: 0, nonGateCount: 0 };
+                  try {
+                    const comments = await github.paginate(github.rest.issues.listComments, {
+                      owner,
+                      repo,
+                      issue_number: prNumber,
+                      per_page: 100,
+                    });
+                    skipHistory = analyseSkipComments(comments || []);
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    core.warning(`Failed to scan prior keepalive skip comments: ${message}`);
+                  }
 
-              const ensureLabel = async (label) => {
-                const normalised = String(label || '').trim();
-                if (!normalised) {
-                  return false;
-                }
-                const lowered = normalised.toLowerCase();
-                if (labelNames.has(lowered)) {
-                  return true;
-                }
-                try {
-                  await github.rest.issues.addLabels({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    labels: [normalised],
-                  });
-                  labelNames.add(lowered);
-                  summary
-                    .addRaw(`Applied missing label for keepalive guard: ${normalised}`)
-                    .addEOL();
-                  return true;
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : String(error);
-                  summary
-                    .addRaw(`Failed to add label ${normalised} to PR #${prNumber}: ${message}`)
-                    .addEOL();
-                  return false;
-                }
-              };
+                  const priorSkips = skipHistory.total || 0;
+                  const priorNonGate = skipHistory.nonGateCount || 0;
+                  const nextSkipCount = Math.max(1, (skipHistory.highestCount || priorSkips) + 1);
+                  const nonGateReasons = reasons.filter((reason) => !isGateReason(reason));
 
-              const ensureCriticalLabel = async (label) => {
-                const ok = await ensureLabel(label);
-                if (!ok) {
-                  addReason(`missing-label:${label}`);
+                  if (priorSkips >= maxRetries) {
+                    await finaliseSkip('too-many-failures', `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
+                    return;
+                  }
+
+                  if (nonGateReasons.length === 0) {
+                    const reasonText = reasons.join(', ');
+                    await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
+                    return;
+                  }
+
+                  if (priorNonGate >= maxRetries) {
+                    await finaliseSkip('too-many-failures', `Previous non-gate keepalive failures: ${priorNonGate}`, { skipCount: nextSkipCount });
+                    return;
+                  }
+
+                  if (priorNonGate > 0) {
+                    const reasonText = reasons.join(', ');
+                    await finaliseSkip(`previous-failure:${reasonText}`, `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
+                    return;
+                  }
+
+                  const reasonText = reasons.join(', ');
+                  await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
+                  return;
                 }
-              };
-
-              await ensureCriticalLabel('agents:keepalive');
-              await ensureCriticalLabel('agent:codex');
-
-              const headSha = pr.head?.sha || '';
-              if (!headSha) {
-                addReason('missing-head-sha');
               } else {
                 try {
                   const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
@@ -1281,7 +1297,7 @@ jobs:
           DISPATCH_REASON: ${{ needs.belt-dispatch.outputs.reason || '' }}
           WORKER_RESULT: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && 'skipped: PR exists.' || needs.belt-worker.result || '' }}"
           WORKER_ALLOWED: ${{ needs.belt-worker.outputs.allowed || '' }}
-          WORKER_PR_NUMBER: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || '' }}"
+          WORKER_PR_NUMBER: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || needs.keepalive-instruction.outputs.pr_number || needs.resolve-params.outputs.keepalive_pr || '' }}"
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
         with:

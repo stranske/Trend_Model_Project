@@ -94,6 +94,8 @@ Always include hidden markers at the top of the comment body:
 
 <!-- keepalive-round: {N} -->
 
+<!-- keepalive-attempt: {N} -->
+
 <!-- codex-keepalive-marker -->
 
 <!-- keepalive-trace: {TRACE} -->
@@ -116,6 +118,7 @@ Modifying the separate status/checklist updater (it may continue to edit the sta
 - [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:
 
 <!-- keepalive-round: {N} -->
+<!-- keepalive-attempt: {N} -->
 <!-- codex-keepalive-marker -->
 <!-- keepalive-trace: {TRACE} -->
 @codex Continue with the remaining tasks; re-post the Scope/Tasks/Acceptance block and check off only when acceptance criteria are satisfied.

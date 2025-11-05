@@ -52,6 +52,7 @@ results/
 !src/trend_analysis/export/manifest_schema.json
 !tests/fixtures/keepalive/*.json
 !tests/fixtures/agents_pr_meta/*.json
+!tests/fixtures/orchestrator/*.json
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 ci/autofix/diagnostics.json
