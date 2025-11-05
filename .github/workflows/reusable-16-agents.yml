@@ -106,6 +106,8 @@ on:
     secrets:
       service_bot_pat:
         required: false
+      actions_bot_pat:
+        required: false
     outputs:
       readiness_report:
         description: 'JSON report emitted by the readiness probe when enabled'
