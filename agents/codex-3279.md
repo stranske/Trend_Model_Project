@@ -9,7 +9,7 @@ Improve test coverage for the Trend Analysis project, prioritising `src/trend_an
 - [x] Run soft coverage and prepare a ranked list of sub-95 % files (see "Coverage Findings").
 - [ ] Increase test coverage incrementally for one related area at a time
   - [x] `src/trend_analysis/__init__.py` – dedicated package import tests in `tests/trend_analysis/test_package_init.py`
-  - [ ] `src/trend_analysis/data.py` – currently 0 % coverage
+  - [x] `src/trend_analysis/data.py` – comprehensive loader and helper tests in `tests/trend_analysis/test_data.py`
   - [ ] `src/trend_analysis/presets.py` – currently 0 % coverage
   - [ ] `src/trend_analysis/backtesting/harness.py` – currently 0 % coverage
   - [ ] `src/trend_analysis/regimes.py` – currently 0 % coverage
@@ -33,12 +33,12 @@ Improve test coverage for the Trend Analysis project, prioritising `src/trend_an
 - [ ] Essential functions for the program have full test coverage.
 
 ## Coverage Findings
-Coverage was gathered with `python -m coverage run -m pytest tests/trend_analysis/test_package_init.py` followed by `python -m coverage report -m`. Representative sub-95 % files and their current coverage levels:
+Coverage was gathered with targeted runs such as `python -m coverage run -m pytest tests/trend_analysis/test_package_init.py` and `python -m coverage run -m pytest tests/trend_analysis/test_data.py`, followed by `python -m coverage report -m`. Representative sub-95 % files and their current coverage levels:
 
 | Module | Coverage | Notes |
 | --- | --- | --- |
 | `src/trend_analysis/__init__.py` | 100 % | Dedicated tests cover eager/lazy imports and metadata fallbacks. |
-| `src/trend_analysis/data.py` | 0 % | No automated tests currently exercise data loaders or helpers. |
+| `src/trend_analysis/data.py` | 98 % | New unit tests exercise policy coercion, file loading error paths, and datetime helpers. |
 | `src/trend_analysis/pipeline.py` | 0 % | Pipeline orchestration remains untested; prioritise scenario coverage. |
 | `src/trend_analysis/io/market_data.py` | 0 % | Requires fixtures around CSV ingestion and `use_inf_as_na` branch. |
 | `src/trend_analysis/cli.py` | 0 % | CLI entry points lack smoke or integration tests. |
@@ -47,10 +47,9 @@ Coverage was gathered with `python -m coverage run -m pytest tests/trend_analysi
 See the full `coverage report` output for additional modules requiring attention.【a31d97†L1-L77】
 
 ## Next Steps
-1. Design fixture-driven unit tests for `src/trend_analysis/data.py` to lift loader coverage above 95 %.
-2. Exercise success and failure paths in `src/trend_analysis/pipeline.py`, ideally by orchestrating stubbed components.
-3. Add integration-style tests for `src/trend_analysis/io/market_data.py` handling NaN/inf data and option contexts.
-4. Introduce smoke tests for `src/trend_analysis/cli.py` to validate command wiring.
-5. Re-run targeted coverage after each module-focused test addition and update this log accordingly.
+1. Exercise success and failure paths in `src/trend_analysis/pipeline.py`, ideally by orchestrating stubbed components.
+2. Add integration-style tests for `src/trend_analysis/io/market_data.py` handling NaN/inf data and option contexts.
+3. Introduce smoke tests for `src/trend_analysis/cli.py` to validate command wiring.
+4. Re-run targeted coverage after each module-focused test addition and update this log accordingly.
 
-*Last updated: 2025-02-15*
+*Last updated: 2025-11-05*
