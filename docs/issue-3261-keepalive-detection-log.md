@@ -1,10 +1,10 @@
 # Issue 3261 – Keepalive Detection & Dispatch Hardening Log
 
-_Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestrator hardening). Mirrors the Issue #3260 workflow: every status reflects verifiable GitHub Actions runs or PR artefacts so regressions surface immediately._
+_Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestrator hardening). Mirrors the Issue #3260 workflow: every status reflects verifiable GitHub Actions runs or PR artifacts so regressions surface immediately._
 
 ## Working Process
 
-1. **Evidence precedes status** – No task or acceptance criterion is marked complete until the associated workflow run, log segment, or PR artefact is linked.
+1. **Evidence precedes status** – No task or acceptance criterion is marked complete until the associated workflow run, log segment, or PR artifact is linked.
 2. **Regression guard** – When fresh evidence lands, re-confirm all previously satisfied items under the latest production context. Downgrade status immediately if a check regresses.
 3. **Author + marker focus** – Verification requires both an allowed author (`stranske` via ACTIONS_BOT_PAT or `stranske-automation-bot`) and the hidden keepalive markers before claiming success.
 4. **Trace continuity** – Every round must yield consistent TRACE propagation across detector, orchestrator, and comment outputs; mismatches force investigation before closure.
