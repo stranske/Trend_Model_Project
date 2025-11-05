@@ -114,9 +114,7 @@ def test_classify_frequency_handles_short_and_zero_offsets() -> None:
     single = classify_frequency(pd.DatetimeIndex(["2024-01-31"]))
     assert single["code"] == "UNKNOWN"
 
-    duplicates = classify_frequency(
-        pd.DatetimeIndex(["2024-01-31", pd.NaT])
-    )
+    duplicates = classify_frequency(pd.DatetimeIndex(["2024-01-31", pd.NaT]))
     assert duplicates["code"] == "UNKNOWN"
 
     with pytest.raises(MarketDataValidationError):
@@ -288,5 +286,3 @@ def test_load_market_data_parquet_permission_error(monkeypatch) -> None:
         load_market_data_parquet("/tmp/data.parquet")
 
     assert "Permission denied" in str(exc.value)
-
-

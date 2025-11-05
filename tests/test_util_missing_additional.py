@@ -87,7 +87,9 @@ def test_policy_display_with_limit_overrides() -> None:
     assert "B=zero" in text
 
 
-def test_apply_missing_policy_ffill_drops_incomplete_column(sample_frame: pd.DataFrame) -> None:
+def test_apply_missing_policy_ffill_drops_incomplete_column(
+    sample_frame: pd.DataFrame,
+) -> None:
     cleaned, result = missing.apply_missing_policy(
         sample_frame,
         {"A": "ffill", "B": "drop"},
@@ -119,7 +121,9 @@ def test_apply_missing_policy_ffill_retains_when_not_enforcing(
 def test_apply_missing_policy_guard_for_unhandled_policy(
     sample_frame: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fake_resolve_mapping(policy: object, default: str) -> tuple[str, dict[str, str]]:
+    def fake_resolve_mapping(
+        policy: object, default: str
+    ) -> tuple[str, dict[str, str]]:
         return "drop", {"A": "mystery"}
 
     monkeypatch.setattr(missing, "_resolve_mapping", fake_resolve_mapping)
