@@ -285,6 +285,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
         currentBody: body,
       });
       if (patched) {
+        workingBody = patched.body;
         roundMatch = [null, String(patched.round)];
         traceMatch = [null, patched.trace];
         hasKeepaliveMarker = true;
@@ -339,6 +340,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.round = String(round);
   const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
   outputs.trace = trace;
+  if (autopatched && !trace) {
+    outputs.trace = traceMatch ? String(traceMatch[1]).trim() : '';
+  }
 
   let pull;
   try {

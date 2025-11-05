@@ -18,7 +18,7 @@
       "ref": "phase-2-dev"
     },
   "title": "Keepalive auto fix scenario (#3260)",
-  "body": "Testing auto insertion of keepalive markers referencing (#3260)."
+  "body": "Testing auto insertion of keepalive markers referencing #3260."
   },
   "comments": [
     {
