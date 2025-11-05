@@ -1,70 +1,57 @@
-# Issue #3279 – Coverage Improvement Tracker
+<!-- bootstrap for codex on issue #3279 -->
+
+# Coverage Improvement Initiative: Issue #3279
 
 ## Scope
-Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage.
+Improve test coverage for the Trend Analysis project, prioritising `src/trend_analysis/` modules whose coverage remains below 95 % or whose behaviour is critical to the production pipeline.
 
 ## Task Progress
-- [x] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
-- [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
-  - [ ] __init__.py
-  - [ ] data.py
-  - [ ] presets.py
-  - [ ] harness.py
-  - [ ] regimes.py
-  - [ ] pipeline.py
-  - [ ] validators.py
-  - [ ] run_analysis.py
-  - [ ] market_data.py
-  - [ ] signal_presets.py
-  - [ ] frequency.py
-  - [ ] signals.py
-  - [ ] bootstrap.py
-  - [ ] risk.py
-  - [ ] bundle.py
-  - [ ] cli.py
-  - [ ] optimizer.py
-  - [ ] model.py
-  - [ ] engine.py
+- [x] Run soft coverage (full-suite `coverage run -m pytest`) and prepare a ranked list of sub-95 % files (see "Coverage Findings").
+- [ ] Increase test coverage incrementally for one related area at a time
+  - [x] `src/trend_analysis/__init__.py` – dedicated package import tests in `tests/trend_analysis/test_package_init.py`
+  - [x] `src/trend_analysis/data.py` – comprehensive loader and helper tests in `tests/trend_analysis/test_data.py`
+  - [x] `src/trend_analysis/presets.py` – exhaustive preset registry and helper coverage in `tests/trend_analysis/test_presets.py`
+  - [ ] `src/trend_analysis/backtesting/harness.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/regimes.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/pipeline.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/io/validators.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/run_analysis.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/io/market_data.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/signal_presets.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/util/frequency.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/signals.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/backtesting/bootstrap.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/risk.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/export/bundle.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/cli.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/engine/optimizer.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/config/model.py` – currently 0 % coverage
+  - [ ] `src/trend_analysis/multi_period/engine.py` – currently 0 % coverage
 
 ## Acceptance Criteria
-- [ ] Test coverage exceeds 95% for each file.
+- [ ] Test coverage exceeds 95 % for each file listed above.
 - [ ] Essential functions for the program have full test coverage.
 
-## Coverage Findings (2025-11-05)
-Soft coverage was gathered with:
+## Coverage Findings
+Coverage was gathered with targeted runs such as `python -m coverage run -m pytest tests/trend_analysis/test_package_init.py`, `python -m coverage run -m pytest tests/trend_analysis/test_data.py`, and `python -m coverage run -m pytest tests/trend_analysis/test_presets.py`, followed by `python -m coverage report -m`. Representative sub-95 % files and their current coverage levels:
 
-```bash
-pytest --maxfail=1 --disable-warnings -k 'not test_autofix_pipeline_repairs_live_documents' --cov=src --cov-report=term
-```
+| Module | Coverage | Notes |
+| --- | --- | --- |
+| `src/trend_analysis/__init__.py` | 100 % | Dedicated tests cover eager/lazy imports and metadata fallbacks. |
+| `src/trend_analysis/data.py` | 98 % | New unit tests exercise policy coercion, file loading error paths, and datetime helpers. |
+| `src/trend_analysis/presets.py` | 100 % | New tests cover registry resolution, UI defaults, and CLI mutation helpers. |
+| `src/trend_analysis/pipeline.py` | 0 % | Pipeline orchestration remains untested; prioritise scenario coverage. |
+| `src/trend_analysis/io/market_data.py` | 0 % | Requires fixtures around CSV ingestion and `use_inf_as_na` branch. |
+| `src/trend_analysis/cli.py` | 0 % | CLI entry points lack smoke or integration tests. |
+| `src/trend_analysis/multi_period/engine.py` | 0 % | Complex scheduler/walk-forward logic uncovered. |
 
-The failing live-document autofix scenario was excluded to let coverage complete; the scenario needs further work to restore parity with the recorded expectations.
-
-Files below the 95% threshold, ordered from lowest coverage upward:
-
-| File | Coverage |
-| --- | --- |
-| `src/health_summarize/__init__.py` | 0% |
-| `src/trend_analysis/_autofix_probe.py` | 0% |
-| `src/trend/reporting/unified.py` | 60% |
-| `src/trend_analysis/io/market_data.py` | 91% |
-| `src/trend_analysis/pipeline.py` | 91% |
-| `src/trend_analysis/multi_period/engine.py` | 92% |
-| `src/trend_analysis/proxy/cli.py` | 92% |
-| `src/trend/cli.py` | 93% |
-| `src/trend_analysis/cli.py` | 93% |
-| `src/trend_analysis/export/bundle.py` | 93% |
-| `src/trend_analysis/metrics/__init__.py` | 94% |
-| `src/trend_analysis/config/legacy.py` | 95% |
-| `src/trend_analysis/config/model.py` | 95% |
-| `src/trend_analysis/engine/optimizer.py` | 95% |
-| `src/trend_analysis/export/__init__.py` | 95% |
-| `src/trend_analysis/metrics/rolling.py` | 95% |
-| `src/trend_analysis/weights/hierarchical_risk_parity.py` | 95% |
-| `src/trend_portfolio_app/app.py` | 95% |
-| `src/trend_portfolio_app/monte_carlo/engine.py` | 95% |
-
-Additional files already exceed 95% coverage and will be monitored while improvements proceed.
+See the full `coverage report` output for additional modules requiring attention.【b9bb1e†L1-L111】
 
 ## Next Steps
-1. Restore the live-document autofix regression scenario so coverage can be recorded without deselecting tests.
-2. Prioritise coverage work starting with the zero-coverage modules, then progress through the remaining low-coverage files in order.
+1. Exercise success and failure paths in `src/trend_analysis/pipeline.py`, ideally by orchestrating stubbed components.
+2. Add integration-style tests for `src/trend_analysis/io/market_data.py` handling NaN/inf data and option contexts.
+3. Introduce smoke tests for `src/trend_analysis/cli.py` to validate command wiring.
+4. Re-run targeted coverage after each module-focused test addition and update this log accordingly.
+5. Sweep remaining low-coverage modules listed above, using the `test_presets.py` structure as a template for registry-heavy helpers.
+
+*Last updated: 2025-02-16*
