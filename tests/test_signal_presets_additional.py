@@ -103,5 +103,3 @@ def test_form_defaults_preserves_optional_values_when_defined() -> None:
 
     assert defaults["min_periods"] == 63
     assert defaults["vol_target"] == 0.10
-
-
