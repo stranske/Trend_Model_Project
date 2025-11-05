@@ -14,7 +14,9 @@ def _reset_trend_analysis():
     importlib.reload(trend_analysis)
 
 
-def test_lazy_cli_import_uses_registered_module(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lazy_cli_import_uses_registered_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     stub_cli = types.ModuleType("trend_analysis.cli")
     monkeypatch.setitem(sys.modules, "trend_analysis.cli", stub_cli)
 
@@ -30,7 +32,9 @@ def test_unknown_attribute_raises_attribute_error() -> None:
         module.__getattr__("not_a_real_module")
 
 
-def test_version_fallback_used_when_package_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_fallback_used_when_package_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def _raise_missing(name: str) -> str:  # noqa: ANN001
         raise importlib.metadata.PackageNotFoundError
 

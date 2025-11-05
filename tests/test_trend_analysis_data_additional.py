@@ -57,7 +57,9 @@ def test_coerce_policy_kwarg_rejects_invalid_types(value: object) -> None:
     ("value", "expected"),
     [(None, None), ("", None), ("none", None), ("5", 5), (5.0, 5)],
 )
-def test_coerce_limit_entry_handles_strings(value: object, expected: int | None) -> None:
+def test_coerce_limit_entry_handles_strings(
+    value: object, expected: int | None
+) -> None:
     assert data._coerce_limit_entry(value) == expected
 
 
@@ -72,21 +74,23 @@ def test_coerce_limit_kwarg_accepts_numeric_strings() -> None:
 
 
 def test_normalise_numeric_strings_handles_percent_and_commas() -> None:
-    frame = pd.DataFrame({
-        "Date": ["2020-01-01"],
-        "FundA": ["12.5%"],
-        "FundB": ["(1,200)"]
-    })
+    frame = pd.DataFrame(
+        {"Date": ["2020-01-01"], "FundA": ["12.5%"], "FundB": ["(1,200)"]}
+    )
     cleaned = data._normalise_numeric_strings(frame)
     assert pytest.approx(cleaned.loc[0, "FundA"], rel=1e-9) == 0.125
     assert cleaned.loc[0, "FundB"] == -1200
 
 
-def test_validate_payload_normalises_policies_and_limits(monkeypatch: pytest.MonkeyPatch) -> None:
-    frame = pd.DataFrame({
-        "Date": ["2020-01-01"],
-        "FundA": ["50%"],
-    })
+def test_validate_payload_normalises_policies_and_limits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2020-01-01"],
+            "FundA": ["50%"],
+        }
+    )
     captured: dict[str, object] = {}
 
     def fake_validate(payload: pd.DataFrame, **kwargs: object):  # noqa: ANN003
@@ -105,13 +109,18 @@ def test_validate_payload_normalises_policies_and_limits(monkeypatch: pytest.Mon
     )
 
     assert isinstance(result, pd.DataFrame)
-    assert captured["missing_policy"] == {"FundA": "ffill", "*": data.DEFAULT_POLICY_FALLBACK}
+    assert captured["missing_policy"] == {
+        "FundA": "ffill",
+        "*": data.DEFAULT_POLICY_FALLBACK,
+    }
     assert captured["missing_limit"] == {"FundA": 5, "*": None}
     payload = captured["payload"]
     assert pytest.approx(payload.loc[0, "FundA"], rel=1e-9) == 0.5
 
 
-def test_validate_payload_logs_parse_errors(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_validate_payload_logs_parse_errors(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     frame = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1.0]})
 
     def fail_validate(*_: object, **__: object) -> None:  # noqa: ANN002, ANN003
@@ -129,7 +138,9 @@ def test_validate_payload_logs_parse_errors(monkeypatch: pytest.MonkeyPatch, cap
     assert "Unable to parse Date values in source.csv" in caplog.text
 
 
-def test_validate_dataframe_enriches_attributes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_dataframe_enriches_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     frame = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1.0]})
 
     def fake_validate(payload: pd.DataFrame, **kwargs: object):  # noqa: ANN003
@@ -144,7 +155,9 @@ def test_validate_dataframe_enriches_attributes(monkeypatch: pytest.MonkeyPatch)
     assert attrs["market_data_frequency_label"] == "daily"
 
 
-def test_load_csv_missing_file_logs_error(caplog: pytest.LogCaptureFixture, tmp_path: Path) -> None:
+def test_load_csv_missing_file_logs_error(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
     missing = tmp_path / "absent.csv"
     with caplog.at_level(logging.ERROR, logger="trend_analysis.data"):
         assert data.load_csv(str(missing)) is None
@@ -157,13 +170,17 @@ def test_load_csv_raises_when_configured(tmp_path: Path) -> None:
         data.load_csv(str(missing), errors="raise")
 
 
-def test_load_parquet_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_round_trip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     file_path = tmp_path / "dataset.parquet"
     file_path.write_bytes(b"")
     frame = pd.DataFrame({"Date": ["2020-01-01"], "FundA": [1.0]})
 
     monkeypatch.setattr(pd, "read_parquet", lambda path: frame)
-    monkeypatch.setattr(data, "validate_market_data", lambda payload, **_: _validated_payload(payload))
+    monkeypatch.setattr(
+        data, "validate_market_data", lambda payload, **_: _validated_payload(payload)
+    )
 
     result = data.load_parquet(str(file_path), include_date_column=False)
     assert isinstance(result, pd.DataFrame)
@@ -192,7 +209,9 @@ def test_ensure_datetime_parses_valid_strings() -> None:
     assert pd.api.types.is_datetime64_any_dtype(parsed["Date"])
 
 
-def test_ensure_datetime_reports_invalid_values(caplog: pytest.LogCaptureFixture) -> None:
+def test_ensure_datetime_reports_invalid_values(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     frame = pd.DataFrame({"Date": ["not-a-date", "still bad"]})
     with caplog.at_level(logging.ERROR, logger="trend_analysis.data"):
         with pytest.raises(ValueError):

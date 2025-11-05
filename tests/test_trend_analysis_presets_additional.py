@@ -10,7 +10,9 @@ from trend_analysis import presets
 
 
 @pytest.fixture
-def preset_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+def preset_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path]:
     base_dir = tmp_path / "primary"
     base_dir.mkdir()
     env_dir = tmp_path / "env"
@@ -97,7 +99,7 @@ def test_preset_registry_honours_override_and_warns_on_duplicates(
 
 
 def test_get_trend_preset_supports_slug_and_label(
-    preset_environment: tuple[Path, Path]
+    preset_environment: tuple[Path, Path],
 ) -> None:
     base_dir, env_dir = preset_environment
     _write_yaml(base_dir / "alpha.yml", _build_default_yaml())
@@ -111,7 +113,7 @@ def test_get_trend_preset_supports_slug_and_label(
 
 
 def test_trend_preset_helpers_produce_expected_defaults(
-    preset_environment: tuple[Path, Path]
+    preset_environment: tuple[Path, Path],
 ) -> None:
     base_dir, env_dir = preset_environment
     _write_yaml(base_dir / "alpha.yml", _build_default_yaml())
@@ -142,7 +144,7 @@ def test_trend_preset_helpers_produce_expected_defaults(
 
 
 def test_apply_trend_preset_merges_into_config(
-    preset_environment: tuple[Path, Path]
+    preset_environment: tuple[Path, Path],
 ) -> None:
     base_dir, env_dir = preset_environment
     _write_yaml(base_dir / "alpha.yml", _build_default_yaml())
