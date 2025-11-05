@@ -207,7 +207,9 @@ def test_load_trend_config_reads_mapping(tmp_path: Path) -> None:
         config_model.load_trend_config(bad_path)
 
 
-def test_resolve_path_checks_parent_and_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_path_checks_parent_and_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     base_dir = tmp_path / "nested" / "inner"
     base_dir.mkdir(parents=True)
     parent_file = base_dir.parent / "parent.csv"
@@ -224,7 +226,9 @@ def test_resolve_path_checks_parent_and_cwd(tmp_path: Path, monkeypatch: pytest.
     assert resolved_cwd == cwd_file.resolve()
 
 
-def test_expand_pattern_deduplicates_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_pattern_deduplicates_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     base_dir = tmp_path / "dup"
     base_dir.mkdir()
     monkeypatch.chdir(base_dir)
@@ -291,8 +295,9 @@ def test_portfolio_settings_negative_turnover_rejected() -> None:
         )
 
 
-
-def test_resolve_config_path_uses_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_config_path_uses_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     cfg_dir = tmp_path / "configs"
     cfg_dir.mkdir()
     config_file = cfg_dir / "custom.yml"
@@ -304,8 +309,11 @@ def test_resolve_config_path_uses_environment(tmp_path: Path, monkeypatch: pytes
 
     config_file_no_suffix = cfg_dir / "alias.yml"
     config_file_no_suffix.write_text("{}", encoding="utf-8")
-    resolved_with_suffix = config_model._resolve_config_path(str(config_file_no_suffix.with_suffix("")))
+    resolved_with_suffix = config_model._resolve_config_path(
+        str(config_file_no_suffix.with_suffix(""))
+    )
     assert resolved_with_suffix == config_file_no_suffix.resolve()
+
 
 def test_candidate_roots_includes_base_and_parent(tmp_path: Path) -> None:
     base_dir = tmp_path / "roots"
