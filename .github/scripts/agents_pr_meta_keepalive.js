@@ -340,9 +340,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.round = String(round);
   const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
   outputs.trace = trace;
-  if (autopatched && !trace) {
-    outputs.trace = traceMatch ? String(traceMatch[1]).trim() : '';
-  }
 
   let pull;
   try {
