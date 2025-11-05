@@ -16,10 +16,10 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 
 | Acceptance Criterion | Status | Evidence |
 | --- | --- | --- |
-| New instruction comment created each cycle with required markers and @codex. | Complete | `renderInstruction` emits markers + `@codex`; `Create keepalive instruction comment` posts fresh instruction each sweep. |
-| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | Complete | Token selection in prepare step sets author and chooses PAT accordingly. |
-| PR-meta ack observed or fallback dispatch + comment emitted. | Complete | Ack script polls for 🚀; fallback dispatch/comment steps fire when acknowledgment missing. |
-| Step summary includes Round, Trace, Author, CommentId. | Complete | Summary heredoc logs all four values with comment link. |
+| New instruction comment created each cycle with required markers and @codex. | ❌ Not satisfied | Latest orchestrator runs [#19087371981](https://github.com/stranske/Trend_Model_Project/actions/runs/19087371981) and [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) failed before the first job, so no instruction comments were posted. |
+| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Because no instruction comment was created in the recent runs, author provenance could not be validated. |
+| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Ack loop never started; orchestrator aborted pre-job and emitted neither 👀/🚀 reactions nor the fallback skip comment. |
+| Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) produced no step summary output, leaving all summary fields unverified. |
 
 ## Notes
 
@@ -29,3 +29,5 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_naming.py` (7 passed) to ensure workflow naming conventions stay aligned after changes.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_autofix_guard.py` (3 passed) to verify autofix guard workflow behaviour remains intact.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_multi_failure.py` (1 passed) to confirm multi-failure workflow handling stays stable.
+- 2025-11-05 – Guarded workflow_dispatch concurrency inputs to prevent push-triggered runs from failing before job execution; awaiting new detector/orchestrator cycle for validation.
+- 2025-11-05 – Added detection script tolerance for sanitized keepalive markers and expanded coverage via `tests/test_agents_pr_meta_keepalive.py` (5 passed locally); awaiting merge so issue_comment runs consume the fix.

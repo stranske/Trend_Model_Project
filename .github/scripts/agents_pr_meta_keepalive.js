@@ -55,6 +55,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
 
+  
+
   const outputs = {
     dispatch: 'false',
     reason: 'not-keepalive',
@@ -65,6 +67,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     trace: '',
     pr: '',
     author: '',
+    comment_id: '',
+    comment_url: '',
   };
 
   const setBasicOutputs = () => {
@@ -81,6 +85,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('trace', outputs.trace);
     core.setOutput('pr', outputs.pr);
     core.setOutput('author', outputs.author);
+    core.setOutput('comment_id', outputs.comment_id);
+    core.setOutput('comment_url', outputs.comment_url);
   };
 
   const { comment, issue } = context.payload || {};
@@ -90,13 +96,18 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const author = normaliseLogin(authorRaw);
 
   outputs.author = authorRaw;
+  outputs.comment_id = comment?.id ? String(comment.id) : '';
+  outputs.comment_url = comment?.html_url || '';
 
-  const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
-  const hasKeepaliveMarker = body.includes(keepaliveMarker);
-  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
+  // Accept both canonical HTML comment markers (<!-- ... -->)
+  // and a sanitized variant that some comment renderers produce: "<- After: ... -->"
+  const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i) || body.match(/<-\s*After:\s*keepalive-round:\s*(\d+)\s*-->/i);
+  const hasKeepaliveMarker = body.includes(keepaliveMarker) || /<-\s*After:\s*codex-keepalive-marker\s*-->/i.test(body);
+  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i) || body.match(/<-\s*After:\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
 
   if (!roundMatch) {
-    core.info('Comment does not contain keepalive round marker; skipping.');
+    outputs.reason = 'missing-round';
+    core.info('Keepalive dispatch skipped: comment missing keepalive round marker.');
     setAllOutputs();
     return outputs;
   }
@@ -135,7 +146,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
-  const trace = traceMatch ? traceMatch[1].trim() : '';
+  const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
   outputs.trace = trace;
 
   let pull;
