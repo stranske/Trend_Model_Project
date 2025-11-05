@@ -68,6 +68,15 @@ def test_keepalive_detection_handles_after_markers() -> None:
     assert outputs["trace"] == "manual-test-2025-11-05-01-35"
 
 
+def test_keepalive_detection_handles_html_entities() -> None:
+    data = _run_scenario("html_entities")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "true"
+    assert outputs["reason"] == "keepalive-detected"
+    assert outputs["round"] == "6"
+    assert outputs["trace"] == "double-sanitized-check"
+
+
 def test_keepalive_detection_requires_marker() -> None:
     data = _run_scenario("missing_marker")
     outputs = data["outputs"]
