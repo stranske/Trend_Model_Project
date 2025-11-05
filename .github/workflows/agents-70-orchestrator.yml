@@ -16,36 +16,6 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
-  workflow_dispatch:
-    inputs:
-      # Keepalive controls — toggle the sweep or combine with keepalive:paused label.
-      keepalive_enabled:
-        description: 'Enable Codex keepalive sweep for this run'
-        required: false
-        default: 'true'
-        type: boolean
-      params_json:
-        description: 'JSON payload of orchestrator params'
-        required: false
-        default: '{}'
-        type: string
-      options_json:
-        description: 'Optional JSON overrides forwarded to reusable agents workflow'
-        required: false
-        default: '{}'
-        type: string
-      dry_run:
-        description: 'Preview orchestrator actions without writes'
-        required: false
-        default: 'false'
-        type: boolean
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
-
 concurrency:
   group: >-
     agents-70-orchestrator-${{
@@ -137,6 +107,92 @@ jobs:
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();
+
+            const normalise = (value) => String(value ?? '').trim();
+            const toBool = (value) => {
+              if (typeof value === 'boolean') {
+                return value;
+              }
+              if (typeof value === 'number') {
+                return value !== 0;
+              }
+              const lowered = normalise(value).toLowerCase();
+              if (!lowered) {
+                return false;
+              }
+              return ['true', '1', 'yes', 'on'].includes(lowered);
+            };
+
+            const parseMaybeJson = (input) => {
+              if (!input) {
+                return null;
+              }
+              if (typeof input === 'object') {
+                return input;
+              }
+              if (typeof input === 'string') {
+                const trimmed = input.trim();
+                if (!trimmed) {
+                  return null;
+                }
+                try {
+                  return JSON.parse(trimmed);
+                } catch (error) {
+                  core.debug?.(`idle-precheck: failed to parse JSON: ${error.message || error}`);
+                }
+              }
+              return null;
+            };
+
+            let keepaliveRequested = false;
+            let keepaliveTrace = '';
+            const keepaliveSources = new Set();
+
+            const markKeepalive = (source, trace) => {
+              keepaliveRequested = true;
+              if (source) {
+                keepaliveSources.add(source);
+              }
+              if (!keepaliveTrace && typeof trace === 'string' && trace.trim()) {
+                keepaliveTrace = trace.trim();
+              }
+            };
+
+            const eventName = context.eventName;
+            if (eventName === 'workflow_dispatch') {
+              const inputs = context.payload?.inputs || {};
+              if (toBool(inputs.keepalive_enabled ?? '')) {
+                markKeepalive('workflow_dispatch.keepalive_enabled');
+              }
+              const params = parseMaybeJson(inputs.params_json);
+              if (params && toBool(params.enable_keepalive)) {
+                markKeepalive('workflow_dispatch.params_json');
+              }
+              const options = parseMaybeJson(inputs.options_json);
+              if (options) {
+                const trace = options.keepalive_trace || options.trace;
+                if (trace) {
+                  markKeepalive('workflow_dispatch.options_json', trace);
+                }
+              }
+            } else if (eventName === 'repository_dispatch') {
+              const payload = context.payload?.client_payload || {};
+              if (toBool(payload.keepalive_enabled)) {
+                markKeepalive('repository_dispatch.keepalive_enabled');
+              }
+              const params = parseMaybeJson(payload.params_json || payload.params);
+              if (params && toBool(params.enable_keepalive)) {
+                markKeepalive('repository_dispatch.params');
+              }
+              const options = parseMaybeJson(payload.options_json || payload.options);
+              if (options) {
+                const trace = options.keepalive_trace || options.trace;
+                if (trace) {
+                  markKeepalive('repository_dispatch.options', trace);
+                }
+              }
+            }
+
             let count = 0;
 
             await github.paginate(
@@ -160,7 +216,7 @@ jobs:
                     })
                   ) {
                     count += 1;
-                    if (count > 0) {
+                    if (count > 0 && !keepaliveRequested) {
                       done();
                       break;
                     }
@@ -170,7 +226,7 @@ jobs:
               }
             );
 
-            const hasWork = count > 0;
+            const hasWork = keepaliveRequested || count > 0;
             const elapsed = Math.round((Date.now() - started) / 100) / 10;
             core.setOutput('has_work', hasWork ? 'true' : 'false');
 
@@ -179,6 +235,15 @@ jobs:
             summary.addEOL();
             summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`);
             summary.addEOL();
+            if (keepaliveRequested) {
+              const sources = Array.from(keepaliveSources);
+              summary
+                .addRaw(`Keepalive override: requested via ${sources.length ? sources.join(', ') : 'inputs'}.`)
+                .addEOL();
+              if (keepaliveTrace) {
+                summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
+              }
+            }
             if (!hasWork) {
               summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
             }
@@ -186,6 +251,9 @@ jobs:
 
             if (!hasWork) {
               core.info('Idle, skipping orchestrator dispatch.');
+            } else if (keepaliveRequested) {
+              const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
+              core.info(`Keepalive request detected${traceInfo}; proceeding regardless of open agent issues.`);
             } else {
               core.info(`Detected ${count} agent-triage issues; proceeding.`);
             }
@@ -355,7 +423,12 @@ jobs:
             const summary = core.summary;
             summary.addHeading('Keepalive gate evaluation');
 
-            const renderLine = (reason) => `**Keepalive ${round || '?' }** \`${trace || 'unknown'}\` skipped: ${reason}`;
+            const renderLine = (reason) => {
+              const labelRound = round || '?';
+              const labelTrace = trace || 'unknown';
+              const labelReason = reason || 'unspecified';
+              return `Keepalive ${labelRound} ${labelTrace} skipped: ${labelReason}`;
+            };
 
             const setOutputs = (proceed, reason) => {
               core.setOutput('proceed', proceed ? 'true' : 'false');
@@ -444,12 +517,46 @@ jobs:
                   .map((name) => name.trim().toLowerCase())
                   .filter(Boolean)
               );
-              if (!labelNames.has('agents:keepalive')) {
-                reasons.push('missing-label:agents-keepalive');
-              }
-              if (!labelNames.has('agent:codex')) {
-                reasons.push('missing-label:agent-codex');
-              }
+
+              const ensureLabel = async (label) => {
+                const normalised = String(label || '').trim();
+                if (!normalised) {
+                  return false;
+                }
+                const lowered = normalised.toLowerCase();
+                if (labelNames.has(lowered)) {
+                  return true;
+                }
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: [normalised],
+                  });
+                  labelNames.add(lowered);
+                  summary
+                    .addRaw(`Applied missing label for keepalive guard: ${normalised}`)
+                    .addEOL();
+                  return true;
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  summary
+                    .addRaw(`Failed to add label ${normalised} to PR #${prNumber}: ${message}`)
+                    .addEOL();
+                  return false;
+                }
+              };
+
+              const ensureCriticalLabel = async (label) => {
+                const ok = await ensureLabel(label);
+                if (!ok) {
+                  reasons.push(`missing-label:${label}`);
+                }
+              };
+
+              await ensureCriticalLabel('agents:keepalive');
+              await ensureCriticalLabel('agent:codex');
 
               const headSha = pr.head?.sha || '';
               if (!headSha) {

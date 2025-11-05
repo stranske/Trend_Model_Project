@@ -38,6 +38,7 @@ async function main() {
         id: comment.id || undefined,
         body: comment.body || '',
         user: { login: comment.user?.login || 'stranske-automation-bot' },
+        html_url: comment.html_url || undefined,
       },
       issue: { number: issueNumber },
       repository: scenario.repository || { default_branch: 'phase-2-dev' },

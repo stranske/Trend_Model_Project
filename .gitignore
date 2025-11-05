@@ -51,6 +51,7 @@ results/
 !perf/perf_baseline.json
 !src/trend_analysis/export/manifest_schema.json
 !tests/fixtures/keepalive/*.json
+!tests/fixtures/agents_pr_meta/*.json
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 ci/autofix/diagnostics.json

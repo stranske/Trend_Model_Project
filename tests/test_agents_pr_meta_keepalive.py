@@ -48,6 +48,11 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     assert outputs["base"] == "phase-2-dev"
     assert outputs["trace"] == "manual-resend"
     assert outputs["pr"] == "3230"
+    assert outputs["comment_id"] == "987654321"
+    assert (
+        outputs["comment_url"]
+        == "https://github.com/stranske/Trend_Model_Project/pull/3230#issuecomment-987654321"
+    )
 
     calls = data.get("calls", {})
     created = calls.get("reactionsCreated", [])
@@ -59,6 +64,15 @@ def test_keepalive_detection_requires_marker() -> None:
     outputs = data["outputs"]
     assert outputs["dispatch"] == "false"
     assert outputs["reason"] == "missing-sentinel"
+    assert outputs["comment_id"] == "4001001"
+
+
+def test_keepalive_detection_requires_round_marker() -> None:
+    data = _run_scenario("missing_round")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
+    assert outputs["comment_id"] == "1122334455"
 
 
 def test_keepalive_detection_validates_author() -> None:
