@@ -10,7 +10,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 | Task | Status | Verification Notes |
 | --- | --- | --- |
-| Helper module exports `makeTrace` and `renderInstruction`. | Complete | `.github/scripts/keepalive_contract.js` normalises inputs and prefixes the required hidden markers. |
+| Helper module exports `makeTrace` and `renderInstruction`. | Complete | `.github/scripts/keepalive_contract.js` normalizes inputs and prefixes the required hidden markers. |
 | Orchestrator computes round/trace, selects token, posts comment via helper. | Complete | `Prepare keepalive instruction` job in `.github/workflows/agents-70-orchestrator.yml` resolves round/trace, chooses PAT, and renders the comment body. |
 | Summary records round, trace, author, comment ID. | Complete | `Summarise keepalive instruction` step writes all four fields to `$GITHUB_STEP_SUMMARY`. |
 | Reaction ack loop with 👀/🚀 handling. | Complete | `Ack keepalive instruction` adds 👀 then polls for 🚀 for 60 s at 5 s cadence. |
