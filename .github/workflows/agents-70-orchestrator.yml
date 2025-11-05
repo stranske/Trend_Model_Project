@@ -552,130 +552,94 @@ jobs:
                 reasons.push(value);
               }
             };
+            let headSha = '';
             if (!pr) {
               addReason('missing-pr');
             } else {
+              headSha = String(pr.head?.sha || '').trim();
               if ((pr.state || '').toLowerCase() !== 'open') {
                 addReason('pr-not-open');
               }
+              if (!headSha) {
+                addReason('missing-head-sha');
+              }
               if (pr.draft) {
                 addReason('pr-draft');
-                if (reasons.length) {
-                  const maxRetries = Math.max(1, Number(process.env.KEEPALIVE_MAX_RETRIES || '5'));
-                  let skipHistory = { total: 0, highestCount: 0, nonGateCount: 0 };
+              } else {
+                if (headSha) {
                   try {
-                    const comments = await github.paginate(github.rest.issues.listComments, {
+                    const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
                       owner,
                       repo,
-                      issue_number: prNumber,
-                      per_page: 100,
+                      ref: headSha,
                     });
-                    skipHistory = analyseSkipComments(comments || []);
+                    const statuses = combined?.statuses || [];
+                    const gateStatuses = statuses.filter((status) => {
+                      const ctx = (status.context || '').toLowerCase();
+                      return ctx === 'gate / gate' || ctx === 'gate' || ctx.endsWith('/ gate');
+                    });
+                    if (gateStatuses.length) {
+                      const statusPreview = gateStatuses
+                        .map((status) => `${String(status.context || 'gate').trim()}=${(status.state || 'unknown').toLowerCase()}`)
+                        .join(', ');
+                      summary.addRaw(`Gate status contexts: ${statusPreview}`).addEOL();
+                    } else if (combined?.state) {
+                      summary.addRaw(`Gate combined status: ${(combined.state || 'unknown').toLowerCase()}`).addEOL();
+                    }
                   } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
-                    core.warning(`Failed to scan prior keepalive skip comments: ${message}`);
+                    core.warning(`Unable to evaluate gate status for ${headSha}: ${message}`);
                   }
-
-                  const priorSkips = skipHistory.total || 0;
-                  const priorNonGate = skipHistory.nonGateCount || 0;
-                  const nextSkipCount = Math.max(1, (skipHistory.highestCount || priorSkips) + 1);
-                  const nonGateReasons = reasons.filter((reason) => !isGateReason(reason));
-
-                  if (priorSkips >= maxRetries) {
-                    await finaliseSkip('too-many-failures', `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
-                    return;
-                  }
-
-                  if (nonGateReasons.length === 0) {
-                    const reasonText = reasons.join(', ');
-                    await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
-                    return;
-                  }
-
-                  if (priorNonGate >= maxRetries) {
-                    await finaliseSkip('too-many-failures', `Previous non-gate keepalive failures: ${priorNonGate}`, { skipCount: nextSkipCount });
-                    return;
-                  }
-
-                  if (priorNonGate > 0) {
-                    const reasonText = reasons.join(', ');
-                    await finaliseSkip(`previous-failure:${reasonText}`, `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
-                    return;
-                  }
-
-                  const reasonText = reasons.join(', ');
-                  await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
-                  return;
-                }
-              } else {
-                try {
-                  const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
-                    owner,
-                    repo,
-                    ref: headSha,
-                  });
-                  const statuses = combined?.statuses || [];
-                  const gateStatuses = statuses.filter((status) => {
-                    const ctx = (status.context || '').toLowerCase();
-                    return ctx === 'gate / gate' || ctx === 'gate' || ctx.endsWith('/ gate');
-                  });
-                  if (gateStatuses.length) {
-                    const statusPreview = gateStatuses
-                      .map((status) => `${String(status.context || 'gate').trim()}=${(status.state || 'unknown').toLowerCase()}`)
-                      .join(', ');
-                    summary.addRaw(`Gate status contexts: ${statusPreview}`).addEOL();
-                  } else if (combined?.state) {
-                    summary.addRaw(`Gate combined status: ${(combined.state || 'unknown').toLowerCase()}`).addEOL();
-                  }
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : String(error);
-                  core.warning(`Unable to evaluate gate status for ${headSha}: ${message}`);
+                } else {
+                  core.warning('Unable to evaluate gate status: pull request head SHA is unavailable.');
                 }
 
-                const normalisedHead = headSha.toLowerCase();
+                const normalisedHead = headSha ? headSha.toLowerCase() : '';
                 const gateWorkflowIds = ['pr-00-gate.yml', 'pr-00-gate.yaml'];
                 let gateRunEvaluated = false;
 
-                for (const workflowId of gateWorkflowIds) {
-                  try {
-                    const response = await github.rest.actions.listWorkflowRuns({
-                      owner,
-                      repo,
-                      workflow_id: workflowId,
-                      branch: pr.head?.ref,
-                      per_page: 20,
-                      event: 'pull_request',
-                    });
-                    const runs = response.data?.workflow_runs || [];
-                    if (!runs.length) {
-                      continue;
-                    }
+                if (headSha) {
+                  for (const workflowId of gateWorkflowIds) {
+                    try {
+                      const response = await github.rest.actions.listWorkflowRuns({
+                        owner,
+                        repo,
+                        workflow_id: workflowId,
+                        branch: pr.head?.ref,
+                        per_page: 20,
+                        event: 'pull_request',
+                      });
+                      const runs = response.data?.workflow_runs || [];
+                      if (!runs.length) {
+                        continue;
+                      }
 
-                    const headRun = runs.find((run) => (run.head_sha || '').toLowerCase() === normalisedHead);
-                    if (!headRun) {
+                      const headRun = runs.find((run) => (run.head_sha || '').toLowerCase() === normalisedHead);
+                      if (!headRun) {
+                        summary
+                          .addRaw(`Gate workflow ${workflowId} has ${runs.length} run(s) but none for head ${headSha.slice(0, 7)}.`)
+                          .addEOL();
+                        continue;
+                      }
+
+                      gateRunEvaluated = true;
+                      const status = (headRun.status || '').toLowerCase();
+                      const conclusion = (headRun.conclusion || '').toLowerCase();
                       summary
-                        .addRaw(`Gate workflow ${workflowId} has ${runs.length} run(s) but none for head ${headSha.slice(0, 7)}.`)
+                        .addRaw(`Gate workflow ${workflowId} on ${headSha.slice(0, 7)} → status=${status || 'unknown'} conclusion=${conclusion || 'none'}`)
                         .addEOL();
-                      continue;
+
+                      if (status !== 'completed') {
+                        addReason(`gate-run-status:${status || 'unknown'}`);
+                      } else if (conclusion && conclusion !== 'success') {
+                        summary.addRaw(`Gate conclusion ${conclusion} detected; continuing keepalive.`).addEOL();
+                      }
+
+                      break;
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : String(error);
+                      summary.addRaw(`Failed to inspect gate workflow ${workflowId}: ${message}`).addEOL();
                     }
-
-                    gateRunEvaluated = true;
-                    const status = (headRun.status || '').toLowerCase();
-                    const conclusion = (headRun.conclusion || '').toLowerCase();
-                    summary
-                      .addRaw(`Gate workflow ${workflowId} on ${headSha.slice(0, 7)} → status=${status || 'unknown'} conclusion=${conclusion || 'none'}`)
-                      .addEOL();
-
-                    if (status !== 'completed') {
-                      addReason(`gate-run-status:${status || 'unknown'}`);
-                    } else if (conclusion && conclusion !== 'success') {
-                      summary.addRaw(`Gate conclusion ${conclusion} detected; continuing keepalive.`).addEOL();
-                    }
-
-                    break;
-                  } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    summary.addRaw(`Failed to inspect gate workflow ${workflowId}: ${message}`).addEOL();
                   }
                 }
 
@@ -732,8 +696,48 @@ jobs:
             }
 
             if (reasons.length) {
+              const maxRetries = Math.max(1, Number(process.env.KEEPALIVE_MAX_RETRIES || '5'));
+              let skipHistory = { total: 0, highestCount: 0, nonGateCount: 0 };
+              try {
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                });
+                skipHistory = analyseSkipComments(comments || []);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to scan prior keepalive skip comments: ${message}`);
+              }
+
+              const priorSkips = skipHistory.total || 0;
+              const priorNonGate = skipHistory.nonGateCount || 0;
+              const nextSkipCount = Math.max(1, (skipHistory.highestCount || priorSkips) + 1);
+              const nonGateReasons = reasons.filter((reason) => !isGateReason(reason));
               const reasonText = reasons.join(', ');
-              await finaliseSkip(reasonText);
+
+              if (priorSkips >= maxRetries) {
+                await finaliseSkip('too-many-failures', `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
+                return;
+              }
+
+              if (nonGateReasons.length === 0) {
+                await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
+                return;
+              }
+
+              if (priorNonGate >= maxRetries) {
+                await finaliseSkip('too-many-failures', `Previous non-gate keepalive failures: ${priorNonGate}`, { skipCount: nextSkipCount });
+                return;
+              }
+
+              if (priorNonGate > 0) {
+                await finaliseSkip(`previous-failure:${reasonText}`, `Previous keepalive attempts: ${priorSkips}`, { skipCount: nextSkipCount });
+                return;
+              }
+
+              await finaliseSkip(reasonText, undefined, { skipCount: nextSkipCount });
               return;
             }
 

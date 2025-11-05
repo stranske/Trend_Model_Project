@@ -1,0 +1,24 @@
+{
+  "comment": {
+    "id": 5002001,
+    "body": "@codex repeating the keepalive instructions a second time without automation",
+    "user": { "login": "stranske" },
+    "html_url": "https://github.com/stranske/Trend_Model_Project/pull/4002#issuecomment-5002001"
+  },
+  "comments": [
+    {
+      "id": 4002000,
+      "body": "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: first-trace -->\nInitial instruction"
+    }
+  ],
+  "issue": { "number": 4002 },
+  "pull": {
+    "number": 4002,
+    "title": "fix: ensure keepalive automation",
+    "head": { "ref": "codex/issue-4002" },
+    "base": { "ref": "phase-2-dev" }
+  },
+  "env": {
+    "ALLOWED_LOGINS": "chatgpt-codex-connector,stranske-automation-bot,stranske"
+  }
+}
