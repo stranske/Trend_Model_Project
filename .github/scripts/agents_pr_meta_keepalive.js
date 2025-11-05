@@ -285,7 +285,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
         currentBody: body,
       });
       if (patched) {
-        workingBody = patched.body;
         roundMatch = [null, String(patched.round)];
         traceMatch = [null, patched.trace];
         hasKeepaliveMarker = true;
