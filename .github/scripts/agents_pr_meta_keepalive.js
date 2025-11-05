@@ -149,14 +149,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.comment_id = comment?.id ? String(comment.id) : '';
   outputs.comment_url = comment?.html_url || '';
 
-  let workingBody = body;
+  let workingBody = decodeHtmlEntities(body);
   const canonicalRoundMatch = findFirstMatch(body, canonicalRoundPatterns);
   let roundMatch = canonicalRoundMatch;
   if (!roundMatch) {
-    const decodedBody = decodeHtmlEntities(body);
-    if (decodedBody !== body) {
-      workingBody = decodedBody;
-    }
     roundMatch = findFirstMatch(workingBody, roundPatterns);
   }
 
