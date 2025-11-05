@@ -31,3 +31,5 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_multi_failure.py` (1 passed) to confirm multi-failure workflow handling stays stable.
 - 2025-11-05 – Guarded workflow_dispatch concurrency inputs to prevent push-triggered runs from failing before job execution; awaiting new detector/orchestrator cycle for validation.
 - 2025-11-05 – Added detection script tolerance for sanitized keepalive markers and expanded coverage via `tests/test_agents_pr_meta_keepalive.py` (5 passed locally); awaiting merge so issue_comment runs consume the fix.
+- 2025-11-05 – Added automatic marker restoration in `agents_pr_meta_keepalive` so connector comments using the instruction template are rewritten with hidden keepalive markers before dispatch; validated via new harness scenario `autofix_instruction`.
+- 2025-11-05 – Moved the dependency lockfile parity check to the scheduled `Maint 51 Dependency Refresh` workflow; PR test suites now skip `test_lockfile_up_to_date` unless `TREND_FORCE_DEP_LOCK_CHECK=1` so mid-cycle PyPI releases no longer break unrelated runs.

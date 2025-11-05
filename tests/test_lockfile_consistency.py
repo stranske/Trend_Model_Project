@@ -7,6 +7,7 @@ not cause spurious failures.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -60,6 +61,10 @@ def _normalize_lockfile_content(content: str) -> str:
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not installed")
+@pytest.mark.skipif(
+    os.getenv("TREND_FORCE_DEP_LOCK_CHECK", "0") != "1",
+    reason="Dependency lockfile check only runs during scheduled refresh",
+)
 def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
 
