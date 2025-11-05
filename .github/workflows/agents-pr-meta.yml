@@ -110,10 +110,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure keepalive dispatch token available
-        if: ${{ !secrets.ACTIONS_BOT_PAT && !secrets.SERVICE_BOT_PAT }}
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
-          echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-          exit 1
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
 
       - name: Dispatch Agents 70 run for keepalive
         id: orchestrator
@@ -186,10 +190,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure connector dispatch token available
-        if: ${{ !secrets.ACTIONS_BOT_PAT && !secrets.SERVICE_BOT_PAT }}
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
-          echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-          exit 1
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
 
       - name: Dispatch codex keepalive command
         id: dispatch
