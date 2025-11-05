@@ -53,4 +53,4 @@ See the full `coverage report` output for additional modules requiring attention
 4. Expand CLI smoke tests to capture export and signal toggles in `src/trend_analysis/cli.py`.
 5. Re-run targeted coverage after each module-focused test addition and update this log accordingly.
 
-*Last updated: 2025-02-15*
+*Last updated: 2025-02-16*
