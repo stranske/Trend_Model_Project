@@ -116,3 +116,19 @@ def test_keepalive_detection_autofixes_missing_markers() -> None:
     assert updated_body.startswith(
         "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace:"
     )
+
+
+def test_keepalive_detection_ignores_autofix_status_comment() -> None:
+    data = _run_scenario("automation_autofix")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "automation-comment"
+    assert outputs["comment_id"] == "3492705833"
+
+
+def test_keepalive_detection_blocks_manual_round_escalation() -> None:
+    data = _run_scenario("manual_round")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "manual-round"
+    assert outputs["comment_id"] == "5002001"

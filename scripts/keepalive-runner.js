@@ -709,6 +709,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const outstanding = latestChecklist.unchecked;
   const nextRound = computeNextRound(keepaliveCandidates);
   const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
+  const attemptMarker = `<!-- keepalive-attempt: ${nextRound} -->`;
   const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
   const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
 
@@ -724,7 +725,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      const bodyParts = [roundMarker, canonicalMarker, traceMarker, command];
+  const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
       bodyParts.push('', scopeBlock);
       if (marker && marker !== canonicalMarker) {
         bodyParts.push('', marker);
