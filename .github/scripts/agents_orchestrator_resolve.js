@@ -36,7 +36,8 @@ const DEFAULTS = {
   dry_run: 'false',
   dispatcher_force_issue: '',
   worker_max_parallel: '1',
-  conveyor_max_merges: '2'
+  conveyor_max_merges: '2',
+  keepalive_max_retries: '5',
 };
 
 const toString = (value, fallback = '') => {
@@ -267,6 +268,12 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     DEFAULTS.enable_keepalive
   );
 
+  const keepaliveMaxRetries = toBoundedIntegerString(
+    keepalive.max_retries ?? merged.keepalive_max_retries ?? finalParsedOptions.keepalive_max_retries,
+    DEFAULTS.keepalive_max_retries,
+    { min: 1, max: 10 }
+  );
+
   const { owner, repo } = context.repo;
   let keepalivePaused = false;
 
@@ -315,6 +322,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     keepalive_requested: keepaliveRequested,
     keepalive_paused_label: keepalivePaused ? 'true' : 'false',
     keepalive_pause_label: KEEPALIVE_PAUSE_LABEL,
+  keepalive_max_retries: keepaliveMaxRetries,
     enable_bootstrap: toBoolString(merged.enable_bootstrap ?? bootstrap.enable, DEFAULTS.enable_bootstrap),
     bootstrap_issues_label: toString(
       merged.bootstrap_issues_label ?? bootstrap.label,
@@ -350,6 +358,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     'keepalive_requested',
     'keepalive_paused_label',
     'keepalive_pause_label',
+  'keepalive_max_retries',
     'enable_bootstrap',
     'bootstrap_issues_label',
     'draft_pr',
