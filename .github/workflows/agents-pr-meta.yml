@@ -46,6 +46,8 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr }}
       author: ${{ steps.detect.outputs.author }}
+      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_url: ${{ steps.detect.outputs.comment_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,13 +64,33 @@ jobs:
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             await detectKeepalive({ core, github, context, env: process.env });
 
+      - name: Prepare keepalive summary context
+        id: summary_context
+        run: |
+          set -euo pipefail
+          comment_id="${COMMENT_ID:-}"
+          comment_url="${COMMENT_URL:-}"
+
+          if [[ -n "${comment_id}" && -n "${comment_url}" ]]; then
+            value="[#${comment_id}](${comment_url})"
+          elif [[ -n "${comment_id}" ]]; then
+            value="${comment_id}"
+          else
+            value="—"
+          fi
+
+          printf 'comment=%s\n' "${value}" >>"${GITHUB_OUTPUT}"
+        env:
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
+
       - name: Summarise keepalive evaluation
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ## Keepalive detection
-          | ok | reason | author | pr | round | trace |
-          | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ok | reason | author | comment | pr | round | trace |
+          | --- | --- | --- | --- | --- | --- | --- |
+          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
           EOF
 
       - name: Register keepalive detection
@@ -87,11 +109,21 @@ jobs:
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
     steps:
+      - name: Ensure keepalive dispatch token available
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN:-}" ] && [ -z "${SERVICE_TOKEN:-}" ]; then
+            echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
       - name: Dispatch Agents 70 run for keepalive
         id: orchestrator
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const issue = Number('${{ needs.keepalive_dispatch.outputs.issue }}');
             const prNumber = Number('${{ needs.keepalive_dispatch.outputs.pr }}');
@@ -157,14 +189,28 @@ jobs:
           && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Ensure connector dispatch token available
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
       - name: Dispatch codex keepalive command
         id: dispatch
         uses: actions/github-script@v7
         env:
           BASE: ${{ needs.keepalive_dispatch.outputs.base }}
           HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { payload } = context;
             const { owner, repo } = context.repo;
@@ -177,6 +223,8 @@ jobs:
 
             const base = process.env.BASE || '';
             const head = process.env.HEAD || '';
+            const round = process.env.ROUND || '';
+            const trace = process.env.TRACE || '';
 
             if (!base || !head) {
               core.warning('Keepalive metadata missing base/head from detection; fetching pull request details.');
@@ -204,9 +252,14 @@ jobs:
             const commentId = payload.comment?.id;
             const commentUrl = payload.comment?.html_url;
 
+            const fallbackCommentId = process.env.COMMENT_ID || '';
+            const fallbackCommentUrl = process.env.COMMENT_URL || '';
+
             if (!commentId || !commentUrl) {
-              core.setFailed('Comment metadata missing id or url.');
-              return;
+              if (!fallbackCommentId || !fallbackCommentUrl) {
+                core.setFailed('Comment metadata missing id or url.');
+                return;
+              }
             }
 
             const clientPayload = {
@@ -214,8 +267,10 @@ jobs:
               base: resolvedBase,
               head: resolvedHead,
               agent: 'codex',
-              comment_id: commentId,
-              comment_url: commentUrl,
+              comment_id: commentId || fallbackCommentId,
+              comment_url: commentUrl || fallbackCommentUrl,
+              round,
+              trace,
             };
 
             await github.rest.repos.createDispatchEvent({
@@ -236,6 +291,10 @@ jobs:
               .addRaw(`Comment ID: ${clientPayload.comment_id}`)
               .addEOL()
               .addLink('Comment URL', clientPayload.comment_url)
+              .addEOL()
+              .addRaw(`Round: ${round || '(unknown)'}`)
+              .addEOL()
+              .addRaw(`Trace: ${trace || '(missing)'}`)
               .write();
 
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);

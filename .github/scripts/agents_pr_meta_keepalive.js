@@ -1,5 +1,92 @@
 'use strict';
 
+const { renderInstruction, makeTrace } = require('./keepalive_contract.js');
+
+const DEFAULT_INSTRUCTION_SIGNATURE =
+  'keepalive workflow continues nudging until everything is complete';
+
+function normaliseBody(value) {
+  return String(value || '').replace(/\r\n/g, '\n').trim();
+}
+
+function isLikelyInstruction(body) {
+  if (!body) {
+    return false;
+  }
+  const normalised = normaliseBody(body);
+  if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
+    return false;
+  }
+  return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
+}
+
+async function computeHighestRound({ github, owner, repo, prNumber }) {
+  let highestRound = 0;
+  try {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+    for (const entry of comments) {
+      const marker = String(entry?.body || '').match(/<!--\s*keepalive-round:\s*(\d+)\s*-->/i);
+      if (!marker) {
+        continue;
+      }
+      const parsed = Number.parseInt(marker[1], 10);
+      if (Number.isFinite(parsed) && parsed > highestRound) {
+        highestRound = parsed;
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to scan keepalive history: ${message}`);
+  }
+  return highestRound;
+}
+
+async function autopatchKeepaliveComment({
+  core,
+  github,
+  owner,
+  repo,
+  prNumber,
+  comment,
+  currentBody,
+}) {
+  const trimmed = normaliseBody(currentBody);
+  if (!isLikelyInstruction(trimmed)) {
+    return null;
+  }
+
+  if (!comment?.id) {
+    return null;
+  }
+
+  const highestRound = await computeHighestRound({ github, owner, repo, prNumber });
+  const nextRound = highestRound + 1;
+  const trace = makeTrace();
+  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed });
+
+  await github.rest.issues.updateComment({
+    owner,
+    repo,
+    comment_id: comment.id,
+    body: patchedBody,
+  });
+
+  core.info(
+    `Inserted keepalive markers for comment ${comment.id} (round ${nextRound}, trace ${trace}).`
+  );
+
+  return {
+    body: patchedBody,
+    round: nextRound,
+    trace,
+  };
+}
+
 function normaliseLogin(login) {
   return String(login || '')
     .trim()
@@ -55,6 +142,58 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
 
+  const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const decodeHtmlEntities = (value) => {
+    let previous;
+    let current = String(value);
+    do {
+      previous = current;
+      current = current
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>');
+    } while (current !== previous);
+    return current;
+  };
+
+  const findFirstMatch = (source, patterns) => {
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  };
+
+  const canonicalMarkerPatterns = [];
+  if (keepaliveMarker) {
+    canonicalMarkerPatterns.push(new RegExp(escapeRegExp(keepaliveMarker), 'i'));
+  }
+  canonicalMarkerPatterns.push(/<!--\s*codex-keepalive-marker\s*-->/i);
+
+  const markerPatterns = canonicalMarkerPatterns.concat([
+    /<-\s*After:\s*codex-keepalive-marker\s*-->/i,
+    /&lt;-\s*After:\s*codex-keepalive-marker\s*--&gt;/i,
+    /&lt;!--\s*codex-keepalive-marker\s*--&gt;/i,
+  ]);
+
+  const canonicalRoundPatterns = [/<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i];
+  const roundPatterns = canonicalRoundPatterns.concat([
+    /<-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i,
+    /&lt;!--\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
+    /&lt;-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
+  ]);
+
+  const canonicalTracePatterns = [/<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i];
+  const tracePatterns = canonicalTracePatterns.concat([
+    /<-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i,
+    /&lt;!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
+    /&lt;-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
+  ]);
+
+
   const outputs = {
     dispatch: 'false',
     reason: 'not-keepalive',
@@ -65,6 +204,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     trace: '',
     pr: '',
     author: '',
+    comment_id: '',
+    comment_url: '',
   };
 
   const setBasicOutputs = () => {
@@ -81,6 +222,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('trace', outputs.trace);
     core.setOutput('pr', outputs.pr);
     core.setOutput('author', outputs.author);
+    core.setOutput('comment_id', outputs.comment_id);
+    core.setOutput('comment_url', outputs.comment_url);
   };
 
   const { comment, issue } = context.payload || {};
@@ -88,20 +231,79 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const body = comment?.body || '';
   const authorRaw = comment?.user?.login || '';
   const author = normaliseLogin(authorRaw);
+  const contextIssueNumber = issue?.number ? Number.parseInt(issue.number, 10) : NaN;
+  const isAuthorAllowed = allowedLogins.has(author);
 
   outputs.author = authorRaw;
+  outputs.comment_id = comment?.id ? String(comment.id) : '';
+  outputs.comment_url = comment?.html_url || '';
 
-  const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
-  const hasKeepaliveMarker = body.includes(keepaliveMarker);
-  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
+  let workingBody = body;
+  const canonicalRoundMatch = findFirstMatch(body, canonicalRoundPatterns);
+  let roundMatch = canonicalRoundMatch;
+  if (!roundMatch) {
+    const decodedBody = decodeHtmlEntities(body);
+    if (decodedBody !== body) {
+      workingBody = decodedBody;
+    }
+    roundMatch = findFirstMatch(workingBody, roundPatterns);
+  }
+
+  const usedFallbackRound = !canonicalRoundMatch && Boolean(roundMatch);
+  if (usedFallbackRound) {
+    const preview = JSON.stringify(body.slice(0, 160));
+    core.info(`Keepalive canonical round marker not found; matched fallback against payload prefix ${preview}.`);
+  }
+
+  let traceMatch = findFirstMatch(body, canonicalTracePatterns);
+  if (!traceMatch) {
+    traceMatch = findFirstMatch(workingBody, tracePatterns);
+  }
+
+  let hasKeepaliveMarker = Boolean(findFirstMatch(body, canonicalMarkerPatterns));
+  if (!hasKeepaliveMarker) {
+    hasKeepaliveMarker = Boolean(findFirstMatch(workingBody, markerPatterns));
+  }
+
+  let autopatched = false;
+  if (
+    (!roundMatch || !hasKeepaliveMarker) &&
+    isAuthorAllowed &&
+    Number.isFinite(contextIssueNumber) &&
+    contextIssueNumber > 0 &&
+    owner &&
+    repo
+  ) {
+    try {
+      const patched = await autopatchKeepaliveComment({
+        core,
+        github,
+        owner,
+        repo,
+        prNumber: contextIssueNumber,
+        comment,
+        currentBody: body,
+      });
+      if (patched) {
+        roundMatch = [null, String(patched.round)];
+        traceMatch = [null, patched.trace];
+        hasKeepaliveMarker = true;
+        autopatched = true;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`Auto-inserting keepalive markers failed: ${message}`);
+    }
+  }
 
   if (!roundMatch) {
-    core.info('Comment does not contain keepalive round marker; skipping.');
+    outputs.reason = 'missing-round';
+    core.info('Keepalive dispatch skipped: comment missing keepalive round marker.');
     setAllOutputs();
     return outputs;
   }
 
-  if (!allowedLogins.has(author)) {
+  if (!isAuthorAllowed) {
     outputs.reason = 'unauthorised-author';
     core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
     setAllOutputs();
@@ -135,7 +337,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
-  const trace = traceMatch ? traceMatch[1].trim() : '';
+  const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
   outputs.trace = trace;
 
   let pull;
