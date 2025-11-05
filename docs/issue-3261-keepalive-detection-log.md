@@ -50,6 +50,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-05 00:48 | `Agents PR meta manager` run [#19087550353](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550353) | Push-triggered run ended before any jobs executed; detector still lacks live evidence for `missing-round` handling. |
 | 2025-11-05 00:49 | Orchestrator run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) | Run terminated at workflow setup with no jobs; keepalive skip comment and summary guard remain unvalidated. |
 | 2025-11-05 01:05 | Guarded workflow_dispatch concurrency inputs | Updated `.github/workflows/agents-70-orchestrator.yml` to short-circuit `github.event.inputs` access when the event lacks manual-dispatch payload, preventing push-triggered runs from failing before the first job. Awaiting next detector/orchestrator cycle to confirm jobs now start. |
+| 2025-11-05 05:18 | Auto-restored keepalive markers on connector comments | `.github/scripts/agents_pr_meta_keepalive.js` now rewrites bare instruction comments via `renderInstruction` before dispatch, ensuring hidden round/trace markers always reach the detector; covered by `tests/test_agents_pr_meta_keepalive.py::test_keepalive_detection_autofixes_missing_markers`. |
 
 ## Next Verification Steps
 
