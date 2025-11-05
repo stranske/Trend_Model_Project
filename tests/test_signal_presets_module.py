@@ -64,7 +64,14 @@ def test_trend_spec_preset_payload_helpers_omit_optional_fields_when_absent() ->
     custom = TrendSpecPreset(
         name="Custom",
         description="Custom description",
-        spec=TrendSpec(window=12, min_periods=None, lag=3, vol_adjust=False, vol_target=None, zscore=True),
+        spec=TrendSpec(
+            window=12,
+            min_periods=None,
+            lag=3,
+            vol_adjust=False,
+            vol_target=None,
+            zscore=True,
+        ),
     )
 
     config = custom.as_signal_config()
