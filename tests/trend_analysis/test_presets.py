@@ -31,7 +31,12 @@ def sample_config() -> dict[str, Any]:
         "metrics": {"Sharpe_Ratio": "2", "invalid": "abc"},
         "portfolio": {"cooldown_months": "6", "weighting_scheme": "risk"},
         "vol_adjust": {"window": {"length": 21}},
-        "signals": {"window": "126", "min_periods": "200", "lag": "2", "vol_target": "0.7"},
+        "signals": {
+            "window": "126",
+            "min_periods": "200",
+            "lag": "2",
+            "vol_target": "0.7",
+        },
     }
 
 
@@ -47,10 +52,15 @@ def test_freeze_mapping_returns_immutable_copy(sample_config: dict[str, Any]):
     [
         ({"Sharpe": "1.5", "Return_Ann": "2"}, {"sharpe": 1.5, "return_ann": 2.0}),
         ({"Unknown": "abc", "": None}, {}),
-        ({"Sharpe": "nan", "Max_Drawdown": 3}, {"sharpe": float("nan"), "drawdown": 3.0}),
+        (
+            {"Sharpe": "nan", "Max_Drawdown": 3},
+            {"sharpe": float("nan"), "drawdown": 3.0},
+        ),
     ],
 )
-def test_normalise_metric_weights_handles_aliases(raw: dict[str, Any], expected: dict[str, float]):
+def test_normalise_metric_weights_handles_aliases(
+    raw: dict[str, Any], expected: dict[str, float]
+):
     weights = presets._normalise_metric_weights(raw)
     assert weights.keys() == expected.keys()
     for key in expected:
@@ -108,7 +118,9 @@ def sample_preset(sample_config: dict[str, Any]) -> presets.TrendPreset:
     )
 
 
-def test_trend_preset_form_defaults_normalises_values(sample_preset: presets.TrendPreset):
+def test_trend_preset_form_defaults_normalises_values(
+    sample_preset: presets.TrendPreset,
+):
     defaults = sample_preset.form_defaults()
     assert defaults["lookback_months"] == 48
     assert defaults["rebalance_frequency"] == "Weekly"
@@ -118,7 +130,9 @@ def test_trend_preset_form_defaults_normalises_values(sample_preset: presets.Tre
     assert defaults["cooldown_months"] == 6
 
 
-def test_trend_preset_form_defaults_handles_missing_portfolio(sample_config: dict[str, Any]):
+def test_trend_preset_form_defaults_handles_missing_portfolio(
+    sample_config: dict[str, Any],
+):
     custom = dict(sample_config)
     custom["portfolio"] = "not-a-mapping"
     preset = presets.TrendPreset(
@@ -133,7 +147,9 @@ def test_trend_preset_form_defaults_handles_missing_portfolio(sample_config: dic
     assert defaults["cooldown_months"] == 3
 
 
-def test_trend_preset_signals_and_vol_adjust_defaults(sample_preset: presets.TrendPreset):
+def test_trend_preset_signals_and_vol_adjust_defaults(
+    sample_preset: presets.TrendPreset,
+):
     mapping = sample_preset.signals_mapping()
     assert mapping["window"] == 126
     assert mapping["lag"] == 2
@@ -162,7 +178,9 @@ def test_vol_adjust_defaults_preserves_existing_target(sample_config: dict[str, 
     assert defaults["target_vol"] == pytest.approx(0.2)
 
 
-def test_vol_adjust_defaults_respects_existing_enabled_flag(sample_config: dict[str, Any]):
+def test_vol_adjust_defaults_respects_existing_enabled_flag(
+    sample_config: dict[str, Any],
+):
     from types import MappingProxyType
 
     custom = dict(sample_config)
@@ -312,7 +330,9 @@ def test_apply_trend_preset_merges_into_config(sample_preset: presets.TrendPrese
     assert config.run["trend_preset"] == "momentum"
 
 
-def test_apply_trend_preset_handles_non_mapping_sections(sample_preset: presets.TrendPreset):
+def test_apply_trend_preset_handles_non_mapping_sections(
+    sample_preset: presets.TrendPreset,
+):
     class DummyConfig:
         def __init__(self) -> None:
             self.signals = None
@@ -328,7 +348,9 @@ def test_apply_trend_preset_handles_non_mapping_sections(sample_preset: presets.
     assert config.run["trend_preset"] == sample_preset.slug
 
 
-def test_apply_trend_preset_handles_mappingproxy_sections(sample_preset: presets.TrendPreset):
+def test_apply_trend_preset_handles_mappingproxy_sections(
+    sample_preset: presets.TrendPreset,
+):
     from types import MappingProxyType
 
     class DummyConfig:
@@ -343,4 +365,3 @@ def test_apply_trend_preset_handles_mappingproxy_sections(sample_preset: presets
     assert config.signals["kind"] == "tsmom"
     assert config.vol_adjust["enabled"] is sample_preset.trend_spec.vol_adjust
     assert config.run["trend_preset"] == sample_preset.slug
-
