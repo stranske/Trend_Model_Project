@@ -523,14 +523,23 @@ jobs:
             }
 
             const reasons = [];
+            const addReason = (reason) => {
+              const value = typeof reason === 'string' ? reason.trim() : '';
+              if (!value) {
+                return;
+              }
+              if (!reasons.includes(value)) {
+                reasons.push(value);
+              }
+            };
             if (!pr) {
-              reasons.push('missing-pr');
+              addReason('missing-pr');
             } else {
               if ((pr.state || '').toLowerCase() !== 'open') {
-                reasons.push('pr-not-open');
+                addReason('pr-not-open');
               }
               if (pr.draft) {
-                reasons.push('pr-draft');
+                addReason('pr-draft');
               }
               const labelNames = new Set(
                 (pr.labels || [])
@@ -572,7 +581,7 @@ jobs:
               const ensureCriticalLabel = async (label) => {
                 const ok = await ensureLabel(label);
                 if (!ok) {
-                  reasons.push(`missing-label:${label}`);
+                  addReason(`missing-label:${label}`);
                 }
               };
 
@@ -581,7 +590,7 @@ jobs:
 
               const headSha = pr.head?.sha || '';
               if (!headSha) {
-                reasons.push('missing-head-sha');
+                addReason('missing-head-sha');
               } else {
                 try {
                   const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
@@ -594,15 +603,68 @@ jobs:
                     const ctx = (status.context || '').toLowerCase();
                     return ctx === 'gate / gate' || ctx === 'gate' || ctx.endsWith('/ gate');
                   });
-                  const gateHealthy = gateStatuses.length
-                    ? gateStatuses.every((status) => (status.state || '').toLowerCase() === 'success')
-                    : (combined.state || '').toLowerCase() === 'success';
-                  if (!gateHealthy) {
-                    reasons.push('gate-not-green');
+                  if (gateStatuses.length) {
+                    const statusPreview = gateStatuses
+                      .map((status) => `${String(status.context || 'gate').trim()}=${(status.state || 'unknown').toLowerCase()}`)
+                      .join(', ');
+                    summary.addRaw(`Gate status contexts: ${statusPreview}`).addEOL();
+                  } else if (combined?.state) {
+                    summary.addRaw(`Gate combined status: ${(combined.state || 'unknown').toLowerCase()}`).addEOL();
                   }
                 } catch (error) {
                   const message = error instanceof Error ? error.message : String(error);
                   core.warning(`Unable to evaluate gate status for ${headSha}: ${message}`);
+                }
+
+                const normalisedHead = headSha.toLowerCase();
+                const gateWorkflowIds = ['pr-00-gate.yml', 'pr-00-gate.yaml'];
+                let gateRunEvaluated = false;
+
+                for (const workflowId of gateWorkflowIds) {
+                  try {
+                    const response = await github.rest.actions.listWorkflowRuns({
+                      owner,
+                      repo,
+                      workflow_id: workflowId,
+                      branch: pr.head?.ref,
+                      per_page: 20,
+                      event: 'pull_request',
+                    });
+                    const runs = response.data?.workflow_runs || [];
+                    if (!runs.length) {
+                      continue;
+                    }
+
+                    const headRun = runs.find((run) => (run.head_sha || '').toLowerCase() === normalisedHead);
+                    if (!headRun) {
+                      summary
+                        .addRaw(`Gate workflow ${workflowId} has ${runs.length} run(s) but none for head ${headSha.slice(0, 7)}.`)
+                        .addEOL();
+                      continue;
+                    }
+
+                    gateRunEvaluated = true;
+                    const status = (headRun.status || '').toLowerCase();
+                    const conclusion = (headRun.conclusion || '').toLowerCase();
+                    summary
+                      .addRaw(`Gate workflow ${workflowId} on ${headSha.slice(0, 7)} → status=${status || 'unknown'} conclusion=${conclusion || 'none'}`)
+                      .addEOL();
+
+                    if (status !== 'completed') {
+                      addReason(`gate-run-status:${status || 'unknown'}`);
+                    } else if (conclusion && conclusion !== 'success') {
+                      summary.addRaw(`Gate conclusion ${conclusion} detected; continuing keepalive.`).addEOL();
+                    }
+
+                    break;
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    summary.addRaw(`Failed to inspect gate workflow ${workflowId}: ${message}`).addEOL();
+                  }
+                }
+
+                if (!gateRunEvaluated) {
+                  addReason('gate-run-missing');
                 }
               }
 
