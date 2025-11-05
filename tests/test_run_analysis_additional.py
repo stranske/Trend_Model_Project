@@ -17,6 +17,18 @@ class DummyResult:
         self.details = {"summary": "ok"}
 
 
+class DetailedResult:
+    def __init__(self) -> None:
+        index = pd.date_range("2024-01-31", periods=3, freq="M")
+        self.metrics = pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=index)
+        self.details = {
+            "performance_by_regime": pd.DataFrame(
+                {"return": [0.1, 0.2]}, index=["in_sample", "out_sample"]
+            ),
+            "regime_notes": ("bull", "bear"),
+        }
+
+
 def _base_config() -> SimpleNamespace:
     return SimpleNamespace(
         data={"csv_path": "data.csv"},
@@ -119,3 +131,87 @@ def test_main_maps_nan_policy_when_signature_uses_nan(
     assert captured["errors"] == "raise"
     assert captured["nan_policy"] == "ffill"
     assert captured["nan_limit"] == 3
+
+
+def test_main_uses_nan_fallback_and_default_exports(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = _base_config()
+    cfg.data["missing_policy"] = "zeros"
+    cfg.data["missing_limit"] = 2
+    cfg.export = {"filename": "custom"}
+
+    captured: dict[str, object] = {}
+    export_calls: list[tuple[dict[str, pd.DataFrame], str]] = []
+    export_data_calls: list[tuple[dict[str, pd.DataFrame], str, list[str]]] = []
+
+    def fake_load(_path: str) -> SimpleNamespace:
+        return cfg
+
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str = "log",
+        nan_policy: object | None = None,
+        nan_limit: object | None = None,
+    ) -> pd.DataFrame:
+        captured["kwargs"] = {
+            "path": path,
+            "errors": errors,
+            "nan_policy": nan_policy,
+            "nan_limit": nan_limit,
+        }
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-31", periods=3, freq="M"),
+                "Fund": [0.01, 0.02, 0.03],
+            }
+        )
+
+    def fake_format_summary(*_args: object, **_kwargs: object) -> str:
+        return "Summary"
+
+    def fake_formatter(*_args: object, **_kwargs: object) -> str:
+        return "formatter"
+
+    def fake_summary_frame(_details: dict[str, object]) -> pd.DataFrame:
+        return pd.DataFrame({"value": [1]})
+
+    def fake_export_to_excel(
+        data: dict[str, pd.DataFrame], path: str, **_: object
+    ) -> None:
+        export_calls.append((data, path))
+
+    def fake_export_data(
+        data: dict[str, pd.DataFrame], path: str, *, formats: list[str]
+    ) -> None:
+        export_data_calls.append((data, path, formats))
+
+    monkeypatch.setattr(run_analysis, "load", fake_load)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: DetailedResult())
+    monkeypatch.setattr(run_analysis.export, "format_summary_text", fake_format_summary)
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", fake_formatter)
+    monkeypatch.setattr(
+        run_analysis.export, "summary_frame_from_result", fake_summary_frame
+    )
+    monkeypatch.setattr(run_analysis.export, "export_to_excel", fake_export_to_excel)
+    monkeypatch.setattr(run_analysis.export, "export_data", fake_export_data)
+
+    result = run_analysis.main(["-c", "config.yml"])
+    assert result == 0
+    out = capsys.readouterr().out
+    assert "Summary" in out
+
+    kwargs = captured["kwargs"]
+    assert kwargs["errors"] == "raise"
+    assert kwargs["nan_policy"] == "zeros"
+    assert kwargs["nan_limit"] == 2
+
+    assert export_calls, "Expected export_to_excel to be invoked with defaults"
+    exported_data, exported_path = export_calls.pop()
+    assert exported_path.endswith("outputs/custom.xlsx")
+    assert "performance_by_regime" in exported_data
+    assert "regime_notes" in exported_data
+
+    assert not export_data_calls
