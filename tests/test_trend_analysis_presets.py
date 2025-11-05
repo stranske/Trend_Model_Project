@@ -151,7 +151,56 @@ def test_trend_preset_defaults_use_fallbacks_when_config_missing() -> None:
         label="Base",
         description="",
         trend_spec=spec,
-        _config=preset_module._freeze_mapping({"portfolio": "not-mapping"}),
+        _config=_freeze_mapping({}),
+    )
+
+    defaults = preset.vol_adjust_defaults()
+    assert defaults["enabled"] is True
+    assert defaults["target_vol"] == 0.3
+    assert defaults["window"] == {"length": 55}
+
+
+def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
+    spec = TrendSpec(
+        window=21,
+        min_periods=None,
+        lag=1,
+        vol_adjust=True,
+        vol_target=0.6,
+        zscore=True,
+    )
+    preset = TrendPreset(
+        slug="cautious",
+        label="Cautious",
+        description="",
+        trend_spec=spec,
+        _config=_freeze_mapping(
+            {
+                "vol_adjust": {
+                    "enabled": False,
+                    "window": MappingProxyType({"length": 12}),
+                    "target_vol": 0.4,
+                }
+            }
+        ),
+    )
+
+    defaults = preset.vol_adjust_defaults()
+    assert defaults["enabled"] is False
+    assert defaults["target_vol"] == 0.4
+    assert defaults["window"] == {"length": 12}
+
+
+def test_apply_trend_preset_merges_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_registry(tmp_path, monkeypatch)
+    preset = get_trend_preset("zulu")
+
+    config = SimpleNamespace(
+        signals={"existing": "keep"},
+        vol_adjust={"enabled": False},
+        run={"other": "value"},
     )
 
     defaults = preset.form_defaults()
