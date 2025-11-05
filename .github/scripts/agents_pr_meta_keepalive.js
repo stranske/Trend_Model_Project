@@ -55,9 +55,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
 
-  const markerRegex = /<[^>]*codex-keepalive-marker[^>]*>/i;
-  const roundRegex = /<[^>]*keepalive-round:\s*(\d+)[^>]*>/i;
-  const traceRegex = /<[^>]*keepalive-trace:\s*([^>]+?)\s*>/i;
+  
 
   const outputs = {
     dispatch: 'false',
@@ -101,9 +99,11 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.comment_id = comment?.id ? String(comment.id) : '';
   outputs.comment_url = comment?.html_url || '';
 
-  const roundMatch = body.match(roundRegex);
-  const hasKeepaliveMarker = markerRegex.test(body) || body.includes(keepaliveMarker);
-  const traceMatch = body.match(traceRegex);
+  // Accept both canonical HTML comment markers (<!-- ... -->)
+  // and a sanitized variant that some comment renderers produce: "<- After: ... -->"
+  const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i) || body.match(/<-\s*After:\s*keepalive-round:\s*(\d+)\s*-->/i);
+  const hasKeepaliveMarker = body.includes(keepaliveMarker) || /<-\s*After:\s*codex-keepalive-marker\s*-->/i.test(body);
+  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i) || body.match(/<-\s*After:\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
 
   if (!roundMatch) {
     outputs.reason = 'missing-round';
