@@ -55,6 +55,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
 
+  const markerRegex = /<[^>]*codex-keepalive-marker[^>]*>/i;
+  const roundRegex = /<[^>]*keepalive-round:\s*(\d+)[^>]*>/i;
+  const traceRegex = /<[^>]*keepalive-trace:\s*([^>]+?)\s*>/i;
+
   const outputs = {
     dispatch: 'false',
     reason: 'not-keepalive',
@@ -97,9 +101,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.comment_id = comment?.id ? String(comment.id) : '';
   outputs.comment_url = comment?.html_url || '';
 
-  const roundMatch = body.match(/<!--\s*keepalive-round:(\d+)\s*-->/i);
-  const hasKeepaliveMarker = body.includes(keepaliveMarker);
-  const traceMatch = body.match(/<!--\s*keepalive-trace:\s*([^>]+?)\s*-->/i);
+  const roundMatch = body.match(roundRegex);
+  const hasKeepaliveMarker = markerRegex.test(body) || body.includes(keepaliveMarker);
+  const traceMatch = body.match(traceRegex);
 
   if (!roundMatch) {
     outputs.reason = 'missing-round';
@@ -142,7 +146,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
-  const trace = traceMatch ? traceMatch[1].trim() : '';
+  const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
   outputs.trace = trace;
 
   let pull;

@@ -59,6 +59,14 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     assert created == [{"comment_id": 987654321, "content": "rocket"}]
 
 
+def test_keepalive_detection_handles_after_markers() -> None:
+    data = _run_scenario("after_markers")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "true"
+    assert outputs["reason"] == "keepalive-detected"
+    assert outputs["round"] == "5"
+    assert outputs["trace"] == "manual-test-2025-11-05-01-35"
+
 def test_keepalive_detection_requires_marker() -> None:
     data = _run_scenario("missing_marker")
     outputs = data["outputs"]
