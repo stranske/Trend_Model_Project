@@ -4,7 +4,7 @@ _Comprehensive evidence log for acceptance criteria and tasks tied to Issue #326
 
 ## Working Process
 
-1. **Evidence-first updates** – No task or acceptance criterion is marked complete without linking to a concrete workflow run, log excerpt, or artefact from GitHub Actions / PR activity.
+1. **Evidence-first updates** – No task or acceptance criterion is marked complete without linking to a concrete workflow run, log excerpt, or artifact from GitHub Actions / PR activity.
 2. **Regression check on every change** – Whenever a new item is completed, re-verify all previously satisfied items in the latest production context to confirm no regressions. If any verification fails, immediately downgrade the status and capture the failing evidence.
 3. **Live-run focus** – Synthetic/unit tests inform readiness, but sign-off requires a production (or PR-triggered) workflow run that exercises the relevant path. Logs must show success (not merely absence of errors).
 4. **Audit trail** – Every status change is appended to the Evidence Log with timestamp, workflow ID, and direct quotes or line ranges from logs. Earlier evidence remains visible for historical tracking.
