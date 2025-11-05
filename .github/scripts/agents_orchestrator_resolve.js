@@ -285,6 +285,9 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     ''
   ).trim();
   let keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr ?? workflowRunPr, '').trim();
+  if (!keepalivePr && workflowRunPr) {
+    keepalivePr = workflowRunPr;
+  }
 
   const dispatcherForceIssue = toString(
     dispatcherOptions.force_issue ?? merged.dispatcher_force_issue,

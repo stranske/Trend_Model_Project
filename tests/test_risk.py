@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
+import pandas.testing as pdt
 import pytest
 
 import trend_analysis.risk as risk
@@ -177,3 +179,34 @@ def test_compute_constrained_weights_uses_dummy_turnover_index() -> None:
         max_turnover=None,
     )
     assert "rebalance" in diagnostics.turnover.index.name
+
+
+def test_ensure_series_accepts_series_and_sorts() -> None:
+    weights = pd.Series({"B": 0.3, "A": 0.7}, dtype=float)
+
+    result = risk._ensure_series(weights)
+
+    assert list(result.index) == ["A", "B"]
+    assert result.dtype == float
+
+
+def test_realised_volatility_supports_ewma_decay() -> None:
+    returns = pd.DataFrame(
+        {
+            "A": [0.02, -0.01, 0.015],
+            "B": [0.01, 0.005, -0.02],
+        },
+        index=pd.date_range("2024-01-31", periods=3, freq="ME"),
+    )
+    window = RiskWindow(length=2, decay="ewma", ewma_lambda=0.8)
+
+    vol = risk.realised_volatility(returns, window, periods_per_year=12.0)
+
+    alpha = 1.0 - window.ewma_lambda
+    expected = (
+        returns.astype(float)
+        .ewm(alpha=alpha, adjust=False)
+        .std(bias=False)
+        .mul(np.sqrt(12.0))
+    )
+    pdt.assert_frame_equal(vol, expected)
