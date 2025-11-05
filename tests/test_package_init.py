@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+
 import pytest
 
 
@@ -52,14 +53,18 @@ def test_lazy_attribute_loads_requested_module(reload_trend_analysis: object) ->
     assert trend_analysis.cli is cli_mod
 
 
-def test_unknown_attribute_raises_attribute_error(reload_trend_analysis: object) -> None:
+def test_unknown_attribute_raises_attribute_error(
+    reload_trend_analysis: object,
+) -> None:
     trend_analysis = reload_trend_analysis
 
     with pytest.raises(AttributeError):
         trend_analysis.__getattr__("does_not_exist")
 
 
-def test_missing_optional_submodules_are_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_optional_submodules_are_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_import = importlib.import_module
 
     def fake_import(name: str, package: str | None = None):
@@ -79,7 +84,9 @@ def test_missing_optional_submodules_are_skipped(monkeypatch: pytest.MonkeyPatch
     importlib.reload(module)
 
 
-def test_version_fallback_populates_dev_version(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_fallback_populates_dev_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     original_import_module = importlib.import_module
 
     def passthrough(name: str, package: str | None = None):
