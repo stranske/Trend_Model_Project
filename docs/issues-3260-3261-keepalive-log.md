@@ -58,7 +58,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 | PR-meta detector | Add 🚀 dedupe and dispatch orchestrator (`workflow_dispatch`) + connector (`repository_dispatch`). | ⏳ In progress | Repository dispatch now forwards round/trace plus fallback metadata (commit `777ce17d`); validation pending next accepted keepalive. |
 | PR-meta detector | Emit summary table on every run. | ⏳ In progress | Summary step updated with Comment column; awaiting detector evidence. |
 | Orchestrator | Parse `options_json`, export TRACE/ROUND/PR, configure `concurrency` without cancel-in-progress. | ⏳ In progress | Parameter resolver populates keepalive metadata; need next orchestrator run to confirm. |
-| Orchestrator | Post `Keepalive … skipped:` PR comment + summary when guard fails. | ⏳ In progress | Guard posts formatted skip line (commit `2ce66b54`); awaiting skip event evidence. |
+| Orchestrator | Post `Keepalive {round} {trace} skipped:` PR comment + summary when guard fails. | ⏳ In progress | Guard posts formatted skip line (commit `2ce66b54`); awaiting skip event evidence. |
 | Orchestrator | Filter assignees to humans; skip gracefully when none remain. | ⏳ In progress | Guard auto-assigns humans and applies `agents:keepalive`/`agent:codex` labels (commit `e3dc4c65`); confirmation pending live run. |
 
 ### Evidence Log
