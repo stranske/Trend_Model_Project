@@ -76,11 +76,23 @@ concurrency:
             || 'dispatch'
           )
         )
+        || (
+          github.event_name == 'workflow_run'
+          && github.event.workflow_run
+          && (
+            github.event.workflow_run.pull_requests[0].number
+            || github.event.workflow_run.id
+            || github.run_id
+          )
+        )
         || github.run_id,
         (
           github.event_name == 'workflow_dispatch'
           && (
-            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_trace
+            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_pr
+            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').pr
+            || (github.event.inputs && github.event.inputs.pr_number)
+            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_trace
             || github.run_id
           )
         )
@@ -95,7 +107,34 @@ concurrency:
                 && toJson(github.event.client_payload.options)
               )
               || '{}'
+            ).keepalive_pr
+            || fromJson(
+              github.event.client_payload.options_json
+              || (
+                github.event.client_payload.options
+                && toJson(github.event.client_payload.options)
+              )
+              || '{}'
+            ).pr
+            || github.event.client_payload.pr
+            || github.event.client_payload.issue
+            || fromJson(
+              github.event.client_payload.options_json
+              || (
+                github.event.client_payload.options
+                && toJson(github.event.client_payload.options)
+              )
+              || '{}'
             ).keepalive_trace
+            || github.run_id
+          )
+        )
+        || (
+          github.event_name == 'workflow_run'
+          && github.event.workflow_run
+          && (
+            github.event.workflow_run.pull_requests[0].number
+            || github.event.workflow_run.id
             || github.run_id
           )
         )
