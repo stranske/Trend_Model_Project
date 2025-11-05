@@ -2,6 +2,12 @@
 
 _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestrator hardening). Mirrors the Issue #3260 workflow: every status reflects verifiable GitHub Actions runs or PR artifacts so regressions surface immediately._
 
+## KEEPALIVE GOLDEN RULE
+
+- **Automation must issue the next-round instruction comment.** After the first human @codex directive is accepted, the keepalive workflow is responsible for posting subsequent round markers (round ≥ 2). If the detector never sees an automation-authored instruction with hidden markers, the loop is broken and no code ships.
+- Any investigation starts by checking for a detector log entry showing an automation-authored round comment (`reason = keepalive-detected`, author is the workflow actor). Absence of that entry means we have a regression regardless of other signals.
+- Quick recall during triage: `rg -n "KEEPALIVE GOLDEN RULE" docs/issue-3261-keepalive-detection-log.md`.
+
 ## Working Process
 
 1. **Evidence precedes status** – No task or acceptance criterion is marked complete until the associated workflow run, log segment, or PR artifact is linked.
@@ -9,6 +15,9 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 3. **Author + marker focus** – Verification requires both an allowed author (`stranske` via ACTIONS_BOT_PAT or `stranske-automation-bot`) and the hidden keepalive markers before claiming success.
 4. **Trace continuity** – Every round must yield consistent TRACE propagation across detector, orchestrator, and comment outputs; mismatches force investigation before closure.
 5. **Audit trail** – Evidence Log entries are append-only with timestamps, run IDs, and direct links/quotes. Earlier entries remain for historical comparison.
+6. **Single-agent enforcement** – Only one automation agent works a given keepalive round at any time; additional bots or humans wait for a fresh round.
+7. **Gate-driven rounds** – New keepalive rounds are opened only when gate/guard conditions signal the prior round has completed or requires another pass.
+8. **Automation-authored rounds** – Detector confirmations must show the workflow author on rounds ≥ 2; if humans are still posting instructions, the process has stalled.
 
 ## Acceptance Criteria Status
 
@@ -55,6 +64,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 | 2025-11-05 08:52 | Agents 70 Orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) | Manually dispatched workflow (actor `stranske` via PAT) created keepalive comment [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) with trace `mhlrf2obd4nlr5`. Records correction to the earlier mistaken claim that the orchestrator never targeted PR 3285. |
 | 2025-11-05 09:01 | `Agents PR meta manager` run [#19096651969](https://github.com/stranske/Trend_Model_Project/actions/runs/19096651969) | Issue-comment trigger evaluated summary comment [#3490027168](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3490027168); detection returned `ok = false`, `reason = missing-round`, emitted the Markdown summary table, and skipped dispatch—showing the new failure messaging in practice. |
 | 2025-11-05 14:56 | `Agents PR meta manager` run [#19106134709](https://github.com/stranske/Trend_Model_Project/actions/runs/19106134709) | Pull-request trigger skipped the keepalive detection/dispatch jobs entirely, confirming the auto-path still omits the orchestrator even after the manual workflow_dispatch succeeded; this entry locks the corrected understanding into the audit trail. |
+| 2025-11-05 19:24 | Local harness run `pytest tests/test_agents_pr_meta_keepalive.py` | Added automation safeguards: detector now ignores autofix status comments (`reason = automation-comment`) and blocks human-posted round escalations (`reason = manual-round`). Fixtures `automation_autofix.json` and `manual_round.json` cover the regression. |
 
 ## Next Verification Steps
 
