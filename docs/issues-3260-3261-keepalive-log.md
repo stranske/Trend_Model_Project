@@ -12,7 +12,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 ## Task List
 
 - [ ] Capture proof that instruction comments are emitted with required markers and mention on every cycle.
-- [ ] Demonstrate acknowledgement loop behaviour, including fallback dispatch when 🚀 is absent.
+- [ ] Demonstrate acknowledgment loop behavior, including fallback dispatch when 🚀 is absent.
 - [ ] Show detector-to-orchestrator hand-off through repository dispatch with populated round/trace metadata.
 - [ ] Record guard skip formatting and labelling outputs for failing keepalive rounds.
 
@@ -20,7 +20,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 - [ ] New instruction comment created each cycle with required markers and `@codex` mention.
 - [ ] Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback.
-- [ ] PR-meta acknowledgement observed, or fallback dispatch and PR comment emitted when acknowledgement is missing.
+- [ ] PR-meta acknowledgment observed, or fallback dispatch and PR comment emitted when acknowledgment is missing.
 - [ ] Step summary includes `Round`, `Trace`, `Author`, and `CommentId` fields.
 - [ ] Valid instruction comment triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated metadata fields.
 - [ ] Exactly one orchestrator `workflow_dispatch` fires per accepted instruction comment with matching TRACE and no conflicting cancellations.
@@ -38,7 +38,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 | Orchestrator computes round/trace, selects token, posts comment via helper. | Complete | `Prepare keepalive instruction` job in `.github/workflows/agents-70-orchestrator.yml` resolves round/trace, chooses PAT, and renders the comment body. |
 | Summary records round, trace, author, comment ID. | Complete | `Summarise keepalive instruction` step writes all four fields to `$GITHUB_STEP_SUMMARY`. |
 | Reaction ack loop with 👀/🚀 handling. | Complete | `Ack keepalive instruction` adds 👀 then polls for 🚀 for 60 s at 5 s cadence. |
-| Fallback dispatch and PR comment when ack missing. | Complete | Fallback steps emit the repository_dispatch payload and a one-line PR comment when acknowledgement fails. |
+| Fallback dispatch and PR comment when ack missing. | Complete | Fallback steps emit the repository_dispatch payload and a one-line PR comment when acknowledgment fails. |
 
 ### Acceptance Criteria Tracking
 
@@ -54,7 +54,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_keepalive_workflow.py` (12 passed) to confirm helper + keepalive workflow coverage.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_agents_consolidation.py` (39 passed) to validate orchestration + PR-meta integration.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_naming.py` (7 passed) to ensure workflow naming conventions remain aligned.
-- 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_autofix_guard.py` (3 passed) to verify autofix guard workflow behaviour.
+- 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_autofix_guard.py` (3 passed) to verify autofix guard workflow behavior.
 - 2025-11-04 – Ran `PYTHONPATH=./src pytest tests/test_workflow_multi_failure.py` (1 passed) to confirm multi-failure handling.
 - 2025-11-05 – Guarded `workflow_dispatch` concurrency inputs to prevent push-triggered runs from failing before job execution; awaiting new detector/orchestrator cycle for validation.
 - 2025-11-05 – Added detector tolerance for sanitized keepalive markers and expanded coverage via `tests/test_agents_pr_meta_keepalive.py` (5 passed locally); awaiting merged workflow run to consume the fix.
@@ -94,7 +94,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 | 2025-11-04 22:24 | Orchestrator run [#19084601666](https://github.com/stranske/Trend_Model_Project/actions/runs/19084601666) | Workflow ended before job steps; no TRACE export or skip comment. |
 | 2025-11-04 22:25 | Agents PR meta manager run [#19084629319](https://github.com/stranske/Trend_Model_Project/actions/runs/19084629319) | Detection table `ok=false`, `reason=not-keepalive`; dispatch hooks dormant awaiting hidden markers. |
 | 2025-11-04 23:08 | Updated orchestrator idle precheck for explicit keepalive dispatches. | Should allow detector-triggered runs to reach keepalive jobs even without open agent issues; validation pending. |
-| 2025-11-04 23:16 | Normalised keepalive skip comment format in orchestrator guard. | Guarantees `Keepalive {round} {trace} skipped: <reason>` comment + summary; awaiting skip event. |
+| 2025-11-04 23:16 | Normalized keepalive skip comment format in orchestrator guard. | Guarantees `Keepalive {round} {trace} skipped: <reason>` comment + summary; awaiting skip event. |
 | 2025-11-04 23:24 | Added comment metadata + specific missing-round reason to detector. | Detector now emits comment ID/URL and differentiates missing round markers; summary table gains comment column. Awaiting live run. |
 | 2025-11-04 23:31 | Forwarded keepalive round/trace with repository dispatch. | Codex dispatch attaches round/trace and falls back to detector comment metadata; awaiting valid keepalive for evidence. |
 | 2025-11-04 23:38 | Keepalive guard auto-labels PR before failing. | Guard attempts to apply `agents:keepalive` / `agent:codex` labels before logging skip; validate on next label-missing case. |
