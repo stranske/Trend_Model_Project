@@ -158,7 +158,6 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert "**Keepalive Round" not in created[0]["body"]
     assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
-    assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
