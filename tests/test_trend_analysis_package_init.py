@@ -68,7 +68,9 @@ def test_top_level_reexports_expose_data_and_export_helpers() -> None:
     assert module.export_to_csv is module.export.export_to_csv
 
 
-def test_eager_import_skips_missing_optional_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_eager_import_skips_missing_optional_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = importlib.reload(importlib.import_module("trend_analysis"))
     sys.modules.pop("trend_analysis.signals", None)
 
