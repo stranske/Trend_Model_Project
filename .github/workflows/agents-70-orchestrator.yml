@@ -45,9 +45,9 @@ concurrency:
         (
           github.event_name == 'workflow_dispatch'
           && (
-            fromJson(github.event.inputs.options_json || '{}').pr
-            || fromJson(github.event.inputs.options_json || '{}').keepalive_pr
-            || github.event.inputs.pr_number
+            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').pr
+            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_pr
+            || (github.event.inputs && github.event.inputs.pr_number)
             || 'workflow'
           )
         )
@@ -80,7 +80,7 @@ concurrency:
         (
           github.event_name == 'workflow_dispatch'
           && (
-            fromJson(github.event.inputs.options_json || '{}').keepalive_trace
+            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_trace
             || github.run_id
           )
         )
