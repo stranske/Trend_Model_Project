@@ -98,7 +98,9 @@ def test_classify_frequency_handles_short_and_zero_offsets() -> None:
     single = market_data.classify_frequency(pd.DatetimeIndex(["2024-01-31"]))
     assert single["code"] == "UNKNOWN"
 
-    duplicates = market_data.classify_frequency(pd.DatetimeIndex(["2024-01-31", pd.NaT]))
+    duplicates = market_data.classify_frequency(
+        pd.DatetimeIndex(["2024-01-31", pd.NaT])
+    )
     assert duplicates["code"] == "UNKNOWN"
 
     with pytest.raises(market_data.MarketDataValidationError):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import MappingProxyType, SimpleNamespace
 from textwrap import dedent
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 

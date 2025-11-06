@@ -21,7 +21,9 @@ from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency
         ),
     ],
 )
-def test_detect_frequency_from_various_iterables(values, expected_code, expected_resample):
+def test_detect_frequency_from_various_iterables(
+    values, expected_code, expected_resample
+):
     summary = detect_frequency(values)
     assert summary.code == expected_code
     assert summary.label == FREQUENCY_LABELS[expected_code]
@@ -36,24 +38,28 @@ def test_detect_frequency_from_various_iterables(values, expected_code, expected
 
 def test_detect_frequency_falls_back_to_diffs_when_infer_freq_not_available():
     # Construct an index whose cadence fluctuates between weekly-ish spacings
-    idx = pd.DatetimeIndex([
-        "2024-01-01",
-        "2024-01-06",
-        "2024-01-12",
-        "2024-01-19",
-    ])
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-01",
+            "2024-01-06",
+            "2024-01-12",
+            "2024-01-19",
+        ]
+    )
     summary = detect_frequency(idx)
     assert summary.code == "W"
     assert summary.resampled is True
 
 
 def test_detect_frequency_errors_on_irregular_spacing():
-    idx = pd.DatetimeIndex([
-        "2024-01-01",
-        "2024-01-02",
-        "2024-01-20",
-        "2024-09-01",
-    ])
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-01",
+            "2024-01-02",
+            "2024-01-20",
+            "2024-09-01",
+        ]
+    )
     with pytest.raises(ValueError):
         detect_frequency(idx)
 

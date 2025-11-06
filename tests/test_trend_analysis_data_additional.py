@@ -49,10 +49,14 @@ def test_coerce_limit_kwarg_accepts_numeric_strings() -> None:
     assert _coerce_limit_kwarg("15") == 15
 
 
-def test_validate_payload_injects_wildcard_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_injects_wildcard_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Mappings that advertise a wildcard should gain the fallback entry."""
 
-    frame = pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=3), "A": [1, 2, 3]})
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-01", periods=3), "A": [1, 2, 3]}
+    )
     captured: dict[str, Any] = {}
 
     def fake_validate(
@@ -67,7 +71,9 @@ def test_validate_payload_injects_wildcard_default(monkeypatch: pytest.MonkeyPat
         return SimpleNamespace(frame=payload, metadata=SimpleNamespace())
 
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
-    monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", _dummy_finalise)
+    monkeypatch.setattr(
+        "trend_analysis.data._finalise_validated_frame", _dummy_finalise
+    )
 
     mapping = _WildcardMapping({"A": "ffill"})
 
@@ -126,7 +132,9 @@ def test_load_csv_missing_limit_kwarg_converted(
 
 
 def test_load_csv_logs_validation_error_hint(
-    tmp_path: pytest.Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    tmp_path: pytest.Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Errors mentioning unparseable dates should include the friendly hint."""
 
@@ -174,7 +182,9 @@ def test_load_parquet_missing_limit_kwarg_converted(
         return SimpleNamespace(frame=payload, metadata=SimpleNamespace())
 
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
-    monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", _dummy_finalise)
+    monkeypatch.setattr(
+        "trend_analysis.data._finalise_validated_frame", _dummy_finalise
+    )
 
     result = load_parquet(str(path), missing_limit="9", include_date_column=False)
 
@@ -183,7 +193,9 @@ def test_load_parquet_missing_limit_kwarg_converted(
 
 
 def test_load_parquet_logs_validation_error_hint(
-    tmp_path: pytest.Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    tmp_path: pytest.Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Parquet loader should mirror CSV error messaging for date issues."""
 
