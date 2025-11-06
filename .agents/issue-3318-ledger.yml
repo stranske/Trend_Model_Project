@@ -1,0 +1,138 @@
+version: 1
+issue: 3318
+base: phase-2-dev
+branch: codex/issue-3318
+tasks:
+  - id: task-01
+    title: "Shared pre\u2011gate helper (new or expand existing JS used via actions/github-script):"
+    status: done
+    started_at: '2025-11-06T18:11:04Z'
+    finished_at: '2025-11-06T18:11:11Z'
+    commit: bb55735f756401e82d2b5caadf41f22ef636dd16
+    notes: []
+  - id: task-02
+    title: 'Inputs: PR number, head SHA, labels, recent comments.'
+    status: done
+    started_at: '2025-11-06T18:17:43Z'
+    finished_at: '2025-11-06T18:17:49Z'
+    commit: c63a7ed4f4ced3af3b6ac1af3e26a777e46726ea
+    notes: []
+  - id: task-03
+    title: 'Checks:'
+    status: done
+    started_at: '2025-11-06T18:24:26Z'
+    finished_at: '2025-11-06T18:24:32Z'
+    commit: 3abc2d05aa00553afa42f9e0d6c70cc33e3cea28
+    notes: []
+  - id: task-04
+    title: 'hasKeepaliveLabel: PR has agents:keepalive.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: "hasHumanActivation: any non\u2011bot issue_comment.created contains @<alias>\
+      \ where <alias> \u2208 { all PR labels with prefix agent: stripped }."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'gateConcluded: Gate check on head SHA has status=completed.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: "underRunCap: count in\u2011progress/queued Orchestrator runs for this\
+      \ PR < cap where cap = label agents:max-runs:X or 2 by default."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Output booleans and a single reason string when blocked.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Agents PR meta manager (issue_comment.created path):'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: "Before detection/dispatch, call pre\u2011gate helper. If blocked \u2192\
+      \ exit (no comment/dispatch), write reason to $GITHUB_STEP_SUMMARY."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: "For first activation on a PR, require hasHumanActivation == true. For\
+      \ later rounds, hasHumanActivation is not re\u2011required (label + gate + cap\
+      \ still required)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Agents 70 Orchestrator (before posting the next instruction):'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: "Call the same pre\u2011gate helper with the current PR/head. If blocked\
+      \ \u2192 do not post an instruction comment or dispatch; write reason to $GITHUB_STEP_SUMMARY."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Instruction poster (still within Orchestrator keepalive sweep):'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Post as stranske using ACTIONS_BOT_PAT; if unavailable, fallback to SERVICE_BOT_PAT.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Create a new instruction comment (never edit); body must begin with:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Record Round, Trace, Author, CommentId into $GITHUB_STEP_SUMMARY.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: (Ack/fallback behavior is handled by existing logic and is not changed
+      in this issue.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
