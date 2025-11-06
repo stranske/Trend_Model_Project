@@ -1,0 +1,137 @@
+name: Keepalive Branch Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Target pull request number
+        required: true
+      trace:
+        description: Keepalive trace identifier
+        required: true
+      base_ref:
+        description: Base branch for the PR
+        required: true
+      head_ref:
+        description: PR head branch
+        required: true
+      head_sha:
+        description: PR head SHA at time of dispatch
+        required: true
+      agent:
+        description: Agent alias requesting the sync
+        required: false
+      round:
+        description: Keepalive round number
+        required: false
+      comment_id:
+        description: Update-branch command comment id
+        required: false
+      comment_url:
+        description: Update-branch command URL
+        required: false
+      idempotency_key:
+        description: Sync attempt idempotency key
+        required: false
+
+jobs:
+  sync:
+    name: Prepare sync PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head_sha }}
+          fetch-depth: 0
+          token: ${{ env.PREFERRED_TOKEN }}
+
+      - name: Configure git author
+        run: |
+          git config user.name "stranske automation"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+
+      - name: Prepare sync branch
+        env:
+          TRACE: ${{ inputs.trace }}
+          BASE_REF: ${{ inputs.base_ref }}
+        run: |
+          set -euo pipefail
+          TRACE_SAFE="${TRACE//[^A-Za-z0-9._-]/-}"
+          if [ -z "$TRACE_SAFE" ]; then
+            TRACE_SAFE="fallback"
+          fi
+          BRANCH="sync/codex-${TRACE_SAFE}"
+          git checkout -b "$BRANCH"
+          git fetch origin "$BASE_REF" --depth=0
+          if ! git merge --no-commit --no-ff origin/"$BASE_REF"; then
+            echo "::error::Merge failed while preparing sync branch"
+            exit 1
+          fi
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "SYNC_EMPTY=true" >> "$GITHUB_ENV"
+          fi
+          echo "SYNC_BRANCH=$BRANCH" >> "$GITHUB_ENV"
+
+      - name: Create sync PR
+        if: env.SYNC_EMPTY != 'true'
+        id: create_pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ env.PREFERRED_TOKEN }}
+          commit-message: chore(sync): branch-sync ${{ inputs.trace }}
+          title: chore(sync): branch-sync ${{ inputs.trace }}
+          branch: ${{ env.SYNC_BRANCH }}
+          base: ${{ inputs.head_ref }}
+          body: |
+            Keepalive branch sync for trace `${{ inputs.trace }}`.
+
+            - Base ref: `${{ inputs.base_ref }}`
+            - Head ref: `${{ inputs.head_ref }}`
+            - Idempotency: `${{ inputs.idempotency_key || 'n/a' }}`
+          delete-branch: false
+          signoff: false
+
+      - name: Auto-merge sync PR
+        if: steps.create_pr.outputs.pull-request-number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.PREFERRED_TOKEN }}
+          pull_number: ${{ steps.create_pr.outputs.pull-request-number }}
+          trace: ${{ inputs.trace }}
+          script: |
+            const number = Number(core.getInput('pull_number'));
+            if (!Number.isFinite(number)) {
+              core.setFailed('Invalid pull request number');
+              return;
+            }
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: number,
+              merge_method: 'squash',
+              commit_title: `Keepalive sync ${core.getInput('trace') || ''}`.trim(),
+            });
+
+      - name: Delete sync branch
+        if: steps.create_pr.outputs.pull-request-number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.PREFERRED_TOKEN }}
+          branch: ${{ env.SYNC_BRANCH }}
+          script: |
+            const branch = core.getInput('branch');
+            if (!branch) {
+              core.notice('No sync branch to delete.');
+              return;
+            }
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`,
+            });

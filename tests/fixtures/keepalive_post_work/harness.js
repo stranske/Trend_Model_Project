@@ -104,14 +104,37 @@ async function main() {
     : [];
   let listIndex = 0;
 
+  const commentPages = Array.isArray(scenario.commentPages)
+    ? scenario.commentPages.map((page) =>
+        page.map((comment) => ({
+          id: Number.isFinite(comment?.id) ? comment.id : Math.floor(Math.random() * 10_000),
+          body: comment?.body || '',
+          user: comment?.user || { login: comment?.user?.login || 'stranske' },
+        }))
+      )
+    : [
+        Array.isArray(scenario.comments)
+          ? scenario.comments.map((comment) => ({
+              id: Number.isFinite(comment?.id) ? comment.id : Math.floor(Math.random() * 10_000),
+              body: comment?.body || '',
+              user: comment?.user || { login: comment?.user?.login || 'stranske' },
+            }))
+          : [],
+      ];
+  let commentPageIndex = 0;
+  let nextCommentId = 40_000;
+
   const events = {
     dispatches: [],
+    workflowDispatches: [],
     merges: [],
     deletedRefs: [],
     labelsAdded: [],
     labelsRemoved: [],
     comments: [],
+    reactions: [],
     headFetches: [],
+    commentListings: [],
   };
 
   const github = {
@@ -164,6 +187,14 @@ async function main() {
           }
         },
       },
+      actions: {
+        createWorkflowDispatch: async ({ workflow_id, ref, inputs }) => {
+          events.workflowDispatches.push({ workflow_id, ref, inputs });
+          if (scenario.workflowDispatchError) {
+            throw new Error(scenario.workflowDispatchError);
+          }
+        },
+      },
       issues: {
         listLabelsOnIssue: async () => {
           const labels = labelsSequence[Math.min(labelIndex, labelsSequence.length - 1)] || [];
@@ -185,11 +216,19 @@ async function main() {
           return { data: {} };
         },
         createComment: async ({ body }) => {
-          events.comments.push(body);
+          const id = nextCommentId;
+          nextCommentId += 1;
+          events.comments.push({ id, body });
           if (scenario.commentError) {
             throw new Error(scenario.commentError);
           }
-          return { data: { body } };
+          return { data: { id, body, user: { login: scenario.commentUser || 'stranske' } } };
+        },
+        listComments: async () => {
+          const page = commentPages[Math.min(commentPageIndex, commentPages.length - 1)] || [];
+          commentPageIndex += 1;
+          events.commentListings.push(page);
+          return { data: page };
         },
       },
       git: {
@@ -201,6 +240,15 @@ async function main() {
           return { data: {} };
         },
       },
+      reactions: {
+        createForIssueComment: async ({ comment_id, content }) => {
+          events.reactions.push({ comment_id, content });
+          if (scenario.reactionError) {
+            throw new Error(scenario.reactionError);
+          }
+          return { data: { id: `${comment_id}-${content}` } };
+        },
+      },
     },
     paginate: async (method, params) => {
       if (method === github.rest.pulls.list) {
@@ -208,6 +256,10 @@ async function main() {
         return Array.isArray(data) ? data : [];
       }
       if (method === github.rest.issues.listLabelsOnIssue) {
+        const { data } = await method(params);
+        return Array.isArray(data) ? data : [];
+      }
+      if (method === github.rest.issues.listComments) {
         const { data } = await method(params);
         return Array.isArray(data) ? data : [];
       }
