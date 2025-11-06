@@ -46,6 +46,14 @@ async function computeHighestRound({ github, owner, repo, prNumber }) {
   return highestRound;
 }
 
+function resolveAgentAlias(env) {
+  const value = String(env.KEEPALIVE_AGENT_ALIAS || '').trim();
+  if (value) {
+    return value;
+  }
+  return 'codex';
+}
+
 async function autopatchKeepaliveComment({
   core,
   github,
@@ -55,6 +63,7 @@ async function autopatchKeepaliveComment({
   comment,
   currentBody,
   highestRound,
+  agent,
 }) {
   const trimmed = normaliseBody(currentBody);
   if (!isLikelyInstruction(trimmed)) {
@@ -82,7 +91,7 @@ async function autopatchKeepaliveComment({
 
   const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
-  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed });
+  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed, agent });
 
   await github.rest.issues.updateComment({
     owner,
@@ -157,6 +166,7 @@ function extractIssueNumberFromPull(pull) {
 async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
+  const agentAlias = resolveAgentAlias(env);
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -342,6 +352,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
           comment,
           currentBody: body,
           highestRound,
+          agent: agentAlias,
         });
         if (patched) {
           if (patched.blocked) {
