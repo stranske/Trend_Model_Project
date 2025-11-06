@@ -12,8 +12,8 @@ tasks:
     notes: []
   - id: task-02
     title: 'Inputs: PR number, head SHA, labels, recent comments.'
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-06T18:17:43Z'
     finished_at: null
     commit: ''
     notes: []
