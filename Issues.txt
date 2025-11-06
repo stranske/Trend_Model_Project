@@ -59,7 +59,7 @@ Tasks
 
   - Create a temp branch sync/codex-${KEEPALIVE_TRACE} from the current PR head.
 
-  - Run Codex in Actions (e.g., openai/codex-action or your existing Codex worker) with a narrowly scoped prompt to sync the temp branch to the desired state (e.g., apply pending patch or minimal no‑op change to force merge) without altering functional code.
+  - Run an AI-assisted code generation action in GitHub Actions (e.g., your existing Codex worker, or a supported alternative such as github/copilot-actions if available) with a narrowly scoped prompt to sync the temp branch to the desired state (e.g., apply pending patch or minimal no‑op change to force merge) without altering functional code. Note: The openai/codex-action is deprecated and should not be used.
 
   - Use peter-evans/create-pull-request to open a PR from sync/codex-${KEEPALIVE_TRACE} → PR_HEAD (same repo), title e.g., chore(sync): branch-sync ${KEEPALIVE_TRACE}.
 
