@@ -46,7 +46,7 @@ def test_eager_import_skips_missing_submodule(monkeypatch):
         return original_import(name, package)
 
     monkeypatch.setattr(importlib, "import_module", fail_once)
-    module = importlib.import_module("trend_analysis")
+    importlib.import_module("trend_analysis")
     assert "trend_analysis.metrics" in failures
 
     # Exercise optional imports missing entirely (``data`` and ``export`` guards).
