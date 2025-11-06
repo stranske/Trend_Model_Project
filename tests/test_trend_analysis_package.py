@@ -63,7 +63,8 @@ def test_eager_import_skips_missing_submodule(monkeypatch):
     ]:
         sys.modules.pop(name, None)
 
-    missing_optional = importlib.import_module("trend_analysis")
+    importlib.import_module("trend_analysis")
+    missing_optional = sys.modules["trend_analysis"]
     assert "identify_risk_free_fund" not in missing_optional.__dict__
     assert "export_bundle" not in missing_optional.__dict__
 
