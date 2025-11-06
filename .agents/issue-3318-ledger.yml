@@ -19,8 +19,8 @@ tasks:
     notes: []
   - id: task-03
     title: 'Checks:'
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-06T18:24:26Z'
     finished_at: null
     commit: ''
     notes: []
