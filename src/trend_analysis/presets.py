@@ -19,6 +19,18 @@ LOGGER = logging.getLogger(__name__)
 _DEFAULT_PRESETS_DIR = Path(__file__).resolve().parents[2] / "config" / "presets"
 PRESETS_DIR = _DEFAULT_PRESETS_DIR
 
+_DEFAULT_VOL_ADJUST: Mapping[str, Any] = MappingProxyType(
+    {
+        "enabled": True,
+        "target_vol": 0.3,
+        "window": MappingProxyType({"length": 55}),
+    }
+)
+
+_DEFAULT_TREND_SPEC = TrendSpec()
+_DEFAULT_SPEC_WINDOW = _DEFAULT_TREND_SPEC.window
+_DEFAULT_SPEC_VOL_ADJUST = _DEFAULT_TREND_SPEC.vol_adjust
+
 # Metric aliases exposed for UI components and pipeline wiring.
 UI_METRIC_ALIASES: Mapping[str, str] = MappingProxyType(
     {
@@ -188,21 +200,63 @@ class TrendPreset:
         """Return a shallow copy of vol adjustment overrides."""
 
         preset = self._config.get("vol_adjust")
-        base: dict[str, Any] = {}
         if isinstance(preset, Mapping):
-            base.update(preset)
-        if "enabled" not in base:
-            base["enabled"] = self.trend_spec.vol_adjust
-        base.setdefault("target_vol", self.trend_spec.vol_target)
-        window = base.get("window")
-        if isinstance(window, MutableMapping):
-            window = dict(window)
-        elif isinstance(window, Mapping):
-            window = dict(window.items())
+            base: dict[str, Any] = {
+                key: (
+                    dict(value)
+                    if key == "window" and isinstance(value, Mapping)
+                    else value
+                )
+                for key, value in preset.items()
+            }
+        else:
+            base = {}
+
+        signals_cfg = self._config.get("signals")
+        if not isinstance(signals_cfg, Mapping):
+            signals_cfg = None
+
+        vol_adjust_section = (
+            self._config.get("vol_adjust")
+            if isinstance(self._config.get("vol_adjust"), Mapping)
+            else None
+        )
+
+        enabled = base.get("enabled")
+        if enabled is None:
+            if vol_adjust_section is not None:
+                enabled = self.trend_spec.vol_adjust
+            elif signals_cfg is not None and "vol_adjust" in signals_cfg:
+                enabled = bool(signals_cfg.get("vol_adjust"))
+            elif self.trend_spec.vol_adjust != _DEFAULT_SPEC_VOL_ADJUST:
+                enabled = self.trend_spec.vol_adjust
+            else:
+                enabled = _DEFAULT_VOL_ADJUST["enabled"]
+        base["enabled"] = bool(enabled)
+
+        target = base.get("target_vol")
+        if target is None:
+            target = self.trend_spec.vol_target
+        if target is None:
+            target = _DEFAULT_VOL_ADJUST["target_vol"]
+        base["target_vol"] = target
+
+        window_cfg = base.get("window")
+        if isinstance(window_cfg, MutableMapping):
+            window: dict[str, Any] = dict(window_cfg)
+        elif isinstance(window_cfg, Mapping):
+            window = dict(window_cfg.items())
         else:
             window = {}
-        window.setdefault("length", self.trend_spec.window)
+        if "length" not in window or window["length"] is None:
+            default_length = (
+                self.trend_spec.window
+                if self.trend_spec.window != _DEFAULT_SPEC_WINDOW
+                else _DEFAULT_VOL_ADJUST["window"]["length"]
+            )
+            window["length"] = default_length
         base["window"] = window
+
         return base
 
     def metrics_pipeline(self) -> dict[str, float]:

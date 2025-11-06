@@ -42,17 +42,30 @@ _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
 
-try:  # ``trend_analysis.cli`` is heavy but provides useful helpers
-    import trend_analysis.cli as _legacy_cli_module
-except Exception:  # pragma: no cover - defensive fallback
-    _legacy_cli_module = None
-else:
-    maybe_log_step_fn = getattr(_legacy_cli_module, "maybe_log_step", None)
-    if callable(maybe_log_step_fn):
-        _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
-    _legacy_extract_cache_stats = getattr(
-        _legacy_cli_module, "_extract_cache_stats", None
-    )
+
+def _refresh_legacy_cli_module() -> ModuleType | None:
+    """Return the legacy CLI module, refreshing cached helpers when reloaded."""
+
+    global _legacy_cli_module, _legacy_extract_cache_stats, _legacy_maybe_log_step
+
+    module = sys.modules.get("trend_analysis.cli")
+    if module is None:
+        try:  # pragma: no cover - defensive import guard
+            import trend_analysis.cli as module
+        except Exception:  # pragma: no cover - defensive fallback
+            module = None
+
+    if module is not None and module is not _legacy_cli_module:
+        _legacy_cli_module = module
+        maybe_log_step_fn = getattr(module, "maybe_log_step", None)
+        if callable(maybe_log_step_fn):
+            _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
+        _legacy_extract_cache_stats = getattr(module, "_extract_cache_stats", None)
+
+    return module or _legacy_cli_module
+
+
+_refresh_legacy_cli_module()
 
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
@@ -66,8 +79,9 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 
 
 def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
-    if _legacy_cli_module is not None:
-        attr = getattr(_legacy_cli_module, name, None)
+    module = _refresh_legacy_cli_module()
+    if module is not None:
+        attr = getattr(module, name, None)
         if callable(attr):
             return cast(Callable[..., Any], attr)
     return fallback
