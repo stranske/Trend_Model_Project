@@ -199,7 +199,7 @@ Scope
 
 Non‑Goals
 
-- Providing goals or instructions for anything besisde the keepalive.
+- Providing goals or instructions for anything besides the keepalive.
 
 Tasks
 
