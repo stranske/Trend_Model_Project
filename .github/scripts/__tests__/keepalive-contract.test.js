@@ -30,6 +30,17 @@ test('renderInstruction prefixes missing @codex', () => {
   assert.equal(lines[3], '@codex review scope');
 });
 
+test('renderInstruction normalises to requested agent alias', () => {
+  const output = renderInstruction({
+    round: 5,
+    trace: 'trace',
+    body: '@codex please continue with scope',
+    agent: 'alpha',
+  });
+  const lines = output.trim().split(/\n/);
+  assert.equal(lines[3], '@alpha please continue with scope');
+});
+
 test('renderInstruction rejects invalid inputs', () => {
   assert.throws(() => renderInstruction({ round: 0, trace: 'trace', body: '@codex hi' }));
   assert.throws(() => renderInstruction({ round: 2, trace: '', body: '@codex hi' }));

@@ -426,6 +426,10 @@ jobs:
     outputs:
       proceed: ${{ steps.guard.outputs.proceed || 'true' }}
       reason: ${{ steps.guard.outputs.reason || '' }}
+      agent_alias: ${{ steps.guard.outputs.agent_alias || '' }}
+      run_cap: ${{ steps.guard.outputs.run_cap || '' }}
+      active_runs: ${{ steps.guard.outputs.active_runs || '' }}
+      has_sync_label: ${{ steps.guard.outputs.has_sync_label || 'false' }}
     steps:
       - name: Checkout guard helpers
         uses: actions/checkout@v4
@@ -452,6 +456,7 @@ jobs:
               analyseSkipComments,
               isGateReason,
             } = require('./.github/scripts/keepalive_guard_utils.js');
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const normalise = (value) => String(value || '').trim();
             const toBool = (value) => {
               const norm = normalise(value).toLowerCase();
@@ -581,6 +586,53 @@ jobs:
               return;
             }
 
+            const preGate = await evaluateKeepaliveGate({
+              core,
+              github,
+              context,
+              options: {
+                prNumber,
+                pullRequest: pr,
+                currentRunId: context.runId,
+                requireHumanActivation: false,
+              },
+            });
+
+            const agentAlias = preGate.primaryAgent || 'codex';
+            const runCap = Number.isFinite(preGate.runCap) ? preGate.runCap : '';
+            const activeRuns = Number.isFinite(preGate.activeRuns) ? preGate.activeRuns : '';
+
+            core.setOutput('agent_alias', agentAlias);
+            core.setOutput('run_cap', runCap !== '' ? String(runCap) : '');
+            core.setOutput('active_runs', activeRuns !== '' ? String(activeRuns) : '');
+            core.setOutput('has_sync_label', preGate.hasSyncRequiredLabel ? 'true' : 'false');
+
+            if (!preGate.ok) {
+              const reason = preGate.reason || 'precondition-failed';
+              summary
+                .addRaw(renderLine(reason))
+                .addEOL()
+                .addRaw(`keepalive label: ${preGate.hasKeepaliveLabel ? 'true' : 'false'}`)
+                .addEOL()
+                .addRaw(`human activation: ${preGate.hasHumanActivation ? 'true' : 'false'}`)
+                .addEOL()
+                .addRaw(`gate concluded: ${preGate.gateConcluded ? 'true' : 'false'}`)
+                .addEOL()
+                .addRaw(`sync required label: ${preGate.hasSyncRequiredLabel ? 'true' : 'false'}`)
+                .addEOL()
+                .addRaw(`run cap: ${preGate.activeRuns}/${preGate.runCap}`)
+                .addEOL();
+              await summary.write();
+              setOutputs(false, reason);
+              return;
+            }
+
+            summary
+              .addRaw('keepalive pre-gate satisfied: label, activation, gate, and run-cap checks passed.')
+              .addEOL()
+              .addRaw(`run cap utilisation: ${preGate.activeRuns}/${preGate.runCap}`)
+              .addEOL();
+
             const reasons = [];
             const addReason = (reason) => {
               const value = typeof reason === 'string' ? reason.trim() : '';
@@ -611,7 +663,10 @@ jobs:
                   .filter(Boolean)
               );
 
-              const requiredLabels = ['agents:keepalive', 'agent:codex'];
+              const requiredLabels = ['agents:keepalive'];
+              if (agentAlias) {
+                requiredLabels.push(`agent:${agentAlias}`);
+              }
               const missingLabels = requiredLabels.filter((label) => !currentLabels.has(label));
 
               if (missingLabels.length) {
@@ -856,6 +911,10 @@ jobs:
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
       actions_available: ${{ steps.prepare.outputs.actions_available || 'false' }}
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
+      baseline_head: ${{ steps.snapshot.outputs.head || '' }}
+      head_ref: ${{ steps.snapshot.outputs.head_ref || '' }}
+      base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
+      agent: ${{ steps.prepare.outputs.agent || '' }}
     steps:
       - name: Ensure keepalive token available
         env:
@@ -884,6 +943,7 @@ jobs:
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
@@ -895,6 +955,8 @@ jobs:
               core.setFailed('Keepalive instruction requires a valid pull request number.');
               return;
             }
+
+            const agentAlias = normalise(process.env.AGENT_ALIAS) || 'codex';
 
             let instruction = '';
             const optionsSource = process.env.OPTIONS_JSON || '{}';
@@ -943,7 +1005,7 @@ jobs:
 
             round = Math.max(round, highestRound) + 1;
             const trace = makeTrace();
-            const body = renderInstruction({ round, trace, body: instruction });
+            const body = renderInstruction({ round, trace, body: instruction, agent: agentAlias });
             const actionsAvailable = (process.env.ACTIONS_AVAILABLE || '').toLowerCase() === 'true';
             const serviceAvailable = (process.env.SERVICE_AVAILABLE || '').toLowerCase() === 'true';
             const dispatchMode = actionsAvailable
@@ -960,6 +1022,37 @@ jobs:
             core.setOutput('pr_number', String(prNumber));
             core.setOutput('actions_available', actionsAvailable ? 'true' : 'false');
             core.setOutput('dispatch_mode', dispatchMode);
+            core.setOutput('agent', agentAlias);
+
+      - name: Capture keepalive head snapshot
+        id: snapshot
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
+        with:
+          script: |
+            const normalise = (value) => String(value || '').trim();
+            const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setOutput('head', '');
+              core.setOutput('head_ref', '');
+              core.setOutput('base_ref', '');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              core.setOutput('head', data?.head?.sha || '');
+              core.setOutput('head_ref', data?.head?.ref || '');
+              core.setOutput('base_ref', data?.base?.ref || '');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to capture PR #${prNumber} head snapshot: ${message}`);
+              core.setOutput('head', '');
+              core.setOutput('head_ref', '');
+              core.setOutput('base_ref', '');
+            }
 
       - name: Create keepalive instruction comment
         id: post
@@ -1052,6 +1145,7 @@ jobs:
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
           DISPATCH_MODE: ${{ steps.prepare.outputs.dispatch_mode }}
+          AGENT_ALIAS: ${{ steps.prepare.outputs.agent }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
@@ -1103,7 +1197,7 @@ jobs:
               issue: issueNumber || prNumber,
               base,
               head,
-              agent: 'codex',
+              agent: (process.env.AGENT_ALIAS || '').trim() || 'codex',
               comment_id: commentId,
               comment_url: process.env.COMMENT_URL || '',
               round: process.env.ROUND || '',
@@ -1150,6 +1244,7 @@ jobs:
           * Round: ${ROUND}
           * Trace: `${TRACE}`
           * Author: ${AUTHOR}
+          * Agent: @${AGENT}
           * Comment: ${COMMENT_LINK}
           * Acknowledged: ${ACK}
           EOF
@@ -1157,6 +1252,7 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
           AUTHOR: ${{ steps.prepare.outputs.author || '(unknown)' }}
+          AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
           COMMENT_LINK: ${{ steps.post.outputs.comment_url != '' && format('[#{0}]({1})', steps.post.outputs.comment_id, steps.post.outputs.comment_url) || steps.post.outputs.comment_id || '(unavailable)' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
@@ -1343,6 +1439,73 @@ jobs:
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
+  keepalive-post-work:
+    name: Keepalive post-work sync
+    needs:
+      - resolve-params
+      - keepalive-guard
+      - keepalive-instruction
+      - belt-dispatch
+      - belt-worker
+    if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
+      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      needs.keepalive-instruction.outputs.trace != '' &&
+      needs.keepalive-instruction.outputs.pr_number != '' &&
+      needs.belt-dispatch.outputs.issue != '' &&
+      needs.belt-dispatch.outputs.branch != '' &&
+      needs.belt-worker.result == 'success' &&
+      needs.resolve-params.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure keepalive sync token available
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ]; then
+            echo "::error::Keepalive sync requires ACTIONS_BOT_PAT." >&2
+            exit 1
+          fi
+
+      - name: Checkout orchestrator scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Reconcile keepalive branch state
+        uses: actions/github-script@v7
+        env:
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
+          ROUND: ${{ needs.keepalive-instruction.outputs.round }}
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number }}
+          ISSUE_NUMBER: ${{ needs.belt-dispatch.outputs.issue }}
+          BASE_BRANCH: ${{ needs.belt-dispatch.outputs.base }}
+          PR_BASE_BRANCH: ${{ needs.keepalive-instruction.outputs.base_ref }}
+          HEAD_BRANCH: ${{ needs.belt-dispatch.outputs.branch }}
+          PR_HEAD_BRANCH: ${{ needs.keepalive-instruction.outputs.head_ref }}
+          PREVIOUS_HEAD: ${{ needs.keepalive-instruction.outputs.baseline_head }}
+          COMMENT_ID: ${{ needs.keepalive-instruction.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive-instruction.outputs.comment_url }}
+          AGENT_ALIAS: ${{ needs.keepalive-instruction.outputs.agent || needs.keepalive-guard.outputs.agent_alias }}
+          TTL_SHORT_MS: 90000
+          POLL_SHORT_MS: 10000
+          TTL_LONG_MS: 240000
+          POLL_LONG_MS: 20000
+          SYNC_LABEL: agents:sync-required
+          DEBUG_LABEL: agents:debug
+          DISPATCH_EVENT_TYPE: codex-pr-comment-command
+          AUTOMATION_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
+          MERGE_METHOD: squash
+          DELETE_TEMP_BRANCH: 'true'
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          script: |
+            const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
+            await runKeepalivePostWork({ core, github, context, env: process.env });
+
   belt-dispatch-summary:
     name: Summarise Codex dispatch outcomes
     needs:
@@ -1351,6 +1514,7 @@ jobs:
       - belt-check-existing-pr
       - keepalive-guard
       - keepalive-instruction
+      - keepalive-post-work
       - resolve-params
     if: always()
     runs-on: ubuntu-latest
