@@ -84,8 +84,8 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ env.PREFERRED_TOKEN }}
-          commit-message: chore(sync): branch-sync ${{ inputs.trace }}
-          title: chore(sync): branch-sync ${{ inputs.trace }}
+          commit-message: "chore(sync): branch-sync ${{ inputs.trace }}"
+          title: "chore(sync): branch-sync ${{ inputs.trace }}"
           branch: ${{ env.SYNC_BRANCH }}
           base: ${{ inputs.head_ref }}
           body: |
