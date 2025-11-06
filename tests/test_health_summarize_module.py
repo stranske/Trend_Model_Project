@@ -9,7 +9,9 @@ from types import ModuleType
 
 import pytest
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "src" / "health_summarize" / "__init__.py"
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1] / "src" / "health_summarize" / "__init__.py"
+)
 
 
 def _load_health_module() -> ModuleType:
@@ -40,7 +42,9 @@ def test_read_bool_variants(summarize: ModuleType) -> None:
     assert summarize._read_bool("surprise") is True
 
 
-def test_load_json_handles_missing_and_invalid(summarize: ModuleType, tmp_path: Path) -> None:
+def test_load_json_handles_missing_and_invalid(
+    summarize: ModuleType, tmp_path: Path
+) -> None:
     missing = tmp_path / "missing.json"
     assert summarize._load_json(missing) is None
 
@@ -54,7 +58,9 @@ def test_load_json_handles_missing_and_invalid(summarize: ModuleType, tmp_path: 
     assert summarize._load_json(valid) == payload
 
 
-def test_doc_url_uses_pr_base_branch(summarize: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_doc_url_uses_pr_base_branch(
+    summarize: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://example.com")
     monkeypatch.setenv("GITHUB_REF_NAME", "feature")
@@ -101,7 +107,9 @@ def test_signature_row_reports_mismatch(summarize: ModuleType, tmp_path: Path) -
     assert "Hash drift" in row["status"]
 
 
-def test_signature_row_handles_invalid_jobs(summarize: ModuleType, tmp_path: Path) -> None:
+def test_signature_row_handles_invalid_jobs(
+    summarize: ModuleType, tmp_path: Path
+) -> None:
     jobs_path = tmp_path / "jobs.json"
     jobs_path.write_text(json.dumps({"invalid": True}), encoding="utf-8")
     expected_path = tmp_path / "expected.txt"
@@ -260,7 +268,9 @@ def test_write_json_and_summary(summarize: ModuleType, tmp_path: Path) -> None:
     assert "| C |" in text
 
 
-def test_write_summary_ignores_empty_rows(summarize: ModuleType, tmp_path: Path) -> None:
+def test_write_summary_ignores_empty_rows(
+    summarize: ModuleType, tmp_path: Path
+) -> None:
     target = tmp_path / "summary.md"
     summarize._write_summary(target, [])
     assert not target.exists()
@@ -307,9 +317,7 @@ def test_main_executes_end_to_end(
     assert md_output.exists()
 
 
-def test_main_handles_empty_arguments(
-    summarize: ModuleType, tmp_path: Path
-) -> None:
+def test_main_handles_empty_arguments(summarize: ModuleType, tmp_path: Path) -> None:
     json_output = tmp_path / "rows.json"
     md_output = tmp_path / "summary.md"
 
