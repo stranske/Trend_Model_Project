@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import gc
 import json
 import sys
-import gc
 import types
 from collections.abc import Mapping, Sequence
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
 
@@ -12,14 +13,10 @@ import pandas as pd
 import streamlit as st
 import yaml
 
-from importlib import import_module
-
+import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.multi_period import run as run_multi
-
-import trend_analysis as _trend_pkg
-
 
 _PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
 
