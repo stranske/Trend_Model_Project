@@ -191,7 +191,7 @@ Whitelist & redact any external URLs the connector returns; never echo them in l
 Labels: agents, agents:keepalive, ci, automation, docs
 
 Why
-Agents get confused about the purpose of the keepalive and loose focus on the task goals. The canonical document provides enhancemed memory for the agents working on the task.
+Agents get confused about the purpose of the keepalive and lose focus on the task goals. The canonical document provides enhanced memory for the agents working on the task.
 
 Scope
 
