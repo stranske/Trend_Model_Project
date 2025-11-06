@@ -10,7 +10,8 @@ import pytest
 @pytest.fixture
 def trend_package():
     sys.modules.pop("trend_analysis", None)
-    module = importlib.import_module("trend_analysis")
+    importlib.import_module("trend_analysis")
+    module = sys.modules["trend_analysis"]
     assert module.__file__ and module.__file__.endswith("trend_analysis/__init__.py")
     try:
         yield module

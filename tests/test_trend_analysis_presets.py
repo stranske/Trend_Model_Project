@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
@@ -161,7 +161,7 @@ def test_trend_preset_defaults_use_fallbacks_when_config_missing() -> None:
 
 
 def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
-    spec = TrendSpec(
+    spec = preset_module.TrendSpec(
         window=21,
         min_periods=None,
         lag=1,
@@ -169,12 +169,12 @@ def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
         vol_target=0.6,
         zscore=True,
     )
-    preset = TrendPreset(
+    preset = preset_module.TrendPreset(
         slug="cautious",
         label="Cautious",
         description="",
         trend_spec=spec,
-        _config=_freeze_mapping(
+        _config=preset_module._freeze_mapping(
             {
                 "vol_adjust": {
                     "enabled": False,

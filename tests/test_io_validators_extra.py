@@ -6,7 +6,7 @@ import io
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -411,7 +411,7 @@ def test_detect_frequency_returns_label(monkeypatch: pytest.MonkeyPatch) -> None
     index = pd.date_range("2024-01-01", periods=3, freq="M")
     df = pd.DataFrame(index=index)
 
-    def classify(idx: pd.Index) -> Dict[str, Any]:
+    def classify(idx: pd.Index) -> dict[str, Any]:
         assert idx is index
         return {"label": "Monthly", "code": "M"}
 
