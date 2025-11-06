@@ -18,7 +18,7 @@
   - [ ] signal_presets.py
   - [ ] frequency.py
   - [ ] signals.py
-  - [ ] bootstrap.p
+  - [ ] bootstrap.py
   - [ ] risk.py
   - [ ] bundle.py
   - [ ] cli.py
