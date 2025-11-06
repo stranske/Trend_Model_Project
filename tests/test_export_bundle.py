@@ -178,6 +178,45 @@ def test_export_bundle_optional_outputs(tmp_path):
     assert outputs["results/equity_bootstrap.csv"]
 
 
+def test_export_bundle_uses_callable_bootstrap_band(tmp_path: Path) -> None:
+    """Callable ``bootstrap_band`` should be invoked and plotted."""
+
+    index = pd.period_range("2021-01", periods=3, freq="M")
+    portfolio = pd.Series([0.01, -0.02, 0.015], index=index)
+
+    class Run:
+        def __init__(self) -> None:
+            self.portfolio = portfolio
+            self.config = {"foo": "bar"}
+            self.seed = 99
+            self.input_path = None
+            self.calls = 0
+
+        def bootstrap_band(self) -> pd.DataFrame:
+            self.calls += 1
+            return pd.DataFrame(
+                {
+                    "p05": [0.95, 0.96, 0.97],
+                    "median": [1.00, 1.01, 1.02],
+                    "p95": [1.05, 1.06, 1.07],
+                },
+                index=index,
+            )
+
+    run = Run()
+    out = tmp_path / "bundle_callable_bootstrap.zip"
+
+    export_bundle(run, out)
+
+    assert out.exists()
+    assert run.calls == 1
+
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+        assert "results/portfolio.csv" in names
+        assert "results/equity_bootstrap.csv" in names
+
+
 def test_export_bundle_summary_default_when_not_callable(tmp_path):
     """Fallback summary should use total return when attribute is not
     callable."""
@@ -323,6 +362,71 @@ def test_export_bundle_warns_on_generic_portfolio(tmp_path):
     out = tmp_path / "warn_bundle.zip"
     with pytest.warns(UserWarning):
         export_bundle(run, out)
+
+
+def test_export_bundle_fallback_bootstrap_handles_bad_dates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Fallback bootstrap path should tolerate non-iterable ``dates``."""
+
+    index = pd.date_range("2022-01-31", periods=3, freq="ME")
+    portfolio = pd.Series([0.01, -0.015, 0.02], index=index)
+
+    class BadDates:
+        def __iter__(self):
+            raise TypeError("cannot iterate dates")
+
+    captured: dict[str, pd.Index | pd.DatetimeIndex] = {}
+
+    def fake_bootstrap(backtest) -> pd.DataFrame:
+        captured["calendar"] = backtest.calendar
+        captured["returns_index"] = backtest.returns.index
+        return pd.DataFrame(
+            {
+                "p05": [float("nan")] * len(backtest.returns),
+                "median": [float("nan")] * len(backtest.returns),
+                "p95": [float("nan")] * len(backtest.returns),
+            },
+            index=backtest.returns.index,
+        )
+
+    monkeypatch.setattr(bundle_mod, "bootstrap_equity", fake_bootstrap)
+
+    original_exists = Path.exists
+
+    def fake_exists(self: Path) -> bool:
+        if self.name == "drawdown.png":
+            return False
+        return original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    run = SimpleNamespace(
+        portfolio=portfolio,
+        config={"foo": "bar"},
+        seed=5,
+        input_path=None,
+        dates=BadDates(),
+    )
+
+    out = tmp_path / "bundle_fallback_bootstrap.zip"
+    export_bundle(run, out)
+
+    assert out.exists()
+    assert captured, "bootstrap_equity was not invoked"
+    calendar = captured["calendar"]
+    assert hasattr(calendar, "shape") and calendar.shape[0] == 0
+    pd.testing.assert_index_equal(captured["returns_index"], portfolio.index)
+
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+        assert {"charts/equity_curve.png", "charts/drawdown.png"}.issubset(names)
+        assert "results/equity_bootstrap.csv" not in names
+        meta = json.load(z.open("run_meta.json"))
+
+    outputs = meta["outputs"]
+    assert "charts/drawdown.png" not in outputs
+    assert "results/equity_bootstrap.csv" not in outputs
 
 
 def test_export_bundle_records_log_file(tmp_path):

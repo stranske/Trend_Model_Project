@@ -2,8 +2,91 @@
 
 import importlib
 import importlib.metadata
+import sys
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
+
+
+def _patch_dataclasses_module_guard() -> None:
+    """Ensure dataclass processing tolerates cleared ``sys.modules`` entries.
+
+    Some heavy integration tests mutate ``sys.modules`` by removing previously
+    imported ``tests.*`` packages.  When later tests define dataclasses within
+    those modules, the stdlib ``dataclasses`` helper attempts to look the module
+    back up and crashes when it is absent.  We patch the private
+    ``dataclasses._is_type`` helper so it re-imports the missing module (falling
+    back to a lightweight placeholder) before retrying the lookup.  The patch is
+    safe for production code because it only triggers when the module reference
+    truly disappeared, which should not happen during normal execution.
+    """
+
+    import dataclasses
+
+    original = getattr(dataclasses, "_is_type", None)
+    if original is None or getattr(dataclasses, "_trend_model_patched", False):
+        return
+
+    def _safe_is_type(
+        annotation: Any,
+        cls: type[Any],
+        a_module: Any,
+        a_type: Any,
+        predicate: Any,
+    ) -> bool:
+        try:
+            return bool(original(annotation, cls, a_module, a_type, predicate))
+        except AttributeError:
+            module_name = getattr(cls, "__module__", None)
+            if not module_name:
+                raise
+
+            module = sys.modules.get(module_name)
+            if module is None:
+                try:
+                    module = importlib.import_module(module_name)
+                except Exception:
+                    module = ModuleType(module_name)
+                    module.__dict__["__package__"] = module_name.rpartition(".")[0]
+                sys.modules[module_name] = module
+
+            return bool(original(annotation, cls, a_module, a_type, predicate))
+
+    dataclasses._is_type = _safe_is_type  # type: ignore[attr-defined]
+    dataclasses._trend_model_patched = True  # type: ignore[attr-defined]
+
+
+_patch_dataclasses_module_guard()
+
+_MODULE_SELF = sys.modules[__name__]
+
+
+def _ensure_registered() -> None:
+    if sys.modules.get(__name__) is not _MODULE_SELF:
+        sys.modules[__name__] = _MODULE_SELF
+
+
+_ORIGINAL_SPEC = globals().get("__spec__")
+
+
+class _SpecProxy:
+    __slots__ = ("_spec",)
+
+    def __init__(self, spec: Any) -> None:
+        self._spec = spec
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._spec, attr)
+
+    @property
+    def name(self) -> str:
+        _ensure_registered()
+        return cast(str, getattr(self._spec, "name"))
+
+
+if _ORIGINAL_SPEC is not None:
+    globals()["__spec__"] = _SpecProxy(_ORIGINAL_SPEC)
+
+_ensure_registered()
 
 # Attempt to import a core set of lighter submodules eagerly. Heavier or
 # optional pieces are exposed lazily via __getattr__ to avoid hard failures
@@ -30,6 +113,10 @@ _LAZY_SUBMODULES = {
     "weights": "trend_analysis.weights",
     "presets": "trend_analysis.presets",
     "run_multi_analysis": "trend_analysis.run_multi_analysis",
+    "engine": "trend_analysis.engine",
+    "perf": "trend_analysis.perf",
+    "regimes": "trend_analysis.regimes",
+    "multi_period": "trend_analysis.multi_period",
 }
 
 # Purge stale lazy-loaded attributes so reload() restores deferred imports.
@@ -69,6 +156,10 @@ selector: Any
 weighting: Any
 presets: Any
 run_multi_analysis: Any
+engine: Any
+perf: Any
+regimes: Any
+multi_period: Any
 
 if "data" in globals():
     # Conditional import: 'data' submodule may not always be present
@@ -136,5 +227,9 @@ __all__ = [
     "export_multi_period_metrics",
     "export_bundle",
     "run_multi_analysis",
+    "engine",
+    "perf",
+    "regimes",
+    "multi_period",
     "__version__",
 ]

@@ -26,6 +26,7 @@ from trend_analysis.io.validators import (
     create_sample_template,
     detect_frequency,
     load_and_validate_upload,
+    validate_returns_schema,
 )
 
 
@@ -50,6 +51,28 @@ def _metadata_with_warnings() -> MarketDataMetadata:
         },
         missing_policy_dropped=["FundC"],
         missing_policy_summary="ffill applied to FundA; FundC dropped",
+    )
+
+
+def _metadata_without_warnings() -> MarketDataMetadata:
+    return MarketDataMetadata(
+        mode=MarketDataMode.RETURNS,
+        frequency="M",
+        frequency_detected="M",
+        frequency_label="Monthly",
+        frequency_median_spacing_days=30.0,
+        frequency_missing_periods=0,
+        frequency_max_gap_periods=0,
+        start=datetime(2023, 1, 31),
+        end=datetime(2024, 12, 31),
+        rows=24,
+        columns=["FundA", "FundB"],
+        missing_policy="forward_fill",
+        missing_policy_overrides={},
+        missing_policy_limits={},
+        missing_policy_filled={},
+        missing_policy_dropped=[],
+        missing_policy_summary="forward fill applied",
     )
 
 
@@ -80,6 +103,15 @@ def test_build_result_propagates_metadata() -> None:
     assert result.warnings  # populated by summary helper
 
 
+def test_validation_summary_handles_clean_dataset() -> None:
+    metadata = _metadata_without_warnings()
+    frame = pd.DataFrame(
+        {"FundA": [0.01] * metadata.rows, "FundB": [0.02] * metadata.rows}
+    )
+    summary = _ValidationSummary(metadata, frame)
+    assert summary.warnings() == []
+
+
 @pytest.mark.parametrize("suffix", [".csv", ".xlsx", ".parquet"])
 def test_read_uploaded_file_handles_path_variants(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, suffix: str
@@ -100,6 +132,17 @@ def test_read_uploaded_file_handles_path_variants(
     loaded, source = _read_uploaded_file(str(path))
     assert isinstance(loaded, pd.DataFrame)
     assert source.endswith(suffix)
+
+
+def test_read_uploaded_file_missing_and_directory_paths(tmp_path: Path) -> None:
+    missing_path = tmp_path / "does-not-exist.csv"
+    with pytest.raises(ValueError, match="File not found"):
+        _read_uploaded_file(str(missing_path))
+
+    directory_path = tmp_path / "dir"
+    directory_path.mkdir()
+    with pytest.raises(ValueError, match="directory"):
+        _read_uploaded_file(str(directory_path))
 
 
 def test_read_uploaded_file_stream_variants() -> None:
@@ -164,6 +207,19 @@ def test_read_uploaded_file_stream_generic_error(
     monkeypatch.setattr(pd, "read_csv", explode)
     with pytest.raises(ValueError, match="Failed to read file"):
         _read_uploaded_file(stream)
+
+
+def test_read_uploaded_file_lower_name_parser_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file_like = SimpleNamespace(name="broken.csv")
+
+    def explode(_obj: Any) -> pd.DataFrame:
+        raise pd.errors.ParserError("bad csv")
+
+    monkeypatch.setattr(pd, "read_csv", explode)
+    with pytest.raises(ValueError, match="Failed to parse"):
+        _read_uploaded_file(file_like)
 
 
 @pytest.mark.parametrize(
@@ -258,6 +314,35 @@ def test_load_and_validate_upload_returns_metadata(
     assert loaded_frame.index.name == "Date"
 
 
+def test_load_and_validate_upload_reraises_market_data_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = pd.DataFrame({"Date": ["2024-01-31"], "FundA": [0.01]})
+    csv = io.StringIO()
+    frame.to_csv(csv, index=False)
+    csv.seek(0)
+    csv.name = "data.csv"
+
+    error = MarketDataValidationError("invalid data", issues=["bad"])
+
+    monkeypatch.setattr(
+        "trend_analysis.io.validators._read_uploaded_file",
+        lambda *_args, **_kwargs: (frame, "data.csv"),
+    )
+
+    def raise_error(*args: Any, **kwargs: Any) -> Any:
+        raise error
+
+    monkeypatch.setattr(
+        "trend_analysis.io.validators.validate_market_data", raise_error
+    )
+
+    with pytest.raises(MarketDataValidationError) as excinfo:
+        load_and_validate_upload(csv)
+
+    assert excinfo.value.issues == ["bad"]
+
+
 def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
     assert template.shape == (12, 7)
@@ -317,6 +402,23 @@ def test_detect_frequency_returns_code(monkeypatch: pytest.MonkeyPatch) -> None:
     assert detect_frequency(df) == "M"
 
 
+def test_detect_frequency_handles_non_datetime_index() -> None:
+    df = pd.DataFrame({"FundA": [0.1, 0.2]}, index=[0, 1])
+    assert detect_frequency(df) == "unknown"
+
+
+def test_detect_frequency_returns_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    index = pd.date_range("2024-01-01", periods=3, freq="M")
+    df = pd.DataFrame(index=index)
+
+    def classify(idx: pd.Index) -> dict[str, Any]:
+        assert idx is index
+        return {"label": "Monthly", "code": "M"}
+
+    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", classify)
+    assert detect_frequency(df) == "Monthly"
+
+
 def test_detect_frequency_returns_unknown_on_generic_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -328,3 +430,21 @@ def test_detect_frequency_returns_unknown_on_generic_error(
 
     monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", raise_error)
     assert detect_frequency(df) == "unknown"
+
+
+def test_validate_returns_schema_handles_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame({"FundA": [0.1, 0.2]})
+    error = MarketDataValidationError("boom", issues=["broken"])
+
+    def raise_error(_df: Any) -> Any:
+        raise error
+
+    monkeypatch.setattr(
+        "trend_analysis.io.validators.validate_market_data", raise_error
+    )
+
+    result = validate_returns_schema(df)
+    assert not result.is_valid
+    assert result.issues == ["broken"]

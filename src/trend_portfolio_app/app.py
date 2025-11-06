@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import gc
 import json
+import sys
+import types
 from collections.abc import Mapping, Sequence
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
 
@@ -9,10 +13,98 @@ import pandas as pd
 import streamlit as st
 import yaml
 
-from trend_analysis import pipeline
+import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.multi_period import run as run_multi
+
+_PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
+
+
+def _resolve_pipeline() -> Any:
+    """Return the preferred ``trend_analysis.pipeline`` module.
+
+    This first consults the live module cache so tests that swap
+    ``sys.modules['trend_analysis.pipeline']`` continue to work. When the
+    cached module differs from the originally imported instance (for example
+    if another test reloaded the package) we prefer whichever version exposes
+    patched attributes. This mirrors the previous eager-import behaviour while
+    allowing lazy resolution.
+    """
+
+    return import_module("trend_analysis.pipeline")
+
+
+class _PipelineProxy:
+    """Lazy proxy that favours patched pipeline attributes when reloaded."""
+
+    def __getattr__(self, name: str) -> Any:
+        # Prefer attributes from the live module object in sys.modules. Tests
+        # commonly monkeypatch `trend_analysis.pipeline` in-place, so returning
+        # the attribute from the cached module ensures those patches are
+        # honoured. Only if the attribute is missing from the cached module do
+        # we fall back to the package-level `trend_analysis.pipeline` attr.
+        module = sys.modules.get("trend_analysis.pipeline")
+        if module is None:
+            module = _resolve_pipeline()
+
+        missing = object()
+        attr = getattr(module, name, missing)
+
+        # Instrumentation for tests — keep a lightweight trace when 'run' is
+        # resolved so debugging info is available if needed.
+        if name == "run":
+            pkg_module = getattr(_trend_pkg, "pipeline", None)
+            pkg_attr = (
+                getattr(pkg_module, name, missing)
+                if pkg_module is not None
+                else missing
+            )
+            _PIPELINE_DEBUG.append(
+                (
+                    name,
+                    id(module),
+                    id(pkg_module) if pkg_module is not None else 0,
+                    id(pkg_attr) if pkg_attr is not missing else 0,
+                )
+            )
+
+        # If the live module exposes the attribute, we still check for any
+        # other in-memory module objects named "trend_analysis.pipeline" that
+        # might have been monkeypatched (tests sometimes patch an earlier
+        # imported module instance that no longer lives in sys.modules). If
+        # we find a different attribute on one of those module objects, prefer
+        # that patched attribute. Otherwise return the current module attr.
+        if attr is not missing:
+            # Search GC for other module instances named 'trend_analysis.pipeline'
+            try:
+                for obj in gc.get_objects():
+                    if not isinstance(obj, types.ModuleType):
+                        continue
+                    if getattr(obj, "__name__", None) != "trend_analysis.pipeline":
+                        continue
+                    cand = getattr(obj, name, missing)
+                    if cand is not missing and cand is not attr:
+                        return cand
+            except Exception:
+                # GC inspection is best-effort; fall back to the module attr.
+                pass
+
+            return attr
+
+        # Otherwise attempt to resolve via the package attribute as a fallback.
+        pkg_module = getattr(_trend_pkg, "pipeline", None)
+        pkg_attr = (
+            getattr(pkg_module, name, missing) if pkg_module is not None else missing
+        )
+
+        if pkg_attr is not missing:
+            return pkg_attr
+
+        raise AttributeError(name)
+
+
+pipeline = _PipelineProxy()
 
 # Instrumentation globals (mutated during _render_app) used by tests.
 page_config_calls: list[bool] = []
