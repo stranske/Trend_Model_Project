@@ -174,7 +174,7 @@ def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
         label="Cautious",
         description="",
         trend_spec=spec,
-        _config=_freeze_mapping(
+        _config=preset_module._freeze_mapping(
             {
                 "vol_adjust": {
                     "enabled": False,
