@@ -5,10 +5,10 @@ branch: codex/issue-3318
 tasks:
   - id: task-01
     title: "Shared pre\u2011gate helper (new or expand existing JS used via actions/github-script):"
-    status: doing
+    status: done
     started_at: '2025-11-06T18:11:04Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-06T18:11:11Z'
+    commit: bb55735f756401e82d2b5caadf41f22ef636dd16
     notes: []
   - id: task-02
     title: 'Inputs: PR number, head SHA, labels, recent comments.'
