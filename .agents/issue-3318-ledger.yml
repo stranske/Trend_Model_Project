@@ -12,10 +12,10 @@ tasks:
     notes: []
   - id: task-02
     title: 'Inputs: PR number, head SHA, labels, recent comments.'
-    status: doing
+    status: done
     started_at: '2025-11-06T18:17:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-06T18:17:49Z'
+    commit: c63a7ed4f4ced3af3b6ac1af3e26a777e46726ea
     notes: []
   - id: task-03
     title: 'Checks:'
