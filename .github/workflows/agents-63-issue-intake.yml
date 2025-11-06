@@ -7,6 +7,7 @@ on:
       - opened
       - reopened
       - labeled
+      - unlabeled
   workflow_dispatch:
     inputs:
       intake_mode:
@@ -104,7 +105,8 @@ jobs:
   normalize_inputs:
     if: >
       github.event_name != 'issues' ||
-      contains(toJson(github.event.issue.labels.*.name), 'agent:')
+      contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
+      (github.event.action == 'unlabeled' && startsWith(github.event.label.name, 'agent:'))
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
