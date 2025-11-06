@@ -55,7 +55,7 @@ def test_dataclasses_patch_recreates_missing_module(
     monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
     monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
 
-    module = importlib.reload(trend_analysis)
+    _ = importlib.reload(trend_analysis)
 
     class Ghost:
         __module__ = "missing.module"
@@ -85,7 +85,7 @@ def test_dataclasses_patch_bubbles_when_module_unknown(
     monkeypatch.setattr(dataclasses, "_is_type", always_missing, raising=False)
     monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
 
-    module = importlib.reload(trend_analysis)
+    _ = importlib.reload(trend_analysis)
 
     class Nameless:
         __module__ = None
@@ -129,7 +129,7 @@ def test_dataclasses_patch_returns_when_module_present(
     monkeypatch.setattr(dataclasses, "_is_type", fake_is_type, raising=False)
     monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
 
-    module = importlib.reload(trend_analysis)
+    _ = importlib.reload(trend_analysis)
 
     class Existing:
         __module__ = "trend_analysis"
