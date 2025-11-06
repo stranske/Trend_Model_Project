@@ -48,7 +48,9 @@ def test_keepalive_sync_detects_head_change_without_actions() -> None:
     events = data["events"]
     assert events["dispatches"] == []
     table = _summary_table(data)
-    assert any(row[0] == "Initial poll" and "Branch advanced" in row[1] for row in table)
+    assert any(
+        row[0] == "Initial poll" and "Branch advanced" in row[1] for row in table
+    )
     assert any(row[0] == "Result" and "sha1" in row[1] for row in table)
 
 
@@ -60,13 +62,18 @@ def test_keepalive_sync_update_branch_success() -> None:
     assert payload["action"] == "update-branch"
     assert events["labelsRemoved"] == ["agents:sync-required"]
     table = _summary_table(data)
-    assert any(row[0] == "Update-branch result" and "Branch advanced" in row[1] for row in table)
+    assert any(
+        row[0] == "Update-branch result" and "Branch advanced" in row[1]
+        for row in table
+    )
 
 
 def test_keepalive_sync_create_pr_flow() -> None:
     data = _run_scenario("create_pr")
     events = data["events"]
-    assert [dispatch["client_payload"]["action"] for dispatch in events["dispatches"]] == [
+    assert [
+        dispatch["client_payload"]["action"] for dispatch in events["dispatches"]
+    ] == [
         "update-branch",
         "create-pr",
     ]
@@ -74,13 +81,17 @@ def test_keepalive_sync_create_pr_flow() -> None:
     assert events["deletedRefs"] == ["heads/connector/tmp-sync"]
     table = _summary_table(data)
     assert any(row[0] == "Connector PR" and "#8123" in row[1] for row in table)
-    assert any(row[0] == "Create-pr result" and "Branch advanced" in row[1] for row in table)
+    assert any(
+        row[0] == "Create-pr result" and "Branch advanced" in row[1] for row in table
+    )
 
 
 def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     data = _run_scenario("escalation")
     events = data["events"]
-    actions = [dispatch["client_payload"]["action"] for dispatch in events["dispatches"]]
+    actions = [
+        dispatch["client_payload"]["action"] for dispatch in events["dispatches"]
+    ]
     assert actions.count("update-branch") == 1
     assert actions.count("create-pr") == 1
     assert events["labelsAdded"] == [["agents:sync-required"]]
