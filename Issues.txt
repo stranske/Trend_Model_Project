@@ -195,7 +195,7 @@ Agents get confused about the purpose of the keepalive and loose focus on the ta
 
 Scope
 
-- Guidelines and Goals for the Keepalive 
+- Guidelines and Goals for the Keepalive.
 
 Non‑Goals
 
