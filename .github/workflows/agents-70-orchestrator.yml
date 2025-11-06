@@ -595,6 +595,55 @@ jobs:
             if (!pr) {
               addReason('missing-pr');
             } else {
+              const labelEntries = Array.isArray(pr.labels) ? pr.labels : [];
+              const currentLabels = new Set(
+                labelEntries
+                  .map((entry) => {
+                    if (!entry) {
+                      return '';
+                    }
+                    if (typeof entry === 'string') {
+                      return entry.trim().toLowerCase();
+                    }
+                    const name = typeof entry?.name === 'string' ? entry.name : '';
+                    return name.trim().toLowerCase();
+                  })
+                  .filter(Boolean)
+              );
+
+              const requiredLabels = ['agents:keepalive', 'agent:codex'];
+              const missingLabels = requiredLabels.filter((label) => !currentLabels.has(label));
+
+              if (missingLabels.length) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: missingLabels,
+                  });
+                  summary
+                    .addRaw(`Applied keepalive labels to PR #${prNumber}: ${missingLabels.join(', ')}`)
+                    .addEOL();
+                  for (const label of missingLabels) {
+                    currentLabels.add(label);
+                  }
+                } catch (labelError) {
+                  const message = labelError instanceof Error ? labelError.message : String(labelError);
+                  summary
+                    .addRaw(`Failed to apply keepalive labels to PR #${prNumber}: ${message}`)
+                    .addEOL();
+                }
+              }
+
+              const unresolvedLabels = requiredLabels.filter((label) => !currentLabels.has(label));
+              if (unresolvedLabels.length) {
+                unresolvedLabels.forEach((label) => addReason(`missing-label:${label}`));
+                summary
+                  .addRaw(`Missing required keepalive labels: ${unresolvedLabels.join(', ')}`)
+                  .addEOL();
+              }
+
               headSha = String(pr.head?.sha || '').trim();
               if ((pr.state || '').toLowerCase() !== 'open') {
                 addReason('pr-not-open');
