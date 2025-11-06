@@ -9,6 +9,7 @@
     "HEAD_BRANCH": "codex/issue-402",
     "BASE_BRANCH": "main",
     "PREVIOUS_HEAD": "sha0",
+    "AGENT_STATE": "done",
     "TTL_SHORT_MS": "0",
     "POLL_SHORT_MS": "0",
     "TTL_LONG_MS": "0",
