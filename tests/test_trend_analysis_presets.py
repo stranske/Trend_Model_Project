@@ -2,10 +2,48 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
+from textwrap import dedent
 
 import pytest
 
 from trend_analysis import presets as preset_module
+
+
+def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Populate a temporary presets directory with a sample entry."""
+
+    base = tmp_path / "presets"
+    base.mkdir()
+
+    sample = dedent(
+        """
+        name: Zulu Preset
+        description: Sample preset used for tests
+        signals:
+          window: 42
+          min_periods: 30
+          lag: 2
+          vol_adjust: false
+        portfolio:
+          weighting_scheme: equal
+          cooldown_months: 3
+        metrics:
+          sharpe: 1.4
+        vol_adjust:
+          enabled: false
+          window:
+            length: 42
+        run:
+          trend_preset: zulu
+        """
+    ).strip()
+
+    (base / "zulu.yml").write_text(sample, encoding="utf-8")
+
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", base)
+    monkeypatch.setattr(preset_module, "_DEFAULT_PRESETS_DIR", base)
+    monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
+    preset_module._preset_registry.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -195,7 +233,7 @@ def test_apply_trend_preset_merges_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     create_registry(tmp_path, monkeypatch)
-    preset = get_trend_preset("zulu")
+    preset = preset_module.get_trend_preset("zulu")
 
     config = SimpleNamespace(
         signals={"existing": "keep"},
@@ -209,10 +247,18 @@ def test_apply_trend_preset_merges_config(
 
     vol_defaults = preset.vol_adjust_defaults()
     assert vol_defaults["enabled"] is False
-    assert vol_defaults["window"]["length"] == spec.window
+    assert vol_defaults["window"]["length"] == preset.trend_spec.window
+
+    preset_module.apply_trend_preset(config, preset)
+    assert config.signals["window"] == 42
+    assert config.signals["existing"] == "keep"
+    assert config.vol_adjust["enabled"] is False
+    assert config.run["trend_preset"] == "zulu"
 
 
-def test_candidate_preset_dirs_prefers_base_then_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_candidate_preset_dirs_prefers_base_then_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     base = tmp_path / "base"
     env_dir = tmp_path / "env"
     base.mkdir()
@@ -225,8 +271,12 @@ def test_candidate_preset_dirs_prefers_base_then_env(monkeypatch: pytest.MonkeyP
     assert candidates == (base, env_dir)
 
 
-def test_candidate_preset_dirs_includes_repository_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_module._DEFAULT_PRESETS_DIR)
+def test_candidate_preset_dirs_includes_repository_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        preset_module, "PRESETS_DIR", preset_module._DEFAULT_PRESETS_DIR
+    )
     monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
     candidates = preset_module._candidate_preset_dirs()
     assert preset_module._DEFAULT_PRESETS_DIR in candidates
@@ -320,7 +370,9 @@ signals:
     assert config.run["trend_preset"] == "alpha"
 
 
-def test_preset_registry_skips_non_mapping_yaml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_preset_registry_skips_non_mapping_yaml(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     base = tmp_path / "base"
     base.mkdir()
     (base / "empty.yml").write_text("[]", encoding="utf-8")
@@ -347,8 +399,11 @@ def test_load_yaml_returns_empty_mapping_for_invalid_payload(tmp_path: Path) -> 
     assert preset_module._load_yaml(yaml_path) == {}
 
 
-def test_get_trend_preset_raises_for_unknown_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(preset_module, "PRESETS_DIR", tmp_path := Path("nonexistent"))
+def test_get_trend_preset_raises_for_unknown_slug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    non_existent_dir = Path("nonexistent")
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", non_existent_dir)
     preset_module._preset_registry.cache_clear()
     with pytest.raises(KeyError):
         preset_module.get_trend_preset("missing")
