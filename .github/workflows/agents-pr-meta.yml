@@ -37,8 +37,8 @@ jobs:
     name: Detect keepalive round comments
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{ steps.detect.outputs.dispatch }}
-      reason: ${{ steps.detect.outputs.reason }}
+      dispatch: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
+      reason: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -48,16 +48,88 @@ jobs:
       author: ${{ steps.detect.outputs.author }}
       comment_id: ${{ steps.detect.outputs.comment_id }}
       comment_url: ${{ steps.detect.outputs.comment_url }}
+      gate_reason: ${{ steps.pre_gate.outputs.reason }}
+      agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
+      has_human_activation: ${{ steps.pre_gate.outputs.has_human_activation }}
+      has_keepalive_label: ${{ steps.pre_gate.outputs.has_keepalive_label }}
+      gate_concluded: ${{ steps.pre_gate.outputs.gate_concluded }}
+      under_run_cap: ${{ steps.pre_gate.outputs.under_run_cap }}
+      active_runs: ${{ steps.pre_gate.outputs.active_runs }}
+      run_cap: ${{ steps.pre_gate.outputs.run_cap }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Evaluate keepalive pre-gate
+        id: pre_gate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
+
+            const issueNumber = Number(context.payload?.issue?.number || 0);
+            const comment = context.payload?.comment ? [context.payload.comment] : [];
+
+            const result = await evaluateKeepaliveGate({
+              core,
+              github,
+              context,
+              options: {
+                prNumber: issueNumber,
+                comments: comment,
+                requireHumanActivation: true,
+              },
+            });
+
+            const bool = (value) => (value ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('has_keepalive_label', bool(result.hasKeepaliveLabel));
+            core.setOutput('has_human_activation', bool(result.hasHumanActivation));
+            core.setOutput('gate_concluded', bool(result.gateConcluded));
+            core.setOutput('under_run_cap', bool(result.underRunCap));
+            core.setOutput('run_cap', String(result.runCap ?? ''));
+            core.setOutput('active_runs', String(result.activeRuns ?? ''));
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('pr_number', issueNumber > 0 ? String(issueNumber) : '');
+
+            if (result.ok) {
+              core.info('Keepalive pre-gate satisfied; continuing detection.');
+            } else {
+              core.info(`Keepalive pre-gate blocked dispatch: ${result.reason || 'unspecified'}`);
+            }
+
+      - name: Summarise keepalive pre-gate
+        if: steps.pre_gate.outputs.ok != 'true'
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ## Keepalive pre-gate
+          * ok: ${OK}
+          * reason: ${REASON}
+          * keepalive label: ${HAS_LABEL}
+          * human activation: ${HAS_ACTIVATION}
+          * gate concluded: ${GATE}
+          * run cap: ${ACTIVE}/${CAP}
+          EOF
+        env:
+          OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
+          REASON: ${{ steps.pre_gate.outputs.reason || '(unspecified)' }}
+          HAS_LABEL: ${{ steps.pre_gate.outputs.has_keepalive_label || 'false' }}
+          HAS_ACTIVATION: ${{ steps.pre_gate.outputs.has_human_activation || 'false' }}
+          GATE: ${{ steps.pre_gate.outputs.gate_concluded || 'false' }}
+          ACTIVE: ${{ steps.pre_gate.outputs.active_runs || '0' }}
+          CAP: ${{ steps.pre_gate.outputs.run_cap || '2' }}
+
       - name: Evaluate keepalive comment
         id: detect
+        if: steps.pre_gate.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
           ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
+          KEEPALIVE_AGENT_ALIAS: ${{ steps.pre_gate.outputs.agent_alias }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -90,7 +162,14 @@ jobs:
           ## Keepalive detection
           | ok | reason | author | comment | pr | round | trace |
           | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          
+          **Gate inputs**
+          
+          - keepalive label: ${{ steps.pre_gate.outputs.has_keepalive_label || 'false' }}
+          - human activation: ${{ steps.pre_gate.outputs.has_human_activation || 'false' }}
+          - gate concluded: ${{ steps.pre_gate.outputs.gate_concluded || 'false' }}
+          - run cap: ${{ steps.pre_gate.outputs.active_runs || '0' }}/${{ steps.pre_gate.outputs.run_cap || '2' }}
           EOF
 
       - name: Register keepalive detection
@@ -101,7 +180,7 @@ jobs:
       - name: Report keepalive dispatch outcome
         if: steps.detect.outputs.dispatch != 'true'
         run: |
-          echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason }}"
+          echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
@@ -209,6 +288,7 @@ jobs:
           TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
           COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
           COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
+          AGENT_ALIAS: ${{ needs.keepalive_dispatch.outputs.agent_alias }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -225,6 +305,7 @@ jobs:
             const head = process.env.HEAD || '';
             const round = process.env.ROUND || '';
             const trace = process.env.TRACE || '';
+            const agentAlias = (process.env.AGENT_ALIAS || '').trim() || 'codex';
 
             if (!base || !head) {
               core.warning('Keepalive metadata missing base/head from detection; fetching pull request details.');
@@ -266,7 +347,7 @@ jobs:
               issue: pullNumber,
               base: resolvedBase,
               head: resolvedHead,
-              agent: 'codex',
+              agent: agentAlias,
               comment_id: commentId || fallbackCommentId,
               comment_url: commentUrl || fallbackCommentUrl,
               round,
