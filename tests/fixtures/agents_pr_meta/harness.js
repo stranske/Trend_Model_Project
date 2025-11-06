@@ -147,6 +147,10 @@ async function main() {
     ALLOWED_LOGINS:
       scenario.env?.ALLOWED_LOGINS || 'chatgpt-codex-connector,stranske-automation-bot',
     KEEPALIVE_MARKER: scenario.env?.KEEPALIVE_MARKER || '<!-- codex-keepalive-marker -->',
+    KEEPALIVE_AGENT_ALIASES:
+      scenario.env?.KEEPALIVE_AGENT_ALIASES ||
+      scenario.env?.KEEPALIVE_AGENT_ALIAS ||
+      'codex',
   };
 
   const result = await detectKeepalive({ core, github, context, env });

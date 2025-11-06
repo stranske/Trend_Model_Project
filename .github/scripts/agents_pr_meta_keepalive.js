@@ -5,17 +5,47 @@ const { renderInstruction, makeTrace } = require('./keepalive_contract.js');
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
+const DEFAULT_AGENT_ALIAS = 'codex';
+
 function normaliseBody(value) {
   return String(value || '').replace(/\r\n/g, '\n').trim();
 }
 
-function isLikelyInstruction(body) {
+function buildAliasPatterns(aliases) {
+  return aliases
+    .map((alias) => String(alias || '').trim())
+    .filter(Boolean)
+    .map((alias) => new RegExp(`^@${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\b`, 'i'));
+}
+
+function parseAgentAliases(env = process.env) {
+  const raw = String(env.KEEPALIVE_AGENT_ALIASES || env.KEEPALIVE_AGENT_ALIAS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (raw.length) {
+    return raw;
+  }
+  return [DEFAULT_AGENT_ALIAS];
+}
+
+function isLikelyInstruction(body, aliasPatterns) {
   if (!body) {
     return false;
   }
   const normalised = normaliseBody(body);
-  if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
+  if (!normalised) {
     return false;
+  }
+  let aliasMatched = false;
+  if (Array.isArray(aliasPatterns) && aliasPatterns.length > 0) {
+    aliasMatched = aliasPatterns.some((pattern) => pattern.test(normalised));
+  }
+  if (!aliasMatched) {
+    const genericAliasPattern = /^@[a-z0-9_-]+/i;
+    if (!genericAliasPattern.test(normalised)) {
+      return false;
+    }
   }
   return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
 }
@@ -55,9 +85,15 @@ async function autopatchKeepaliveComment({
   comment,
   currentBody,
   highestRound,
+  agentAlias,
 }) {
+  const alias = String(agentAlias || '').trim();
+  if (!alias) {
+    return null;
+  }
   const trimmed = normaliseBody(currentBody);
-  if (!isLikelyInstruction(trimmed)) {
+  const aliasPatterns = buildAliasPatterns([alias]);
+  if (!isLikelyInstruction(trimmed, aliasPatterns)) {
     return null;
   }
 
@@ -82,7 +118,7 @@ async function autopatchKeepaliveComment({
 
   const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
-  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed });
+  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed, agentAlias: alias });
 
   await github.rest.issues.updateComment({
     owner,
@@ -157,6 +193,12 @@ function extractIssueNumberFromPull(pull) {
 async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
+  const agentAliases = parseAgentAliases(env);
+  const aliasPatterns = buildAliasPatterns(agentAliases);
+  const primaryAlias = agentAliases[0] || DEFAULT_AGENT_ALIAS;
+  const effectiveAliasPatterns = aliasPatterns.length
+    ? aliasPatterns
+    : buildAliasPatterns([DEFAULT_AGENT_ALIAS]);
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -293,8 +335,13 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
       return true;
     }
     const automationAuthors = new Set(['chatgpt-codex-connector']);
-    if (automationAuthors.has(author) && !isLikelyInstruction(trimmedBody)) {
-      return true;
+    if (automationAuthors.has(author)) {
+      const looksLikeInstruction =
+        isLikelyInstruction(trimmedBody, effectiveAliasPatterns) ||
+        trimmedBody.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
+      if (!looksLikeInstruction) {
+        return true;
+      }
     }
     return false;
   };
@@ -342,6 +389,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
           comment,
           currentBody: body,
           highestRound,
+          agentAlias: primaryAlias,
         });
         if (patched) {
           if (patched.blocked) {
@@ -382,7 +430,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   if (!hasKeepaliveMarker) {
     outputs.reason = 'missing-sentinel';
-    core.info('Keepalive dispatch skipped: comment missing codex keepalive marker.');
+    core.info('Keepalive dispatch skipped: comment missing keepalive marker.');
     setAllOutputs();
     return outputs;
   }

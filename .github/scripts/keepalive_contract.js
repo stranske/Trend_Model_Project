@@ -10,18 +10,31 @@ function makeTrace() {
   return trace.toLowerCase();
 }
 
-function ensureCodexPreface(body) {
-  const trimmed = body.replace(/\r\n/g, '\n').trim();
+function ensureAgentPreface(body, agentAlias) {
+  const trimmed = String(body ?? '').replace(/\r\n/g, '\n').trim();
   if (!trimmed) {
     throw new Error('Keepalive instruction body is required.');
   }
-  if (/^@codex\b/i.test(trimmed)) {
+  const alias = String(agentAlias || '').trim();
+  if (!alias) {
+    throw new Error('Keepalive agent alias is required.');
+  }
+  const aliasPattern = new RegExp(`^@${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\b`, 'i');
+  if (aliasPattern.test(trimmed)) {
+    const mention = trimmed.match(/^@[^\s]+/);
+    if (mention && mention[0] !== `@${alias}`) {
+      return `@${alias}${trimmed.slice(mention[0].length)}`;
+    }
     return trimmed;
   }
-  return `@codex ${trimmed}`;
+  const withoutLeadingMention = trimmed.replace(/^@[^\s]+\s*/, '').trim();
+  if (!withoutLeadingMention) {
+    return `@${alias}`;
+  }
+  return `@${alias} ${withoutLeadingMention}`;
 }
 
-function renderInstruction({ round, trace, body }) {
+function renderInstruction({ round, trace, body, agentAlias }) {
   const parsedRound = Number.parseInt(round, 10);
   if (!Number.isFinite(parsedRound) || parsedRound <= 0) {
     throw new Error('Keepalive round must be a positive integer.');
@@ -30,7 +43,7 @@ function renderInstruction({ round, trace, body }) {
   if (!normalisedTrace) {
     throw new Error('Keepalive trace token is required.');
   }
-  const instructionBody = ensureCodexPreface(String(body ?? ''));
+  const instructionBody = ensureAgentPreface(body, agentAlias);
   const lines = [
     `<!-- keepalive-round: ${parsedRound} -->`,
     '<!-- codex-keepalive-marker -->',

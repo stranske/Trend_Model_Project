@@ -426,6 +426,7 @@ jobs:
     outputs:
       proceed: ${{ steps.guard.outputs.proceed || 'true' }}
       reason: ${{ steps.guard.outputs.reason || '' }}
+      agent_alias: ${{ steps.guard.outputs.agent_alias || '' }}
     steps:
       - name: Checkout guard helpers
         uses: actions/checkout@v4
@@ -443,6 +444,7 @@ jobs:
           KEEPALIVE_ROUND: ${{ needs.resolve-params.outputs.keepalive_round }}
           KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr }}
           KEEPALIVE_MAX_RETRIES: ${{ needs.resolve-params.outputs.keepalive_max_retries || '5' }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -452,6 +454,7 @@ jobs:
               analyseSkipComments,
               isGateReason,
             } = require('./.github/scripts/keepalive_guard_utils.js');
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const normalise = (value) => String(value || '').trim();
             const toBool = (value) => {
               const norm = normalise(value).toLowerCase();
@@ -494,6 +497,7 @@ jobs:
             const trace = normalise(process.env.KEEPALIVE_TRACE);
             const round = normalise(process.env.KEEPALIVE_ROUND);
             const prRaw = normalise(process.env.KEEPALIVE_PR);
+            const currentRunId = normalise(process.env.CURRENT_RUN_ID);
             const summary = core.summary;
             summary.addHeading('Keepalive gate evaluation');
 
@@ -578,6 +582,46 @@ jobs:
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Unable to load PR #${prNumber}: ${message}`);
               await finaliseSkip('pr-fetch-failed', message ? `Details: ${message}` : null);
+              return;
+            }
+
+            let gateCheck;
+            try {
+              gateCheck = await evaluateKeepaliveGate({
+                core,
+                github,
+                context,
+                env: process.env,
+                prNumber,
+                headSha: pr?.head?.sha || '',
+                prData: pr,
+                currentRunId,
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              summary
+                .addRaw(`Keepalive gate evaluation failed: ${message}`)
+                .addEOL()
+                .write();
+              core.setOutput('agent_alias', '');
+              setOutputs(false, 'gate-evaluation-error');
+              return;
+            }
+
+            core.setOutput('agent_alias', gateCheck.agentAlias || '');
+
+            if (!gateCheck.ok) {
+              const reason = gateCheck.reason || 'gate-blocked';
+              summary
+                .addRaw(`Keepalive ${round || '?'} trace \`${trace || 'unknown'}\`: blocked (${reason})`)
+                .addEOL();
+              summary
+                .addRaw(
+                  `Preconditions → label=${gateCheck.hasKeepaliveLabel}, human=${gateCheck.hasHumanActivation}, gate=${gateCheck.gateConcluded}, run_cap=${gateCheck.underRunCap} (active=${gateCheck.activeRunCount}/cap=${gateCheck.runCap})`
+                )
+                .addEOL()
+                .write();
+              setOutputs(false, reason);
               return;
             }
 
@@ -884,6 +928,7 @@ jobs:
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
@@ -943,7 +988,13 @@ jobs:
 
             round = Math.max(round, highestRound) + 1;
             const trace = makeTrace();
-            const body = renderInstruction({ round, trace, body: instruction });
+            const agentAlias = (process.env.AGENT_ALIAS || '').trim();
+            if (!agentAlias) {
+              core.setFailed('Keepalive agent alias missing.');
+              return;
+            }
+
+            const body = renderInstruction({ round, trace, body: instruction, agentAlias });
             const actionsAvailable = (process.env.ACTIONS_AVAILABLE || '').toLowerCase() === 'true';
             const serviceAvailable = (process.env.SERVICE_AVAILABLE || '').toLowerCase() === 'true';
             const dispatchMode = actionsAvailable
