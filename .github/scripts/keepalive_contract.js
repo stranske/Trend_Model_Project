@@ -10,18 +10,36 @@ function makeTrace() {
   return trace.toLowerCase();
 }
 
-function ensureCodexPreface(body) {
+function escapeForRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function ensureAgentPreface(body, agentAlias = 'codex') {
   const trimmed = body.replace(/\r\n/g, '\n').trim();
   if (!trimmed) {
     throw new Error('Keepalive instruction body is required.');
   }
-  if (/^@codex\b/i.test(trimmed)) {
+
+  const alias = String(agentAlias || '').trim() || 'codex';
+  const aliasPattern = new RegExp(`^@${escapeForRegex(alias)}\b`, 'i');
+  if (aliasPattern.test(trimmed)) {
     return trimmed;
   }
-  return `@codex ${trimmed}`;
+
+  let remainder = trimmed;
+  const leadingMention = remainder.match(/^@\S+/);
+  if (leadingMention) {
+    remainder = remainder.slice(leadingMention[0].length).trimStart();
+  }
+
+  if (!remainder) {
+    throw new Error('Keepalive instruction body is required.');
+  }
+
+  return `@${alias} ${remainder}`;
 }
 
-function renderInstruction({ round, trace, body }) {
+function renderInstruction({ round, trace, body, agent }) {
   const parsedRound = Number.parseInt(round, 10);
   if (!Number.isFinite(parsedRound) || parsedRound <= 0) {
     throw new Error('Keepalive round must be a positive integer.');
@@ -30,7 +48,7 @@ function renderInstruction({ round, trace, body }) {
   if (!normalisedTrace) {
     throw new Error('Keepalive trace token is required.');
   }
-  const instructionBody = ensureCodexPreface(String(body ?? ''));
+  const instructionBody = ensureAgentPreface(String(body ?? ''), agent);
   const lines = [
     `<!-- keepalive-round: ${parsedRound} -->`,
     '<!-- codex-keepalive-marker -->',
