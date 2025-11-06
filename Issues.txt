@@ -1,120 +1,108 @@
-1. Add a Canonical Doc Describing the Keepalive Goals and Plumbing
+1. Keepalive branch‑sync (Option 1 + Option 3): comment‑command “Update Branch” first, then GH‑side Codex Action PR fallback; block next round until sync lands
 
-Labels: agents, agents:keepalive, ci, automation, docs
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement
 
 Why
-Agents get confused about the purpose of the keepalive and lose focus on the task goals. The canonical document provides enhanced memory for the agents working on the task.
+Keepalive fires, but when an agent finishes work in its external sandbox the PR head SHA often doesn’t change immediately. If we post the next instruction before the branch reflects the agent’s work, later rounds repeat old work. We need a fully automated branch‑sync gate that:
+
+First asks the agent (via a PR comment command, posted as stranske) to update the PR branch;
+
+Then (if still unsynced) uses GitHub‑side automation to land the changes by running Codex in Actions to produce a sync PR and auto‑merge it;
+
+Only after the PR head moves do we allow the next keepalive round.
+This eliminates the human clicks on the external site (“Update Branch” / “Create PR”) and prevents duplicate/looping rounds.
 
 Scope
 
-- Guidelines and Goals for the Keepalive.
+Add a branch‑sync gate to the keepalive flow, executed after an agent round reports “done” and before posting the next instruction.
+
+Option 1 (comment‑command path, preferred first): Post a PR comment command as stranske (using ACTIONS_BOT_PAT) to instruct the agent to update the PR branch. Poll the PR head SHA until it changes (short TTL).
+
+Option 3 (GitHub‑side fallback): If the branch still hasn’t moved, run Codex inside Actions to generate/apply a sync patch to a temporary branch, open a PR, and auto‑merge it back into the working branch; poll until the PR head changes.
+
+If both paths fail within a bounded TTL, add label agents:sync-required and suppress the next keepalive instruction (summary only; no PR noise unless debug label present).
 
 Non‑Goals
 
-- Providing goals or instructions for anything besides the keepalive.
+Changing existing keepalive pre‑gates (label, human @agent, Gate concluded, run‑cap) — enforced elsewhere.
+
+Introducing new secrets or external services.
+
+Depending on custom repository_dispatch handlers in the agent platform (we’re using comment commands and GitHub‑side actions only).
 
 Tasks
 
-- Add the document in the implementation notes to docs and label it for agents in a way that reminds them to consult it any time work is done on the keepalive.
+- Shared inputs & guards (reuse existing keepalive context)
+
+  - Capture: PR_NUMBER, PR_BASE, PR_HEAD, PR_HEAD_SHA_PREV, KEEPALIVE_ROUND, KEEPALIVE_TRACE, current labels, and the current agent alias from agent:* labels.
+
+  - Precondition: Only run branch‑sync gate when last agent action reported “done” and PR_HEAD_SHA has not changed since the previous instruction.
+
+- Emit the comment‑command (Option 1) — posted as stranske
+
+  - Token select: TOKEN = ACTIONS_BOT_PAT (preferred) else SERVICE_BOT_PAT.
+
+  - Create a PR comment (new, not edit) with exact body:
+    /update-branch trace:${KEEPALIVE_TRACE}
+    (Optional, only when /update-branch is rejected because head moved:) also support
+    /create-pr trace:${KEEPALIVE_TRACE}
+
+  - Add 👀 reaction to the command comment (visual ack).
+
+  - Poll pulls.get for head.sha change every 5s up to TTL_short (e.g., 60–120s).
+
+  - If changed → record success (mode=comment-update-branch) and proceed (post next instruction).
+
+  - If not changed → continue to Task 3.
+
+- GitHub‑side fallback (Option 3) — Codex Action → PR → auto‑merge
+
+  - Create a temp branch sync/codex-${KEEPALIVE_TRACE} from the current PR head.
+
+  - Run an AI-assisted code generation action in GitHub Actions (e.g., your existing Codex worker, or a supported alternative such as github/copilot-actions if available) with a narrowly scoped prompt to sync the temp branch to the desired state (e.g., apply pending patch or minimal no‑op change to force merge) without altering functional code. Note: The openai/codex-action is deprecated and should not be used.
+
+  - Use peter-evans/create-pull-request to open a PR from sync/codex-${KEEPALIVE_TRACE} → PR_HEAD (same repo), title e.g., chore(sync): branch-sync ${KEEPALIVE_TRACE}.
+
+  - Auto‑merge that PR (fast‑forward/squash per repo policy) using PAT; delete the temp branch.
+
+  - Poll pulls.get for head.sha change up to TTL_long (e.g., 2–5 min).
+
+  - If changed → record success (mode=action-sync-pr) and proceed.
+
+  - If still unchanged → add label agents:sync-required; do not post next instruction; write one‑line summary only when agents:debug label present.
+
+- Observability & idempotency
+
+  - Write a concise step summary on each attempt: round, trace, mode, result, merged_sha (if any), and elapsed time.
+
+  - Treat trace as the idempotency key; do not re‑execute sync for the same {PR, round, trace} tuple.
+
+  - No PR comments are posted when gates fail or we pause (unless agents:debug label is present).
 
 Acceptance criteria
 
-- The document has been uploaded to docs and included in any other documentation in the repo where it belongs
+- Diverged base, no human clicks: After an agent “done,” if the PR head is unchanged, the system posts /update-branch trace:<TRACE> as stranske and the PR head SHA changes within TTL_short; the next keepalive instruction is allowed. Step summary records mode=comment-update-branch and the merged SHA.
+
+- Head moved since agent work: If /update-branch can’t land changes, the fallback creates a sync PR and auto‑merges it; the PR head SHA changes within TTL_long; the next keepalive instruction is allowed. Step summary records mode=action-sync-pr and merged SHA.
+
+- Unresolvable within TTL_long: Label agents:sync-required is applied; no next instruction is posted; run summary explains reason=sync-timeout with {trace}.
+
+- At no point does the system post new keepalive instructions when unsynced; no duplicate sync attempts occur for the same {PR, round, trace}.
 
 Implementation notes
 
-Title: Keepalive — Goals & Plumbing (canonical reference)
+Posting identity: always try ACTIONS_BOT_PAT first so instruction/command comments appear as stranske; fallback to SERVICE_BOT_PAT.
 
-Purpose
-Drive an iterative, hands‑off loop where an agent continues working on a PR in small, verifiable increments until all acceptance criteria are met—while guaranteeing safety rails and predictable behavior.
+Comment commands: keep the command bodies exact (/update-branch trace:<TRACE> and /create-pr trace:<TRACE>). If /create-pr is unsupported, you may skip it — the fallback PR from Codex Action covers this path.
 
-Activation contract (first fire for a PR)
-Keepalive must not post or dispatch for the first time on a PR unless all are true:
+Safe prompts for Codex Action: scope the fallback to “sync only” (no functional edits). Example: “Open a PR to merge temp branch into current PR head without semantic changes; only minimal/no‑op changes if needed to enable fast‑forward.”
 
-PR label present: agents:keepalive
+Polling: use 5s intervals; total TTL_short ≈ 60–120s; total TTL_long ≈ 2–5 min (configurable).
 
-Human initiation present: at least one human issue_comment.created on the PR that @mentions an agent (e.g., @codex, @claude), where the agent name is taken dynamically from the PR’s agent:* label(s). No hard‑coding of agent names.
+Security: never log tokens or external URLs; restrict actions to origin‑repo PRs (skip forks).
 
-Gate completed: the Gate workflow for the current head SHA has conclusion = success (or an explicit allow‑list of acceptable conclusions).
+No‑noise policy: only post the one‑line escalation when agents:debug is present; otherwise summaries go to $GITHUB_STEP_SUMMARY only.
 
-Repeat contract (round N → N+1)
-Before keepalive posts the next instruction comment or dispatches another agent run:
+Labels used: agents:keepalive, agent:codex (or current agent), optional agents:debug, and agents:sync-required (new if not present).
 
-The three preconditions above are still true, and
-
-The run‑cap for this PR is not exceeded, and
-
-The branch‑sync gate (below) says the agent’s previous “work” is now actually reflected on the PR branch.
-
-Run cap
-Limit concurrent agent runs per PR:
-
-Config via label: if the PR has a label like agents:max-parallel:K, use K (integer, 1–5).
-
-Default: 2 if no label is present.
-
-Enforced as: “number of in‑progress Orchestrator/Worker runs for this PR” < cap. If at cap, keepalive does not post a new instruction or dispatch; it exits quietly (or writes a step summary only).
-
-Pause / stop control
-
-Removing agents:keepalive must stop any new agent runs & prevent keepalive comments.
-
-Optionally respect a stronger “hard pause” label agents:pause that prevents all keepalive activity, including any fallbacks.
-
-No‑noise rule
-If preconditions aren’t met (label missing, no human @agent yet, Gate not green, cap reached), keepalive must not post new comments. It may write a run‑summary for operators, but no PR noise.
-
-Instruction comment contract
-When keepalive is allowed to post:
-
-Create a new instruction comment (never edit a status comment).
-
-Author: post as stranske using ACTIONS_BOT_PAT (preferred); fallback to SERVICE_BOT_PAT (posts as the automation bot).
-
-Body must start with these hidden markers + trace id, then the visible instruction:
-
-<!-- keepalive-round: {N} -->
-<!-- codex-keepalive-marker -->
-<!-- keepalive-trace: {TRACE} -->
-@<agent> Continue with the remaining tasks. Re‑post Scope/Tasks/Acceptance and check off only when acceptance criteria are satisfied.
-
-<Scope/Tasks/Acceptance block>
-
-
-After posting, the system adds 👀 to the comment and expects PR‑meta to add 🚀 (ack) within a short TTL.
-
-Detection & dispatch
-
-PR‑meta listens to issue_comment.created and accepts authors: stranske or the automation bot.
-
-Requires the hidden markers; dedupes via 🚀; then dispatches both:
-
-workflow_dispatch → Agents‑70 Orchestrator (with options_json containing {round, trace, pr}).
-
-repository_dispatch (codex-pr-comment-command) for the connector, with {issue, base, head, comment_id, comment_url, agent}.
-
-PR‑meta writes a small summary table per event (ok | reason | author | pr | round | trace).
-
-Branch‑sync gate
-Before posting the next instruction for a round, require that the PR head moved (work landed). If not, attempt automation and only then proceed:
-
-If head SHA unchanged after the agent reports “done,” scan the agent’s last reply for an “Update Branch” / “Create PR” URL (known patterns per connector), call it automatically, and poll the PR for a new commit (short TTL).
-
-If still unchanged, try a second‑chance path (e.g., the “Create PR” route if “Update Branch” is no longer allowed), then poll again.
-
-If still unchanged, pause keepalive and add a label agents:sync-required (no instruction post, no dispatch). A short, single‑line PR comment with the {trace} may be allowed only when a debug label (e.g., agents:debug) is present.
-
-Orchestrator invariants
-
-No self‑cancellation: cancel-in-progress: false; concurrency keyed by {pr}-{trace}.
-
-Explicit bails: on any early exit (precondition missing, run cap reached, Gate not green, branch‑sync unresolved), write a one‑line reason to the run‑summary and (optionally, when debug label exists) a terse PR comment:
-
-**Keepalive {round}** \{trace}` skipped: <reason-code>`
-
-Assignees: ignore bot/app accounts; if no humans remain, skip gracefully; do not fail the round.
-
-Removing and then re-adding agents:keepalive will restart the keepalive functionality as long as all criteria have been met
-
-Success condition
-Stop when all acceptance criteria are checked complete; optionally remove agents:keepalive and add agents:done.
+Where to wire: implement in the post‑work / pre‑next‑round phase of Agents‑70 Orchestrator keepalive sweep; do not change the separate status/checklist updater.
