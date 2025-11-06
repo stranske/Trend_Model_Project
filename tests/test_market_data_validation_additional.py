@@ -8,7 +8,6 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-import trend_analysis.io.market_data as market_data
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
     MarketDataMode,
