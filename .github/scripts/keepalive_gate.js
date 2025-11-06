@@ -3,6 +3,7 @@
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
 const MAX_RUNS_PREFIX = 'agents:max-runs:';
+const SYNC_REQUIRED_LABEL = 'agents:sync-required';
 const DEFAULT_RUN_CAP = 2;
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 
@@ -304,6 +305,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const labels = Array.isArray(pr?.labels) ? pr.labels : [];
   const labelNames = extractLabelNames(labels);
   const hasKeepaliveLabel = labelNames.includes(KEEPALIVE_LABEL);
+  const hasSyncRequiredLabel = labelNames.includes(SYNC_REQUIRED_LABEL);
   const agentAliases = extractAgentAliases(labels);
   const primaryAgent = agentAliases[0] || '';
 
@@ -354,7 +356,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let ok = true;
   let reason = '';
 
-  if (!hasKeepaliveLabel) {
+  if (hasSyncRequiredLabel) {
+    ok = false;
+    reason = 'sync-required';
+  } else if (!hasKeepaliveLabel) {
     ok = false;
     reason = 'keepalive-label-missing';
   } else if (requireHumanActivation && !humanActivation) {
@@ -381,6 +386,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     primaryAgent,
     headSha,
     headRef,
+    hasSyncRequiredLabel,
   };
 }
 
