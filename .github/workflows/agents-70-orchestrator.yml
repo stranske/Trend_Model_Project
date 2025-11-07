@@ -458,6 +458,7 @@ jobs:
             } = require('./.github/scripts/keepalive_guard_utils.js');
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const normalise = (value) => String(value || '').trim();
+            const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
             const toBool = (value) => {
               const norm = normalise(value).toLowerCase();
               return ['true', '1', 'yes', 'on'].includes(norm);
@@ -904,10 +905,10 @@ jobs:
     outputs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
-      author: ${{ steps.prepare.outputs.author || '' }}
+      author: ${{ steps.capture_comment.outputs.author || steps.prepare.outputs.author || '' }}
       dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
-      comment_id: ${{ steps.post.outputs.comment_id || '' }}
-      comment_url: ${{ steps.post.outputs.comment_url || '' }}
+      comment_id: ${{ steps.capture_comment.outputs.comment_id || '' }}
+      comment_url: ${{ steps.capture_comment.outputs.comment_url || '' }}
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
       actions_available: ${{ steps.prepare.outputs.actions_available || 'false' }}
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
@@ -1037,6 +1038,29 @@ jobs:
           ACTIVE_RUNS: ${{ steps.gate_check.outputs.active_runs || '0' }}
           HEAD_SHA: ${{ steps.gate_check.outputs.head_sha || '' }}
 
+      - name: Detect instruction author token
+        id: author_token
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        env:
+          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+        run: |
+          set -euo pipefail
+          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${HAS_SERVICE_PAT}" = "true" ]; then
+            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          else
+            echo "token=GITHUB_TOKEN" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare keepalive instruction
         id: prepare
         if: steps.gate_check.outputs.ok == 'true'
@@ -1045,8 +1069,8 @@ jobs:
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
           ROUND_HINT: ${{ needs.resolve-params.outputs.keepalive_round }}
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
-          ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-          SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          AUTHOR_TOKEN_SOURCE: ${{ steps.author_token.outputs.token || '' }}
+          AUTHOR_LOGIN: ${{ steps.author_token.outputs.author || '' }}
           AGENT_ALIAS: ${{ steps.gate_check.outputs.agent_alias || needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
@@ -1080,6 +1104,64 @@ jobs:
             let round = Number.isFinite(roundHint) && roundHint > 0 ? roundHint : 0;
 
             const { owner, repo } = context.repo;
+            const defaultScopeBlock = [
+              '#### Scope',
+              '_No scope information available_',
+              '',
+              '#### Tasks',
+              '- [ ] _No tasks defined_',
+              '',
+              '#### Acceptance criteria',
+              '- [ ] _No acceptance criteria defined_',
+            ].join('\n');
+
+            const extractScopeTasksAcceptance = (body) => {
+              const summaryMatch = normaliseNewlines(body).match(/<!--\s*auto-status-summary:start\s*-->([\s\S]*?)<!--\s*auto-status-summary:end\s*-->/i);
+              if (!summaryMatch) {
+                return defaultScopeBlock;
+              }
+              const summarySection = summaryMatch[1];
+              const sectionFor = (heading) => {
+                const pattern = new RegExp(`####\s+${heading}\s+([\\s\\S]*?)(?=####\s+|$)`, 'i');
+                const match = summarySection.match(pattern);
+                if (!match) {
+                  return '';
+                }
+                const value = match[1].trim();
+                return value || '';
+              };
+
+              const scope = sectionFor('Scope') || '_No scope information available_';
+              const tasks = sectionFor('Tasks') || '- [ ] _No tasks defined_';
+              const acceptance = sectionFor('Acceptance criteria') || '- [ ] _No acceptance criteria defined_';
+
+              return [
+                '#### Scope',
+                scope,
+                '',
+                '#### Tasks',
+                tasks,
+                '',
+                '#### Acceptance criteria',
+                acceptance,
+              ]
+                .map((block) => block.replace(/\s+$/, ''))
+                .join('\n');
+            };
+
+            let scopeBlock = defaultScopeBlock;
+            try {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              scopeBlock = extractScopeTasksAcceptance(pr?.body || '') || defaultScopeBlock;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to extract scope/tasks/acceptance for PR #${prNumber}: ${message}`);
+              scopeBlock = defaultScopeBlock;
+            }
+
+            core.exportVariable('SCOPE_TASKS_ACCEPTANCE', scopeBlock);
+            core.setOutput('scope_block', scopeBlock);
+
             let highestRound = 0;
             try {
               const comments = await github.paginate(github.rest.issues.listComments, {
@@ -1109,15 +1191,23 @@ jobs:
 
             round = Math.max(round, highestRound) + 1;
             const trace = makeTrace();
-            const body = renderInstruction({ round, trace, body: instruction, agent: agentAlias });
-            const actionsAvailable = (process.env.ACTIONS_AVAILABLE || '').toLowerCase() === 'true';
-            const serviceAvailable = (process.env.SERVICE_AVAILABLE || '').toLowerCase() === 'true';
+            const combinedInstruction = [
+              normaliseNewlines(instruction).trim(),
+              scopeBlock,
+            ]
+              .filter(Boolean)
+              .join('\n\n');
+
+            const body = renderInstruction({ round, trace, body: combinedInstruction, agent: agentAlias });
+            const tokenSource = normalise(process.env.AUTHOR_TOKEN_SOURCE).toUpperCase();
+            const actionsAvailable = tokenSource === 'ACTIONS_BOT_PAT';
+            const serviceAvailable = tokenSource === 'SERVICE_BOT_PAT';
             const dispatchMode = actionsAvailable
               ? 'actions'
               : serviceAvailable
                 ? 'service'
                 : 'none';
-            const author = actionsAvailable ? 'stranske' : 'stranske-automation-bot';
+            const author = normalise(process.env.AUTHOR_LOGIN) || (actionsAvailable ? 'stranske' : 'stranske-automation-bot');
 
             core.setOutput('round', String(round));
             core.setOutput('trace', trace);
@@ -1159,47 +1249,91 @@ jobs:
               core.setOutput('base_ref', '');
             }
 
-      - name: Create keepalive instruction comment
-        id: post
-        if: steps.gate_check.outputs.ok == 'true'
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          BODY: ${{ steps.prepare.outputs.body }}
+      - name: Post keepalive instruction (as stranske)
+        id: post_instruction_primary
+        if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
+        uses: peter-evans/create-issue-comment@v3
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER || 0);
-            if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              core.setFailed('Unable to determine pull request number for keepalive instruction.');
-              return;
-            }
+          token: ${{ secrets.ACTIONS_BOT_PAT }}
+          issue-number: ${{ steps.prepare.outputs.pr_number }}
+          body: ${{ steps.prepare.outputs.body }}
 
-            const body = process.env.BODY || '';
-            if (!body) {
-              core.setFailed('Keepalive instruction body is empty.');
-              return;
-            }
+      - name: Post keepalive instruction (fallback automation bot)
+        id: post_instruction_service
+        if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
+        uses: peter-evans/create-issue-comment@v3
+        with:
+          token: ${{ secrets.SERVICE_BOT_PAT }}
+          issue-number: ${{ steps.prepare.outputs.pr_number }}
+          body: ${{ steps.prepare.outputs.body }}
 
-            const { owner, repo } = context.repo;
-            const response = await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body,
-            });
+      - name: Post keepalive instruction (github-token fallback)
+        id: post_instruction_default
+        if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'GITHUB_TOKEN'
+        uses: peter-evans/create-issue-comment@v3
+        with:
+          token: ${{ github.token }}
+          issue-number: ${{ steps.prepare.outputs.pr_number }}
+          body: ${{ steps.prepare.outputs.body }}
 
-            const comment = response?.data || {};
-            core.setOutput('comment_id', comment.id ? String(comment.id) : '');
-            core.setOutput('comment_url', comment.html_url || '');
+      - name: Capture instruction comment metadata
+        id: capture_comment
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          comment_id=""
+          comment_url=""
+          author="${AUTHOR:-stranske-automation-bot}"
+
+          if [ "${PRIMARY_OUTCOME}" = "success" ]; then
+            comment_id="${PRIMARY_ID}"
+            comment_url="${PRIMARY_URL}"
+          elif [ "${SERVICE_OUTCOME}" = "success" ]; then
+            comment_id="${SERVICE_ID}"
+            comment_url="${SERVICE_URL}"
+          elif [ "${DEFAULT_OUTCOME}" = "success" ]; then
+            comment_id="${DEFAULT_ID}"
+            comment_url="${DEFAULT_URL}"
+          fi
+
+          if [ -n "${comment_id}" ]; then
+            echo "COMMENT_ID=${comment_id}" >>"$GITHUB_ENV"
+            echo "comment_id=${comment_id}" >>"$GITHUB_OUTPUT"
+          else
+            echo "COMMENT_ID=" >>"$GITHUB_ENV"
+            echo "comment_id=" >>"$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "${comment_url}" ]; then
+            echo "COMMENT_URL=${comment_url}" >>"$GITHUB_ENV"
+            echo "comment_url=${comment_url}" >>"$GITHUB_OUTPUT"
+          else
+            echo "COMMENT_URL=" >>"$GITHUB_ENV"
+            echo "comment_url=" >>"$GITHUB_OUTPUT"
+          fi
+
+          echo "AUTHOR=${author}" >>"$GITHUB_ENV"
+          echo "author=${author}" >>"$GITHUB_OUTPUT"
+        env:
+          AUTHOR: ${{ steps.author_token.outputs.author || '' }}
+          PRIMARY_OUTCOME: ${{ steps.post_instruction_primary.outcome || 'skipped' }}
+          PRIMARY_ID: ${{ steps.post_instruction_primary.outputs.comment-id || '' }}
+          PRIMARY_URL: ${{ steps.post_instruction_primary.outputs.comment-url || '' }}
+          SERVICE_OUTCOME: ${{ steps.post_instruction_service.outcome || 'skipped' }}
+          SERVICE_ID: ${{ steps.post_instruction_service.outputs.comment-id || '' }}
+          SERVICE_URL: ${{ steps.post_instruction_service.outputs.comment-url || '' }}
+          DEFAULT_OUTCOME: ${{ steps.post_instruction_default.outcome || 'skipped' }}
+          DEFAULT_ID: ${{ steps.post_instruction_default.outputs.comment-id || '' }}
+          DEFAULT_URL: ${{ steps.post_instruction_default.outputs.comment-url || '' }}
 
       - name: Ack keepalive instruction
         id: ack
-        if: steps.gate_check.outputs.ok == 'true'
+        if: steps.gate_check.outputs.ok == 'true' && steps.capture_comment.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.post.outputs.comment_id }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -1246,8 +1380,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.post.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.post.outputs.comment_url }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url }}
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
@@ -1347,21 +1481,29 @@ jobs:
       - name: Summarise keepalive instruction
         if: steps.gate_check.outputs.ok == 'true'
         run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ## Keepalive instruction
-          * Round: ${ROUND}
-          * Trace: `${TRACE}`
-          * Author: ${AUTHOR}
-          * Agent: @${AGENT}
-          * Comment: ${COMMENT_LINK}
-          * Acknowledged: ${ACK}
-          EOF
+          set -euo pipefail
+          round="${ROUND:-?}"
+          trace="${TRACE:-missing}"
+          author="${AUTHOR:-unknown}"
+          agent="${AGENT:-codex}"
+          ack="${ACK:-no}"
+          comment_ref="${COMMENT_URL:-}"
+          if [ -n "${COMMENT_URL}" ]; then
+            comment_ref="${COMMENT_URL}"
+          elif [ -n "${COMMENT_ID}" ]; then
+            comment_ref="#${COMMENT_ID}"
+          else
+            comment_ref='(unavailable)'
+          fi
+          printf 'INSTRUCTION: round=%s trace=%s author=%s agent=%s comment=%s ack=%s\n' \
+            "${round}" "${trace}" "${author}" "${agent}" "${comment_ref}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
         env:
           ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.prepare.outputs.author || '(unknown)' }}
+          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
           AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
-          COMMENT_LINK: ${{ steps.post.outputs.comment_url != '' && format('[#{0}]({1})', steps.post.outputs.comment_id, steps.post.outputs.comment_url) || steps.post.outputs.comment_id || '(unavailable)' }}
+          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url || '' }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
   orchestrate:
