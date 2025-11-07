@@ -19,8 +19,8 @@ tasks:
     notes: []
   - id: task-03
     title: token = secrets.ACTIONS_BOT_PAT ?? secrets.SERVICE_BOT_PAT
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-07T15:09:32Z'
     finished_at: null
     commit: ''
     notes: []
