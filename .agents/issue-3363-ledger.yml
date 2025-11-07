@@ -1,0 +1,176 @@
+version: 1
+issue: 3363
+base: phase-2-dev
+branch: codex/issue-3363
+tasks:
+  - id: task-01
+    title: Instruction comment posts as stranske
+    status: doing
+    started_at: '2025-11-07T14:40:20Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: "In the keepalive poster (within Agents\u201170 Orchestrator), select token:"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: token = secrets.ACTIONS_BOT_PAT ?? secrets.SERVICE_BOT_PAT
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Use that token to create a new instruction comment (never edit) whose
+      body begins with:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Record Round, Trace, Author, CommentId to $GITHUB_STEP_SUMMARY.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: "Auto\u2011apply agents:activated on first valid activation"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: "In Agents PR meta manager, right after the pre\u2011gate returns ok=true\
+      \ and has_activated_label=false, add label agents:activated using ACTIONS_BOT_PAT."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Logic: requireHumanActivation == true only when agents:activated is absent.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: "Orchestrator enforces pre\u2011gate before next instruction"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: "Before posting any next instruction, call the same pre\u2011gate with:"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: "requireHumanActivation=false (later rounds don\u2019t need a new human\
+      \ mention)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: "If ok=false, exit quietly (no comment/dispatch) and write the one\u2011\
+      line summary; if ok=true, proceed to post the instruction (Task A)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: "Branch\u2011sync as a blocking gate"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'After an agent round finishes and before posting the next instruction:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Compare the PR head SHA with the one captured when the instruction was
+      posted.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: "If unchanged, run update\u2011branch via your connector hook (repo\u2011\
+      dispatch or recognized comment command), poll for head change (short TTL)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: "If still unchanged, run create\u2011pr via the connector, auto\u2011merge\
+      \ it into the working branch, and poll for head change."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: If still unchanged, apply agents:sync-required and do not post the next
+      instruction; note the escalation in the run summary.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: "Strict Gate result + one\u2011line run summaries"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: "In both PR\u2011meta and Orchestrator gate calls, enforce:"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Gate run on current head SHA exists and status='completed' && conclusion='success'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Each gate evaluation writes exactly one line to $GITHUB_STEP_SUMMARY,
+      e.g.:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active>
+      head=<sha7>'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
