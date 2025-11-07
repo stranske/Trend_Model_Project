@@ -1,135 +1,382 @@
-1. Keepalive activation re‑hydration & gate hardening (fix regression): Gate workflow_run trigger, persisted first‑activation (agents:activated), strict Gate=success, per‑PR run‑cap; no noise when blocked
+1. Keepalive finishing fixes: post instruction as stranske; auto‑apply agents:activated; enforce pre‑gate in Orchestrator; wire branch‑sync as a blocking gate; strict Gate=success; one‑line run summaries; no PR noise when blocked
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-After we moved the keepalive pre‑gates (label + human @agent + Gate finished + under run‑cap) in front of posting/dispatch, first‑run activation could be suppressed when the human @agent comment arrived before Gate finished. Because there was no “Gate finished → re‑evaluate” trigger (or persisted first‑activation intent), nothing re‑armed the pipeline, and the keepalive appeared dead.
-We must:
 
-re‑activate automatically on Gate completion,
+Recent merges brought keepalive very close to spec, but a few gaps remain that can still make it stall or misbehave:
 
-remember that a PR has been first‑activated (agents:activated) so later rounds don’t require a fresh human @agent, and
+Instruction comment is sometimes authored by the bot instead of stranske; we must prefer ACTIONS_BOT_PAT so third‑party agents treat it as a human comment.
 
-harden the gate to Gate = success (conclusion) with a per‑PR run‑cap—while producing no PR noise when blocked.
+First‑activation persistence isn’t guaranteed: the system should auto‑label agents:activated on first valid human @agent so later rounds don’t re‑require a human mention.
+
+Pre‑gate enforcement exists in PR‑meta; it also needs to run in Orchestrator before posting the next instruction to avoid posting when gates aren’t satisfied.
+
+Branch‑sync must be a hard gate before Round N+1: if the agent “finished” but the PR head SHA didn’t move, try update‑branch, else create‑pr+auto‑merge, else set agents:sync-required and do not post the next instruction.
+
+Gate policy must be strictly conclusion='success' for the PR’s current head SHA (not merely “completed”).
+
+Observability: every gate evaluation should emit a single‑line run summary; when gates fail, no PR comment should be posted.
+
+These adjustments make the pipeline deterministic while preserving the protocol (label + human @agent for first run only + Gate success + per‑PR run‑cap + quiet when blocked).
 
 Scope
-Implement the following control‑plane behaviors:
 
-First‑activation persists: On the first valid human @agent, add label agents:activated. Thereafter, do not require a new human @agent for subsequent rounds on that PR.
+Implement the following, and only the following:
 
-Gate completion wakes keepalive: Add a workflow_run trigger on the Gate workflow (types: [completed]). When Gate finishes with conclusion='success', re‑evaluate pre‑gates and, if satisfied, start the first keepalive round (or next round if already activated).
+Instruction author preference: In the poster, always use ACTIONS_BOT_PAT (posts as stranske) to create the instruction comment; fallback to SERVICE_BOT_PAT only if needed.
 
-Strict Gate policy: The gate check must require status='completed' AND conclusion='success' for the PR’s current head SHA of the working branch.
+Auto‑activation: When the pre‑gate passes for the first time on a PR and agents:activated is absent, add agents:activated automatically. Subsequent rounds must not require a new human @agent.
 
-Per‑PR run‑cap: Limit concurrent runs per PR to a cap:
+Orchestrator pre‑gate: Before posting any next instruction, call the same pre‑gate as PR‑meta with requireHumanActivation=false; if gates fail, do nothing (no comment/dispatch) and write a run summary only.
 
-default 2,
+Branch‑sync gate (blocking): After an agent round reports “done” and before posting Round N+1: if head SHA unchanged, attempt (a) update‑branch; if still unchanged, (b) create‑pr + auto‑merge; if still unchanged, label agents:sync-required and exit (no instruction).
 
-override by label agents:max-runs:X where X ∈ [1..5].
-Count only this PR’s Orchestrator/Worker runs with status ∈ {queued, in_progress}.
+Strict Gate success: Where we evaluate Gate, require status='completed' && conclusion='success' for the current head SHA.
 
-Label controls respected:
-
-Require agents:keepalive for first and subsequent rounds; removing it stops any new instruction/dispatch until restored.
-
-(Optional existing controls like agents:pause continue to pause everything.)
-
-No‑noise rule: When any pre‑gate fails (label missing, Gate not success, cap reached, first‑run without human @agent), do not post comments. Write only a concise reason in the run summary.
-
-Instruction poster unchanged (except for gating placement): Once gates pass, create a new instruction comment (never edit), post as stranske (ACTIONS_BOT_PAT; fallback SERVICE_BOT_PAT), with required hidden markers + TRACE and @<agent> derived from the PR’s agent:* label.
+One‑line summaries; no PR noise when blocked: Every gate evaluation writes a single line to $GITHUB_STEP_SUMMARY. No PR comments are posted on gate failures (unless you already gate such diagnostics behind a debug label).
 
 Non‑Goals
 
 Changing acceptance‑criteria content or Gate’s internal tests
 
-Rewriting branch‑sync automation (already handled by the separate post‑work module)
+Altering belt/worker logic beyond the pre‑gate call and branch‑sync step placement
 
-Replacing current ack/dedupe behavior (🚀 reaction) or status/checklist updater
+Introducing new secrets or tokens (use existing: ACTIONS_BOT_PAT, SERVICE_BOT_PAT)
+
+Replacing the existing 🚀 ack/dedupe or the separate status/checklist updater
 
 Tasks
+- Instruction comment posts as stranske
 
-- Shared gate helper (.github/scripts/keepalive_gate.js)
+  - In the keepalive poster (within Agents‑70 Orchestrator), select token:
+    - token = secrets.ACTIONS_BOT_PAT ?? secrets.SERVICE_BOT_PAT
 
-  - Add/confirm functions:
+  - Use that token to create a new instruction comment (never edit) whose body begins with:
+    <!-- keepalive-round: {N} -->
+    <!-- codex-keepalive-marker -->
+    <!-- keepalive-trace: {TRACE} -->
+    @<agent> Continue with the remaining tasks. Re‑post Scope/Tasks/Acceptance and only check off when acceptance criteria are satisfied.
 
-  - evaluateKeepaliveGate({ prNumber, headSha, requireHumanActivation }) → returns { ok, reason, cap, active, primaryAgent, hasKeepaliveLabel, hasActivatedLabel }.
+    <Scope/Tasks/Acceptance block>
 
-  - Human requirement logic: requireHumanActivation is true only when agents:activated is absent (first activation). Otherwise it’s waived.
 
-  - Gate success: Resolve the Gate workflow run for the current head SHA. Require status='completed' && conclusion='success'. If missing: reason='gate-run-missing'.
+  - Record Round, Trace, Author, CommentId to $GITHUB_STEP_SUMMARY.
 
-  - Run‑cap (per‑PR): Derive cap from agents:max-runs:X label (default 2). Count only this PR’s Orchestrator/Worker runs (queued + in_progress). Return active and cap.
+- Auto‑apply agents:activated on first valid activation
 
-  - Agent aliasing: Build allowed aliases from PR labels agent:* (strip the prefix). The human activation detector must match @<alias> (case‑insensitive) authored by a human (user.type==='User') in issue_comment.created.
+  - In Agents PR meta manager, right after the pre‑gate returns ok=true and has_activated_label=false, add label agents:activated using ACTIONS_BOT_PAT.
 
-- PR‑meta (.github/workflows/agents-pr-meta.yml)
+  - Logic: requireHumanActivation == true only when agents:activated is absent.
 
-  - On issue_comment.created (PRs only):
+- Orchestrator enforces pre‑gate before next instruction
 
-    - Call gate first with requireHumanActivation: true. If ok=false → stop (no comment/dispatch), write one‑line summary:
-      GATE: ok=false reason=<reason> pr=#<n> agent=<alias> cap=<cap> active=<active>
+  - Before posting any next instruction, call the same pre‑gate with:
 
-    - If ok=true and agents:activated absent → add label agents:activated.
+    - requireHumanActivation=false (later rounds don’t need a new human mention)
 
-    - Proceed with your existing detection (hidden markers + 🚀 dedupe) and dispatch:
+  - If ok=false, exit quietly (no comment/dispatch) and write the one‑line summary; if ok=true, proceed to post the instruction (Task A).
 
-    - workflow_dispatch → Agents‑70 Orchestrator (include options_json with { keepalive_trace, round, pr }).
+- Branch‑sync as a blocking gate
 
-    - repository_dispatch (codex-pr-comment-command) for the connector with { issue, base, head, comment_id, comment_url, agent } using ACTIONS_BOT_PAT.
+  - After an agent round finishes and before posting the next instruction:
 
-  - Add a new job keepalive_from_gate:
+    - Compare the PR head SHA with the one captured when the instruction was posted.
 
-    - on: workflow_run for workflow Gate, types: [completed].
+    - If unchanged, run update‑branch via your connector hook (repo‑dispatch or recognized comment command), poll for head change (short TTL).
 
-    - if: github.event.workflow_run.conclusion == 'success'.
+    - If still unchanged, run create‑pr via the connector, auto‑merge it into the working branch, and poll for head change.
 
-    - Resolve the linked PR (from workflow_run.pull_requests[0]) and call the same gate with requireHumanActivation: true.
+    - If still unchanged, apply agents:sync-required and do not post the next instruction; note the escalation in the run summary.
 
-    - If ok=true: add agents:activated if missing; then dispatch Orchestrator and connector exactly as above.
+- Strict Gate result + one‑line run summaries
 
-    - Always write the one‑line summary with gate outputs.
+  - In both PR‑meta and Orchestrator gate calls, enforce:
 
-- Orchestrator (.github/workflows/agents-70-orchestrator.yml)
+    - Gate run on current head SHA exists and status='completed' && conclusion='success'
 
-  - Before posting the next instruction: call the same gate with requireHumanActivation: false.
-
-    - If ok=false: do not post an instruction or dispatch; write the same one‑line summary; exit 0.
-
-    - If ok=true: proceed to create a new instruction comment (create‑not‑edit), post as stranske with ACTIONS_BOT_PAT (fallback SERVICE_BOT_PAT), include required markers + TRACE and @<agent> from labels, then continue with ack/fallback as already implemented.
-
-- Visibility (both workflows)
-
-  - Add the single‑line gate summary to $GITHUB_STEP_SUMMARY for every evaluation:
-    GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active> head=<sha:7>
-
-  - Do not post these as PR comments unless a debug label (e.g., agents:debug) is present.
+  - Each gate evaluation writes exactly one line to $GITHUB_STEP_SUMMARY, e.g.:
+    - GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active> head=<sha7>
 
 Acceptance criteria
 
-- First activation race fixed: If a human @<agent> comment occurs before Gate finishes, no instruction is posted immediately. When Gate completes successfully, the workflow_run job re‑evaluates gates, adds agents:activated (if missing), and starts the first keepalive round (instruction comment created as stranske, markers + TRACE present, 🚀 ack observed).
+- Instruction author: Instruction comments now appear authored by stranske (when ACTIONS_BOT_PAT is configured); bot is used only as fallback.
 
-- Human @agent is first‑run only: After agents:activated is present, subsequent keepalive rounds do not require a new human comment. The gate summary shows ok=true with reason=ok even if no newer human @agent exists.
+- Auto‑activation: On first valid human @agent, the system automatically adds agents:activated. Subsequent rounds do not require a new human comment.
 
-- Strict Gate: Keepalive does not post/dispatch unless Gate conclusion='success' for the current head SHA. If Gate is missing/cancelled/failing, the gate summary shows the appropriate reason and no PR comment is created.
+- Orchestrator pre‑gate: When labels/Gate/cap don’t permit a next round, no instruction is posted from Orchestrator; only the one‑line run summary is produced.
 
-- Per‑PR run‑cap works: With no agents:max-runs:X label, cap 2 is applied; with agents:max-runs:3, cap 3 is applied. The gate summary shows cap and active. Runs from other PRs do not count against this PR.
+- Branch‑sync blocking: When the agent reports “done” but the PR head SHA is unchanged, the system:
+  - attempts update‑branch,
+  - else create‑pr + auto‑merge,
+  - else labels agents:sync-required and does not post a next instruction.
+    In all three paths, the run summary reflects the outcome and the same TRACE.
 
-- Label controls respected: Removing agents:keepalive prevents any new instruction or dispatch. Restoring it re‑enables keepalive (subject to other gates).
+- Strict Gate: Keepalive posts/dispatches occur only when Gate succeeds (conclusion='success') for the current head SHA. If Gate is missing/cancelled/failing, the gate summary shows the reason and no PR comments are posted.
 
-- No noise when blocked: When any gate fails, no instruction comment is posted and no connector dispatch is sent; the only output is the one‑line gate summary in the run’s Summary.
+- No PR noise when blocked: For missing label, missing first‑run human @agent, Gate not success, cap reached, or branch‑sync unresolved, no instruction comments are posted; only the one‑line summary is written.
 
-- Instruction comment contract unchanged: When allowed, the poster creates a new comment (not edit), authored as stranske (ACTIONS_BOT_PAT; fallback SERVICE_BOT_PAT), with the three hidden markers and a unique TRACE, and tags the current agent from agent:* labels.
+- Two consecutive rounds on a test PR show:
+    - instruction authored as stranske,
+    - distinct TRACEs,
+    - Gate summaries present,
+    - no duplicate dispatches or self‑cancellation.
 
 Implementation notes
 
-Secrets: Use existing ACTIONS_BOT_PAT (preferred, posts as stranske) and SERVICE_BOT_PAT (fallback). Do not add new PATs.
+Files likely touched:
 
-Gate identification: Match the Gate workflow by id/name exactly; fetch runs by head SHA of the PR’s head ref. Require status='completed' && conclusion='success'.
+.github/workflows/agents-pr-meta.yml
 
-Run‑cap (per‑PR): When listing runs, filter by workflow name/id and ensure they belong to this PR (pass PR number via options_json and filter by that, or by head ref naming convention). Count only queued + in_progress.
+Call pre‑gate first; on first activation add agents:activated; keep detection (markers + 🚀 dedupe); dispatch orchestrator & connector; write the summary line.
 
-Agent aliasing: Build allowed aliases from labels agent:* (e.g., agent:codex → codex); then require a human comment body containing @<alias>.
+.github/workflows/agents-70-orchestrator.yml
 
-Persisted activation: Add/remove agents:activated with the bot PAT; treat its presence as “first‑activation satisfied” for this PR. Removing it (manually) makes the next start require a human @agent again.
+Call pre‑gate before posting the next instruction; if pass, create instruction comment with ACTIONS_BOT_PAT→SERVICE_BOT_PAT; include markers + TRACE + @<agent>; then ack/fallback as already implemented; write the summary line.
 
-Summaries: Always emit the gate line to $GITHUB_STEP_SUMMARY so operators can confirm why a round did or didn’t fire without PR noise.
+.github/scripts/keepalive_gate.js
+
+Ensure conclusion==='success' check on current head SHA; expose has_activated_label, requireHumanActivation; compute per‑PR cap and active count.
+
+.github/scripts/keepalive_post_work.js (or equivalent)
+
+Ensure it runs before next instruction; implement update‑branch → create‑pr+auto‑merge → agents:sync-required escalation flow (no PR comment unless you already gate such diagnostics behind a debug label).
+
+Secrets: use existing ACTIONS_BOT_PAT (preferred) and SERVICE_BOT_PAT only.
+
+Agent aliasing: derive @<agent> dynamically from current agent:* label(s) (no hard‑coding).
+
+Run‑cap: default 2, override by label agents:max-runs:X (1..5). Count only this PR’s Orchestrator/Worker runs with status ∈ {queued, in_progress}.
+
+Quiet by default: do not post gate failures to the PR; use $GITHUB_STEP_SUMMARY (you may already have a debug label if you want optional one‑liners in PR).
+
+- Orchestrator — post the instruction as stranske (ACTIONS_BOT_PAT → SERVICE_BOT_PAT fallback)
+Where to paste: in .github/workflows/agents-70-orchestrator.yml, inside the job that posts the keepalive instruction comment (right before your ack/🚀 logic).
+Assumptions: you already resolved PR_NUMBER, ROUND, and TRACE earlier in the job (e.g., from inputs.options_json). If not, add a small “resolve context” step first.
+
+# --- BEGIN: token selection (prefer ACTIONS_BOT_PAT) ---
+- name: Detect author token (prefer ACTIONS_BOT_PAT → fallback SERVICE_BOT_PAT)
+  id: author_token
+  shell: bash
+  env:
+    HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+  run: |
+    if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+      echo "token=ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
+      echo "author=stranske"        >> "$GITHUB_OUTPUT"
+    else
+      echo "token=SERVICE_BOT_PAT"  >> "$GITHUB_OUTPUT"
+      echo "author=stranske-automation-bot" >> "$GITHUB_OUTPUT"
+    fi
+# --- END: token selection ---
+
+# --- BEGIN: render instruction body with required markers + TRACE + dynamic @agent ---
+- name: Render keepalive instruction body
+  id: render_instruction
+  uses: actions/github-script@v7
+  env:
+    PR_NUMBER: ${{ env.PR_NUMBER }}     # <- set earlier in your job (from inputs.options_json.pr)
+    ROUND:     ${{ env.ROUND }}         # <- set earlier (next round integer)
+    TRACE:     ${{ env.TRACE }}         # <- set earlier (unique trace id)
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    script: |
+      const {owner, repo} = context.repo;
+      const prNumber = process.env.PR_NUMBER;
+
+      // Derive agent alias from PR labels (labels like "agent:codex", "agent:claude")
+      const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {owner, repo, issue_number: prNumber, per_page: 100});
+      const agentLabels = labels.filter(l => /^agent:/i.test(l.name));
+      const agentAlias = agentLabels.length ? agentLabels[0].name.replace(/^agent:/i, '').trim() : 'codex';
+
+      // If you already computed the Scope/Tasks/Acceptance block, inject it here.
+      // Otherwise put a small placeholder and let the existing code fill it.
+      const staBlock = process.env.SCOPE_TASKS_ACCEPTANCE || '*(scope/tasks/acceptance inserted here by orchestrator)*';
+
+      const body = [
+        `<!-- keepalive-round: ${process.env.ROUND} -->`,
+        `<!-- codex-keepalive-marker -->`,
+        `<!-- keepalive-trace: ${process.env.TRACE} -->`,
+        `@${agentAlias} Continue with the remaining tasks. Re‑post Scope/Tasks/Acceptance and only check off when acceptance criteria are satisfied.`,
+        ``,
+        staBlock
+      ].join('\n');
+
+      core.setOutput('agent', agentAlias);
+      core.setOutput('body', body);
+# --- END: render body ---
+
+# --- BEGIN: create the instruction comment (as `stranske` if ACTIONS_BOT_PAT exists) ---
+- name: Post keepalive instruction (as stranske if possible)
+  id: post_instruction_primary
+  if: steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
+  uses: peter-evans/create-issue-comment@v3
+  with:
+    token: ${{ secrets.ACTIONS_BOT_PAT }}
+    issue-number: ${{ env.PR_NUMBER }}
+    body: ${{ steps.render_instruction.outputs.body }}
+
+- name: Post keepalive instruction (fallback: automation bot)
+  id: post_instruction_fallback
+  if: steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
+  uses: peter-evans/create-issue-comment@v3
+  with:
+    token: ${{ secrets.SERVICE_BOT_PAT }}
+    issue-number: ${{ env.PR_NUMBER }}
+    body: ${{ steps.render_instruction.outputs.body }}
+# --- END: create comment ---
+
+# --- BEGIN: capture comment id/url and write run summary line ---
+- name: Capture instruction comment metadata
+  id: capture_comment
+  shell: bash
+  run: |
+    if [ "${{ steps.post_instruction_primary.outcome }}" = "success" ]; then
+      echo "COMMENT_ID=${{ steps.post_instruction_primary.outputs.comment-id }}" >> $GITHUB_ENV
+      echo "COMMENT_URL=${{ steps.post_instruction_primary.outputs.comment-url }}" >> $GITHUB_ENV
+      echo "AUTHOR=${{ steps.author_token.outputs.author }}" >> $GITHUB_ENV
+    else
+      echo "COMMENT_ID=${{ steps.post_instruction_fallback.outputs.comment-id }}" >> $GITHUB_ENV
+      echo "COMMENT_URL=${{ steps.post_instruction_fallback.outputs.comment-url }}" >> $GITHUB_ENV
+      echo "AUTHOR=${{ steps.author_token.outputs.author }}" >> $GITHUB_ENV
+    fi
+- name: Keepalive poster summary
+  shell: bash
+  run: |
+    echo "Posted instruction: round=${ROUND} trace=${TRACE} author=${AUTHOR} comment=${COMMENT_URL}" >> $GITHUB_STEP_SUMMARY
+# --- END: metadata & summary ---
+
+- PR‑meta — auto‑apply agents:activated on the first valid activation
+  - Where to paste: in .github/workflows/agents-pr-meta.yml, after your pre‑gate step returns ok=true and before you dispatch Orchestrator/Connector.
+  - Assumptions: your gate step outputs ok, has_activated_label (or equivalent), and you’re on the issue_comment.created path for a PR.
+
+# --- BEGIN: auto-apply agents:activated on first valid activation ---
+- name: Auto-apply `agents:activated` (first activation only)
+  if: |
+    steps.keepalive_gate.outputs.ok == 'true' &&
+    (steps.keepalive_gate.outputs.has_activated_label == 'false' || steps.keepalive_gate.outputs.has_activated_label == '')
+  uses: actions/github-script@v7
+  with:
+    github-token: ${{ secrets.ACTIONS_BOT_PAT }}   # post label change as `stranske`
+    script: |
+      const {owner, repo} = context.repo;
+      const prNumber = context.payload.issue.number; // event is issue_comment on a PR
+      await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agents:activated'] });
+# --- END: auto-apply label ---
+
+# (optional but recommended) record a terse gate summary for operability
+- name: Gate summary (PR-meta)
+  if: always()
+  run: |
+    echo "GATE: ok=${{ steps.keepalive_gate.outputs.ok }} reason=${{ steps.keepalive_gate.outputs.reason }} pr=#${{ github.event.issue.number }}" >> $GITHUB_STEP_SUMMARY
+
+2. Keepalive branch‑sync wiring: emit /update-branch as stranske when unsynced, and guarantee fallback dispatch to agents-keepalive-branch-sync.yml with full observability
+
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
+
+Why
+We added the branch‑sync components (comment‑first command and a fallback Keepalive Branch Sync workflow) but, in the latest test PR, the comment‑first path didn’t post and the fallback workflow did not run, so the PR head didn’t advance before the next keepalive round. That leads to “repeat old work.” This issue finishes the wiring so that when an agent says “done” but the PR head SHA is unchanged, we (1) always ask the agent to update the branch via a visible comment command as stranske, and (2) if that doesn’t land within a short TTL, we reliably dispatch the already‑merged fallback workflow and prove the result in run summaries—before allowing the next round.
+
+Scope
+
+Add unsynced detection (previous vs. current PR head SHA) in the Orchestrator’s keepalive post‑work phase.
+
+When unsynced: create a new PR comment (not edit) with body **exactly**
+
+/update-branch trace:{TRACE}
+
+posted as stranske (token: ACTIONS_BOT_PAT; fallback SERVICE_BOT_PAT). Add 👀 to the comment and record comment id/URL in the step summary.
+
+Wait TTL_short (e.g., 60–120s) while polling for a head SHA move; if unchanged, dispatch the fallback workflow agents-keepalive-branch-sync.yml via createWorkflowDispatch using a token with workflow scope and permissions: actions: write. Pass the inputs you already defined (PR number, trace, base, head, head_sha, agent, round, comment metadata, idempotency key).
+
+Poll up to TTL_long (e.g., 2–5 minutes) for the PR head to advance (either from the comment‑first path or fallback).
+
+If still unchanged, apply agents:sync-required and do not post the next keepalive instruction (summary‑only; no PR noise unless debug label present).
+
+Write concise $GITHUB_STEP_SUMMARY lines for each action (comment posted, dispatch HTTP status, run URL when available, merged SHA, final outcome).
+
+Non‑Goals
+
+Changing acceptance criteria, Gate rules, or the existing pre‑gates (label present, human @agent derived from agent:*, Gate concluded, run‑cap).
+
+Adding new secrets or external services.
+
+Relying on non‑documented connector APIs; this issue uses PR comments and a GitHub‑side fallback only.
+
+Tasks
+
+- Persist & compare PR head SHA
+
+  - At instruction time, persist {PR, round, trace, head_sha} (simple, durable mechanisms are fine—e.g., a hidden HTML comment on the PR <!-- keepalive-last-sha:{SHA} --> keyed by trace, or a tiny JSON artifact).
+
+  - In the post‑work phase, read the previous value and compute unsynced = (prev_head_sha === current_head_sha).
+
+- Comment‑first command (Option 1) — must be visible and authored by stranske
+
+  - Select token: TOKEN = ACTIONS_BOT_PAT ?? SERVICE_BOT_PAT.
+
+  - Create a new PR comment with body "/update-branch trace:{TRACE}" (no extra markup), then add 👀 reaction.
+
+  - Write to $GITHUB_STEP_SUMMARY: posted=/update-branch, author={stranske|bot}, comment_id, trace, round.
+
+  - Poll pulls.get(head.sha) every 5s up to TTL_short; if changed → mark success (mode=comment-update-branch) and proceed to the next keepalive round.
+
+- Fallback dispatch (Option 3) — must always fire when TTL_short expires
+
+  - Ensure the Orchestrator job that dispatches has:
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: write
+
+  - Use createWorkflowDispatch to call exactly agents-keepalive-branch-sync.yml, passing inputs:
+    pr_number, trace, base_ref, head_ref, head_sha, agent, round, comment_id, comment_url, idempotency_key (trace is sufficient).
+
+  - Use ACTIONS_BOT_PAT for the dispatch (required for cross‑workflow dispatch).
+
+  - Write to $GITHUB_STEP_SUMMARY: dispatched=keepalive-branch-sync, http_status, workflow=file, trace, and, when available, a link to the run.
+
+- Poll for landing or pause
+
+  - Poll PR head SHA up to TTL_long; on success → record mode=action-sync-pr and the merged commit SHA, then proceed.
+
+  - On timeout → apply label agents:sync-required; do not post the next instruction; write reason=sync-timeout with {trace} to the step summary. (Optionally post a single one‑line comment only when agents:debug is present.)
+
+- Idempotency & no‑noise
+
+  - Treat {PR, round, trace} as an idempotency key: don’t re‑emit the command or dispatch for the same key.
+
+  - Do not post any comments for negative cases (gates failed, capped, paused)—summary‑only.
+
+Acceptance criteria
+
+- On a test PR with agents:keepalive and agent:codex, after an agent “done” where the PR head SHA is unchanged:
+
+  - A new PR comment appears, authored by stranske, with body exactly /update-branch trace:{TRACE} and an 👀 reaction from automation.
+
+  - If head moves within TTL_short, the step summary shows mode=comment-update-branch, and the next keepalive instruction is allowed.
+
+  - If head does not move within TTL_short, the Actions list shows a run of “Keepalive Branch Sync”, and the step summary contains dispatched=keepalive-branch-sync, http_status, and trace.
+
+  - After the fallback completes, the PR head SHA changes within TTL_long; the step summary records mode=action-sync-pr and the merged SHA; the next keepalive instruction is allowed.
+
+  - If neither path lands a commit within TTL_long, label agents:sync-required is applied and no next instruction is posted; the step summary shows reason=sync-timeout trace:{TRACE}.
+
+  - Re‑running the same round ({PR, round, trace}) is idempotent (no duplicate comment/dispatch).
+
+  - Negative cases (keepalive label removed, Gate not concluded, run‑cap reached) produce no PR comments; only the step summary records reason.
+
+Implementation notes
+
+Secrets: use existing ACTIONS_BOT_PAT (preferred) and SERVICE_BOT_PAT (fallback). Do not introduce new PATs.
+
+Posting identity: comment‑command must use the selected PAT so the author shows as stranske when available.
+
+Dispatch filename: must be exactly agents-keepalive-branch-sync.yml. Pass all inputs already defined in that workflow.
+
+Logging: keep PR noise minimal—post only the command comment and (if debug label present) a one‑line escalation; everything else goes to $GITHUB_STEP_SUMMARY.
+
+Storage for previous SHA: simplest durable approach is a hidden PR comment keyed by trace (e.g., <!-- keepalive-last-sha:{SHA} trace:{TRACE} -->), or a tiny JSON artifact stored/retrieved in the Orchestrator job.
+
+Safety: restrict all operations to origin‑repo PRs (skip forks); mask tokens; never log external URLs or payloads.
+
