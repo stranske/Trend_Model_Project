@@ -78,7 +78,7 @@ When posting is allowed:
    <!-- keepalive-round: {N} -->
    <!-- codex-keepalive-marker -->
    <!-- keepalive-trace: {TRACE} -->
-   @<agent> Continue with the remaining tasks. Re-post Scope/Tasks/Acceptance and check off only when acceptance criteria are satisfied.
+   @<agent> Use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied. During each comment implementation, check off tasks and acceptance criteria that have been satisfied and re-post the current version of the initial scope, task list, and acceptance criteria whenever any new items are completed.
 
    <Scope/Tasks/Acceptance block>
    ```
