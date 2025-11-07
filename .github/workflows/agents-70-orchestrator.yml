@@ -904,10 +904,10 @@ jobs:
     outputs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
-      author: ${{ steps.author_token.outputs.author || '' }}
+      author: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '' }}
       dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
-      comment_id: ${{ steps.capture_comment.outputs.comment_id || '' }}
-      comment_url: ${{ steps.capture_comment.outputs.comment_url || '' }}
+      comment_id: ${{ steps.comment_meta.outputs.comment_id || '' }}
+      comment_url: ${{ steps.comment_meta.outputs.comment_url || '' }}
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
       actions_available: ${{ steps.prepare.outputs.actions_available || 'false' }}
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
@@ -1125,6 +1125,26 @@ jobs:
             core.setOutput('agent', agentAlias);
             core.setOutput('scope_tasks_acceptance', instruction);
 
+      - name: Detect keepalive instruction token
+        id: author_token
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        env:
+          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+        run: |
+          set -euo pipefail
+          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske" >>"$GITHUB_OUTPUT"
+          elif [ "${HAS_SERVICE_PAT}" = "true" ]; then
+            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          else
+            echo '::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
+            exit 1
+          fi
+
       - name: Capture keepalive head snapshot
         id: snapshot
         if: steps.gate_check.outputs.ok == 'true'
@@ -1266,7 +1286,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
+          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
         with:
           github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -1313,8 +1333,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url }}
+          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.comment_meta.outputs.comment_url }}
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
@@ -1394,7 +1414,7 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -1430,11 +1450,11 @@ jobs:
           printf 'INSTRUCTION: round=%s trace=%s author=%s agent=%s comment=%s ack=%s\n' \
             "${round}" "${trace}" "${author}" "${agent}" "${comment}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
         env:
-          ROUND: ${{ steps.prepare.outputs.round || '' }}
-          TRACE: ${{ steps.prepare.outputs.trace || '' }}
-          AUTHOR: ${{ steps.author_token.outputs.author || '' }}
-          AGENT: ${{ steps.render_instruction.outputs.agent || steps.prepare.outputs.agent || '' }}
-          COMMENT_LINK: ${{ steps.capture_comment.outputs.comment_url != '' && format('[#{0}]({1})', steps.capture_comment.outputs.comment_id, steps.capture_comment.outputs.comment_url) || steps.capture_comment.outputs.comment_id || '' }}
+          ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
+          TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
+          AUTHOR: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
+          AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
+          COMMENT_LINK: ${{ steps.comment_meta.outputs.comment_url != '' && format('[#{0}]({1})', steps.comment_meta.outputs.comment_id, steps.comment_meta.outputs.comment_url) || steps.comment_meta.outputs.comment_id || '(unavailable)' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
   orchestrate:

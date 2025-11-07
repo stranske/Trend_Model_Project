@@ -363,7 +363,7 @@ jobs:
         if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.has_activated_label != 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT != '' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const prNumber = Number('${{ steps.gate.outputs.pr_number || '0' }}');
             if (!Number.isFinite(prNumber) || prNumber <= 0) {

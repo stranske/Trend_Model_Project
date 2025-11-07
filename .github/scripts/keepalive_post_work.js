@@ -112,11 +112,7 @@ function selectPreferredToken(env) {
   if (serviceToken) {
     return { source: 'SERVICE_BOT_PAT', token: serviceToken };
   }
-  const githubToken = normalise(env.GITHUB_TOKEN);
-  if (githubToken) {
-    return { source: 'GITHUB_TOKEN', token: githubToken };
-  }
-  return { source: 'GITHUB_TOKEN', token: '' };
+  return { source: 'none', token: '' };
 }
 
 function extractAgentAliasFromLabels(labels, fallback = 'codex') {
