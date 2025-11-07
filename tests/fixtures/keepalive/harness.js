@@ -125,14 +125,14 @@ Modifying the separate status/checklist updater (it may continue to edit the sta
 
 <Scope/Tasks/Acceptance…>
 
-- [ ] Authenticate with the bot PAT that posts as stranske-automation-bot.
+- [ ] Authenticate with the PAT that posts as stranske (fallback: stranske-automation-bot).
 
 - [ ] Write Round = N and TRACE = … into the step summary for correlation.
 
 #### Acceptance criteria
 - [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers and an @codex instruction.
 
-- [ ] An issue_comment.created run appears in Actions showing author = stranske-automation-bot.
+- [ ] An issue_comment.created run appears in Actions showing author = stranske when ACTIONS_BOT_PAT is configured (fallback to stranske-automation-bot only when required).
 
 - [ ] The posted comment contains the current Scope/Tasks/Acceptance block.
 
@@ -223,7 +223,7 @@ async function runScenario(scenario) {
 
   const commentAuthor = () => {
     const identity = scenario.identity || {};
-    return identity.keepalive_author || identity.service_bot || 'stranske-automation-bot';
+    return identity.keepalive_author || identity.service_bot || 'stranske';
   };
 
   const createComment = async ({ issue_number, body }) => {
