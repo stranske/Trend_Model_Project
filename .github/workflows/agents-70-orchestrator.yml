@@ -458,6 +458,7 @@ jobs:
             } = require('./.github/scripts/keepalive_guard_utils.js');
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const normalise = (value) => String(value || '').trim();
+            const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
             const toBool = (value) => {
               const norm = normalise(value).toLowerCase();
               return ['true', '1', 'yes', 'on'].includes(norm);
@@ -904,10 +905,10 @@ jobs:
     outputs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
-      author: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '' }}
+      author: ${{ steps.capture_comment.outputs.author || steps.prepare.outputs.author || '' }}
       dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
-      comment_id: ${{ steps.comment_meta.outputs.comment_id || '' }}
-      comment_url: ${{ steps.comment_meta.outputs.comment_url || '' }}
+      comment_id: ${{ steps.capture_comment.outputs.comment_id || '' }}
+      comment_url: ${{ steps.capture_comment.outputs.comment_url || '' }}
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
       actions_available: ${{ steps.prepare.outputs.actions_available || 'false' }}
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
@@ -1037,6 +1038,29 @@ jobs:
           ACTIVE_RUNS: ${{ steps.gate_check.outputs.active_runs || '0' }}
           HEAD_SHA: ${{ steps.gate_check.outputs.head_sha || '' }}
 
+      - name: Detect instruction author token
+        id: author_token
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        env:
+          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+        run: |
+          set -euo pipefail
+          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${HAS_SERVICE_PAT}" = "true" ]; then
+            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          else
+            echo "token=GITHUB_TOKEN" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare keepalive instruction
         id: prepare
         if: steps.gate_check.outputs.ok == 'true'
@@ -1045,8 +1069,8 @@ jobs:
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
           ROUND_HINT: ${{ needs.resolve-params.outputs.keepalive_round }}
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
-          ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-          SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          AUTHOR_TOKEN_SOURCE: ${{ steps.author_token.outputs.token || '' }}
+          AUTHOR_LOGIN: ${{ steps.author_token.outputs.author || '' }}
           AGENT_ALIAS: ${{ steps.gate_check.outputs.agent_alias || needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
@@ -1080,6 +1104,64 @@ jobs:
             let round = Number.isFinite(roundHint) && roundHint > 0 ? roundHint : 0;
 
             const { owner, repo } = context.repo;
+            const defaultScopeBlock = [
+              '#### Scope',
+              '_No scope information available_',
+              '',
+              '#### Tasks',
+              '- [ ] _No tasks defined_',
+              '',
+              '#### Acceptance criteria',
+              '- [ ] _No acceptance criteria defined_',
+            ].join('\n');
+
+            const extractScopeTasksAcceptance = (body) => {
+              const summaryMatch = normaliseNewlines(body).match(/<!--\s*auto-status-summary:start\s*-->([\s\S]*?)<!--\s*auto-status-summary:end\s*-->/i);
+              if (!summaryMatch) {
+                return defaultScopeBlock;
+              }
+              const summarySection = summaryMatch[1];
+              const sectionFor = (heading) => {
+                const pattern = new RegExp(`####\\s*${heading}\\s*([\\s\\S]*?)(?=####\\s*|$)`, 'i');
+                const match = summarySection.match(pattern);
+                if (!match) {
+                  return '';
+                }
+                const value = match[1].trim();
+                return value || '';
+              };
+
+              const scope = sectionFor('Scope') || '_No scope information available_';
+              const tasks = sectionFor('Tasks') || '- [ ] _No tasks defined_';
+              const acceptance = sectionFor('Acceptance criteria') || '- [ ] _No acceptance criteria defined_';
+
+              return [
+                '#### Scope',
+                scope,
+                '',
+                '#### Tasks',
+                tasks,
+                '',
+                '#### Acceptance criteria',
+                acceptance,
+              ]
+                .map((block) => block.replace(/\s+$/, ''))
+                .join('\n');
+            };
+
+            let scopeBlock = defaultScopeBlock;
+            try {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              scopeBlock = extractScopeTasksAcceptance(pr?.body || '') || defaultScopeBlock;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to extract scope/tasks/acceptance for PR #${prNumber}: ${message}`);
+              scopeBlock = defaultScopeBlock;
+            }
+
+            core.exportVariable('SCOPE_TASKS_ACCEPTANCE', scopeBlock);
+            core.setOutput('scope_block', scopeBlock);
+
             let highestRound = 0;
             try {
               const comments = await github.paginate(github.rest.issues.listComments, {
@@ -1109,13 +1191,23 @@ jobs:
 
             round = Math.max(round, highestRound) + 1;
             const trace = makeTrace();
-            const actionsAvailable = (process.env.ACTIONS_AVAILABLE || '').toLowerCase() === 'true';
-            const serviceAvailable = (process.env.SERVICE_AVAILABLE || '').toLowerCase() === 'true';
+            const combinedInstruction = [
+              normaliseNewlines(instruction).trim(),
+              scopeBlock,
+            ]
+              .filter(Boolean)
+              .join('\n\n');
+
+            const body = renderInstruction({ round, trace, body: combinedInstruction, agent: agentAlias });
+            const tokenSource = normalise(process.env.AUTHOR_TOKEN_SOURCE).toUpperCase();
+            const actionsAvailable = tokenSource === 'ACTIONS_BOT_PAT';
+            const serviceAvailable = tokenSource === 'SERVICE_BOT_PAT';
             const dispatchMode = actionsAvailable
               ? 'actions'
               : serviceAvailable
                 ? 'service'
                 : 'none';
+            const author = normalise(process.env.AUTHOR_LOGIN) || (actionsAvailable ? 'stranske' : 'stranske-automation-bot');
 
             core.setOutput('round', String(round));
             core.setOutput('trace', trace);
@@ -1282,11 +1374,11 @@ jobs:
 
       - name: Ack keepalive instruction
         id: ack
-        if: steps.gate_check.outputs.ok == 'true'
+        if: steps.gate_check.outputs.ok == 'true' && steps.capture_comment.outputs.comment_id != ''
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
         with:
           github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -1333,8 +1425,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.comment_meta.outputs.comment_url }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url }}
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
@@ -1436,25 +1528,27 @@ jobs:
         run: |
           set -euo pipefail
           round="${ROUND:-?}"
-          trace="${TRACE:-}";
+          trace="${TRACE:-missing}"
           author="${AUTHOR:-unknown}"
           agent="${AGENT:-codex}"
-          comment="${COMMENT_LINK:-}";
-          ack="${ACK:-no}";
-          if [[ -z "${comment}" ]]; then
-            comment='(unavailable)'
-          fi
-          if [[ -z "${trace}" ]]; then
-            trace='(missing)'
+          ack="${ACK:-no}"
+          comment_ref="${COMMENT_URL:-}"
+          if [ -n "${COMMENT_URL}" ]; then
+            comment_ref="${COMMENT_URL}"
+          elif [ -n "${COMMENT_ID}" ]; then
+            comment_ref="#${COMMENT_ID}"
+          else
+            comment_ref='(unavailable)'
           fi
           printf 'INSTRUCTION: round=%s trace=%s author=%s agent=%s comment=%s ack=%s\n' \
-            "${round}" "${trace}" "${author}" "${agent}" "${comment}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
+            "${round}" "${trace}" "${author}" "${agent}" "${comment_ref}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
         env:
           ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
+          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
           AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
-          COMMENT_LINK: ${{ steps.comment_meta.outputs.comment_url != '' && format('[#{0}]({1})', steps.comment_meta.outputs.comment_id, steps.comment_meta.outputs.comment_url) || steps.comment_meta.outputs.comment_id || '(unavailable)' }}
+          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url || '' }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
   orchestrate:
