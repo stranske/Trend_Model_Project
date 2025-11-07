@@ -18,7 +18,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - [ ] signal_presets.py
   - [x] frequency.py
   - [ ] signals.py
-  - [ ] bootstrap.p
+  - [ ] bootstrap.py
   - [ ] risk.py
   - [x] bundle.py
   - [ ] cli.py
