@@ -22,8 +22,9 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
   `workflow_dispatch`) or allow the 20-minute schedule to run readiness + watchdog checks.
 - Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
   `params_json` payload (e.g. `{ "enable_keepalive": false }`).
-- Keepalive reconciliation rules live in [`docs/keepalive/SyncChecklist.md`](keepalive/SyncChecklist.md); review it before
-  adjusting any keepalive workflows or recovery logic.
+- Keepalive contract guidance lives in [`docs/keepalive/GoalsAndPlumbing.md`](keepalive/GoalsAndPlumbing.md); review it before
+  adjusting any keepalive workflows or recovery logic. Follow the recovery playbook in
+  [`docs/keepalive/SyncChecklist.md`](keepalive/SyncChecklist.md) when branch-sync intervention is required.
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
   `reusable-16-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
   deleted.
