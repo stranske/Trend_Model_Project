@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
@@ -68,7 +68,9 @@ def test_run_converts_stats_payload_to_frame(
     monkeypatch.setattr(
         pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
     )
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object()
+    )
 
     stats_payload = {
         "FundA": _sample_stats(0.1),
@@ -118,7 +120,9 @@ def test_run_returns_empty_frame_when_analysis_none(
     monkeypatch.setattr(
         pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
     )
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object()
+    )
     monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
 
     result = pipeline.run(base_config)
@@ -135,7 +139,9 @@ def test_run_full_propagates_analysis_payload(
     monkeypatch.setattr(
         pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
     )
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object()
+    )
 
     payload = {
         "out_sample_stats": {"FundA": _sample_stats(0.4)},
@@ -158,7 +164,9 @@ def test_run_full_returns_empty_when_analysis_none(
     monkeypatch.setattr(
         pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
     )
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object()
+    )
     monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
 
     result = pipeline.run_full(base_config)
@@ -196,7 +204,9 @@ def test_compute_stats_includes_optional_avg_corr() -> None:
 
 def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> None:
     weights = np.array([0.6, 0.4])
-    portfolio = pipeline.calc_portfolio_returns(weights, sample_frame[["FundA", "FundB"]])
+    portfolio = pipeline.calc_portfolio_returns(
+        weights, sample_frame[["FundA", "FundB"]]
+    )
     assert isinstance(portfolio, pd.Series)
     expected = (sample_frame[["FundA", "FundB"]] * weights).sum(axis=1)
     pd.testing.assert_series_equal(portfolio, expected)
