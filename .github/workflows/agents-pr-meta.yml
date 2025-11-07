@@ -158,7 +158,7 @@ jobs:
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
           if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
-            echo "::error::agents:activated label requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            echo "::error::agents:activated label requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT" >&2
             exit 1
           fi
 
