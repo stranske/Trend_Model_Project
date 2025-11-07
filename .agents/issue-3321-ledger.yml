@@ -6,8 +6,8 @@ tasks:
   - id: task-01
     title: Add the document in the implementation notes to docs and label it for agents
       in a way that reminds them to consult it any time work is done on the keepalive.
-    status: doing
+    status: done
     started_at: '2025-11-07T04:27:33Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-07T04:27:40Z'
+    commit: 756f804a061c9f0c6e1b88c852874a31ad4716bd
     notes: []
