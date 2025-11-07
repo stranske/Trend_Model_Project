@@ -229,6 +229,7 @@ Assumptions: you already resolved PR_NUMBER, ROUND, and TRACE earlier in the job
 # --- BEGIN: capture comment id/url and write run summary line ---
 - name: Capture instruction comment metadata
   id: capture_comment
+  shell: bash
   run: |
     if [ "${{ steps.post_instruction_primary.outcome }}" = "success" ]; then
       echo "COMMENT_ID=${{ steps.post_instruction_primary.outputs.comment-id }}" >> $GITHUB_ENV
