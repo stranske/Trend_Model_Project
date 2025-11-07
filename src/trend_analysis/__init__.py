@@ -117,6 +117,7 @@ _LAZY_SUBMODULES = {
     "perf": "trend_analysis.perf",
     "regimes": "trend_analysis.regimes",
     "multi_period": "trend_analysis.multi_period",
+    "plugins": "trend_analysis.plugins",
 }
 
 # Purge stale lazy-loaded attributes so reload() restores deferred imports.
@@ -160,6 +161,7 @@ engine: Any
 perf: Any
 regimes: Any
 multi_period: Any
+plugins: Any
 
 if "data" in globals():
     # Conditional import: 'data' submodule may not always be present
@@ -207,6 +209,7 @@ __all__ = [
     "presets",
     "selector",
     "weighting",
+    "plugins",
     "load_csv",
     "identify_risk_free_fund",
     "register_formatter_excel",
