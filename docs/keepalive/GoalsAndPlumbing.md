@@ -1,94 +1,124 @@
 # Keepalive — Goals & Plumbing (Canonical Reference)
 
-This runbook is the single source of truth for the Codex keepalive workflow. Automation agents **must review this document before touching any keepalive-related logic or workflows.** It captures the success contract, guard rails, and dispatcher expectations that keep the iterative checklist loop predictable and safe.
+> ⚠️ **Mandatory reading.** Automation agents and human operators must review this guide before touching any keepalive workflow.
+> It is the single source of truth for the checklist nudge loop and must stay in sync with every code change or workflow update.
 
-## Scope
+---
 
-- Guidelines and goals for the keepalive workflow (posting instructions, dispatch, synchronization, and guard rails).
+## Purpose & Scope
 
-Non-goals:
+| | |
+|---|---|
+| **Purpose** | Maintain a safe, iterative loop where an agent continues shipping small, verifiable updates on a PR until every acceptance criterion is met while guaranteeing predictable behavior and safety rails. |
+| **Scope** | Labels, activation, dispatch, throttling, branch synchronization, comment formatting, and shutdown rules for keepalive automation. |
+| **Non-goals** | Guidance for workflows unrelated to keepalive. |
 
-- Instructions for unrelated automation surfaces or non-keepalive workflows.
+---
 
-## Purpose
+## 1. Activation Guardrails (Round 0 → 1)
+Keepalive must not post or dispatch for the first time unless **all** conditions below are true:
 
-Drive an iterative, hands-off loop where an agent continues working on a pull request in small, verifiable increments until all acceptance criteria are met—while guaranteeing safety rails and predictable behavior. Automation must surface the remaining work, nudge only when conditions allow, and stop cleanly once the checklist is complete.
+1. **Opt-in label** – The pull request carries the `agents:keepalive` label.
+2. **Human kickoff** – A human `issue_comment.created` @mentions an agent whose login is derived dynamically from the PR's `agent:*` labels. Never hard-code handles.
+3. **Gate success** – The Gate workflow for the current head SHA completed with `conclusion = success` (or another explicitly allow-listed positive result).
 
-## Activation Contract (First Instruction on a PR)
+---
 
-Keepalive must not post or dispatch unless all of the following are true:
+## 2. Repeat Contract (Round N → N + 1)
+Before keepalive posts the next instruction or dispatches another run, confirm that:
 
-1. **Label opt-in:** The pull request has the `agents:keepalive` label.
-2. **Human kickoff:** A human posted an `issue_comment` that @mentions an agent listed in the PR's `agent:*` labels (dynamic agent name detection—no hard-coded logins).
-3. **Gate ready:** The Gate workflow for the current head SHA completed with a success conclusion (or another explicitly allow-listed conclusion).
+- The three activation guardrails above are still satisfied.
+- The concurrent run cap has not been exceeded (see Section 3).
+- The branch-sync gate confirms the prior round's work landed on the PR branch (see Section 8).
 
-## Repeat Contract (Round _N_ → _N_ + 1)
+If any item fails, **do not post a new instruction**. A run summary may be written for operators, but the PR thread must stay quiet.
 
-Before keepalive posts the next instruction or dispatches another worker run:
+---
 
-- Re-validate the three activation preconditions.
-- Confirm the concurrent run cap is not exceeded.
-- Ensure the branch-sync gate confirms that prior work landed on the PR branch.
+## 3. Run Cap & Throttling
 
-If any precondition fails, **keepalive must stay silent** (no comments). It may record the skip reason in step summaries for operator visibility.
+- **Default limit:** `K = 2` concurrent orchestrator/worker runs per PR.
+- **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
+- **Enforcement rule:** Dispatch only when the number of in-progress runs is `< K`. Otherwise exit quietly or log the skip reason in the run summary.
 
-## Run Cap Rules
+---
 
-- Default maximum concurrent runs: **2** per PR.
-- Override via label: `agents:max-parallel:<K>` (integer 1–5). Do not exceed the configured cap when dispatching Orchestrator/Worker jobs.
+## 4. Pause & Stop Labels
 
-## Pause & Stop Controls
+- Removing `agents:keepalive` halts future rounds until the label is re-applied **and** the activation guardrails pass again.
+- `agents:pause` (when used) is a hard stop—block every form of keepalive activity, including fallbacks.
 
-- Removing `agents:keepalive` halts future keepalive rounds until the label is re-applied and prerequisites pass again.
-- Optional hard pause label `agents:pause` blocks **all** keepalive activity, including fallbacks.
+---
 
-## Instruction Comment Contract
+## 5. No-Noise Discipline
+Missing prerequisites, red Gate results, or a saturated run cap must never produce a new PR comment. Keepalive may emit a step summary for operator awareness, but the PR stays untouched.
 
-When posting an instruction:
+---
 
-- Create a brand-new comment (never edit an existing one).
-- Author: prefer `stranske` via `ACTIONS_BOT_PAT`; fallback to `stranske-automation-bot` via `SERVICE_BOT_PAT`.
-- The comment body **must start** with the hidden markers:
-  ```
-  <!-- keepalive-round: {N} -->
-  <!-- codex-keepalive-marker -->
-  <!-- keepalive-trace: {TRACE} -->
-  ```
-- Follow the markers with the visible instruction addressed to the agent (e.g., `@codex …`).
-- Include the current Scope/Tasks/Acceptance block and mark items complete **only when acceptance criteria have been satisfied**.
-- After posting, add an 👀 reaction. PR-meta must acknowledge with 🚀 within the expected TTL.
+## 6. Instruction Comment Contract
+When posting an instruction comment:
 
-## Detection & Dispatch Responsibilities
+1. **Create a new comment** – Never edit existing status updates.
+2. **Author identity** – Post as `stranske` via `ACTIONS_BOT_PAT`. Fallback: the automation bot via `SERVICE_BOT_PAT`.
+3. **Required scaffolding** – The comment body **must start** with the hidden markers and trace block:
+   ```markdown
+   <!-- keepalive-round: {N} -->
+   <!-- codex-keepalive-marker -->
+   <!-- keepalive-trace: {TRACE} -->
+   @<agent> Continue with the remaining tasks. Re-post Scope/Tasks/Acceptance and check off only when acceptance criteria are satisfied.
 
-PR-meta listens for qualifying keepalive comments (author + markers) and, once acknowledged, dispatches both:
+   <Scope/Tasks/Acceptance block>
+   ```
+4. **Reactions** – After posting, add 👀. PR-meta must acknowledge with 🚀 within the defined TTL.
+5. **Checklist integrity** – Mark items complete only when the acceptance criteria are truly satisfied.
 
-- `workflow_dispatch` → Agents-70 Orchestrator (`options_json` includes `{ round, trace, pr }`).
-- `repository_dispatch` → `codex-pr-comment-command` connector (`{ issue, base, head, comment_id, comment_url, agent }`).
+---
 
-PR-meta writes a summary table for every event (`ok | reason | author | pr | round | trace`).
+## 7. Detection & Dispatch Flow
 
-## Branch-Sync Gate
+- PR-meta listens for `issue_comment.created` events authored by `stranske` or the automation bot that contain the hidden markers.
+- After deduplicating via the 🚀 reaction, PR-meta dispatches:
+  - `workflow_dispatch` → `Agents-70 Orchestrator` with `options_json = { round, trace, pr }`.
+  - `repository_dispatch` → `codex-pr-comment-command` with `{ issue, base, head, comment_id, comment_url, agent }`.
+- Every event appends a summary row (`ok | reason | author | pr | round | trace`) to the operator log.
 
-Before issuing the next instruction for a round, the system must confirm that the PR head SHA changed (new work landed). If not:
+---
 
-1. Scan the agent's last reply for “Update Branch” / “Create PR” URLs (connector hand-offs). Call the URL automatically.
-2. Poll for a new commit (short TTL). If still unchanged, retry with the alternate path (e.g., Create PR after Update Branch).
-3. When both recovery attempts fail, pause keepalive, add the `agents:sync-required` label, and (only when `agents:debug` is present) post a one-line escalation comment containing the `{trace}` token. Do not post a fresh instruction.
+## 8. Branch-Sync Gate
+Before proceeding to the next round:
 
-## Orchestrator Invariants
+1. **Detect movement** – Confirm the PR head SHA changed after the agent reported "done".
+2. **Auto-remediation** – If unchanged, parse the agent's last reply for connector URLs ("Update Branch" / "Create PR"), invoke them automatically, and poll for a new commit (short TTL).
+3. **Second-chance path** – When the first attempt fails, try the alternate connector route and poll again.
+4. **Escalation** – If the head still does not advance, pause keepalive, apply `agents:sync-required`, and—only when `agents:debug` is present—post a single-line escalation that includes `{trace}`. Do **not** emit another instruction.
 
-- **No self-cancellation:** Configure concurrency as `{pr}-{trace}` with `cancel-in-progress: false`.
-- **Explicit bails:** On early exits (missing preconditions, run cap reached, gate not green, sync unresolved) write a one-line summary reason. Optionally add a terse PR comment when `agents:debug` is present using the format `**Keepalive {round}** \{{trace}\} skipped: <reason-code>`.
-- **Assignee hygiene:** Ignore bot/app accounts. If no human assignees remain, skip gracefully instead of failing the round.
-- Removing and re-adding `agents:keepalive` restarts keepalive once all contracts above are satisfied.
-- Success condition: stop when all acceptance criteria are checked complete. Optionally remove `agents:keepalive` and apply `agents:done`.
+---
 
-## Operator Checklist
+## 9. Orchestrator Invariants & Logging
 
-- ✅ Confirm labels (`agents:keepalive`, optional `agents:max-parallel`, no `agents:pause`).
-- ✅ Ensure human @mention kickoff occurred after the latest commit.
-- ✅ Verify Gate succeeded for the current head SHA.
-- ✅ Check branch-sync summary for recent head movement before issuing next round.
-- ✅ Keep a trace log of reactions (👀/🚀) and dispatch payloads for audit.
+- **No self-cancellation** – Configure concurrency as `{pr}-{trace}` with `cancel-in-progress: false`.
+- **Explicit bailouts** – On any early exit (missing preconditions, cap reached, Gate not green, sync unresolved) record a one-line reason in the run summary. When `agents:debug` is set, optionally post `**Keepalive {round}** `{trace}` skipped: <reason-code>`.
+- **Assignee hygiene** – Ignore bot or app accounts. If no human assignees remain, skip gracefully without failing the round.
 
-Keeping this document current is mandatory whenever keepalive workflows, orchestrator logic, or connector contracts change. Update cross-references (e.g., `docs/agent-automation.md`, `docs/keepalive/SyncChecklist.md`) simultaneously so every agent entry point points back to this canonical reference.
+---
+
+## 10. Restart & Success Conditions
+
+- Removing and then re-adding `agents:keepalive` restarts the automation as soon as all activation guardrails are satisfied again.
+- Keepalive stands down once every acceptance criterion is checked complete. Optionally remove `agents:keepalive` and add `agents:done` to document closure.
+
+---
+
+## 11. Quick Reference Checklist
+
+| Phase | Required Checks |
+|-------|-----------------|
+| **Activation** | `agents:keepalive` label · human @mention · Gate success |
+| **Repeat** | Activation guardrails remain true · run cap respected · branch-sync satisfied |
+| **Posting** | Fresh comment · hidden markers present · correct author token · 👀/🚀 reactions applied |
+| **Dispatch** | Orchestrator + connector dispatch triggered with trace payloads |
+| **Shutdown** | Acceptance criteria complete · remove keepalive label · optionally apply `agents:done` |
+
+---
+
+_Whenever the keepalive contract changes, update this document **and** its cross-references (e.g., `docs/agent-automation.md`, `docs/keepalive/Agents.md`, `docs/keepalive/SyncChecklist.md`) in the same commit so every entry point continues pointing at the canonical reference._
