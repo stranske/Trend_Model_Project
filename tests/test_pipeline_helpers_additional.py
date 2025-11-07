@@ -21,8 +21,8 @@ from trend_analysis.pipeline import (
     _preprocessing_summary,
     _resolve_sample_split,
     _run_analysis,
-    _Stats,
     _section_get,
+    _Stats,
     _unwrap_cfg,
     compute_signal,
     single_period_run,
@@ -337,7 +337,9 @@ def test_build_trend_spec_invalid_values_fallbacks() -> None:
     assert spec_bad.vol_target is None
 
     cfg_missing_target = {"signals": {"vol_adjust": True}}
-    spec_missing = _build_trend_spec(cfg_missing_target, {"enabled": True, "target_vol": 0.25})
+    spec_missing = _build_trend_spec(
+        cfg_missing_target, {"enabled": True, "target_vol": 0.25}
+    )
     assert spec_missing.vol_target == pytest.approx(0.25)
 
 
@@ -440,7 +442,9 @@ def test_prepare_input_data_requires_date_column(monthly_frame: pd.DataFrame) ->
         )
 
 
-def test_prepare_input_data_handles_empty_results(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prepare_input_data_handles_empty_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="M")})
     summary = FrequencySummary(
         code="M", label="Monthly", resampled=False, target="M", target_label="Monthly"
@@ -534,7 +538,9 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_run_analysis_rank_selection_with_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_rank_selection_with_fallbacks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-31", periods=4, freq="M")
     prepared = pd.DataFrame(
         {
@@ -628,7 +634,12 @@ def test_run_analysis_rank_selection_with_fallbacks(monkeypatch: pytest.MonkeyPa
             previous_weights=None,
             max_turnover="bad",
             signal_spec=TrendSpec(
-                window=2, min_periods=None, lag=1, vol_adjust=False, vol_target=None, zscore=False
+                window=2,
+                min_periods=None,
+                lag=1,
+                vol_adjust=False,
+                vol_target=None,
+                zscore=False,
             ),
             regime_cfg={},
         )
@@ -701,12 +712,20 @@ def test_run_analysis_zero_weight_custom(monkeypatch: pytest.MonkeyPatch) -> Non
             selection_mode="all",
             benchmarks=None,
             max_turnover=0.5,
-            signal_spec=TrendSpec(window=2, min_periods=None, lag=1, vol_adjust=False, vol_target=None, zscore=False),
+            signal_spec=TrendSpec(
+                window=2,
+                min_periods=None,
+                lag=1,
+                vol_adjust=False,
+                vol_target=None,
+                zscore=False,
+            ),
             regime_cfg={},
         )
 
     assert result is not None
     assert set(result["fund_weights"]) == {"FundA", "FundB"}
+
 
 def test_compute_signal_error_paths(monthly_frame: pd.DataFrame) -> None:
     with pytest.raises(KeyError):
@@ -819,12 +838,16 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
-        mp.setattr(pipeline, "_resolve_sample_split", lambda df, cfg: {
-            "in_start": "2020-01",
-            "in_end": "2020-02",
-            "out_start": "2020-03",
-            "out_end": "2020-04",
-        })
+        mp.setattr(
+            pipeline,
+            "_resolve_sample_split",
+            lambda df, cfg: {
+                "in_start": "2020-01",
+                "in_end": "2020-02",
+                "out_start": "2020-03",
+                "out_end": "2020-04",
+            },
+        )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
@@ -999,10 +1022,20 @@ def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "_prepare_input_data", fake_prepare)
-        mp.setattr(pipeline, "single_period_run", lambda *args, **kwargs: pd.DataFrame({"Sharpe": [0.4]}, index=["FundA"]))
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *args, **kwargs: pd.DataFrame({"Sharpe": [0.4]}, index=["FundA"]),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2, 0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2, 0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
         mp.setattr(np.random, "default_rng", lambda seed=None: DummyRng())
 
@@ -1025,7 +1058,14 @@ def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
             risk_window={"length": 0},
             previous_weights=None,
             max_turnover=None,
-            signal_spec=TrendSpec(window=2, min_periods=None, lag=1, vol_adjust=False, vol_target=None, zscore=False),
+            signal_spec=TrendSpec(
+                window=2,
+                min_periods=None,
+                lag=1,
+                vol_adjust=False,
+                vol_target=None,
+                zscore=False,
+            ),
             regime_cfg={},
         )
 
@@ -1188,13 +1228,35 @@ def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> 
             return pd.Series({"FundA": 0.9, "FundB": 0.1})
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False))
-        mp.setattr(pipeline, "single_period_run", lambda *a, **k: pd.DataFrame({"Sharpe": [0.5, 0.4]}, index=["FundA", "FundB"]))
+        mp.setattr(
+            pipeline,
+            "_prepare_input_data",
+            lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
+        )
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *a, **k: pd.DataFrame(
+                {"Sharpe": [0.5, 0.4]}, index=["FundA", "FundB"]
+            ),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr("trend_analysis.plugins.create_weight_engine", lambda scheme: DummyEngine())
+        mp.setattr(
+            "trend_analysis.plugins.create_weight_engine", lambda scheme: DummyEngine()
+        )
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "compute_trend_signals", lambda *args, **kwargs: pd.DataFrame(args[0]))
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2, 0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "compute_trend_signals",
+            lambda *args, **kwargs: pd.DataFrame(args[0]),
+        )
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2, 0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = _run_analysis(
@@ -1225,7 +1287,9 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
         def _constructor(self):  # pragma: no cover - pandas protocol
             return SignalFrame
 
-        def __finalize__(self, other, method=None):  # pragma: no cover - pandas protocol
+        def __finalize__(
+            self, other, method=None
+        ):  # pragma: no cover - pandas protocol
             self._force_empty_next = False
             return self
 
@@ -1235,7 +1299,9 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
             return result
 
         def set_index(self, keys, drop: bool = True, inplace: bool = False, verify_integrity: bool = False):  # type: ignore[override]
-            result = super().set_index(keys, drop=drop, inplace=inplace, verify_integrity=verify_integrity)
+            result = super().set_index(
+                keys, drop=drop, inplace=inplace, verify_integrity=verify_integrity
+            )
             if self._force_empty_next:
                 self._force_empty_next = False
                 return result.iloc[0:0].copy()
@@ -1269,12 +1335,30 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
         return weights, diag
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", lambda *a, **k: (frame, freq_summary, missing_result, False))
-        mp.setattr(pipeline, "single_period_run", lambda *a, **k: pd.DataFrame({"Sharpe": [0.3]}, index=["FundA"]))
+        mp.setattr(
+            pipeline,
+            "_prepare_input_data",
+            lambda *a, **k: (frame, freq_summary, missing_result, False),
+        )
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *a, **k: pd.DataFrame({"Sharpe": [0.3]}, index=["FundA"]),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "compute_trend_signals", lambda *args, **kwargs: pd.DataFrame(args[0]))
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "compute_trend_signals",
+            lambda *args, **kwargs: pd.DataFrame(args[0]),
+        )
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = _run_analysis(
@@ -1293,7 +1377,9 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
     assert signal_frame.empty
 
 
-def test_run_analysis_warmup_zeroes_initial_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_warmup_zeroes_initial_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-31", periods=5, freq="M")
     prepared = pd.DataFrame(
         {
@@ -1329,12 +1415,32 @@ def test_run_analysis_warmup_zeroes_initial_rows(monkeypatch: pytest.MonkeyPatch
         return weights, diag
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False))
-        mp.setattr(pipeline, "single_period_run", lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]))
+        mp.setattr(
+            pipeline,
+            "_prepare_input_data",
+            lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
+        )
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *a, **k: pd.DataFrame(
+                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
+            ),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "compute_trend_signals", lambda *args, **kwargs: pd.DataFrame(args[0]))
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2, 0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "compute_trend_signals",
+            lambda *args, **kwargs: pd.DataFrame(args[0]),
+        )
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2, 0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = _run_analysis(
@@ -1394,12 +1500,32 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
         return weights, diag
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False))
-        mp.setattr(pipeline, "single_period_run", lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]))
+        mp.setattr(
+            pipeline,
+            "_prepare_input_data",
+            lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
+        )
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *a, **k: pd.DataFrame(
+                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
+            ),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "compute_trend_signals", lambda *args, **kwargs: pd.DataFrame(args[0]))
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2, 0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "compute_trend_signals",
+            lambda *args, **kwargs: pd.DataFrame(args[0]),
+        )
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2, 0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = _run_analysis(
@@ -1419,7 +1545,9 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
     assert "Missing" not in result["benchmark_stats"]
 
 
-def test_run_analysis_handles_benchmark_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_handles_benchmark_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-31", periods=3, freq="M")
     prepared = pd.DataFrame(
         {
@@ -1456,12 +1584,32 @@ def test_run_analysis_handles_benchmark_overrides(monkeypatch: pytest.MonkeyPatc
         return weights, diag
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False))
-        mp.setattr(pipeline, "single_period_run", lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]))
+        mp.setattr(
+            pipeline,
+            "_prepare_input_data",
+            lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
+        )
+        mp.setattr(
+            pipeline,
+            "single_period_run",
+            lambda *a, **k: pd.DataFrame(
+                {"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]
+            ),
+        )
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
-        mp.setattr(pipeline, "compute_trend_signals", lambda *args, **kwargs: pd.DataFrame(args[0]))
-        mp.setattr(pipeline, "realised_volatility", lambda data, window, periods_per_year=None: pd.DataFrame({col: [0.2, 0.2] for col in data.columns}))
+        mp.setattr(
+            pipeline,
+            "compute_trend_signals",
+            lambda *args, **kwargs: pd.DataFrame(args[0]),
+        )
+        mp.setattr(
+            pipeline,
+            "realised_volatility",
+            lambda data, window, periods_per_year=None: pd.DataFrame(
+                {col: [0.2, 0.2] for col in data.columns}
+            ),
+        )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = _run_analysis(
@@ -1481,7 +1629,9 @@ def test_run_analysis_handles_benchmark_overrides(monkeypatch: pytest.MonkeyPatc
     assert "Index" in stats
 
 
-def test_run_missing_policy_and_limit_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_missing_policy_and_limit_fallbacks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
@@ -1498,7 +1648,10 @@ def test_run_missing_policy_and_limit_fallbacks(monkeypatch: pytest.MonkeyPatch)
         return df
 
     def fake_run_analysis(*args, **kwargs):
-        return {"out_sample_stats": {"FundA": _Stats(0, 0, 0, 0, 0, 0)}, "benchmark_ir": {}}
+        return {
+            "out_sample_stats": {"FundA": _Stats(0, 0, 0, 0, 0, 0)},
+            "benchmark_ir": {},
+        }
 
     cfg = SimpleNamespace(
         data={"csv_path": "dummy.csv", "nan_policy": "drop", "nan_limit": {"FundA": 1}},
@@ -1512,7 +1665,16 @@ def test_run_missing_policy_and_limit_fallbacks(monkeypatch: pytest.MonkeyPatch)
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
-        mp.setattr(pipeline, "_resolve_sample_split", lambda df, cfg: {"in_start": "2020-01", "in_end": "2020-02", "out_start": "2020-03", "out_end": "2020-04"})
+        mp.setattr(
+            pipeline,
+            "_resolve_sample_split",
+            lambda df, cfg: {
+                "in_start": "2020-01",
+                "in_end": "2020-02",
+                "out_start": "2020-03",
+                "out_end": "2020-04",
+            },
+        )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
@@ -1539,7 +1701,10 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
         return df
 
     def fake_run_analysis(*args, **kwargs):
-        return {"out_sample_stats": {"FundA": _Stats(0, 0, 0, 0, 0, 0)}, "benchmark_ir": {}}
+        return {
+            "out_sample_stats": {"FundA": _Stats(0, 0, 0, 0, 0, 0)},
+            "benchmark_ir": {},
+        }
 
     cfg = SimpleNamespace(
         data={"csv_path": "dummy.csv", "missing_policy": "keep", "missing_limit": 2},
@@ -1553,7 +1718,16 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
-        mp.setattr(pipeline, "_resolve_sample_split", lambda df, cfg: {"in_start": "2020-01", "in_end": "2020-01", "out_start": "2020-02", "out_end": "2020-03"})
+        mp.setattr(
+            pipeline,
+            "_resolve_sample_split",
+            lambda df, cfg: {
+                "in_start": "2020-01",
+                "in_end": "2020-01",
+                "out_start": "2020-02",
+                "out_end": "2020-03",
+            },
+        )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
@@ -1599,7 +1773,16 @@ def test_run_full_uses_nan_policy_defaults(monkeypatch: pytest.MonkeyPatch) -> N
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
-        mp.setattr(pipeline, "_resolve_sample_split", lambda df, cfg: {"in_start": "2020-01", "in_end": "2020-02", "out_start": "2020-03", "out_end": "2020-04"})
+        mp.setattr(
+            pipeline,
+            "_resolve_sample_split",
+            lambda df, cfg: {
+                "in_start": "2020-01",
+                "in_end": "2020-02",
+                "out_start": "2020-03",
+                "out_end": "2020-04",
+            },
+        )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
@@ -1639,7 +1822,16 @@ def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> N
 
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
-        mp.setattr(pipeline, "_resolve_sample_split", lambda df, cfg: {"in_start": "2020-01", "in_end": "2020-01", "out_start": "2020-02", "out_end": "2020-03"})
+        mp.setattr(
+            pipeline,
+            "_resolve_sample_split",
+            lambda df, cfg: {
+                "in_start": "2020-01",
+                "in_end": "2020-01",
+                "out_start": "2020-02",
+                "out_end": "2020-03",
+            },
+        )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
 
