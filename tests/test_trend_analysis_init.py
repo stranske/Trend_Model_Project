@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
+import importlib.metadata
 import sys
 import types
 
-import dataclasses
-import importlib.metadata
 import pytest
 from pytest import MonkeyPatch
 
@@ -40,7 +40,9 @@ def test_dataclasses_guard_recovers_missing_module(monkeypatch, trend_analysis_m
 
     guard()
 
-    dummy_cls = types.new_class("Dummy", (), {}, lambda ns: ns.update({"__module__": missing_name}))
+    dummy_cls = types.new_class(
+        "Dummy", (), {}, lambda ns: ns.update({"__module__": missing_name})
+    )
 
     assert dataclasses._is_type(None, dummy_cls, None, None, None) is True
     assert missing_name in sys.modules
@@ -66,7 +68,9 @@ def test_lazy_getattr_imports_and_caches(monkeypatch, trend_analysis_module):
     sentinel = types.ModuleType("trend_analysis._lazy_test")
     target_name = "_lazy_test_alias"
 
-    monkeypatch.setitem(trend_analysis_module._LAZY_SUBMODULES, target_name, sentinel.__name__)
+    monkeypatch.setitem(
+        trend_analysis_module._LAZY_SUBMODULES, target_name, sentinel.__name__
+    )
     monkeypatch.delitem(trend_analysis_module.__dict__, target_name, raising=False)
     monkeypatch.setitem(sys.modules, sentinel.__name__, sentinel)
 
@@ -81,7 +85,9 @@ def test_lazy_getattr_unknown_attribute_raises(trend_analysis_module):
         trend_analysis_module.__getattr__("does_not_exist")
 
 
-def test_dataclasses_guard_raises_when_module_unknown(monkeypatch, trend_analysis_module):
+def test_dataclasses_guard_raises_when_module_unknown(
+    monkeypatch, trend_analysis_module
+):
     monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
 
     def always_missing(annotation, cls, a_module, a_type, predicate):
@@ -165,7 +171,10 @@ def test_conditional_exports_block_runs(trend_analysis_module):
     )
 
     assert trend_analysis_module.load_csv is trend_analysis_module.data.load_csv
-    assert trend_analysis_module.export_to_json is trend_analysis_module.export.export_to_json
+    assert (
+        trend_analysis_module.export_to_json
+        is trend_analysis_module.export.export_to_json
+    )
 
 
 def test_version_block_falls_back():

@@ -35,8 +35,14 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
         "sharpe": 1.2,
     }
     training_windows = {
-        sample_calendar[0]: (sample_calendar[0] - timedelta(days=60), sample_calendar[0]),
-        sample_calendar[1]: (sample_calendar[1] - timedelta(days=60), sample_calendar[1]),
+        sample_calendar[0]: (
+            sample_calendar[0] - timedelta(days=60),
+            sample_calendar[0],
+        ),
+        sample_calendar[1]: (
+            sample_calendar[1] - timedelta(days=60),
+            sample_calendar[1],
+        ),
     }
 
     return h.BacktestResult(
@@ -55,7 +61,9 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
     )
 
 
-def test_backtest_result_summary_and_json(sample_backtest_result: h.BacktestResult) -> None:
+def test_backtest_result_summary_and_json(
+    sample_backtest_result: h.BacktestResult,
+) -> None:
     summary = sample_backtest_result.summary()
 
     assert summary["window_mode"] == "rolling"
@@ -141,8 +149,12 @@ def test_run_backtest_expanding_mode_handles_date_column_only() -> None:
         ({"transaction_cost_bps": -1}, ValueError, "transaction_cost_bps"),
     ],
 )
-def test_run_backtest_input_validation(kwargs: dict[str, object], expected_exception: type[Exception], message: str) -> None:
-    df = pd.DataFrame({"Date": pd.date_range("2021-01-01", periods=3), "FundA": [0.0, 0.1, -0.1]})
+def test_run_backtest_input_validation(
+    kwargs: dict[str, object], expected_exception: type[Exception], message: str
+) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2021-01-01", periods=3), "FundA": [0.0, 0.1, -0.1]}
+    )
 
     call_kwargs = {"rebalance_freq": "ME", "window_size": 2, "window_mode": "rolling"}
     call_kwargs.update(kwargs)
@@ -174,7 +186,9 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
         )
 
 
-def test_helpers_cover_frequency_conversion_and_json_default(sample_calendar: pd.DatetimeIndex) -> None:
+def test_helpers_cover_frequency_conversion_and_json_default(
+    sample_calendar: pd.DatetimeIndex,
+) -> None:
     # Normalisation preserves suffix when already aligned and substitutes when required.
     assert h._normalise_frequency("3M") == "3ME"
     assert h._normalise_frequency("Q") == "QE"
@@ -189,13 +203,19 @@ def test_helpers_cover_frequency_conversion_and_json_default(sample_calendar: pd
         columns=["A", "B"],
     )
     weights_dict = h._weights_to_dict(weights)
-    assert list(weights_dict) == [sample_calendar[0].isoformat(), sample_calendar[1].isoformat()]
+    assert list(weights_dict) == [
+        sample_calendar[0].isoformat(),
+        sample_calendar[1].isoformat(),
+    ]
 
     series = pd.Series([1.0, np.nan], index=sample_calendar[:2])
     assert h._series_to_dict(series) == {sample_calendar[0].isoformat(): 1.0}
 
     assert h._json_default(pd.Timestamp("2021-01-01")) == "2021-01-01T00:00:00"
-    assert h._json_default(pd.Timestamp("2021-01-01") - pd.Timestamp("2020-12-31")) == "P1DT0H0M0S"
+    assert (
+        h._json_default(pd.Timestamp("2021-01-01") - pd.Timestamp("2020-12-31"))
+        == "P1DT0H0M0S"
+    )
     assert h._json_default(np.float64(1.23)) == pytest.approx(1.23)
 
     with pytest.raises(TypeError):
