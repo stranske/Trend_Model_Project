@@ -244,6 +244,8 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     prNumber: rawPrNumber,
     headSha: inputHeadSha,
     requireHumanActivation = false,
+    allowPendingGate = false,
+    requireGateSuccess = true,
     comments,
     pullRequest,
     currentRunId,
