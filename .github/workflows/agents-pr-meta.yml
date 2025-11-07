@@ -149,8 +149,8 @@ jobs:
           ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
           HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
 
-      - name: Persist keepalive activation label
-        if: steps.pre_gate.outputs.ok == 'true' && steps.pre_gate.outputs.has_activated_label != 'true'
+      - name: Persist keepalive activation label (actions)
+        if: steps.pre_gate.outputs.ok == 'true' && steps.pre_gate.outputs.has_activated_label != 'true' && secrets.ACTIONS_BOT_PAT != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT != '' && secrets.ACTIONS_BOT_PAT || (secrets.SERVICE_BOT_PAT != '' && secrets.SERVICE_BOT_PAT) || github.token }}
@@ -170,6 +170,32 @@ jobs:
                 labels: ['agents:activated'],
               });
               core.info(`Added agents:activated label to PR #${prNumber}.`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
+            }
+
+      - name: Persist keepalive activation label (fallback)
+        if: steps.pre_gate.outputs.ok == 'true' && steps.pre_gate.outputs.has_activated_label != 'true' && secrets.ACTIONS_BOT_PAT == '' && secrets.SERVICE_BOT_PAT != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.pre_gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.warning('Activation label requires a valid pull request number.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['agents:activated'],
+              });
+              core.info(`Added agents:activated label to PR #${prNumber} (fallback token).`);
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
@@ -359,8 +385,8 @@ jobs:
           ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '0' }}
           HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
 
-      - name: Persist keepalive activation label
-        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.has_activated_label != 'true'
+      - name: Persist keepalive activation label (actions)
+        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.has_activated_label != 'true' && secrets.ACTIONS_BOT_PAT != ''
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT != '' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
@@ -380,6 +406,32 @@ jobs:
                 labels: ['agents:activated'],
               });
               core.info(`Added agents:activated label to PR #${prNumber}.`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
+            }
+
+      - name: Persist keepalive activation label (fallback)
+        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.has_activated_label != 'true' && secrets.ACTIONS_BOT_PAT == '' && secrets.SERVICE_BOT_PAT != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const prNumber = Number('${{ steps.gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.warning('Activation label requires a valid pull request number.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['agents:activated'],
+              });
+              core.info(`Added agents:activated label to PR #${prNumber} (fallback token).`);
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
