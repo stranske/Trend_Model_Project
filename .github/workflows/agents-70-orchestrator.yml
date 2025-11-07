@@ -904,10 +904,10 @@ jobs:
     outputs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
-      author: ${{ steps.prepare.outputs.author || '' }}
+      author: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '' }}
       dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
-      comment_id: ${{ steps.post.outputs.comment_id || '' }}
-      comment_url: ${{ steps.post.outputs.comment_url || '' }}
+      comment_id: ${{ steps.comment_meta.outputs.comment_id || '' }}
+      comment_url: ${{ steps.comment_meta.outputs.comment_url || '' }}
       acknowledged: ${{ steps.ack.outputs.acknowledged || 'false' }}
       actions_available: ${{ steps.prepare.outputs.actions_available || 'false' }}
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
@@ -1128,6 +1128,26 @@ jobs:
             core.setOutput('dispatch_mode', dispatchMode);
             core.setOutput('agent', agentAlias);
 
+      - name: Detect keepalive instruction token
+        id: author_token
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        env:
+          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+        run: |
+          set -euo pipefail
+          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske" >>"$GITHUB_OUTPUT"
+          elif [ "${HAS_SERVICE_PAT}" = "true" ]; then
+            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          else
+            echo '::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
+            exit 1
+          fi
+
       - name: Capture keepalive head snapshot
         id: snapshot
         if: steps.gate_check.outputs.ok == 'true'
@@ -1159,39 +1179,56 @@ jobs:
               core.setOutput('base_ref', '');
             }
 
-      - name: Create keepalive instruction comment
-        id: post
-        if: steps.gate_check.outputs.ok == 'true'
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          BODY: ${{ steps.prepare.outputs.body }}
+      - name: Post keepalive instruction (ACTIONS_BOT_PAT)
+        id: post_instruction_primary
+        if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
+        uses: peter-evans/create-issue-comment@v3
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER || 0);
-            if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              core.setFailed('Unable to determine pull request number for keepalive instruction.');
-              return;
-            }
+          token: ${{ secrets.ACTIONS_BOT_PAT }}
+          issue-number: ${{ steps.prepare.outputs.pr_number }}
+          body: ${{ steps.prepare.outputs.body }}
 
-            const body = process.env.BODY || '';
-            if (!body) {
-              core.setFailed('Keepalive instruction body is empty.');
-              return;
-            }
+      - name: Post keepalive instruction (SERVICE fallback)
+        id: post_instruction_fallback
+        if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
+        uses: peter-evans/create-issue-comment@v3
+        with:
+          token: ${{ secrets.SERVICE_BOT_PAT }}
+          issue-number: ${{ steps.prepare.outputs.pr_number }}
+          body: ${{ steps.prepare.outputs.body }}
 
-            const { owner, repo } = context.repo;
-            const response = await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body,
-            });
+      - name: Capture keepalive instruction metadata
+        id: comment_meta
+        if: steps.gate_check.outputs.ok == 'true'
+        shell: bash
+        env:
+          PRIMARY_OUTCOME: ${{ steps.post_instruction_primary.outcome }}
+          PRIMARY_ID: ${{ steps.post_instruction_primary.outputs.comment-id }}
+          PRIMARY_URL: ${{ steps.post_instruction_primary.outputs.comment-url }}
+          FALLBACK_OUTCOME: ${{ steps.post_instruction_fallback.outcome }}
+          FALLBACK_ID: ${{ steps.post_instruction_fallback.outputs.comment-id }}
+          FALLBACK_URL: ${{ steps.post_instruction_fallback.outputs.comment-url }}
+          AUTHOR: ${{ steps.author_token.outputs.author }}
+        run: |
+          set -euo pipefail
+          comment_id=""
+          comment_url=""
+          if [ "${PRIMARY_OUTCOME}" = "success" ] && [ -n "${PRIMARY_ID}" ]; then
+            comment_id="${PRIMARY_ID}"
+            comment_url="${PRIMARY_URL}"
+          elif [ "${FALLBACK_OUTCOME}" = "success" ] && [ -n "${FALLBACK_ID}" ]; then
+            comment_id="${FALLBACK_ID}"
+            comment_url="${FALLBACK_URL}"
+          else
+            echo '::error::Keepalive instruction comment was not created successfully.' >&2
+            exit 1
+          fi
 
-            const comment = response?.data || {};
-            core.setOutput('comment_id', comment.id ? String(comment.id) : '');
-            core.setOutput('comment_url', comment.html_url || '');
+          {
+            echo "comment_id=${comment_id}"
+            echo "comment_url=${comment_url}"
+            echo "author=${AUTHOR}"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Ack keepalive instruction
         id: ack
@@ -1199,9 +1236,9 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.post.outputs.comment_id }}
+          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {
@@ -1246,8 +1283,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.post.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.post.outputs.comment_url }}
+          COMMENT_ID: ${{ steps.comment_meta.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.comment_meta.outputs.comment_url }}
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
@@ -1327,7 +1364,7 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round }}
           TRACE: ${{ steps.prepare.outputs.trace }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -1359,9 +1396,9 @@ jobs:
         env:
           ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.prepare.outputs.author || '(unknown)' }}
+          AUTHOR: ${{ steps.comment_meta.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
           AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
-          COMMENT_LINK: ${{ steps.post.outputs.comment_url != '' && format('[#{0}]({1})', steps.post.outputs.comment_id, steps.post.outputs.comment_url) || steps.post.outputs.comment_id || '(unavailable)' }}
+          COMMENT_LINK: ${{ steps.comment_meta.outputs.comment_url != '' && format('[#{0}]({1})', steps.comment_meta.outputs.comment_id, steps.comment_meta.outputs.comment_url) || steps.comment_meta.outputs.comment_id || '(unavailable)' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
   orchestrate:
