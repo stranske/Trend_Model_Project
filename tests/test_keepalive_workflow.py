@@ -458,5 +458,5 @@ def test_keepalive_fails_when_required_labels_missing() -> None:
     summary = data["summary"]
     guardrail_details = _details(summary, "Guardrail violations")
     assert guardrail_details is not None
-    items = guardrail_details.get("items") or []
+    items = guardrail_details.get("items", [])
     assert any("#612" in item and "agents:keepalive" in item for item in items)
