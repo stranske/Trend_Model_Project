@@ -78,7 +78,9 @@ def test_main_populates_missing_policy_kwargs(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(run_analysis, "load", fake_load)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", fake_run_simulation)
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
+    )
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -130,9 +132,13 @@ def test_main_translates_nan_aliases(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         run_analysis.api,
         "run_simulation",
-        lambda *_: SimpleNamespace(metrics=pd.DataFrame({"metric": [2.0]}), details={"summary": "ok"}),
+        lambda *_: SimpleNamespace(
+            metrics=pd.DataFrame({"metric": [2.0]}), details={"summary": "ok"}
+        ),
     )
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
+    )
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -172,16 +178,22 @@ def test_main_skips_unsupported_missing_policy(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(
         run_analysis.api,
         "run_simulation",
-        lambda *_: SimpleNamespace(metrics=pd.DataFrame({"metric": [3.0]}), details={"summary": "ok"}),
+        lambda *_: SimpleNamespace(
+            metrics=pd.DataFrame({"metric": [3.0]}), details={"summary": "ok"}
+        ),
     )
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
+    )
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
     assert exit_code == 0
 
 
-def test_main_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_raises_when_load_csv_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A missing CSV should bubble up as FileNotFoundError."""
 
     monkeypatch.setattr(
@@ -195,7 +207,9 @@ def test_main_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch)
         run_analysis.main(["-c", "config.yml"])
 
 
-def test_main_handles_detailed_flag(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_handles_detailed_flag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """When --detailed is provided the metrics-only branch should trigger."""
 
     monkeypatch.setattr(
