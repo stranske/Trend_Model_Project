@@ -45,5 +45,11 @@
 
 ## Progress Tracker
 - **Current status:** No tasks or acceptance criteria have been satisfied yet; all scope items remain open for implementation.
-- **In progress:** Drafting the persistence approach for `{PR, round, trace, head_sha}` by embedding a hidden HTML comment (`<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->`) and outlining the companion reader that will detect unchanged heads without producing PR noise.
-- **Next step:** Finalize the read/write helpers for the stored head SHA so the comment-first update logic can be exercised on a fixture PR.
+- **In progress:** Finalizing the persistence helper that wraps GitHub comment read/write calls. The helper will:
+  1. Search existing PR comments for `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->` matching `{PR, round}` and return `{head_sha, trace}` when found.
+  2. Create or update the hidden comment when a new `{PR, round, trace}` tuple is observed, ensuring idempotency by comparing stored vs. observed values before writing.
+  3. Emit structured summary logs (`persist_state=hit` | `persist_state=write`) without surfacing user-visible comments beyond the hidden marker.
+- **Next step:** Implement the comment-first `/update-branch trace:{TRACE}` executor that consumes the persistence helper, chooses the PAT credential, posts the command, records the reaction, and seeds the short-TTL polling loop.
+- **Notes toward upcoming acceptance criteria:**
+  - Unsynced detection will hinge on comparing the stored `head_sha` with the live head fetched via the GitHub API. A mismatch will move the orchestrator straight to the next keepalive round without comment noise; an exact match will trigger the comment-first flow.
+  - The polling loop will cap at 24 iterations (≈2 minutes at 5-second intervals) to satisfy the `TTL_short` expectation before escalating to the fallback workflow.
