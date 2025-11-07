@@ -20,6 +20,19 @@ def test_annualize_return_branches():
     assert isinstance(res, pd.Series)
 
 
+def test_annual_return_dataframe_mixed_signs():
+    df = pd.DataFrame(
+        {
+            "loser": [-1.0, 0.0],
+            "winner": [0.08, 0.04],
+        }
+    )
+    result = metrics.annual_return(df, periods_per_year=4)
+    assert result["loser"] == -1.0
+    expected = (1.08 * 1.04) ** (4 / 2) - 1.0
+    assert result["winner"] == pytest.approx(expected)
+
+
 def test_annualize_volatility_branches():
     s = pd.Series([0.1])
     assert np.isnan(metrics.annualize_volatility(s))
@@ -89,6 +102,28 @@ def test_sortino_ratio_compute():
     rf = pd.Series([0.0, 0.0, 0.0, 0.0])
     val = metrics.sortino_ratio(r, rf)
     assert not np.isnan(val)
+
+
+def test_sortino_ratio_dataframe_downside_cases():
+    df = pd.DataFrame(
+        {
+            "no_downside": [0.05, 0.02, 0.01],
+            "single_downside": [0.1, -0.2, 0.05],
+            "flat_downside": [-0.1, -0.1, 0.0],
+        }
+    )
+
+    result = metrics.sortino_ratio(df, target=0.0)
+
+    assert np.isnan(result["no_downside"])
+
+    col = df["single_downside"]
+    downside = col[col < 0]
+    annualised = metrics.annual_return(col, periods_per_year=12)
+    expected_ratio = float(annualised) / (2.0 * abs(downside.iloc[0]))
+    assert result["single_downside"] == pytest.approx(expected_ratio)
+
+    assert np.isnan(result["flat_downside"])
 
 
 def test_max_drawdown():
