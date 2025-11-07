@@ -225,3 +225,67 @@ def test_optional_modules_absent(package_stubs, stubbed_imports):
     # Data/export helpers should not be exposed when modules fail to import
     assert not hasattr(module, "load_csv")
     assert not hasattr(module, "export_to_csv")
+
+
+def test_dataclass_patch_recovers_missing_module(monkeypatch):
+    """The dataclass guard should repopulate missing module entries."""
+
+    import importlib
+    import sys
+    import typing
+    from types import ModuleType
+    from typing import ClassVar
+
+    import dataclasses
+
+    module = importlib.reload(dataclasses)
+    module.__dict__.pop("_trend_model_patched", None)
+
+    from trend_analysis import _patch_dataclasses_module_guard
+
+    _patch_dataclasses_module_guard()
+
+    class Dummy:
+        """Sentinel class whose module entry will be removed."""
+
+        pass
+
+    Dummy.__module__ = "ghost.module"
+    monkeypatch.delitem(sys.modules, "ghost.module", raising=False)
+
+    original_import = importlib.import_module
+
+    def fake_import(name: str, package: str | None = None):
+        if name == "ghost.module":
+            raise ImportError(name)
+        return original_import(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+
+    result = dataclasses._is_type(  # type: ignore[attr-defined]
+        "ClassVar",
+        Dummy,
+        typing,
+        ClassVar,
+        lambda candidate, mod: candidate is ClassVar,
+    )
+    assert result is False
+
+    restored = sys.modules["ghost.module"]
+    assert isinstance(restored, ModuleType)
+    assert restored.__dict__["__package__"] == "ghost"
+
+
+def test_spec_proxy_reinstates_module_registration(monkeypatch):
+    """Accessing ``name`` should restore the module in ``sys.modules``."""
+
+    import sys
+    from types import SimpleNamespace
+
+    import trend_analysis as package
+
+    proxy = package._SpecProxy(SimpleNamespace(name="trend_analysis"))
+
+    monkeypatch.delitem(sys.modules, "trend_analysis", raising=False)
+    assert proxy.name == "trend_analysis"
+    assert sys.modules["trend_analysis"] is package
