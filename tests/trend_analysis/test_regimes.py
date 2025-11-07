@@ -44,7 +44,9 @@ def test_normalise_settings_coercion_and_defaults() -> None:
 
 
 def test_compute_regimes_disabled_returns_empty() -> None:
-    series = pd.Series([0.01, 0.02], index=pd.date_range("2024-01-01", periods=2, freq="D"))
+    series = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2024-01-01", periods=2, freq="D")
+    )
     disabled_settings = regimes.RegimeSettings(enabled=False)
 
     result = regimes.compute_regimes(series, disabled_settings, freq="D")
@@ -53,7 +55,9 @@ def test_compute_regimes_disabled_returns_empty() -> None:
     assert result.dtype == "string"
 
 
-def test_compute_regime_series_volatility_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_regime_series_volatility_uses_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2024-01-01", periods=6, freq="B")
     proxy = pd.Series([0.01, -0.015, 0.02, -0.01, 0.005, 0.0], index=dates)
 
@@ -73,7 +77,9 @@ def test_compute_regime_series_volatility_uses_cache(monkeypatch: pytest.MonkeyP
         def __init__(self) -> None:
             self.calls: list[tuple[str, int, str, str]] = []
 
-        def get_or_compute(self, dataset_hash: str, window: int, freq: str, method_tag: str, compute_fn):
+        def get_or_compute(
+            self, dataset_hash: str, window: int, freq: str, method_tag: str, compute_fn
+        ):
             self.calls.append((dataset_hash, window, freq, method_tag))
             result = compute_fn()
             assert isinstance(result, pd.Series)
@@ -83,7 +89,9 @@ def test_compute_regime_series_volatility_uses_cache(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(regimes, "compute_dataset_hash", lambda objs: "hash123")
     monkeypatch.setattr(regimes, "get_cache", lambda: dummy_cache)
 
-    labels = regimes._compute_regime_series(proxy, settings, freq="D", periods_per_year=None)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="D", periods_per_year=None
+    )
 
     assert len(dummy_cache.calls) == 1
     dataset_hash, window, freq_code, method_tag = dummy_cache.calls[0]
@@ -112,7 +120,9 @@ def test_compute_regime_series_return_method_neutral_band() -> None:
         default_label="Flat",
     )
 
-    labels = regimes._compute_regime_series(proxy, settings, freq="M", periods_per_year=12)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="M", periods_per_year=12
+    )
 
     assert not labels.empty
     assert set(labels.unique()) <= {"Up", "Down", "Flat"}
@@ -122,7 +132,9 @@ def test_compute_regime_series_return_method_neutral_band() -> None:
 
 def test_aggregate_performance_by_regime_metrics_and_notes() -> None:
     dates = pd.date_range("2023-01-31", periods=4, freq="ME")
-    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On", "Risk-Off"], index=dates, dtype="string")
+    regimes_series = pd.Series(
+        ["Risk-On", "Risk-Off", "Risk-On", "Risk-Off"], index=dates, dtype="string"
+    )
     returns = pd.Series([0.02, -0.01, 0.015, 0.0], index=dates)
     risk_free = pd.Series([0.001, 0.001, 0.001, 0.001], index=dates)
 
@@ -145,7 +157,9 @@ def test_aggregate_performance_by_regime_metrics_and_notes() -> None:
 
 def test_aggregate_performance_by_regime_insufficient_observations_note() -> None:
     dates = pd.date_range("2023-01-31", periods=3, freq="ME")
-    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
+    regimes_series = pd.Series(
+        ["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string"
+    )
     returns = pd.Series([0.01, -0.02, 0.03], index=dates)
 
     settings = regimes.RegimeSettings(enabled=True, min_obs=5)
@@ -165,7 +179,9 @@ def test_aggregate_performance_by_regime_insufficient_observations_note() -> Non
 
 
 def test_build_regime_payload_missing_proxy() -> None:
-    data = pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=3, freq="D"), "Other": [1, 2, 3]})
+    data = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-01", periods=3, freq="D"), "Other": [1, 2, 3]}
+    )
     config: dict[str, Any] = {"enabled": True}
 
     payload = regimes.build_regime_payload(
@@ -178,13 +194,17 @@ def test_build_regime_payload_missing_proxy() -> None:
         periods_per_year=252,
     )
 
-    assert payload["notes"] == ["Regime proxy column not specified; skipping regime analysis."]
+    assert payload["notes"] == [
+        "Regime proxy column not specified; skipping regime analysis."
+    ]
     assert payload["labels"].empty
 
 
 def test_build_regime_payload_generates_summary_and_notes() -> None:
     dates = pd.date_range("2024-03-01", periods=6, freq="D")
-    data = pd.DataFrame({"Date": dates, "Proxy": [0.01, -0.02, 0.015, -0.005, 0.02, -0.01]})
+    data = pd.DataFrame(
+        {"Date": dates, "Proxy": [0.01, -0.02, 0.015, -0.005, 0.02, -0.01]}
+    )
     out_index = pd.date_range("2024-03-01", periods=7, freq="D")
     returns = pd.Series([0.03, -0.01, 0.02, 0.015, -0.005, 0.01], index=dates)
 
@@ -217,4 +237,3 @@ def test_build_regime_payload_generates_summary_and_notes() -> None:
     assert payload["summary"]
     # Notes are deduplicated and populated from insufficient observation handling
     assert payload["notes"]
-
