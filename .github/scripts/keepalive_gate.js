@@ -353,6 +353,8 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     prNumber: rawPrNumber,
     headSha: inputHeadSha,
     requireHumanActivation = false,
+    allowPendingGate = false,
+    requireGateSuccess = true,
     comments,
     pullRequest,
     currentRunId,
@@ -488,6 +490,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
   let ok = true;
   let reason = 'ok';
+  let pendingGate = false;
 
   if (hasSyncRequiredLabel) {
     ok = false;
@@ -498,13 +501,26 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   } else if (requireHuman && !humanActivation) {
     ok = false;
     reason = 'no-human-activation';
-  } else if (!gateStatus.found) {
-    ok = false;
-    reason = 'gate-run-missing';
-  } else if (!gateSucceeded) {
-    ok = false;
-    reason = 'gate-not-success';
-  } else if (!underRunCap) {
+  } 
+
+  if (requireGateSuccess) {
+    if (!gateStatus.found) {
+      if (allowPendingGate) {
+        pendingGate = true;
+        if (reason === 'ok') {
+          reason = 'gate-pending';
+        }
+      } else {
+        ok = false;
+        reason = 'gate-run-missing';
+      }
+    } else if (!gateSucceeded) {
+      ok = false;
+      reason = 'gate-not-success';
+    }
+  }
+
+  if (ok && !underRunCap) {
     ok = false;
     reason = 'run-cap-reached';
   }
@@ -528,6 +544,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     requireHumanActivation: requireHuman,
     activationComment: sanitiseComment(activationComment),
     gateStatus,
+    pendingGate,
   };
 }
 

@@ -6,5 +6,6 @@ Automation agents touching **any** keepalive code path must consult [`GoalsAndPl
 - Instruction comment formatting and required hidden markers
 - Dispatch, acknowledgement, and branch-sync responsibilities
 - Pause/resume labels and run-cap enforcement
+- The full lifecycle sequence (human kickoff → guarded checks → timed repeats → acceptance shutdown → label reapply)
 
 Do not mark checklist items complete or dispatch new keepalive rounds until the acceptance criteria in the canonical guide are satisfied. Update both documents together if the contract evolves.
