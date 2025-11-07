@@ -1056,10 +1056,11 @@ jobs:
           if [ "${HAS_SERVICE_PAT}" = "true" ]; then
             echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
-          else
-            echo "token=GITHUB_TOKEN" >>"$GITHUB_OUTPUT"
-            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          echo "::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+          exit 1
 
       - name: Prepare keepalive instruction
         id: prepare
