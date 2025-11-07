@@ -52,10 +52,14 @@ jobs:
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       has_human_activation: ${{ steps.pre_gate.outputs.has_human_activation }}
       has_keepalive_label: ${{ steps.pre_gate.outputs.has_keepalive_label }}
+      has_activated_label: ${{ steps.pre_gate.outputs.has_activated_label }}
       gate_concluded: ${{ steps.pre_gate.outputs.gate_concluded }}
+      gate_succeeded: ${{ steps.pre_gate.outputs.gate_succeeded }}
       under_run_cap: ${{ steps.pre_gate.outputs.under_run_cap }}
       active_runs: ${{ steps.pre_gate.outputs.active_runs }}
       run_cap: ${{ steps.pre_gate.outputs.run_cap }}
+      require_human_activation: ${{ steps.pre_gate.outputs.require_human_activation }}
+      activation_comment: ${{ steps.pre_gate.outputs.activation_comment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -88,12 +92,16 @@ jobs:
             core.setOutput('has_keepalive_label', bool(result.hasKeepaliveLabel));
             core.setOutput('has_human_activation', bool(result.hasHumanActivation));
             core.setOutput('gate_concluded', bool(result.gateConcluded));
+            core.setOutput('gate_succeeded', bool(result.gateSucceeded));
             core.setOutput('under_run_cap', bool(result.underRunCap));
             core.setOutput('run_cap', String(result.runCap ?? ''));
             core.setOutput('active_runs', String(result.activeRuns ?? ''));
             core.setOutput('agent_alias', result.primaryAgent || '');
             core.setOutput('head_sha', result.headSha || '');
             core.setOutput('pr_number', issueNumber > 0 ? String(issueNumber) : '');
+            core.setOutput('has_activated_label', bool(result.hasActivatedLabel));
+            core.setOutput('require_human_activation', bool(result.requireHumanActivation));
+            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
 
             if (result.ok) {
               core.info('Keepalive pre-gate satisfied; continuing detection.');
@@ -101,26 +109,71 @@ jobs:
               core.info(`Keepalive pre-gate blocked dispatch: ${result.reason || 'unspecified'}`);
             }
 
-      - name: Summarise keepalive pre-gate
-        if: steps.pre_gate.outputs.ok != 'true'
+      - name: Record gate summary
         run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ## Keepalive pre-gate
-          * ok: ${OK}
-          * reason: ${REASON}
-          * keepalive label: ${HAS_LABEL}
-          * human activation: ${HAS_ACTIVATION}
-          * gate concluded: ${GATE}
-          * run cap: ${ACTIVE}/${CAP}
-          EOF
+          set -euo pipefail
+          ok="${OK:-false}"
+          reason="${REASON:-unspecified}"
+          pr_num="${PR_NUMBER:-}"
+          if [[ -n "${pr_num}" ]]; then
+            pr_value="#${pr_num}"
+          else
+            pr_value="#?"
+          fi
+          agent="${AGENT_ALIAS:-codex}"
+          if [[ -z "${agent}" ]]; then
+            agent='?'
+          fi
+          cap="${RUN_CAP:-}"
+          if [[ -z "${cap}" ]]; then
+            cap='?'
+          fi
+          active="${ACTIVE_RUNS:-}"
+          if [[ -z "${active}" ]]; then
+            active='0'
+          fi
+          head="${HEAD_SHA:-}"
+          if [[ -n "${head}" ]]; then
+            head="${head:0:7}"
+          else
+            head='unknown'
+          fi
+          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
         env:
           OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
-          REASON: ${{ steps.pre_gate.outputs.reason || '(unspecified)' }}
-          HAS_LABEL: ${{ steps.pre_gate.outputs.has_keepalive_label || 'false' }}
-          HAS_ACTIVATION: ${{ steps.pre_gate.outputs.has_human_activation || 'false' }}
-          GATE: ${{ steps.pre_gate.outputs.gate_concluded || 'false' }}
-          ACTIVE: ${{ steps.pre_gate.outputs.active_runs || '0' }}
-          CAP: ${{ steps.pre_gate.outputs.run_cap || '2' }}
+          REASON: ${{ steps.pre_gate.outputs.reason || 'unspecified' }}
+          PR_NUMBER: ${{ steps.pre_gate.outputs.pr_number || '' }}
+          AGENT_ALIAS: ${{ steps.pre_gate.outputs.agent_alias || '' }}
+          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || '2' }}
+          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
+          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
+
+      - name: Persist keepalive activation label
+        if: steps.pre_gate.outputs.ok == 'true' && steps.pre_gate.outputs.has_activated_label != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const prNumber = Number('${{ steps.pre_gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.warning('Activation label requires a valid pull request number.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['agents:activated'],
+              });
+              core.info(`Added agents:activated label to PR #${prNumber}.`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
+            }
 
       - name: Evaluate keepalive comment
         id: detect
@@ -181,6 +234,453 @@ jobs:
         if: steps.detect.outputs.dispatch != 'true'
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
+
+  keepalive_from_gate:
+    if: >-
+      ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    name: Resume keepalive after Gate
+    runs-on: ubuntu-latest
+    outputs:
+      dispatch: ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
+      reason: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
+      issue: ${{ steps.detect.outputs.issue }}
+      round: ${{ steps.detect.outputs.round }}
+      branch: ${{ steps.detect.outputs.branch }}
+      base: ${{ steps.detect.outputs.base }}
+      trace: ${{ steps.detect.outputs.trace }}
+      pr: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
+      author: ${{ steps.detect.outputs.author }}
+      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_url: ${{ steps.detect.outputs.comment_url }}
+      gate_reason: ${{ steps.gate.outputs.reason }}
+      agent_alias: ${{ steps.gate.outputs.agent_alias }}
+      has_human_activation: ${{ steps.gate.outputs.has_human_activation }}
+      has_keepalive_label: ${{ steps.gate.outputs.has_keepalive_label }}
+      has_activated_label: ${{ steps.gate.outputs.has_activated_label }}
+      gate_concluded: ${{ steps.gate.outputs.gate_concluded }}
+      gate_succeeded: ${{ steps.gate.outputs.gate_succeeded }}
+      under_run_cap: ${{ steps.gate.outputs.under_run_cap }}
+      active_runs: ${{ steps.gate.outputs.active_runs }}
+      run_cap: ${{ steps.gate.outputs.run_cap }}
+      require_human_activation: ${{ steps.gate.outputs.require_human_activation }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Evaluate keepalive gate after workflow_run
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
+
+            const workflowRun = context.payload?.workflow_run || {};
+            const pullRequests = Array.isArray(workflowRun.pull_requests) ? workflowRun.pull_requests : [];
+            const primaryPull = pullRequests.length > 0 ? pullRequests[0] : null;
+
+            const prNumber = Number(primaryPull?.number || 0);
+            const headSha = workflowRun.head_sha || '';
+            const headRef = primaryPull?.head?.ref || workflowRun.head_branch || '';
+
+            const result = await evaluateKeepaliveGate({
+              core,
+              github,
+              context,
+              options: {
+                prNumber,
+                headSha,
+                requireHumanActivation: true,
+                currentRunId: workflowRun.id,
+              },
+            });
+
+            const bool = (value) => (value ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('has_keepalive_label', bool(result.hasKeepaliveLabel));
+            core.setOutput('has_human_activation', bool(result.hasHumanActivation));
+            core.setOutput('has_activated_label', bool(result.hasActivatedLabel));
+            core.setOutput('gate_concluded', bool(result.gateConcluded));
+            core.setOutput('gate_succeeded', bool(result.gateSucceeded));
+            core.setOutput('under_run_cap', bool(result.underRunCap));
+            core.setOutput('run_cap', String(result.runCap ?? ''));
+            core.setOutput('active_runs', String(result.activeRuns ?? ''));
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('head_sha', result.headSha || headSha || '');
+            core.setOutput('head_ref', result.headRef || headRef || '');
+            core.setOutput('pr_number', Number.isFinite(prNumber) && prNumber > 0 ? String(prNumber) : '');
+            core.setOutput('require_human_activation', bool(result.requireHumanActivation));
+            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
+
+            if (result.ok) {
+              core.info('Gate-triggered keepalive evaluation passed.');
+            } else {
+              core.info(`Gate-triggered keepalive evaluation blocked: ${result.reason || 'unspecified'}`);
+            }
+
+      - name: Record gate summary
+        run: |
+          set -euo pipefail
+          ok="${OK:-false}"
+          reason="${REASON:-unspecified}"
+          pr_num="${PR_NUMBER:-}"
+          if [[ -n "${pr_num}" ]]; then
+            pr_value="#${pr_num}"
+          else
+            pr_value="#?"
+          fi
+          agent="${AGENT_ALIAS:-codex}"
+          if [[ -z "${agent}" ]]; then
+            agent='?'
+          fi
+          cap="${RUN_CAP:-}"
+          if [[ -z "${cap}" ]]; then
+            cap='?'
+          fi
+          active="${ACTIVE_RUNS:-}"
+          if [[ -z "${active}" ]]; then
+            active='0'
+          fi
+          head="${HEAD_SHA:-}"
+          if [[ -n "${head}" ]]; then
+            head="${head:0:7}"
+          else
+            head='unknown'
+          fi
+          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
+        env:
+          OK: ${{ steps.gate.outputs.ok || 'false' }}
+          REASON: ${{ steps.gate.outputs.reason || 'unspecified' }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number || '' }}
+          AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias || '' }}
+          RUN_CAP: ${{ steps.gate.outputs.run_cap || '2' }}
+          ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '0' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
+
+      - name: Persist keepalive activation label
+        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.has_activated_label != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const prNumber = Number('${{ steps.gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.warning('Activation label requires a valid pull request number.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: ['agents:activated'],
+              });
+              core.info(`Added agents:activated label to PR #${prNumber}.`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
+            }
+
+      - name: Evaluate keepalive request after Gate
+        id: detect
+        if: steps.gate.outputs.ok == 'true'
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
+          KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
+          KEEPALIVE_AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
+          ACTIVATION_COMMENT: ${{ steps.gate.outputs.activation_comment }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
+
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setOutput('dispatch', 'false');
+              core.setOutput('reason', 'missing-pr-number');
+              return;
+            }
+
+            const commentPayload = process.env.ACTIVATION_COMMENT || '';
+            if (!commentPayload) {
+              core.setOutput('dispatch', 'false');
+              core.setOutput('reason', 'missing-activation-comment');
+              return;
+            }
+
+            let comment;
+            try {
+              comment = JSON.parse(commentPayload);
+            } catch (error) {
+              core.setOutput('dispatch', 'false');
+              core.setOutput('reason', 'invalid-activation-comment');
+              core.warning(`Unable to parse activation comment payload: ${error.message}`);
+              return;
+            }
+
+            const commentId = Number(comment?.id || 0);
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.setOutput('dispatch', 'false');
+              core.setOutput('reason', 'invalid-activation-comment');
+              core.warning('Activation comment missing a valid id.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            let enrichedComment = comment;
+            try {
+              const { data } = await github.rest.issues.getComment({
+                owner,
+                repo,
+                comment_id: commentId,
+              });
+              enrichedComment = data || comment;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to refresh activation comment ${commentId}: ${message}`);
+              enrichedComment = {
+                ...comment,
+                id: commentId,
+              };
+            }
+
+            const detectionContext = {
+              ...context,
+              payload: {
+                comment: enrichedComment,
+                issue: { number: prNumber },
+              },
+            };
+
+            await detectKeepalive({ core, github, context: detectionContext, env: process.env });
+
+      - name: Prepare keepalive summary context
+        id: summary_context
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          comment_id="${COMMENT_ID:-}"
+          comment_url="${COMMENT_URL:-}"
+
+          if [[ -n "${comment_id}" && -n "${comment_url}" ]]; then
+            value="[#${comment_id}](${comment_url})"
+          elif [[ -n "${comment_id}" ]]; then
+            value="${comment_id}"
+          else
+            value="—"
+          fi
+
+          printf 'comment=%s\n' "${value}" >>"${GITHUB_OUTPUT}"
+        env:
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
+
+      - name: Summarise keepalive evaluation
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ## Keepalive detection (Gate)
+          | ok | reason | author | comment | pr | round | trace |
+          | --- | --- | --- | --- | --- | --- | --- |
+          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+
+          **Gate inputs**
+
+          - keepalive label: ${{ steps.gate.outputs.has_keepalive_label || 'false' }}
+          - activated label: ${{ steps.gate.outputs.has_activated_label || 'false' }}
+          - human activation: ${{ steps.gate.outputs.has_human_activation || 'false' }}
+          - gate success: ${{ steps.gate.outputs.gate_succeeded || 'false' }}
+          - run cap: ${{ steps.gate.outputs.active_runs || '0' }}/${{ steps.gate.outputs.run_cap || '2' }}
+          EOF
+
+      - name: Register keepalive detection
+        if: steps.detect.outputs.dispatch == 'true'
+        run: |
+          echo "Gate-triggered keepalive round ${{ steps.detect.outputs.round }} detected for PR ${{ steps.detect.outputs.pr }} (trace ${{ steps.detect.outputs.trace }})."
+
+      - name: Report keepalive dispatch outcome
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch != 'true'
+        run: |
+          echo "Gate-triggered keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}"
+
+      - name: Ensure keepalive dispatch token available
+        if: steps.detect.outputs.dispatch == 'true'
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
+      - name: Dispatch Agents 70 run for keepalive
+        if: steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const issue = Number('${{ steps.detect.outputs.issue }}');
+            const prNumber = Number('${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}');
+            const branch = '${{ steps.detect.outputs.branch }}';
+            const base = '${{ steps.detect.outputs.base }}';
+            const round = Number('${{ steps.detect.outputs.round }}');
+            const trace = '${{ steps.detect.outputs.trace }}';
+
+            const { owner, repo } = context.repo;
+            const workflowId = 'agents-70-orchestrator.yml';
+            const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+
+            const params = {
+              enable_keepalive: true,
+              dispatcher_force_issue: issue ? String(issue) : '',
+            };
+
+            const roundValue = Number.isFinite(round) && round > 0 ? String(round) : '';
+            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? prNumber : '';
+
+            const options = {
+              keepalive_trace: trace,
+              round: roundValue,
+              pr: prValue,
+            };
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              ref,
+              inputs: {
+                keepalive_enabled: 'true',
+                params_json: JSON.stringify(params),
+                options_json: JSON.stringify(options),
+                dry_run: 'false',
+              },
+            });
+
+            core.summary
+              .addHeading('Keepalive orchestrator dispatch (Gate)')
+              .addRaw(`Workflow: ${workflowId}`)
+              .addEOL()
+              .addRaw(`PR: ${prNumber ? `#${prNumber}` : '(unknown)'}`)
+              .addEOL()
+              .addRaw(`Round: ${round || 'n/a'}`)
+              .addEOL()
+              .addRaw(`Trace: ${trace || '(not detected)'}`)
+              .addEOL()
+              .addRaw(`Branch: ${branch || '(not detected)'}`)
+              .addEOL()
+              .addRaw(`Base: ${base || '(not detected)'}`)
+              .write();
+
+      - name: Ensure connector dispatch token available
+        if: steps.detect.outputs.dispatch == 'true'
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+            echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
+      - name: Dispatch codex keepalive command
+        if: steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v7
+        env:
+          BASE: ${{ steps.detect.outputs.base }}
+          HEAD: ${{ steps.detect.outputs.branch }}
+          ROUND: ${{ steps.detect.outputs.round }}
+          TRACE: ${{ steps.detect.outputs.trace }}
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
+          AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+
+            const prNumber = Number('${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setFailed('Unable to determine pull request number from Gate-triggered context.');
+              return;
+            }
+
+            const base = process.env.BASE || '';
+            const head = process.env.HEAD || '';
+            const round = process.env.ROUND || '';
+            const trace = process.env.TRACE || '';
+            const agentAlias = (process.env.AGENT_ALIAS || '').trim() || 'codex';
+
+            let resolvedBase = base;
+            let resolvedHead = head;
+
+            if (!resolvedBase || !resolvedHead) {
+              const pull = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber,
+              });
+
+              resolvedBase = resolvedBase || pull.data.base?.ref || '';
+              resolvedHead = resolvedHead || pull.data.head?.ref || '';
+            }
+
+            if (!resolvedBase || !resolvedHead) {
+              core.setFailed('Unable to determine pull request base/head branches.');
+              return;
+            }
+
+            const commentId = process.env.COMMENT_ID || '';
+            const commentUrl = process.env.COMMENT_URL || '';
+
+            if (!commentId || !commentUrl) {
+              core.setFailed('Comment metadata missing id or url.');
+              return;
+            }
+
+            const clientPayload = {
+              issue: prNumber,
+              base: resolvedBase,
+              head: resolvedHead,
+              agent: agentAlias,
+              comment_id: commentId,
+              comment_url: commentUrl,
+              round,
+              trace,
+            };
+
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'codex-pr-comment-command',
+              client_payload: clientPayload,
+            });
+
+            core.summary
+              .addHeading('Codex keepalive dispatch (Gate)')
+              .addRaw(`Pull request: #${prNumber}`)
+              .addEOL()
+              .addRaw(`Base branch: ${clientPayload.base}`)
+              .addEOL()
+              .addRaw(`Head branch: ${clientPayload.head}`)
+              .addEOL()
+              .addRaw(`Comment ID: ${clientPayload.comment_id}`)
+              .addEOL()
+              .addLink('Comment URL', clientPayload.comment_url)
+              .addEOL()
+              .addRaw(`Round: ${round || '(unknown)'}`)
+              .addEOL()
+              .addRaw(`Trace: ${trace || '(missing)'}`)
+              .write();
+
+            core.info(`repository_dispatch emitted for PR #${prNumber} (Gate-triggered).`);
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
