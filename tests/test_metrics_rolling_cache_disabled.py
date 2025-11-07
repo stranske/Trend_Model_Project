@@ -16,9 +16,9 @@ def test_rolling_information_ratio_without_cache():
 
         assert list(result.index) == list(index)
         assert result.name == "rolling_ir"
-        expected = (returns.iloc[-3:] - 0.0).mean() / (
-            returns.iloc[-3:] - 0.0
-        ).std(ddof=1)
+        expected = (returns.iloc[-3:] - 0.0).mean() / (returns.iloc[-3:] - 0.0).std(
+            ddof=1
+        )
         assert result.iloc[-1] == pytest.approx(expected)
     finally:
         cache.set_enabled(original)

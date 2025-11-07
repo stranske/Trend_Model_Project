@@ -51,7 +51,9 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "run_logging", FakeRunLogging)
 
     steps: list[tuple[tuple[object, ...], dict[str, object]]] = []
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: steps.append((a, k)))
+    monkeypatch.setattr(
+        cli, "_legacy_maybe_log_step", lambda *a, **k: steps.append((a, k))
+    )
 
     exports: list[tuple[bool, str]] = []
     monkeypatch.setattr(
@@ -96,8 +98,12 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
 def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
     export_calls: list[str] = []
 
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *a, **k: "formatter")
-    monkeypatch.setattr(cli.export, "summary_frame_from_result", lambda details: {"rows": 1})
+    monkeypatch.setattr(
+        cli.export, "make_summary_formatter", lambda *a, **k: "formatter"
+    )
+    monkeypatch.setattr(
+        cli.export, "summary_frame_from_result", lambda details: {"rows": 1}
+    )
     monkeypatch.setattr(
         cli.export,
         "export_to_excel",
@@ -108,7 +114,9 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
         "export_data",
         lambda data, path, formats: export_calls.append("data:" + ",".join(formats)),
     )
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: export_calls.append("log"))
+    monkeypatch.setattr(
+        cli, "_legacy_maybe_log_step", lambda *a, **k: export_calls.append("log")
+    )
 
     cfg = SimpleNamespace(
         export={
@@ -135,7 +143,11 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
         "trend_analysis.export.bundle.export_bundle",
         lambda result, path: recorded.append(path),
     )
-    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: recorded.append(Path(k["bundle"])))
+    monkeypatch.setattr(
+        cli,
+        "_legacy_maybe_log_step",
+        lambda *a, **k: recorded.append(Path(k["bundle"])),
+    )
 
     result = SimpleNamespace(details={}, metrics=pd.DataFrame())
     cli._write_bundle(

@@ -197,8 +197,12 @@ def test_build_backtest_and_context_generation():
 def test_rank_summary_and_pdf_helpers():
     assert unified._rank_summary({}) == ""
     assert "n=5" in unified._rank_summary({"inclusion_approach": "top_n", "n": "5"})
-    assert "pct=20%" in unified._rank_summary({"inclusion_approach": "top_pct", "pct": 0.2})
-    assert "≥ 1.50" in unified._rank_summary({"inclusion_approach": "threshold", "threshold": "1.5"})
+    assert "pct=20%" in unified._rank_summary(
+        {"inclusion_approach": "top_pct", "pct": 0.2}
+    )
+    assert "≥ 1.50" in unified._rank_summary(
+        {"inclusion_approach": "threshold", "threshold": "1.5"}
+    )
 
     params = [("Alpha", "1")]
     unified._extend_params(params, [("Alpha", "2"), ("Beta", "3")])
@@ -222,7 +226,9 @@ def test_exec_summary_and_caveats_edge_cases():
     assert summary
     assert any(
         "Metrics table is empty" in item
-        for item in unified._build_caveats(SimpleNamespace(details={}, metrics=pd.DataFrame()), None)
+        for item in unified._build_caveats(
+            SimpleNamespace(details={}, metrics=pd.DataFrame()), None
+        )
     )
 
     narrative = unified._narrative(None, "Regime note")

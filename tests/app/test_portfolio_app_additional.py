@@ -172,7 +172,9 @@ class StubStreamlit:
 def test_render_run_section_success(monkeypatch):
     stub = StubStreamlit()
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
+    monkeypatch.setattr(
+        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
+    )
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
 
     summary_df = pd.DataFrame({"Sharpe": [0.8], "CAGR": [0.12]})
@@ -188,13 +190,17 @@ def test_render_run_section_success(monkeypatch):
     }
     monkeypatch.setattr(app.pipeline, "run", lambda cfg: summary_df)
     monkeypatch.setattr(app.pipeline, "run_full", lambda cfg: full_result)
-    monkeypatch.setattr(app, "run_multi", lambda cfg: [
-        {
-            "period": ("2020-01", "2020-12", "2021-01", "2021-12"),
-            "out_ew_stats": {"sharpe": 0.5, "cagr": 0.07},
-            "out_user_stats": {"sharpe": 0.6, "cagr": 0.08},
-        }
-    ])
+    monkeypatch.setattr(
+        app,
+        "run_multi",
+        lambda cfg: [
+            {
+                "period": ("2020-01", "2020-12", "2021-01", "2021-12"),
+                "out_ew_stats": {"sharpe": 0.5, "cagr": 0.07},
+                "out_user_stats": {"sharpe": 0.6, "cagr": 0.08},
+            }
+        ],
+    )
 
     cfg_dict = {"data": {}, "portfolio": {}}
     app._render_run_section(cfg_dict)
@@ -208,7 +214,9 @@ def test_render_run_section_success(monkeypatch):
 def test_render_run_section_failure_message(monkeypatch):
     stub = StubStreamlit()
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
+    monkeypatch.setattr(
+        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
+    )
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
     monkeypatch.setattr(app, "_summarise_run_df", lambda *_: None)
     monkeypatch.setattr(app.pipeline, "run", lambda cfg: None)
