@@ -36,6 +36,20 @@ class TestIsZeroEverywhere:
         assert result is True
         assert isinstance(result, bool)
 
+    def test_numpy_array_and_non_numeric(self):
+        """NumPy arrays use element-wise tolerance; non-numeric raises fallback."""
+
+        array_result = _is_zero_everywhere(np.array([5e-16, -3e-16, 4e-16]))
+        assert array_result is True
+        assert isinstance(array_result, bool)
+
+        class NotNumeric:
+            def __abs__(self) -> int:  # pragma: no cover - invoked indirectly
+                raise TypeError("cannot take abs")
+
+        assert _is_zero_everywhere(NotNumeric()) is False
+        assert _is_zero_everywhere("not-a-number") is False
+
     def test_pandas_series(self):
         """Test _is_zero_everywhere with pandas Series."""
         # Test all-zero series
