@@ -83,7 +83,9 @@ def test_as_datetime_index_retries_after_initial_failure(
         ("custom", None),
     ],
 )
-def test_map_inferred_collapses_known_codes(inferred: str | None, expected: str | None) -> None:
+def test_map_inferred_collapses_known_codes(
+    inferred: str | None, expected: str | None
+) -> None:
     assert freq._map_inferred(inferred) == expected
 
 
@@ -98,7 +100,9 @@ def test_map_inferred_collapses_known_codes(inferred: str | None, expected: str 
         (np.array([150.0, 365.0], dtype=float), "Y"),
     ],
 )
-def test_classify_from_diffs_returns_expected_bucket(diffs: np.ndarray, expected: str) -> None:
+def test_classify_from_diffs_returns_expected_bucket(
+    diffs: np.ndarray, expected: str
+) -> None:
     assert freq._classify_from_diffs(diffs) == expected
 
 
@@ -118,7 +122,9 @@ def test_classify_from_diffs_requires_consensus() -> None:
     ("target_code", "resampled"),
     [("M", False), ("D", True), ("W", True), ("Q", True), ("Y", True)],
 )
-def test_summary_from_code_reflects_resampling(target_code: freq.FrequencyCode, resampled: bool) -> None:
+def test_summary_from_code_reflects_resampling(
+    target_code: freq.FrequencyCode, resampled: bool
+) -> None:
     summary = freq._summary_from_code(target_code)
 
     assert summary.code == target_code
@@ -153,7 +159,9 @@ def test_detect_frequency_defaults_to_monthly_for_single_entry() -> None:
     assert summary.target_label == freq.FREQUENCY_LABELS["M"]
 
 
-def test_detect_frequency_falls_back_when_infer_freq_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_falls_back_when_infer_freq_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     idx = pd.date_range("2024-01-01", periods=6, freq="7D")
 
     def _raise(_idx: pd.DatetimeIndex) -> None:
@@ -180,7 +188,9 @@ def test_detect_frequency_sorts_and_deduplicates_input() -> None:
     assert summary.code == "W"
 
 
-def test_detect_frequency_handles_mapping_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_handles_mapping_to_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     idx = pd.date_range("2024-01-01", periods=4, freq="3D")
 
     monkeypatch.setattr(freq, "_map_inferred", lambda _freq: None)
