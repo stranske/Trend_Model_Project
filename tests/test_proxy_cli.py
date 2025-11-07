@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import runpy
 import sys
 from types import SimpleNamespace
 
@@ -87,3 +88,28 @@ def test_proxy_cli_reports_generic_exception(
     assert exit_code == 1
     assert "Error starting proxy" in captured.err
     assert "boom" in captured.err
+
+
+def test_proxy_cli_module_entrypoint_invokes_sys_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exit_state = SimpleNamespace(code=None)
+
+    def fake_exit(code: int = 0) -> None:
+        exit_state.code = code
+        raise SystemExit(code)
+
+    def fake_run_proxy(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(sys, "exit", fake_exit)
+    monkeypatch.setattr(sys, "argv", ["proxy-cli"])
+    sys.modules.pop("trend_analysis.proxy.cli", None)
+    monkeypatch.setattr("trend_analysis.proxy.server.run_proxy", fake_run_proxy)
+    monkeypatch.setattr(cli.logging, "basicConfig", lambda **_: None)
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("trend_analysis.proxy.cli", run_name="__main__")
+
+    assert excinfo.value.code == 0
+    assert exit_state.code == 0
