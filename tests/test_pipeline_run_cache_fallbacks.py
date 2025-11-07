@@ -157,7 +157,9 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
         )
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *a, **k: pipeline._empty_run_full_result())
+    monkeypatch.setattr(
+        pipeline, "_run_analysis", lambda *a, **k: pipeline._empty_run_full_result()
+    )
 
     cfg = {
         "data": {
@@ -219,9 +221,13 @@ def test_run_full_handles_missing_data_section(monkeypatch: pytest.MonkeyPatch) 
     assert observed["limit"] is None
     assert payload["benchmark_ir"] == {}
 
+
 def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-01", periods=6, freq="D"), "value": np.arange(6)}
+        {
+            "Date": pd.date_range("2020-01-01", periods=6, freq="D"),
+            "value": np.arange(6),
+        }
     ).set_index("Date")
 
     cache = DummyCache()
@@ -238,7 +244,9 @@ def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_preprocessing_summary_monthly_branch() -> None:
-    summary = pipeline._preprocessing_summary("M", normalised=False, missing_summary="ok")
+    summary = pipeline._preprocessing_summary(
+        "M", normalised=False, missing_summary="ok"
+    )
     assert "month-end" in summary
     assert "Missing data" in summary
     daily = pipeline._preprocessing_summary("D", normalised=True, missing_summary=None)
@@ -253,7 +261,13 @@ def test_cfg_section_and_section_get_defaults() -> None:
     assert pipeline._section_get(None, "missing", default="fallback") == "fallback"
     assert pipeline._unwrap_cfg({"__cfg__": {"__cfg__": None}}) == {"__cfg__": None}
     empty = pipeline._empty_run_full_result()
-    assert set(empty) == {"out_sample_stats", "in_sample_stats", "benchmark_ir", "risk_diagnostics", "fund_weights"}
+    assert set(empty) == {
+        "out_sample_stats",
+        "in_sample_stats",
+        "benchmark_ir",
+        "risk_diagnostics",
+        "fund_weights",
+    }
 
 
 def test_derive_split_edge_cases() -> None:
@@ -282,6 +296,7 @@ def test_position_from_signal_tracks_state() -> None:
     assert positions.iloc[2] == pytest.approx(2.0)
     assert positions.iloc[3] == pytest.approx(-2.0)
     assert positions.iloc[4] == pytest.approx(-2.0)
+
 
 def test_policy_from_config_scalar_defaults() -> None:
     policy, limit = pipeline._policy_from_config({})
@@ -355,7 +370,9 @@ class _FailingFreqIndex(pd.DatetimeIndex):
         raise RuntimeError("freq failure")
 
 
-def test_compute_signal_handles_freq_attribute_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_signal_handles_freq_attribute_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     base_index = _FailingFreqIndex(pd.date_range("2020-01-01", periods=5, freq="D"))
     df = pd.DataFrame({"value": np.arange(5)}, index=base_index)
 
@@ -372,7 +389,10 @@ def test_compute_signal_handles_freq_attribute_errors(monkeypatch: pytest.Monkey
 
 def test_compute_signal_without_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
-        {"Date": pd.date_range("2020-01-01", periods=4, freq="D"), "value": [1.0, 2.0, 3.0, 4.0]}
+        {
+            "Date": pd.date_range("2020-01-01", periods=4, freq="D"),
+            "value": [1.0, 2.0, 3.0, 4.0],
+        }
     ).set_index("Date")
 
     class DisabledCache(DummyCache):
@@ -384,7 +404,10 @@ def test_compute_signal_without_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     series = pipeline.compute_signal(df, column="value", window=2, min_periods=1)
     assert series.iloc[-1] != 0.0
 
-def test_run_analysis_rank_branch_with_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+
+def test_run_analysis_rank_branch_with_fallbacks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     df = pd.DataFrame(
         {
@@ -436,8 +459,14 @@ def test_run_analysis_rank_branch_with_fallbacks(monkeypatch: pytest.MonkeyPatch
         )
         return weights, diag
 
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
-    monkeypatch.setattr(pipeline, "compute_trend_signals", lambda *_a, **_k: pd.DataFrame({"FundB": [0.0, 0.0]}))
+    monkeypatch.setattr(
+        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "compute_trend_signals",
+        lambda *_a, **_k: pd.DataFrame({"FundB": [0.0, 0.0]}),
+    )
 
     result = pipeline._run_analysis(
         df,
@@ -502,8 +531,14 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         )
         return weights, diag
 
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
-    monkeypatch.setattr(pipeline, "compute_trend_signals", lambda *_a, **_k: pd.DataFrame({"FundA": [0.0], "FundB": [0.0]}))
+    monkeypatch.setattr(
+        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "compute_trend_signals",
+        lambda *_a, **_k: pd.DataFrame({"FundA": [0.0], "FundB": [0.0]}),
+    )
 
     result = pipeline._run_analysis(
         df,
@@ -519,6 +554,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
 
     assert result is not None
 
+
 def test_prepare_input_data_without_value_columns() -> None:
     df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
     monthly, summary, missing, normalised = pipeline._prepare_input_data(
@@ -532,15 +568,21 @@ def test_prepare_input_data_without_value_columns() -> None:
 
 def test_derive_split_ratio_nan_and_full_window() -> None:
     periods = pd.period_range("2020-01", periods=4, freq="M")
-    result = pipeline._derive_split_from_periods(periods, method="ratio", boundary=None, ratio=float("nan"))
+    result = pipeline._derive_split_from_periods(
+        periods, method="ratio", boundary=None, ratio=float("nan")
+    )
     assert result["in_start"] == "2020-01"
     assert result["out_start"] == "2020-03"
 
-    result_high = pipeline._derive_split_from_periods(periods, method="ratio", boundary=None, ratio=1.0)
+    result_high = pipeline._derive_split_from_periods(
+        periods, method="ratio", boundary=None, ratio=1.0
+    )
     assert result_high["out_start"] == "2020-04"
 
 
-def test_run_analysis_returns_none_when_no_value_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_analysis_returns_none_when_no_value_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     freq_summary = pipeline.FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
     empty_missing = pipeline.MissingPolicyResult(  # type: ignore[attr-defined]
         policy={},
@@ -553,7 +595,9 @@ def test_run_analysis_returns_none_when_no_value_columns(monkeypatch: pytest.Mon
     )
 
     def fake_prepare(*_args, **_kwargs):
-        frame = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
+        frame = pd.DataFrame(
+            {"Date": pd.date_range("2020-01-31", periods=2, freq="ME")}
+        )
         return frame, freq_summary, empty_missing, False
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
