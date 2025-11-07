@@ -1,1 +1,44 @@
 <!-- bootstrap for codex on issue #3364 -->
+
+## Scope
+- Detect when the PR head SHA has not advanced after an agent reports completion during keepalive rounds.
+- Post a visible `/update-branch trace:{TRACE}` command as **stranske** (ACTIONS_BOT_PAT preferred, SERVICE_BOT_PAT fallback) and react with 👀 whenever an unsynced branch is detected.
+- Dispatch the `agents-keepalive-branch-sync.yml` fallback workflow with full metadata when the comment-first path does not land within the short TTL, and poll until the PR head advances or the long TTL expires.
+- Halt further keepalive instructions, apply `agents:sync-required`, and log concise `$GITHUB_STEP_SUMMARY` status when the branch still has not moved after the fallback path.
+- Keep all guardrails (label checks, gate status, run-cap) unchanged while avoiding additional PR noise beyond the command comment (and optional debug escalation).
+
+## Task List
+- [ ] Persist & compare PR head SHA values between keepalive rounds.
+  - [ ] Record `{PR, round, trace, head_sha}` at instruction time (e.g., hidden HTML comment or JSON artifact).
+  - [ ] Read the stored value post-work and compute `unsynced = (previous_head_sha == current_head_sha)`.
+- [ ] Implement the comment-first update command when `unsynced` is true.
+  - [ ] Select ACTIONS_BOT_PAT, falling back to SERVICE_BOT_PAT if required, to author the comment as stranske.
+  - [ ] Post a new PR comment with body exactly `/update-branch trace:{TRACE}` and add an 👀 reaction.
+  - [ ] Append a `$GITHUB_STEP_SUMMARY` entry logging the comment id, URL, author, trace, and round.
+  - [ ] Poll the PR head every 5 seconds up to `TTL_short` (≈60–120s) and mark success (`mode=comment-update-branch`) if the head SHA changes.
+- [ ] Build the fallback dispatch path when the PR head remains unchanged after `TTL_short`.
+  - [ ] Ensure the orchestrator job has permissions `actions: write`, `contents: read`, and `pull-requests: write`.
+  - [ ] Trigger `agents-keepalive-branch-sync.yml` via `createWorkflowDispatch`, passing `pr_number`, `trace`, `base_ref`, `head_ref`, `head_sha`, `agent`, `round`, `comment_id`, `comment_url`, and an idempotency key (trace is sufficient).
+  - [ ] Authenticate the dispatch with ACTIONS_BOT_PAT.
+  - [ ] Log the dispatch (status code, workflow file, trace, run URL when available) to `$GITHUB_STEP_SUMMARY`.
+- [ ] Monitor for branch advancement or timeout after the fallback dispatch.
+  - [ ] Continue polling the PR head up to `TTL_long` (≈2–5 minutes) and on success log `mode=action-sync-pr` plus the merged commit SHA.
+  - [ ] If the head is still unchanged at `TTL_long`, apply the `agents:sync-required` label, suppress the next keepalive instruction, and record `reason=sync-timeout trace:{TRACE}` in the summary (optionally emit a one-line debug comment only when `agents:debug` is present).
+- [ ] Guarantee idempotency and no-noise safeguards.
+  - [ ] Treat `{PR, round, trace}` as the idempotency key so duplicate runs do not re-post comments or re-dispatch the workflow.
+  - [ ] Ensure all negative guardrail failures (labels missing, gate incomplete, run cap reached) produce summary-only logs with no PR comments.
+
+## Acceptance Criteria
+- [ ] On a test PR carrying `agents:keepalive` + `agent:codex`, when an agent finishes but the head SHA is unchanged, a new comment authored by stranske appears with body `/update-branch trace:{TRACE}` and an 👀 reaction.
+- [ ] If the head moves within `TTL_short`, the orchestrator summary records `mode=comment-update-branch`, and the next keepalive instruction proceeds.
+- [ ] If the head does **not** move within `TTL_short`, the Actions UI shows a run of **Keepalive Branch Sync**, and the summary logs `dispatched=keepalive-branch-sync`, the HTTP status, and the trace identifier.
+- [ ] After the fallback completes successfully, the PR head SHA changes within `TTL_long`, the summary records `mode=action-sync-pr` with the merged SHA, and keepalive continues.
+- [ ] If neither path advances the branch within `TTL_long`, the automation applies `agents:sync-required`, posts no new instruction, and the summary notes `reason=sync-timeout trace:{TRACE}`.
+- [ ] Re-running the same `{PR, round, trace}` key never emits duplicate comments or dispatches.
+- [ ] Guardrail failures (missing labels, Gate incomplete, run cap exceeded) remain PR-noise free and surface only in `$GITHUB_STEP_SUMMARY`.
+
+## Implementation Notes
+- Use ACTIONS_BOT_PAT whenever possible for both commenting and workflow dispatch; fall back to SERVICE_BOT_PAT solely for the comment command when needed.
+- Restrict execution to origin-repo PRs and mask tokens in logs; avoid introducing new secrets.
+- Store previous head SHAs via hidden PR comments (e.g., `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->`) or durable artifacts and read them safely before comparisons.
+- Keep logging concise—limit PR chatter to the `/update-branch` command (and optional debug escalation) while writing detailed traces to `$GITHUB_STEP_SUMMARY`.
