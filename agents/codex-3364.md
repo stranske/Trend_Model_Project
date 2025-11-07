@@ -45,4 +45,5 @@
 
 ## Progress Tracker
 - **Current status:** No tasks or acceptance criteria have been satisfied yet; all scope items remain open for implementation.
-- **Next step:** Begin persisting and comparing PR head SHA values between keepalive rounds so downstream actions can be exercised.
+- **In progress:** Drafting the persistence approach for `{PR, round, trace, head_sha}` by embedding a hidden HTML comment (`<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->`) and outlining the companion reader that will detect unchanged heads without producing PR noise.
+- **Next step:** Finalize the read/write helpers for the stored head SHA so the comment-first update logic can be exercised on a fixture PR.
