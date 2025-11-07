@@ -1,5 +1,7 @@
 # Keepalive Sync Checklist
 
+> **Always review the canonical contract in [`GoalsAndPlumbing.md`](GoalsAndPlumbing.md) before applying these recovery steps.**
+
 Automation agents must consult this document whenever work touches the keepalive reconciliation path. It records the guardrails
 for recovering when a Codex round reports "done" but no commit lands on the PR branch.
 
