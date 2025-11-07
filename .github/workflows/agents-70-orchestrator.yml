@@ -934,118 +934,8 @@ jobs:
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
-      - name: Evaluate keepalive gate before instruction
-        id: gate_check
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
-
-            const normalise = (value) => String(value || '').trim();
-            const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
-
-            const setDefaultOutputs = () => {
-              core.setOutput('ok', 'false');
-              core.setOutput('reason', 'missing-pr-number');
-              core.setOutput('agent_alias', '');
-              core.setOutput('run_cap', '');
-              core.setOutput('active_runs', '');
-              core.setOutput('head_sha', '');
-              core.setOutput('pr_number', normalise(process.env.PR_NUMBER));
-              core.setOutput('has_keepalive_label', 'false');
-              core.setOutput('has_activated_label', 'false');
-              core.setOutput('has_human_activation', 'false');
-              core.setOutput('gate_succeeded', 'false');
-              core.setOutput('pending_gate', 'false');
-            };
-
-            if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              setDefaultOutputs();
-              core.info('Keepalive gate skipped: PR number unavailable.');
-              return;
-            }
-
-            const result = await evaluateKeepaliveGate({
-              core,
-              github,
-              context,
-              options: {
-                prNumber,
-                requireHumanActivation: false,
-                currentRunId: context.runId,
-                allowPendingGate: true,
-              },
-            });
-
-            const bool = (value) => (value ? 'true' : 'false');
-            const proceed = Boolean(result.ok && !result.pendingGate);
-            core.setOutput('ok', bool(proceed));
-            core.setOutput('reason', result.reason || '');
-            core.setOutput('agent_alias', result.primaryAgent || '');
-            core.setOutput('run_cap', String(result.runCap ?? ''));
-            core.setOutput('active_runs', String(result.activeRuns ?? ''));
-            core.setOutput('head_sha', result.headSha || '');
-            core.setOutput('pr_number', String(prNumber));
-            core.setOutput('has_keepalive_label', bool(result.hasKeepaliveLabel));
-            core.setOutput('has_activated_label', bool(result.hasActivatedLabel));
-            core.setOutput('has_human_activation', bool(result.hasHumanActivation));
-            core.setOutput('gate_succeeded', bool(result.gateSucceeded));
-            core.setOutput('pending_gate', bool(result.pendingGate));
-
-            if (proceed) {
-              core.info('Keepalive gate satisfied; proceeding with instruction.');
-            } else {
-              core.info(`Keepalive gate blocked instruction: ${result.reason || 'unspecified'}`);
-            }
-
-      - name: Record instruction gate summary
-        run: |
-          set -euo pipefail
-          ok="${OK:-false}"
-          pending="${PENDING:-false}"
-          reason="${REASON:-unspecified}"
-          pr_num="${PR_NUMBER:-}"
-          if [[ -n "${pr_num}" ]]; then
-            pr_value="#${pr_num}"
-          else
-            pr_value="#?"
-          fi
-          agent="${AGENT_ALIAS:-codex}"
-          if [[ -z "${agent}" ]]; then
-            agent='?'
-          fi
-          cap="${RUN_CAP:-}"
-          if [[ -z "${cap}" ]]; then
-            cap='?'
-          fi
-          active="${ACTIVE_RUNS:-}"
-          if [[ -z "${active}" ]]; then
-            active='0'
-          fi
-          head="${HEAD_SHA:-}"
-          if [[ -n "${head}" ]]; then
-            head="${head:0:7}"
-          else
-            head='unknown'
-          fi
-          printf 'GATE: ok=%s pending=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${pending}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
-        env:
-          OK: ${{ steps.gate_check.outputs.ok || 'false' }}
-          PENDING: ${{ steps.gate_check.outputs.pending_gate || 'false' }}
-          REASON: ${{ steps.gate_check.outputs.reason || 'unspecified' }}
-          PR_NUMBER: ${{ steps.gate_check.outputs.pr_number || '' }}
-          AGENT_ALIAS: ${{ steps.gate_check.outputs.agent_alias || '' }}
-          RUN_CAP: ${{ steps.gate_check.outputs.run_cap || '2' }}
-          ACTIVE_RUNS: ${{ steps.gate_check.outputs.active_runs || '0' }}
-          HEAD_SHA: ${{ steps.gate_check.outputs.head_sha || '' }}
-
       - name: Prepare keepalive instruction
         id: prepare
-        if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
@@ -1053,7 +943,7 @@ jobs:
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
-          AGENT_ALIAS: ${{ steps.gate_check.outputs.agent_alias || needs.keepalive-guard.outputs.agent_alias }}
+          AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
@@ -1136,7 +1026,6 @@ jobs:
 
       - name: Capture keepalive head snapshot
         id: snapshot
-        if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1167,7 +1056,6 @@ jobs:
 
       - name: Create keepalive instruction comment
         id: post
-        if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1201,7 +1089,6 @@ jobs:
 
       - name: Ack keepalive instruction
         id: ack
-        if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1248,7 +1135,7 @@ jobs:
             core.setOutput('acknowledged', acknowledged ? 'true' : 'false');
 
       - name: Emit fallback dispatch
-        if: steps.gate_check.outputs.ok == 'true' && steps.ack.outputs.acknowledged != 'true' && steps.prepare.outputs.actions_available == 'true'
+        if: steps.ack.outputs.acknowledged != 'true' && steps.prepare.outputs.actions_available == 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1326,7 +1213,7 @@ jobs:
             });
 
       - name: Post fallback comment
-        if: steps.gate_check.outputs.ok == 'true' && steps.ack.outputs.acknowledged != 'true'
+        if: steps.ack.outputs.acknowledged != 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1351,7 +1238,6 @@ jobs:
             });
 
       - name: Summarise keepalive instruction
-        if: steps.gate_check.outputs.ok == 'true'
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ## Keepalive instruction
