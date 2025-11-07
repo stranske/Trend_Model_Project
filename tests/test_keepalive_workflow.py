@@ -125,7 +125,7 @@ def _assert_single_dispatch(
 
 
 def _assert_keepalive_authors(
-    comments: list[dict], expected_login: str = "stranske-automation-bot"
+    comments: list[dict], expected_login: str = "stranske"
 ) -> None:
     for comment in comments:
         assert comment["user"]["login"] == expected_login

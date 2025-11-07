@@ -91,6 +91,18 @@ function parseAgentState(env) {
   return { done: false, value: '' };
 }
 
+function selectPreferredToken(env) {
+  const actionsToken = normalise(env.ACTIONS_BOT_PAT);
+  if (actionsToken) {
+    return { source: 'ACTIONS_BOT_PAT', token: actionsToken };
+  }
+  const serviceToken = normalise(env.SERVICE_BOT_PAT);
+  if (serviceToken) {
+    return { source: 'SERVICE_BOT_PAT', token: serviceToken };
+  }
+  return { source: 'none', token: '' };
+}
+
 function extractAgentAliasFromLabels(labels, fallback = 'codex') {
   const names = extractLabelNames(labels);
   for (const name of names) {
