@@ -456,6 +456,21 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const gateSucceeded = gateStatus.success === true;
 
   const runCap = parseRunCap(labels);
+  const workflowCandidates = new Set();
+  if (Array.isArray(workflowFile)) {
+    for (const candidate of workflowFile) {
+      if (candidate) {
+        workflowCandidates.add(candidate);
+      }
+    }
+  } else if (workflowFile) {
+    workflowCandidates.add(workflowFile);
+  }
+  workflowCandidates.add(ORCHESTRATOR_WORKFLOW_FILE);
+  workflowCandidates.add(WORKER_WORKFLOW_FILE);
+
+  const workflowList = Array.from(workflowCandidates);
+
   const { activeRuns, error: runError } = await countActiveRuns({
     github,
     owner,
@@ -464,9 +479,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     currentRunId,
-    workflowFile: Array.isArray(workflowFile)
-      ? workflowFile
-      : [workflowFile, WORKER_WORKFLOW_FILE],
+    workflowFile: workflowList,
   });
   if (runError) {
     core.warning(`Unable to count active orchestrator runs: ${runError}`);
