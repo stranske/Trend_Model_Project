@@ -1,16 +1,11 @@
 'use strict';
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
-const ACTIVATED_LABEL = 'agents:activated';
 const AGENT_LABEL_PREFIX = 'agent:';
 const MAX_RUNS_PREFIX = 'agents:max-runs:';
 const SYNC_REQUIRED_LABEL = 'agents:sync-required';
 const DEFAULT_RUN_CAP = 2;
-const MIN_RUN_CAP = 1;
-const MAX_RUN_CAP = 5;
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
-const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
-const GATE_WORKFLOW_FILE = 'pr-00-gate.yml';
 
 function normaliseLabelName(name) {
   return String(name || '')
@@ -61,11 +56,8 @@ function parseRunCap(labels) {
     }
     const value = name.slice(MAX_RUNS_PREFIX.length).trim();
     const parsed = Number.parseInt(value, 10);
-    if (Number.isFinite(parsed)) {
-      const clamped = Math.min(MAX_RUN_CAP, Math.max(MIN_RUN_CAP, parsed));
-      if (clamped > 0) {
-        return clamped;
-      }
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
     }
   }
   return DEFAULT_RUN_CAP;
@@ -114,51 +106,16 @@ function hasHumanMention(comment, patterns) {
   return patterns.some((pattern) => pattern.test(body));
 }
 
-function normaliseTimestamp(value) {
-  if (!value) {
-    return 0;
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return 0;
-  }
-  return parsed;
-}
-
-function selectLatestComment(current, candidate) {
-  if (!candidate || !candidate.id) {
-    return current;
-  }
-  if (!current) {
-    return candidate;
-  }
-  const currentTime = normaliseTimestamp(current.updated_at || current.created_at);
-  const candidateTime = normaliseTimestamp(candidate.updated_at || candidate.created_at);
-  if (candidateTime >= currentTime) {
-    return candidate;
-  }
-  return current;
-}
-
 async function detectHumanActivation({ github, owner, repo, prNumber, aliases, comments }) {
   if (!Array.isArray(aliases) || aliases.length === 0) {
-    return null;
+    return false;
   }
   const patterns = buildMentionPatterns(aliases);
-  let latest = null;
-
-  const considerComment = (comment) => {
-    if (!comment) {
-      return;
-    }
-    if (hasHumanMention(comment, patterns)) {
-      latest = selectLatestComment(latest, comment);
-    }
-  };
-
   if (Array.isArray(comments) && comments.length > 0) {
     for (const comment of comments) {
-      considerComment(comment);
+      if (hasHumanMention(comment, patterns)) {
+        return true;
+      }
     }
   }
 
@@ -175,90 +132,33 @@ async function detectHumanActivation({ github, owner, repo, prNumber, aliases, c
       continue;
     }
     for (const comment of entries) {
-      considerComment(comment);
+      if (hasHumanMention(comment, patterns)) {
+        return true;
+      }
     }
   }
 
-  return latest;
-}
-
-function sanitiseComment(comment) {
-  if (!comment || typeof comment !== 'object') {
-    return null;
-  }
-  const idRaw = comment.id;
-  const id = idRaw === undefined || idRaw === null ? '' : String(idRaw);
-  const htmlUrl = typeof comment.html_url === 'string' ? comment.html_url : '';
-  const userLogin = typeof comment?.user?.login === 'string' ? comment.user.login : '';
-  const userType = typeof comment?.user?.type === 'string' ? comment.user.type : '';
-  return {
-    id,
-    body: typeof comment.body === 'string' ? comment.body : '',
-    html_url: htmlUrl,
-    user: userLogin
-      ? {
-          login: userLogin,
-          type: userType,
-        }
-      : null,
-    created_at: comment.created_at || '',
-    updated_at: comment.updated_at || '',
-  };
+  return false;
 }
 
 async function fetchGateStatus({ github, owner, repo, headSha }) {
-  const normalisedSha = String(headSha || '').trim();
-  if (!normalisedSha) {
-    return { found: false, success: false, status: '', conclusion: '' };
+  if (!headSha) {
+    return { concluded: false };
   }
-
   try {
-    const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+    const runs = await github.paginate(github.rest.checks.listForRef, {
       owner,
       repo,
-      workflow_id: GATE_WORKFLOW_FILE,
-      head_sha: normalisedSha,
+      ref: headSha,
+      check_name: 'Gate',
+      status: 'completed',
       per_page: 100,
     });
-
-    let latestRun = null;
-    for (const run of runs) {
-      if (!run) {
-        continue;
-      }
-      const runSha = String(run.head_sha || '').trim();
-      if (runSha && runSha !== normalisedSha) {
-        continue;
-      }
-      if (!latestRun) {
-        latestRun = run;
-        continue;
-      }
-      const existingTime = normaliseTimestamp(latestRun.created_at || latestRun.run_started_at);
-      const candidateTime = normaliseTimestamp(run.created_at || run.run_started_at);
-      if (candidateTime >= existingTime) {
-        latestRun = run;
-      }
-    }
-
-    if (!latestRun) {
-      return { found: false, success: false, status: '', conclusion: '' };
-    }
-
-    const status = String(latestRun.status || '').toLowerCase();
-    const conclusion = String(latestRun.conclusion || '').toLowerCase();
-    const success = status === 'completed' && conclusion === 'success';
-
-    return {
-      found: true,
-      success,
-      status,
-      conclusion,
-      run: latestRun,
-    };
+    const concluded = runs.some((run) => String(run?.status || '').toLowerCase() === 'completed');
+    return { concluded };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { found: false, success: false, status: '', conclusion: '', error: message };
+    return { concluded: false, error: message };
   }
 }
 
@@ -274,10 +174,6 @@ async function countActiveRuns({
 }) {
   const statuses = ['queued', 'in_progress'];
   let activeRuns = 0;
-
-  const workflowIds = Array.isArray(workflowFile)
-    ? workflowFile.filter(Boolean)
-    : [workflowFile].filter(Boolean);
 
   const isSameRun = (run) => {
     if (!currentRunId) {
@@ -312,31 +208,26 @@ async function countActiveRuns({
     return false;
   };
 
-  for (const workflowId of workflowIds) {
-    if (!workflowId) {
-      continue;
-    }
-    for (const status of statuses) {
-      try {
-        const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
-          owner,
-          repo,
-          workflow_id: workflowId,
-          status,
-          per_page: 100,
-        });
-        for (const run of runs) {
-          if (isSameRun(run)) {
-            continue;
-          }
-          if (matchesPull(run)) {
-            activeRuns += 1;
-          }
+  for (const status of statuses) {
+    try {
+      const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+        owner,
+        repo,
+        workflow_id: workflowFile,
+        status,
+        per_page: 100,
+      });
+      for (const run of runs) {
+        if (isSameRun(run)) {
+          continue;
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return { activeRuns, error: message };
+        if (matchesPull(run)) {
+          activeRuns += 1;
+        }
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { activeRuns, error: message };
     }
   }
 
@@ -416,19 +307,14 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const labels = Array.isArray(pr?.labels) ? pr.labels : [];
   const labelNames = extractLabelNames(labels);
   const hasKeepaliveLabel = labelNames.includes(KEEPALIVE_LABEL);
-  const hasActivatedLabel = labelNames.includes(ACTIVATED_LABEL);
   const hasSyncRequiredLabel = labelNames.includes(SYNC_REQUIRED_LABEL);
   const agentAliases = extractAgentAliases(labels);
   const primaryAgent = agentAliases[0] || '';
 
   let humanActivation = false;
-  let activationComment = null;
-  const shouldCheckHumanActivation = hasKeepaliveLabel && agentAliases.length > 0;
-  const requireHuman = Boolean(requireHumanActivation) && !hasActivatedLabel;
-
-  if (shouldCheckHumanActivation && (requireHuman || !hasActivatedLabel)) {
+  if (hasKeepaliveLabel && agentAliases.length > 0) {
     try {
-      activationComment = await detectHumanActivation({
+      humanActivation = await detectHumanActivation({
         github,
         owner,
         repo,
@@ -436,7 +322,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
         aliases: agentAliases,
         comments,
       });
-      humanActivation = Boolean(activationComment);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       core.warning(`Failed to evaluate human activation comments: ${message}`);
@@ -444,35 +329,17 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     }
   }
 
-  const gateStatus = await fetchGateStatus({
+  const { concluded: gateConcluded, error: gateError } = await fetchGateStatus({
     github,
     owner,
     repo,
     headSha,
   });
-  if (gateStatus.error) {
-    core.warning(`Gate status check failed: ${gateStatus.error}`);
+  if (gateError) {
+    core.warning(`Gate status check failed: ${gateError}`);
   }
-
-  const gateConcluded = gateStatus.status === 'completed';
-  const gateSucceeded = gateStatus.success === true;
 
   const runCap = parseRunCap(labels);
-  const workflowCandidates = new Set();
-  if (Array.isArray(workflowFile)) {
-    for (const candidate of workflowFile) {
-      if (candidate) {
-        workflowCandidates.add(candidate);
-      }
-    }
-  } else if (workflowFile) {
-    workflowCandidates.add(workflowFile);
-  }
-  workflowCandidates.add(ORCHESTRATOR_WORKFLOW_FILE);
-  workflowCandidates.add(WORKER_WORKFLOW_FILE);
-
-  const workflowList = Array.from(workflowCandidates);
-
   const { activeRuns, error: runError } = await countActiveRuns({
     github,
     owner,
@@ -481,7 +348,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     currentRunId,
-    workflowFile: workflowList,
+    workflowFile,
   });
   if (runError) {
     core.warning(`Unable to count active orchestrator runs: ${runError}`);
@@ -489,8 +356,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const underRunCap = activeRuns < runCap;
 
   let ok = true;
-  let reason = 'ok';
-  let pendingGate = false;
+  let reason = '';
 
   if (hasSyncRequiredLabel) {
     ok = false;
@@ -498,29 +364,13 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   } else if (!hasKeepaliveLabel) {
     ok = false;
     reason = 'keepalive-label-missing';
-  } else if (requireHuman && !humanActivation) {
+  } else if (requireHumanActivation && !humanActivation) {
     ok = false;
     reason = 'no-human-activation';
-  } 
-
-  if (requireGateSuccess) {
-    if (!gateStatus.found) {
-      if (allowPendingGate) {
-        pendingGate = true;
-        if (reason === 'ok') {
-          reason = 'gate-pending';
-        }
-      } else {
-        ok = false;
-        reason = 'gate-run-missing';
-      }
-    } else if (!gateSucceeded) {
-      ok = false;
-      reason = 'gate-not-success';
-    }
-  }
-
-  if (ok && !underRunCap) {
+  } else if (!gateConcluded) {
+    ok = false;
+    reason = 'gate-not-concluded';
+  } else if (!underRunCap) {
     ok = false;
     reason = 'run-cap-reached';
   }
@@ -531,7 +381,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     hasKeepaliveLabel,
     hasHumanActivation: humanActivation,
     gateConcluded,
-    gateSucceeded,
     underRunCap,
     runCap,
     activeRuns,
@@ -540,11 +389,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     hasSyncRequiredLabel,
-    hasActivatedLabel,
-    requireHumanActivation: requireHuman,
-    activationComment: sanitiseComment(activationComment),
-    gateStatus,
-    pendingGate,
   };
 }
 
