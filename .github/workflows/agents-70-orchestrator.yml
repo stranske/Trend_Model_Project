@@ -960,6 +960,7 @@ jobs:
               core.setOutput('has_activated_label', 'false');
               core.setOutput('has_human_activation', 'false');
               core.setOutput('gate_succeeded', 'false');
+              core.setOutput('pending_gate', 'false');
             };
 
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -976,11 +977,13 @@ jobs:
                 prNumber,
                 requireHumanActivation: false,
                 currentRunId: context.runId,
+                allowPendingGate: true,
               },
             });
 
             const bool = (value) => (value ? 'true' : 'false');
-            core.setOutput('ok', bool(result.ok));
+            const proceed = Boolean(result.ok && !result.pendingGate);
+            core.setOutput('ok', bool(proceed));
             core.setOutput('reason', result.reason || '');
             core.setOutput('agent_alias', result.primaryAgent || '');
             core.setOutput('run_cap', String(result.runCap ?? ''));
@@ -991,8 +994,9 @@ jobs:
             core.setOutput('has_activated_label', bool(result.hasActivatedLabel));
             core.setOutput('has_human_activation', bool(result.hasHumanActivation));
             core.setOutput('gate_succeeded', bool(result.gateSucceeded));
+            core.setOutput('pending_gate', bool(result.pendingGate));
 
-            if (result.ok) {
+            if (proceed) {
               core.info('Keepalive gate satisfied; proceeding with instruction.');
             } else {
               core.info(`Keepalive gate blocked instruction: ${result.reason || 'unspecified'}`);
@@ -1002,6 +1006,7 @@ jobs:
         run: |
           set -euo pipefail
           ok="${OK:-false}"
+          pending="${PENDING:-false}"
           reason="${REASON:-unspecified}"
           pr_num="${PR_NUMBER:-}"
           if [[ -n "${pr_num}" ]]; then
@@ -1027,10 +1032,11 @@ jobs:
           else
             head='unknown'
           fi
-          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
+          printf 'GATE: ok=%s pending=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+            "${ok}" "${pending}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
         env:
           OK: ${{ steps.gate_check.outputs.ok || 'false' }}
+          PENDING: ${{ steps.gate_check.outputs.pending_gate || 'false' }}
           REASON: ${{ steps.gate_check.outputs.reason || 'unspecified' }}
           PR_NUMBER: ${{ steps.gate_check.outputs.pr_number || '' }}
           AGENT_ALIAS: ${{ steps.gate_check.outputs.agent_alias || '' }}

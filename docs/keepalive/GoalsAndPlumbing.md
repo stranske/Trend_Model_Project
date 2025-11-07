@@ -4,6 +4,7 @@
 
 ## Quick Navigation
 - [Purpose & Scope](#purpose--scope)
+- [Lifecycle Overview](#lifecycle-overview)
 - [1. Activation Guardrails (Round 0 → 1)](#1-activation-guardrails-round-0--1)
 - [2. Repeat Contract (Round N → N+1)](#2-repeat-contract-round-n--n1)
 - [3. Run Cap Enforcement](#3-run-cap-enforcement)
@@ -23,6 +24,16 @@
 - **Purpose:** Maintain a safe, iterative loop where keepalive nudges an agent through small, verifiable increments on a PR until every acceptance criterion is complete—while guaranteeing predictable behaviour and safety rails.
 - **Scope:** Activation requirements, dispatch plumbing, throttling, branch-sync guarantees, and shutdown rules for the GitHub PR keepalive workflow.
 - **Non-goals:** Guidance for automation unrelated to keepalive.
+
+---
+
+## Lifecycle Overview
+
+1. **Human kickoff:** A maintainer @mentions the active agent, which primes the orchestrator to watch the PR.
+2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, human activation, and run-cap capacity before any instruction posts.
+3. **Timed repeats:** Subsequent scheduled sweeps rerun the guardrails (including Gate completion) and only dispatch when the contract still holds.
+4. **Definition of done:** As soon as the acceptance criteria are all checked complete, keepalive posts no further rounds and removes the `agents:keepalive` label.
+5. **Suspend on label change:** If the label disappears or the guardrails fail mid-run, the workflow records the skip reason and stays silent until a human re-applies `agents:keepalive` and restores the prerequisites.
 
 ---
 
@@ -56,7 +67,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 
 ## 4. Pause & Stop Controls
 
-- Removing `agents:keepalive` halts new instructions and dispatches until the label is re-applied and all guardrails pass again.
+- Removing `agents:keepalive` halts new instructions and dispatches until the label is re-applied and all guardrails pass again. The orchestrator records the skip reason but emits no PR comments while the label is missing.
 - Respect the stronger `agents:pause` label, which blocks *all* keepalive activity, including fallback automation.
 
 ---
@@ -122,7 +133,7 @@ Before the next round begins:
 ## 10. Restart & Success Conditions
 
 - Removing and re-applying `agents:keepalive` restarts the workflow once the activation guardrails pass again.
-- Keepalive stands down when **all acceptance criteria are checked complete**. Optionally remove `agents:keepalive` and add `agents:done` at that point.
+- Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator removes `agents:keepalive`, may add `agents:done`, and stops issuing further rounds.
 
 ---
 
