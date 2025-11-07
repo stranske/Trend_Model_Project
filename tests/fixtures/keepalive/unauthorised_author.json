@@ -11,7 +11,7 @@
   "pulls": [
     {
       "number": 313,
-      "labels": ["agent:codex"],
+  "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},

@@ -39,6 +39,7 @@ STDLIB_MODULES = {
     "fractions",
     "functools",
     "glob",
+    "gc",
     "hashlib",
     "importlib",
     "inspect",

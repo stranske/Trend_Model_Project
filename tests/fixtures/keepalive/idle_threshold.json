@@ -8,7 +8,7 @@
   "pulls": [
     {
       "number": 101,
-      "labels": ["agent:codex"],
+  "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
@@ -24,7 +24,7 @@
     },
     {
       "number": 202,
-      "labels": ["agent:codex"],
+  "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
@@ -40,7 +40,7 @@
     },
     {
       "number": 303,
-      "labels": ["agent:codex"],
+  "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
