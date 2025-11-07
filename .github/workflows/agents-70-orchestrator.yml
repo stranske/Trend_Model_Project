@@ -1122,7 +1122,7 @@ jobs:
               }
               const summarySection = summaryMatch[1];
               const sectionFor = (heading) => {
-                const pattern = new RegExp(`####\s+${heading}\s+([\\s\\S]*?)(?=####\s+|$)`, 'i');
+                const pattern = new RegExp(`####\\s*${heading}\\s*([\\s\\S]*?)(?=####\\s*|$)`, 'i');
                 const match = summarySection.match(pattern);
                 if (!match) {
                   return '';
