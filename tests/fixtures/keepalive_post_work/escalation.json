@@ -3,12 +3,6 @@
   "issueNumber": 404,
   "headSequence": ["sha0", "sha0", "sha0", "sha0"],
   "labelsSequence": [["agents:keepalive", "agent:codex", "agents:debug"]],
-  "createPr": {
-    "listResponses": [
-      [],
-      []
-    ]
-  },
   "env": {
     "TRACE": "trace-escalate",
     "ROUND": "4",

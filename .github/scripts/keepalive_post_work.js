@@ -38,18 +38,6 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-function parseLoginList(value) {
-  const raw = normalise(value);
-  if (!raw) {
-    return [];
-  }
-  return raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => entry.replace(/\[bot\]$/i, '').toLowerCase());
-}
-
 async function delay(ms) {
   if (ms <= 0) {
     return;
@@ -103,22 +91,6 @@ function parseAgentState(env) {
   return { done: false, value: '' };
 }
 
-function selectPreferredToken(env) {
-  const actionsToken = normalise(env.ACTIONS_BOT_PAT);
-  if (actionsToken) {
-    return { source: 'ACTIONS_BOT_PAT', token: actionsToken };
-  }
-  const serviceToken = normalise(env.SERVICE_BOT_PAT);
-  if (serviceToken) {
-    return { source: 'SERVICE_BOT_PAT', token: serviceToken };
-  }
-  const githubToken = normalise(env.GITHUB_TOKEN);
-  if (githubToken) {
-    return { source: 'GITHUB_TOKEN', token: githubToken };
-  }
-  return { source: 'GITHUB_TOKEN', token: '' };
-}
-
 function extractAgentAliasFromLabels(labels, fallback = 'codex') {
   const names = extractLabelNames(labels);
   for (const name of names) {
@@ -132,39 +104,6 @@ function extractAgentAliasFromLabels(labels, fallback = 'codex') {
   return fallback;
 }
 
-async function findExistingCommandComment({ github, owner, repo, prNumber, body, core }) {
-  if (!github?.rest?.issues?.listComments) {
-    return null;
-  }
-  const targetBody = normalise(body);
-  if (!targetBody) {
-    return null;
-  }
-
-  try {
-    const comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number: prNumber,
-      per_page: 100,
-    });
-    for (const comment of comments) {
-      if (!comment) {
-        continue;
-      }
-      const candidateBody = normalise(comment.body);
-      if (candidateBody === targetBody) {
-        return comment;
-      }
-    }
-  } catch (error) {
-    // Surface via warning but do not block execution.
-    const message = error instanceof Error ? error.message : String(error);
-    core?.warning?.(`Unable to scan for existing command comment: ${message}`);
-  }
-  return null;
-}
-
 function computeIdempotencyKey(prNumber, round, trace) {
   const safeTrace = normalise(trace) || 'trace-missing';
   const safeRound = normalise(round) || '?';
@@ -172,8 +111,6 @@ function computeIdempotencyKey(prNumber, round, trace) {
   return `${safePr}/${safeRound}#${safeTrace}`;
 }
 
-const DEFAULT_SYNC_WORKFLOW_FILE = 'agents-keepalive-branch-sync.yml';
-const SYNC_BRANCH_PREFIX = 'sync/codex-';
 
 function extractLabelNames(labels) {
   if (!Array.isArray(labels)) {
@@ -253,66 +190,6 @@ async function pollForHeadChange({
   return { changed: false, headSha: lastSha, attempts, elapsedMs: Date.now() - start };
 }
 
-async function findConnectorPr({
-  github,
-  owner,
-  repo,
-  baseBranch,
-  headPrefix,
-  automationLogins,
-  since,
-}) {
-  const candidates = await github.paginate(github.rest.pulls.list, {
-    owner,
-    repo,
-    state: 'open',
-    per_page: 50,
-  });
-
-  const lowerAutomation = new Set(
-    (automationLogins || []).map((login) => login.replace(/\[bot\]$/i, '').toLowerCase())
-  );
-
-  const normalisedBase = normalise(baseBranch);
-  const prefixLower = normaliseLower(headPrefix);
-  const sinceMs = Number.isFinite(since) ? since : 0;
-
-  const filtered = candidates
-    .filter((pr) => {
-      if (!pr || !pr.base || !pr.user) {
-        return false;
-      }
-      const baseRef = normalise(pr.base.ref);
-      if (normalisedBase && baseRef !== normalisedBase) {
-        return false;
-      }
-      if (prefixLower) {
-        const headRef = normaliseLower(pr?.head?.ref);
-        if (!headRef || !headRef.startsWith(prefixLower)) {
-          return false;
-        }
-      }
-      const login = normaliseLower(pr.user.login.replace(/\[bot\]$/i, ''));
-      if (lowerAutomation.size > 0 && !lowerAutomation.has(login)) {
-        return false;
-      }
-      if (sinceMs > 0) {
-        const createdAt = new Date(pr.created_at || '').getTime();
-        if (Number.isFinite(createdAt) && createdAt + 1000 < sinceMs) {
-          return false;
-        }
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const aTime = new Date(a?.created_at || 0).getTime();
-      const bTime = new Date(b?.created_at || 0).getTime();
-      return bTime - aTime;
-    });
-
-  return filtered.length > 0 ? filtered[0] : null;
-}
-
 function buildSummaryRecorder(summary) {
   const rows = [];
   const record = (step, outcome) => {
@@ -362,17 +239,12 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const commentId = parseNumber(env.COMMENT_ID, NaN, { min: 1 });
   const commentUrl = normalise(env.COMMENT_URL);
   const agentAliasEnv = normalise(env.AGENT_ALIAS) || 'codex';
-  const automationLogins = parseLoginList(env.AUTOMATION_LOGINS || 'stranske-automation-bot');
-  const mergeMethod = normalise(env.MERGE_METHOD) || 'squash';
-  const deleteTempBranch = parseBoolean(env.DELETE_TEMP_BRANCH, true);
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
   const ttlShort = parseNumber(env.TTL_SHORT_MS, 90_000, { min: 0 });
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
   const pollLong = parseNumber(env.POLL_LONG_MS, 5_000, { min: 0 });
-  const syncWorkflowFile = normalise(env.SYNC_WORKFLOW) || DEFAULT_SYNC_WORKFLOW_FILE;
-  const syncWorkflowRefOverride = normalise(env.SYNC_WORKFLOW_REF);
 
   const { owner, repo } = context.repo || {};
   if (!owner || !repo) {
@@ -455,7 +327,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   let success = false;
   let finalHead = initialHead;
   let mode = 'none';
-  let commandCommentId = Number.isFinite(commentId) ? Number(commentId) : undefined;
 
   if (baselineHead) {
     const pollResult = await pollForHeadChange({
@@ -478,217 +349,100 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     record('Initial poll', 'Baseline head unavailable; skipping initial wait.');
   }
 
-  const tokenSelection = selectPreferredToken(env);
-  record(
-    'Token selection',
-    tokenSelection.token ? tokenSelection.source : `${tokenSelection.source} (value missing)`
-  );
-  core?.setOutput?.('token_source', tokenSelection.source);
+  const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
+  const connectorIssue = Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber;
+  const commentNumericId = Number.isFinite(commentId) ? Number(commentId) : undefined;
 
-  const commandBody = `/update-branch trace:${trace || 'trace-missing'}`;
+  const connectorDispatch = async (action, label) => {
+    if (!github?.rest?.repos?.createDispatchEvent) {
+      record(label, 'GitHub client missing repository dispatch API; skipped.');
+      return { dispatched: false };
+    }
+    if (!Number.isFinite(prNumber)) {
+      record(label, 'Skipped: PR number missing.');
+      return { dispatched: false };
+    }
+    const baseForDispatch = baseRef || baseBranch;
+    const headForDispatch = headBranch || headBranchEnv;
+    if (!baseForDispatch || !headForDispatch) {
+      record(label, 'Skipped: base/head branch unavailable.');
+      return { dispatched: false };
+    }
+    const issueForDispatch =
+      Number.isFinite(connectorIssue) && connectorIssue > 0 ? Number(connectorIssue) : Number(prNumber);
+    const payload = {
+      action,
+      issue: issueForDispatch,
+      base: baseForDispatch,
+      head: headForDispatch,
+      comment_id: commentNumericId,
+      comment_url: commentUrl || '',
+      agent: agentAlias,
+      trace: trace || '',
+      round: normalise(round) || '',
+    };
+    for (const key of Object.keys(payload)) {
+      if (payload[key] === undefined || payload[key] === '') {
+        delete payload[key];
+      }
+    }
+    try {
+      await github.rest.repos.createDispatchEvent({
+        owner,
+        repo,
+        event_type: dispatchEventType,
+        client_payload: payload,
+      });
+      record(label, `Emitted ${dispatchEventType} (${action}).`);
+      return { dispatched: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      record(label, `Failed: ${message}`);
+      return { dispatched: false, error: message };
+    }
+  };
 
   if (!success) {
-    if (Number.isFinite(prNumber)) {
-      let existingCommand = null;
-      try {
-        existingCommand = await findExistingCommandComment({
-          github,
-          owner,
-          repo,
-          prNumber,
-          body: commandBody,
-          core,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Command lookup', `Failed to scan existing commands: ${message}`);
-      }
-
-      if (existingCommand) {
-        commandCommentId = Number(existingCommand.id) || commandCommentId;
-        record(
-          'Command comment',
-          `Existing /update-branch command detected (#${existingCommand.id}).`
-        );
+    const dispatchResult = await connectorDispatch('update-branch', 'Update-branch dispatch');
+    if (dispatchResult.dispatched) {
+      const updateResult = await pollForHeadChange({
+        fetchHead,
+        initialSha: baselineHead,
+        timeoutMs: ttlLong,
+        intervalMs: pollLong,
+        label: 'dispatch-update-branch',
+        core,
+      });
+      if (updateResult.changed) {
+        success = true;
+        finalHead = updateResult.headSha;
+        mode = 'dispatch-update-branch';
+        record('Update-branch result', `Branch advanced to ${updateResult.headSha}`);
       } else {
-        try {
-          const response = await github.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: prNumber,
-            body: commandBody,
-          });
-          commandCommentId = Number(response?.data?.id) || commandCommentId;
-          record(
-            'Command comment',
-            `Posted /update-branch command (#${commandCommentId || '?'}).`
-          );
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          record('Command comment', `Failed to post /update-branch: ${message}`);
-        }
+        record('Update-branch result', 'Branch unchanged after update-branch dispatch.');
       }
-
-      if (commandCommentId) {
-        if (github?.rest?.reactions?.createForIssueComment) {
-          try {
-            await github.rest.reactions.createForIssueComment({
-              owner,
-              repo,
-              comment_id: commandCommentId,
-              content: 'eyes',
-            });
-            record('Command reaction', 'Added 👀 reaction to command comment.');
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            record('Command reaction', `Failed to add reaction: ${message}`);
-          }
-        } else {
-          record('Command reaction', 'Reactions API unavailable; skipped.');
-        }
-      }
-    } else {
-      record('Command comment', 'Skipped command dispatch; PR number missing.');
-    }
-
-    const updateResult = await pollForHeadChange({
-      fetchHead,
-      initialSha: baselineHead,
-      timeoutMs: ttlShort,
-      intervalMs: pollShort,
-      label: 'comment-update-branch',
-      core,
-    });
-    if (updateResult.changed) {
-      success = true;
-      finalHead = updateResult.headSha;
-      mode = 'comment-update-branch';
-      record('Update-branch result', `Branch advanced to ${updateResult.headSha}`);
-    } else {
-      record('Update-branch result', 'Branch unchanged after /update-branch attempt.');
     }
   }
 
-  let connectorPr = null;
   if (!success) {
-    const workflowRef =
-      syncWorkflowRefOverride || headBranch || headBranchEnv || initialHeadInfo.headRef || initialHead;
-
-    if (syncWorkflowFile && workflowRef && github?.rest?.actions?.createWorkflowDispatch) {
-      try {
-        await github.rest.actions.createWorkflowDispatch({
-          owner,
-          repo,
-          workflow_id: syncWorkflowFile,
-          ref: workflowRef,
-          inputs: {
-            pr_number: String(prNumber),
-            trace: trace || '',
-            base_ref: baseRef || '',
-            head_ref: headBranch || '',
-            head_sha: initialHead || '',
-            agent: agentAlias,
-            round: normalise(round) || '',
-            comment_id: commandCommentId ? String(commandCommentId) : '',
-            comment_url: commentUrl || '',
-            idempotency_key: idempotencyKey,
-          },
-        });
-        record('Sync workflow', `Dispatched ${syncWorkflowFile} on ${workflowRef}.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Sync workflow', `Failed to dispatch ${syncWorkflowFile}: ${message}`);
-      }
-
-      const dispatchStarted = Date.now();
-      const deadline = dispatchStarted + ttlLong;
-      while (Date.now() <= deadline) {
-        try {
-          connectorPr = await findConnectorPr({
-            github,
-            owner,
-            repo,
-            baseBranch: headBranch || headBranchEnv || baseRef,
-            headPrefix: SYNC_BRANCH_PREFIX,
-            automationLogins,
-            since: dispatchStarted,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          core?.warning?.(`Failed to scan sync PRs: ${message}`);
-        }
-
-        if (connectorPr) {
-          break;
-        }
-
-        if (Date.now() > deadline) {
-          break;
-        }
-        await delay(pollLong);
-      }
-
-      if (connectorPr) {
-        record(
-          'Connector PR',
-          `Detected PR #${connectorPr.number} from ${connectorPr.user?.login || 'unknown'}.`
-        );
-        let merged = false;
-        try {
-          const mergeResponse = await github.rest.pulls.merge({
-            owner,
-            repo,
-            pull_number: connectorPr.number,
-            merge_method: mergeMethod,
-            commit_title: `Keepalive sync ${trace || ''}`.trim(),
-          });
-          merged = Boolean(mergeResponse?.data?.merged);
-          if (merged) {
-            record('Connector merge', `Merged PR #${connectorPr.number}.`);
-          } else {
-            record('Connector merge', `PR #${connectorPr.number} not merged (merge API returned false).`);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          record('Connector merge', `Failed: ${message}`);
-        }
-
-        if (merged && deleteTempBranch) {
-          const headRef = connectorPr?.head?.ref;
-          if (headRef) {
-            try {
-              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
-              record('Connector cleanup', `Deleted temporary branch ${headRef}.`);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              record('Connector cleanup', `Failed to delete ${headRef}: ${message}`);
-            }
-          }
-        }
-
-        const syncResult = await pollForHeadChange({
-          fetchHead,
-          initialSha: baselineHead,
-          timeoutMs: ttlLong,
-          intervalMs: pollLong,
-          label: 'action-sync-pr',
-          core,
-        });
-        if (syncResult.changed) {
-          success = true;
-          finalHead = syncResult.headSha;
-          mode = 'action-sync-pr';
-          record('Action sync result', `Branch advanced to ${syncResult.headSha}`);
-        } else {
-          record('Action sync result', 'Branch unchanged after action sync attempt.');
-        }
+    const dispatchResult = await connectorDispatch('create-pr', 'Create-pr dispatch');
+    if (dispatchResult.dispatched) {
+      const syncResult = await pollForHeadChange({
+        fetchHead,
+        initialSha: baselineHead,
+        timeoutMs: ttlLong,
+        intervalMs: pollLong,
+        label: 'dispatch-create-pr',
+        core,
+      });
+      if (syncResult.changed) {
+        success = true;
+        finalHead = syncResult.headSha;
+        mode = 'dispatch-create-pr';
+        record('Create-pr result', `Branch advanced to ${syncResult.headSha}`);
       } else {
-        record('Connector PR', 'No sync PR detected before timeout.');
+        record('Create-pr result', 'Branch unchanged after create-pr dispatch.');
       }
-    } else if (!syncWorkflowFile || !workflowRef) {
-      record('Sync workflow', 'Skipped due to missing workflow configuration or head ref.');
-    } else {
-      record('Sync workflow', 'GitHub client missing actions API; skipped.');
     }
   }
 
@@ -696,9 +450,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   core?.setOutput?.('merged_sha', finalHead || '');
   core?.setOutput?.('mode', mode);
   core?.setOutput?.('success', success ? 'true' : 'false');
-  if (commandCommentId) {
-    core?.setOutput?.('command_comment_id', String(commandCommentId));
-  }
 
   if (success) {
     if (hasSyncLabel) {
@@ -742,7 +493,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (hasDebugLabel) {
     const traceToken = trace ? `{${trace}}` : '{trace-missing}';
     const escalationMessage =
-      `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after /update-branch and action sync attempts.`;
+      `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after update-branch/create-pr attempts.`;
     try {
       await github.rest.issues.createComment({
         owner,

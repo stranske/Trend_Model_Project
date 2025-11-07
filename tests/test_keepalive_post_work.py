@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 import json
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "keepalive_post_work"
 HARNESS = FIXTURES_DIR / "harness.js"
@@ -46,9 +45,8 @@ def _summary_table(data: dict) -> list[list[str]]:
 def test_keepalive_sync_detects_head_change_without_actions() -> None:
     data = _run_scenario("head_change")
     events = data["events"]
+    assert events["dispatches"] == []
     assert events["comments"] == []
-    assert events["workflowDispatches"] == []
-    assert events["reactions"] == []
     table = _summary_table(data)
     assert any(
         row[0] == "Initial poll" and "Branch advanced" in row[1] for row in table
@@ -59,10 +57,8 @@ def test_keepalive_sync_detects_head_change_without_actions() -> None:
 def test_keepalive_sync_update_branch_success() -> None:
     data = _run_scenario("update_branch")
     events = data["events"]
-    comments = events["comments"]
-    assert comments and comments[0]["body"].startswith("/update-branch trace:")
-    assert events["workflowDispatches"] == []
-    assert events["reactions"] == [{"comment_id": comments[0]["id"], "content": "eyes"}]
+    actions = [dispatch["client_payload"].get("action") for dispatch in events["dispatches"]]
+    assert actions == ["update-branch"]
     assert events["labelsRemoved"] == ["agents:sync-required"]
     table = _summary_table(data)
     assert any(
@@ -70,37 +66,32 @@ def test_keepalive_sync_update_branch_success() -> None:
         for row in table
     )
     assert any(
-        row[0] == "Result" and "mode=comment-update-branch" in row[1] for row in table
+        row[0] == "Result" and "mode=dispatch-update-branch" in row[1] for row in table
     )
 
 
 def test_keepalive_sync_create_pr_flow() -> None:
     data = _run_scenario("create_pr")
     events = data["events"]
-    comments = events["comments"]
-    assert comments and comments[0]["body"].startswith("/update-branch trace:")
-    assert events["reactions"] == [{"comment_id": comments[0]["id"], "content": "eyes"}]
-    assert [dispatch["workflow_id"] for dispatch in events["workflowDispatches"]] == [
-        "agents-keepalive-branch-sync.yml"
-    ]
-    assert events["merges"] and events["merges"][0]["pull_number"] == 8123
-    assert events["deletedRefs"] == ["heads/sync/codex-trace-create-pr"]
+    actions = [dispatch["client_payload"].get("action") for dispatch in events["dispatches"]]
+    assert actions == ["update-branch", "create-pr"]
     table = _summary_table(data)
-    assert any(row[0] == "Connector PR" and "#8123" in row[1] for row in table)
     assert any(
-        row[0] == "Action sync result" and "Branch advanced" in row[1] for row in table
+        row[0] == "Create-pr result" and "Branch advanced" in row[1]
+        for row in table
     )
-    assert any(row[0] == "Result" and "mode=action-sync-pr" in row[1] for row in table)
+    assert any(
+        row[0] == "Result" and "mode=dispatch-create-pr" in row[1] for row in table
+    )
 
 
 def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     data = _run_scenario("escalation")
     events = data["events"]
-    assert events["workflowDispatches"]
+    actions = [dispatch["client_payload"].get("action") for dispatch in events["dispatches"]]
+    assert actions == ["update-branch", "create-pr"]
     assert events["labelsAdded"] == [["agents:sync-required"]]
-    assert any(
-        "/update-branch trace:" in comment["body"] for comment in events["comments"]
-    )
-    assert any("trace-escalate" in comment["body"] for comment in events["comments"])
+    assert len(events["comments"]) == 1
+    assert "update-branch/create-pr" in events["comments"][0]["body"]
     table = _summary_table(data)
     assert any(row[0] == "Result" and "mode=sync-timeout" in row[1] for row in table)
