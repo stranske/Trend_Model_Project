@@ -13,7 +13,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - [ ] regimes.py
   - [ ] pipeline.py
   - [ ] validators.py
-  - [ ] run_analysis.py
+  - [x] run_analysis.py
   - [ ] market_data.py
   - [ ] signal_presets.py
   - [x] frequency.py
@@ -36,6 +36,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
 - Captured a fresh coverage snapshot for the broader package to identify the lowest-coverage modules (`python -m coverage report -m`), noting that `trend_analysis/data.py` was previously at 49% coverage.
 - Added extensive regression and error-handling tests in `tests/test_data.py`, lifting `trend_analysis/data.py` to 97% statement coverage (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --data-file=.coverage_data --source=trend_analysis.data -m pytest tests/test_data.py).
 - Expanded the preset defaults regression suite with an explicit-enabled flag scenario (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --data-file=.coverage_presets --source=trend_analysis.presets -m pytest tests/test_trend_analysis_presets.py`), clearing the remaining partial branch and pushing `trend_analysis/presets.py` to 100% coverage.
+- Built a CLI regression harness in `tests/test_run_analysis_cli_branches.py`, covering error handling and argument translation in `trend_analysis/run_analysis.py` and lifting it to 100% statement/branch coverage (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 coverage run --source=trend_analysis.run_analysis -m pytest tests/test_default_export.py tests/test_run_analysis_cli_export.py tests/test_run_analysis_cli_branches.py`).
 
 ## Next steps
 - Prioritise the remaining submodules from the coverage report (e.g. `validators.py`, `market_data.py`) and continue expanding targeted tests until each clears the 95% threshold.
