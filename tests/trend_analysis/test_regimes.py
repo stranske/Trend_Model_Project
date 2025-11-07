@@ -133,7 +133,9 @@ def test_default_periods_per_year_mapping(freq: str, expected: float) -> None:
     assert regimes._default_periods_per_year(freq) == expected
 
 
-def test_compute_regime_series_uses_cache_when_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+def test_compute_regime_series_uses_cache_when_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
     dates = pd.date_range("2022-01-01", periods=10, freq="B")
     proxy = pd.Series(np.linspace(-0.02, 0.05, len(dates)), index=dates)
 
@@ -188,17 +190,25 @@ def test_compute_regime_series_handles_zero_periods() -> None:
         smoothing=1,
         cache=False,
     )
-    labels = regimes._compute_regime_series(proxy, settings, freq="B", periods_per_year=0)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="B", periods_per_year=0
+    )
     assert isinstance(labels, pd.Series)
 
 
 def test_compute_regime_series_handles_edge_cases() -> None:
     empty = pd.Series(dtype=float)
     settings = regimes.RegimeSettings(enabled=True)
-    assert regimes._compute_regime_series(empty, settings, freq="D", periods_per_year=None).empty
+    assert regimes._compute_regime_series(
+        empty, settings, freq="D", periods_per_year=None
+    ).empty
 
-    nan_series = pd.Series([np.nan, np.nan], index=pd.date_range("2022-01-01", periods=2))
-    assert regimes._compute_regime_series(nan_series, settings, freq="D", periods_per_year=None).empty
+    nan_series = pd.Series(
+        [np.nan, np.nan], index=pd.date_range("2022-01-01", periods=2)
+    )
+    assert regimes._compute_regime_series(
+        nan_series, settings, freq="D", periods_per_year=None
+    ).empty
 
 
 def test_compute_regime_series_respects_neutral_band_and_history() -> None:
@@ -211,7 +221,9 @@ def test_compute_regime_series_respects_neutral_band_and_history() -> None:
         neutral_band=0.0,
         cache=False,
     )
-    labels = regimes._compute_regime_series(proxy, settings, freq="D", periods_per_year=0)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="D", periods_per_year=0
+    )
     # Insufficient history returns the pre-filled labels.
     assert (labels == settings.default_label).all()
 
@@ -279,7 +291,16 @@ def test_summarise_regime_outcome_covers_scenarios() -> None:
 def test_aggregate_performance_by_regime_builds_metrics() -> None:
     dates = pd.date_range("2021-01-01", periods=8, freq="ME")
     regimes_series = pd.Series(
-        ["Risk-On", "Risk-Off", "Risk-On", "Risk-Off", "Risk-On", "Risk-Off", "Risk-On", "Risk-Off"],
+        [
+            "Risk-On",
+            "Risk-Off",
+            "Risk-On",
+            "Risk-Off",
+            "Risk-On",
+            "Risk-Off",
+            "Risk-On",
+            "Risk-Off",
+        ],
         index=dates,
         dtype="string",
     )
@@ -310,7 +331,9 @@ def test_aggregate_performance_by_regime_builds_metrics() -> None:
 
 def test_aggregate_performance_deduplicates_notes() -> None:
     dates = pd.date_range("2021-01-01", periods=3, freq="ME")
-    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
+    regimes_series = pd.Series(
+        ["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string"
+    )
     returns_map = {
         "Alpha": pd.Series([0.01, 0.02], index=dates[:2]),
         "Beta": pd.Series([0.03, 0.04], index=dates[:2]),
@@ -331,12 +354,18 @@ def test_aggregate_performance_deduplicates_notes() -> None:
 
 def test_aggregate_performance_handles_disabled_and_missing_regimes() -> None:
     settings = regimes.RegimeSettings(enabled=False)
-    table, notes = regimes.aggregate_performance_by_regime({}, 0.0, pd.Series(dtype="string"), settings, periods_per_year=12)
+    table, notes = regimes.aggregate_performance_by_regime(
+        {}, 0.0, pd.Series(dtype="string"), settings, periods_per_year=12
+    )
     assert table.empty and notes == []
 
     settings = regimes.RegimeSettings(enabled=True)
     table, notes = regimes.aggregate_performance_by_regime(
-        {"Alpha": pd.Series([0.01, 0.02])}, 0.0, pd.Series(dtype="string"), settings, periods_per_year=12
+        {"Alpha": pd.Series([0.01, 0.02])},
+        0.0,
+        pd.Series(dtype="string"),
+        settings,
+        periods_per_year=12,
     )
     assert table.empty
     assert "Regime labels were unavailable" in notes[0]
@@ -358,12 +387,16 @@ def test_aggregate_performance_sufficient_data_no_notes() -> None:
     assert notes == []
 
 
-def test_build_regime_payload_covers_branching(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_covers_branching(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     dates = pd.date_range("2020-01-01", periods=10, freq="ME")
-    data = pd.DataFrame({
-        "Date": dates,
-        "Proxy": np.linspace(-0.01, 0.03, len(dates)),
-    })
+    data = pd.DataFrame(
+        {
+            "Date": dates,
+            "Proxy": np.linspace(-0.01, 0.03, len(dates)),
+        }
+    )
     returns_series = pd.Series(np.linspace(0.0, 0.05, len(dates)), index=dates)
     returns_map = {"Portfolio": returns_series}
 
@@ -440,10 +473,15 @@ def test_build_regime_payload_covers_branching(tmp_path: Any, monkeypatch: pytes
     )
     assert "did not produce regime labels" in payload_missing["notes"][0]
 
+
 def test_build_regime_payload_summary_fallback() -> None:
     dates = pd.date_range("2020-01-01", periods=6, freq="ME")
-    data = pd.DataFrame({"Date": dates, "Proxy": [0.01, -0.02, 0.03, -0.01, 0.02, -0.03]})
-    returns_map = {"Alpha": pd.Series([0.01, -0.01, 0.02, -0.02, 0.01, -0.01], index=dates)}
+    data = pd.DataFrame(
+        {"Date": dates, "Proxy": [0.01, -0.02, 0.03, -0.01, 0.02, -0.03]}
+    )
+    returns_map = {
+        "Alpha": pd.Series([0.01, -0.01, 0.02, -0.02, 0.01, -0.01], index=dates)
+    }
     config = {
         "enabled": True,
         "proxy": "Proxy",
@@ -467,10 +505,14 @@ def test_build_regime_payload_summary_fallback() -> None:
     assert payload["summary"] == payload["notes"][0]
 
 
-def test_build_regime_payload_handles_gap_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_handles_gap_notes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-01", periods=4, freq="ME")
     data = pd.DataFrame({"Date": dates, "Proxy": np.linspace(-0.01, 0.02, len(dates))})
-    returns_map = {"Portfolio": pd.Series(np.linspace(0.0, 0.03, len(dates)), index=dates)}
+    returns_map = {
+        "Portfolio": pd.Series(np.linspace(0.0, 0.03, len(dates)), index=dates)
+    }
     config = {
         "enabled": True,
         "proxy": "Proxy",
@@ -496,7 +538,10 @@ def test_build_regime_payload_handles_gap_notes(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
-        lambda *args, **kwargs: (pd.DataFrame(), ["Duplicate note", "Duplicate note", "Extra"]),
+        lambda *args, **kwargs: (
+            pd.DataFrame(),
+            ["Duplicate note", "Duplicate note", "Extra"],
+        ),
     )
 
     payload = regimes.build_regime_payload(
@@ -514,7 +559,9 @@ def test_build_regime_payload_handles_gap_notes(monkeypatch: pytest.MonkeyPatch)
     assert payload["notes"].count("Duplicate note") == 1
 
 
-def test_build_regime_payload_generates_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_generates_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2020-01-01", periods=5, freq="ME")
     data = pd.DataFrame({"Date": dates, "Proxy": np.linspace(0.0, 0.02, len(dates))})
     returns_map = {"P": pd.Series(np.linspace(0.0, 0.04, len(dates)), index=dates)}
@@ -530,15 +577,33 @@ def test_build_regime_payload_generates_summary(monkeypatch: pytest.MonkeyPatch)
 
     table = pd.DataFrame(
         {
-            ("P", "Risk-On"): pd.Series({"CAGR": 0.12, "Sharpe": 1.0, "Max Drawdown": -0.1, "Hit Rate": 0.6, "Observations": 3}),
-            ("P", "Risk-Off"): pd.Series({"CAGR": 0.04, "Sharpe": 0.5, "Max Drawdown": -0.2, "Hit Rate": 0.4, "Observations": 3}),
+            ("P", "Risk-On"): pd.Series(
+                {
+                    "CAGR": 0.12,
+                    "Sharpe": 1.0,
+                    "Max Drawdown": -0.1,
+                    "Hit Rate": 0.6,
+                    "Observations": 3,
+                }
+            ),
+            ("P", "Risk-Off"): pd.Series(
+                {
+                    "CAGR": 0.04,
+                    "Sharpe": 0.5,
+                    "Max Drawdown": -0.2,
+                    "Hit Rate": 0.4,
+                    "Observations": 3,
+                }
+            ),
         }
     )
 
     monkeypatch.setattr(
         regimes,
         "compute_regimes",
-        lambda *args, **kwargs: pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string"),
+        lambda *args, **kwargs: pd.Series(
+            ["Risk-On"] * len(dates), index=dates, dtype="string"
+        ),
     )
     monkeypatch.setattr(
         regimes,
@@ -576,7 +641,9 @@ def test_build_regime_payload_no_notes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         regimes,
         "compute_regimes",
-        lambda *args, **kwargs: pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string"),
+        lambda *args, **kwargs: pd.Series(
+            ["Risk-On"] * len(dates), index=dates, dtype="string"
+        ),
     )
     monkeypatch.setattr(
         regimes,
@@ -595,4 +662,3 @@ def test_build_regime_payload_no_notes(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert payload["notes"] == []
-
