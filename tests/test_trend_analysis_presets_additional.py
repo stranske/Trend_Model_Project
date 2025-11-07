@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from types import MappingProxyType
 from pathlib import Path
 from textwrap import dedent
+from types import MappingProxyType
 
 import pytest
 
