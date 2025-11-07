@@ -230,13 +230,12 @@ def test_optional_modules_absent(package_stubs, stubbed_imports):
 def test_dataclass_patch_recovers_missing_module(monkeypatch):
     """The dataclass guard should repopulate missing module entries."""
 
+    import dataclasses
     import importlib
     import sys
     import typing
     from types import ModuleType
     from typing import ClassVar
-
-    import dataclasses
 
     module = importlib.reload(dataclasses)
     module.__dict__.pop("_trend_model_patched", None)

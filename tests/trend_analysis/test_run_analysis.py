@@ -52,12 +52,19 @@ def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_detailed_mode_handles_empty_metrics(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], sample_config: SimpleNamespace
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    sample_config: SimpleNamespace,
 ) -> None:
     sample_config.export["directory"] = None
     sample_config.export["formats"] = []
 
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "Asset": [1.0, 2.0, 3.0]})
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "Asset": [1.0, 2.0, 3.0],
+        }
+    )
 
     def fake_load_csv(
         path: str,
@@ -74,7 +81,9 @@ def test_main_detailed_mode_handles_empty_metrics(
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: empty_result)
+    monkeypatch.setattr(
+        run_analysis_mod.api, "run_simulation", lambda cfg, frame: empty_result
+    )
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -83,7 +92,11 @@ def test_main_detailed_mode_handles_empty_metrics(
     assert "No results" in captured.out
 
 
-def test_main_exports_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], sample_config: SimpleNamespace) -> None:
+def test_main_exports_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    sample_config: SimpleNamespace,
+) -> None:
     csv_calls: list[dict[str, Any]] = []
 
     def fake_load_csv(
@@ -102,7 +115,12 @@ def test_main_exports_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
                 **kwargs,
             }
         )
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=4, freq="ME"), "Asset": [1.0, 2.0, 3.0, 4.0]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
+                "Asset": [1.0, 2.0, 3.0, 4.0],
+            }
+        )
 
     regime_table = pd.DataFrame({"regime": ["Growth"], "return": [0.1]})
     metrics = pd.DataFrame({"metric": ["Sharpe"], "value": [1.2]})
@@ -119,14 +137,28 @@ def test_main_exports_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
-    monkeypatch.setattr(run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary text")
-    monkeypatch.setattr(run_analysis_mod.export, "make_summary_formatter", lambda *a, **k: formatter_sentinel)
-    monkeypatch.setattr(run_analysis_mod.export, "summary_frame_from_result", lambda payload: summary_frame)
+    monkeypatch.setattr(
+        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary text"
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export,
+        "make_summary_formatter",
+        lambda *a, **k: formatter_sentinel,
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export,
+        "summary_frame_from_result",
+        lambda payload: summary_frame,
+    )
     monkeypatch.setattr(
         run_analysis_mod.export,
         "export_to_excel",
-        lambda data, path, default_sheet_formatter: excel_calls.append((data, path, default_sheet_formatter)),
+        lambda data, path, default_sheet_formatter: excel_calls.append(
+            (data, path, default_sheet_formatter)
+        ),
     )
 
     def fake_export_data(data: dict[str, Any], path: str, formats: list[str]) -> None:
@@ -160,7 +192,9 @@ def test_main_exports_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
     assert data_payload is excel_payload
 
 
-def test_main_supports_legacy_nan_keys(monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace) -> None:
+def test_main_supports_legacy_nan_keys(
+    monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace
+) -> None:
     sample_config.data.pop("missing_policy", None)
     sample_config.data.pop("missing_limit", None)
     sample_config.data["nan_policy"] = {"*": "zero"}
@@ -186,13 +220,20 @@ def test_main_supports_legacy_nan_keys(monkeypatch: pytest.MonkeyPatch, sample_c
                 **kwargs,
             }
         )
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "Asset": [1.0, 2.0]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+                "Asset": [1.0, 2.0],
+            }
+        )
 
     result = DummyResult(metrics=pd.DataFrame({"metric": [1]}), details={"foo": "bar"})
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
+    monkeypatch.setattr(
+        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
+    )
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -203,7 +244,9 @@ def test_main_supports_legacy_nan_keys(monkeypatch: pytest.MonkeyPatch, sample_c
     assert kwargs["nan_limit"] == sample_config.data["nan_limit"]
 
 
-def test_main_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace) -> None:
+def test_main_raises_when_loader_returns_none(
+    monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace
+) -> None:
     def fake_load_csv(
         path: str,
         *,
@@ -240,11 +283,20 @@ def test_main_handles_loader_without_errors_parameter(
                 **kwargs,
             }
         )
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "Asset": [0.0, 1.0]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+                "Asset": [0.0, 1.0],
+            }
+        )
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: DummyResult(metrics=frame[:0], details={}))
+    monkeypatch.setattr(
+        run_analysis_mod.api,
+        "run_simulation",
+        lambda cfg, frame: DummyResult(metrics=frame[:0], details={}),
+    )
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -255,7 +307,9 @@ def test_main_handles_loader_without_errors_parameter(
     assert kwargs["missing_limit"] == sample_config.data["missing_limit"]
 
 
-def test_main_without_missing_policy_settings(monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace) -> None:
+def test_main_without_missing_policy_settings(
+    monkeypatch: pytest.MonkeyPatch, sample_config: SimpleNamespace
+) -> None:
     sample_config.data = {"csv_path": "data.csv"}
 
     observed: list[dict[str, Any]] = []
@@ -276,11 +330,20 @@ def test_main_without_missing_policy_settings(monkeypatch: pytest.MonkeyPatch, s
                 **kwargs,
             }
         )
-        return pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "Asset": [1.0, 2.0]})
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+                "Asset": [1.0, 2.0],
+            }
+        )
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: DummyResult(metrics=frame, details={}))
+    monkeypatch.setattr(
+        run_analysis_mod.api,
+        "run_simulation",
+        lambda cfg, frame: DummyResult(metrics=frame, details={}),
+    )
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -290,14 +353,26 @@ def test_main_without_missing_policy_settings(monkeypatch: pytest.MonkeyPatch, s
     assert kwargs["missing_limit"] is None
 
 
-def test_main_defaults_output_targets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_config: SimpleNamespace, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_defaults_output_targets(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_config: SimpleNamespace,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     sample_config.export["directory"] = None
     sample_config.export["formats"] = []
 
-    csv_frame = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "Asset": [1.0, 1.1, 1.2]})
+    csv_frame = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "Asset": [1.0, 1.1, 1.2],
+        }
+    )
     result = DummyResult(
         metrics=pd.DataFrame({"metric": ["Sharpe"], "value": [1.0]}),
-        details={"performance_by_regime": pd.DataFrame({"regime": ["base"], "value": [0.5]})},
+        details={
+            "performance_by_regime": pd.DataFrame({"regime": ["base"], "value": [0.5]})
+        },
     )
 
     export_calls: dict[str, Any] = {}
@@ -310,16 +385,26 @@ def test_main_defaults_output_targets(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "load_csv",
         lambda path, **kwargs: csv_frame,
     )
-    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
-    monkeypatch.setattr(run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary")
-    monkeypatch.setattr(run_analysis_mod.export, "make_summary_formatter", lambda *a, **k: object())
     monkeypatch.setattr(
-        run_analysis_mod.export, "summary_frame_from_result", lambda details: pd.DataFrame({"value": [1]})
+        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary"
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export, "make_summary_formatter", lambda *a, **k: object()
+    )
+    monkeypatch.setattr(
+        run_analysis_mod.export,
+        "summary_frame_from_result",
+        lambda details: pd.DataFrame({"value": [1]}),
     )
     monkeypatch.setattr(
         run_analysis_mod.export,
         "export_data",
-        lambda data, path, formats: export_calls.setdefault("export", (data, path, formats)),
+        lambda data, path, formats: export_calls.setdefault(
+            "export", (data, path, formats)
+        ),
     )
     rc = run_analysis_mod.main(["-c", "config.yml"])
     assert rc == 0
