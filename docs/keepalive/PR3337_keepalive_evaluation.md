@@ -23,8 +23,9 @@ public PR comment stream (`gh pr view 3337 --comments`).
 ## 2. Repeat Contract (Goals & Plumbing §2)
 
 Each orchestrator invocation re-executes the guardrails and run-cap logic. Because the required label never reappears, the
-contract is technically violated on every repeat round even though the gate check succeeds. | ❌ Overall
+contract is technically violated on every repeat round even though the gate check succeeds.
 
+❌ Overall
 ## 3. Run Cap Enforcement (Goals & Plumbing §3)
 
 No overlapping orchestrator traces were observed (single trace per run, e.g. `mhoa8vmzmlxru9`, `mho9ztzhag89fl`). There is no
