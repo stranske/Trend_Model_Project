@@ -12,7 +12,7 @@ Non-goals:
 
 ## Purpose
 
-Drive an iterative, hands-off loop where an agent continues working on a pull request in small, verifiable increments until all acceptance criteria are met—while guaranteeing safety rails and predictable behaviour. Automation must surface the remaining work, nudge only when conditions allow, and stop cleanly once the checklist is complete.
+Drive an iterative, hands-off loop where an agent continues working on a pull request in small, verifiable increments until all acceptance criteria are met—while guaranteeing safety rails and predictable behavior. Automation must surface the remaining work, nudge only when conditions allow, and stop cleanly once the checklist is complete.
 
 ## Activation Contract (First Instruction on a PR)
 
