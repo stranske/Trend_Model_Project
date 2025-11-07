@@ -40,6 +40,7 @@ STDLIB_MODULES = {
     "functools",
     "gc",
     "glob",
+    "gc",
     "hashlib",
     "importlib",
     "inspect",
