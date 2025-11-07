@@ -442,3 +442,21 @@ def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
     assert "Triggered keepalive count: 1" in raw
     payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload["comment_id"] == created[0]["id"]
+
+
+def test_keepalive_fails_when_required_labels_missing() -> None:
+    data = _run_scenario("missing_label")
+
+    assert data["created_comments"] == []
+    assert data["dispatch_events"] == []
+
+    failed = data["logs"].get("failedMessage")
+    assert failed == (
+        "Keepalive guardrail violated: required labels missing on opted-in pull request(s)."
+    )
+
+    summary = data["summary"]
+    guardrail_details = _details(summary, "Guardrail violations")
+    assert guardrail_details is not None
+    items = guardrail_details.get("items") or []
+    assert any("#612" in item and "agents:keepalive" in item for item in items)

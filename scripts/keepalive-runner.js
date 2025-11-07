@@ -292,11 +292,25 @@ async function dispatchKeepaliveCommand({
     throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
   }
 
-  if (typeof github.getOctokit !== 'function') {
-    throw new Error('github.getOctokit is not available for keepalive dispatch.');
+  let octokit = null;
+
+  if (github && typeof github.getOctokit === 'function') {
+    octokit = github.getOctokit(trimmedToken);
   }
 
-  const octokit = github.getOctokit(trimmedToken);
+  if (!octokit && github && typeof github.constructor === 'function') {
+    try {
+      // Fallback for environments where actions/github-script passes a pre-authenticated Octokit
+      octokit = new github.constructor({ auth: trimmedToken });
+    } catch (error) {
+      core.debug(`Fallback Octokit construction failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (!octokit) {
+    throw new Error('Unable to construct Octokit instance for keepalive dispatch.');
+  }
+
   if (!octokit?.rest?.repos?.createDispatchEvent) {
     throw new Error('Octokit instance missing repos.createDispatchEvent for keepalive dispatch.');
   }
@@ -476,6 +490,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const paused = [];
   const roundTraces = [];
   const skipped = [];
+  const guardrailViolations = [];
   let skippedCount = 0;
   let scanned = 0;
   let limitReached = false;
@@ -581,9 +596,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      const hasTargetLabel = targetLabels.some((label) => labelNames.includes(label));
+      const missingRequiredLabels = targetLabels.filter(
+        (label) => !labelNames.includes(label)
+      );
 
-      if (!hasTargetLabel) {
+      if (missingRequiredLabels.length) {
         const sentinel = detectKeepaliveSentinel(comments, {
           sentinelPattern,
           headerPattern: keepaliveHeaderPattern,
@@ -596,6 +613,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
 
         core.info(`#${prNumber}: keepalive opted-in via sentinel comment ${sentinel.comment?.html_url || ''}.`);
+        guardrailViolations.push(
+          `#${prNumber} – keepalive sentinel active while required labels (${missingRequiredLabels.join(', ')}) are missing.`
+        );
+        continue;
       }
 
       const botComments = comments
@@ -838,6 +859,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   if (limitReached) {
     summary.addRaw(`Processing capped at first ${maxPrs} pull requests to respect API limits.`).addEOL();
+  }
+
+  if (guardrailViolations.length) {
+    summary.addDetails('Guardrail violations', summariseList(guardrailViolations));
+    core.setFailed('Keepalive guardrail violated: required labels missing on opted-in pull request(s).');
   }
 
   if (dryRun) {

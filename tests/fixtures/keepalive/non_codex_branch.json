@@ -9,7 +9,7 @@
     {
       "number": 111,
       "head": {"ref": "feature/non-codex-update"},
-      "labels": ["agent:codex"],
+      "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},

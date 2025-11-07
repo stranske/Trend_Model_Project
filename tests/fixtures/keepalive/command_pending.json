@@ -8,7 +8,7 @@
   "pulls": [
     {
       "number": 606,
-      "labels": ["agent:codex"],
+  "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
@@ -24,7 +24,7 @@
     },
     {
       "number": 707,
-      "labels": ["agent:codex"],
+      "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
