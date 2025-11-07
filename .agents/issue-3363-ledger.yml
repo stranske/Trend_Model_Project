@@ -5,10 +5,10 @@ branch: codex/issue-3363
 tasks:
   - id: task-01
     title: Instruction comment posts as stranske
-    status: doing
+    status: done
     started_at: '2025-11-07T14:40:20Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-07T14:40:28Z'
+    commit: 4bdc5ab9c52626fa51ce1daea17a0400d1a1ed5a
     notes: []
   - id: task-02
     title: "In the keepalive poster (within Agents\u201170 Orchestrator), select token:"
