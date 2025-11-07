@@ -42,3 +42,7 @@
 - Restrict execution to origin-repo PRs and mask tokens in logs; avoid introducing new secrets.
 - Store previous head SHAs via hidden PR comments (e.g., `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->`) or durable artifacts and read them safely before comparisons.
 - Keep logging concise—limit PR chatter to the `/update-branch` command (and optional debug escalation) while writing detailed traces to `$GITHUB_STEP_SUMMARY`.
+
+## Progress Tracker
+- **Current status:** No tasks or acceptance criteria have been satisfied yet; all scope items remain open for implementation.
+- **Next step:** Begin persisting and comparing PR head SHA values between keepalive rounds so downstream actions can be exercised.
