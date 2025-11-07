@@ -45,11 +45,18 @@
 
 ## Progress Tracker
 - **Current status:** No tasks or acceptance criteria have been satisfied yet; all scope items remain open for implementation.
-- **In progress:** Finalizing the persistence helper that wraps GitHub comment read/write calls. The helper will:
-  1. Search existing PR comments for `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->` matching `{PR, round}` and return `{head_sha, trace}` when found.
-  2. Create or update the hidden comment when a new `{PR, round, trace}` tuple is observed, ensuring idempotency by comparing stored vs. observed values before writing.
-  3. Emit structured summary logs (`persist_state=hit` | `persist_state=write`) without surfacing user-visible comments beyond the hidden marker.
-- **Next step:** Implement the comment-first `/update-branch trace:{TRACE}` executor that consumes the persistence helper, chooses the PAT credential, posts the command, records the reaction, and seeds the short-TTL polling loop.
+- **In progress:**
+  - Finalizing the persistence helper that wraps GitHub comment read/write calls. The helper will:
+    1. Search existing PR comments for `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->` matching `{PR, round}` and return `{head_sha, trace}` when found.
+    2. Create or update the hidden comment when a new `{PR, round, trace}` tuple is observed, ensuring idempotency by comparing stored vs. observed values before writing.
+    3. Emit structured summary logs (`persist_state=hit` | `persist_state=write`) without surfacing user-visible comments beyond the hidden marker.
+  - Designing the comment-first `/update-branch trace:{TRACE}` executor sequence. The design now captures:
+    1. Credential selection flow (prefer ACTIONS_BOT_PAT with SERVICE_BOT_PAT fallback when comment permissions fail).
+    2. Comment emission with deterministic body formatting and immediate 👀 reaction on the created comment.
+    3. `$GITHUB_STEP_SUMMARY` entry schema: ``comment_update: {"round":<int>,"trace":"<id>","comment_id":<int>,"url":"<html_url>","actor":"stranske"}``.
+    4. Short-TTL polling loop parameters (24 iterations × 5s) and success logging (`mode=comment-update-branch`, `new_head_sha`).
+- **Next step:** Build the executor helper functions (`persist_head_sha`, `post_update_branch_comment`, `await_head_advance`) so the implementation can begin toggling task checkboxes once end-to-end comment mode succeeds in dry-run testing.
 - **Notes toward upcoming acceptance criteria:**
   - Unsynced detection will hinge on comparing the stored `head_sha` with the live head fetched via the GitHub API. A mismatch will move the orchestrator straight to the next keepalive round without comment noise; an exact match will trigger the comment-first flow.
   - The polling loop will cap at 24 iterations (≈2 minutes at 5-second intervals) to satisfy the `TTL_short` expectation before escalating to the fallback workflow.
+  - Guardrail enforcement will remain summary-only by exiting early before comment/post flows when required labels or gate states are missing.
