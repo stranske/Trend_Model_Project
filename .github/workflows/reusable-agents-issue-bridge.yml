@@ -597,6 +597,91 @@ jobs:
               const baseLine = base ? `Base: ${base}` : '';
               const headLine = head ? `Head: ${head}` : '';
 
+              const normalise = (value) => String(value || '').replace(/\r\n/g, '\n');
+              const escape = (value) => value.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+              const extractSection = (body, heading, aliases = []) => {
+                const names = [heading].concat(aliases || []);
+                const pattern = new RegExp(`(^|\n)(#{1,3}\s+)?(${names.map(escape).join('|')})\s*\r?\n`, 'i');
+                const source = normalise(body);
+                const match = source.match(pattern);
+                if (!match) {
+                  return '';
+                }
+                const start = match.index + match[0].length;
+                const rest = source.slice(start);
+                const nextPattern = /\r?\n(#{2,3}\s+|Why\s*\r?\n|Scope\s*\r?\n|Non-Goals\s*\r?\n|Goal\s*\r?\n|Tasks\s*\r?\n|Acceptance criteria\s*\r?\n|Success criteria\s*\r?\n|Definition of done\s*\r?\n|Implementation notes\s*\r?\n|Technical notes\s*\r?\n|Summary\s*\r?\n|Description\s*\r?\n|Overview\s*\r?\n|Testing\s*\r?\n|Test Plan\s*\r?\n|Validation\s*\r?\n|CI readiness\s*\r?\n)/i;
+                const nextMatch = rest.match(nextPattern);
+                const end = nextMatch ? nextMatch.index + 1 : rest.length;
+                return rest.slice(0, end).trim();
+              };
+
+              const ensureChecklist = (section, fallback) => {
+                const lines = normalise(section)
+                  .split('\n')
+                  .map((line) => line.trimEnd());
+                const hasContent = lines.some((line) => line.trim().length > 0);
+                if (!hasContent) {
+                  return fallback;
+                }
+                return lines
+                  .map((line) => {
+                    if (!line.trim()) {
+                      return '';
+                    }
+                    const bullet = line.match(/^(\s*)([-*])\s+(.*)$/);
+                    const [, indent = ''] = bullet || [];
+                    const raw = bullet ? bullet[3] : line;
+                    const content = raw.trim();
+                    if (!content) {
+                      return '';
+                    }
+                    const checkbox = content.match(/^\[( |x|X)\]\s*(.*)$/);
+                    if (checkbox) {
+                      const state = checkbox[1].toLowerCase() === 'x' ? 'x' : ' ';
+                      return `${indent}- [${state}] ${checkbox[2].trim()}`;
+                    }
+                    return `${indent}- [ ] ${content}`;
+                  })
+                  .filter((line) => line.length > 0)
+                  .join('\n');
+              };
+
+              const scopeChecklist = ensureChecklist(
+                extractSection(issueBody, 'Scope'),
+                '- [ ] Scope section missing from source issue.'
+              );
+              const tasksChecklist = ensureChecklist(
+                extractSection(issueBody, 'Tasks'),
+                '- [ ] Tasks section missing from source issue.'
+              );
+              const acceptanceChecklist = ensureChecklist(
+                extractSection(issueBody, 'Acceptance criteria', ['Success criteria', 'Definition of done']),
+                '- [ ] Acceptance criteria section missing from source issue.'
+              );
+
+              const preambleBlock = ['<!-- pr-preamble:start -->', '<!-- pr-preamble:end -->'].join('\n');
+              const statusBlock = [
+                '<!-- auto-status-summary:start -->',
+                '## Automated Status Summary',
+                '#### Scope',
+                scopeChecklist,
+                '',
+                '#### Tasks',
+                tasksChecklist,
+                '',
+                '#### Acceptance criteria',
+                acceptanceChecklist,
+                '',
+                '**Head SHA:** _(pending first sync)_',
+                '**Latest Runs:** ⏳ pending — _(no workflow runs yet)_',
+                '**Required:** ⏳ pending',
+                '',
+                '| Workflow / Job | Result | Logs |',
+                '|----------------|--------|------|',
+                '| _(no workflow runs yet for this commit)_ | — | — |',
+                '<!-- auto-status-summary:end -->'
+              ].join('\n');
+
               const prBody = [
                 keepaliveHeader,
                 '',
@@ -610,7 +695,11 @@ jobs:
                 quoted,
                 '',
                 '—',
-                `PR created automatically to engage ${agentTitle}.`
+                `PR created automatically to engage ${agentTitle}.`,
+                '',
+                preambleBlock,
+                '',
+                statusBlock
               ].join('\n');
 
               ({ data: pr } = await github.rest.pulls.create({
