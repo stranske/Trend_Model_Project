@@ -895,6 +895,25 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   if (!success) {
+    // As a guard, re-fetch the head once more before dispatching commands. The
+    // short-poll window can miss a freshly advanced head on faster runners, so
+    // this explicit check lets us bail out without emitting redundant commands.
+    try {
+      const freshHead = await fetchHead();
+      if (baselineHead && freshHead?.headSha && freshHead.headSha !== baselineHead) {
+        success = true;
+        finalHead = freshHead.headSha;
+        baselineHead = finalHead;
+        mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
+        record('Pre-dispatch check', appendRound(`Head advanced to ${freshHead.headSha}`));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      core?.warning?.(`Failed to refresh head before dispatch: ${message}`);
+    }
+  }
+
+  if (!success) {
     await attemptCommand('update-branch', 'Update-branch');
   }
 
