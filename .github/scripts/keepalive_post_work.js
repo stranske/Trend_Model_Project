@@ -891,7 +891,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
     record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
   } else {
-  record('Comment wait', appendRound('Head unchanged after comment TTL.'));
+    record('Comment wait', appendRound('Head unchanged after comment TTL.'));
   }
 
   if (!success) {
