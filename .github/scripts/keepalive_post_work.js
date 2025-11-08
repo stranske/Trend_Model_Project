@@ -263,6 +263,100 @@ async function ensureEyesReaction({ github, owner, repo, commentId, record }) {
   }
 }
 
+function mergeStateShallow(target, updates) {
+  if (!updates || typeof updates !== 'object') {
+    return target;
+  }
+  const next = { ...target };
+  for (const [key, value] of Object.entries(updates)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      next[key] = mergeStateShallow(target[key] && typeof target[key] === 'object' ? target[key] : {}, value);
+    } else {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function parseRoundNumber(value) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.round(parsed);
+  }
+  const fallback = Number(String(value || '').trim().replace(/[^0-9]/g, ''));
+  if (Number.isFinite(fallback) && fallback > 0) {
+    return Math.round(fallback);
+  }
+  return 0;
+}
+
+async function dispatchCommand({
+  github,
+  owner,
+  repo,
+  eventType,
+  action,
+  prNumber,
+  agentAlias,
+  baseRef,
+  headRef,
+  headSha,
+  trace,
+  round,
+  commentInfo,
+  idempotencyKey,
+  record,
+}) {
+  const safeEvent = normalise(eventType) || 'codex-pr-comment-command';
+  if (!safeEvent) {
+    record(`Dispatch ${action}`, 'skipped: event type missing');
+    return false;
+  }
+  if (!github?.rest?.repos?.createDispatchEvent) {
+    record(`Dispatch ${action}`, 'skipped: GitHub client missing createDispatchEvent');
+    return false;
+  }
+
+  const payload = {
+    issue: Number.isFinite(prNumber) ? Number(prNumber) : parseNumber(prNumber, 0, { min: 0 }),
+    action,
+    agent: agentAlias || 'codex',
+    base: baseRef || '',
+    head: headRef || '',
+    head_sha: headSha || '',
+    trace: trace || '',
+  };
+
+  const parsedRound = parseRoundNumber(round);
+  if (parsedRound > 0) {
+    payload.round = parsedRound;
+  }
+  if (commentInfo?.id) {
+    payload.comment_id = Number(commentInfo.id);
+  }
+  if (commentInfo?.url) {
+    payload.comment_url = commentInfo.url;
+  }
+  if (idempotencyKey) {
+    payload.idempotency_key = idempotencyKey;
+  }
+
+  try {
+    await github.rest.repos.createDispatchEvent({
+      owner,
+      repo,
+      event_type: safeEvent,
+      client_payload: payload,
+    });
+    record(`Dispatch ${action}`, `sent action=${action}`);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record(`Dispatch ${action}`, `failed: ${message}`);
+    return false;
+  }
+}
+
 async function dispatchFallbackWorkflow({
   github,
   owner,
@@ -381,6 +475,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const agentAliasEnv = normalise(env.AGENT_ALIAS) || 'codex';
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
+  const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
   const ttlShort = parseNumber(env.TTL_SHORT_MS, 90_000, { min: 0 });
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
@@ -407,11 +502,57 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
   const stateManager = await createKeepaliveStateManager({ github, context, prNumber, trace, round });
   let state = stateManager.state || {};
+  let commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+  let stateCommentId = stateManager.commentId ? Number(stateManager.commentId) : 0;
+  let stateCommentUrl = stateManager.commentUrl || '';
 
-  const applyStateUpdate = async (updates) => {
+  const applyStateUpdate = async (updates, { forcePersist = false } = {}) => {
+    if (!forcePersist && !stateCommentId) {
+      state = mergeStateShallow(state, updates);
+      commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+      return { state: { ...state }, commentId: stateCommentId, commentUrl: stateCommentUrl };
+    }
+
     const saved = await stateManager.save(updates);
     state = saved.state || {};
+    commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+    stateCommentId = saved.commentId || stateCommentId;
+    stateCommentUrl = saved.commentUrl || stateCommentUrl;
     return saved;
+  };
+
+  const updateCommandState = async (updates) => {
+    const merged = mergeStateShallow(commandState, updates);
+    await applyStateUpdate({ command_dispatch: merged });
+    commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+    return commandState;
+  };
+
+  const getCommandActionState = (action) => {
+    if (!action) {
+      return {};
+    }
+    const entry = commandState && typeof commandState === 'object' ? commandState[action] : undefined;
+    return entry && typeof entry === 'object' ? entry : {};
+  };
+
+  const buildHistoryWith = (action) => {
+    const base = Array.isArray(commandState?.history) ? commandState.history.slice() : [];
+    if (action && !base.includes(action)) {
+      base.push(action);
+    }
+    return base;
+  };
+
+  const actionsAttempted = [];
+  const noteActionAttempt = (action) => {
+    const key = normalise(action);
+    if (!key) {
+      return;
+    }
+    if (!actionsAttempted.includes(key)) {
+      actionsAttempted.push(key);
+    }
   };
 
   if (baselineHead && !normalise(state.head_sha)) {
@@ -515,6 +656,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   let commentInfo = commentState.id
     ? { id: commentState.id, url: commentState.url, author: commentState.author, created_at: commentState.created_at }
     : null;
+  let commentPostedThisRun = false;
   if (!commentInfo && commentIdEnv) {
     commentInfo = { id: commentIdEnv, url: commentUrlEnv }; // fallback from env if provided
   }
@@ -531,6 +673,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         },
       });
       commentInfo = posted;
+      commentPostedThisRun = true;
     }
   } else {
     record('Comment', `existing /update-branch id=${commentInfo.id || '?'} trace=${trace}`);
@@ -560,6 +703,106 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     record('Comment reaction', '👀 already recorded.');
   }
 
+  const attemptCommand = async (action, label) => {
+    const actionKey = normalise(action);
+    if (!actionKey) {
+      record(`${label} dispatch`, 'skipped: action missing');
+      return { changed: false, dispatched: false, headSha: '' };
+    }
+
+    noteActionAttempt(actionKey);
+
+    const existing = getCommandActionState(actionKey);
+    const alreadyForTrace = existing.idempotency_key && existing.idempotency_key === idempotencyKey && existing.dispatched;
+    let dispatched = false;
+    let dispatchTimestamp = existing.dispatched_at || new Date().toISOString();
+    let reused = false;
+
+    if (alreadyForTrace) {
+      reused = true;
+      record(`Dispatch ${actionKey}`, 'skipped: already dispatched for this trace.');
+    } else {
+      dispatchTimestamp = new Date().toISOString();
+      dispatched = await dispatchCommand({
+        github,
+        owner,
+        repo,
+        eventType: dispatchEventType,
+        action: actionKey,
+        prNumber,
+        agentAlias,
+        baseRef: baseRef || initialHeadInfo.baseRef || '',
+        headRef: headBranch,
+        headSha: baselineHead || initialHead || '',
+        trace,
+        round,
+        commentInfo,
+        idempotencyKey,
+        record,
+      });
+    }
+
+    const mergedEntry = mergeStateShallow(existing, {
+      dispatched: alreadyForTrace ? existing.dispatched : dispatched,
+      dispatched_at: dispatchTimestamp,
+      idempotency_key: idempotencyKey,
+      trace: trace || '',
+      round: round || '',
+      reused,
+    });
+
+    await updateCommandState({
+      history: buildHistoryWith(actionKey),
+      last_action: actionKey,
+      last_dispatched_at: mergedEntry.dispatched_at,
+      [actionKey]: mergedEntry,
+    });
+
+    const shouldPoll = reused || dispatched;
+    let pollResult = null;
+    if (shouldPoll) {
+      pollResult = await pollForHeadChange({
+        fetchHead,
+        initialSha: baselineHead || initialHead,
+        timeoutMs: ttlLong,
+        intervalMs: pollLong,
+        label: `${actionKey}-wait`,
+        core,
+      });
+      const outcomeUpdate = {
+        result: pollResult.changed ? 'success' : 'timeout',
+        resolved_at: new Date().toISOString(),
+        resolved_sha: pollResult.headSha || '',
+      };
+      await updateCommandState({
+        [actionKey]: mergeStateShallow(getCommandActionState(actionKey), outcomeUpdate),
+      });
+    }
+
+    let message;
+    if (pollResult?.changed) {
+      message = `Branch advanced to ${pollResult.headSha || '(unknown)'}`;
+      success = true;
+      finalHead = pollResult.headSha;
+      baselineHead = finalHead;
+      mode = `dispatch-${actionKey}`;
+    } else if (shouldPoll) {
+      message = 'Branch unchanged after command wait.';
+    } else if (!alreadyForTrace && !dispatched) {
+      message = 'Dispatch unavailable; command not sent.';
+    } else {
+      message = 'Command already dispatched; awaiting external progress.';
+    }
+
+    record(`${label} result`, message);
+
+    return {
+      changed: Boolean(pollResult?.changed),
+      dispatched: dispatched || alreadyForTrace,
+      headSha: pollResult?.headSha,
+    };
+  };
+
   const startTime = Date.now();
   let success = false;
   let finalHead = initialHead;
@@ -576,10 +819,19 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (shortPoll.changed) {
     success = true;
     finalHead = shortPoll.headSha;
-    mode = 'comment-update-branch';
-    record('Comment wait', `Branch advanced to ${shortPoll.headSha}`);
+    baselineHead = finalHead;
+    mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
+    record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
   } else {
     record('Comment wait', 'Head unchanged after comment TTL.');
+  }
+
+  if (!success) {
+    await attemptCommand('update-branch', 'Update-branch');
+  }
+
+  if (!success) {
+    await attemptCommand('create-pr', 'Create-pr');
   }
 
   if (!success) {
@@ -655,6 +907,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       if (longPoll.changed) {
         success = true;
         finalHead = longPoll.headSha;
+        baselineHead = finalHead;
         mode = 'action-sync-pr';
         record('Fallback wait', `Branch advanced to ${longPoll.headSha}`);
       } else {
@@ -663,12 +916,18 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     }
   }
 
+  if (!success && (!mode || mode === 'none')) {
+    mode = 'sync-timeout';
+  }
+
   core?.setOutput?.('merged_sha', finalHead || '');
   core?.setOutput?.('mode', mode);
   core?.setOutput?.('success', success ? 'true' : 'false');
 
   if (success) {
     await applyStateUpdate({
+      head_sha: finalHead || '',
+      head_recorded_at: new Date().toISOString(),
       result: {
         status: 'success',
         mode,
@@ -717,7 +976,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
   if (hasDebugLabel) {
     const traceToken = trace ? `{${trace}}` : '{trace-missing}';
-    const escalationMessage = `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after comment + fallback.`;
+    const attemptedSummary = actionsAttempted.length ? actionsAttempted.join('/') : 'none';
+    const escalationMessage = `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after comment + commands=${attemptedSummary} + fallback.`;
     try {
       await github.rest.issues.createComment({
         owner,
@@ -734,7 +994,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     record('Escalation comment', 'Debug label absent; no comment posted.');
   }
 
-  const timeoutMessage = `reason=sync-timeout trace:${trace || 'missing'} elapsed=${Date.now() - startTime}ms`;
+  const timeoutMessage = `mode=${mode || 'sync-timeout'} trace:${trace || 'missing'} elapsed=${Date.now() - startTime}ms`;
   record('Result', timeoutMessage);
   await summaryHelper.flush(buildSyncSummaryLabel(trace));
 }
