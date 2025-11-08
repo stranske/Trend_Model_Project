@@ -555,15 +555,16 @@ jobs:
             const base = "${{ steps.refs.outputs.base }}";
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
-            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
-              const agent = (process.env.AGENT || '').trim();
-              if (!agent || agent === 'unknown') {
-                core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
-                return;
-              }
-              const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
-              const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
-              const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
+            const keepaliveModeRaw = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
+            const keepaliveStatus = keepaliveModeRaw === 'ON' ? 'ON' : 'OFF';
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
 
             if (!issue_number) {
               core.setFailed('Resolved issue number missing; cannot open PR.');
@@ -576,23 +577,23 @@ jobs:
 
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
+            let prCreated = false;
+
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (error) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${error.message}`);
+            }
 
             if (!pr) {
-              let issueTitle = '';
-              let issueBody = '';
-              try {
-                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
-                issueTitle = is.title || '';
-                issueBody = is.body || '';
-              } catch (e) {
-                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
-              }
-
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
-              const keepaliveStatus = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
               const keepaliveHeader = `### Keepalive: ${keepaliveStatus}`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
-              const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+              const quoted = (issueBody || '').split('\n').map((line) => `> ${line}`).join('\n');
               const baseLine = base ? `Base: ${base}` : '';
               const headLine = head ? `Head: ${head}` : '';
 
@@ -611,20 +612,28 @@ jobs:
                 '—',
                 `PR created automatically to engage ${agentTitle}.`
               ].join('\n');
-              
-              ({ data: pr } = await github.rest.pulls.create({ 
-                owner, 
-                repo, 
-                head, 
-                base, 
-                draft: draftFlag, 
-                title: `${agentTitle} bootstrap for #${issue_number}`, 
-                body: prBody 
+
+              ({ data: pr } = await github.rest.pulls.create({
+                owner,
+                repo,
+                head,
+                base,
+                draft: draftFlag,
+                title: `${agentTitle} bootstrap for #${issue_number}`,
+                body: prBody,
               }));
+              prCreated = true;
             }
-            
+
             core.setOutput('number', String(pr.number));
-            
+            core.setOutput('created', prCreated ? 'true' : 'false');
+            core.setOutput('issue', issue_number ? String(issue_number) : '');
+            core.setOutput('issue_body', issueBody || '');
+            core.setOutput('issue_title', issueTitle || '');
+            core.setOutput('instruction', instruction);
+            core.setOutput('agent', agent);
+            core.setOutput('keepalive_mode', keepaliveStatus);
+
             const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
             try { 
               await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees }); 
@@ -636,6 +645,126 @@ jobs:
             } catch (e) { 
               core.warning(`Issue assign failed: ${e.message}`); 
             }
+
+      - name: Seed scope/tasks checklist comment
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.created == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+          ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
+          INSTRUCTION: ${{ steps.pr.outputs.instruction }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number(process.env.PR || '0');
+            if (!prNumber) {
+              core.warning('Checklist seed skipped: PR number missing.');
+              return;
+            }
+
+            const issueBody = String(process.env.ISSUE_BODY || '');
+            const agent = (process.env.AGENT || '').trim() || 'codex';
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const defaultInstruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
+            const instruction = (process.env.INSTRUCTION || '').trim() || defaultInstruction;
+
+            const normalise = (value) => String(value || '').replace(/\r\n/g, '\n');
+            const escape = (value) => value.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const extractSection = (body, heading, aliases = []) => {
+              const names = [heading].concat(aliases);
+              const pattern = new RegExp(`(^|\n)(#{1,3}\s+)?(${names.map(escape).join('|')})\s*\r?\n`, 'i');
+              const source = normalise(body);
+              const match = source.match(pattern);
+              if (!match) {
+                return '';
+              }
+              const start = match.index + match[0].length;
+              const rest = source.slice(start);
+              const nextPattern = /\r?\n(#{2,3}\s+|Why\s*\r?\n|Scope\s*\r?\n|Non-Goals\s*\r?\n|Goal\s*\r?\n|Tasks\s*\r?\n|Acceptance criteria\s*\r?\n|Success criteria\s*\r?\n|Definition of done\s*\r?\n|Implementation notes\s*\r?\n|Technical notes\s*\r?\n|Summary\s*\r?\n|Description\s*\r?\n|Overview\s*\r?\n|Testing\s*\r?\n|Test Plan\s*\r?\n|Validation\s*\r?\n|CI readiness\s*\r?\n)/i;
+              const nextMatch = rest.match(nextPattern);
+              const end = nextMatch ? nextMatch.index + 1 : rest.length;
+              return rest.slice(0, end).trim();
+            };
+
+            const ensureChecklist = (section, fallback) => {
+              const lines = normalise(section)
+                .split('\n')
+                .map((line) => line.trimEnd());
+              const hasContent = lines.some((line) => line.trim().length > 0);
+              if (!hasContent) {
+                return fallback;
+              }
+              return lines
+                .map((line) => {
+                  if (!line.trim()) {
+                    return '';
+                  }
+                  const bullet = line.match(/^(\s*)([-*])\s+(.*)$/);
+                  const [, indent = ''] = bullet || [];
+                  const raw = bullet ? bullet[3] : line;
+                  const content = raw.trim();
+                  if (!content) {
+                    return '';
+                  }
+                  const checkbox = content.match(/^\[( |x|X)\]\s*(.*)$/);
+                  if (checkbox) {
+                    const state = checkbox[1].toLowerCase() === 'x' ? 'x' : ' ';
+                    return `${indent}- [${state}] ${checkbox[2].trim()}`;
+                  }
+                  return `${indent}- [ ] ${content}`;
+                })
+                .filter((line) => line.length > 0)
+                .join('\n');
+            };
+
+            const scope = ensureChecklist(
+              extractSection(issueBody, 'Scope'),
+              '- [ ] Scope section missing from source issue.'
+            );
+            const tasks = ensureChecklist(
+              extractSection(issueBody, 'Tasks'),
+              '- [ ] Tasks section missing from source issue.'
+            );
+            const acceptance = ensureChecklist(
+              extractSection(issueBody, 'Acceptance criteria', ['Success criteria', 'Definition of done']),
+              '- [ ] Acceptance criteria section missing from source issue.'
+            );
+
+            const marker = '<!-- issue-bridge-checklist -->';
+            const commentBody = [
+              marker,
+              instruction,
+              '',
+              '#### Scope',
+              scope,
+              '',
+              '#### Tasks',
+              tasks,
+              '',
+              '#### Acceptance criteria',
+              acceptance,
+            ].join('\n');
+
+            const existing = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const duplicate = existing.find((entry) => (entry.body || '').includes(marker));
+            if (duplicate) {
+              core.info(`Checklist comment already present (id=${duplicate.id}); skipping.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: commentBody,
+            });
+
 
       - name: Label PR with agent
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
