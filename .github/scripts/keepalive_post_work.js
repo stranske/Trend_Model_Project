@@ -1039,7 +1039,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   record('Sync label', appendRound(`Applied ${syncLabel}.`));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-  record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
+      record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
     }
   } else {
   record('Sync label', appendRound(`${syncLabel} already present.`));
