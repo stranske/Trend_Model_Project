@@ -114,8 +114,9 @@ Before the next round begins:
 
 1. Verify that the PR head SHA changed after the agent reported "done".
 2. If unchanged, scan the agent's latest reply for "Update Branch" or "Create PR" URLs, invoke the detected action automatically, and poll for a new commit (short TTL).
-3. Still unchanged? Attempt the alternate path (e.g., fall back to "Create PR" when "Update Branch" is unavailable) and poll again.
-4. When both attempts fail, pause keepalive, apply `agents:sync-required`, and—with `agents:debug` present—post a single-line escalation containing the `{trace}` token. Do **not** post a new instruction.
+3. Keepalive now issues a visible `/update-branch trace:{TRACE}` command from `stranske` as the first remediation step and waits a short TTL (≈90 s) for the branch to advance.
+4. If head is still unchanged when TTL_short expires, it dispatches `agents-keepalive-branch-sync.yml` (idempotent on `{PR,round,trace}`) using `ACTIONS_BOT_PAT`, passing PR/base/head metadata, the update-branch comment references, and the idempotency token. Keepalive polls for up to ~4 minutes for either path to land a commit and records each action in the step summary.
+5. When both attempts fail, pause keepalive, apply `agents:sync-required`, and—with `agents:debug` present—post a single-line escalation containing the `{trace}` token. Do **not** post a new instruction.
 
 ---
 

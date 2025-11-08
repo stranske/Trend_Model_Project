@@ -1,6 +1,7 @@
 'use strict';
 
 const { setTimeout: sleep } = require('timers/promises');
+const { createKeepaliveStateManager } = require('./keepalive_state.js');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -91,16 +92,24 @@ function parseAgentState(env) {
   return { done: false, value: '' };
 }
 
-function selectPreferredToken(env) {
-  const actionsToken = normalise(env.ACTIONS_BOT_PAT);
-  if (actionsToken) {
-    return { source: 'ACTIONS_BOT_PAT', token: actionsToken };
+function extractLabelNames(labels) {
+  if (!Array.isArray(labels)) {
+    return [];
   }
-  const serviceToken = normalise(env.SERVICE_BOT_PAT);
-  if (serviceToken) {
-    return { source: 'SERVICE_BOT_PAT', token: serviceToken };
-  }
-  return { source: 'none', token: '' };
+  return labels
+    .map((label) => {
+      if (!label) {
+        return '';
+      }
+      if (typeof label === 'string') {
+        return label.trim().toLowerCase();
+      }
+      if (typeof label.name === 'string') {
+        return label.name.trim().toLowerCase();
+      }
+      return '';
+    })
+    .filter(Boolean);
 }
 
 function extractAgentAliasFromLabels(labels, fallback = 'codex') {
@@ -121,27 +130,6 @@ function computeIdempotencyKey(prNumber, round, trace) {
   const safeRound = normalise(round) || '?';
   const safePr = Number.isFinite(prNumber) ? String(prNumber) : normalise(prNumber) || '?';
   return `${safePr}/${safeRound}#${safeTrace}`;
-}
-
-
-function extractLabelNames(labels) {
-  if (!Array.isArray(labels)) {
-    return [];
-  }
-  return labels
-    .map((label) => {
-      if (!label) {
-        return '';
-      }
-      if (typeof label === 'string') {
-        return label.trim().toLowerCase();
-      }
-      if (typeof label.name === 'string') {
-        return label.name.trim().toLowerCase();
-      }
-      return '';
-    })
-    .filter(Boolean);
 }
 
 async function loadPull({ github, owner, repo, prNumber }) {
@@ -165,14 +153,7 @@ async function listLabels({ github, owner, repo, prNumber }) {
   return Array.isArray(response?.data) ? response.data : [];
 }
 
-async function pollForHeadChange({
-  fetchHead,
-  initialSha,
-  timeoutMs,
-  intervalMs,
-  label,
-  core,
-}) {
+async function pollForHeadChange({ fetchHead, initialSha, timeoutMs, intervalMs, label, core }) {
   const start = Date.now();
   let attempts = 0;
   let lastSha = initialSha;
@@ -233,6 +214,247 @@ function buildSyncSummaryLabel(trace) {
   return `Keepalive sync (${safeTrace})`;
 }
 
+function isForkPull(initialInfo) {
+  const forkFlag = initialInfo?.raw?.head?.repo?.fork;
+  return Boolean(forkFlag);
+}
+
+async function postUpdateBranchComment({ github, owner, repo, prNumber, trace, record }) {
+  const body = `/update-branch trace:${trace}`;
+  try {
+    const { data } = await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+    const info = {
+      id: data?.id ? Number(data.id) : 0,
+      url: data?.html_url || '',
+      author: data?.user?.login || '',
+      created_at: data?.created_at || new Date().toISOString(),
+    };
+    record('Comment', `posted=/update-branch id=${info.id || '?'} author=${info.author || 'unknown'} trace=${trace}`);
+    return info;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Comment', `failed to post /update-branch: ${message}`);
+    return null;
+  }
+}
+
+async function ensureEyesReaction({ github, owner, repo, commentId, record }) {
+  if (!commentId) {
+    return false;
+  }
+  try {
+    await github.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: commentId,
+      content: 'eyes',
+    });
+    record('Comment reaction', '👀 added');
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Comment reaction', `failed: ${message}`);
+    return false;
+  }
+}
+
+function mergeStateShallow(target, updates) {
+  if (!updates || typeof updates !== 'object') {
+    return target;
+  }
+  const next = { ...target };
+  for (const [key, value] of Object.entries(updates)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      next[key] = mergeStateShallow(target[key] && typeof target[key] === 'object' ? target[key] : {}, value);
+    } else {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function parseRoundNumber(value) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.round(parsed);
+  }
+  const fallback = Number(String(value || '').trim().replace(/[^0-9]/g, ''));
+  if (Number.isFinite(fallback) && fallback > 0) {
+    return Math.round(fallback);
+  }
+  return 0;
+}
+
+async function dispatchCommand({
+  github,
+  owner,
+  repo,
+  eventType,
+  action,
+  prNumber,
+  agentAlias,
+  baseRef,
+  headRef,
+  headSha,
+  trace,
+  round,
+  commentInfo,
+  idempotencyKey,
+  record,
+}) {
+  const safeEvent = normalise(eventType) || 'codex-pr-comment-command';
+  if (!safeEvent) {
+    record(`Dispatch ${action}`, 'skipped: event type missing');
+    return false;
+  }
+  if (!github?.rest?.repos?.createDispatchEvent) {
+    record(`Dispatch ${action}`, 'skipped: GitHub client missing createDispatchEvent');
+    return false;
+  }
+
+  const payload = {
+    issue: Number.isFinite(prNumber) ? Number(prNumber) : parseNumber(prNumber, 0, { min: 0 }),
+    action,
+    agent: agentAlias || 'codex',
+    base: baseRef || '',
+    head: headRef || '',
+    head_sha: headSha || '',
+    trace: trace || '',
+  };
+
+  const parsedRound = parseRoundNumber(round);
+  if (parsedRound > 0) {
+    payload.round = parsedRound;
+  }
+  if (commentInfo?.id) {
+    payload.comment_id = Number(commentInfo.id);
+  }
+  if (commentInfo?.url) {
+    payload.comment_url = commentInfo.url;
+  }
+  if (idempotencyKey) {
+    payload.idempotency_key = idempotencyKey;
+  }
+
+  try {
+    await github.rest.repos.createDispatchEvent({
+      owner,
+      repo,
+      event_type: safeEvent,
+      client_payload: payload,
+    });
+    record(`Dispatch ${action}`, `sent action=${action}`);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record(`Dispatch ${action}`, `failed: ${message}`);
+    return false;
+  }
+}
+
+async function dispatchFallbackWorkflow({
+  github,
+  owner,
+  repo,
+  baseRef,
+  dispatchRef,
+  prNumber,
+  headRef,
+  headSha,
+  trace,
+  round,
+  agentAlias,
+  commentInfo,
+  idempotencyKey,
+  record,
+}) {
+  if (!baseRef || !headRef || !headSha) {
+    record('Fallback dispatch', 'skipped: base/head/head_sha missing.');
+    return { dispatched: false };
+  }
+  try {
+    const inputs = {
+      pr_number: String(prNumber),
+      trace: trace || '',
+      base_ref: baseRef,
+      head_ref: headRef,
+      head_sha: headSha,
+    };
+    if (agentAlias) {
+      inputs.agent = agentAlias;
+    }
+    if (round) {
+      inputs.round = String(round);
+    }
+    if (commentInfo?.id) {
+      inputs.comment_id = String(commentInfo.id);
+    }
+    if (commentInfo?.url) {
+      inputs.comment_url = commentInfo.url;
+    }
+    if (idempotencyKey) {
+      inputs.idempotency_key = idempotencyKey;
+    }
+
+    const response = await github.rest.actions.createWorkflowDispatch({
+      owner,
+      repo,
+      workflow_id: 'agents-keepalive-branch-sync.yml',
+      ref: dispatchRef || baseRef,
+      inputs,
+    });
+
+    record(
+      'Fallback dispatch',
+      `dispatched=keepalive-branch-sync http=${response?.status ?? 0} trace=${trace || 'missing'}`,
+    );
+    return {
+      dispatched: true,
+      status: response?.status ?? 0,
+      dispatchedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Fallback dispatch', `failed: ${message}`);
+    return { dispatched: false, error: message };
+  }
+}
+
+async function findFallbackRun({ github, owner, repo, createdAfter, existingRunId, core }) {
+  if (!github?.rest?.actions?.listWorkflowRuns) {
+    return null;
+  }
+  try {
+    const response = await github.rest.actions.listWorkflowRuns({
+      owner,
+      repo,
+      workflow_id: 'agents-keepalive-branch-sync.yml',
+      event: 'workflow_dispatch',
+      per_page: 20,
+    });
+    const runs = response?.data?.workflow_runs || [];
+    const threshold = createdAfter ? new Date(createdAfter).getTime() - 5000 : 0;
+    for (const run of runs) {
+      if (existingRunId && Number(run?.id) === Number(existingRunId)) {
+        return run;
+      }
+      const created = new Date(run?.created_at || run?.run_started_at || 0).getTime();
+      if (!createdAfter || Number.isFinite(created) && created >= threshold) {
+        return run;
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    core?.warning?.(`Failed to locate keepalive branch-sync run: ${message}`);
+  }
+  return null;
+}
+
 async function runKeepalivePostWork({ core, github, context, env = process.env }) {
   const summaryHelper = buildSummaryRecorder(core?.summary);
   const record = summaryHelper.record;
@@ -248,11 +470,12 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     normalise(env.PREVIOUS_HEAD) ||
     normalise(env.HEAD_SHA_PREV) ||
     '';
-  const commentId = parseNumber(env.COMMENT_ID, NaN, { min: 1 });
-  const commentUrl = normalise(env.COMMENT_URL);
+  const commentIdEnv = parseNumber(env.COMMENT_ID, NaN, { min: 1 });
+  const commentUrlEnv = normalise(env.COMMENT_URL);
   const agentAliasEnv = normalise(env.AGENT_ALIAS) || 'codex';
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
+  const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
   const ttlShort = parseNumber(env.TTL_SHORT_MS, 90_000, { min: 0 });
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
@@ -277,6 +500,68 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     core?.setOutput?.('trace', trace);
   }
 
+  const stateManager = await createKeepaliveStateManager({ github, context, prNumber, trace, round });
+  let state = stateManager.state || {};
+  let commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+  let stateCommentId = stateManager.commentId ? Number(stateManager.commentId) : 0;
+  let stateCommentUrl = stateManager.commentUrl || '';
+
+  const applyStateUpdate = async (updates, { forcePersist = false } = {}) => {
+    if (!forcePersist && !stateCommentId) {
+      state = mergeStateShallow(state, updates);
+      commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+      return { state: { ...state }, commentId: stateCommentId, commentUrl: stateCommentUrl };
+    }
+
+    const saved = await stateManager.save(updates);
+    state = saved.state || {};
+    commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+    stateCommentId = saved.commentId || stateCommentId;
+    stateCommentUrl = saved.commentUrl || stateCommentUrl;
+    return saved;
+  };
+
+  const updateCommandState = async (updates) => {
+    const merged = mergeStateShallow(commandState, updates);
+    await applyStateUpdate({ command_dispatch: merged });
+    commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+    return commandState;
+  };
+
+  const getCommandActionState = (action) => {
+    if (!action) {
+      return {};
+    }
+    const entry = commandState && typeof commandState === 'object' ? commandState[action] : undefined;
+    return entry && typeof entry === 'object' ? entry : {};
+  };
+
+  const buildHistoryWith = (action) => {
+    const base = Array.isArray(commandState?.history) ? commandState.history.slice() : [];
+    if (action && !base.includes(action)) {
+      base.push(action);
+    }
+    return base;
+  };
+
+  const actionsAttempted = [];
+  const noteActionAttempt = (action) => {
+    const key = normalise(action);
+    if (!key) {
+      return;
+    }
+    if (!actionsAttempted.includes(key)) {
+      actionsAttempted.push(key);
+    }
+  };
+
+  if (baselineHead && !normalise(state.head_sha)) {
+    await applyStateUpdate({ head_sha: baselineHead, head_recorded_at: new Date().toISOString() });
+  }
+  if (state.idempotency_key !== idempotencyKey) {
+    await applyStateUpdate({ idempotency_key: idempotencyKey });
+  }
+
   const fetchHead = async () => loadPull({ github, owner, repo, prNumber });
 
   let currentLabels = [];
@@ -298,7 +583,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (!agentState.done) {
     record(
       'Preconditions',
-      `Agent state ${agentState.value || '(unknown)'} does not indicate completion; skipping sync gate.`
+      `Agent state ${agentState.value || '(unknown)'} does not indicate completion; skipping sync gate.`,
     );
     core?.setOutput?.('mode', 'skipped-agent-state');
     core?.setOutput?.('success', 'false');
@@ -317,161 +602,30 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     return;
   }
 
+  if (isForkPull(initialHeadInfo)) {
+    record('Initialisation', 'PR originates from a fork; skipping sync operations.');
+    core?.setOutput?.('mode', 'skipped-fork');
+    core?.setOutput?.('success', 'false');
+    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    return;
+  }
+
   const initialHead = initialHeadInfo.headSha || '';
   const headBranch = headBranchEnv || initialHeadInfo.headRef || '';
   const baseRef = baseBranch || initialHeadInfo.baseRef || '';
   if (!baselineHead) {
-    baselineHead = initialHead;
+    baselineHead = normalise(state.head_sha) || initialHead;
+  }
+  if (!normalise(state.head_sha) && baselineHead) {
+    await applyStateUpdate({ head_sha: baselineHead });
   }
   record('Baseline head', baselineHead || '(unavailable)');
 
   if (baselineHead && initialHead && baselineHead !== initialHead) {
     record('Head check', `Head already advanced to ${initialHead}; skipping sync gate.`);
-    core?.setOutput?.('mode', 'already-synced');
-    core?.setOutput?.('success', 'true');
-    core?.setOutput?.('merged_sha', initialHead || '');
-    record('Result', `mode=already-synced sha=${initialHead || '(unknown)'} elapsed=0ms`);
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
-    return;
-  }
-
-  const startTime = Date.now();
-  let success = false;
-  let finalHead = initialHead;
-  let mode = 'none';
-
-  if (baselineHead) {
-    const pollResult = await pollForHeadChange({
-      fetchHead,
-      initialSha: baselineHead,
-      timeoutMs: ttlShort,
-      intervalMs: pollShort,
-      label: 'initial-wait',
-      core,
-    });
-    if (pollResult.changed) {
-      success = true;
-      finalHead = pollResult.headSha;
-      mode = 'already-synced';
-      record('Initial poll', `Branch advanced to ${pollResult.headSha}`);
-    } else {
-      record('Initial poll', 'No change detected after initial wait.');
-    }
-  } else {
-    record('Initial poll', 'Baseline head unavailable; skipping initial wait.');
-  }
-
-  const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
-  const connectorIssue = Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber;
-  const commentNumericId = Number.isFinite(commentId) ? Number(commentId) : undefined;
-
-  const connectorDispatch = async (action, label) => {
-    if (!github?.rest?.repos?.createDispatchEvent) {
-      record(label, 'GitHub client missing repository dispatch API; skipped.');
-      return { dispatched: false };
-    }
-    if (!Number.isFinite(prNumber)) {
-      record(label, 'Skipped: PR number missing.');
-      return { dispatched: false };
-    }
-    const baseForDispatch = baseRef || baseBranch;
-    const headForDispatch = headBranch || headBranchEnv;
-    if (!baseForDispatch || !headForDispatch) {
-      record(label, 'Skipped: base/head branch unavailable.');
-      return { dispatched: false };
-    }
-    const issueForDispatch =
-      Number.isFinite(connectorIssue) && connectorIssue > 0 ? Number(connectorIssue) : Number(prNumber);
-    const payload = {
-      action,
-      issue: issueForDispatch,
-      base: baseForDispatch,
-      head: headForDispatch,
-      comment_id: commentNumericId,
-      comment_url: commentUrl || '',
-      agent: agentAlias,
-      trace: trace || '',
-      round: normalise(round) || '',
-    };
-    for (const key of Object.keys(payload)) {
-      if (payload[key] === undefined || payload[key] === '') {
-        delete payload[key];
-      }
-    }
-    try {
-      await github.rest.repos.createDispatchEvent({
-        owner,
-        repo,
-        event_type: dispatchEventType,
-        client_payload: payload,
-      });
-      record(label, `Emitted ${dispatchEventType} (${action}).`);
-      return { dispatched: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      record(label, `Failed: ${message}`);
-      return { dispatched: false, error: message };
-    }
-  };
-
-  if (!success) {
-    const dispatchResult = await connectorDispatch('update-branch', 'Update-branch dispatch');
-    if (dispatchResult.dispatched) {
-      const updateResult = await pollForHeadChange({
-        fetchHead,
-        initialSha: baselineHead,
-        timeoutMs: ttlLong,
-        intervalMs: pollLong,
-        label: 'dispatch-update-branch',
-        core,
-      });
-      if (updateResult.changed) {
-        success = true;
-        finalHead = updateResult.headSha;
-        mode = 'dispatch-update-branch';
-        record('Update-branch result', `Branch advanced to ${updateResult.headSha}`);
-      } else {
-        record('Update-branch result', 'Branch unchanged after update-branch dispatch.');
-      }
-    }
-  }
-
-  if (!success) {
-    const dispatchResult = await connectorDispatch('create-pr', 'Create-pr dispatch');
-    if (dispatchResult.dispatched) {
-      const syncResult = await pollForHeadChange({
-        fetchHead,
-        initialSha: baselineHead,
-        timeoutMs: ttlLong,
-        intervalMs: pollLong,
-        label: 'dispatch-create-pr',
-        core,
-      });
-      if (syncResult.changed) {
-        success = true;
-        finalHead = syncResult.headSha;
-        mode = 'dispatch-create-pr';
-        record('Create-pr result', `Branch advanced to ${syncResult.headSha}`);
-      } else {
-        record('Create-pr result', 'Branch unchanged after create-pr dispatch.');
-      }
-    }
-  }
-
-  const elapsedMs = Date.now() - startTime;
-  core?.setOutput?.('merged_sha', finalHead || '');
-  core?.setOutput?.('mode', mode);
-  core?.setOutput?.('success', success ? 'true' : 'false');
-
-  if (success) {
     if (hasSyncLabel) {
       try {
-        await github.rest.issues.removeLabel({
-          owner,
-          repo,
-          issue_number: prNumber,
-          name: syncLabel,
-        });
+        await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
         record('Sync label', `Removed ${syncLabel}.`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -480,19 +634,337 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     } else {
       record('Sync label', `${syncLabel} not present.`);
     }
-    record('Result', `mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsedMs}ms`);
+    const elapsed = 0;
+    const finalHead = initialHead;
+    await applyStateUpdate({
+      result: {
+        status: 'success',
+        mode: 'already-synced',
+        merged_sha: finalHead,
+        recorded_at: new Date().toISOString(),
+      },
+    });
+    core?.setOutput?.('mode', 'already-synced');
+    core?.setOutput?.('success', 'true');
+    core?.setOutput?.('merged_sha', finalHead || '');
+    record('Result', `mode=already-synced sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`);
     await summaryHelper.flush(buildSyncSummaryLabel(trace));
     return;
   }
 
-  if (!hasSyncLabel) {
-    try {
-      await github.rest.issues.addLabels({
+  const commentState = state.comment_command || {};
+  let commentInfo = commentState.id
+    ? { id: commentState.id, url: commentState.url, author: commentState.author, created_at: commentState.created_at }
+    : null;
+  let commentPostedThisRun = false;
+  if (!commentInfo && commentIdEnv) {
+    commentInfo = { id: commentIdEnv, url: commentUrlEnv }; // fallback from env if provided
+  }
+
+  if (!commentInfo) {
+    const posted = await postUpdateBranchComment({ github, owner, repo, prNumber, trace, record });
+    if (posted && posted.id) {
+      await applyStateUpdate({
+        comment_command: {
+          id: posted.id,
+          url: posted.url,
+          author: posted.author,
+          created_at: posted.created_at,
+        },
+      });
+      commentInfo = posted;
+      commentPostedThisRun = true;
+    }
+  } else {
+    record('Comment', `existing /update-branch id=${commentInfo.id || '?'} trace=${trace}`);
+  }
+
+  if (commentInfo?.id && commentState?.reaction !== 'eyes') {
+    const reactionAdded = await ensureEyesReaction({
+      github,
+      owner,
+      repo,
+      commentId: commentInfo.id,
+      record,
+    });
+    if (reactionAdded) {
+      await applyStateUpdate({
+        comment_command: {
+          ...(state.comment_command || {}),
+          id: commentInfo.id,
+          url: commentInfo.url,
+          author: commentInfo.author,
+          created_at: commentInfo.created_at,
+          reaction: 'eyes',
+        },
+      });
+    }
+  } else if (commentInfo?.id) {
+    record('Comment reaction', '👀 already recorded.');
+  }
+
+  const attemptCommand = async (action, label) => {
+    const actionKey = normalise(action);
+    if (!actionKey) {
+      record(`${label} dispatch`, 'skipped: action missing');
+      return { changed: false, dispatched: false, headSha: '' };
+    }
+
+    noteActionAttempt(actionKey);
+
+    const existing = getCommandActionState(actionKey);
+    const alreadyForTrace = existing.idempotency_key && existing.idempotency_key === idempotencyKey && existing.dispatched;
+    let dispatched = false;
+    let dispatchTimestamp = existing.dispatched_at || new Date().toISOString();
+    let reused = false;
+
+    if (alreadyForTrace) {
+      reused = true;
+      record(`Dispatch ${actionKey}`, 'skipped: already dispatched for this trace.');
+    } else {
+      dispatchTimestamp = new Date().toISOString();
+      dispatched = await dispatchCommand({
+        github,
         owner,
         repo,
-        issue_number: prNumber,
-        labels: [syncLabel],
+        eventType: dispatchEventType,
+        action: actionKey,
+        prNumber,
+        agentAlias,
+        baseRef: baseRef || initialHeadInfo.baseRef || '',
+        headRef: headBranch,
+        headSha: baselineHead || initialHead || '',
+        trace,
+        round,
+        commentInfo,
+        idempotencyKey,
+        record,
       });
+    }
+
+    const mergedEntry = mergeStateShallow(existing, {
+      dispatched: alreadyForTrace ? existing.dispatched : dispatched,
+      dispatched_at: dispatchTimestamp,
+      idempotency_key: idempotencyKey,
+      trace: trace || '',
+      round: round || '',
+      reused,
+    });
+
+    await updateCommandState({
+      history: buildHistoryWith(actionKey),
+      last_action: actionKey,
+      last_dispatched_at: mergedEntry.dispatched_at,
+      [actionKey]: mergedEntry,
+    });
+
+    const shouldPoll = reused || dispatched;
+    let pollResult = null;
+    if (shouldPoll) {
+      pollResult = await pollForHeadChange({
+        fetchHead,
+        initialSha: baselineHead || initialHead,
+        timeoutMs: ttlLong,
+        intervalMs: pollLong,
+        label: `${actionKey}-wait`,
+        core,
+      });
+      const outcomeUpdate = {
+        result: pollResult.changed ? 'success' : 'timeout',
+        resolved_at: new Date().toISOString(),
+        resolved_sha: pollResult.headSha || '',
+      };
+      await updateCommandState({
+        [actionKey]: mergeStateShallow(getCommandActionState(actionKey), outcomeUpdate),
+      });
+    }
+
+    let message;
+    if (pollResult?.changed) {
+      message = `Branch advanced to ${pollResult.headSha || '(unknown)'}`;
+      success = true;
+      finalHead = pollResult.headSha;
+      baselineHead = finalHead;
+      mode = `dispatch-${actionKey}`;
+    } else if (shouldPoll) {
+      message = 'Branch unchanged after command wait.';
+    } else if (!alreadyForTrace && !dispatched) {
+      message = 'Dispatch unavailable; command not sent.';
+    } else {
+      message = 'Command already dispatched; awaiting external progress.';
+    }
+
+    record(`${label} result`, message);
+
+    return {
+      changed: Boolean(pollResult?.changed),
+      dispatched: dispatched || alreadyForTrace,
+      headSha: pollResult?.headSha,
+    };
+  };
+
+  const startTime = Date.now();
+  let success = false;
+  let finalHead = initialHead;
+  let mode = 'none';
+
+  const shortPoll = await pollForHeadChange({
+    fetchHead,
+    initialSha: baselineHead,
+    timeoutMs: ttlShort,
+    intervalMs: pollShort,
+    label: 'comment-wait',
+    core,
+  });
+  if (shortPoll.changed) {
+    success = true;
+    finalHead = shortPoll.headSha;
+    baselineHead = finalHead;
+    mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
+    record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
+  } else {
+    record('Comment wait', 'Head unchanged after comment TTL.');
+  }
+
+  if (!success) {
+    await attemptCommand('update-branch', 'Update-branch');
+  }
+
+  if (!success) {
+    await attemptCommand('create-pr', 'Create-pr');
+  }
+
+  if (!success) {
+    const dispatchInfo = state.fallback_dispatch?.dispatched
+      ? { dispatched: true, status: state.fallback_dispatch.status, dispatchedAt: state.fallback_dispatch.dispatched_at }
+      : await dispatchFallbackWorkflow({
+          github,
+          owner,
+          repo,
+          baseRef,
+          dispatchRef: baseRef || context.payload?.repository?.default_branch,
+          prNumber,
+          headRef: headBranch,
+          headSha: baselineHead || initialHead,
+          trace,
+          round,
+          agentAlias,
+          commentInfo,
+          idempotencyKey,
+          record,
+        });
+
+    if (dispatchInfo.dispatched && !state.fallback_dispatch?.dispatched) {
+      await applyStateUpdate({
+        fallback_dispatch: {
+          dispatched: true,
+          status: dispatchInfo.status ?? 0,
+          dispatched_at: dispatchInfo.dispatchedAt,
+          workflow: 'agents-keepalive-branch-sync.yml',
+        },
+      });
+    } else if (dispatchInfo.dispatched) {
+      record('Fallback dispatch', 'reuse previous dispatch record.');
+    }
+
+    const existingRunId = state.fallback_dispatch?.run_id;
+    const runInfo = await findFallbackRun({
+      github,
+      owner,
+      repo,
+      createdAfter: dispatchInfo.dispatchedAt || state.fallback_dispatch?.dispatched_at,
+      existingRunId,
+      core,
+    });
+    if (runInfo) {
+      record('Fallback run', runInfo.html_url ? `run=${runInfo.html_url}` : `run_id=${runInfo.id}`);
+      if (!existingRunId || Number(existingRunId) !== Number(runInfo.id)) {
+        await applyStateUpdate({
+          fallback_dispatch: {
+            ...(state.fallback_dispatch || {}),
+            dispatched: true,
+            status: state.fallback_dispatch?.status ?? dispatchInfo.status ?? 0,
+            dispatched_at: state.fallback_dispatch?.dispatched_at || dispatchInfo.dispatchedAt,
+            workflow: 'agents-keepalive-branch-sync.yml',
+            run_id: runInfo.id,
+            run_url: runInfo.html_url || '',
+          },
+        });
+      }
+    } else if (dispatchInfo.dispatched) {
+      record('Fallback run', 'pending discovery.');
+    }
+
+    if (dispatchInfo.dispatched) {
+      const longPoll = await pollForHeadChange({
+        fetchHead,
+        initialSha: baselineHead,
+        timeoutMs: ttlLong,
+        intervalMs: pollLong,
+        label: 'fallback-wait',
+        core,
+      });
+      if (longPoll.changed) {
+        success = true;
+        finalHead = longPoll.headSha;
+        baselineHead = finalHead;
+        mode = 'action-sync-pr';
+        record('Fallback wait', `Branch advanced to ${longPoll.headSha}`);
+      } else {
+        record('Fallback wait', 'Branch unchanged after fallback TTL.');
+      }
+    }
+  }
+
+  if (!success && (!mode || mode === 'none')) {
+    mode = 'sync-timeout';
+  }
+
+  core?.setOutput?.('merged_sha', finalHead || '');
+  core?.setOutput?.('mode', mode);
+  core?.setOutput?.('success', success ? 'true' : 'false');
+
+  if (success) {
+    await applyStateUpdate({
+      head_sha: finalHead || '',
+      head_recorded_at: new Date().toISOString(),
+      result: {
+        status: 'success',
+        mode,
+        merged_sha: finalHead || '',
+        recorded_at: new Date().toISOString(),
+      },
+    });
+
+    if (hasSyncLabel) {
+      try {
+        await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
+        record('Sync label', `Removed ${syncLabel}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        record('Sync label', `Failed to remove ${syncLabel}: ${message}`);
+      }
+    } else {
+      record('Sync label', `${syncLabel} not present.`);
+    }
+    const elapsed = Date.now() - startTime;
+    record('Result', `mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`);
+    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    return;
+  }
+
+  await applyStateUpdate({
+    result: {
+      status: 'timeout',
+      mode: mode || 'sync-timeout',
+      merged_sha: finalHead || '',
+      recorded_at: new Date().toISOString(),
+    },
+  });
+
+  if (!hasSyncLabel) {
+    try {
+      await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
       record('Sync label', `Applied ${syncLabel}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -504,8 +976,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
   if (hasDebugLabel) {
     const traceToken = trace ? `{${trace}}` : '{trace-missing}';
-    const escalationMessage =
-      `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after update-branch/create-pr attempts.`;
+    const attemptedSummary = actionsAttempted.length ? actionsAttempted.join('/') : 'none';
+    const escalationMessage = `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after comment + commands=${attemptedSummary} + fallback.`;
     try {
       await github.rest.issues.createComment({
         owner,
@@ -522,7 +994,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     record('Escalation comment', 'Debug label absent; no comment posted.');
   }
 
-  record('Result', `mode=sync-timeout baseline=${baselineHead || '(unknown)'} elapsed=${elapsedMs}ms`);
+  const timeoutMessage = `mode=${mode || 'sync-timeout'} trace:${trace || 'missing'} elapsed=${Date.now() - startTime}ms`;
+  record('Result', timeoutMessage);
   await summaryHelper.flush(buildSyncSummaryLabel(trace));
 }
 
