@@ -62,10 +62,7 @@ function parseRunCap(labels) {
     const value = name.slice(MAX_RUNS_PREFIX.length).trim();
     const parsed = Number.parseInt(value, 10);
     if (Number.isFinite(parsed)) {
-      const clamped = Math.min(MAX_RUN_CAP, Math.max(MIN_RUN_CAP, parsed));
-      if (clamped > 0) {
-        return clamped;
-      }
+      return Math.min(MAX_RUN_CAP, Math.max(MIN_RUN_CAP, parsed));
     }
   }
   return DEFAULT_RUN_CAP;
