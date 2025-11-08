@@ -460,13 +460,11 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
           if (prState && prState !== 'open') {
             core.warning(`Keepalive target pull request #${keepalivePr} is ${prState}; skipping it.`);
             keepalivePr = '';
-            workflowRunPr = '';
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           core.warning(`Unable to verify pull request #${keepalivePr}: ${message}`);
           keepalivePr = '';
-          workflowRunPr = '';
         }
       }
     }
