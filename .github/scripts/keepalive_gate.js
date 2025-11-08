@@ -142,7 +142,10 @@ function sanitiseComment(comment) {
     return null;
   }
   const idRaw = comment.id;
-  const id = idRaw === undefined || idRaw === null ? '' : String(idRaw);
+  if (idRaw === undefined || idRaw === null) {
+    return null;
+  }
+  const id = String(idRaw);
   const htmlUrl = typeof comment.html_url === 'string' ? comment.html_url : '';
   const userLogin = typeof comment?.user?.login === 'string' ? comment.user.login : '';
   const userType = typeof comment?.user?.type === 'string' ? comment.user.type : '';
