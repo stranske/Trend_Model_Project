@@ -1,7 +1,7 @@
 {
   "prNumber": 402,
   "issueNumber": 402,
-  "headSequence": ["sha0", "sha0", "sha1"],
+  "headSequence": ["sha0", "sha0", "sha0", "sha1"],
   "labelsSequence": [["agents:keepalive", "agent:codex", "agents:sync-required"]],
   "env": {
     "TRACE": "trace-update-branch",

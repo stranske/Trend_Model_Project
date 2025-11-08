@@ -1,7 +1,7 @@
 {
   "prNumber": 403,
   "issueNumber": 403,
-  "headSequence": ["sha0", "sha0", "sha0", "sha1"],
+  "headSequence": ["sha0", "sha0", "sha0", "sha0", "sha1"],
   "labelsSequence": [["agents:keepalive", "agent:codex"]],
   "env": {
     "TRACE": "trace-create-pr",
