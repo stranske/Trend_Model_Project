@@ -154,11 +154,13 @@ def test_classify_frequency_irregular_preview_includes_ellipsis() -> None:
 
 
 def test_classify_frequency_rejects_super_sparse_data() -> None:
-    index = pd.DatetimeIndex([
-        "2020-01-31",
-        "2023-01-31",
-        "2026-01-31",
-    ])
+    index = pd.DatetimeIndex(
+        [
+            "2020-01-31",
+            "2023-01-31",
+            "2026-01-31",
+        ]
+    )
 
     with pytest.raises(market_data.MarketDataValidationError) as exc:
         market_data.classify_frequency(index)
