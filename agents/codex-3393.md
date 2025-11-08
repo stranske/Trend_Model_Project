@@ -14,7 +14,7 @@
   - [ ] `pipeline.py` — 39% and 200 uncovered branches, so requires extensive suites.【ad8a52†L53-L53】
   - [x] `validators.py` — 100% statement/branch coverage confirmed.【ad8a52†L41-L41】
   - [x] `run_analysis.py` — 100% coverage from existing CLI regression harnesses.【ad8a52†L66-L66】
-  - [ ] `market_data.py` — 66% with heavy gaps in validation error paths.【ad8a52†L39-L39】
+  - [x] `market_data.py` — 99% coverage after expanding validation edge-case suites.【66dbcb†L24-L28】
   - [ ] `signal_presets.py` — 0% currently; needs initial test scaffolding.【ad8a52†L69-L69】
   - [x] `frequency.py` — 100% from util frequency suites.【ad8a52†L74-L74】
   - [ ] `signals.py` — 65% with multiple indicator combinations untested.【ad8a52†L70-L70】
@@ -58,6 +58,7 @@ coverage report -m > coverage-soft.txt
 ```
 - 250 tests passed (24 warnings) in 12.68s, producing a consolidated coverage report for prioritisation.【a7b6cd†L1-L35】【7797c1†L1-L74】
 - Targeted CLI suite (`tests/test_trend_analysis_cli_main.py`) now executes 21 focused scenarios and reports 98% coverage for `trend_analysis/cli.py`, confirming the module meets the ≥95% goal.【2a8baf†L1-L12】
+- Focused market-data suites now drive `trend_analysis/io/market_data.py` to 99% coverage, including irregular frequency detection and file-ingest error paths.【66dbcb†L24-L28】
 
 ### Lowest-coverage modules (<95%)
 | Coverage | Module | Notes |
@@ -72,7 +73,6 @@ coverage report -m > coverage-soft.txt
 | 39% | `trend_analysis/config/model.py` | Model schema coercion and defaults remain lightly tested; consider parameterised fixtures.【ad8a52†L21-L21】 |
 | 56% | `trend_analysis/risk.py` | Risk metric aggregations have numerous untested branches, especially around fallback handling.【ad8a52†L65-L65】 |
 | 65% | `trend_analysis/signals.py` | Multiple indicator combinations and error paths missing from the suite.【ad8a52†L70-L70】 |
-| 66% | `trend_analysis/io/market_data.py` | Validation and coercion fallbacks still need full coverage, particularly around missing data policies.【ad8a52†L39-L39】 |
 
 ### Next steps
 1. Build focused regression suites for `backtesting/harness.py` and `engine/walkforward.py` that simulate small synthetic universes to exercise bootstrap iterations, state resets, and error paths.
