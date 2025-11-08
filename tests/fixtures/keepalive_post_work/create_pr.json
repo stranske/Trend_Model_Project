@@ -3,19 +3,6 @@
   "issueNumber": 403,
   "headSequence": ["sha0", "sha0", "sha0", "sha1"],
   "labelsSequence": [["agents:keepalive", "agent:codex"]],
-  "createPr": {
-    "listResponses": [
-      [
-        {
-          "number": 8123,
-          "head": { "ref": "sync/codex-trace-create-pr" },
-          "base": { "ref": "codex/issue-403" },
-          "user": { "login": "stranske-automation-bot" },
-          "created_at": "2099-01-01T00:00:05Z"
-        }
-      ]
-    ]
-  },
   "env": {
     "TRACE": "trace-create-pr",
     "ROUND": "5",
