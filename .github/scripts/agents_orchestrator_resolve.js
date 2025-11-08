@@ -186,7 +186,7 @@ const choosePullRequestNumber = (pullRequests, { headSha = '', allowClosed = tru
   const candidates = normalisePullRequestCandidates(pullRequests);
   const usable = allowClosed
     ? candidates
-    : candidates.filter((entry) => !entry.state || entry.state === 'open');
+    : candidates.filter((entry) => entry.state === 'open');
 
   if (!usable.length) {
     return '';
