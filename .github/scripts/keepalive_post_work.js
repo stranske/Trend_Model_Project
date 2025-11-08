@@ -1019,7 +1019,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record('Sync label', `${syncLabel} not present.`);
     }
     const elapsed = Date.now() - startTime;
-  record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
+    record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
     await summaryHelper.flush(buildSyncSummaryLabel(trace));
     return;
   }
