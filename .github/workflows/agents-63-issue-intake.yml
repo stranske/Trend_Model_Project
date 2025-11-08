@@ -173,8 +173,8 @@ jobs:
             event_agent=$(jq -r '
               [
                 .issue.labels[]?.name
-                | select(test("^(agent|agents):[A-Za-z0-9-]+$"))
-                | capture("^(?<prefix>agents?):(?<key>[A-Za-z0-9-]+)$").key
+                | select(test("^agent:[A-Za-z0-9-]+$"))
+                | sub("^agent:(?<key>[A-Za-z0-9-]+)$"; "\\(.key)")
               ][0] // empty
             ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
             if [ -n "$event_agent" ]; then
@@ -1110,15 +1110,19 @@ jobs:
             const { owner, repo } = context.repo;
             const num = Number(issueNumber);
             const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
-            const labels = (issue.labels || []).map(label => typeof label === 'string' ? label : (label.name || '')).filter(Boolean).map(name => name.toLowerCase());
-            // Only match agent assignment labels (agent:codex, agent:chatgpt), not process labels (agents:keepalive)
-            const agentLabels = labels.filter(name => /^(agent|agents):[a-z0-9-]+$/.test(name));
+            const labels = (issue.labels || [])
+              .map(label => typeof label === 'string' ? label : (label.name || ''))
+              .filter(Boolean)
+              .map(name => name.toLowerCase());
+            const codexGuardLabels = ['agent:codex', 'agents:codex'];
+            const agentLabels = labels
+              .filter(name => /^agent:[a-z0-9-]+$/.test(name));
             if (agentLabels.length !== 1) {
               core.setFailed(`Expected exactly one agent:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
               return;
             }
             const agentLabel = agentLabels[0];
-            const agentKey = agentLabel.replace(/^agents?:/, '');
+            const agentKey = agentLabel.replace(/^agent:/, '');
             const normalizedDefault = defaultAgent.toLowerCase();
             if (normalizedDefault && normalizedDefault !== agentKey) {
               core.info(`Overriding bridge agent '${normalizedDefault}' with '${agentKey}' based on issue labels.`);
