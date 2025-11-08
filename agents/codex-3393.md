@@ -21,7 +21,7 @@
   - [ ] `bootstrap.py` — 79% across `backtesting/bootstrap.py`; scenario coverage still missing.【ad8a52†L15-L15】
   - [ ] `risk.py` — 56% with branch-heavy sections uncovered.【ad8a52†L65-L65】
   - [x] `bundle.py` — 99% after existing export bundle suites.【ad8a52†L32-L32】
-  - [ ] `cli.py` — 0% (entrypoint and argument plumbing remain untested in this run).【ad8a52†L17-L17】
+  - [x] `cli.py` — 98% coverage confirmed via targeted CLI suite.
   - [ ] `optimizer.py` — 12% for `engine/optimizer.py`; optimisation paths lack coverage.【ad8a52†L29-L29】
   - [ ] `model.py` — 39% for `config/model.py`, still far from target.【ad8a52†L21-L21】
   - [ ] `engine.py` — 14% for `engine/walkforward.py`; walk-forward coordination remains untested.【ad8a52†L30-L30】
@@ -49,6 +49,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 coverage run --source=trend_analysis -m pytest 
   tests/test_trend_analysis_data_additional.py \
   tests/test_trend_analysis_init.py \
   tests/test_trend_analysis_init_extra.py \
+  tests/test_trend_analysis_cli_main.py \
   tests/unit/util/test_frequency_comprehensive.py \
   tests/test_frequency_missing.py \
   tests/test_util_frequency_additional.py \
@@ -56,11 +57,11 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 coverage run --source=trend_analysis -m pytest 
 coverage report -m > coverage-soft.txt
 ```
 - 250 tests passed (24 warnings) in 12.68s, producing a consolidated coverage report for prioritisation.【a7b6cd†L1-L35】【7797c1†L1-L74】
+- Targeted CLI suite (`tests/test_trend_analysis_cli_main.py`) now executes 21 focused scenarios and reports 98% coverage for `trend_analysis/cli.py`, confirming the module meets the ≥95% goal.【2a8baf†L1-L12】
 
 ### Lowest-coverage modules (<95%)
 | Coverage | Module | Notes |
 | --- | --- | --- |
-| 0% | `trend_analysis/cli.py` | CLI orchestration, argument parsing, and environment handling currently have no automated coverage in the soft sweep.【ad8a52†L17-L17】 |
 | 0% | `trend_analysis/signal_presets.py` | Signal preset defaults lack regression coverage; need to port scenarios from manual QA.【ad8a52†L69-L69】 |
 | 12% | `trend_analysis/engine/optimizer.py` | Optimiser construction and error handling remain untested; design focused unit specs before wiring into pipelines.【ad8a52†L29-L29】 |
 | 14% | `trend_analysis/backtesting/harness.py` | Bootstrapping and walk-forward loops mostly uncovered; build fixtures around synthetic windows.【ad8a52†L15-L16】 |
@@ -75,5 +76,5 @@ coverage report -m > coverage-soft.txt
 
 ### Next steps
 1. Build focused regression suites for `backtesting/harness.py` and `engine/walkforward.py` that simulate small synthetic universes to exercise bootstrap iterations, state resets, and error paths.
-2. Design CLI invocation tests (possibly via `pytest` subprocess fixtures) to drive `trend_analysis/cli.py` through success and failure flows, which will also surface coverage for `config/model.py` options.
-3. Extend market data validation tests to cover missing-policy overrides and tolerance edge cases, raising coverage for `market_data.py` while hardening essential IO functionality.
+2. Extend market data validation tests to cover missing-policy overrides and tolerance edge cases, raising coverage for `market_data.py` while hardening essential IO functionality.
+3. Continue planning regression suites for CLI-adjacent configuration files (e.g., `config/model.py`) to leverage the new targeted CLI run as scaffolding once higher-priority modules are addressed.
