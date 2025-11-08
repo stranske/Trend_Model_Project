@@ -235,7 +235,10 @@ async function fetchGateStatus({ github, owner, repo, headSha }) {
       }
       const existingTime = normaliseTimestamp(latestRun.created_at || latestRun.run_started_at);
       const candidateTime = normaliseTimestamp(run.created_at || run.run_started_at);
-      if (candidateTime >= existingTime) {
+      if (
+        candidateTime > existingTime ||
+        (candidateTime === existingTime && Number(run.id) > Number(latestRun.id))
+      ) {
         latestRun = run;
       }
     }
