@@ -152,6 +152,61 @@ const summarise = (value) => {
   return `${head}${separator}${tail}`;
 };
 
+const normalisePullRequestCandidates = (pullRequests) => {
+  if (!Array.isArray(pullRequests)) {
+    return [];
+  }
+  return pullRequests
+    .map((pr) => {
+      const rawNumber = pr?.number;
+      const number = Number.parseInt(rawNumber, 10);
+      if (!Number.isFinite(number)) {
+        return null;
+      }
+      const state = typeof pr?.state === 'string' ? pr.state.trim().toLowerCase() : '';
+      const headSha = toString(pr?.head?.sha || '', '');
+      let updatedAt = Number.NaN;
+      if (typeof pr?.updated_at === 'string' && pr.updated_at.trim()) {
+        const parsed = Date.parse(pr.updated_at);
+        if (!Number.isNaN(parsed)) {
+          updatedAt = parsed;
+        }
+      }
+      return {
+        number,
+        state,
+        headSha,
+        updatedAt,
+      };
+    })
+    .filter(Boolean);
+};
+
+const choosePullRequestNumber = (pullRequests, { headSha = '', allowClosed = true } = {}) => {
+  const candidates = normalisePullRequestCandidates(pullRequests);
+  const usable = allowClosed
+    ? candidates
+    : candidates.filter((entry) => !entry.state || entry.state === 'open');
+
+  if (!usable.length) {
+    return '';
+  }
+
+  const prefer = headSha
+    ? usable.filter((entry) => entry.headSha && entry.headSha === headSha)
+    : [];
+  const pool = prefer.length ? prefer : usable;
+
+  let chosen = pool[0];
+  for (const entry of pool) {
+    if (Number.isFinite(entry.updatedAt) && (!Number.isFinite(chosen.updatedAt) || entry.updatedAt > chosen.updatedAt)) {
+      chosen = entry;
+    }
+  }
+
+  return chosen ? String(chosen.number) : '';
+};
+
 async function resolveOrchestratorParams({ github, context, core, env = process.env }) {
   let user = {};
   try {
@@ -227,29 +282,74 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     const runPayload = context.payload?.workflow_run;
     if (runPayload) {
       const pullRequests = Array.isArray(runPayload.pull_requests) ? runPayload.pull_requests : [];
-      const directMatch = pullRequests.find((pr) => Number.isFinite(pr?.number));
-      if (directMatch && Number.isFinite(directMatch.number)) {
-        workflowRunPr = String(directMatch.number);
-      } else {
-        const headSha = toString(runPayload.head_sha || '', '').trim();
-        if (headSha) {
+      const headSha = toString(runPayload.head_sha || '', '').trim();
+      const headBranch = toString(runPayload.head_branch || '', '').trim();
+      const headRepoOwner = toString(runPayload.head_repository?.owner?.login || owner, owner).trim();
+
+      const directMatch = choosePullRequestNumber(pullRequests, { headSha, allowClosed: false });
+      if (directMatch) {
+        workflowRunPr = directMatch;
+      }
+
+      if (!workflowRunPr && headSha) {
+        try {
+          const associated = await github.paginate(
+            github.rest.repos.listPullRequestsAssociatedWithCommit,
+            {
+              owner,
+              repo,
+              commit_sha: headSha,
+              per_page: 100,
+            }
+          );
+          const matched = choosePullRequestNumber(associated, { headSha, allowClosed: false });
+          if (matched) {
+            workflowRunPr = matched;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          core.warning(`Unable to map workflow_run head ${headSha} to pull request: ${message}`);
+        }
+      }
+
+      if (!workflowRunPr && headBranch) {
+        try {
+          const pullsByBranch = await github.paginate(github.rest.pulls.list, {
+            owner,
+            repo,
+            state: 'open',
+            per_page: 100,
+            head: `${headRepoOwner}:${headBranch}`,
+          });
+          const matched = choosePullRequestNumber(pullsByBranch, { headSha, allowClosed: false });
+          if (matched) {
+            workflowRunPr = matched;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          core.warning(`Unable to map workflow_run head branch ${headBranch} to pull request: ${message}`);
+        }
+      }
+
+      if (!workflowRunPr) {
+        const displayTitle = toString(runPayload.display_title || '', '');
+        const titleMatch = displayTitle.match(/#(\d+)/);
+        if (titleMatch && Number.isFinite(Number.parseInt(titleMatch[1], 10))) {
+          const prNumber = Number.parseInt(titleMatch[1], 10);
           try {
-            const associated = await github.paginate(
-              github.rest.repos.listPullRequestsAssociatedWithCommit,
-              {
-                owner,
-                repo,
-                commit_sha: headSha,
-                per_page: 100,
-              }
-            );
-            const matched = associated.find((pr) => pr?.head?.sha === headSha);
-            if (matched && Number.isFinite(matched.number)) {
-              workflowRunPr = String(matched.number);
+            const prResponse = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+            if (prResponse && prResponse.data && prResponse.data.state === 'open') {
+              workflowRunPr = String(prNumber);
+            } else {
+              core.info(`PR #${prNumber} extracted from display_title is not open or does not exist.`);
             }
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            core.warning(`Unable to map workflow_run head ${headSha} to pull request: ${message}`);
+            core.info(`PR #${prNumber} extracted from display_title could not be validated: ${message}`);
           }
         }
       }
@@ -348,7 +448,28 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   if (triggeredByGate) {
     if (keepalivePr) {
       core.info(`Keepalive workflow_run mapped to pull request #${keepalivePr}.`);
-    } else {
+      const prNumber = Number.parseInt(keepalivePr, 10);
+      if (Number.isFinite(prNumber) && github?.rest?.pulls?.get) {
+        try {
+          const { data: prData } = await github.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+          const prState = toString(prData?.state, '').trim().toLowerCase();
+          if (prState && prState !== 'open') {
+            core.warning(`Keepalive target pull request #${keepalivePr} is ${prState}; skipping it.`);
+            keepalivePr = '';
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          core.warning(`Unable to verify pull request #${keepalivePr}: ${message}`);
+          keepalivePr = '';
+        }
+      }
+    }
+
+    if (!keepalivePr) {
       core.warning('Keepalive workflow_run payload did not include a pull request number.');
     }
   }
@@ -456,6 +577,8 @@ module.exports = {
     toBoundedIntegerString,
     sanitiseOptions,
     summarise,
+    normalisePullRequestCandidates,
+    choosePullRequestNumber,
     KEEPALIVE_PAUSE_LABEL,
     DEFAULTS
   }

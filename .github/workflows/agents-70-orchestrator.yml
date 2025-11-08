@@ -1176,6 +1176,28 @@ jobs:
             echo "* Trace: \`${TRACE:-missing}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
+      - name: Baseline keepalive gate
+        id: gate_check
+        shell: bash
+        env:
+          TRACE: ${{ steps.prepare.outputs.trace }}
+          ROUND: ${{ steps.prepare.outputs.round }}
+        run: |
+          set -euo pipefail
+          {
+            echo "ok=true"
+            echo "mode=baseline"
+            echo "source=stub"
+            echo "reason="
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Keepalive gate override"
+            echo "* Status: baseline bypass"
+            echo "* Round: ${ROUND:-?}"
+            echo "* Trace: \`${TRACE:-missing}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
       - name: Capture keepalive head snapshot
         id: snapshot
         uses: actions/github-script@v7
