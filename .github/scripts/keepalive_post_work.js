@@ -980,9 +980,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         finalHead = longPoll.headSha;
         baselineHead = finalHead;
         mode = 'action-sync-pr';
-  record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
+        record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
       } else {
-      record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
+        record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
       }
     }
   }
@@ -1056,7 +1056,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         issue_number: Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber,
         body: escalationMessage,
       });
-    record('Escalation comment', appendRound('Posted debug escalation comment.'));
+      record('Escalation comment', appendRound('Posted debug escalation comment.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
