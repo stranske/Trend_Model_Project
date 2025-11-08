@@ -891,7 +891,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
     record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
   } else {
-    record('Comment wait', appendRound('Head unchanged after comment TTL.'));
+  record('Comment wait', appendRound('Head unchanged after comment TTL.'));
   }
 
   if (!success) {
@@ -963,7 +963,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         });
       }
     } else if (dispatchInfo.dispatched) {
-      record('Fallback run', appendRound('pending discovery.'));
+  record('Fallback run', appendRound('pending discovery.'));
     }
 
     if (dispatchInfo.dispatched) {
@@ -980,9 +980,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         finalHead = longPoll.headSha;
         baselineHead = finalHead;
         mode = 'action-sync-pr';
-        record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
+  record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
       } else {
-        record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
+  record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
       }
     }
   }
@@ -1019,7 +1019,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record('Sync label', `${syncLabel} not present.`);
     }
     const elapsed = Date.now() - startTime;
-    record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
+  record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
     await summaryHelper.flush(buildSyncSummaryLabel(trace));
     return;
   }
@@ -1036,13 +1036,13 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (!hasSyncLabel) {
     try {
       await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
-      record('Sync label', appendRound(`Applied ${syncLabel}.`));
+  record('Sync label', appendRound(`Applied ${syncLabel}.`));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
+  record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
     }
   } else {
-    record('Sync label', appendRound(`${syncLabel} already present.`));
+  record('Sync label', appendRound(`${syncLabel} already present.`));
   }
 
   if (hasDebugLabel) {
@@ -1056,13 +1056,13 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         issue_number: Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber,
         body: escalationMessage,
       });
-      record('Escalation comment', appendRound('Posted debug escalation comment.'));
+  record('Escalation comment', appendRound('Posted debug escalation comment.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+  record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
     }
   } else {
-    record('Escalation comment', appendRound('Debug label absent; no comment posted.'));
+  record('Escalation comment', appendRound('Debug label absent; no comment posted.'));
   }
 
   const timeoutMessage = appendRound(

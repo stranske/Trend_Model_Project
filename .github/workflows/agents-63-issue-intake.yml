@@ -169,6 +169,20 @@ jobs:
             bridge_agent="codex"
           fi
 
+          if command -v jq >/dev/null 2>&1 && [ -f "$GITHUB_EVENT_PATH" ]; then
+            event_agent=$(jq -r '
+              [
+                .issue.labels[]?.name
+                | select(test("^agent:[A-Za-z0-9-]+$"))
+                | sub("^agent:(?<key>[A-Za-z0-9-]+)$"; "\\(.key)")
+              ][0] // empty
+            ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
+            if [ -n "$event_agent" ]; then
+              bridge_agent="$event_agent"
+            fi
+          fi
+          bridge_agent="${bridge_agent,,}"
+
           if [ -z "$source_input" ] && [ -n "$legacy_repo_file" ]; then
             source_input="$legacy_repo_file"
           fi
@@ -1065,27 +1079,7 @@ jobs:
 
   bridge_preflight:
     needs: normalize_inputs
-    if: >
-      needs.normalize_inputs.outputs.intake_mode == 'agent_bridge' &&
-      (
-        github.event_name != 'issues' ||
-        (
-          github.event.action == 'labeled' &&
-          (
-            contains(github.event.label.name, 'agent:codex') ||
-            contains(github.event.label.name, 'agents:codex') ||
-            contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
-            contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
-          )
-        ) ||
-        (
-          github.event.action != 'labeled' &&
-          (
-            contains(join(github.event.issue.labels.*.name, ' '), 'agent:codex') ||
-            contains(join(github.event.issue.labels.*.name, ' '), 'agents:codex')
-          )
-        )
-      )
+    if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
     name: Validate Codex issue labels
     runs-on: ubuntu-latest
     permissions:
@@ -1116,20 +1110,25 @@ jobs:
             const { owner, repo } = context.repo;
             const num = Number(issueNumber);
             const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
-            const labels = (issue.labels || []).map(label => typeof label === 'string' ? label : (label.name || '')).filter(Boolean).map(name => name.toLowerCase());
-            // Only match agent assignment labels (agent:codex, agent:chatgpt), not process labels (agents:keepalive)
-            const agentLabels = labels.filter(name => /^agent:[a-z]+$/.test(name));
+            const labels = (issue.labels || [])
+              .map(label => typeof label === 'string' ? label : (label.name || ''))
+              .filter(Boolean)
+              .map(name => name.toLowerCase());
+            const codexGuardLabels = ['agent:codex', 'agents:codex'];
+            const agentLabels = labels
+              .filter(name => /^agent:[a-z0-9-]+$/.test(name));
             if (agentLabels.length !== 1) {
               core.setFailed(`Expected exactly one agent:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
               return;
             }
             const agentLabel = agentLabels[0];
-            if (agentLabel !== 'agent:codex' && agentLabel !== 'agents:codex') {
-              core.setFailed(`Codex bridge requires agent:codex but found ${agentLabel}`);
-              return;
+            const agentKey = agentLabel.replace(/^agent:/, '');
+            const normalizedDefault = defaultAgent.toLowerCase();
+            if (normalizedDefault && normalizedDefault !== agentKey) {
+              core.info(`Overriding bridge agent '${normalizedDefault}' with '${agentKey}' based on issue labels.`);
             }
             core.setOutput('issue_number', String(num));
-            core.setOutput('agent_key', agentLabel.replace(/^agents?:/, ''));
+            core.setOutput('agent_key', agentKey);
 
   agent_bridge:
     needs: [normalize_inputs, bridge_preflight]
