@@ -982,7 +982,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         mode = 'action-sync-pr';
   record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
       } else {
-  record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
+      record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
       }
     }
   }
