@@ -335,7 +335,22 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
         const displayTitle = toString(runPayload.display_title || '', '');
         const titleMatch = displayTitle.match(/#(\d+)/);
         if (titleMatch && Number.isFinite(Number.parseInt(titleMatch[1], 10))) {
-          workflowRunPr = String(Number.parseInt(titleMatch[1], 10));
+          const prNumber = Number.parseInt(titleMatch[1], 10);
+          try {
+            const prResponse = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+            if (prResponse && prResponse.data && prResponse.data.state === 'open') {
+              workflowRunPr = String(prNumber);
+            } else {
+              core.info(`PR #${prNumber} extracted from display_title is not open or does not exist.`);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            core.info(`PR #${prNumber} extracted from display_title could not be validated: ${message}`);
+          }
         }
       }
     }
