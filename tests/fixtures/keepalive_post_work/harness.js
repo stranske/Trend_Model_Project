@@ -201,6 +201,24 @@ async function main() {
           labelIndex += 1;
           return { data: labels };
         },
+        updateComment: async ({ comment_id, body }) => {
+          // Minimal updateComment mock to support code paths that edit existing comments.
+          // Update existing comment body if present; otherwise record as an update event.
+          const id = Number.isFinite(comment_id) ? comment_id : Number(comment_id);
+          let found = false;
+          for (const c of events.comments) {
+            if (c.id === id) {
+              c.body = body || '';
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            // Record as an update event for visibility in tests if no original comment exists.
+            events.comments.push({ id, body: body || '' });
+          }
+          return { data: { id, body: body || '' } };
+        },
         addLabels: async ({ labels }) => {
           events.labelsAdded.push(labels);
           if (scenario.labelsAddError) {
