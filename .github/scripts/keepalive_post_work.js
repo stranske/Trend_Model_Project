@@ -963,7 +963,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         });
       }
     } else if (dispatchInfo.dispatched) {
-  record('Fallback run', appendRound('pending discovery.'));
+      record('Fallback run', appendRound('pending discovery.'));
     }
 
     if (dispatchInfo.dispatched) {
