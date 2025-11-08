@@ -181,7 +181,7 @@ jobs:
               bridge_agent="$event_agent"
             fi
           fi
-          bridge_agent="$(printf '%s' "$bridge_agent" | tr '[:upper:]' '[:lower:]')"
+          bridge_agent="${bridge_agent,,}"
 
           if [ -z "$source_input" ] && [ -n "$legacy_repo_file" ]; then
             source_input="$legacy_repo_file"
