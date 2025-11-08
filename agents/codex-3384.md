@@ -30,3 +30,6 @@
 ## Acceptance criteria
 - [ ] Every targeted file listed above reports at least 95% coverage in the latest test run.
 - [ ] All essential program functions have dedicated test coverage.
+
+## Progress log
+- 2024-05-19: Initial status review; no scope items, tasks, or acceptance criteria have been completed yet.
