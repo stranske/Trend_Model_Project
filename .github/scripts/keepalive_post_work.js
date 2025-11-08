@@ -1036,7 +1036,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (!hasSyncLabel) {
     try {
       await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
-  record('Sync label', appendRound(`Applied ${syncLabel}.`));
+      record('Sync label', appendRound(`Applied ${syncLabel}.`));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
