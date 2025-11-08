@@ -1059,7 +1059,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record('Escalation comment', appendRound('Posted debug escalation comment.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-  record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+      record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
     }
   } else {
     record('Escalation comment', appendRound('Debug label absent; no comment posted.'));
