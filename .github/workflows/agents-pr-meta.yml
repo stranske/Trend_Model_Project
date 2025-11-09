@@ -177,7 +177,7 @@ jobs:
 
       - name: Evaluate keepalive comment
         id: detect
-        if: steps.pre_gate.outputs.ok == 'true'
+        if: steps.pre_gate.outputs.activation_comment != ''
         uses: actions/github-script@v7
         env:
           ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
