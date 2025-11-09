@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-import sys
 
 import pandas as pd
 import pytest
@@ -257,7 +257,9 @@ def test_check_environment_success_path(
     assert "All packages match" in out
 
 
-def test_check_environment_missing_lock(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_check_environment_missing_lock(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     missing = tmp_path / "absent.lock"
 
     exit_code = cli.check_environment(missing)
@@ -291,6 +293,7 @@ def test_apply_trend_spec_preset_handles_namespace() -> None:
 
     assert cfg.signals["window"] == preset.spec.window
     assert cfg.trend_spec_preset == preset.name
+
 
 def test_main_handles_check_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     exit_codes: list[int] = []
@@ -334,14 +337,16 @@ def test_main_check_option_after_parsing(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(cli, "check_environment", fake_check)
 
-    result = cli.main([
-        "run",
-        "--config",
-        "config.yml",
-        "--input",
-        "returns.csv",
-        "--check",
-    ])
+    result = cli.main(
+        [
+            "run",
+            "--config",
+            "config.yml",
+            "--input",
+            "returns.csv",
+            "--check",
+        ]
+    )
 
     assert result == 7
     assert calls == [1]
@@ -350,7 +355,9 @@ def test_main_check_option_after_parsing(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_main_check_branch_via_parser(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[int] = []
 
-    def fake_parse_args(self: Any, args: Any | None = None, namespace: Any | None = None) -> Any:
+    def fake_parse_args(
+        self: Any, args: Any | None = None, namespace: Any | None = None
+    ) -> Any:
         return SimpleNamespace(check=True, command="noop")
 
     monkeypatch.setattr(cli.argparse.ArgumentParser, "parse_args", fake_parse_args)
@@ -363,7 +370,9 @@ def test_main_check_branch_via_parser(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_returns_zero_for_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_parse_args(self: Any, args: Any | None = None, namespace: Any | None = None) -> Any:
+    def fake_parse_args(
+        self: Any, args: Any | None = None, namespace: Any | None = None
+    ) -> Any:
         return SimpleNamespace(check=False, command="noop")
 
     monkeypatch.setattr(cli.argparse.ArgumentParser, "parse_args", fake_parse_args)
@@ -382,7 +391,9 @@ def test_main_run_rejects_unknown_trend_preset(
         raise KeyError(name)
 
     monkeypatch.setattr(cli, "get_trend_spec_preset", fake_get_trend_spec_preset)
-    monkeypatch.setattr(cli, "list_trend_spec_presets", lambda: ["Conservative", "Balanced"])
+    monkeypatch.setattr(
+        cli, "list_trend_spec_presets", lambda: ["Conservative", "Balanced"]
+    )
 
     exit_code = cli.main(
         [
@@ -416,13 +427,15 @@ def test_main_run_handles_market_data_error(
 
     monkeypatch.setattr(cli, "load_market_data_csv", fake_load_csv)
 
-    exit_code = cli.main([
-        "run",
-        "--config",
-        "config.yml",
-        "--input",
-        "returns.csv",
-    ])
+    exit_code = cli.main(
+        [
+            "run",
+            "--config",
+            "config.yml",
+            "--input",
+            "returns.csv",
+        ]
+    )
 
     captured = capsys.readouterr()
 
@@ -435,7 +448,9 @@ def test_main_run_uses_env_seed_and_legacy_pipeline(
 ) -> None:
     monkeypatch.setenv("TREND_SEED", "123")
 
-    cfg = RejectRunIdNamespace(sample_split={"in_start": "2020-01-01"}, export={}, seed=5)
+    cfg = RejectRunIdNamespace(
+        sample_split={"in_start": "2020-01-01"}, export={}, seed=5
+    )
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
 
@@ -461,11 +476,15 @@ def test_main_run_uses_env_seed_and_legacy_pipeline(
         cli.run_logging, "init_run_logger", lambda run_id, path: init_calls.append(path)
     )
     log_calls: list[Any] = []
-    monkeypatch.setattr(cli.run_logging, "log_step", lambda *args, **kwargs: log_calls.append(args))
+    monkeypatch.setattr(
+        cli.run_logging, "log_step", lambda *args, **kwargs: log_calls.append(args)
+    )
 
     import uuid as uuid_module
 
-    monkeypatch.setattr(uuid_module, "uuid4", lambda: SimpleNamespace(hex="1234567890abcdef"))
+    monkeypatch.setattr(
+        uuid_module, "uuid4", lambda: SimpleNamespace(hex="1234567890abcdef")
+    )
 
     monkeypatch.setattr(
         sys,
@@ -561,10 +580,14 @@ def test_main_run_default_outputs_and_bundle_directory(
         "benchmarks": {"core": [0.1, 0.2]},
         "weights_user_weight": pd.DataFrame({"A": [1.0]}),
     }
-    run_result = SimpleNamespace(metrics=pd.DataFrame({"Sharpe": [0.9]}), details=details, seed=21)
+    run_result = SimpleNamespace(
+        metrics=pd.DataFrame({"Sharpe": [0.9]}), details=details, seed=21
+    )
 
     monkeypatch.setattr(cli, "get_trend_spec_preset", lambda name: StubSpecPreset())
-    monkeypatch.setattr(cli, "get_trend_preset", lambda name: SimpleNamespace(name=name))
+    monkeypatch.setattr(
+        cli, "get_trend_preset", lambda name: SimpleNamespace(name=name)
+    )
     monkeypatch.setattr(cli, "apply_trend_preset", lambda cfg_obj, preset: None)
 
     monkeypatch.setattr(cli, "run_simulation", lambda cfg_obj, frame: run_result)
@@ -574,7 +597,9 @@ def test_main_run_default_outputs_and_bundle_directory(
         "format_summary_text",
         lambda *args: "Summary text",
     )
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *args: lambda *_: None)
+    monkeypatch.setattr(
+        cli.export, "make_summary_formatter", lambda *args: lambda *_: None
+    )
 
     exports: list[tuple[str, Any]] = []
 
@@ -590,7 +615,9 @@ def test_main_run_default_outputs_and_bundle_directory(
     bundles: list[Path] = []
     from trend_analysis.export import bundle as bundle_mod
 
-    monkeypatch.setattr(bundle_mod, "export_bundle", lambda result, path: bundles.append(path))
+    monkeypatch.setattr(
+        bundle_mod, "export_bundle", lambda result, path: bundles.append(path)
+    )
 
     monkeypatch.setattr(
         cli.run_logging,
@@ -608,7 +635,9 @@ def test_main_run_default_outputs_and_bundle_directory(
 
     import uuid as uuid_module
 
-    monkeypatch.setattr(uuid_module, "uuid4", lambda: SimpleNamespace(hex="abcdef1234567890"))
+    monkeypatch.setattr(
+        uuid_module, "uuid4", lambda: SimpleNamespace(hex="abcdef1234567890")
+    )
 
     bundle_dir = tmp_path / "bundle_dir"
     bundle_dir.mkdir()
@@ -659,7 +688,9 @@ def test_main_run_legacy_bundle_builds_run_result(
         "load_market_data_csv",
         lambda path: pd.DataFrame({"A": [0.1, 0.2]}),
     )
-    monkeypatch.setattr(cli.pipeline, "run", lambda cfg_obj: pd.DataFrame({"Sharpe": [0.2]}))
+    monkeypatch.setattr(
+        cli.pipeline, "run", lambda cfg_obj: pd.DataFrame({"Sharpe": [0.2]})
+    )
     monkeypatch.setattr(
         cli.pipeline,
         "run_full",
@@ -676,7 +707,9 @@ def test_main_run_legacy_bundle_builds_run_result(
         "format_summary_text",
         lambda *args: "Legacy summary",
     )
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *args: lambda *_: None)
+    monkeypatch.setattr(
+        cli.export, "make_summary_formatter", lambda *args: lambda *_: None
+    )
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: None)
 
@@ -684,7 +717,9 @@ def test_main_run_legacy_bundle_builds_run_result(
 
     bundles: list[Path] = []
 
-    monkeypatch.setattr(bundle_mod, "export_bundle", lambda result, path: bundles.append(path))
+    monkeypatch.setattr(
+        bundle_mod, "export_bundle", lambda result, path: bundles.append(path)
+    )
 
     monkeypatch.setattr(
         cli.run_logging,
@@ -696,16 +731,20 @@ def test_main_run_legacy_bundle_builds_run_result(
 
     import uuid as uuid_module
 
-    monkeypatch.setattr(uuid_module, "uuid4", lambda: SimpleNamespace(hex="feedfacecafebeef"))
+    monkeypatch.setattr(
+        uuid_module, "uuid4", lambda: SimpleNamespace(hex="feedfacecafebeef")
+    )
 
-    exit_code = cli.main([
-        "run",
-        "--config",
-        "config.yml",
-        "--input",
-        "returns.csv",
-        "--bundle",
-    ])
+    exit_code = cli.main(
+        [
+            "run",
+            "--config",
+            "config.yml",
+            "--input",
+            "returns.csv",
+            "--bundle",
+        ]
+    )
 
     output = capsys.readouterr().out
 
@@ -738,7 +777,9 @@ def test_unified_loader_wrappers_delegate(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_print_summary(cfg: Any, result: Any) -> None:
         called["print_summary"] = (cfg, result)
 
-    def fake_write_reports(out_dir: Path, cfg: Any, result: Any, *, run_id: str) -> None:
+    def fake_write_reports(
+        out_dir: Path, cfg: Any, result: Any, *, run_id: str
+    ) -> None:
         called["write_reports"] = (out_dir, run_id)
 
     monkeypatch.setattr("trend.cli._load_configuration", fake_load)
@@ -751,7 +792,14 @@ def test_unified_loader_wrappers_delegate(monkeypatch: pytest.MonkeyPatch) -> No
     cfg_path, payload = cli._load_configuration("settings.yml")
     resolved = cli._resolve_returns_path(Path("config.yml"), payload, "returns.csv")
     ensured = cli._ensure_dataframe(Path("returns.csv"))
-    pipeline_result = cli._run_pipeline("cfg", ensured, source_path=None, log_file=None, structured_log=False, bundle=None)
+    pipeline_result = cli._run_pipeline(
+        "cfg",
+        ensured,
+        source_path=None,
+        log_file=None,
+        structured_log=False,
+        bundle=None,
+    )
     cli._print_summary("cfg", pipeline_result)
     cli._write_report_files(Path("out"), "cfg", pipeline_result, run_id="xyz")
 
@@ -792,8 +840,12 @@ def test_main_run_executes_pipeline_success(
     )
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
-    monkeypatch.setattr(cli, "get_trend_spec_preset", lambda name: FakeTrendSpecPreset())
-    monkeypatch.setattr(cli, "get_trend_preset", lambda name: SimpleNamespace(name=name))
+    monkeypatch.setattr(
+        cli, "get_trend_spec_preset", lambda name: FakeTrendSpecPreset()
+    )
+    monkeypatch.setattr(
+        cli, "get_trend_preset", lambda name: SimpleNamespace(name=name)
+    )
 
     applied_presets: list[tuple[Any, Any]] = []
     monkeypatch.setattr(
@@ -806,10 +858,12 @@ def test_main_run_executes_pipeline_success(
     monkeypatch.setattr(cli, "set_cache_enabled", lambda flag: cache_flags.append(flag))
 
     def fake_load_market_data_csv(path: str) -> pd.DataFrame:
-        return pd.DataFrame({
-            "Date": pd.date_range("2022-01-31", periods=3, freq="ME"),
-            "FundA": [0.1, 0.2, 0.3],
-        })
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2022-01-31", periods=3, freq="ME"),
+                "FundA": [0.1, 0.2, 0.3],
+            }
+        )
 
     monkeypatch.setattr(cli, "load_market_data_csv", fake_load_market_data_csv)
 
@@ -838,7 +892,8 @@ def test_main_run_executes_pipeline_success(
     monkeypatch.setattr(
         cli.export,
         "format_summary_text",
-        lambda res, a, b, c, d: summary_calls.append((res, a, b, c, d)) or "Summary text",
+        lambda res, a, b, c, d: summary_calls.append((res, a, b, c, d))
+        or "Summary text",
     )
 
     monkeypatch.setattr(
@@ -881,7 +936,9 @@ def test_main_run_executes_pipeline_success(
 
     import uuid as uuid_module
 
-    monkeypatch.setattr(uuid_module, "uuid4", lambda: SimpleNamespace(hex="abcdef1234567890"))
+    monkeypatch.setattr(
+        uuid_module, "uuid4", lambda: SimpleNamespace(hex="abcdef1234567890")
+    )
 
     bundle_path = tmp_path / "bundle.zip"
     log_file = tmp_path / "explicit-log.jsonl"
@@ -923,4 +980,3 @@ def test_main_run_executes_pipeline_success(
         str(Path(cfg.export["directory"]) / cfg.export["filename"]),
         ["Excel"],
     )
-
