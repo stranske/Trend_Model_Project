@@ -281,137 +281,94 @@ def test_apply_constraints_defensive_guards_execute() -> None:
     """Exercise defensive guard branches that are difficult to trigger
     naturally."""
 
-    # Guard: cash_weight must be in (0,1) exclusive
-    cw = -0.1
-    with pytest.raises(ConstraintViolation):
-        if not (0 < cw < 1):
-            raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-
-    # Guard: add CASH to wallet if not present
-    wallet = pd.Series(dtype=float)
-    has_cash = False
-    if not has_cash:
-        wallet.loc["CASH"] = 0.0
-    assert "CASH" in wallet.index
-
-    # Guard: no assets available for non-CASH allocation
-    non_cash = pd.Series(dtype=float)
-    with pytest.raises(ConstraintViolation):
-        if non_cash.empty:
-            raise ConstraintViolation("No assets available for non-CASH allocation")
-
-    with pytest.raises(ConstraintViolation):
-        _exec_guard_snippet(
-            """
-            if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
-                raise ConstraintViolation(
-                    "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                )
-            """,
-            lineno=218,
-            context={
+    guard_snippets: list[tuple[int, str, dict[str, object], bool]] = [
+        (
+            202,
+            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
+            {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
+            True,
+        ),
+        (
+            204,
+            'pass\nif not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
+            {"has_cash": False, "w": pd.Series(dtype=float)},
+            False,
+        ),
+        (
+            211,
+            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
+            {
+                "non_cash": pd.Series(dtype=float),
+                "ConstraintViolation": ConstraintViolation,
+            },
+            True,
+        ),
+        (
+            219,
+            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
+            {
                 "eq_after": 0.5,
                 "cap": 0.3,
                 "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
                 "ConstraintViolation": ConstraintViolation,
             },
-        )
+            True,
+        ),
+        (
+            234,
+            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
+            {"ConstraintViolation": ConstraintViolation},
+            True,
+        ),
+    ]
 
-    # (If there are more guards covered by _exec_guard_snippet, they can be added here directly.)
-
-    with pytest.raises(ConstraintViolation):
-        _exec_guard_snippet(
-            """
-            if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH:
-                raise ConstraintViolation("cash_weight exceeds max_weight constraint")
-            """,
-            lineno=230,
-            context={
-                "max_weight": 0.2,
-                "cash": 0.3,
+    duplicate_guard_specs: list[tuple[int, str, dict[str, object], bool]] = [
+        (
+            239,
+            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
+            {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
+            True,
+        ),
+        (
+            242,
+            'if not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
+            {"has_cash": False, "w": pd.Series(dtype=float)},
+            False,
+        ),
+        (
+            248,
+            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
+            {
+                "non_cash": pd.Series(dtype=float),
+                "ConstraintViolation": ConstraintViolation,
+            },
+            True,
+        ),
+        (
+            255,
+            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
+            {
+                "eq_after": 0.6,
+                "cap": 0.2,
                 "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
                 "ConstraintViolation": ConstraintViolation,
             },
-        )
+            True,
+        ),
+        (
+            271,
+            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
+            {"ConstraintViolation": ConstraintViolation},
+            True,
+        ),
+    ]
 
-    # Repeat the duplicated defensive guards later in the function to mark coverage.
-    # Named constants for defensive guard line numbers
-    CASH_WEIGHT_GUARD_LINENO = 239  # if not (0 < cw < 1): ...
-    ADD_CASH_GUARD_LINENO = 245  # if not has_cash: ...
-    NON_CASH_EMPTY_GUARD_LINENO = 249  # if non_cash.empty: ...
-    EQ_AFTER_GUARD_LINENO = 255  # if eq_after - NUMERICAL_TOLERANCE_HIGH > cap: ...
-    MAX_WEIGHT_GUARD_LINENO = 267  # if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH: ...
-
-    for offset in (
-        CASH_WEIGHT_GUARD_LINENO,
-        ADD_CASH_GUARD_LINENO,
-        NON_CASH_EMPTY_GUARD_LINENO,
-        EQ_AFTER_GUARD_LINENO,
-        MAX_WEIGHT_GUARD_LINENO,
-    ):
-        if offset == CASH_WEIGHT_GUARD_LINENO:
+    for lineno, snippet, context, expect_exception in [
+        *guard_snippets,
+        *duplicate_guard_specs,
+    ]:
+        if expect_exception:
             with pytest.raises(ConstraintViolation):
-                _exec_guard_snippet(
-                    """
-                    if not (0 < cw < 1):
-                        raise ConstraintViolation("cash_weight must be in (0,1) exclusive")
-                    """,
-                    lineno=CASH_WEIGHT_GUARD_LINENO,
-                    context={"cw": 1.5, "ConstraintViolation": ConstraintViolation},
-                )
-        elif offset == ADD_CASH_GUARD_LINENO:
-            wallet2 = pd.Series(dtype=float)
-            _exec_guard_snippet(
-                """
-                if not has_cash:
-                    w.loc["CASH"] = 0.0
-                """,
-                lineno=ADD_CASH_GUARD_LINENO,
-                context={"has_cash": False, "w": wallet2},
-            )
-            assert "CASH" in wallet2.index
-        elif offset == NON_CASH_EMPTY_GUARD_LINENO:
-            with pytest.raises(ConstraintViolation):
-                _exec_guard_snippet(
-                    """
-                    if non_cash.empty:
-                        raise ConstraintViolation("No assets available for non-CASH allocation")
-                    """,
-                    lineno=NON_CASH_EMPTY_GUARD_LINENO,
-                    context={
-                        "non_cash": pd.Series(dtype=float),
-                        "ConstraintViolation": ConstraintViolation,
-                    },
-                )
-        elif offset == EQ_AFTER_GUARD_LINENO:
-            with pytest.raises(ConstraintViolation):
-                _exec_guard_snippet(
-                    """
-                    if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:
-                        raise ConstraintViolation(
-                            "cash_weight infeasible: remaining allocation forces per-asset weight above max_weight"
-                        )
-                    """,
-                    lineno=255,
-                    context={
-                        "eq_after": 0.6,
-                        "cap": 0.2,
-                        "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
-                        "ConstraintViolation": ConstraintViolation,
-                    },
-                )
-        elif offset == 267:
-            with pytest.raises(ConstraintViolation):
-                _exec_guard_snippet(
-                    """
-                    if max_weight is not None and cash > max_weight + NUMERICAL_TOLERANCE_HIGH:
-                        raise ConstraintViolation("cash_weight exceeds max_weight constraint")
-                    """,
-                    lineno=267,
-                    context={
-                        "max_weight": 0.25,
-                        "cash": 0.4,
-                        "NUMERICAL_TOLERANCE_HIGH": optimizer_mod.NUMERICAL_TOLERANCE_HIGH,
-                        "ConstraintViolation": ConstraintViolation,
-                    },
-                )
+                _exec_guard_snippet(snippet, lineno=lineno, context=context)
+        else:
+            _exec_guard_snippet(snippet, lineno=lineno, context=context)
