@@ -49,7 +49,7 @@ def test_validated_market_data_delegates_dataframe_behaviour(
 ) -> None:
     frame = pd.DataFrame(
         {"FundA": [0.1, 0.2]},
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
     )
     metadata = market_data.MarketDataMetadata(columns=["FundA"], **base_metadata_kwargs)
     validated = market_data.ValidatedMarketData(frame=frame, metadata=metadata)
@@ -65,6 +65,20 @@ def test_apply_missing_policy_ffill_drops_all_nan_columns() -> None:
     result, summary = market_data.apply_missing_policy(frame, policy="ffill")
     assert result.empty
     assert summary["dropped"] == ["A"]
+
+
+def test_apply_missing_policy_unknown_strategy(monkeypatch: pytest.MonkeyPatch) -> None:
+    frame = pd.DataFrame({"A": [1.0, pd.NA]})
+
+    def fake_build_policy_maps(*args: object, **kwargs: object):
+        return {"A": "mystery"}, "drop", {"A": None}, None
+
+    monkeypatch.setattr(market_data, "_build_policy_maps", fake_build_policy_maps)
+
+    with pytest.raises(ValueError) as exc:
+        market_data.apply_missing_policy(frame, policy="drop")
+
+    assert "mystery" in str(exc.value)
 
 
 def test_summarise_missing_policy_handles_mixed_detail_types() -> None:
@@ -116,25 +130,65 @@ def test_classify_frequency_handles_short_and_zero_offsets() -> None:
         )
 
 
+def test_classify_frequency_detects_weekly() -> None:
+    index = pd.date_range("2024-01-05", periods=5, freq="7D")
+    info = market_data.classify_frequency(index)
+
+    assert info["code"] == "W"
+    assert info["tolerance_periods"] == 1
+
+
+def test_classify_frequency_irregular_preview_includes_ellipsis() -> None:
+    base = pd.date_range("2024-01-01", periods=8, freq="30D")
+    irregular = base.insert(4, base[3] + pd.Timedelta(days=2))
+    irregular = irregular.insert(5, irregular[4] + pd.Timedelta(days=2))
+    irregular = irregular.insert(6, irregular[5] + pd.Timedelta(days=2))
+    irregular = irregular.insert(7, irregular[6] + pd.Timedelta(days=2))
+
+    with pytest.raises(market_data.MarketDataValidationError) as exc:
+        market_data.classify_frequency(irregular)
+
+    message = str(exc.value)
+    assert "irregular sampling intervals" in message
+    assert "…" in message
+
+
+def test_classify_frequency_rejects_super_sparse_data() -> None:
+    index = pd.DatetimeIndex(
+        [
+            "2020-01-31",
+            "2023-01-31",
+            "2026-01-31",
+        ]
+    )
+
+    with pytest.raises(market_data.MarketDataValidationError) as exc:
+        market_data.classify_frequency(index)
+
+    assert "longer than annual" in str(exc.value)
+
+
 def test_resolve_datetime_index_reports_unparseable_values() -> None:
     df = pd.DataFrame(
         {
-            "Date": ["2024-01-31", "not-a-date"],
-            "FundA": [0.1, 0.2],
+            "Date": ["bad" for _ in range(6)],
+            "FundA": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
         }
     )
 
     with pytest.raises(market_data.MarketDataValidationError) as exc:
         market_data._resolve_datetime_index(df, source="upload.csv")
 
-    assert "could not be parsed" in str(exc.value)
+    message = str(exc.value)
+    assert "could not be parsed" in message
+    assert "…" in message
 
 
 def test_resolve_datetime_index_handles_parser_exception(monkeypatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": ["bad", "values"],
-            "FundA": [0.1, 0.2],
+            "Date": [f"bad-{i}" for i in range(6)],
+            "FundA": [0.1] * 6,
         }
     )
 
@@ -146,7 +200,9 @@ def test_resolve_datetime_index_handles_parser_exception(monkeypatch) -> None:
     with pytest.raises(market_data.MarketDataValidationError) as exc:
         market_data._resolve_datetime_index(df, source="upload.csv")
 
-    assert "Found dates that could not be parsed" in str(exc.value)
+    message = str(exc.value)
+    assert "Found dates that could not be parsed" in message
+    assert "…" in message
 
 
 def test_resolve_datetime_index_without_data_columns() -> None:
