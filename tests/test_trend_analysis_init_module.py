@@ -74,8 +74,11 @@ def _reload_with_stubs(
     return importlib.import_module("trend_analysis")
 
 
-def test_dataclasses_guard_reimports_missing_module(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclasses_guard_reimports_missing_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import dataclasses
+
     import trend_analysis
 
     calls: list[str] = []
@@ -110,8 +113,11 @@ def test_dataclasses_guard_reimports_missing_module(monkeypatch: pytest.MonkeyPa
     assert state[1] is sys.modules["pkg.missing"]
 
 
-def test_dataclasses_guard_fallback_creates_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclasses_guard_fallback_creates_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import dataclasses
+
     import trend_analysis
 
     def boom(_: str) -> ModuleType:  # pragma: no cover - signature matches importlib
@@ -136,7 +142,9 @@ def test_dataclasses_guard_fallback_creates_placeholder(monkeypatch: pytest.Monk
     dummy.__module__ = "pkg.placeholder"
     sys.modules.pop("pkg.placeholder", None)
 
-    assert not dataclasses._is_type("pkg.placeholder.Fallback", dummy, None, None, lambda _: True)
+    assert not dataclasses._is_type(
+        "pkg.placeholder.Fallback", dummy, None, None, lambda _: True
+    )
     module = sys.modules["pkg.placeholder"]
     assert isinstance(module, ModuleType)
     assert module.__package__ == "pkg"
@@ -156,7 +164,9 @@ def test_spec_proxy_re_registers_module(monkeypatch: pytest.MonkeyPatch) -> None
     assert sys.modules[module_name] is trend_analysis
 
 
-def test_conditional_imports_bind_export_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_conditional_imports_bind_export_helpers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     data_calls: list[tuple[str, dict[str, object]]] = []
 
     def fake_load_csv(path: str, **kwargs: object) -> dict[str, object]:
@@ -207,8 +217,11 @@ def test_conditional_imports_bind_export_helpers(monkeypatch: pytest.MonkeyPatch
     assert set(export_funcs) <= set(module.__all__)
 
 
-def test_dataclasses_guard_propagates_missing_module(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclasses_guard_propagates_missing_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import dataclasses
+
     import trend_analysis
 
     def stub(annotation: str, cls: type, *_: object) -> bool:
