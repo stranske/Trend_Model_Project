@@ -21,7 +21,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - [ ] bootstrap.py
   - [ ] risk.py
   - [x] bundle.py
-  - [ ] cli.py
+  - [x] cli.py
   - [ ] optimizer.py
   - [ ] model.py
   - [ ] engine.py
@@ -41,7 +41,8 @@ Add test coverage for any program functionality with test coverage under 95% or 
 - Executed a consolidated "soft coverage" sweep across the higher-priority suites (`coverage run --source=trend_analysis -m pytest tests/test_validators.py tests/test_io_validators_additional.py tests/test_io_validators_extra.py tests/test_io_validators_negative_paths.py tests/test_io_utils.py test_upload_app.py tests/test_export_bundle.py tests/test_run_analysis_cli_branches.py tests/test_run_analysis_cli_export.py tests/test_default_export.py tests/test_trend_analysis_presets.py tests/test_trend_analysis_presets_additional.py tests/test_trend_analysis_data.py tests/test_trend_analysis_data_additional.py tests/test_trend_analysis_init.py tests/test_trend_analysis_init_extra.py tests/unit/util/test_frequency_comprehensive.py tests/test_frequency_missing.py tests/test_util_frequency_additional.py tests/test_util_frequency_missing.py`) and captured the resulting `coverage report -m` output.
 - Drove the backtesting harness suite to full coverage by running `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.backtesting.harness -m pytest tests/backtesting/test_harness.py`, confirming 100% statement and branch coverage for `trend_analysis/backtesting/harness.py`.
 - Extended the market-data validator regression suite with focused preview/ellipsis assertions and monotonic-index edge cases (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.io.market_data -m pytest tests/test_market_data_validation.py tests/test_market_data_validation_additional.py`), lifting `trend_analysis/io/market_data.py` to 99% statement coverage with only defensive loop-exit arcs remaining.
-- The latest report highlights the remaining sub-95% hotspots: `trend_analysis/engine/optimizer.py` (12%), `trend_analysis/engine/walkforward.py` (14%), `trend_analysis/export/__init__.py` (44%), the CLI entrypoint (`trend_analysis/cli.py`, 0%), and support modules such as `trend_analysis/api.py` (79%) and the `_autofix_*` probes (0%).
+- Crafted a comprehensive CLI regression harness (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.cli -m pytest tests/test_trend_cli_soft_coverage.py`) covering environment checks, run-mode fallbacks, export paths, bundling shims, and compatibility wrappers, raising `trend_analysis/cli.py` to 97% statement coverage.
+- The latest report highlights the remaining sub-95% hotspots: `trend_analysis/engine/optimizer.py` (12%), `trend_analysis/engine/walkforward.py` (14%), `trend_analysis/export/__init__.py` (44%), support modules such as `trend_analysis/api.py` (79%), and the `_autofix_*` probes (0%).
 
 ## Next steps
-- Develop targeted suites for the remaining low-coverage workhorses surfaced in the latest report (`trend_analysis/export/__init__.py`, `trend_analysis/cli.py`, and the `engine` optimizer/walkforward modules) so each clears the 95% goal while keeping essential functionality covered end-to-end.
+- Develop targeted suites for the remaining low-coverage workhorses surfaced in the latest report (`trend_analysis/export/__init__.py` and the `engine` optimizer/walkforward modules) so each clears the 95% goal while keeping essential functionality covered end-to-end.
