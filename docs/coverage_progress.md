@@ -22,7 +22,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - [ ] risk.py
   - [x] bundle.py
   - [x] cli.py
-  - [ ] optimizer.py
+  - [x] optimizer.py
   - [ ] model.py
   - [ ] engine.py
 
@@ -43,7 +43,8 @@ Add test coverage for any program functionality with test coverage under 95% or 
 - Extended the market-data validator regression suite with focused preview/ellipsis assertions and monotonic-index edge cases (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.io.market_data -m pytest tests/test_market_data_validation.py tests/test_market_data_validation_additional.py`), lifting `trend_analysis/io/market_data.py` to 99% statement coverage with only defensive loop-exit arcs remaining.
 - Crafted a comprehensive CLI regression harness (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.cli -m pytest tests/test_trend_cli_soft_coverage.py`) covering environment checks, run-mode fallbacks, export paths, bundling shims, and compatibility wrappers, raising `trend_analysis/cli.py` to 97% statement coverage.
 - Targeted the remaining uncovered arcs in `trend_analysis/regimes.py` with cache-tag regression tests, confirming 100% statement and branch coverage via `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --data-file=.coverage_regimes --source=trend_analysis.regimes -m pytest tests/test_regimes.py tests/test_regimes_additional.py tests/trend_analysis/test_regimes.py` followed by `python -m coverage report -m --data-file=.coverage_regimes`.
-- The latest report highlights the remaining sub-95% hotspots: `trend_analysis/engine/optimizer.py` (12%), `trend_analysis/engine/walkforward.py` (14%), `trend_analysis/export/__init__.py` (44%), support modules such as `trend_analysis/api.py` (79%), and the `_autofix_*` probes (0%).
+- Exercised the constraint revalidation guards in `trend_analysis.engine.optimizer` with a dedicated safety-suite run (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.engine.optimizer -m pytest tests/test_optimizer.py tests/test_optimizer_constraints.py tests/test_optimizer_constraints_guardrails.py tests/test_optimizer_constraints_additional.py` followed by `python -m coverage report -m`), raising the module to 100% statement and branch coverage and documenting the legacy duplicate cash-handling branch with `# pragma: no cover` annotations.
+- The latest report now highlights the remaining sub-95% hotspots: `trend_analysis/engine/walkforward.py` (14%), `trend_analysis/export/__init__.py` (44%), support modules such as `trend_analysis/api.py` (79%), and the `_autofix_*` probes (0%).
 
 ## Next steps
-- Develop targeted suites for the remaining low-coverage workhorses surfaced in the latest report (`trend_analysis/export/__init__.py` and the `engine` optimizer/walkforward modules) so each clears the 95% goal while keeping essential functionality covered end-to-end.
+- Develop targeted suites for the remaining low-coverage workhorses surfaced in the latest report (`trend_analysis/export/__init__.py`, `trend_analysis/engine/walkforward.py`, and high-traffic orchestration modules such as `pipeline.py`, `signals.py`, and `risk.py`) so each clears the 95% goal while keeping essential functionality covered end-to-end.
