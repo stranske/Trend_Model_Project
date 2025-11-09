@@ -357,8 +357,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return highestRoundCache;
   };
 
+  const missingCoreMarkers = !roundMatch && !hasKeepaliveMarker;
+
   const shouldAttemptAutopatch =
-    (!roundMatch || !hasKeepaliveMarker) &&
+    missingCoreMarkers &&
     isAuthorAllowed &&
     Number.isFinite(contextIssueNumber) &&
     contextIssueNumber > 0 &&
@@ -372,13 +374,23 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
 
   let automationOverride = undefined;
-  if (automationEligible) {
+  if (automationEligible && missingCoreMarkers) {
     const directive = buildAutomationDirective(agentAlias);
     const trimmedComment = commentBodyForOverride.trim();
     automationOverride = trimmedComment ? `${directive}\n\n${trimmedComment}` : directive;
   }
 
-  if (shouldAttemptAutopatch) {
+  if (missingCoreMarkers && shouldAttemptAutopatch && !automationEligible) {
+    const highestRound = await ensureHighestRound();
+    if (highestRound >= 1) {
+      blockedByManualRound = true;
+      core.info(
+        `Keepalive manual escalation detected; round ${highestRound} already exists and author ${author || '(unknown)'} is not automation.`
+      );
+    }
+  }
+
+  if (shouldAttemptAutopatch && !blockedByManualRound) {
     core.info(
       `Keepalive autopatch attempt: issue=${contextIssueNumber} comment=${comment?.id || outputs.comment_id || 'n/a'} roundMatch=${Boolean(roundMatch)} marker=${hasKeepaliveMarker}`
     );
