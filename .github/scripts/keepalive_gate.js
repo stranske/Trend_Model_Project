@@ -145,8 +145,8 @@ function sanitiseComment(comment) {
   const idRaw = comment.id;
   const id = idRaw === undefined || idRaw === null ? '' : String(idRaw);
   const htmlUrl = typeof comment.html_url === 'string' ? comment.html_url : '';
-  const userLogin = typeof comment?.user?.login === 'string' ? comment.user.login : '';
-  const userType = typeof comment?.user?.type === 'string' ? comment.user.type : '';
+  const userLogin = comment?.user?.login ?? '';
+  const userType = comment?.user?.type ?? '';
   return {
     id,
     body: typeof comment.body === 'string' ? comment.body : '',
