@@ -206,6 +206,72 @@ async function detectHumanActivation({ github, owner, repo, prNumber, aliases, c
   return latest;
 }
 
+const STATUS_RANK = {
+  completed: 3,
+  in_progress: 2,
+  queued: 1,
+};
+
+const CONCLUSION_RANK = {
+  success: 6,
+  neutral: 5,
+  failure: 4,
+  skipped: 3,
+  cancelled: 2,
+  timed_out: 1,
+  action_required: 0,
+  stale: 0,
+};
+
+function scoreWorkflowRun(run) {
+  if (!run) {
+    return null;
+  }
+  const status = String(run.status || '').toLowerCase();
+  const conclusion = String(run.conclusion || '').toLowerCase();
+  const startedAt = normaliseTimestamp(run.run_started_at || run.created_at);
+  const runNumber = Number(run.run_number || 0) || 0;
+  const runId = Number(run.id || 0) || 0;
+  return {
+    run,
+    status,
+    conclusion,
+    startedAt,
+    runNumber,
+    runId,
+    statusRank: STATUS_RANK[status] ?? 0,
+    conclusionRank: CONCLUSION_RANK[conclusion] ?? 0,
+  };
+}
+
+function compareWorkflowRunScores(a, b) {
+  if (!a && !b) {
+    return 0;
+  }
+  if (!a) {
+    return 1;
+  }
+  if (!b) {
+    return -1;
+  }
+  if (a.startedAt !== b.startedAt) {
+    return b.startedAt - a.startedAt;
+  }
+  if (a.statusRank !== b.statusRank) {
+    return b.statusRank - a.statusRank;
+  }
+  if (a.conclusionRank !== b.conclusionRank) {
+    return b.conclusionRank - a.conclusionRank;
+  }
+  if (a.runNumber !== b.runNumber) {
+    return b.runNumber - a.runNumber;
+  }
+  if (a.runId !== b.runId) {
+    return b.runId - a.runId;
+  }
+  return 0;
+}
+
 async function fetchGateStatus({ github, owner, repo, headSha }) {
   const normalisedSha = String(headSha || '').trim();
   if (!normalisedSha) {
@@ -220,7 +286,7 @@ async function fetchGateStatus({ github, owner, repo, headSha }) {
       per_page: 100,
     });
 
-    let latestRun = null;
+    const scoredRuns = [];
     for (const run of runs) {
       if (!run) {
         continue;
@@ -229,23 +295,25 @@ async function fetchGateStatus({ github, owner, repo, headSha }) {
       if (runSha && runSha !== normalisedSha) {
         continue;
       }
-      if (!latestRun) {
-        latestRun = run;
-        continue;
-      }
-      const existingTime = normaliseTimestamp(latestRun.created_at || latestRun.run_started_at);
-      const candidateTime = normaliseTimestamp(run.created_at || run.run_started_at);
-      if (candidateTime >= existingTime) {
-        latestRun = run;
+      const scored = scoreWorkflowRun(run);
+      if (scored) {
+        scoredRuns.push(scored);
       }
     }
 
-    if (!latestRun) {
+    if (scoredRuns.length === 0) {
       return { found: false, success: false, status: '', conclusion: '' };
     }
 
-    const status = String(latestRun.status || '').toLowerCase();
-    const conclusion = String(latestRun.conclusion || '').toLowerCase();
+    scoredRuns.sort(compareWorkflowRunScores);
+    const latest = scoredRuns[0]?.run;
+
+    if (!latest) {
+      return { found: false, success: false, status: '', conclusion: '' };
+    }
+
+    const status = String(latest.status || '').toLowerCase();
+    const conclusion = String(latest.conclusion || '').toLowerCase();
     const success = status === 'completed' && conclusion === 'success';
 
     return {
@@ -253,7 +321,7 @@ async function fetchGateStatus({ github, owner, repo, headSha }) {
       success,
       status,
       conclusion,
-      run: latestRun,
+      run: latest,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
