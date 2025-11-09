@@ -184,6 +184,22 @@ def test_resolve_datetime_index_reports_unparseable_values() -> None:
     assert "…" in message
 
 
+def test_resolve_datetime_index_reports_unparseable_values_without_ellipsis() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": ["bad", "alsobad", "2024-01-05", "stillbad"],
+            "FundA": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
+
+    with pytest.raises(market_data.MarketDataValidationError) as exc:
+        market_data._resolve_datetime_index(df, source="upload.csv")
+
+    message = str(exc.value)
+    assert "could not be parsed" in message
+    assert "…" not in message
+
+
 def test_resolve_datetime_index_handles_parser_exception(monkeypatch) -> None:
     df = pd.DataFrame(
         {
@@ -205,6 +221,24 @@ def test_resolve_datetime_index_handles_parser_exception(monkeypatch) -> None:
     assert "…" in message
 
 
+def test_resolve_datetime_index_handles_parser_exception_without_ellipsis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame({"Date": ["bad", "alsobad", "oops"], "FundA": [0.1, 0.2, 0.3]})
+
+    def raise_type_error(*args: object, **kwargs: object) -> pd.Series:
+        raise TypeError("boom")
+
+    monkeypatch.setattr(market_data.pd, "to_datetime", raise_type_error)
+
+    with pytest.raises(market_data.MarketDataValidationError) as exc:
+        market_data._resolve_datetime_index(df, source="upload.csv")
+
+    message = str(exc.value)
+    assert "Found dates that could not be parsed" in message
+    assert "…" not in message
+
+
 def test_resolve_datetime_index_without_data_columns() -> None:
     df = pd.DataFrame({"Date": ["2024-01-31", "2024-02-29"]})
 
@@ -221,6 +255,11 @@ def test_check_monotonic_index_reports_out_of_order() -> None:
     assert any("out-of-order" in issue for issue in issues)
 
 
+def test_check_monotonic_index_sorted_unique_returns_empty() -> None:
+    index = pd.date_range("2024-01-01", periods=5, freq="D")
+    assert market_data._check_monotonic_index(index) == []
+
+
 def test_check_monotonic_index_reports_many_duplicates() -> None:
     repeated: list[str] = []
     for month in range(1, 8):
@@ -232,6 +271,20 @@ def test_check_monotonic_index_reports_many_duplicates() -> None:
 
     assert any("Duplicate timestamps" in issue for issue in issues)
     assert "…" in issues[0]
+
+
+def test_check_monotonic_index_reports_duplicates_without_ellipsis() -> None:
+    index = pd.to_datetime([
+        "2024-01-01",
+        "2024-01-01",
+        "2024-02-01",
+        "2024-03-01",
+        "2024-03-01",
+    ])
+    issues = market_data._check_monotonic_index(index)
+
+    assert any("Duplicate timestamps" in issue for issue in issues)
+    assert "…" not in issues[0]
 
 
 def test_column_mode_returns_none_for_empty_series() -> None:
