@@ -339,6 +339,7 @@ jobs:
       enable_watchdog: ${{ steps.resolve.outputs.enable_watchdog }}
       enable_keepalive: ${{ steps.resolve.outputs.enable_keepalive }}
       keepalive_pause_label: ${{ steps.resolve.outputs.keepalive_pause_label }}
+      keepalive_max_retries: ${{ steps.resolve.outputs.keepalive_max_retries }}
       enable_bootstrap: ${{ steps.resolve.outputs.enable_bootstrap }}
       bootstrap_issues_label: ${{ steps.resolve.outputs.bootstrap_issues_label }}
       draft_pr: ${{ steps.resolve.outputs.draft_pr }}
