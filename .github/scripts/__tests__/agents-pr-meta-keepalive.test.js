@@ -1,0 +1,113 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const { detectKeepalive } = require('../agents_pr_meta_keepalive.js');
+
+function createCore(outputs) {
+  return {
+    setOutput(key, value) {
+      outputs[key] = value;
+    },
+    info() {},
+    warning() {},
+  };
+}
+
+test('automation summary comment is upgraded to next keepalive round', async () => {
+  const outputs = {};
+  const updatedBodies = [];
+  const existingComments = [
+    {
+      body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
+      id: 123,
+    },
+  ];
+
+  const github = {
+    rest: {
+      issues: {
+        async listComments() {
+          return { data: existingComments };
+        },
+        async updateComment({ body }) {
+          updatedBodies.push(body);
+          return {};
+        },
+      },
+      pulls: {
+        async get() {
+          return {
+            data: {
+              head: {
+                ref: 'codex/issue-3419',
+                sha: 'abc123',
+                repo: { fork: false, owner: { login: 'stranske' } },
+              },
+              base: {
+                ref: 'phase-2-dev',
+                repo: { owner: { login: 'stranske' } },
+              },
+            },
+          };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment() {
+          return { status: 201, data: { content: 'rocket' } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return existingComments;
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'chatgpt-codex-connector,stranske-automation-bot,stranske',
+    KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+    KEEPALIVE_AGENT_ALIAS: 'codex',
+    GATE_OK: 'true',
+    GATE_REASON: 'ok',
+    GATE_PENDING: 'false',
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    payload: {
+      comment: {
+        id: 3508466875,
+        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3419#issuecomment-3508466875',
+        body: '**Scope**\n- [ ] alpha\n\n**Acceptance criteria**\n- [ ] beta',
+        user: { login: 'chatgpt-codex-connector[bot]' },
+      },
+      issue: { number: 3419 },
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.round, '2');
+  assert.ok(updatedBodies.length > 0);
+  const patched = updatedBodies[0];
+  assert.match(patched, /<!-- keepalive-round: 2 -->/);
+  assert.match(patched, /<!-- codex-keepalive-marker -->/);
+  assert.match(patched, /keepalive workflow continues nudging until everything is complete/);
+  assert.match(patched, /\*\*Scope\*\*/);
+});
