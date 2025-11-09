@@ -91,16 +91,6 @@ async function autopatchKeepaliveComment({
     effectiveHighestRound = await computeHighestRound({ github, owner, repo, prNumber });
   }
 
-  if (effectiveHighestRound >= 1 && !allowSubsequentAutomation) {
-    core.info(
-      `Skipping keepalive autopatch for comment ${comment.id}: next round (${effectiveHighestRound + 1}) must originate from automation.`
-    );
-    return {
-      blocked: true,
-      highestRound: effectiveHighestRound,
-    };
-  }
-
   const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
   const patchedBody = renderInstruction({ round: nextRound, trace, body: sourceBody, agent });
@@ -343,7 +333,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return outputs;
   }
 
-  let blockedByManualRound = false;
   let highestRoundCache = null;
   const ensureHighestRound = async () => {
     if (highestRoundCache === null) {
@@ -380,17 +369,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     automationOverride = trimmedComment ? `${directive}\n\n${trimmedComment}` : directive;
   }
 
-  if (missingCoreMarkers && shouldAttemptAutopatch && !automationEligible) {
-    const highestRound = await ensureHighestRound();
-    if (highestRound >= 1) {
-      blockedByManualRound = true;
-      core.info(
-        `Keepalive manual escalation detected; round ${highestRound} already exists and author ${author || '(unknown)'} is not automation.`
-      );
-    }
-  }
-
-  if (shouldAttemptAutopatch && !blockedByManualRound) {
+  if (shouldAttemptAutopatch) {
     core.info(
       `Keepalive autopatch attempt: issue=${contextIssueNumber} comment=${comment?.id || outputs.comment_id || 'n/a'} roundMatch=${Boolean(roundMatch)} marker=${hasKeepaliveMarker}`
     );
@@ -445,13 +424,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
       }
     }
     core.info(`Keepalive dispatch deferred: gate reported ${gateDetail || 'a blocking condition'}.`);
-    setAllOutputs();
-    return outputs;
-  }
-
-  if (blockedByManualRound) {
-    outputs.reason = 'manual-round';
-    core.info('Keepalive dispatch skipped: subsequent keepalive rounds must be initiated by automation.');
     setAllOutputs();
     return outputs;
   }

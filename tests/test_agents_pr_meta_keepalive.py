@@ -126,9 +126,29 @@ def test_keepalive_detection_ignores_autofix_status_comment() -> None:
     assert outputs["comment_id"] == "3492705833"
 
 
-def test_keepalive_detection_blocks_manual_round_escalation() -> None:
+def test_keepalive_detection_autopatches_simple_manual_round() -> None:
     data = _run_scenario("manual_round")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "false"
-    assert outputs["reason"] == "manual-round"
-    assert outputs["comment_id"] == "5002001"
+    assert outputs["dispatch"] == "true"
+    assert outputs["reason"] == "keepalive-detected"
+    assert outputs["round"] == "2"
+    calls = data.get("calls", {})
+    updates = calls.get("commentsUpdated", [])
+    assert len(updates) == 1
+
+
+def test_keepalive_detection_autopatches_manual_repeat() -> None:
+    data = _run_scenario("manual_repeat")
+    outputs = data["outputs"]
+    assert outputs["dispatch"] == "true"
+    assert outputs["reason"] == "keepalive-detected"
+    assert outputs["round"] == "2"
+    trace = outputs["trace"]
+    assert isinstance(trace, str) and len(trace) >= 8
+
+    calls = data.get("calls", {})
+    updates = calls.get("commentsUpdated", [])
+    assert len(updates) == 1
+    updated_body = updates[0]["body"]
+    assert "<!-- keepalive-round: 2 -->" in updated_body
+    assert "<!-- codex-keepalive-marker -->" in updated_body
