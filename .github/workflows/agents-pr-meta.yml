@@ -892,6 +892,33 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            async function withRetries(fn, options = {}) {
+              const attempts = Number(options.attempts) || 3;
+              const baseDelay = Number(options.delayMs) || 1000;
+              const label = options.description || 'operation';
+              let lastError;
+              for (let attempt = 1; attempt <= attempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  lastError = error;
+                  const status = error && typeof error.status === 'number' ? error.status : null;
+                  const message = error instanceof Error ? error.message : String(error);
+                  const retryable = !status || status >= 500 || status === 429;
+                  if (!retryable || attempt === attempts) {
+                    core.error(`Failed ${label}: ${message}`);
+                    throw error;
+                  }
+                  const delay = baseDelay * attempt;
+                  core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
+                  await sleep(delay);
+                }
+              }
+              throw lastError;
+            }
+
             async function discoverPr() {
               if (context.eventName === 'workflow_dispatch') {
                 const prNumber = '${{ inputs.pr_number || '' }}';
@@ -899,8 +926,11 @@ jobs:
                   const num = Number.parseInt(prNumber.trim(), 10);
                   if (!Number.isNaN(num)) {
                     core.info(`Manual trigger: using PR #${num}`);
-                    const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: num});
-                    return {number: num, headSha: pr.head.sha};
+                    const response = await withRetries(
+                      () => github.rest.pulls.get({owner, repo, pull_number: num}),
+                      {description: `pulls.get #${num}`},
+                    );
+                    return {number: num, headSha: response.data.head.sha};
                   }
                 }
                 core.warning('workflow_dispatch without valid pr_number; skipping');
@@ -927,14 +957,17 @@ jobs:
                     return {number: candidate.number, headSha};
                   }
                 }
-                const prs = await github.paginate(
-                  github.rest.repos.listPullRequestsAssociatedWithCommit,
-                  {
-                    owner,
-                    repo,
-                    commit_sha: headSha,
-                    per_page: 100,
-                  },
+                const prs = await withRetries(
+                  () => github.paginate(
+                    github.rest.repos.listPullRequestsAssociatedWithCommit,
+                    {
+                      owner,
+                      repo,
+                      commit_sha: headSha,
+                      per_page: 100,
+                    },
+                  ),
+                  {description: `list PRs for commit ${headSha}`},
                 );
 
                 const matching = prs.find((item) => item.head && item.head.sha === headSha);
@@ -1211,8 +1244,9 @@ jobs:
             async function fetchRequiredChecks(baseRef) {
               const qualified = baseRef.startsWith('refs/') ? baseRef : `refs/heads/${baseRef}`;
               try {
-                const result = await github.graphql(
-                  `query($owner: String!, $repo: String!, $qualified: String!) {
+                const result = await withRetries(
+                  () => github.graphql(
+                    `query($owner: String!, $repo: String!, $qualified: String!) {
                     repository(owner: $owner, name: $repo) {
                       ref(qualifiedName: $qualified) {
                         branchProtectionRule {
@@ -1222,7 +1256,9 @@ jobs:
                       }
                     }
                   }`,
-                  {owner, repo, qualified},
+                    {owner, repo, qualified},
+                  ),
+                  {description: 'branch protection graphql'},
                 );
                 const rule = result?.repository?.ref?.branchProtectionRule;
                 if (rule && rule.requiresStatusChecks && Array.isArray(rule.requiredStatusCheckContexts)) {
@@ -1239,7 +1275,10 @@ jobs:
               return 'No pull request context detected; skipping update.';
             }
 
-            const prResponse = await github.rest.pulls.get({owner, repo, pull_number: prInfo.number});
+            const prResponse = await withRetries(
+              () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
+              {description: `pulls.get #${prInfo.number}`},
+            );
             const pr = prResponse.data;
             if (pr.state === 'closed') {
               return `Pull request #${pr.number} is closed; skipping update.`;
@@ -1255,7 +1294,10 @@ jobs:
             }
 
             core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
-            const issueResponse = await github.rest.issues.get({owner, repo, issue_number: issueNumber});
+            const issueResponse = await withRetries(
+              () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+              {description: `issues.get #${issueNumber}`},
+            );
             const issueBody = issueResponse.data.body || '';
 
             if (!issueBody) {
@@ -1311,12 +1353,15 @@ jobs:
 
             const preamble = buildPreamble({summary, testing, ci});
 
-            const workflowRunResponse = await github.rest.actions.listWorkflowRunsForRepo({
-              owner,
-              repo,
-              head_sha: pr.head.sha,
-              per_page: 100,
-            });
+            const workflowRunResponse = await withRetries(
+              () => github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: pr.head.sha,
+                per_page: 100,
+              }),
+              {description: 'list workflow runs'},
+            );
             const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
 
             const requiredChecks = await fetchRequiredChecks(pr.base.ref);
@@ -1337,12 +1382,15 @@ jobs:
             const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
 
             if (newBody !== (pr.body || '')) {
-              await github.rest.pulls.update({
-                owner,
-                repo,
-                pull_number: pr.number,
-                body: newBody,
-              });
+              await withRetries(
+                () => github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  body: newBody,
+                }),
+                {description: `pulls.update #${pr.number}`, delayMs: 1500},
+              );
               return `Updated PR #${pr.number} body with synchronized sections from issue #${issueNumber}.`;
             }
 
