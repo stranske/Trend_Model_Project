@@ -93,7 +93,7 @@ async function autopatchKeepaliveComment({
 
   const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
-  const patchedBody = renderInstruction({ round: nextRound, trace, body: sourceBody, agent });
+  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmedSource, agent });
 
   await github.rest.issues.updateComment({
     owner,
