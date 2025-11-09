@@ -13,6 +13,7 @@ from trend_analysis.data import (
     DEFAULT_POLICY_FALLBACK,
     _coerce_limit_kwarg,
     _validate_payload,
+    ensure_datetime,
     load_csv,
     load_parquet,
 )
@@ -219,3 +220,51 @@ def test_load_parquet_logs_validation_error_hint(
         "Unable to parse Date values" in record.message and str(path) in record.message
         for record in caplog.records
     )
+
+
+def test_load_csv_reraises_validation_error_when_requested(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``load_csv`` should bubble validation errors when ``errors='raise'``."""
+
+    path = tmp_path / "data.csv"
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "A": [1]})
+    frame.to_csv(path, index=False)
+
+    def fake_validate(*_: Any, **__: Any) -> Any:
+        raise MarketDataValidationError("Dates could not be parsed", [])
+
+    monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
+
+    with pytest.raises(MarketDataValidationError):
+        load_csv(str(path), errors="raise")
+
+
+def test_load_parquet_reraises_validation_error_when_requested(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``load_parquet`` mirrors the CSV behaviour for ``errors='raise'``."""
+
+    path = tmp_path / "data.parquet"
+    path.write_bytes(b"")
+    monkeypatch.setattr(
+        "trend_analysis.data.pd.read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Date": ["2024-01-01"], "A": [1]}),
+    )
+
+    def fake_validate(*_: Any, **__: Any) -> Any:
+        raise MarketDataValidationError("unable to parse", [])
+
+    monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
+
+    with pytest.raises(MarketDataValidationError):
+        load_parquet(str(path), errors="raise")
+
+
+def test_ensure_datetime_noop_when_column_missing() -> None:
+    """DataFrames without the target column should pass through untouched."""
+
+    frame = pd.DataFrame({"Other": [1, 2, 3]})
+    result = ensure_datetime(frame.copy(), column="Date")
+
+    pd.testing.assert_frame_equal(result, frame)
