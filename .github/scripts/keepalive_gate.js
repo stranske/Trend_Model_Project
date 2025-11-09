@@ -162,19 +162,43 @@ function sanitiseComment(comment) {
   };
 }
 
-async function detectHumanActivation({ github, owner, repo, prNumber, aliases, comments }) {
+async function detectHumanActivation({ core, github, owner, repo, prNumber, aliases, comments }) {
+  const logPrefix = '[human-activation]';
+  const logInfo = (message) => {
+    if (core && typeof core.info === 'function') {
+      core.info(`${logPrefix} ${message}`);
+    }
+  };
+
   if (!Array.isArray(aliases) || aliases.length === 0) {
+    logInfo('Skipped scan: no agent aliases provided.');
     return null;
   }
   const patterns = buildMentionPatterns(aliases);
   let latest = null;
+
+  logInfo(
+    `Scanning PR #${prNumber ?? 'unknown'} for human activation via aliases [${aliases.join(', ')}] (prefetched comments=${
+      Array.isArray(comments) ? comments.length : 0
+    }).`
+  );
 
   const considerComment = (comment) => {
     if (!comment) {
       return;
     }
     if (hasHumanMention(comment, patterns)) {
-      latest = selectLatestComment(latest, comment);
+      const updated = selectLatestComment(latest, comment);
+      if (updated !== latest) {
+        const author = comment?.user?.login || '(unknown)';
+        const created = comment?.created_at || comment?.updated_at || '(no timestamp)';
+        logInfo(
+          `Found activation candidate comment ${comment.id || '(no id)'} by ${author} at ${created}; replacing previous candidate ${
+            latest?.id || 'none'
+          }.`
+        );
+        latest = updated;
+      }
     }
   };
 
@@ -199,6 +223,14 @@ async function detectHumanActivation({ github, owner, repo, prNumber, aliases, c
     for (const comment of entries) {
       considerComment(comment);
     }
+  }
+
+  if (latest) {
+    const author = latest?.user?.login || '(unknown)';
+    const created = latest?.created_at || latest?.updated_at || '(no timestamp)';
+    logInfo(`Selected activation comment ${latest.id || '(no id)'} by ${author} at ${created}.`);
+  } else {
+    logInfo('No qualifying human activation comment found.');
   }
 
   return latest;
@@ -508,6 +540,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   if (shouldCheckHumanActivation) {
     try {
       activationComment = await detectHumanActivation({
+        core,
         github,
         owner,
         repo,
