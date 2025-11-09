@@ -249,7 +249,7 @@ def test_resolve_datetime_index_without_data_columns() -> None:
 
 
 def test_check_monotonic_index_reports_out_of_order() -> None:
-    index = pd.DatetimeIndex(["2024-01-03", "2024-01-01", "2024-01-02"])
+    index = pd.DatetimeIndex(["2024-01-01", "2024-01-03", "2024-01-02"])
     issues = market_data._check_monotonic_index(index)
 
     assert any("out-of-order" in issue for issue in issues)
