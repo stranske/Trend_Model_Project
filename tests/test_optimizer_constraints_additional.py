@@ -284,19 +284,19 @@ def test_apply_constraints_defensive_guards_execute() -> None:
     guard_snippets: list[tuple[int, str, dict[str, object], bool]] = [
         (
             202,
-            "if not (0 < cw < 1):\n    raise ConstraintViolation(\"cash_weight must be in (0,1) exclusive\")",
+            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
             {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
             True,
         ),
         (
             204,
-            "pass\nif not has_cash:\n    pass\n    w.loc[\"CASH\"] = 0.0",
+            'pass\nif not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
             {"has_cash": False, "w": pd.Series(dtype=float)},
             False,
         ),
         (
             211,
-            "if non_cash.empty:\n    raise ConstraintViolation(\"No assets available for non-CASH allocation\")",
+            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
             {
                 "non_cash": pd.Series(dtype=float),
                 "ConstraintViolation": ConstraintViolation,
@@ -305,7 +305,7 @@ def test_apply_constraints_defensive_guards_execute() -> None:
         ),
         (
             219,
-            "if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation(\"cash_weight infeasible: remaining allocation forces per-asset weight above max_weight\")",
+            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
             {
                 "eq_after": 0.5,
                 "cap": 0.3,
@@ -316,7 +316,7 @@ def test_apply_constraints_defensive_guards_execute() -> None:
         ),
         (
             234,
-            "raise ConstraintViolation(\"cash_weight exceeds max_weight constraint\")",
+            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
             {"ConstraintViolation": ConstraintViolation},
             True,
         ),
@@ -325,19 +325,19 @@ def test_apply_constraints_defensive_guards_execute() -> None:
     duplicate_guard_specs: list[tuple[int, str, dict[str, object], bool]] = [
         (
             239,
-            "if not (0 < cw < 1):\n    raise ConstraintViolation(\"cash_weight must be in (0,1) exclusive\")",
+            'if not (0 < cw < 1):\n    raise ConstraintViolation("cash_weight must be in (0,1) exclusive")',
             {"cw": 1.5, "ConstraintViolation": ConstraintViolation},
             True,
         ),
         (
             242,
-            "if not has_cash:\n    pass\n    w.loc[\"CASH\"] = 0.0",
+            'if not has_cash:\n    pass\n    w.loc["CASH"] = 0.0',
             {"has_cash": False, "w": pd.Series(dtype=float)},
             False,
         ),
         (
             248,
-            "if non_cash.empty:\n    raise ConstraintViolation(\"No assets available for non-CASH allocation\")",
+            'if non_cash.empty:\n    raise ConstraintViolation("No assets available for non-CASH allocation")',
             {
                 "non_cash": pd.Series(dtype=float),
                 "ConstraintViolation": ConstraintViolation,
@@ -346,7 +346,7 @@ def test_apply_constraints_defensive_guards_execute() -> None:
         ),
         (
             255,
-            "if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation(\"cash_weight infeasible: remaining allocation forces per-asset weight above max_weight\")",
+            'if eq_after - NUMERICAL_TOLERANCE_HIGH > cap:\n    raise ConstraintViolation("cash_weight infeasible: remaining allocation forces per-asset weight above max_weight")',
             {
                 "eq_after": 0.6,
                 "cap": 0.2,
@@ -357,7 +357,7 @@ def test_apply_constraints_defensive_guards_execute() -> None:
         ),
         (
             271,
-            "raise ConstraintViolation(\"cash_weight exceeds max_weight constraint\")",
+            'raise ConstraintViolation("cash_weight exceeds max_weight constraint")',
             {"ConstraintViolation": ConstraintViolation},
             True,
         ),
