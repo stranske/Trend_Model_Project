@@ -62,7 +62,10 @@ def test_apply_trend_spec_preset_handles_dict_and_frozen_object():
 @pytest.mark.parametrize(
     "payload, expected",
     [
-        ({"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4}, {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4}),
+        (
+            {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4},
+            {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4},
+        ),
         (
             [
                 {"entries": 0, "hits": 0, "misses": 0, "incremental_updates": 0},
@@ -71,7 +74,16 @@ def test_apply_trend_spec_preset_handles_dict_and_frozen_object():
             {"entries": 5, "hits": 6, "misses": 7, "incremental_updates": 8},
         ),
         (
-            {"nested": [{"entries": 1.0, "hits": 2.0, "misses": 3.0, "incremental_updates": 4.0}]},
+            {
+                "nested": [
+                    {
+                        "entries": 1.0,
+                        "hits": 2.0,
+                        "misses": 3.0,
+                        "incremental_updates": 4.0,
+                    }
+                ]
+            },
             {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4},
         ),
     ],
@@ -117,12 +129,14 @@ def test_check_environment_success(tmp_path, monkeypatch, capsys):
 
 def test_maybe_log_step(monkeypatch):
     calls: list[tuple] = []
-    monkeypatch.setattr(cli, "_log_step", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(
+        cli, "_log_step", lambda *args, **kwargs: calls.append((args, kwargs))
+    )
 
     cli.maybe_log_step(False, "run", "event", "message")
     cli.maybe_log_step(True, "run", "event", "message", extra=1)
 
-    assert calls == [(('run', 'event', 'message'), {'extra': 1})]
+    assert calls == [(("run", "event", "message"), {"extra": 1})]
 
 
 def test_main_check_flag_invokes_environment(monkeypatch):
@@ -155,7 +169,11 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
             "out_start": "2020-07-01",
             "out_end": "2020-12-31",
         },
-        export={"directory": str(tmp_path), "formats": ["csv", "excel"], "filename": "analysis"},
+        export={
+            "directory": str(tmp_path),
+            "formats": ["csv", "excel"],
+            "filename": "analysis",
+        },
         seed=99,
     )
 
@@ -168,7 +186,11 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "get_trend_preset", lambda name: "portfolio")
     monkeypatch.setattr(cli, "list_trend_spec_presets", lambda: ["spec"])
     monkeypatch.setattr(cli, "list_preset_slugs", lambda: ["spec"])
-    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: bundle_calls.setdefault("cache", enabled))
+    monkeypatch.setattr(
+        cli,
+        "set_cache_enabled",
+        lambda enabled: bundle_calls.setdefault("cache", enabled),
+    )
 
     df = pd.DataFrame({"A": [1, 2, 3]})
     monkeypatch.setattr(cli, "load_market_data_csv", lambda path: df)
@@ -179,25 +201,39 @@ def test_main_run_success(monkeypatch, tmp_path, capsys):
             "portfolio_user_weight": pd.Series([0.1, 0.2]),
             "benchmarks": {"bench": pd.Series([1.0, 2.0])},
             "weights_user_weight": pd.Series([0.3, 0.7]),
-            "cache": [
-                {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4}
-            ],
+            "cache": [{"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4}],
         },
         seed=321,
     )
     monkeypatch.setattr(cli, "run_simulation", lambda cfg_arg, frame: run_result)
 
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "Summary")
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df)
+    monkeypatch.setattr(
+        cli.export, "format_summary_text", lambda *args, **kwargs: "Summary"
+    )
+    monkeypatch.setattr(
+        cli.export, "make_summary_formatter", lambda *args, **kwargs: lambda df: df
+    )
 
     excel_calls: list[tuple] = []
     data_calls: list[tuple] = []
-    monkeypatch.setattr(cli.export, "export_to_excel", lambda *args, **kwargs: excel_calls.append((args, kwargs)))
-    monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: data_calls.append((args, kwargs)))
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda *args, **kwargs: excel_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        cli.export,
+        "export_data",
+        lambda *args, **kwargs: data_calls.append((args, kwargs)),
+    )
 
     log_path = tmp_path / "logs.jsonl"
-    monkeypatch.setattr(cli.run_logging, "get_default_log_path", lambda run_id: log_path)
-    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        cli.run_logging, "get_default_log_path", lambda run_id: log_path
+    )
+    monkeypatch.setattr(
+        cli.run_logging, "init_run_logger", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(cli.run_logging, "log_step", lambda *args, **kwargs: None)
 
     bundle_target = tmp_path / "bundle.zip"
@@ -253,7 +289,9 @@ def test_main_run_uses_env_seed(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: pd.DataFrame({"A": [1]}))
+    monkeypatch.setattr(
+        cli, "load_market_data_csv", lambda path: pd.DataFrame({"A": [1]})
+    )
     monkeypatch.setattr(
         cli,
         "run_simulation",
@@ -263,27 +301,54 @@ def test_main_run_uses_env_seed(monkeypatch, tmp_path):
             seed=cfg_arg.seed,
         ),
     )
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "Summary")
+    monkeypatch.setattr(
+        cli.export, "format_summary_text", lambda *args, **kwargs: "Summary"
+    )
     monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: None)
-    monkeypatch.setattr(cli.run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl")
-    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        cli.run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"
+    )
+    monkeypatch.setattr(
+        cli.run_logging, "init_run_logger", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(cli.run_logging, "log_step", lambda *args, **kwargs: None)
 
     monkeypatch.setattr(cli, "APP_PATH", Path("/tmp/app.py"))
-    monkeypatch.setattr(cli.subprocess, "run", lambda args: SimpleNamespace(returncode=0))
+    monkeypatch.setattr(
+        cli.subprocess, "run", lambda args: SimpleNamespace(returncode=0)
+    )
 
     monkeypatch.setenv("TREND_SEED", "7")
 
-    assert cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv", "--no-cache", "--no-structured-log"]) == 0
+    assert (
+        cli.main(
+            [
+                "run",
+                "-c",
+                "cfg.yml",
+                "-i",
+                "returns.csv",
+                "--no-cache",
+                "--no-structured-log",
+            ]
+        )
+        == 0
+    )
     assert cfg.seed == 7
 
 
 def test_main_run_unknown_preset(monkeypatch, capsys):
     monkeypatch.setattr(cli, "load_config", lambda path: SimpleNamespace())
-    monkeypatch.setattr(cli, "get_trend_spec_preset", lambda name: (_ for _ in ()).throw(KeyError("missing")))
+    monkeypatch.setattr(
+        cli,
+        "get_trend_spec_preset",
+        lambda name: (_ for _ in ()).throw(KeyError("missing")),
+    )
     monkeypatch.setattr(cli, "list_trend_spec_presets", lambda: ["alpha", "beta"])
 
-    exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv", "--preset", "missing"])
+    exit_code = cli.main(
+        ["run", "-c", "cfg.yml", "-i", "returns.csv", "--preset", "missing"]
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 2
@@ -296,9 +361,13 @@ def test_main_run_market_data_error(monkeypatch, capsys):
         def __init__(self):
             super().__init__("invalid data")
 
-    monkeypatch.setattr(cli, "load_config", lambda path: SimpleNamespace(sample_split={}, export={}))
+    monkeypatch.setattr(
+        cli, "load_config", lambda path: SimpleNamespace(sample_split={}, export={})
+    )
     monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
-    monkeypatch.setattr(cli, "load_market_data_csv", lambda path: (_ for _ in ()).throw(DummyError()))
+    monkeypatch.setattr(
+        cli, "load_market_data_csv", lambda path: (_ for _ in ()).throw(DummyError())
+    )
 
     exit_code = cli.main(["run", "-c", "cfg.yml", "-i", "returns.csv"])
     captured = capsys.readouterr()
