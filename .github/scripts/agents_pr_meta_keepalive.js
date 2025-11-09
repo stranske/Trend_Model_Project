@@ -5,6 +5,11 @@ const { renderInstruction, makeTrace } = require('./keepalive_contract.js');
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
+const DEFAULT_AUTOMATION_DIRECTIVE_SUFFIX =
+  'use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.';
+
+const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
+
 function normaliseBody(value) {
   return String(value || '').replace(/\r\n/g, '\n').trim();
 }
@@ -64,9 +69,16 @@ async function autopatchKeepaliveComment({
   currentBody,
   highestRound,
   agent,
+  allowSubsequentAutomation = false,
+  instructionOverride,
 }) {
-  const trimmed = normaliseBody(currentBody);
-  if (!isLikelyInstruction(trimmed)) {
+  const sourceBody = instructionOverride !== undefined ? instructionOverride : currentBody;
+  const trimmedSource = normaliseBody(sourceBody);
+  if (!trimmedSource) {
+    return null;
+  }
+
+  if (instructionOverride === undefined && !isLikelyInstruction(normaliseBody(currentBody))) {
     return null;
   }
 
@@ -79,7 +91,7 @@ async function autopatchKeepaliveComment({
     effectiveHighestRound = await computeHighestRound({ github, owner, repo, prNumber });
   }
 
-  if (effectiveHighestRound >= 1) {
+  if (effectiveHighestRound >= 1 && !allowSubsequentAutomation) {
     core.info(
       `Skipping keepalive autopatch for comment ${comment.id}: next round (${effectiveHighestRound + 1}) must originate from automation.`
     );
@@ -91,7 +103,7 @@ async function autopatchKeepaliveComment({
 
   const nextRound = effectiveHighestRound + 1;
   const trace = makeTrace();
-  const patchedBody = renderInstruction({ round: nextRound, trace, body: trimmed, agent });
+  const patchedBody = renderInstruction({ round: nextRound, trace, body: sourceBody, agent });
 
   await github.rest.issues.updateComment({
     owner,
@@ -125,6 +137,11 @@ function parseAllowedLogins(env) {
     .map((value) => normaliseLogin(value))
     .filter(Boolean);
   return new Set(raw);
+}
+
+function buildAutomationDirective(agentAlias) {
+  const alias = String(agentAlias || '').trim() || 'codex';
+  return `@${alias} ${DEFAULT_AUTOMATION_DIRECTIVE_SUFFIX}`;
 }
 
 function extractIssueNumberFromPull(pull) {
@@ -307,14 +324,19 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     if (trimmedBody.toLowerCase().startsWith('autofix attempt')) {
       return true;
     }
-    const automationAuthors = new Set(['chatgpt-codex-connector']);
-    if (automationAuthors.has(author) && !isLikelyInstruction(trimmedBody)) {
+    if (AUTOMATION_LOGINS.has(author) && !isLikelyInstruction(trimmedBody)) {
       return true;
     }
     return false;
   };
 
-  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment()) {
+  const commentBodyForOverride = workingBody || body;
+  const automationEligible =
+    AUTOMATION_LOGINS.has(author) &&
+    !isLikelyInstruction(normaliseBody(commentBodyForOverride)) &&
+    Boolean(normaliseBody(commentBodyForOverride));
+
+  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment() && !automationEligible) {
     outputs.reason = 'automation-comment';
     core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
     setAllOutputs();
@@ -335,8 +357,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return highestRoundCache;
   };
 
+  const missingCoreMarkers = !roundMatch && !hasKeepaliveMarker;
+
   const shouldAttemptAutopatch =
-    (!roundMatch || !hasKeepaliveMarker) &&
+    missingCoreMarkers &&
     isAuthorAllowed &&
     Number.isFinite(contextIssueNumber) &&
     contextIssueNumber > 0 &&
@@ -349,44 +373,60 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     );
   }
 
-  if (shouldAttemptAutopatch) {
+  let automationOverride = undefined;
+  if (automationEligible && missingCoreMarkers) {
+    const directive = buildAutomationDirective(agentAlias);
+    const trimmedComment = commentBodyForOverride.trim();
+    automationOverride = trimmedComment ? `${directive}\n\n${trimmedComment}` : directive;
+  }
+
+  if (missingCoreMarkers && shouldAttemptAutopatch && !automationEligible) {
+    const highestRound = await ensureHighestRound();
+    if (highestRound >= 1) {
+      blockedByManualRound = true;
+      core.info(
+        `Keepalive manual escalation detected; round ${highestRound} already exists and author ${author || '(unknown)'} is not automation.`
+      );
+    }
+  }
+
+  if (shouldAttemptAutopatch && !blockedByManualRound) {
     core.info(
       `Keepalive autopatch attempt: issue=${contextIssueNumber} comment=${comment?.id || outputs.comment_id || 'n/a'} roundMatch=${Boolean(roundMatch)} marker=${hasKeepaliveMarker}`
     );
     const highestRound = await ensureHighestRound();
-    if (highestRound >= 1) {
-      blockedByManualRound = true;
-      core.info(`Keepalive autopatch blocked: highestRound=${highestRound} (manual round required).`);
-    } else {
-      try {
-        const patched = await autopatchKeepaliveComment({
-          core,
-          github,
-          owner,
-          repo,
-          prNumber: contextIssueNumber,
-          comment,
-          currentBody: body,
-          highestRound,
-          agent: agentAlias,
-        });
-        if (patched) {
-          if (patched.blocked) {
-            blockedByManualRound = true;
-            core.info(`Keepalive autopatch declined by guard: highestRound=${patched.highestRound ?? highestRound}.`);
-          } else {
-            roundMatch = [null, String(patched.round)];
-            traceMatch = [null, patched.trace];
-            hasKeepaliveMarker = true;
-            core.info(`Keepalive autopatch inserted markers: round=${patched.round} trace=${patched.trace}`);
-          }
+    try {
+      const patched = await autopatchKeepaliveComment({
+        core,
+        github,
+        owner,
+        repo,
+        prNumber: contextIssueNumber,
+        comment,
+        currentBody: commentBodyForOverride,
+        highestRound,
+        agent: agentAlias,
+        allowSubsequentAutomation: automationEligible,
+        instructionOverride: automationOverride,
+      });
+      if (patched) {
+        if (patched.blocked) {
+          blockedByManualRound = true;
+          core.info(`Keepalive autopatch declined by guard: highestRound=${patched.highestRound ?? highestRound}.`);
         } else {
-          core.info('Keepalive autopatch returned no changes (likely non-instruction comment).');
+          roundMatch = [null, String(patched.round)];
+          traceMatch = [null, patched.trace];
+          hasKeepaliveMarker = true;
+          core.info(`Keepalive autopatch inserted markers: round=${patched.round} trace=${patched.trace}`);
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        core.warning(`Auto-inserting keepalive markers failed: ${message}`);
+      } else if (automationEligible) {
+        core.info('Keepalive autopatch returned no changes after automation override attempt.');
+      } else {
+        core.info('Keepalive autopatch returned no changes (likely non-instruction comment).');
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`Auto-inserting keepalive markers failed: ${message}`);
     }
   }
 
