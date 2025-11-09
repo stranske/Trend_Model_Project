@@ -167,6 +167,11 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
   const agentAlias = resolveAgentAlias(env);
+  const toBool = (value) => String(value || '').trim().toLowerCase() === 'true';
+  const hasValue = (value) => typeof value === 'string' && value.trim() !== '';
+  const gateOk = hasValue(env.GATE_OK) ? toBool(env.GATE_OK) : true;
+  const gateReasonRaw = String(env.GATE_REASON || '').trim();
+  const gatePending = hasValue(env.GATE_PENDING) ? toBool(env.GATE_PENDING) : false;
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -330,17 +335,28 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return highestRoundCache;
   };
 
-  if (
+  const shouldAttemptAutopatch =
     (!roundMatch || !hasKeepaliveMarker) &&
     isAuthorAllowed &&
     Number.isFinite(contextIssueNumber) &&
     contextIssueNumber > 0 &&
     owner &&
-    repo
-  ) {
+    repo;
+
+  if (!shouldAttemptAutopatch && !roundMatch && isAuthorAllowed) {
+    core.info(
+      `Keepalive autopatch skipped: allowed=${isAuthorAllowed} issue=${Number.isFinite(contextIssueNumber) ? contextIssueNumber : 'n/a'} owner=${Boolean(owner)} repo=${Boolean(repo)} marker=${hasKeepaliveMarker}`
+    );
+  }
+
+  if (shouldAttemptAutopatch) {
+    core.info(
+      `Keepalive autopatch attempt: issue=${contextIssueNumber} comment=${comment?.id || outputs.comment_id || 'n/a'} roundMatch=${Boolean(roundMatch)} marker=${hasKeepaliveMarker}`
+    );
     const highestRound = await ensureHighestRound();
     if (highestRound >= 1) {
       blockedByManualRound = true;
+      core.info(`Keepalive autopatch blocked: highestRound=${highestRound} (manual round required).`);
     } else {
       try {
         const patched = await autopatchKeepaliveComment({
@@ -357,17 +373,40 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
         if (patched) {
           if (patched.blocked) {
             blockedByManualRound = true;
+            core.info(`Keepalive autopatch declined by guard: highestRound=${patched.highestRound ?? highestRound}.`);
           } else {
             roundMatch = [null, String(patched.round)];
             traceMatch = [null, patched.trace];
             hasKeepaliveMarker = true;
+            core.info(`Keepalive autopatch inserted markers: round=${patched.round} trace=${patched.trace}`);
           }
+        } else {
+          core.info('Keepalive autopatch returned no changes (likely non-instruction comment).');
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         core.warning(`Auto-inserting keepalive markers failed: ${message}`);
       }
     }
+  }
+
+  if (!gateOk && isAuthorAllowed) {
+    const gateDetail = gateReasonRaw || (gatePending ? 'gate-pending' : '');
+    const reason = gateDetail ? `gate-blocked:${gateDetail}` : 'gate-blocked';
+    outputs.reason = reason;
+    outputs.dispatch = 'false';
+    if (Number.isFinite(contextIssueNumber) && contextIssueNumber > 0) {
+      outputs.pr = String(contextIssueNumber);
+    }
+    if (roundMatch) {
+      const gateRound = Number.parseInt(roundMatch[1], 10);
+      if (Number.isFinite(gateRound) && gateRound > 0) {
+        outputs.round = String(gateRound);
+      }
+    }
+    core.info(`Keepalive dispatch deferred: gate reported ${gateDetail || 'a blocking condition'}.`);
+    setAllOutputs();
+    return outputs;
   }
 
   if (blockedByManualRound) {
