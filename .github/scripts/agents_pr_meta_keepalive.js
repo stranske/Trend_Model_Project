@@ -168,9 +168,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
   const agentAlias = resolveAgentAlias(env);
   const toBool = (value) => String(value || '').trim().toLowerCase() === 'true';
-  const gateOk = toBool(env.GATE_OK);
+  const hasValue = (value) => typeof value === 'string' && value.trim() !== '';
+  const gateOk = hasValue(env.GATE_OK) ? toBool(env.GATE_OK) : true;
   const gateReasonRaw = String(env.GATE_REASON || '').trim();
-  const gatePending = toBool(env.GATE_PENDING);
+  const gatePending = hasValue(env.GATE_PENDING) ? toBool(env.GATE_PENDING) : false;
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
