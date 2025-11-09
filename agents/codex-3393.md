@@ -17,7 +17,7 @@
   - [x] `market_data.py` — 99% coverage after expanding validation edge-case suites.【66dbcb†L24-L28】
   - [ ] `signal_presets.py` — 0% currently; needs initial test scaffolding.【ad8a52†L69-L69】
   - [x] `frequency.py` — 100% from util frequency suites.【ad8a52†L74-L74】
-  - [ ] `signals.py` — 65% with multiple indicator combinations untested.【ad8a52†L70-L70】
+  - [x] `signals.py` — 100% coverage validated via dedicated signal suites.【c20aa8†L24-L35】
   - [ ] `bootstrap.py` — 79% across `backtesting/bootstrap.py`; scenario coverage still missing.【ad8a52†L15-L15】
   - [ ] `risk.py` — 56% with branch-heavy sections uncovered.【ad8a52†L65-L65】
   - [x] `bundle.py` — 99% after existing export bundle suites.【ad8a52†L32-L32】
@@ -72,9 +72,21 @@ coverage report -m > coverage-soft.txt
 | 39% | `trend_analysis/pipeline.py` | Core pipeline remains the largest gap with 346 uncovered statements and 200 uncovered branches.【ad8a52†L53-L53】 |
 | 39% | `trend_analysis/config/model.py` | Model schema coercion and defaults remain lightly tested; consider parameterised fixtures.【ad8a52†L21-L21】 |
 | 56% | `trend_analysis/risk.py` | Risk metric aggregations have numerous untested branches, especially around fallback handling.【ad8a52†L65-L65】 |
-| 65% | `trend_analysis/signals.py` | Multiple indicator combinations and error paths missing from the suite.【ad8a52†L70-L70】 |
+| 100% | `trend_analysis/signals.py` | Targeted suites (`tests/test_signals_*.py`, `tests/test_trend_signals*.py`) now hit every branch, confirming the module exceeds the ≥95% goal.【c20aa8†L24-L35】 |
 
 ### Next steps
 1. Build focused regression suites for `backtesting/harness.py` and `engine/walkforward.py` that simulate small synthetic universes to exercise bootstrap iterations, state resets, and error paths.
 2. Extend market data validation tests to cover missing-policy overrides and tolerance edge cases, raising coverage for `market_data.py` while hardening essential IO functionality.
 3. Continue planning regression suites for CLI-adjacent configuration files (e.g., `config/model.py`) to leverage the new targeted CLI run as scaffolding once higher-priority modules are addressed.
+4. Design coverage boosts for `pipeline.py`, `optimizer.py`, `model.py`, and `risk.py`, now that `signals.py` and related helpers meet the ≥95% threshold.
+
+### Targeted coverage commands
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_cov --cov=trend_analysis.signals --cov-report term-missing \
+  tests/test_signals_additional.py \
+  tests/test_signals_engine.py \
+  tests/test_signals_validation.py \
+  tests/test_trend_signals.py \
+  tests/test_trend_signals_validation.py
+```
+- 26 tests passed (7 warnings) in 7.94s, producing a 100% coverage report for `trend_analysis/signals.py`.【c20aa8†L1-L35】
