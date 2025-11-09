@@ -417,9 +417,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const {
     prNumber: rawPrNumber,
     headSha: inputHeadSha,
-    requireHumanActivation = false,
-    allowPendingGate = false,
-    requireGateSuccess = true,
+  requireHumanActivation = false,
+  allowPendingGate = false,
+  requireGateSuccess = false,
     comments,
     pullRequest,
     currentRunId,
@@ -505,7 +505,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const shouldCheckHumanActivation = hasKeepaliveLabel && agentAliases.length > 0;
   const requireHuman = Boolean(requireHumanActivation) && !hasActivatedLabel;
 
-  if (shouldCheckHumanActivation && (requireHuman || !hasActivatedLabel)) {
+  if (shouldCheckHumanActivation) {
     try {
       activationComment = await detectHumanActivation({
         github,
@@ -533,8 +533,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     core.warning(`Gate status check failed: ${gateStatus.error}`);
   }
 
+  const gateFound = gateStatus.found === true;
   const gateConcluded = gateStatus.status === 'completed';
-  const gateSucceeded = gateStatus.success === true;
+  const gateSucceeded = gateConcluded && gateStatus.success === true;
 
   const runCap = parseRunCap(labels);
   const workflowCandidates = new Set();
@@ -582,8 +583,8 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     reason = 'no-human-activation';
   }
 
-  if (requireGateSuccess) {
-    if (!gateStatus.found) {
+  if (ok) {
+    if (!gateFound) {
       if (allowPendingGate) {
         pendingGate = true;
         if (reason === 'ok') {
@@ -593,7 +594,17 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
         ok = false;
         reason = 'gate-run-missing';
       }
-    } else if (!gateSucceeded) {
+    } else if (!gateConcluded) {
+      if (allowPendingGate) {
+        pendingGate = true;
+        if (reason === 'ok') {
+          reason = 'gate-pending';
+        }
+      } else {
+        ok = false;
+        reason = 'gate-not-concluded';
+      }
+    } else if (requireGateSuccess && !gateSucceeded) {
       ok = false;
       reason = 'gate-not-success';
     }
