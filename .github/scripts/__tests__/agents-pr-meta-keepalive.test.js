@@ -111,3 +111,95 @@ test('automation summary comment is upgraded to next keepalive round', async () 
   assert.match(patched, /keepalive workflow continues nudging until everything is complete/);
   assert.match(patched, /\*\*Scope\*\*/);
 });
+
+test('manual restated instructions are autopatched to the next round', async () => {
+  const outputs = {};
+  const updatedBodies = [];
+  const existingComments = [
+    {
+      body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
+      id: 123,
+    },
+  ];
+
+  const github = {
+    rest: {
+      issues: {
+        async listComments() {
+          return { data: existingComments };
+        },
+        async updateComment({ body }) {
+          updatedBodies.push(body);
+          return {};
+        },
+      },
+      pulls: {
+        async get() {
+          return {
+            data: {
+              head: {
+                ref: 'codex/issue-3420',
+                repo: { fork: false, owner: { login: 'stranske' } },
+              },
+              base: {
+                ref: 'phase-2-dev',
+                repo: { owner: { login: 'stranske' } },
+              },
+            },
+          };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment() {
+          return { status: 201, data: { content: 'rocket' } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return existingComments;
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'chatgpt-codex-connector,stranske-automation-bot,stranske',
+    KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+    KEEPALIVE_AGENT_ALIAS: 'codex',
+    GATE_OK: 'true',
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    payload: {
+      comment: {
+        id: 456,
+        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3420#issuecomment-456',
+        body: '@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.',
+        user: { login: 'stranske' },
+      },
+      issue: { number: 3420 },
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.round, '2');
+  assert.ok(updatedBodies.length > 0);
+  const patched = updatedBodies[0];
+  assert.match(patched, /<!-- keepalive-round: 2 -->/);
+  assert.match(patched, /<!-- codex-keepalive-marker -->/);
+});
