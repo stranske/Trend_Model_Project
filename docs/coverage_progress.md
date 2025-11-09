@@ -10,7 +10,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
   - [x] data.py
   - [x] presets.py
   - [x] harness.py
-  - [ ] regimes.py
+  - [x] regimes.py
   - [ ] pipeline.py
   - [x] validators.py
   - [x] run_analysis.py
@@ -42,6 +42,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
 - Drove the backtesting harness suite to full coverage by running `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.backtesting.harness -m pytest tests/backtesting/test_harness.py`, confirming 100% statement and branch coverage for `trend_analysis/backtesting/harness.py`.
 - Extended the market-data validator regression suite with focused preview/ellipsis assertions and monotonic-index edge cases (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.io.market_data -m pytest tests/test_market_data_validation.py tests/test_market_data_validation_additional.py`), lifting `trend_analysis/io/market_data.py` to 99% statement coverage with only defensive loop-exit arcs remaining.
 - Crafted a comprehensive CLI regression harness (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.cli -m pytest tests/test_trend_cli_soft_coverage.py`) covering environment checks, run-mode fallbacks, export paths, bundling shims, and compatibility wrappers, raising `trend_analysis/cli.py` to 97% statement coverage.
+- Targeted the remaining uncovered arcs in `trend_analysis/regimes.py` with cache-tag regression tests, confirming 100% statement and branch coverage via `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --data-file=.coverage_regimes --source=trend_analysis.regimes -m pytest tests/test_regimes.py tests/test_regimes_additional.py tests/trend_analysis/test_regimes.py` followed by `python -m coverage report -m --data-file=.coverage_regimes`.
 - The latest report highlights the remaining sub-95% hotspots: `trend_analysis/engine/optimizer.py` (12%), `trend_analysis/engine/walkforward.py` (14%), `trend_analysis/export/__init__.py` (44%), support modules such as `trend_analysis/api.py` (79%), and the `_autofix_*` probes (0%).
 
 ## Next steps

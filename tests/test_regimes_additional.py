@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -454,3 +454,142 @@ def test_build_regime_payload_generates_summary(
         "risk-on" in payload["summary"].lower()
         or "risk-off" in payload["summary"].lower()
     )
+
+
+def test_compute_regime_series_volatility_tag_includes_periods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2024-01-31", periods=10, freq="M")
+    proxy = pd.Series(np.linspace(0.01, 0.05, len(dates)), index=dates)
+    settings = RegimeSettings(
+        enabled=True,
+        method="volatility",
+        lookback=3,
+        smoothing=1,
+        cache=True,
+        annualise_volatility=True,
+    )
+
+    class DummyCache:
+        def __init__(self) -> None:
+            self.tags: list[str] = []
+
+        def get_or_compute(
+            self,
+            dataset_hash: str,
+            window: int,
+            freq: str,
+            method_tag: str,
+            compute: Callable[[], pd.Series],
+        ) -> pd.Series:
+            self.tags.append(method_tag)
+            return compute()
+
+    cache = DummyCache()
+
+    monkeypatch.setattr("trend_analysis.regimes.get_cache", lambda: cache)
+    monkeypatch.setattr(
+        "trend_analysis.regimes.compute_dataset_hash",
+        lambda payload: "hash",
+    )
+
+    labels = _compute_regime_series(
+        proxy,
+        settings,
+        freq="M",
+        periods_per_year=12,
+    )
+
+    assert not labels.empty
+    assert any("ppy12.000000" in tag for tag in cache.tags)
+
+
+def test_compute_regime_series_volatility_tag_skips_when_no_periods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2024-01-31", periods=8, freq="M")
+    proxy = pd.Series(np.linspace(0.01, 0.04, len(dates)), index=dates)
+    settings = RegimeSettings(
+        enabled=True,
+        method="volatility",
+        lookback=3,
+        smoothing=1,
+        cache=True,
+        annualise_volatility=True,
+    )
+
+    class DummyCache:
+        def __init__(self) -> None:
+            self.tags: list[str] = []
+
+        def get_or_compute(
+            self,
+            dataset_hash: str,
+            window: int,
+            freq: str,
+            method_tag: str,
+            compute: Callable[[], pd.Series],
+        ) -> pd.Series:
+            self.tags.append(method_tag)
+            return compute()
+
+    cache = DummyCache()
+
+    monkeypatch.setattr("trend_analysis.regimes.get_cache", lambda: cache)
+    monkeypatch.setattr(
+        "trend_analysis.regimes.compute_dataset_hash",
+        lambda payload: "hash",
+    )
+    monkeypatch.setattr(
+        "trend_analysis.regimes._default_periods_per_year",
+        lambda _freq: 0.0,
+    )
+
+    labels = _compute_regime_series(
+        proxy,
+        settings,
+        freq="Z",
+        periods_per_year=None,
+    )
+
+    assert not labels.empty
+    assert all("ppy" not in tag for tag in cache.tags)
+
+
+def test_build_regime_payload_uses_notes_when_no_user_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    data = pd.DataFrame({"Date": dates, "Proxy": np.linspace(100, 120, len(dates))})
+
+    regimes = pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string")
+    monkeypatch.setattr(
+        "trend_analysis.regimes.compute_regimes",
+        lambda *args, **kwargs: regimes,
+    )
+
+    columns = pd.MultiIndex.from_tuples(
+        [("User", "All")], names=["portfolio", "regime"]
+    )
+    table = pd.DataFrame([[0.1], [0.2]], index=["CAGR", "Sharpe"], columns=columns)
+    monkeypatch.setattr(
+        "trend_analysis.regimes.aggregate_performance_by_regime",
+        lambda *args, **kwargs: (table, ["Only aggregate data available."]),
+    )
+
+    payload = build_regime_payload(
+        data=data,
+        out_index=dates,
+        returns_map={"User": pd.Series(0.01, index=dates)},
+        risk_free=0.0,
+        config={
+            "enabled": True,
+            "proxy": "Proxy",
+            "method": "rolling_return",
+        },
+        freq_code="M",
+        periods_per_year=12,
+    )
+
+    assert payload["summary"] == "Only aggregate data available."
+    assert payload["notes"][0] == "Only aggregate data available."
