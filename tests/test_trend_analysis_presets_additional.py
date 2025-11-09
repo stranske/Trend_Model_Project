@@ -297,3 +297,66 @@ def test_apply_trend_preset_converts_mapping_sections() -> None:
     assert config.vol_adjust["window"]["length"] == 70
     assert config.run["previous"] == "value"
     assert config.run["trend_preset"] == "mapping"
+
+
+def test_form_defaults_clamps_negative_and_missing_values() -> None:
+    preset = presets.TrendPreset(
+        slug="clamp",
+        label="Clamp",
+        description="",
+        trend_spec=presets.TrendSpec(),
+        _config=presets._freeze_mapping(
+            {
+                "lookback_months": -12,
+                "min_track_months": "0",
+                "selection_count": 0,
+                "risk_target": "invalid",
+                "portfolio": {"weighting_scheme": "value", "cooldown_months": -5},
+                "metrics": {"sharpe_ratio": "1.75", "unknown": object()},
+            }
+        ),
+    )
+
+    defaults = preset.form_defaults()
+
+    assert defaults["lookback_months"] == 1
+    assert defaults["min_track_months"] == 1
+    assert defaults["selection_count"] == 1
+    assert defaults["cooldown_months"] == 0
+    assert defaults["risk_target"] == pytest.approx(0.1)
+    assert defaults["metrics"] == {"sharpe": 1.75}
+
+
+def test_vol_adjust_defaults_reads_signal_toggle_when_section_invalid() -> None:
+    preset = presets.TrendPreset(
+        slug="signal-driven",
+        label="Signal Driven",
+        description="",
+        trend_spec=presets.TrendSpec(window=70, vol_adjust=False, vol_target=None),
+        _config=presets._freeze_mapping(
+            {
+                "signals": {"vol_adjust": True, "vol_target": 0.6},
+                "vol_adjust": "ignored",
+            }
+        ),
+    )
+
+    defaults = preset.vol_adjust_defaults()
+
+    assert defaults["enabled"] is True
+    assert defaults["target_vol"] == pytest.approx(0.3)
+    assert defaults["window"] == {"length": 70}
+
+
+def test_candidate_preset_dirs_deduplicates_repeated_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base_dir = tmp_path / "presets"
+    base_dir.mkdir()
+
+    monkeypatch.setattr(presets, "PRESETS_DIR", base_dir)
+    monkeypatch.setenv("TREND_PRESETS_DIR", str(base_dir))
+
+    candidates = presets._candidate_preset_dirs()
+
+    assert candidates == (base_dir,)

@@ -76,6 +76,43 @@ def test_dataclasses_patch_recreates_missing_module(
     assert created.__package__ == "missing"
 
 
+def test_dataclasses_patch_reimports_available_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reimporting_is_type(
+        annotation, cls, a_module, a_type, predicate  # noqa: ANN001
+    ) -> bool:
+        if cls.__module__ not in sys.modules:
+            raise AttributeError("missing module")
+        return False
+
+    module_name = "ghost.recoverable"
+    stub_module = types.ModuleType(module_name)
+    stub_module.__package__ = module_name.rpartition(".")[0]
+
+    monkeypatch.setattr(dataclasses, "_is_type", reimporting_is_type, raising=False)
+    monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
+
+    _ = importlib.reload(trend_analysis)
+
+    class Ghost:
+        __module__ = module_name
+
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    def tracking_import(name: str, package: str | None = None):  # noqa: ANN001
+        if name == module_name:
+            return stub_module
+        return importlib.import_module(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", tracking_import)
+
+    result = dataclasses._is_type(None, Ghost, None, None, lambda _: False)
+
+    assert result is False
+    assert sys.modules[module_name] is stub_module
+
+
 def test_dataclasses_patch_bubbles_when_module_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -99,6 +136,18 @@ def test_spec_proxy_name_restores_registration(monkeypatch: pytest.MonkeyPatch) 
     proxy = module.__spec__
     assert isinstance(proxy, trend_analysis._SpecProxy)
     monkeypatch.delitem(sys.modules, "trend_analysis", raising=False)
+    assert proxy.name == "trend_analysis"
+    assert sys.modules["trend_analysis"] is module
+
+
+def test_spec_proxy_name_overwrites_foreign_registration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = importlib.reload(trend_analysis)
+    proxy = module.__spec__
+    sentinel = types.ModuleType("trend_analysis")
+    monkeypatch.setitem(sys.modules, "trend_analysis", sentinel)
+
     assert proxy.name == "trend_analysis"
     assert sys.modules["trend_analysis"] is module
 
