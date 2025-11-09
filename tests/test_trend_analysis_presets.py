@@ -198,6 +198,36 @@ def test_trend_preset_defaults_use_fallbacks_when_config_missing() -> None:
     assert defaults["window"] == {"length": 55}
 
 
+def test_vol_adjust_defaults_handles_read_only_window_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = preset_module._build_trend_spec(
+        {"signals": {"window": 12, "vol_adjust": True, "vol_target": 0.2}}
+    )
+    readonly_window = MappingProxyType({"length": 21})
+    preset = preset_module.TrendPreset(
+        slug="readonly",
+        label="Read Only",
+        description="",
+        trend_spec=spec,
+        _config=preset_module._freeze_mapping(
+            {
+                "vol_adjust": {
+                    "enabled": True,
+                    "target_vol": 0.2,
+                    "window": readonly_window,
+                }
+            }
+        ),
+    )
+
+    monkeypatch.setattr(preset_module, "MutableMapping", ())
+
+    defaults = preset.vol_adjust_defaults()
+    assert defaults["window"] == {"length": 21}
+    assert defaults["window"] is not readonly_window
+
+
 def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
     spec = preset_module.TrendSpec(
         window=21,
