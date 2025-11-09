@@ -14,12 +14,16 @@ from trend_analysis import cli
 from trend_analysis.signal_presets import get_trend_spec_preset
 
 
-def test_load_market_data_csv_applies_default_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_market_data_csv_applies_default_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Ensure the legacy shim forwards default arguments to ``load_csv``."""
 
     captured: dict[str, Any] = {}
 
-    def fake_load_csv(path: str, *, errors: str, include_date_column: bool) -> pd.DataFrame:
+    def fake_load_csv(
+        path: str, *, errors: str, include_date_column: bool
+    ) -> pd.DataFrame:
         captured["path"] = path
         captured["errors"] = errors
         captured["include_date_column"] = include_date_column
@@ -37,7 +41,9 @@ def test_load_market_data_csv_applies_default_kwargs(monkeypatch: pytest.MonkeyP
     assert isinstance(frame, pd.DataFrame)
 
 
-def test_load_market_data_csv_honours_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_market_data_csv_honours_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Explicit keyword overrides should be forwarded unchanged."""
 
     received: dict[str, Any] = {}
@@ -114,7 +120,9 @@ def test_apply_trend_spec_preset_updates_guarded_object() -> None:
 def test_log_step_delegates_to_logging(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_log_step(run_id: str, event: str, message: str, *, level: str, extra: int) -> None:
+    def fake_log_step(
+        run_id: str, event: str, message: str, *, level: str, extra: int
+    ) -> None:
         captured.update(
             {
                 "run_id": run_id,
@@ -233,4 +241,3 @@ def test_apply_trend_spec_preset_handles_namespace() -> None:
 
     assert cfg.signals["window"] == preset.spec.window
     assert cfg.trend_spec_preset == preset.name
-
