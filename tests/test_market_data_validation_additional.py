@@ -274,13 +274,15 @@ def test_check_monotonic_index_reports_many_duplicates() -> None:
 
 
 def test_check_monotonic_index_reports_duplicates_without_ellipsis() -> None:
-    index = pd.to_datetime([
-        "2024-01-01",
-        "2024-01-01",
-        "2024-02-01",
-        "2024-03-01",
-        "2024-03-01",
-    ])
+    index = pd.to_datetime(
+        [
+            "2024-01-01",
+            "2024-01-01",
+            "2024-02-01",
+            "2024-03-01",
+            "2024-03-01",
+        ]
+    )
     issues = market_data._check_monotonic_index(index)
 
     assert any("Duplicate timestamps" in issue for issue in issues)
