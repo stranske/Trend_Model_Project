@@ -134,7 +134,7 @@ function selectLatestComment(current, candidate) {
   }
   const currentTime = normaliseTimestamp(current.updated_at || current.created_at);
   const candidateTime = normaliseTimestamp(candidate.updated_at || candidate.created_at);
-  if (candidateTime >= currentTime) {
+  if (candidateTime > currentTime) {
     return candidate;
   }
   return current;
