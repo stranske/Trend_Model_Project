@@ -35,7 +35,7 @@ Evidence sources collected during 2025-11-10 include:
 
 The orchestrator ran 12 times in a 10-minute window (14:50:14Z → 15:00Z range) per `gh run list --workflow "Agents 70 Orchestrator"`, demonstrating no effective run cap. Concurrency increases noise and heightens the risk of overlapping traces.
 
-❌ Violated – cap is not preventing rapid-fire reruns.
+❌ Violated – cap is not preventing rapid-fire reruns. Follow-up: on 2025-11-10 we updated `evaluateKeepaliveGate` to treat recently completed orchestrator/worker runs (≤5 min window) as part of the active count, so consecutive cron sweeps should now pause once the throttle engages. Need confirmation from the next scheduled cycle.
 
 ## 4. Pause & Stop Controls (Goals & Plumbing §4)
 
@@ -61,6 +61,7 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - `keepalive-state` tracer comments capture head/base metadata (e.g. Round 19 at 13:45:03Z).
 - Worker success notices (Rounds 19–23) repeat even though Gate reruns keep cancelling (see §8), indicating dispatches run but fail to advance the branch.
 - Branch-sync workflow (06:26Z) ended `failure` for head `phase-2-dev` (run `19222734980`).
+- Maintainer-dispatched rerun `19239811962` (17:09Z) completed successfully after the fetch fix, confirming the dry-run path now reaches merge evaluation.
 
 ⚠️ Partial – snapshotting occurs, yet downstream sync actions fail to produce a new head.
 
@@ -70,7 +71,7 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 | --- | --- | --- | --- |
 | 1. Snapshot before instruction | Capture head/base at emit time. | `keepalive-state` payloads (Rounds 17–24) include head SHA + refs. | ✅ |
 | 2. Short poll ≤120 s | Observe new head after worker completes. | No new SHA recorded; repeated “worker success” comments without head change. | ⚠️ |
-| 3. Update-branch dispatch | Fire `update-branch` when head unchanged. | Keepalive Branch Sync run `19222734980` fails in step “Prepare sync branch” with `fatal: depth 0 is not a positive number`, so merges never start. | ❌ |
+| 3. Update-branch dispatch | Fire `update-branch` when head unchanged. | Keepalive Branch Sync dry run `19239811962` (trace `dryrun-20251110-fetchfi`) fetched `phase-2-dev`, merged cleanly, and marked the sync as empty after the new `git fetch --no-tags --prune` step. | ✅ |
 | 4. Create-pr fallback | Open connector PR and merge. | No timeline references to connector PRs post-round; head stays static. | ❌ |
 | 5. Escalate when still stale | Apply `agents:sync-required` and post escalation (if `agents:debug`). | No escalation label/comment despite repeated cancellations. | ❌ |
 
@@ -99,8 +100,8 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 ## Outstanding Actions
 
 1. **Restore guardrail enforcement** – Block instruction emission whenever `agents:keepalive` is absent; add tests mirroring Rounds 11–13 scenario.
-2. **Investigate run-cap tuning** – Limit orchestrator schedule or enforce a hard cap so batches of 10+ runs cannot happen within minutes.
-3. **Repair sync dispatches** – Updated branch-sync workflow to use `git fetch --no-tags --prune origin "$BASE_REF"`; need a maintainer-dispatched dry run (403 from `gh workflow run …`) to confirm update-branch/create-pr paths succeed.
+2. **Monitor run-cap throttle** – Recent patch counts recently completed runs when enforcing the cap (5 min window). Observe upcoming scheduled sweeps to confirm the throttling halts rapid-fire reruns.
+3. **Monitor sync dispatches** – Branch-sync workflow now fetches with `git fetch --no-tags --prune origin "$BASE_REF"`; dry-run `19239811962` verified the empty-merge path. Continue to monitor production runs and capture evidence when a non-empty merge or connector PR is required.
 4. **Add failure escalation** – Ensure stale heads after update/create attempts apply `agents:sync-required` and post the escalation note.
 5. **Document outcome** – Update `docs/keepalive/AttemptLog_Nov2025.md` and guardrail docs once fixes land.
 
@@ -110,5 +111,5 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - Gate churn: at least nine Gate runs cancelled on `codex/issue-3428` between 13:32Z and 14:50Z (command output above).
 - Orchestrator cadence: 12 runs triggered in 10 minutes (`19235652928` → `19236890071`).
 - Branch sync: latest failure `19222734980` (phase-2-dev) recorded minutes before the PR keepalive burst.
-- Branch sync detail: job `Prepare sync branch` aborts with `fatal: depth 0 is not a positive number`, blocking the update-branch fallback.
-- Workflow patch: `agents-keepalive-branch-sync.yml` now uses `git fetch --no-tags --prune origin "$BASE_REF"`; validation pending a privileged workflow dispatch.
+- Branch sync detail: job `Prepare sync branch` formerly aborted with `fatal: depth 0 is not a positive number`, blocking the update-branch fallback.
+- Workflow patch: `agents-keepalive-branch-sync.yml` now uses `git fetch --no-tags --prune origin "$BASE_REF"`; dry run `19239811962` completed successfully (sync empty), validating the fix.
