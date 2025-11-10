@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import sys
 from types import ModuleType
 from typing import Mapping
 
-import dataclasses
 import pytest
 
 
