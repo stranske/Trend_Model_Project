@@ -115,6 +115,7 @@ def test_version_fallback_when_package_metadata_missing(
     module = reload_trend_analysis()
     assert module.__version__ == "0.1.0-dev"
 
+
 def test_patch_guard_skips_when_original_missing(
     monkeypatch: pytest.MonkeyPatch, restore_dataclasses
 ) -> None:
@@ -207,7 +208,9 @@ def test_conditional_exports_omitted_when_dependencies_fail(
     monkeypatch.delitem(sys.modules, "trend_analysis.export", raising=False)
     monkeypatch.delitem(trend_analysis.__dict__, "data", raising=False)
     monkeypatch.delitem(trend_analysis.__dict__, "export", raising=False)
-    monkeypatch.delitem(trend_analysis.__dict__, "identify_risk_free_fund", raising=False)
+    monkeypatch.delitem(
+        trend_analysis.__dict__, "identify_risk_free_fund", raising=False
+    )
     monkeypatch.delitem(trend_analysis.__dict__, "export_data", raising=False)
 
     module = reload_trend_analysis()
