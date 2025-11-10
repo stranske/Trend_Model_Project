@@ -454,6 +454,9 @@ jobs:
       agent_alias: ${{ steps.guard.outputs.agent_alias || '' }}
       run_cap: ${{ steps.guard.outputs.run_cap || '' }}
       active_runs: ${{ steps.guard.outputs.active_runs || '' }}
+      active_runs_inflight: ${{ steps.guard.outputs.active_runs_inflight || '' }}
+      active_runs_recent: ${{ steps.guard.outputs.active_runs_recent || '' }}
+      active_runs_recent_window: ${{ steps.guard.outputs.active_runs_recent_window || '' }}
       has_sync_label: ${{ steps.guard.outputs.has_sync_label || 'false' }}
     steps:
       - name: Checkout guard helpers
@@ -627,10 +630,26 @@ jobs:
             const agentAlias = preGate.primaryAgent || 'codex';
             const runCap = Number.isFinite(preGate.runCap) ? preGate.runCap : '';
             const activeRuns = Number.isFinite(preGate.activeRuns) ? preGate.activeRuns : '';
+            const inflightRuns = Number.isFinite(preGate.inFlightRuns) ? preGate.inFlightRuns : '';
+            const recentRuns = Number.isFinite(preGate.recentRuns) ? preGate.recentRuns : '';
+            const recentWindow = Number.isFinite(preGate.recentWindowMinutes)
+              ? preGate.recentWindowMinutes
+              : '';
+            const runCapDetail = (() => {
+              const inflightCount = Number.isFinite(preGate.inFlightRuns) ? preGate.inFlightRuns : 0;
+              const recentCount = Number.isFinite(preGate.recentRuns) ? preGate.recentRuns : 0;
+              const windowMinutes = Number.isFinite(preGate.recentWindowMinutes)
+                ? preGate.recentWindowMinutes
+                : '?';
+              return `run cap detail: inflight=${inflightCount}, recent<=${windowMinutes}m=${recentCount}`;
+            })();
 
             core.setOutput('agent_alias', agentAlias);
             core.setOutput('run_cap', runCap !== '' ? String(runCap) : '');
             core.setOutput('active_runs', activeRuns !== '' ? String(activeRuns) : '');
+            core.setOutput('active_runs_inflight', inflightRuns !== '' ? String(inflightRuns) : '');
+            core.setOutput('active_runs_recent', recentRuns !== '' ? String(recentRuns) : '');
+            core.setOutput('active_runs_recent_window', recentWindow !== '' ? String(recentWindow) : '');
             core.setOutput('has_sync_label', preGate.hasSyncRequiredLabel ? 'true' : 'false');
 
             if (!preGate.ok) {
@@ -647,6 +666,8 @@ jobs:
                 .addRaw(`sync required label: ${preGate.hasSyncRequiredLabel ? 'true' : 'false'}`)
                 .addEOL()
                 .addRaw(`run cap: ${preGate.activeRuns}/${preGate.runCap}`)
+                .addEOL()
+                .addRaw(runCapDetail)
                 .addEOL();
               await summary.write();
               setOutputs(false, reason);
@@ -657,6 +678,8 @@ jobs:
               .addRaw('keepalive pre-gate satisfied: label, activation, gate, and run-cap checks passed.')
               .addEOL()
               .addRaw(`run cap utilisation: ${preGate.activeRuns}/${preGate.runCap}`)
+              .addEOL()
+              .addRaw(runCapDetail)
               .addEOL();
 
             const reasons = [];

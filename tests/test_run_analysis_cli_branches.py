@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -238,3 +239,59 @@ def test_main_handles_detailed_flag(
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "No results" in captured.out
+
+
+def test_main_applies_default_export_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """When no export settings are provided, defaults should be used."""
+
+    sentinel_dir = tmp_path / "export"
+    sentinel_formats = ["json"]
+    export_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    cfg = _make_config({"csv_path": "data.csv"})
+    cfg.export = {"directory": None, "formats": [], "filename": "analysis"}
+
+    monkeypatch.setattr(run_analysis, "DEFAULT_OUTPUT_DIRECTORY", str(sentinel_dir))
+    monkeypatch.setattr(run_analysis, "DEFAULT_OUTPUT_FORMATS", sentinel_formats)
+    monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
+
+    def fake_load_csv(path: str, *, errors: str = "raise") -> pd.DataFrame:
+        assert path == "data.csv"
+        assert errors == "raise"
+        return pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="ME")})
+
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(
+        run_analysis.export,
+        "format_summary_text",
+        lambda *_: "summary text",
+    )
+    monkeypatch.setattr(
+        run_analysis.api,
+        "run_simulation",
+        lambda *_: SimpleNamespace(
+            metrics=pd.DataFrame({"metric": [1.23]}),
+            details={
+                "summary": "ok",
+                "performance_by_regime": pd.DataFrame(),
+                "regime_notes": ["note"],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        run_analysis.export,
+        "export_data",
+        lambda *args, **kwargs: export_calls.append((args, kwargs)),
+    )
+
+    exit_code = run_analysis.main(["-c", "config.yml"])
+
+    assert exit_code == 0
+    assert export_calls, "export_data should be invoked with default settings"
+    (data_args, data_kwargs) = export_calls[0]
+    assert Path(data_args[1]).parent == sentinel_dir
+    assert "formats" in data_kwargs
+    assert data_kwargs["formats"] == sentinel_formats
