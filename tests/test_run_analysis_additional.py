@@ -215,3 +215,105 @@ def test_main_uses_nan_fallback_and_default_exports(
     assert "regime_notes" in exported_data
 
     assert not export_data_calls
+
+
+def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = SimpleNamespace(data={}, sample_split={}, export={})
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+
+    def _unexpected_load_csv(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("load_csv should not be called when csv_path is missing")
+
+    monkeypatch.setattr(run_analysis, "load_csv", _unexpected_load_csv)
+
+    with pytest.raises(KeyError, match=r"csv_path.*must be provided"):
+        run_analysis.main(["-c", "config.yml"])
+
+
+def test_main_skips_optional_loader_kwargs_when_not_supported(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = _base_config()
+    cfg.data.pop("missing_policy", None)
+    cfg.data.pop("missing_limit", None)
+    cfg.data.pop("nan_policy", None)
+    cfg.data.pop("nan_limit", None)
+    cfg.export = {"directory": None, "formats": [], "filename": "report"}
+
+    captured: dict[str, object] = {}
+
+    def fake_load_csv(path: str, **kwargs: object) -> pd.DataFrame:
+        captured["path"] = path
+        captured["kwargs"] = kwargs
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Fund": [0.1, 0.2],
+            }
+        )
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: DummyResult())
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_args, **_kwargs: "Summary"
+    )
+    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *_: "fmt")
+    monkeypatch.setattr(
+        run_analysis.export,
+        "summary_frame_from_result",
+        lambda *_args, **_kwargs: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        run_analysis.export, "export_to_excel", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *_args, **_kwargs: None
+    )
+
+    result = run_analysis.main(["-c", "config.yml"])
+
+    assert result == 0
+    assert captured["path"] == "data.csv"
+    assert captured["kwargs"] == {}
+    assert "Summary" in capsys.readouterr().out
+
+
+def test_main_raises_file_not_found_when_loader_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", lambda *_args, **_kwargs: None)
+
+    def _unexpected_api(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("should not run")
+
+    monkeypatch.setattr(run_analysis.api, "run_simulation", _unexpected_api)
+
+    with pytest.raises(FileNotFoundError, match="data.csv"):
+        run_analysis.main(["-c", "config.yml"])
+
+
+def test_main_detailed_reports_empty_results(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = _base_config()
+
+    class EmptyResult:
+        metrics = pd.DataFrame()
+        details: dict[str, object] = {}
+
+    def fake_load_csv(path: str, **kwargs: object) -> pd.DataFrame:
+        return pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="M")})
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: EmptyResult())
+
+    result = run_analysis.main(["-c", "config.yml", "--detailed"])
+
+    assert result == 0
+    assert capsys.readouterr().out.strip() == "No results"
