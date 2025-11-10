@@ -313,62 +313,142 @@ def test_initial_and_normalised_weights_round_trip() -> None:
     assert normalised.loc["Y"] == 0.0
 
 
-def test_prepare_returns_validations() -> None:
-    df = pd.DataFrame({"A": ["x", "y"]}, index=[1, 2])
+def test_run_backtest_errors_for_empty_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-01", periods=1, freq="D"),
+            "FundA": [0.01],
+        }
+    )
+
+    monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
+
+    with pytest.raises(ValueError, match="at least one row"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="D",
+            window_size=1,
+        )
+
+
+def test_run_backtest_requires_calendar_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2024-01-01 12:00", periods=3, freq="D")
+    returns = pd.DataFrame({"Date": dates, "FundA": [0.01, 0.0, -0.02]})
+
+    monkeypatch.setattr(
+        h,
+        "_rebalance_calendar",
+        lambda _index, _freq: pd.DatetimeIndex([], name="rebalance_date"),
+    )
+
+    with pytest.raises(ValueError, match="rebalance calendar produced no dates"):
+        h.run_backtest(
+            returns,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=1,
+        )
+
+
+def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
+    dates = pd.to_datetime(
+        [
+            "2024-01-01",
+            "2024-01-01",
+            "2024-01-02",
+            "2024-01-02",
+            "2024-01-03",
+        ]
+    )
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.02, 0.03, 0.04, 0.05],
+            "FundB": [0.0, 0.0, 0.001, 0.002, 0.003],
+        }
+    )
+
+    result = h.run_backtest(
+        returns,
+        lambda frame: pd.Series({"FundA": 1.0, "FundB": 0.0}, index=frame.columns),
+        rebalance_freq="D",
+        window_size=2,
+        transaction_cost_bps=20,
+    )
+
+    # Transaction costs should be deducted exactly once per rebalance window.
+    first_cost = result.transaction_costs.iloc[0]
+    assert first_cost > 0
+    first_return = result.returns.dropna().iloc[0]
+    assert first_return == pytest.approx(0.03 - first_cost)
+    # Duplicate index entries should still populate weights for each rebalance date.
+    assert len(result.weights) == 3
+
+
+def test_prepare_returns_requires_datetime_index() -> None:
+    df = pd.DataFrame({"FundA": [0.01, 0.02]}, index=[0, 1])
+
     with pytest.raises(ValueError, match="DatetimeIndex"):
         h._prepare_returns(df)
 
-    with pytest.raises(ValueError, match="numeric columns"):
-        h._prepare_returns(
-            pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=1)})
-        )
 
-    prepared = h._prepare_returns(
-        pd.DataFrame(
-            {
-                "Date": pd.date_range("2024-01-01", periods=2),
-                "FundA": [1, 2],
-                "FundB": [3, 4],
-            }
-        )
+def test_prepare_returns_requires_numeric_columns() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-01", periods=2, freq="D"),
+            "Label": ["a", "b"],
+        }
     )
-    assert isinstance(prepared.index, pd.DatetimeIndex)
-    assert list(prepared.columns) == ["FundA", "FundB"]
+
+    with pytest.raises(ValueError, match="numeric columns"):
+        h._prepare_returns(df)
 
 
-def test_normalise_frequency_edge_cases() -> None:
-    assert h._normalise_frequency("1ME") == "1ME"
-    # Non-numeric prefixes should be left untouched rather than coerced.
-    assert h._normalise_frequency("xQ") == "xQ"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("3ME", "3ME"),
+        ("bm", "bm"),
+    ],
+)
+def test_normalise_frequency_preserves_valid_suffixes(raw: str, expected: str) -> None:
+    assert h._normalise_frequency(raw) == expected
 
 
-def test_infer_periods_per_year_edge_cases() -> None:
-    assert h._infer_periods_per_year(pd.DatetimeIndex(["2024-01-31"])) == 1
-    dup_index = pd.DatetimeIndex(["2024-01-31", "2024-01-31"])
-    assert h._infer_periods_per_year(dup_index) == 1
+def test_infer_periods_per_year_branches() -> None:
+    assert h._infer_periods_per_year(pd.DatetimeIndex([])) == 1
+    duplicate = pd.DatetimeIndex(["2024-01-01", "2024-01-01"])
+    assert h._infer_periods_per_year(duplicate) == 1
     daily = pd.date_range("2024-01-01", periods=10, freq="B")
     assert h._infer_periods_per_year(daily) == 252
     weekly = pd.date_range("2024-01-05", periods=10, freq="W-FRI")
     assert h._infer_periods_per_year(weekly) == 52
-    quarterly = pd.date_range("2024-03-31", periods=6, freq="QE-DEC")
+    monthly = pd.date_range("2024-01-31", periods=10, freq="ME")
+    assert h._infer_periods_per_year(monthly) == 12
+    quarterly = pd.date_range("2024-03-31", periods=6, freq="QE")
     assert h._infer_periods_per_year(quarterly) == 4
 
 
-def test_rolling_sharpe_minimum_window() -> None:
-    returns = pd.Series([0.01, -0.02, 0.03, 0.04])
+def test_rolling_sharpe_enforces_minimum_window() -> None:
+    returns = pd.Series(
+        [0.0, 0.01, -0.02, 0.03], index=pd.date_range("2024-01-01", periods=4, freq="D")
+    )
     sharpe = h._rolling_sharpe(returns, periods_per_year=12, window=1)
+
     assert sharpe.index.equals(returns.index)
+    assert np.isnan(sharpe.iloc[0])
 
 
-def test_series_and_weights_to_dict_edge_cases() -> None:
-    assert h._series_to_dict(pd.Series(dtype=float)) == {}
+def test_series_and_weights_to_dict_handle_empty_inputs() -> None:
+    empty_series = pd.Series(dtype=float)
+    assert h._series_to_dict(empty_series) == {}
 
-    weights = pd.DataFrame(columns=["A", "B"], dtype=float)
-    assert h._weights_to_dict(weights) == {}
-
-    zero_weights = pd.DataFrame(
-        [[0.0, 0.0], [0.0, 0.0]],
+    weights = pd.DataFrame(
+        [[0.0, 0.0], [np.nan, np.nan]],
         index=pd.date_range("2024-01-01", periods=2, freq="D"),
         columns=["A", "B"],
     )
-    assert h._weights_to_dict(zero_weights) == {}
+    assert h._weights_to_dict(weights) == {}
