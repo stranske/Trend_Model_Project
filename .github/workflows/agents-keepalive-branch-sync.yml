@@ -68,7 +68,7 @@ jobs:
           fi
           BRANCH="sync/codex-${TRACE_SAFE}"
           git checkout -b "$BRANCH"
-          git fetch origin "$BASE_REF" --depth=0
+          git fetch origin "$BASE_REF"
           if ! git merge --no-commit --no-ff origin/"$BASE_REF"; then
             echo "::error::Merge failed while preparing sync branch"
             exit 1
