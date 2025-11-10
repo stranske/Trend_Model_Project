@@ -1265,7 +1265,7 @@ jobs:
 
       - name: Create keepalive instruction comment
         id: post
-        uses: actions/github-script@v7
+        shell: bash
         env:
           HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
         run: |
@@ -1309,17 +1309,15 @@ jobs:
 
       - name: Keepalive poster summary
         if: steps.gate_check.outputs.ok == 'true'
-        run: |
-          printf 'Posted instruction: round=%s trace=%s author=%s comment=%s\n' \
-            "${ROUND}" "${TRACE}" "${AUTHOR}" "${COMMENT}" >>"$GITHUB_STEP_SUMMARY"
+        uses: actions/github-script@v7
         env:
-          ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
-          TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || steps.prepare.outputs.author }}
-          COMMENT: ${{ steps.capture_comment.outputs.comment_url != '' && steps.capture_comment.outputs.comment_url || steps.capture_comment.outputs.comment_id || '(unavailable)' }}
+          ROUND_DISPLAY: ${{ steps.prepare.outputs.round || '(unknown)' }}
+          TRACE_DISPLAY: ${{ steps.prepare.outputs.trace || '(missing)' }}
+          AUTHOR_DISPLAY: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || steps.prepare.outputs.author }}
+          COMMENT_DISPLAY: ${{ steps.capture_comment.outputs.comment_url != '' && steps.capture_comment.outputs.comment_url || steps.capture_comment.outputs.comment_id || '(unavailable)' }}
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          ROUND: ${{ steps.prepare.outputs.round }}
-          TRACE: ${{ steps.prepare.outputs.trace }}
+          ROUND_VALUE: ${{ steps.prepare.outputs.round }}
+          TRACE_VALUE: ${{ steps.prepare.outputs.trace }}
           SCOPE_TASKS_ACCEPTANCE: ${{ steps.prepare.outputs.scope_tasks_acceptance }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -1349,14 +1347,21 @@ jobs:
             const staBlock = (process.env.SCOPE_TASKS_ACCEPTANCE || '').trim()
               || '*(scope/tasks/acceptance inserted here by orchestrator)*';
 
+            const round = process.env.ROUND_VALUE || process.env.ROUND_DISPLAY || '(unknown)';
+            const trace = process.env.TRACE_VALUE || process.env.TRACE_DISPLAY || '(missing)';
+
             const lines = [
-              `<!-- keepalive-round: ${process.env.ROUND} -->`,
+              `<!-- keepalive-round: ${round} -->`,
               '<!-- codex-keepalive-marker -->',
-              `<!-- keepalive-trace: ${process.env.TRACE} -->`,
+              `<!-- keepalive-trace: ${trace} -->`,
               `@${agentAlias} Continue with the remaining tasks. Re-post Scope/Tasks/Acceptance and only check off when acceptance criteria are satisfied.`,
               '',
               staBlock,
             ];
+
+            await core.summary
+              .addRaw(`Posted instruction: round=${process.env.ROUND_DISPLAY} trace=${process.env.TRACE_DISPLAY} author=${process.env.AUTHOR_DISPLAY} comment=${process.env.COMMENT_DISPLAY} \n`)
+              .write();
 
             core.setOutput('agent', agentAlias);
             core.setOutput('body', lines.join('\n'));
