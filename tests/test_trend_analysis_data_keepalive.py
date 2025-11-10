@@ -110,10 +110,6 @@ def test_coerce_limit_kwarg_parses_common_inputs(value: Any, expected: Any) -> N
     assert data_mod._coerce_limit_kwarg(value) == expected
 
 
-def test_coerce_limit_kwarg_accepts_numeric_string() -> None:
-    assert data_mod._coerce_limit_kwarg("42") == 42
-
-
 def test_coerce_limit_kwarg_rejects_invalid_values() -> None:
     with pytest.raises(TypeError):
         data_mod._coerce_limit_kwarg(3.5)
