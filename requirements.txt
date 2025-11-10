@@ -17,7 +17,7 @@ streamlit>=1.30
 streamlit-sortables
 scipy
 fastapi>=0.104.0
-uvicorn[standard]
+uvicorn[standard]>=0.20.0
 httpx>=0.25
 requests
 
@@ -29,7 +29,7 @@ requests
 # websockets>=11.0
 
 # Development and testing tools
-pre-commit
+pre-commit>=3.2.0
 black==25.9.0
 isort==7.0.0
 ruff==0.14.3
@@ -39,7 +39,7 @@ mypy==1.18.2
 # Testing dependencies
 pytest==8.4.2
 pytest-cov==7.0.0
-pytest-rerunfailures
+pytest-rerunfailures>=13.0
 hypothesis
 coverage==7.11.0
 jsonschema
