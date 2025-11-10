@@ -71,7 +71,11 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
     assert getattr(dataclasses, "_trend_model_patched", False) is True
 
     result = dataclasses._is_type(  # type: ignore[attr-defined]
-        None, dataclass_type, None, None, None
+        annotation=None,
+        cls=dataclass_type,
+        a_module=None,
+        a_type=None,
+        predicate=None,
     )
     assert result is True
     assert call_order == [None, sys.modules[sentinel_name]]
