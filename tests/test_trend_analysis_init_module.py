@@ -143,6 +143,7 @@ def test_patch_guard_propagates_when_module_name_missing(
     trend_analysis._patch_dataclasses_module_guard()
 
     with pytest.raises(AttributeError):
+        # Arguments: instance, cls, args, kwargs, module
         dataclasses._is_type(None, dataclass_type, None, None, None)  # type: ignore[attr-defined]
 
 
