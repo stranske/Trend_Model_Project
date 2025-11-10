@@ -224,6 +224,10 @@ jobs:
               if (toBool(inputs.keepalive_enabled ?? '')) {
                 markKeepalive('workflow_dispatch.keepalive_enabled');
               }
+              const prInput = String(inputs.pr_number ?? '').trim();
+              if (prInput) {
+                markKeepalive('workflow_dispatch.pr_number', prInput);
+              }
               const params = parseMaybeJson(inputs.params_json);
               if (params && toBool(params.enable_keepalive)) {
                 markKeepalive('workflow_dispatch.params_json');
