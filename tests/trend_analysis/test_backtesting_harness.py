@@ -314,10 +314,12 @@ def test_initial_and_normalised_weights_round_trip() -> None:
 
 
 def test_run_backtest_errors_for_empty_returns(monkeypatch: pytest.MonkeyPatch) -> None:
-    df = pd.DataFrame({
-        "Date": pd.date_range("2024-01-01", periods=1, freq="D"),
-        "FundA": [0.01],
-    })
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-01", periods=1, freq="D"),
+            "FundA": [0.01],
+        }
+    )
 
     monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
 
@@ -330,7 +332,9 @@ def test_run_backtest_errors_for_empty_returns(monkeypatch: pytest.MonkeyPatch) 
         )
 
 
-def test_run_backtest_requires_calendar_alignment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_backtest_requires_calendar_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = pd.date_range("2024-01-01 12:00", periods=3, freq="D")
     returns = pd.DataFrame({"Date": dates, "FundA": [0.01, 0.0, -0.02]})
 
@@ -392,10 +396,12 @@ def test_prepare_returns_requires_datetime_index() -> None:
 
 
 def test_prepare_returns_requires_numeric_columns() -> None:
-    df = pd.DataFrame({
-        "Date": pd.date_range("2024-01-01", periods=2, freq="D"),
-        "Label": ["a", "b"],
-    })
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-01", periods=2, freq="D"),
+            "Label": ["a", "b"],
+        }
+    )
 
     with pytest.raises(ValueError, match="numeric columns"):
         h._prepare_returns(df)
@@ -427,7 +433,9 @@ def test_infer_periods_per_year_branches() -> None:
 
 
 def test_rolling_sharpe_enforces_minimum_window() -> None:
-    returns = pd.Series([0.0, 0.01, -0.02, 0.03], index=pd.date_range("2024-01-01", periods=4, freq="D"))
+    returns = pd.Series(
+        [0.0, 0.01, -0.02, 0.03], index=pd.date_range("2024-01-01", periods=4, freq="D")
+    )
     sharpe = h._rolling_sharpe(returns, periods_per_year=12, window=1)
 
     assert sharpe.index.equals(returns.index)
