@@ -1305,20 +1305,62 @@ jobs:
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
         if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
-        uses: peter-evans/create-issue-comment@v3
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          COMMENT_BODY: ${{ steps.render_instruction_summary.outputs.body }}
         with:
-          token: ${{ secrets.ACTIONS_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction_summary.outputs.pr_number }}
-          body: ${{ steps.render_instruction_summary.outputs.body }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+              core.setFailed('Keepalive instruction missing pull request number.');
+              return;
+            }
+            const body = process.env.COMMENT_BODY || '';
+            if (!body.trim()) {
+              core.setFailed('Keepalive instruction body is empty.');
+              return;
+            }
+            const { data: comment } = await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            });
+            core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
+            core.setOutput('comment-url', comment?.html_url || '');
 
       - name: Post keepalive instruction (fallback)
         id: post_instruction_fallback
         if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
-        uses: peter-evans/create-issue-comment@v3
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          COMMENT_BODY: ${{ steps.render_instruction_summary.outputs.body }}
         with:
-          token: ${{ secrets.SERVICE_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction_summary.outputs.pr_number }}
-          body: ${{ steps.render_instruction_summary.outputs.body }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+              core.setFailed('Keepalive instruction missing pull request number.');
+              return;
+            }
+            const body = process.env.COMMENT_BODY || '';
+            if (!body.trim()) {
+              core.setFailed('Keepalive instruction body is empty.');
+              return;
+            }
+            const { data: comment } = await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            });
+            core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
+            core.setOutput('comment-url', comment?.html_url || '');
 
       - name: Capture instruction comment metadata
         id: capture_comment
