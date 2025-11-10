@@ -235,6 +235,11 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     merged.enable_keepalive = workflowKeepaliveEnabled;
   }
 
+  const workflowKeepalivePr = env.WORKFLOW_KEEPALIVE_PR;
+  if (workflowKeepalivePr !== undefined && workflowKeepalivePr !== null && workflowKeepalivePr !== '') {
+    merged.keepalive_pr = workflowKeepalivePr;
+  }
+
   const readinessAgents = toCsv(merged.readiness_agents, DEFAULTS.readiness_agents);
   const readinessCustom = toCsv(
     merged.readiness_custom_logins ?? merged.readiness_custom ?? merged.custom_logins,
@@ -384,7 +389,15 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
     finalParsedOptions.round ?? finalParsedOptions.keepalive_round ?? parsedOptions.round ?? parsedOptions.keepalive_round,
     ''
   ).trim();
-  let keepalivePr = toString(finalParsedOptions.pr ?? parsedOptions.pr ?? workflowRunPr, '').trim();
+  let keepalivePr = toString(
+    finalParsedOptions.pr ??
+      finalParsedOptions.keepalive_pr ??
+      parsedOptions.pr ??
+      parsedOptions.keepalive_pr ??
+      merged.keepalive_pr ??
+      workflowRunPr,
+    ''
+  ).trim();
   if (!keepalivePr && workflowRunPr) {
     keepalivePr = workflowRunPr;
   }

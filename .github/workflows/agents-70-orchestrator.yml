@@ -224,6 +224,10 @@ jobs:
               if (toBool(inputs.keepalive_enabled ?? '')) {
                 markKeepalive('workflow_dispatch.keepalive_enabled');
               }
+              const prInput = String(inputs.pr_number ?? '').trim();
+              if (prInput) {
+                markKeepalive('workflow_dispatch.pr_number', prInput);
+              }
               const params = parseMaybeJson(inputs.params_json);
               if (params && toBool(params.enable_keepalive)) {
                 markKeepalive('workflow_dispatch.params_json');
@@ -413,11 +417,31 @@ jobs:
               ) ||
               ''
             }}
+          WORKFLOW_KEEPALIVE_PR: >-
+            ${{
+              github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number ||
+              github.event_name == 'repository_dispatch' && (
+                github.event.client_payload && (
+                  github.event.client_payload.pr ||
+                  github.event.client_payload.pr_number ||
+                  github.event.client_payload.issue ||
+                  ''
+                )
+              ) ||
+              ''
+            }}
         with:
           script: |
             // Do not remove checkout; local helper is required.
             const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
             await resolveOrchestratorParams({ github, context, core, env: process.env });
+
+      - name: Debug keepalive toggles
+        if: always()
+        run: |
+          echo "::notice::enable_keepalive=${{ steps.resolve.outputs.enable_keepalive }}"
+          echo "::notice::keepalive_requested=${{ steps.resolve.outputs.keepalive_requested }}"
+          echo "::notice::keepalive_paused_label=${{ steps.resolve.outputs.keepalive_paused_label }}"
 
   keepalive-guard:
     name: Evaluate keepalive gate
@@ -893,6 +917,13 @@ jobs:
 
             setOutputs(true, '');
 
+      - name: Debug keepalive gate outputs
+        if: always()
+        run: |
+          echo "::notice::keepalive_gate_proceed=${{ steps.guard.outputs.proceed }}"
+          echo "::notice::keepalive_gate_reason=${{ steps.guard.outputs.reason }}"
+          echo "::notice::resolve_enable_keepalive=${{ needs.resolve-params.outputs.enable_keepalive }}"
+
 
   keepalive-instruction:
     name: Post keepalive instruction
@@ -906,7 +937,7 @@ jobs:
     outputs:
       round: ${{ steps.prepare.outputs.round || '' }}
       trace: ${{ steps.prepare.outputs.trace || '' }}
-      author: ${{ steps.capture_comment.outputs.author || steps.prepare.outputs.author || '' }}
+      author: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '' }}
       dispatch_mode: ${{ steps.prepare.outputs.dispatch_mode || '' }}
       comment_id: ${{ steps.capture_comment.outputs.comment_id || '' }}
       comment_url: ${{ steps.capture_comment.outputs.comment_url || '' }}
@@ -916,7 +947,7 @@ jobs:
       baseline_head: ${{ steps.snapshot.outputs.head || '' }}
       head_ref: ${{ steps.snapshot.outputs.head_ref || '' }}
       base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
-      agent: ${{ steps.render_instruction.outputs.agent || steps.prepare.outputs.agent || '' }}
+      agent: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent || '' }}
     steps:
       - name: Ensure keepalive token available
         env:
@@ -948,9 +979,10 @@ jobs:
           AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
         with:
           script: |
-            const { makeTrace } = require('./.github/scripts/keepalive_contract.js');
+            const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
 
             const normalise = (value) => String(value || '').trim();
+            const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
             const prNumberRaw = normalise(process.env.PR_NUMBER);
             const prNumber = Number.parseInt(prNumberRaw, 10);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -1089,27 +1121,29 @@ jobs:
             core.setOutput('actions_available', actionsAvailable ? 'true' : 'false');
             core.setOutput('dispatch_mode', dispatchMode);
             core.setOutput('agent', agentAlias);
+            core.setOutput('body', body);
             core.setOutput('scope_tasks_acceptance', instruction);
-
-      - name: Detect keepalive instruction token
-        id: author_token
-        if: steps.gate_check.outputs.ok == 'true'
+      - name: Baseline keepalive gate
+        id: gate_check
         shell: bash
         env:
-          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          TRACE: ${{ steps.prepare.outputs.trace }}
+          ROUND: ${{ steps.prepare.outputs.round }}
         run: |
           set -euo pipefail
-          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
-            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
-            echo "author=stranske" >>"$GITHUB_OUTPUT"
-          elif [ "${HAS_SERVICE_PAT}" = "true" ]; then
-            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
-            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
-          else
-            echo '::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
-            exit 1
-          fi
+          {
+            echo "ok=true"
+            echo "mode=baseline"
+            echo "source=stub"
+            echo "reason="
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Keepalive gate override"
+            echo "* Status: baseline bypass"
+            echo "* Round: ${ROUND:-?}"
+            echo "* Trace: \`${TRACE:-missing}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Select keepalive author token
         id: author_token
@@ -1132,72 +1166,6 @@ jobs:
             echo "::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
             exit 1
           fi
-
-      - name: Baseline keepalive gate
-        id: gate_check
-        shell: bash
-        env:
-          TRACE: ${{ steps.prepare.outputs.trace }}
-          ROUND: ${{ steps.prepare.outputs.round }}
-        run: |
-          set -euo pipefail
-          {
-            echo "ok=true"
-            echo "mode=baseline"
-            echo "source=stub"
-            echo "reason="
-          } >>"$GITHUB_OUTPUT"
-
-          {
-            echo "### Keepalive gate override"
-            echo "* Status: baseline bypass"
-            echo "* Round: ${ROUND:-?}"
-            echo "* Trace: \`${TRACE:-missing}\`"
-          } >>"$GITHUB_STEP_SUMMARY"
-
-      - name: Baseline keepalive gate
-        id: gate_check
-        shell: bash
-        env:
-          TRACE: ${{ steps.prepare.outputs.trace }}
-          ROUND: ${{ steps.prepare.outputs.round }}
-        run: |
-          set -euo pipefail
-          {
-            echo "ok=true"
-            echo "mode=baseline"
-            echo "source=stub"
-            echo "reason="
-          } >>"$GITHUB_OUTPUT"
-
-          {
-            echo "### Keepalive gate override"
-            echo "* Status: baseline bypass"
-            echo "* Round: ${ROUND:-?}"
-            echo "* Trace: \`${TRACE:-missing}\`"
-          } >>"$GITHUB_STEP_SUMMARY"
-
-      - name: Baseline keepalive gate
-        id: gate_check
-        shell: bash
-        env:
-          TRACE: ${{ steps.prepare.outputs.trace }}
-          ROUND: ${{ steps.prepare.outputs.round }}
-        run: |
-          set -euo pipefail
-          {
-            echo "ok=true"
-            echo "mode=baseline"
-            echo "source=stub"
-            echo "reason="
-          } >>"$GITHUB_OUTPUT"
-
-          {
-            echo "### Keepalive gate override"
-            echo "* Status: baseline bypass"
-            echo "* Round: ${ROUND:-?}"
-            echo "* Trace: \`${TRACE:-missing}\`"
-          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Capture keepalive head snapshot
         id: snapshot
@@ -1263,64 +1231,20 @@ jobs:
               },
             });
 
-      - name: Create keepalive instruction comment
-        id: post
+      - name: Render keepalive instruction body
+        id: render_instruction_summary
+        if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
-          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-        run: |
-          set -euo pipefail
-          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
-            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
-            echo "author=stranske" >>"$GITHUB_OUTPUT"
-          else
-            echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
-            echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
-          fi
-
-      - name: Render keepalive instruction body
-        id: render_instruction
-        if: steps.gate_check.outputs.ok == 'true'
-        shell: bash
-        env:
-          PRIMARY_OUTCOME: ${{ steps.post_primary.outcome }}
-          PRIMARY_ID: ${{ steps.post_primary.outputs.comment-id }}
-          PRIMARY_URL: ${{ steps.post_primary.outputs.comment-url }}
-          FALLBACK_ID: ${{ steps.post_fallback.outputs.comment-id }}
-          FALLBACK_URL: ${{ steps.post_fallback.outputs.comment-url }}
-          AUTHOR: ${{ steps.author_token.outputs.author || steps.prepare.outputs.author }}
-        run: |
-          set -euo pipefail
-          comment_id="${PRIMARY_ID:-}"
-          comment_url="${PRIMARY_URL:-}"
-          if [ "${PRIMARY_OUTCOME}" != "success" ] || [ -z "${comment_id}" ]; then
-            comment_id="${FALLBACK_ID:-}"
-            comment_url="${FALLBACK_URL:-}"
-          fi
-
-          if [ -z "${comment_id}" ]; then
-            echo "::error::Keepalive instruction comment id missing." >&2
-            exit 1
-          fi
-
-          echo "comment_id=${comment_id}" >>"$GITHUB_OUTPUT"
-          echo "comment_url=${comment_url}" >>"$GITHUB_OUTPUT"
-          echo "author=${AUTHOR}" >>"$GITHUB_OUTPUT"
-
-      - name: Keepalive poster summary
-        if: steps.gate_check.outputs.ok == 'true'
-        run: |
-          printf 'Posted instruction: round=%s trace=%s author=%s comment=%s\n' \
-            "${ROUND}" "${TRACE}" "${AUTHOR}" "${COMMENT}" >>"$GITHUB_STEP_SUMMARY"
-        env:
-          ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
-          TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || steps.prepare.outputs.author }}
-          COMMENT: ${{ steps.capture_comment.outputs.comment_url != '' && steps.capture_comment.outputs.comment_url || steps.capture_comment.outputs.comment_id || '(unavailable)' }}
+          ROUND_DISPLAY: ${{ steps.prepare.outputs.round || '(unknown)' }}
+          TRACE_DISPLAY: ${{ steps.prepare.outputs.trace || '(missing)' }}
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
-          ROUND: ${{ steps.prepare.outputs.round }}
-          TRACE: ${{ steps.prepare.outputs.trace }}
+          ROUND_VALUE: ${{ steps.prepare.outputs.round }}
+          TRACE_VALUE: ${{ steps.prepare.outputs.trace }}
+          COMMENT_BODY: ${{ steps.prepare.outputs.body }}
           SCOPE_TASKS_ACCEPTANCE: ${{ steps.prepare.outputs.scope_tasks_acceptance }}
+          SCOPE_BLOCK: ${{ steps.prepare.outputs.scope_block }}
+          AUTHOR_DISPLAY: ${{ steps.author_token.outputs.author || 'stranske-automation-bot' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1346,39 +1270,98 @@ jobs:
               ? agentLabels[0].name.replace(/^agent:/i, '').trim() || 'codex'
               : 'codex';
 
-            const staBlock = (process.env.SCOPE_TASKS_ACCEPTANCE || '').trim()
+            const staBlock = (process.env.SCOPE_BLOCK || '').trim()
+              || (process.env.SCOPE_TASKS_ACCEPTANCE || '').trim()
               || '*(scope/tasks/acceptance inserted here by orchestrator)*';
 
-            const lines = [
-              `<!-- keepalive-round: ${process.env.ROUND} -->`,
-              '<!-- codex-keepalive-marker -->',
-              `<!-- keepalive-trace: ${process.env.TRACE} -->`,
-              `@${agentAlias} Continue with the remaining tasks. Re-post Scope/Tasks/Acceptance and only check off when acceptance criteria are satisfied.`,
-              '',
-              staBlock,
-            ];
+            const round = process.env.ROUND_VALUE || process.env.ROUND_DISPLAY || '(unknown)';
+            const trace = process.env.TRACE_VALUE || process.env.TRACE_DISPLAY || '(missing)';
+            const providedBody = (process.env.COMMENT_BODY || '').trim();
+            const template = (process.env.SCOPE_TASKS_ACCEPTANCE || '').trim();
+
+            let body = providedBody;
+            if (!body) {
+              body = [
+                `<!-- keepalive-round: ${round} -->`,
+                '<!-- codex-keepalive-marker -->',
+                `<!-- keepalive-trace: ${trace} -->`,
+                template || `@${agentAlias} Continue with the remaining tasks.`,
+                '',
+                staBlock,
+              ].filter(Boolean).join('\n');
+            }
+
+            const preview = body.split('\n').slice(0, 6).join('\n') || '(empty)';
+            await core.summary
+              .addHeading('Keepalive instruction preview', 3)
+              .addRaw(`Round: ${round}  Trace: ${trace}  Agent: @${agentAlias}`)
+              .addEOL()
+              .addCodeBlock(preview, 'markdown')
+              .write();
 
             core.setOutput('agent', agentAlias);
-            core.setOutput('body', lines.join('\n'));
+            core.setOutput('body', body);
             core.setOutput('pr_number', String(prNumber));
 
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
         if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
-        uses: peter-evans/create-issue-comment@v3
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          COMMENT_BODY: ${{ steps.render_instruction_summary.outputs.body }}
         with:
-          token: ${{ secrets.ACTIONS_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction.outputs.pr_number }}
-          body: ${{ steps.render_instruction.outputs.body }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+              core.setFailed('Keepalive instruction missing pull request number.');
+              return;
+            }
+            const body = process.env.COMMENT_BODY || '';
+            if (!body.trim()) {
+              core.setFailed('Keepalive instruction body is empty.');
+              return;
+            }
+            const { data: comment } = await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            });
+            core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
+            core.setOutput('comment-url', comment?.html_url || '');
 
       - name: Post keepalive instruction (fallback)
         id: post_instruction_fallback
         if: steps.gate_check.outputs.ok == 'true' && steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
-        uses: peter-evans/create-issue-comment@v3
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          COMMENT_BODY: ${{ steps.render_instruction_summary.outputs.body }}
         with:
-          token: ${{ secrets.SERVICE_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction.outputs.pr_number }}
-          body: ${{ steps.render_instruction.outputs.body }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+              core.setFailed('Keepalive instruction missing pull request number.');
+              return;
+            }
+            const body = process.env.COMMENT_BODY || '';
+            if (!body.trim()) {
+              core.setFailed('Keepalive instruction body is empty.');
+              return;
+            }
+            const { data: comment } = await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            });
+            core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
+            core.setOutput('comment-url', comment?.html_url || '');
 
       - name: Capture instruction comment metadata
         id: capture_comment
@@ -1394,10 +1377,16 @@ jobs:
             comment_url="${{ steps.post_instruction_fallback.outputs.comment-url || '' }}"
           fi
 
+          if [ -z "${comment_id}" ]; then
+            echo "::error::Keepalive instruction comment was not created." >&2
+            exit 1
+          fi
+
           echo "comment_id=${comment_id}" >>"$GITHUB_OUTPUT"
           echo "comment_url=${comment_url}" >>"$GITHUB_OUTPUT"
           echo "COMMENT_ID=${comment_id}" >>"$GITHUB_ENV"
           echo "COMMENT_URL=${comment_url}" >>"$GITHUB_ENV"
+          echo "author=${{ steps.author_token.outputs.author }}" >>"$GITHUB_OUTPUT"
           echo "AUTHOR=${{ steps.author_token.outputs.author }}" >>"$GITHUB_ENV"
 
       - name: Ack keepalive instruction
@@ -1458,7 +1447,7 @@ jobs:
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
           DISPATCH_MODE: ${{ steps.prepare.outputs.dispatch_mode }}
-          AGENT_ALIAS: ${{ steps.render_instruction.outputs.agent || steps.prepare.outputs.agent }}
+          AGENT_ALIAS: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
@@ -1571,8 +1560,8 @@ jobs:
         env:
           ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || steps.prepare.outputs.author || '(unknown)' }}
-          AGENT: ${{ steps.prepare.outputs.agent || 'codex' }}
+          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '(unknown)' }}
+          AGENT: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent || 'codex' }}
           COMMENT_LINK: ${{ steps.capture_comment.outputs.comment_url != '' && format('[#{0}]({1})', steps.capture_comment.outputs.comment_id, steps.capture_comment.outputs.comment_url) || steps.capture_comment.outputs.comment_id || '(unavailable)' }}
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
 
@@ -1759,6 +1748,255 @@ jobs:
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
+  dry-run-branch-sync:
+    name: Validate branch sync (dry-run)
+    needs:
+      - resolve-params
+      - keepalive-guard
+      - keepalive-instruction
+      - belt-dispatch
+      - belt-worker
+    if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
+      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      (needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
+      needs.keepalive-instruction.outputs.trace != '' &&
+      needs.keepalive-instruction.outputs.pr_number != '' &&
+      needs.keepalive-instruction.outputs.base_ref != '' &&
+      needs.keepalive-instruction.outputs.head_ref != '' &&
+      needs.keepalive-instruction.outputs.baseline_head != ''
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    outputs:
+      run_url: ${{ steps.await.outputs.run_url || '' }}
+      run_conclusion: ${{ steps.await.outputs.conclusion || '' }}
+      run_id: ${{ steps.await.outputs.run_id || '' }}
+      head_updated: ${{ steps.head_check.outputs.updated || 'false' }}
+      new_head: ${{ steps.head_check.outputs.new_head || '' }}
+      pr_url: ${{ steps.head_check.outputs.pr_url || '' }}
+    steps:
+      - name: Ensure branch-sync token available
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ]; then
+            echo "::error::Branch-sync validation requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
+      - name: Dispatch keepalive branch sync
+        id: dispatch
+        uses: actions/github-script@v7
+        env:
+          WORKFLOW_ID: agents-keepalive-branch-sync.yml
+          TARGET_REF: ${{ github.event.repository.default_branch }}
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number }}
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
+          BASE_REF: ${{ needs.keepalive-instruction.outputs.base_ref }}
+          HEAD_REF: ${{ needs.keepalive-instruction.outputs.head_ref }}
+          HEAD_SHA: ${{ needs.keepalive-instruction.outputs.baseline_head }}
+          ROUND: ${{ needs.keepalive-instruction.outputs.round }}
+          AGENT: ${{ needs.keepalive-instruction.outputs.agent }}
+          COMMENT_ID: ${{ needs.keepalive-instruction.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive-instruction.outputs.comment_url }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            let ref = (process.env.TARGET_REF || '').trim();
+            if (!ref) {
+              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+            }
+            ref = ref.replace(/^refs\/heads\//, '');
+
+            const requiredKeys = ['PR_NUMBER', 'TRACE', 'BASE_REF', 'HEAD_REF', 'HEAD_SHA'];
+            const missing = requiredKeys.filter((key) => !(process.env[key] || '').trim());
+            if (missing.length) {
+              core.setFailed(`Branch-sync dispatch missing inputs: ${missing.join(', ')}`);
+              return;
+            }
+
+            const inputs = {
+              pr_number: String(process.env.PR_NUMBER || ''),
+              trace: String(process.env.TRACE || ''),
+              base_ref: String(process.env.BASE_REF || ''),
+              head_ref: String(process.env.HEAD_REF || ''),
+              head_sha: String(process.env.HEAD_SHA || ''),
+              agent: String(process.env.AGENT || ''),
+              round: String(process.env.ROUND || ''),
+              comment_id: String(process.env.COMMENT_ID || ''),
+              comment_url: String(process.env.COMMENT_URL || ''),
+            };
+
+            inputs.idempotency_key = `${inputs.trace || 'trace'}-${inputs.head_sha || 'head'}-${Date.now()}`;
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              ref,
+              inputs,
+            });
+
+            const now = new Date().toISOString();
+            core.setOutput('ref', ref);
+            core.setOutput('dispatched_at', now);
+            core.setOutput('idempotency_key', inputs.idempotency_key);
+
+      - name: Await branch-sync completion
+        id: await
+        uses: actions/github-script@v7
+        env:
+          WORKFLOW_ID: agents-keepalive-branch-sync.yml
+          REF: ${{ steps.dispatch.outputs.ref }}
+          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+          TIMEOUT_SECONDS: 600
+          POLL_SECONDS: 15
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            let ref = (process.env.REF || '').trim();
+            if (!ref) {
+              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+            }
+            const dispatchedAt = Date.parse(process.env.DISPATCHED_AT || new Date().toISOString());
+            const timeoutMs = (Number(process.env.TIMEOUT_SECONDS) || 600) * 1000;
+            const pollMs = (Number(process.env.POLL_SECONDS) || 15) * 1000;
+            const deadline = Date.now() + timeoutMs;
+
+            let runId = 0;
+            let run = null;
+
+            while (Date.now() < deadline) {
+              if (!runId) {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: workflowId,
+                  event: 'workflow_dispatch',
+                  per_page: 20,
+                });
+
+                const candidates = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+                const candidate = candidates.find((entry) => {
+                  const created = Date.parse(entry.created_at || 0);
+                  if (!Number.isFinite(created) || created + 1000 < dispatchedAt - 2000) {
+                    return false;
+                  }
+                  const headBranch = (entry.head_branch || '').trim();
+                  if (headBranch && headBranch !== ref) {
+                    return false;
+                  }
+                  return true;
+                });
+
+                if (candidate) {
+                  runId = candidate.id;
+                  run = candidate;
+                }
+              } else {
+                const { data } = await github.rest.actions.getWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: runId,
+                });
+                run = data;
+                if (run.status === 'completed') {
+                  break;
+                }
+              }
+
+              if (run && run.status === 'completed') {
+                break;
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollMs));
+            }
+
+            if (!run) {
+              core.setFailed('Unable to locate branch-sync workflow run.');
+              return;
+            }
+
+            if (run.status !== 'completed') {
+              core.setFailed(`Branch-sync workflow did not complete before timeout (status=${run.status}).`);
+              return;
+            }
+
+            core.setOutput('run_id', String(run.id || ''));
+            core.setOutput('run_url', run.html_url || '');
+            core.setOutput('conclusion', run.conclusion || '');
+            core.setOutput('status', run.status || '');
+
+            if ((run.conclusion || '').toLowerCase() !== 'success') {
+              core.setFailed(`Branch-sync workflow concluded with ${run.conclusion || 'unknown'}.`);
+            }
+
+      - name: Check staging PR head
+        id: head_check
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number }}
+          BASELINE_HEAD: ${{ needs.keepalive-instruction.outputs.baseline_head }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const normalise = (value) => String(value || '').trim();
+            const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+            const baseline = normalise(process.env.BASELINE_HEAD);
+
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setOutput('updated', 'false');
+              core.setOutput('new_head', '');
+              core.setOutput('pr_url', '');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const newHead = normalise(pr?.head?.sha);
+            core.setOutput('new_head', newHead);
+            core.setOutput('updated', newHead && baseline && newHead !== baseline ? 'true' : 'false');
+            core.setOutput('pr_url', pr?.html_url || `https://github.com/${owner}/${repo}/pull/${prNumber}`);
+
+      - name: Summarise branch-sync validation
+        env:
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
+          ROUND: ${{ needs.keepalive-instruction.outputs.round }}
+          RUN_URL: ${{ steps.await.outputs.run_url }}
+          CONCLUSION: ${{ steps.await.outputs.conclusion }}
+          PR_URL: ${{ steps.head_check.outputs.pr_url }}
+          UPDATED: ${{ steps.head_check.outputs.updated }}
+          NEW_HEAD: ${{ steps.head_check.outputs.new_head }}
+        run: |
+          head_change='unchanged'
+          if [ "${UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
+            head_change="advanced to ${NEW_HEAD:0:12}"
+          fi
+
+          sync_link='(not available)'
+          if [ -n "${RUN_URL}" ]; then
+            sync_link="[run](${RUN_URL})"
+          fi
+
+          pr_link='(n/a)'
+          if [ -n "${PR_URL}" ]; then
+            pr_link="[link](${PR_URL})"
+          fi
+
+          cat <<EOF >>"$GITHUB_STEP_SUMMARY"
+          ## Branch-sync validation
+          | Round | Trace | Result | Sync run | PR | Head change |
+          |---|---|---|---|---|---|
+          | ${ROUND:-?} | \`${TRACE:-n/a}\` | ${CONCLUSION:-unknown} | ${sync_link} | ${pr_link} | ${head_change} |
+          EOF
+
   keepalive-post-work:
     name: Keepalive post-work sync
     needs:
@@ -1839,6 +2077,7 @@ jobs:
       - keepalive-guard
       - keepalive-instruction
       - keepalive-post-work
+      - dry-run-branch-sync
       - resolve-params
     if: always()
     runs-on: ubuntu-latest
@@ -1981,6 +2220,38 @@ jobs:
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to post keepalive worker outcome for PR #${prNumber}: ${message}`);
             }
+
+      - name: Record branch-sync validation outcome
+        if: needs.dry-run-branch-sync.result == 'success'
+        env:
+          RUN_URL: ${{ needs.dry-run-branch-sync.outputs.run_url }}
+          CONCLUSION: ${{ needs.dry-run-branch-sync.outputs.run_conclusion }}
+          HEAD_UPDATED: ${{ needs.dry-run-branch-sync.outputs.head_updated }}
+          NEW_HEAD: ${{ needs.dry-run-branch-sync.outputs.new_head }}
+          PR_URL: ${{ needs.dry-run-branch-sync.outputs.pr_url }}
+        run: |
+          head_change='unchanged'
+          if [ "${HEAD_UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
+            head_change="advanced to ${NEW_HEAD:0:12}"
+          fi
+
+          sync_link='(not available)'
+          if [ -n "${RUN_URL}" ]; then
+            sync_link="[run](${RUN_URL})"
+          fi
+
+          pr_link='(n/a)'
+          if [ -n "${PR_URL}" ]; then
+            pr_link="[link](${PR_URL})"
+          fi
+
+          cat <<EOF >>"$GITHUB_STEP_SUMMARY"
+          ## Branch-sync validation (dry-run)
+          * Result: ${CONCLUSION:-unknown}
+          * Workflow: ${sync_link}
+          * PR: ${pr_link}
+          * Head change: ${head_change}
+          EOF
   belt-scan-ready-prs:
     name: Scan Codex promotion queue
     needs:
