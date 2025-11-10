@@ -37,7 +37,9 @@ def test_resolve_path_uses_base_dir_and_validates(tmp_path: Path) -> None:
         _resolve_path("*.csv", base_dir=base_dir)
 
 
-def test_expand_pattern_deduplicates_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_pattern_deduplicates_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     base_dir = Path.cwd()
     pattern = "inputs/*.csv"
@@ -246,7 +248,9 @@ def test_risk_settings_validator_errors() -> None:
         )
 
 
-def test_resolve_config_path_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_config_path_variants(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     default_path = _resolve_config_path("demo")
     assert default_path.name == "demo.yml"
 
