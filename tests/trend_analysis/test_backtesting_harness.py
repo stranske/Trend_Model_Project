@@ -316,15 +316,22 @@ def test_initial_and_normalised_weights_round_trip() -> None:
     assert normalised.loc["Y"] == 0.0
 
 
-def test_run_backtest_rejects_empty_prepared_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_backtest_rejects_empty_prepared_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     base = pd.DataFrame(
-        {"Date": pd.date_range("2021-01-01", periods=2, freq="D"), "FundA": [0.01, 0.02]}
+        {
+            "Date": pd.date_range("2021-01-01", periods=2, freq="D"),
+            "FundA": [0.01, 0.02],
+        }
     )
 
     monkeypatch.setattr(
         h,
         "_prepare_returns",
-        lambda _: pd.DataFrame(columns=["FundA"], index=pd.DatetimeIndex([], name="Date")),
+        lambda _: pd.DataFrame(
+            columns=["FundA"], index=pd.DatetimeIndex([], name="Date")
+        ),
     )
 
     with pytest.raises(ValueError, match="at least one row"):
@@ -346,7 +353,9 @@ def test_run_backtest_rejects_empty_rebalance_calendar(
         }
     )
 
-    monkeypatch.setattr(h, "_prepare_returns", lambda frame: frame.set_index("Date")[["FundA"]])
+    monkeypatch.setattr(
+        h, "_prepare_returns", lambda frame: frame.set_index("Date")[["FundA"]]
+    )
     monkeypatch.setattr(
         h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([], name="rebalance_date")
     )
@@ -379,7 +388,11 @@ def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
     )
 
     def flip_strategy(frame: pd.DataFrame) -> dict[str, float]:
-        return {"FundA": 1.0, "FundB": 0.0} if frame.index[-1].day % 2 else {"FundA": 0.0, "FundB": 1.0}
+        return (
+            {"FundA": 1.0, "FundB": 0.0}
+            if frame.index[-1].day % 2
+            else {"FundA": 0.0, "FundB": 1.0}
+        )
 
     result = h.run_backtest(
         returns,
@@ -390,7 +403,9 @@ def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
     )
 
     assert result.turnover.loc[pd.Timestamp("2021-01-01")] == pytest.approx(1.0)
-    assert result.transaction_costs.loc[pd.Timestamp("2021-01-01")] == pytest.approx(0.001)
+    assert result.transaction_costs.loc[pd.Timestamp("2021-01-01")] == pytest.approx(
+        0.001
+    )
     # The first realised return reflects the pending transaction cost deduction.
     realised = result.returns.loc[pd.Timestamp("2021-01-02")]
     assert realised.iloc[0] == pytest.approx(0.029)
@@ -431,13 +446,16 @@ def test_infer_periods_per_year_branch_coverage() -> None:
         h._infer_periods_per_year(pd.date_range("2021-03-31", periods=6, freq="QE"))
         == 4
     )
-    irregular = pd.DatetimeIndex(["2021-01-01", "2021-01-21", "2021-02-10", "2021-03-05"])
+    irregular = pd.DatetimeIndex(
+        ["2021-01-01", "2021-01-21", "2021-02-10", "2021-03-05"]
+    )
     assert h._infer_periods_per_year(irregular) == 18
 
 
 def test_rolling_sharpe_enforces_minimum_window() -> None:
     returns = pd.Series(
-        [0.01, -0.005, 0.0, 0.004], index=pd.date_range("2021-01-01", periods=4, freq="D")
+        [0.01, -0.005, 0.0, 0.004],
+        index=pd.date_range("2021-01-01", periods=4, freq="D"),
     )
     sharpe = h._rolling_sharpe(returns, periods_per_year=252, window=1)
     expected = returns.rolling(window=2).mean() / returns.rolling(window=2).std(ddof=0)
