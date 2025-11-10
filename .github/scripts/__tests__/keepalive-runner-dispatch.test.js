@@ -2,10 +2,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
 const {
   dispatchKeepaliveCommand,
-} = require('../../scripts/keepalive-runner.js');
+} = require(path.join(__dirname, '../../../scripts/keepalive-runner.js'));
 
 function createCore() {
   return {
