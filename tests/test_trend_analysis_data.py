@@ -498,6 +498,22 @@ def test_load_csv_logs_validation_errors_with_parse_hint(
     assert "Unable to parse Date values" in caplog.text
 
 
+def test_load_csv_logs_validation_errors_with_unable_hint(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    csv_path = tmp_path / "bad_unable.csv"
+    csv_path.write_text("Date,Value\n2020-01-01,1\n", encoding="utf-8")
+
+    def raiser(*_args: object, **_kwargs: object) -> ValidatedMarketData:
+        raise MarketDataValidationError("Results unable to parse due to delimiter")
+
+    monkeypatch.setattr(data, "validate_market_data", raiser)
+    caplog.set_level("ERROR", "trend_analysis.data")
+
+    assert load_csv(str(csv_path)) is None
+    assert "Unable to parse Date values" in caplog.text
+
+
 def test_load_csv_handles_validation_error_from_helper(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -545,6 +561,28 @@ def test_load_parquet_permission_and_validation(
     )
     monkeypatch.setattr(data, "validate_market_data", raise_validation)
     assert load_parquet(str(parquet_path)) is None
+
+
+def test_load_parquet_logs_validation_errors_with_unable_hint(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    parquet_path = tmp_path / "bad_parse.parquet"
+    parquet_path.write_bytes(b"")
+
+    def raiser(*_args: object, **_kwargs: object) -> ValidatedMarketData:
+        raise MarketDataValidationError("Unable to parse parquet payload")
+
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]}),
+    )
+    monkeypatch.setattr(data, "validate_market_data", raiser)
+    monkeypatch.setattr(data, "_is_readable", lambda _mode: True)
+    caplog.set_level("ERROR", "trend_analysis.data")
+
+    assert load_parquet(str(parquet_path)) is None
+    assert "Unable to parse Date values" in caplog.text
 
 
 def test_load_parquet_applies_legacy_kwargs(
