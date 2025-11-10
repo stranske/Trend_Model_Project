@@ -122,6 +122,77 @@ function normaliseNewlines(value) {
   return String(value ?? '').replace(/\r\n/g, '\n');
 }
 
+function safeDebug(core, message) {
+  if (core && typeof core.debug === 'function') {
+    core.debug(message);
+  }
+}
+
+function tryRequire(moduleName) {
+  if (typeof require !== 'function') {
+    return { ok: false, error: new Error('require not available in this runtime') };
+  }
+
+  try {
+    return { ok: true, module: require(moduleName) };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function buildOctokitInstance({ core, github, token }) {
+  if (github && typeof github.getOctokit === 'function') {
+    try {
+      return github.getOctokit(token);
+    } catch (error) {
+      safeDebug(core, `github.getOctokit failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (github && typeof github.constructor === 'function') {
+    try {
+      return new github.constructor({ auth: token });
+    } catch (error) {
+      safeDebug(core, `github.constructor fallback failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  const actionsGithubResult = tryRequire('@actions/github');
+  if (actionsGithubResult.ok && actionsGithubResult.module) {
+    const actionsGithub = actionsGithubResult.module;
+    if (actionsGithub && typeof actionsGithub.getOctokit === 'function') {
+      try {
+        return actionsGithub.getOctokit(token);
+      } catch (error) {
+        safeDebug(core, `@actions/github.getOctokit failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (actionsGithub && typeof actionsGithub.Octokit === 'function') {
+      try {
+        return new actionsGithub.Octokit({ auth: token });
+      } catch (error) {
+        safeDebug(core, `@actions/github.Octokit constructor failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  } else if (actionsGithubResult.error) {
+    safeDebug(core, `@actions/github not available: ${actionsGithubResult.error instanceof Error ? actionsGithubResult.error.message : String(actionsGithubResult.error)}`);
+  }
+
+  const octokitRestResult = tryRequire('@octokit/rest');
+  if (octokitRestResult.ok && octokitRestResult.module && typeof octokitRestResult.module.Octokit === 'function') {
+    try {
+      return new octokitRestResult.module.Octokit({ auth: token });
+    } catch (error) {
+      safeDebug(core, `@octokit/rest Octokit constructor failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else if (octokitRestResult.error) {
+    safeDebug(core, `@octokit/rest not available: ${octokitRestResult.error instanceof Error ? octokitRestResult.error.message : String(octokitRestResult.error)}`);
+  }
+
+  return null;
+}
+
 function extractScopeTasksAcceptanceSections(source) {
   const normalised = normaliseNewlines(source);
   if (!normalised.trim()) {
@@ -292,21 +363,7 @@ async function dispatchKeepaliveCommand({
     throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
   }
 
-  let octokit = null;
-
-  if (github && typeof github.getOctokit === 'function') {
-    octokit = github.getOctokit(trimmedToken);
-  }
-
-  if (!octokit && github && typeof github.constructor === 'function') {
-    try {
-      // Fallback for environments where actions/github-script passes a pre-authenticated Octokit
-      octokit = new github.constructor({ auth: trimmedToken });
-    } catch (error) {
-      core.debug(`Fallback Octokit construction failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
+  const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
   if (!octokit) {
     throw new Error('Unable to construct Octokit instance for keepalive dispatch.');
   }
@@ -907,4 +964,4 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   await summary.write();
 }
 
-module.exports = { runKeepalive };
+module.exports = { runKeepalive, dispatchKeepaliveCommand, buildOctokitInstance };

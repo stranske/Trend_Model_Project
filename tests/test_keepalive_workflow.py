@@ -460,3 +460,14 @@ def test_keepalive_fails_when_required_labels_missing() -> None:
     assert guardrail_details is not None
     items = guardrail_details.get("items", [])
     assert any("#612" in item and "agents:keepalive" in item for item in items)
+
+
+def test_keepalive_requires_dispatch_token() -> None:
+    _require_node()
+    scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
+    assert scenario_path.exists(), "Scenario fixture missing"
+    command = ["node", str(HARNESS), str(scenario_path)]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode != 0, "Expected harness to fail without dispatch token"
+    combined_output = (result.stderr or "") + (result.stdout or "")
+    assert "ACTIONS_BOT_PAT is required" in combined_output
