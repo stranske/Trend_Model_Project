@@ -26,7 +26,8 @@ class DummyConfig(SimpleNamespace):
         super().__init__(
             data=data,
             export=export or {},
-            sample_split=sample_split or {
+            sample_split=sample_split
+            or {
                 "in_start": "2020-01-01",
                 "in_end": "2020-12-31",
                 "out_start": "2021-01-01",
