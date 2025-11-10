@@ -76,7 +76,7 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
     assert result is True
     assert call_order == [None, sys.modules[sentinel_name]]
     assert isinstance(sys.modules[sentinel_name], ModuleType)
-    assert sys.modules[sentinel_name].__dict__["__package__"] == "tests"
+    assert getattr(sys.modules[sentinel_name], "__package__", None) == "tests"
 
 
 def test_spec_proxy_reregisters_module(monkeypatch: pytest.MonkeyPatch) -> None:
