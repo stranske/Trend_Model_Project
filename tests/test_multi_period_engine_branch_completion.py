@@ -98,10 +98,16 @@ def _base_config() -> DummyConfig:
     )
 
 
-def test_run_schedule_debug_turnover_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_debug_turnover_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Enabling the debug env flag should execute the turnover validation block."""
 
-    monkeypatch.setattr(mp_engine.os, "getenv", lambda key: "1" if key == "DEBUG_TURNOVER_VALIDATE" else None)
+    monkeypatch.setattr(
+        mp_engine.os,
+        "getenv",
+        lambda key: "1" if key == "DEBUG_TURNOVER_VALIDATE" else None,
+    )
     calls: list[tuple[object, object]] = []
 
     original_isclose = mp_engine.np.isclose
@@ -112,12 +118,8 @@ def test_run_schedule_debug_turnover_validation(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(mp_engine.np, "isclose", recording_isclose)
     score_frames = {
-        "2020-01-31": pd.DataFrame(
-            {"Sharpe": [1.0, 0.5]}, index=["FundA", "FundB"]
-        ),
-        "2020-02-29": pd.DataFrame(
-            {"Sharpe": [0.7, 1.2]}, index=["FundB", "FundC"]
-        ),
+        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["FundA", "FundB"]),
+        "2020-02-29": pd.DataFrame({"Sharpe": [0.7, 1.2]}, index=["FundB", "FundC"]),
     }
 
     portfolio = mp_engine.run_schedule(
@@ -176,7 +178,9 @@ def test_run_missing_policy_rejects_empty_cleaned_frame() -> None:
         mp_engine.run(cfg, df=df, price_frames=None)
 
 
-def test_run_combines_price_frames_and_returns_period_results(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_combines_price_frames_and_returns_period_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Providing price frames should allow the non-threshold pipeline path to execute."""
 
     cfg = _base_config()
@@ -191,10 +195,16 @@ def test_run_combines_price_frames_and_returns_period_results(monkeypatch: pytes
 
     price_frames = {
         "2020-01": pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "Alpha": [0.01, 0.02]}
+            {
+                "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+                "Alpha": [0.01, 0.02],
+            }
         ),
         "2020-03": pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-03-31", "2020-04-30"]), "Alpha": [0.03, 0.04]}
+            {
+                "Date": pd.to_datetime(["2020-03-31", "2020-04-30"]),
+                "Alpha": [0.03, 0.04],
+            }
         ),
     }
 
