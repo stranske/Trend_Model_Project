@@ -836,6 +836,7 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     assert "FundB" in analysis_calls[1]
     assert "FundC" in analysis_calls[1]
 
+
 def test_run_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = DummyCfg()
     cfg.performance = {}
@@ -882,7 +883,9 @@ def test_run_covariance_cache_converts_string_dates(
 
     captured_frames: list[pd.DataFrame] = []
 
-    def fake_run_analysis(df_arg: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df_arg: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         captured_frames.append(df_arg.copy())
         return {
             "manager_changes": [],
@@ -998,13 +1001,14 @@ def test_threshold_hold_replacements_and_turnover_cap(
     class StubSelector:
         rank_column = "Sharpe"
 
-        def select(
-            self, frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return frame.iloc[:3], frame.iloc[:3]
 
     import trend_analysis.selector as selector_mod
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *_a, **_k: StubSelector())
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *_a, **_k: StubSelector()
+    )
 
     import trend_analysis.core.rank_selection as rank_selection_mod
 
@@ -1021,7 +1025,9 @@ def test_threshold_hold_replacements_and_turnover_cap(
         )
         return base.reindex(frame.columns, fill_value=0.4)
 
-    monkeypatch.setattr(rank_selection_mod, "_compute_metric_series", fake_metric_series)
+    monkeypatch.setattr(
+        rank_selection_mod, "_compute_metric_series", fake_metric_series
+    )
 
     class StubBayes:
         def __init__(self) -> None:
