@@ -13,7 +13,7 @@ import trend_analysis
 def restore_dataclasses(monkeypatch: pytest.MonkeyPatch):
     import dataclasses
 
-    original_is_type = getattr(dataclasses, "_is_type")
+    original_is_type = getattr(dataclasses, "_is_type", None)
     original_flag = getattr(dataclasses, "_trend_model_patched", False)
     if original_flag:
         monkeypatch.delattr(dataclasses, "_trend_model_patched")
