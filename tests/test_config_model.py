@@ -91,7 +91,10 @@ class TestGlobHelpers:
 
         # When base_dir equals cwd the first two entries should be identical and
         # therefore deduplicated, leaving the cwd entry last.
-        assert candidates == [tmp_path / "demo" / "*.yml", tmp_path.parent / "demo" / "*.yml"]
+        assert candidates == [
+            tmp_path / "demo" / "*.yml",
+            tmp_path.parent / "demo" / "*.yml",
+        ]
 
     def test_candidate_roots_uses_current_directory_when_base_missing(self) -> None:
         roots = list(config_model._candidate_roots(None))
@@ -485,7 +488,9 @@ class TestConfigLoading:
         assert resolved.name == "demo.yml"
         assert resolved.exists()
 
-    def test_resolve_config_uses_environment_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_resolve_config_uses_environment_override(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         cfg = tmp_path / "custom.yml"
         cfg.write_text("{}", encoding="utf-8")
         monkeypatch.setenv("TREND_CONFIG", str(cfg))
@@ -580,7 +585,9 @@ class TestConfigLoading:
         with pytest.raises(ValueError, match="portfolio.rebalance_calendar"):
             config_model.validate_trend_config(payload, base_path=tmp_path)
 
-    def test_validate_trend_config_reports_nested_location(self, tmp_path: Path) -> None:
+    def test_validate_trend_config_reports_nested_location(
+        self, tmp_path: Path
+    ) -> None:
         csv_file = tmp_path / "returns.csv"
         csv_file.write_text("col\n", encoding="utf-8")
         payload = {
@@ -639,7 +646,9 @@ class TestConfigLoading:
         with pytest.raises(TypeError, match="must contain a mapping"):
             config_model.load_trend_config(config_file)
 
-    def test_validate_trend_config_handles_non_mapping_payload(self, tmp_path: Path) -> None:
+    def test_validate_trend_config_handles_non_mapping_payload(
+        self, tmp_path: Path
+    ) -> None:
         with pytest.raises(ValueError, match="valid dictionary"):
             config_model.validate_trend_config([], base_path=tmp_path)
 
@@ -683,5 +692,8 @@ class TestConfigLoading:
             classmethod(fake_validate),
         )
 
-        with pytest.raises(ValueError, match="portfolio.rebalance_calendar: Value error, invalid calendar"):
+        with pytest.raises(
+            ValueError,
+            match="portfolio.rebalance_calendar: Value error, invalid calendar",
+        ):
             config_model.validate_trend_config({}, base_path=tmp_path)
