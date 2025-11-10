@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 import yaml
+from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
 
@@ -59,7 +58,9 @@ def test_expand_pattern_handles_absolute_path(tmp_path: Path) -> None:
     assert result == [absolute]
 
 
-def test_expand_pattern_deduplicates_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_pattern_deduplicates_candidates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     base_dir = tmp_path
 
@@ -69,7 +70,9 @@ def test_expand_pattern_deduplicates_candidates(tmp_path: Path, monkeypatch: pyt
     assert expanded.count(base_dir / "data" / "*.csv") == 1
 
 
-def test_ensure_glob_matches_returns_csv_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ensure_glob_matches_returns_csv_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "returns.csv").write_text("date,asset\n2020-01-01,1.0\n")
@@ -168,7 +171,9 @@ def test_data_settings_rejects_empty_date_column(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("invalid", [None, [], 42])
-def test_data_settings_requires_string_date_column(invalid: object, tmp_path: Path) -> None:
+def test_data_settings_requires_string_date_column(
+    invalid: object, tmp_path: Path
+) -> None:
     payload = _basic_data_settings_dict(tmp_path)
     payload["date_column"] = invalid
 
@@ -186,7 +191,9 @@ def test_data_settings_requires_string_date_column(invalid: object, tmp_path: Pa
         ("ME", "ME"),
     ],
 )
-def test_data_settings_normalises_frequency(value: str, expected: str, tmp_path: Path) -> None:
+def test_data_settings_normalises_frequency(
+    value: str, expected: str, tmp_path: Path
+) -> None:
     payload = _basic_data_settings_dict(tmp_path)
     payload["frequency"] = value
 
@@ -383,7 +390,9 @@ def test_risk_settings_rejects_invalid_values() -> None:
         )
 
 
-def test_resolve_config_path_uses_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_config_path_uses_env_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_file = tmp_path / "custom.yml"
     config_file.write_text("demo: true\n")
     monkeypatch.setenv("TREND_CONFIG", str(config_file))
@@ -393,7 +402,9 @@ def test_resolve_config_path_uses_env_override(tmp_path: Path, monkeypatch: pyte
     assert resolved == config_file.resolve()
 
 
-def test_resolve_config_path_adds_suffix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_config_path_adds_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_file = tmp_path / "analysis.yml"
     config_file.write_text("demo: true\n")
     monkeypatch.chdir(tmp_path)
@@ -403,7 +414,9 @@ def test_resolve_config_path_adds_suffix(tmp_path: Path, monkeypatch: pytest.Mon
     assert resolved == config_file.resolve()
 
 
-def test_resolve_config_path_prefers_repo_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_resolve_config_path_prefers_repo_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     repo_config = Path(__file__).resolve().parents[1] / "config" / "demo.yml"
     assert repo_config.exists(), "expected bundled demo config"
     monkeypatch.delenv("TREND_CONFIG", raising=False)
@@ -414,7 +427,9 @@ def test_resolve_config_path_prefers_repo_config(monkeypatch: pytest.MonkeyPatch
     assert resolved == repo_config.resolve()
 
 
-def test_resolve_config_path_raises_for_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_config_path_raises_for_missing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(FileNotFoundError, match="was not found"):
@@ -472,7 +487,9 @@ def test_validate_trend_config_formats_nested_error(tmp_path: Path) -> None:
         config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
-def test_load_trend_config_parses_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_trend_config_parses_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     payload = _valid_config_payload(tmp_path)
     config_file = tmp_path / "config.yml"
     config_file.write_text(yaml.safe_dump(payload))
@@ -484,11 +501,12 @@ def test_load_trend_config_parses_file(tmp_path: Path, monkeypatch: pytest.Monke
     assert cfg.data.frequency == "D"
 
 
-def test_load_trend_config_requires_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_trend_config_requires_mapping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_file = tmp_path / "config.yml"
     config_file.write_text(yaml.safe_dump([1, 2, 3]))
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(TypeError, match="must contain a mapping"):
         config_model.load_trend_config("config.yml")
-
