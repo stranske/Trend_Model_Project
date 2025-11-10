@@ -29,6 +29,12 @@ class DetailedResult:
         }
 
 
+class EmptyResult:
+    def __init__(self) -> None:
+        self.metrics = pd.DataFrame()
+        self.details: dict[str, object] = {}
+
+
 def _base_config() -> SimpleNamespace:
     return SimpleNamespace(
         data={"csv_path": "data.csv"},
@@ -215,3 +221,43 @@ def test_main_uses_nan_fallback_and_default_exports(
     assert "regime_notes" in exported_data
 
     assert not export_data_calls
+
+
+def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = SimpleNamespace(data={}, sample_split={}, export={})
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    with pytest.raises(KeyError):
+        run_analysis.main(["-c", "cfg.yml"])
+
+
+def test_main_raises_when_load_csv_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", lambda *a, **k: None)
+    with pytest.raises(FileNotFoundError):
+        run_analysis.main(["-c", "cfg.yml"])
+
+
+def test_main_detailed_no_results(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = _base_config()
+
+    def fake_load_csv(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Fund": [0.01, 0.02],
+            }
+        )
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: EmptyResult())
+
+    exit_code = run_analysis.main(["-c", "cfg.yml", "--detailed"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "No results" in out

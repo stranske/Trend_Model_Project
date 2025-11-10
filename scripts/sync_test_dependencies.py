@@ -70,6 +70,7 @@ STDLIB_MODULES = {
     "textwrap",
     "threading",
     "time",
+    "tomllib",
     "typing",
     "unittest",
     "urllib",
