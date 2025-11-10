@@ -563,7 +563,7 @@ def test_load_parquet_permission_and_validation(
     assert load_parquet(str(parquet_path)) is None
 
 
-def test_load_parquet_logs_validation_errors_with_parse_hint(
+def test_load_parquet_logs_validation_errors_with_unable_hint(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     parquet_path = tmp_path / "bad_parse.parquet"
@@ -572,7 +572,11 @@ def test_load_parquet_logs_validation_errors_with_parse_hint(
     def raiser(*_args: object, **_kwargs: object) -> ValidatedMarketData:
         raise MarketDataValidationError("Unable to parse parquet payload")
 
-    monkeypatch.setattr(pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]}))
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]}),
+    )
     monkeypatch.setattr(data, "validate_market_data", raiser)
     monkeypatch.setattr(data, "_is_readable", lambda _mode: True)
     caplog.set_level("ERROR", "trend_analysis.data")
