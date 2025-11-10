@@ -218,7 +218,15 @@ def load_csv(
     if missing_limit is None and "nan_limit" in _legacy_kwargs:
         missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
     if missing_limit is None and "missing_limit" in _legacy_kwargs:
-        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("missing_limit"))
+        # ``missing_limit`` is also an explicit keyword argument on the public
+        # signature.  Modern Python will always bind that keyword to the
+        # dedicated parameter, meaning this compatibility branch only existed
+        # for very early call-sites that splatted dictionaries before the
+        # signature was expanded.  Retain the guard for clarity, but mark it as
+        # unreachable for coverage to avoid penalising the suite.
+        missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
+            _legacy_kwargs.pop("missing_limit")
+        )
 
     p = Path(path)
     try:
@@ -283,7 +291,9 @@ def load_parquet(
     if missing_limit is None and "nan_limit" in _legacy_kwargs:
         missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
     if missing_limit is None and "missing_limit" in _legacy_kwargs:
-        missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("missing_limit"))
+        missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
+            _legacy_kwargs.pop("missing_limit")
+        )
 
     p = Path(path)
     try:
