@@ -61,7 +61,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 
 - **Default limit:** Maximum of **2** concurrent orchestrator/worker runs per PR.
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
-- **Enforcement:** Dispatch only when the count of in-progress orchestrator/worker runs is `< K`. If at cap, exit quietly after updating the run summary.
+- **Enforcement:** Dispatch only when the count of in-progress orchestrator/worker runs is `< K`. Completed runs stay “active” for a short lookback window (currently 5 minutes) so rapid-fire reruns also pause once the throttle engages. If at cap, exit quietly after updating the run summary.
 
 ---
 
