@@ -26,7 +26,9 @@ def test_list_trend_spec_keys_returns_sorted_keys() -> None:
     assert keys == ["aggressive", "balanced", "conservative"]
 
 
-def test_get_trend_spec_preset_is_case_insensitive(balanced_preset: TrendSpecPreset) -> None:
+def test_get_trend_spec_preset_is_case_insensitive(
+    balanced_preset: TrendSpecPreset,
+) -> None:
     mixed_case = get_trend_spec_preset("BaLanCed")
     assert mixed_case is balanced_preset
 
@@ -36,7 +38,9 @@ def test_get_trend_spec_preset_unknown_raises_key_error() -> None:
         get_trend_spec_preset("missing")
 
 
-def test_resolve_trend_spec_falls_back_to_default(balanced_preset: TrendSpecPreset) -> None:
+def test_resolve_trend_spec_falls_back_to_default(
+    balanced_preset: TrendSpecPreset,
+) -> None:
     assert resolve_trend_spec(None) is balanced_preset
     assert resolve_trend_spec("") is balanced_preset
     assert resolve_trend_spec("Conservative").name == "Conservative"
@@ -46,7 +50,9 @@ def test_default_preset_name_matches_registry() -> None:
     assert default_preset_name() == "Balanced"
 
 
-def test_as_signal_config_includes_optional_fields(balanced_preset: TrendSpecPreset) -> None:
+def test_as_signal_config_includes_optional_fields(
+    balanced_preset: TrendSpecPreset,
+) -> None:
     payload = balanced_preset.as_signal_config()
     assert payload == {
         "kind": "tsmom",
@@ -60,7 +66,14 @@ def test_as_signal_config_includes_optional_fields(balanced_preset: TrendSpecPre
 
 
 def test_as_signal_config_omits_none_fields_and_defaults() -> None:
-    spec = TrendSpec(window=50, min_periods=None, lag=2, vol_adjust=False, vol_target=None, zscore=False)
+    spec = TrendSpec(
+        window=50,
+        min_periods=None,
+        lag=2,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=False,
+    )
     custom = TrendSpecPreset("Custom", "No optional fields", spec)
     payload = custom.as_signal_config()
     assert payload == {
@@ -73,7 +86,14 @@ def test_as_signal_config_omits_none_fields_and_defaults() -> None:
 
 
 def test_form_defaults_zeroes_optional_values() -> None:
-    spec = TrendSpec(window=40, min_periods=None, lag=3, vol_adjust=True, vol_target=None, zscore=True)
+    spec = TrendSpec(
+        window=40,
+        min_periods=None,
+        lag=3,
+        vol_adjust=True,
+        vol_target=None,
+        zscore=True,
+    )
     custom = TrendSpecPreset("Custom", "Defaults", spec)
     defaults = custom.form_defaults()
     assert defaults == {
