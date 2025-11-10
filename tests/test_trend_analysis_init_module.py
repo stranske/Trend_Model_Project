@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import sys
+from importlib import metadata
 from types import ModuleType
+from typing import Callable
 
 import pytest
-
-import inspect
-from importlib import metadata
-from typing import Callable
 
 import trend_analysis
 
