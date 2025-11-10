@@ -8,6 +8,7 @@ const ACTIVATED_LABEL = 'agents:activated';
 const DEFAULT_RUN_CAP = 2;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
+const RECENT_RUN_LOOKBACK_MINUTES = 5;
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const GATE_WORKFLOW_FILE = 'pr-00-gate.yml';
@@ -368,9 +369,12 @@ async function countActiveRuns({
   headRef,
   currentRunId,
   workflowFile = ORCHESTRATOR_WORKFLOW_FILE,
+  recentWindowMinutes = RECENT_RUN_LOOKBACK_MINUTES,
 }) {
   const statuses = ['queued', 'in_progress'];
-  let activeRuns = 0;
+  const inflightRunIds = new Set();
+  const activeRunIds = new Set();
+  const recentRunIds = new Set();
 
   const workflowIds = Array.isArray(workflowFile)
     ? workflowFile.filter(Boolean)
@@ -426,18 +430,94 @@ async function countActiveRuns({
           if (isSameRun(run)) {
             continue;
           }
-          if (matchesPull(run)) {
-            activeRuns += 1;
+          if (!matchesPull(run)) {
+            continue;
           }
+          const runId = Number(run?.id || 0);
+          if (!Number.isFinite(runId) || runId <= 0) {
+            continue;
+          }
+          inflightRunIds.add(runId);
+          activeRunIds.add(runId);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return { activeRuns, error: message };
+        return {
+          activeRuns: activeRunIds.size,
+          inFlightRuns: inflightRunIds.size,
+          recentRuns: recentRunIds.size,
+          error: message,
+        };
       }
     }
   }
 
-  return { activeRuns };
+  const windowMinutes = Number.isFinite(recentWindowMinutes) ? Number(recentWindowMinutes) : 0;
+  if (windowMinutes > 0) {
+    const cutoff = Date.now() - windowMinutes * 60 * 1000;
+    for (const workflowId of workflowIds) {
+      if (!workflowId) {
+        continue;
+      }
+      try {
+        await github.paginate(
+          github.rest.actions.listWorkflowRuns,
+          {
+            owner,
+            repo,
+            workflow_id: workflowId,
+            status: 'completed',
+            per_page: 100,
+          },
+          (response, done) => {
+            let shouldStop = false;
+            const entries = Array.isArray(response?.data) ? response.data : [];
+            for (const run of entries) {
+              if (!run) {
+                continue;
+              }
+              const timestamp =
+                Date.parse(run.updated_at || run.run_started_at || run.created_at || '') || 0;
+              if (timestamp && timestamp < cutoff) {
+                shouldStop = true;
+                break;
+              }
+              if (isSameRun(run) || !matchesPull(run)) {
+                continue;
+              }
+              const runId = Number(run?.id || 0);
+              if (!Number.isFinite(runId) || runId <= 0) {
+                continue;
+              }
+              activeRunIds.add(runId);
+              if (!inflightRunIds.has(runId)) {
+                recentRunIds.add(runId);
+              }
+            }
+            if (shouldStop && typeof done === 'function') {
+              done();
+            }
+            return [];
+          }
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          activeRuns: activeRunIds.size,
+          inFlightRuns: inflightRunIds.size,
+          recentRuns: recentRunIds.size,
+          error: message,
+        };
+      }
+    }
+  }
+
+  return {
+    activeRuns: activeRunIds.size,
+    inFlightRuns: inflightRunIds.size,
+    recentRuns: recentRunIds.size,
+    recentWindowMinutes: windowMinutes,
+  };
 }
 
 async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
@@ -586,7 +666,13 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
   const workflowList = Array.from(workflowCandidates);
 
-  const { activeRuns, error: runError } = await countActiveRuns({
+  const {
+    activeRuns,
+    inFlightRuns,
+    recentRuns,
+    recentWindowMinutes,
+    error: runError,
+  } = await countActiveRuns({
     github,
     owner,
     repo,
@@ -658,6 +744,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     underRunCap,
     runCap,
     activeRuns,
+    inFlightRuns,
+    recentRuns,
+    recentWindowMinutes,
     agentAliases,
     primaryAgent,
     headSha,
@@ -673,4 +762,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
 module.exports = {
   evaluateKeepaliveGate,
+  countActiveRuns,
+  RECENT_RUN_LOOKBACK_MINUTES,
 };
