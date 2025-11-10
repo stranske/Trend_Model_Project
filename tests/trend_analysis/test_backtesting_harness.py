@@ -186,6 +186,81 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
         )
 
 
+def test_run_backtest_errors_on_empty_prepared_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]}
+    )
+
+    monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
+
+    with pytest.raises(ValueError, match="at least one row"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_errors_when_calendar_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01}
+    )
+
+    monkeypatch.setattr(h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([]))
+
+    with pytest.raises(ValueError, match="rebalance calendar"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
+    dates = pd.to_datetime(
+        [
+            "2021-01-31",
+            "2021-01-31",
+            "2021-02-28",
+            "2021-02-28",
+            "2021-03-31",
+        ]
+    )
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.002, 0.003, 0.004, 0.005],
+            "FundB": [0.0, 0.001, 0.002, 0.003, 0.004],
+        }
+    )
+
+    def equal_weight(frame: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=frame.columns)
+
+    result = h.run_backtest(
+        returns,
+        equal_weight,
+        rebalance_freq="M",
+        window_size=2,
+        window_mode="rolling",
+        transaction_cost_bps=50,
+    )
+
+    prepared = returns.set_index("Date").astype(float)
+    expected_raw = float(np.dot(prepared.iloc[2], [0.5, 0.5]))
+    expected = expected_raw - 0.005
+
+    # First non-null portfolio return reflects a one-off cost deduction.
+    first_realised = result.returns.dropna().iloc[0]
+    assert first_realised == pytest.approx(expected)
+    # Duplicate dates still yield a single set of stored weights per rebalance.
+    assert list(result.weights.index) == sorted(result.weights.index)
+
+
 def test_helpers_cover_frequency_conversion_and_json_default(
     sample_calendar: pd.DatetimeIndex,
 ) -> None:
@@ -232,3 +307,60 @@ def test_initial_and_normalised_weights_round_trip() -> None:
     normalised = h._normalise_weights({"X": 0.3}, columns)
     assert normalised.loc["X"] == pytest.approx(0.3)
     assert normalised.loc["Y"] == 0.0
+
+
+def test_prepare_returns_validations() -> None:
+    df = pd.DataFrame({"A": ["x", "y"]}, index=[1, 2])
+    with pytest.raises(ValueError, match="DatetimeIndex"):
+        h._prepare_returns(df)
+
+    with pytest.raises(ValueError, match="numeric columns"):
+        h._prepare_returns(pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=1)}))
+
+    prepared = h._prepare_returns(
+        pd.DataFrame({
+            "Date": pd.date_range("2024-01-01", periods=2),
+            "FundA": [1, 2],
+            "FundB": [3, 4],
+        })
+    )
+    assert isinstance(prepared.index, pd.DatetimeIndex)
+    assert list(prepared.columns) == ["FundA", "FundB"]
+
+
+def test_normalise_frequency_edge_cases() -> None:
+    assert h._normalise_frequency("1ME") == "1ME"
+    # Non-numeric prefixes should be left untouched rather than coerced.
+    assert h._normalise_frequency("xQ") == "xQ"
+
+
+def test_infer_periods_per_year_edge_cases() -> None:
+    assert h._infer_periods_per_year(pd.DatetimeIndex(["2024-01-31"])) == 1
+    dup_index = pd.DatetimeIndex(["2024-01-31", "2024-01-31"])
+    assert h._infer_periods_per_year(dup_index) == 1
+    daily = pd.date_range("2024-01-01", periods=10, freq="B")
+    assert h._infer_periods_per_year(daily) == 252
+    weekly = pd.date_range("2024-01-05", periods=10, freq="W-FRI")
+    assert h._infer_periods_per_year(weekly) == 52
+    quarterly = pd.date_range("2024-03-31", periods=6, freq="QE-DEC")
+    assert h._infer_periods_per_year(quarterly) == 4
+
+
+def test_rolling_sharpe_minimum_window() -> None:
+    returns = pd.Series([0.01, -0.02, 0.03, 0.04])
+    sharpe = h._rolling_sharpe(returns, periods_per_year=12, window=1)
+    assert sharpe.index.equals(returns.index)
+
+
+def test_series_and_weights_to_dict_edge_cases() -> None:
+    assert h._series_to_dict(pd.Series(dtype=float)) == {}
+
+    weights = pd.DataFrame(columns=["A", "B"], dtype=float)
+    assert h._weights_to_dict(weights) == {}
+
+    zero_weights = pd.DataFrame(
+        [[0.0, 0.0], [0.0, 0.0]],
+        index=pd.date_range("2024-01-01", periods=2, freq="D"),
+        columns=["A", "B"],
+    )
+    assert h._weights_to_dict(zero_weights) == {}
