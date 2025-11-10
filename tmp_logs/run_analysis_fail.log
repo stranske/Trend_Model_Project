@@ -1,0 +1,40 @@
+initial = <no value>, where = True
+
+    def _sum(a, axis=None, dtype=None, out=None, keepdims=False,
+             initial=_NoValue, where=True):
+>       return umr_sum(a, axis, dtype, out, keepdims, initial, where)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: int() argument must be a string, a bytes-like object or a real number, not '_NoValueType'
+
+/root/.pyenv/versions/3.12.12/lib/python3.12/site-packages/numpy/_core/_methods.py:51: TypeError
+======================================================= warnings summary =======================================================
+../../root/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pandas/__init__.py:14
+  /root/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pandas/__init__.py:14: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+    __import__(_dependency)
+
+tests/test_run_analysis_additional.py::test_main_passes_missing_policy
+  /workspace/Trend_Model_Project/tests/test_run_analysis_additional.py:70: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
+    "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+
+tests/test_run_analysis_additional.py::test_main_passes_missing_policy
+tests/test_run_analysis_additional.py::test_main_maps_nan_policy_when_signature_uses_nan
+  /workspace/Trend_Model_Project/tests/test_run_analysis_additional.py:15: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
+    dates = pd.date_range("2024-01-31", periods=2, freq="M")
+
+tests/test_run_analysis_additional.py::test_main_maps_nan_policy_when_signature_uses_nan
+  /workspace/Trend_Model_Project/tests/test_run_analysis_additional.py:116: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
+    "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+
+tests/test_run_analysis_additional.py::test_main_uses_nan_fallback_and_default_exports
+  /workspace/Trend_Model_Project/tests/test_run_analysis_additional.py:166: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
+    "Date": pd.date_range("2024-01-31", periods=3, freq="M"),
+
+tests/test_run_analysis_additional.py::test_main_uses_nan_fallback_and_default_exports
+  /workspace/Trend_Model_Project/tests/test_run_analysis_additional.py:22: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
+    index = pd.date_range("2024-01-31", periods=3, freq="M")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================================== short test summary info ====================================================
+FAILED tests/test_run_analysis_cli_default.py::test_cli_default_output - TypeError: int() argument must be a string, a bytes-...
+FAILED tests/test_run_analysis_cli_export.py::test_cli_exports_files - TypeError: int() argument must be a string, a bytes-li...
+========================================== 2 failed, 28 passed, 7 warnings in 10.28s ===========================================
