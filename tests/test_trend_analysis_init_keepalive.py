@@ -24,7 +24,6 @@ def restore_dataclasses_is_type():
                 delattr(dataclasses, "_trend_model_patched")
         else:
             dataclasses._trend_model_patched = original_flag  # type: ignore[attr-defined]
-        trend_analysis._patch_dataclasses_module_guard()
 
 
 def _reset_guard() -> None:
