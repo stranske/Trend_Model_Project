@@ -10,7 +10,11 @@ import pandas as pd
 import pytest
 
 from trend_analysis.io import validators
-from trend_analysis.io.market_data import MarketDataMetadata, MarketDataMode, MarketDataValidationError
+from trend_analysis.io.market_data import (
+    MarketDataMetadata,
+    MarketDataMode,
+    MarketDataValidationError,
+)
 
 
 def _metadata(**overrides: object) -> MarketDataMetadata:
@@ -74,26 +78,36 @@ def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> 
         raise MarketDataValidationError("Irregular cadence", issues=[])
 
     monkeypatch.setattr(validators, "classify_frequency", raise_irregular)
-    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M"))
+    series = pd.Series(
+        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M")
+    )
     label = validators.detect_frequency(series.to_frame())
     assert "irregular" in label.lower()
 
 
-def test_detect_frequency_unknown_when_exception_generic(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_unknown_when_exception_generic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def raise_generic(_index: pd.Index) -> dict[str, object]:
         raise MarketDataValidationError("bad", issues=[])
 
     monkeypatch.setattr(validators, "classify_frequency", raise_generic)
-    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M"))
+    series = pd.Series(
+        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M")
+    )
     assert validators.detect_frequency(series.to_frame()) == "unknown"
 
 
-def test_detect_frequency_uses_code_when_label_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_uses_code_when_label_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def return_info(_index: pd.Index) -> dict[str, object]:
         return {"label": "unknown", "code": "W"}
 
     monkeypatch.setattr(validators, "classify_frequency", return_info)
-    series = pd.Series([1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M"))
+    series = pd.Series(
+        [1.0, 2.0], index=pd.date_range("2024-01-31", periods=2, freq="M")
+    )
     assert validators.detect_frequency(series.to_frame()) == "W"
 
 

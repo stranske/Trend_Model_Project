@@ -230,7 +230,9 @@ def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
         run_analysis.main(["-c", "cfg.yml"])
 
 
-def test_main_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_raises_when_load_csv_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = _base_config()
     monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", lambda *a, **k: None)
@@ -238,7 +240,9 @@ def test_main_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch)
         run_analysis.main(["-c", "cfg.yml"])
 
 
-def test_main_detailed_no_results(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_detailed_no_results(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     cfg = _base_config()
 
     def fake_load_csv(*_args: object, **_kwargs: object) -> pd.DataFrame:

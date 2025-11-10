@@ -96,9 +96,7 @@ def test_apply_constraints_group_caps_missing_asset_mapping() -> None:
     with pytest.raises(KeyError):
         optimizer.apply_constraints(
             weights,
-            optimizer.ConstraintSet(
-                group_caps={"Tech": 0.6}, groups={"A": "Tech"}
-            ),
+            optimizer.ConstraintSet(group_caps={"Tech": 0.6}, groups={"A": "Tech"}),
         )
 
 

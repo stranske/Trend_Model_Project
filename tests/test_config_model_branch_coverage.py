@@ -1,4 +1,4 @@
-"""Additional branch coverage for ``trend_analysis.config.model``.""" 
+"""Additional branch coverage for ``trend_analysis.config.model``."""
 
 from __future__ import annotations
 
