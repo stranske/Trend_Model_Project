@@ -1308,6 +1308,7 @@ jobs:
           echo "author=${AUTHOR}" >>"$GITHUB_OUTPUT"
 
       - name: Keepalive poster summary
+        id: render_instruction
         if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
