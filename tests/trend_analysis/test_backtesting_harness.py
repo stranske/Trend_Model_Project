@@ -186,6 +186,85 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
         )
 
 
+def test_run_backtest_errors_on_empty_prepared_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]}
+    )
+
+    monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
+
+    with pytest.raises(ValueError, match="at least one row"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_errors_when_calendar_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01}
+    )
+
+    monkeypatch.setattr(h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([]))
+
+    with pytest.raises(ValueError, match="rebalance calendar"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
+    dates = pd.to_datetime(
+        [
+            "2021-01-31",
+            "2021-01-31",
+            "2021-02-28",
+            "2021-02-28",
+            "2021-03-31",
+        ]
+    )
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.002, 0.003, 0.004, 0.005],
+            "FundB": [0.0, 0.001, 0.002, 0.003, 0.004],
+        }
+    )
+
+    def equal_weight(frame: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=frame.columns)
+
+    result = h.run_backtest(
+        returns,
+        equal_weight,
+        rebalance_freq="M",
+        window_size=2,
+        window_mode="rolling",
+        transaction_cost_bps=50,
+    )
+
+    prepared = returns.set_index("Date").astype(float)
+    expected_raw = float(np.dot(prepared.iloc[2], [0.5, 0.5]))
+    expected = expected_raw - 0.005
+
+    # First non-null portfolio return reflects a one-off cost deduction.
+    first_realised = result.returns.dropna().iloc[0]
+    assert first_realised == pytest.approx(expected)
+    # Duplicate dates still yield a single set of stored weights per rebalance.
+    assert list(result.weights.index) == sorted(result.weights.index)
+
+
 def test_helpers_cover_frequency_conversion_and_json_default(
     sample_calendar: pd.DatetimeIndex,
 ) -> None:
