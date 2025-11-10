@@ -141,7 +141,6 @@ def test_dataclasses_guard_uses_existing_module(restore_dataclasses_is_type):
 
 def test_spec_proxy_restores_module_registration(monkeypatch):
     sentinel_module = ModuleType("trend_analysis")
-    original = sys.modules["trend_analysis"]
     monkeypatch.setitem(sys.modules, "trend_analysis", sentinel_module)
 
     class DummySpec:
