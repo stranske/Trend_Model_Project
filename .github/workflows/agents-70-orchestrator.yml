@@ -917,6 +917,13 @@ jobs:
 
             setOutputs(true, '');
 
+      - name: Debug keepalive gate outputs
+        if: always()
+        run: |
+          echo "::notice::keepalive_gate_proceed=${{ steps.guard.outputs.proceed }}"
+          echo "::notice::keepalive_gate_reason=${{ steps.guard.outputs.reason }}"
+          echo "::notice::resolve_enable_keepalive=${{ needs.resolve-params.outputs.enable_keepalive }}"
+
 
   keepalive-instruction:
     name: Post keepalive instruction
