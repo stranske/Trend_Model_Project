@@ -919,8 +919,8 @@ jobs:
       pr_number: ${{ steps.prepare.outputs.pr_number || '' }}
       baseline_head: ${{ steps.snapshot.outputs.head || '' }}
       head_ref: ${{ steps.snapshot.outputs.head_ref || '' }}
-      base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
-      agent: ${{ steps.render_instruction.outputs.agent || steps.prepare.outputs.agent || '' }}
+    base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
+    agent: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent || '' }}
     steps:
       - name: Ensure keepalive token available
         env:
@@ -1312,7 +1312,7 @@ jobs:
           echo "author=${AUTHOR}" >>"$GITHUB_OUTPUT"
 
       - name: Keepalive poster summary
-        id: render_instruction
+        id: render_instruction_summary
         if: steps.gate_check.outputs.ok == 'true'
         uses: actions/github-script@v7
         env:
@@ -1378,8 +1378,8 @@ jobs:
         uses: peter-evans/create-issue-comment@v3
         with:
           token: ${{ secrets.ACTIONS_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction.outputs.pr_number }}
-          body: ${{ steps.render_instruction.outputs.body }}
+          issue-number: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          body: ${{ steps.render_instruction_summary.outputs.body }}
 
       - name: Post keepalive instruction (fallback)
         id: post_instruction_fallback
@@ -1387,8 +1387,8 @@ jobs:
         uses: peter-evans/create-issue-comment@v3
         with:
           token: ${{ secrets.SERVICE_BOT_PAT }}
-          issue-number: ${{ steps.render_instruction.outputs.pr_number }}
-          body: ${{ steps.render_instruction.outputs.body }}
+          issue-number: ${{ steps.render_instruction_summary.outputs.pr_number }}
+          body: ${{ steps.render_instruction_summary.outputs.body }}
 
       - name: Capture instruction comment metadata
         id: capture_comment
@@ -1468,7 +1468,7 @@ jobs:
           TRACE: ${{ steps.prepare.outputs.trace }}
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
           DISPATCH_MODE: ${{ steps.prepare.outputs.dispatch_mode }}
-          AGENT_ALIAS: ${{ steps.render_instruction.outputs.agent || steps.prepare.outputs.agent }}
+          AGENT_ALIAS: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
