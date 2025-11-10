@@ -178,6 +178,7 @@ def test_main_translates_missing_arguments(
 
     assert calls, "load_csv should be invoked"
     recorded = calls[0]
+    assert isinstance(recorded["path"], str), "csv_path should be converted to str"
     assert recorded["path"] == "prices.csv"
     assert recorded["errors"] == "raise"
     if factory is _detailed_result:
