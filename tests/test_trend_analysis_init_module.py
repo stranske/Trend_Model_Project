@@ -6,13 +6,15 @@ import pytest
 
 @pytest.fixture()
 def trend_analysis_module():
+    original = sys.modules.get("trend_analysis")
     sys.modules.pop("trend_analysis", None)
-    module = __import__("trend_analysis")
-    assert "_SAFE_IS_TYPE" in module.__dict__
     try:
+        module = __import__("trend_analysis")
+        assert "_SAFE_IS_TYPE" in module.__dict__
         yield module
     finally:
-        sys.modules["trend_analysis"] = module
+        if original is not None:
+            sys.modules["trend_analysis"] = original
 
 
 def test_dataclasses_guard_recreates_missing_module(trend_analysis_module):
