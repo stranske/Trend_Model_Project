@@ -186,7 +186,9 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
         )
 
 
-def test_run_backtest_errors_on_empty_prepared_data(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_backtest_errors_on_empty_prepared_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]}
     )
@@ -203,7 +205,9 @@ def test_run_backtest_errors_on_empty_prepared_data(monkeypatch: pytest.MonkeyPa
         )
 
 
-def test_run_backtest_errors_when_calendar_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_backtest_errors_when_calendar_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(
         {"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01}
     )
@@ -315,14 +319,18 @@ def test_prepare_returns_validations() -> None:
         h._prepare_returns(df)
 
     with pytest.raises(ValueError, match="numeric columns"):
-        h._prepare_returns(pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=1)}))
+        h._prepare_returns(
+            pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=1)})
+        )
 
     prepared = h._prepare_returns(
-        pd.DataFrame({
-            "Date": pd.date_range("2024-01-01", periods=2),
-            "FundA": [1, 2],
-            "FundB": [3, 4],
-        })
+        pd.DataFrame(
+            {
+                "Date": pd.date_range("2024-01-01", periods=2),
+                "FundA": [1, 2],
+                "FundB": [3, 4],
+            }
+        )
     )
     assert isinstance(prepared.index, pd.DatetimeIndex)
     assert list(prepared.columns) == ["FundA", "FundB"]
