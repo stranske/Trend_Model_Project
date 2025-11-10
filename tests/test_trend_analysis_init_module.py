@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import importlib
 import importlib.metadata as metadata
+import inspect
 import sys
 from types import ModuleType, SimpleNamespace
 from typing import Callable
 
 import pytest
-
-import inspect
 
 
 # Compatibility helper: Python 3.12 added `module=` to dataclasses.make_dataclass.
@@ -20,8 +19,8 @@ def _make_dataclass_with_module(
     name: str, fields: list[tuple[str, type]], module: str | None
 ):
     import dataclasses
-    from types import ModuleType
     import sys
+    from types import ModuleType
 
     sig = inspect.signature(dataclasses.make_dataclass)
     if "module" in sig.parameters:
