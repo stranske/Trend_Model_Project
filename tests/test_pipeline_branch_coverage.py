@@ -56,7 +56,9 @@ def test_run_analysis_respects_na_cfg_and_warmup() -> None:
     assert result["preprocessing_summary"].startswith("Cadence: Monthly (month-end)")
     assert result["in_sample_scaled"].iloc[0].eq(0.0).all()
     assert result["out_sample_scaled"].iloc[0].eq(0.0).all()
-    assert all(stat.is_avg_corr is not None for stat in result["in_sample_stats"].values())
+    assert all(
+        stat.is_avg_corr is not None for stat in result["in_sample_stats"].values()
+    )
 
 
 def test_run_analysis_returns_none_when_no_value_columns() -> None:
