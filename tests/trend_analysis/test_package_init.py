@@ -63,7 +63,6 @@ def test_dataclasses_guard_reimports_missing_module(load_trend_analysis):
 
     module_name = "tests.fake_module_for_trend_init"
     fake_module, cls = _make_fake_dataclass(module_name)
-    sys.modules[module_name] = fake_module
     sys.modules.pop(module_name, None)
 
     result = dataclasses._is_type(
