@@ -23,7 +23,10 @@ def _patch_dataclasses_module_guard() -> None:
     import dataclasses
 
     original = getattr(dataclasses, "_is_type", None)
-    if original is None or getattr(dataclasses, "_trend_model_patched", False):
+    if original is None:
+        return
+    if getattr(dataclasses, "_trend_model_patched", False):
+        globals()["_SAFE_IS_TYPE"] = dataclasses._is_type  # type: ignore[attr-defined]
         return
 
     def _safe_is_type(
@@ -53,6 +56,7 @@ def _patch_dataclasses_module_guard() -> None:
 
     dataclasses._is_type = _safe_is_type  # type: ignore[attr-defined]
     dataclasses._trend_model_patched = True  # type: ignore[attr-defined]
+    globals()["_SAFE_IS_TYPE"] = _safe_is_type
 
 
 _patch_dataclasses_module_guard()
