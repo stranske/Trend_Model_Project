@@ -56,7 +56,7 @@ def _summary_result() -> DummyResult:
         "performance_by_regime": pd.DataFrame(
             {"Return": [0.05]}, index=pd.Index(["Bull"], name="Regime")
         ),
-        "regime_notes": ["No drawdowns"]
+        "regime_notes": ["No drawdowns"],
     }
     return DummyResult(metrics=metrics, details=details)
 
