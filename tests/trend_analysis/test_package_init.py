@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
+import importlib.metadata
 import sys
 from types import ModuleType
 from typing import Mapping
