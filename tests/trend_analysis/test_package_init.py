@@ -94,7 +94,7 @@ def test_dataclasses_guard_preserves_existing_modules(load_trend_analysis):
         lambda candidate, module: candidate is dataclasses.InitVar,
     )
 
-    assert result is True or result is False
+    assert isinstance(result, bool)
     assert sys.modules[module_name] is fake_module
 
 
