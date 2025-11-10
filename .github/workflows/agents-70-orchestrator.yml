@@ -436,6 +436,13 @@ jobs:
             const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
             await resolveOrchestratorParams({ github, context, core, env: process.env });
 
+      - name: Debug keepalive toggles
+        if: always()
+        run: |
+          echo "::notice::enable_keepalive=${{ steps.resolve.outputs.enable_keepalive }}"
+          echo "::notice::keepalive_requested=${{ steps.resolve.outputs.keepalive_requested }}"
+          echo "::notice::keepalive_paused_label=${{ steps.resolve.outputs.keepalive_paused_label }}"
+
   keepalive-guard:
     name: Evaluate keepalive gate
     needs: resolve-params
