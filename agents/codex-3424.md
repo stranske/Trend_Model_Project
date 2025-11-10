@@ -57,3 +57,13 @@ Ensure test coverage for Trend Model Project program modules meets or exceeds 95
 | 79% | `src/trend_analysis/api.py` | 13 |
 
 > Modules already exceeding 95% coverage in this run (`src/trend_analysis/__init__.py`, `data.py`, `presets.py`, `io/validators.py`, `run_analysis.py`, `util/frequency.py`, `export/bundle.py`) are reflected as completed subtasks above. The remaining items require additional targeted test development to satisfy the acceptance criteria.
+
+### Upcoming focus
+- **`src/trend_analysis/backtesting/harness.py`** – Draft scenario-based tests that exercise configuration parsing, walk-forward orchestration, and error handling branches so the harness pathways are covered end-to-end.
+- **`src/trend_analysis/regimes.py`** – Add fixtures that validate regime segmentation logic over mixed-period datasets, ensuring both transition boundaries and fallback paths receive coverage.
+- **`src/trend_analysis/pipeline.py`** – Expand integration-style tests that drive pipeline assembly, including optional component toggles, to reach untested decision paths.
+- **`src/trend_analysis/io/market_data.py`** – Build IO tests around edge-case file inputs (missing columns, malformed dates) to complete validation coverage for data ingestion utilities.
+- **`src/trend_analysis/signals.py`** – Verify signal generation combinations, especially conditional branches for indicator alignment, to eliminate remaining uncovered statements.
+- **`src/trend_analysis/engine/optimizer.py` & `engine.py`** – Prototype solver stubs or mocks that let us exercise optimisation dispatch and engine lifecycle code paths without heavy computation, clearing the largest outstanding gaps.
+
+These priorities will be revisited after each coverage increment so the checklist and acceptance criteria reflect the latest verified state before closing the task list.
