@@ -64,7 +64,9 @@ def test_normalise_policy_alias_handles_empty_string() -> None:
         (10, 10),
     ],
 )
-def test_coerce_limit_entry_allows_null_and_positive(value: Any, expected: int | None) -> None:
+def test_coerce_limit_entry_allows_null_and_positive(
+    value: Any, expected: int | None
+) -> None:
     assert data_mod._coerce_limit_entry(value) == expected
 
 
@@ -118,12 +120,14 @@ def test_coerce_limit_kwarg_rejects_invalid_values() -> None:
 
 
 def test_normalise_numeric_strings_handles_percentages_and_negatives() -> None:
-    frame = pd.DataFrame({
-        "Date": ["2024-01-01", "2024-01-02"],
-        "Alpha": ["1,234", "(567)"],
-        "Beta": ["10%", "5%"],
-        "Gamma": ["text", ""],
-    })
+    frame = pd.DataFrame(
+        {
+            "Date": ["2024-01-01", "2024-01-02"],
+            "Alpha": ["1,234", "(567)"],
+            "Beta": ["10%", "5%"],
+            "Gamma": ["text", ""],
+        }
+    )
     cleaned = data_mod._normalise_numeric_strings(frame)
     assert cleaned["Alpha"].tolist() == [1234.0, -567.0]
     assert cleaned["Beta"].tolist() == [0.10, 0.05]
@@ -145,7 +149,9 @@ def test_finalise_validated_frame_resets_index(sample_frame: pd.DataFrame) -> No
     assert result.attrs["market_data_mode"] == payload.metadata.mode.value
 
 
-def test_validate_payload_builds_policy_and_limit_maps(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_builds_policy_and_limit_maps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]})
 
     captured: dict[str, Any] = {}
@@ -174,11 +180,15 @@ def test_validate_payload_builds_policy_and_limit_maps(monkeypatch: pytest.Monke
     assert list(result.columns) == ["Date", "Fund"]
 
 
-def test_validate_payload_handles_scalar_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_handles_scalar_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = pd.DataFrame({"Date": ["2024-01-01"], "Fund": [1.0]})
 
     def fake_validate(*args: Any, **kwargs: Any):
-        frame = pd.DataFrame({"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date"))
+        frame = pd.DataFrame(
+            {"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date")
+        )
         return make_validated(frame)
 
     monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
@@ -195,7 +205,9 @@ def test_validate_payload_handles_scalar_policy(monkeypatch: pytest.MonkeyPatch)
     assert isinstance(result, pd.DataFrame)
 
 
-def test_validate_payload_logs_market_data_errors(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_validate_payload_logs_market_data_errors(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     payload = pd.DataFrame({"Date": ["2024-01-01"], "Fund": [1.0]})
 
     def boom(*_: Any, **__: Any):
@@ -214,7 +226,9 @@ def test_validate_payload_logs_market_data_errors(monkeypatch: pytest.MonkeyPatc
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_validate_payload_raises_when_requested(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_raises_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = pd.DataFrame({"Date": ["2024-01-01"], "Fund": [1.0]})
 
     def boom(*_: Any, **__: Any):
@@ -223,7 +237,9 @@ def test_validate_payload_raises_when_requested(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(data_mod, "validate_market_data", boom)
 
     with pytest.raises(MarketDataValidationError):
-        data_mod._validate_payload(payload, origin="upload.csv", errors="raise", include_date_column=True)
+        data_mod._validate_payload(
+            payload, origin="upload.csv", errors="raise", include_date_column=True
+        )
 
 
 @pytest.mark.parametrize(
@@ -257,12 +273,18 @@ def test_load_csv_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert list(result.columns) == ["Fund"]
 
 
-def test_load_csv_includes_date_column(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_csv_includes_date_column(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     csv_path = tmp_path / "market.csv"
-    pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}).to_csv(csv_path, index=False)
+    pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}).to_csv(
+        csv_path, index=False
+    )
 
     def fake_validate(_: pd.DataFrame, **__: Any):
-        frame = pd.DataFrame({"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date"))
+        frame = pd.DataFrame(
+            {"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date")
+        )
         return make_validated(frame)
 
     monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
@@ -271,7 +293,9 @@ def test_load_csv_includes_date_column(tmp_path: Path, monkeypatch: pytest.Monke
     assert list(result.columns) == ["Date", "Fund"]
 
 
-def test_load_csv_handles_permission_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_handles_permission_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     csv_path = tmp_path / "locked.csv"
     csv_path.write_text("Date,Fund\n2024-01-01,1.0\n")
 
@@ -296,7 +320,9 @@ def test_load_csv_raises_when_requested(tmp_path: Path) -> None:
         data_mod.load_csv(str(csv_path), errors="raise")
 
 
-def test_load_csv_logs_unexpected_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_logs_unexpected_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     csv_path = tmp_path / "broken.csv"
     csv_path.write_text("Date,Fund\n2024-01-01,1.0\n")
 
@@ -310,7 +336,9 @@ def test_load_csv_logs_unexpected_error(tmp_path: Path, monkeypatch: pytest.Monk
     assert "Unexpected error loading" in caplog.text
 
 
-def test_load_parquet_permission_raise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_parquet_permission_raise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     pq_path = tmp_path / "market.parquet"
     pq_path.write_text("placeholder")
 
@@ -325,14 +353,22 @@ def test_load_parquet_permission_raise(tmp_path: Path, monkeypatch: pytest.Monke
         data_mod.load_parquet(str(pq_path), errors="raise")
 
 
-def test_load_parquet_validation_error_logs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_validation_error_logs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     pq_path = tmp_path / "market.parquet"
     pq_path.write_text("placeholder")
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
-    monkeypatch.setattr(pd, "read_parquet", lambda _: pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}))
+    monkeypatch.setattr(
+        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
+    )
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda _: pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}),
+    )
 
     def boom(*_: Any, **__: Any):
         raise MarketDataValidationError("Unable to parse date")
@@ -351,11 +387,19 @@ def test_load_parquet_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
-    monkeypatch.setattr(pd, "read_parquet", lambda _: pd.DataFrame({"Date": ["2024-01-01"], "Fund": [1.0]}))
+    monkeypatch.setattr(
+        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
+    )
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda _: pd.DataFrame({"Date": ["2024-01-01"], "Fund": [1.0]}),
+    )
 
     def fake_validate(_: pd.DataFrame, **__: Any):
-        frame = pd.DataFrame({"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date"))
+        frame = pd.DataFrame(
+            {"Fund": [1.0]}, index=pd.Index([pd.Timestamp("2024-01-01")], name="Date")
+        )
         return make_validated(frame)
 
     monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
@@ -364,14 +408,22 @@ def test_load_parquet_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert list(result.columns) == ["Date", "Fund"]
 
 
-def test_load_parquet_logs_unexpected_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_logs_unexpected_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     pq_path = tmp_path / "market.parquet"
     pq_path.write_text("placeholder")
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
-    monkeypatch.setattr(pd, "read_parquet", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
+    )
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
 
     caplog.set_level("ERROR")
     result = data_mod.load_parquet(str(pq_path))
