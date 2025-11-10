@@ -227,7 +227,7 @@ def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(run_analysis, "load_csv", _unexpected_load_csv)
 
-    with pytest.raises(KeyError, match="csv_path"):
+    with pytest.raises(KeyError, match=r"csv_path.*must be provided"):
         run_analysis.main(["-c", "config.yml"])
 
 
