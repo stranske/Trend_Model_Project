@@ -18,7 +18,9 @@ def _base_data(**overrides: object) -> dict[str, object]:
     return data
 
 
-def test_candidate_roots_includes_base_and_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_candidate_roots_includes_base_and_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     base_dir = tmp_path / "cfg"
     base_dir.mkdir()
@@ -30,7 +32,9 @@ def test_candidate_roots_includes_base_and_parent(tmp_path: Path, monkeypatch: p
     assert roots[-1] == tmp_path
 
 
-def test_expand_pattern_deduplicates_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_pattern_deduplicates_candidates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     base_dir = Path.cwd()
 
@@ -94,7 +98,9 @@ def test_missing_policy_accepts_nullish(tmp_path: Path, policy: object) -> None:
         ({"A": 2}, {"A": 2}),
     ],
 )
-def test_missing_limit_coercions(tmp_path: Path, spec: object, expected: object) -> None:
+def test_missing_limit_coercions(
+    tmp_path: Path, spec: object, expected: object
+) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
 
