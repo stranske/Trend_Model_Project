@@ -48,7 +48,9 @@ def test_sha256_file_reads_stream(tmp_path: Path) -> None:
         ([Path("/tmp/b"), 3], ["/tmp/b", 3]),
     ],
 )
-def test_normalise_for_json_handles_paths_and_collections(value: Any, expected: Any) -> None:
+def test_normalise_for_json_handles_paths_and_collections(
+    value: Any, expected: Any
+) -> None:
     assert hash_util.normalise_for_json(value) == expected
 
 
