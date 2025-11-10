@@ -171,6 +171,8 @@ def test_patch_guard_retries_when_module_already_loaded(
     monkeypatch.setattr(dataclasses, "_is_type", _probe, raising=False)
     trend_analysis._patch_dataclasses_module_guard()
 
+    # _is_type signature: (obj, cls, a, b, c)
+    # Here: obj=None, cls=dataclass_type, a=None, b=None, c=None
     assert dataclasses._is_type(None, dataclass_type, None, None, None) is True  # type: ignore[attr-defined]
     assert call_counter["count"] == 2
     assert sys.modules[sentinel_name] is module
