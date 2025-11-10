@@ -408,10 +408,17 @@ def test_run_missing_policy_removal_raises(monkeypatch: pytest.MonkeyPatch) -> N
     with pytest.raises(ValueError, match="Missing-data policy removed all assets"):
         engine.run(cfg)
 
-    assert captured == {"path": "demo.csv", "errors": "raise", "policy": "drop", "limit": 2}
+    assert captured == {
+        "path": "demo.csv",
+        "errors": "raise",
+        "policy": "drop",
+        "limit": 2,
+    }
 
 
-def test_run_threshold_hold_low_weight_replacement(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_threshold_hold_low_weight_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from trend_analysis.core import rank_selection
 
     class THConfig(DummyCfg):
@@ -523,7 +530,9 @@ def test_run_threshold_hold_low_weight_replacement(monkeypatch: pytest.MonkeyPat
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class RebalancerStub:
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
@@ -574,7 +583,9 @@ def test_run_threshold_hold_low_weight_replacement(monkeypatch: pytest.MonkeyPat
 
     turnover_cap = cfg.portfolio["max_turnover"]
     assert results[1]["turnover"] <= turnover_cap + 1e-9
-    expected_cost = results[1]["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000)
+    expected_cost = results[1]["turnover"] * (
+        cfg.portfolio["transaction_cost_bps"] / 10000
+    )
     assert results[1]["transaction_cost"] == pytest.approx(expected_cost)
 
 
@@ -642,7 +653,9 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class WeightingStub:
         def __init__(self) -> None:
@@ -657,7 +670,11 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
             return pd.DataFrame({"weight": base})
 
     monkeypatch.setattr(engine, "EqualWeight", lambda: WeightingStub())
-    monkeypatch.setattr(engine, "Rebalancer", lambda *a, **k: SimpleNamespace(apply_triggers=lambda w, sf: w))
+    monkeypatch.setattr(
+        engine,
+        "Rebalancer",
+        lambda *a, **k: SimpleNamespace(apply_triggers=lambda w, sf: w),
+    )
 
     captured_weights: list[dict[str, float] | None] = []
 
@@ -754,7 +771,9 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     selector_stub = SelectorStub()
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub)
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
 
     class WeightingStub:
         def __init__(self) -> None:
