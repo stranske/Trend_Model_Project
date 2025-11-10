@@ -152,5 +152,5 @@ def test_spec_proxy_restores_module_registration(monkeypatch):
         _ = proxy.missing
 
     name = proxy.name
-    assert name == getattr(proxy._spec, "name", None)
+    assert name == DummySpec().name
     assert sys.modules["trend_analysis"] is trend_analysis
