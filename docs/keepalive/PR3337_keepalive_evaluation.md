@@ -103,12 +103,17 @@ manual clearance. ✅
 	- Patch the workflow to inject a valid `GITHUB_TOKEN` or alternate app token into the runner environment and document the requirement in `docs/keepalive/GoalsAndPlumbing.md`.
 	- Re-run the keepalive orchestrator in dry-run mode to verify `action: "update-branch"` payload emits successfully before re-enabling production rounds.
 
-3. **Stabilise Gate Failures**
+3. **Validate Branch-Sync on Staging PR**
+	- Once the dry-run orchestrator pass succeeds, open (or reuse) a staging pull request that mirrors the production target branch.
+	- Dispatch the `agents-keepalive-branch-sync.yml` workflow against the staging PR using the successful dry-run trace metadata so the update-branch path is exercised end-to-end.
+	- Confirm the staging PR head advances (or the branch-sync workflow reports success) before re-enabling production rounds; capture the run link in the recovery log.
+
+4. **Stabilise Gate Failures**
 	- Pull the failing workflow artifacts for `python ci / python 3.11` and `python 3.12` on commit `666fd30a0f72`; catalogue test and lint errors.
 	- Land fixes on `phase-2-dev`, re-run the full gate (`./scripts/check_branch.sh --fast --fix` locally, then GitHub Actions) until both jobs pass.
 	- After successful gates, trigger a fresh keepalive cycle to confirm the automation completes without nudges.
 
-4. **Regression Safeguards**
+5. **Regression Safeguards**
 	- Add a synthetic workflow check that fails if the required guardrail labels are absent during keepalive dispatch.
 	- Extend the keepalive integration tests to assert both primary and fallback dispatches succeed when credentials are available and fail loudly when not.
 

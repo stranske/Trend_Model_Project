@@ -1678,6 +1678,255 @@ jobs:
     secrets:
       actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
 
+  dry-run-branch-sync:
+    name: Validate branch sync (dry-run)
+    needs:
+      - resolve-params
+      - keepalive-guard
+      - keepalive-instruction
+      - belt-dispatch
+      - belt-worker
+    if: |
+      needs.keepalive-guard.outputs.proceed != 'false' &&
+      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      (needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
+      needs.keepalive-instruction.outputs.trace != '' &&
+      needs.keepalive-instruction.outputs.pr_number != '' &&
+      needs.keepalive-instruction.outputs.base_ref != '' &&
+      needs.keepalive-instruction.outputs.head_ref != '' &&
+      needs.keepalive-instruction.outputs.baseline_head != ''
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    outputs:
+      run_url: ${{ steps.await.outputs.run_url || '' }}
+      run_conclusion: ${{ steps.await.outputs.conclusion || '' }}
+      run_id: ${{ steps.await.outputs.run_id || '' }}
+      head_updated: ${{ steps.head_check.outputs.updated || 'false' }}
+      new_head: ${{ steps.head_check.outputs.new_head || '' }}
+      pr_url: ${{ steps.head_check.outputs.pr_url || '' }}
+    steps:
+      - name: Ensure branch-sync token available
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -z "${ACTIONS_TOKEN}" ]; then
+            echo "::error::Branch-sync validation requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            exit 1
+          fi
+
+      - name: Dispatch keepalive branch sync
+        id: dispatch
+        uses: actions/github-script@v7
+        env:
+          WORKFLOW_ID: agents-keepalive-branch-sync.yml
+          TARGET_REF: ${{ github.event.repository.default_branch }}
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number }}
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
+          BASE_REF: ${{ needs.keepalive-instruction.outputs.base_ref }}
+          HEAD_REF: ${{ needs.keepalive-instruction.outputs.head_ref }}
+          HEAD_SHA: ${{ needs.keepalive-instruction.outputs.baseline_head }}
+          ROUND: ${{ needs.keepalive-instruction.outputs.round }}
+          AGENT: ${{ needs.keepalive-instruction.outputs.agent }}
+          COMMENT_ID: ${{ needs.keepalive-instruction.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive-instruction.outputs.comment_url }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            let ref = (process.env.TARGET_REF || '').trim();
+            if (!ref) {
+              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+            }
+            ref = ref.replace(/^refs\/heads\//, '');
+
+            const requiredKeys = ['PR_NUMBER', 'TRACE', 'BASE_REF', 'HEAD_REF', 'HEAD_SHA'];
+            const missing = requiredKeys.filter((key) => !(process.env[key] || '').trim());
+            if (missing.length) {
+              core.setFailed(`Branch-sync dispatch missing inputs: ${missing.join(', ')}`);
+              return;
+            }
+
+            const inputs = {
+              pr_number: String(process.env.PR_NUMBER || ''),
+              trace: String(process.env.TRACE || ''),
+              base_ref: String(process.env.BASE_REF || ''),
+              head_ref: String(process.env.HEAD_REF || ''),
+              head_sha: String(process.env.HEAD_SHA || ''),
+              agent: String(process.env.AGENT || ''),
+              round: String(process.env.ROUND || ''),
+              comment_id: String(process.env.COMMENT_ID || ''),
+              comment_url: String(process.env.COMMENT_URL || ''),
+            };
+
+            inputs.idempotency_key = `${inputs.trace || 'trace'}-${inputs.head_sha || 'head'}-${Date.now()}`;
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              ref,
+              inputs,
+            });
+
+            const now = new Date().toISOString();
+            core.setOutput('ref', ref);
+            core.setOutput('dispatched_at', now);
+            core.setOutput('idempotency_key', inputs.idempotency_key);
+
+      - name: Await branch-sync completion
+        id: await
+        uses: actions/github-script@v7
+        env:
+          WORKFLOW_ID: agents-keepalive-branch-sync.yml
+          REF: ${{ steps.dispatch.outputs.ref }}
+          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+          TIMEOUT_SECONDS: 600
+          POLL_SECONDS: 15
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            let ref = (process.env.REF || '').trim();
+            if (!ref) {
+              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+            }
+            const dispatchedAt = Date.parse(process.env.DISPATCHED_AT || new Date().toISOString());
+            const timeoutMs = (Number(process.env.TIMEOUT_SECONDS) || 600) * 1000;
+            const pollMs = (Number(process.env.POLL_SECONDS) || 15) * 1000;
+            const deadline = Date.now() + timeoutMs;
+
+            let runId = 0;
+            let run = null;
+
+            while (Date.now() < deadline) {
+              if (!runId) {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: workflowId,
+                  event: 'workflow_dispatch',
+                  per_page: 20,
+                });
+
+                const candidates = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+                const candidate = candidates.find((entry) => {
+                  const created = Date.parse(entry.created_at || 0);
+                  if (!Number.isFinite(created) || created + 1000 < dispatchedAt - 2000) {
+                    return false;
+                  }
+                  const headBranch = (entry.head_branch || '').trim();
+                  if (headBranch && headBranch !== ref) {
+                    return false;
+                  }
+                  return true;
+                });
+
+                if (candidate) {
+                  runId = candidate.id;
+                  run = candidate;
+                }
+              } else {
+                const { data } = await github.rest.actions.getWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: runId,
+                });
+                run = data;
+                if (run.status === 'completed') {
+                  break;
+                }
+              }
+
+              if (run && run.status === 'completed') {
+                break;
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollMs));
+            }
+
+            if (!run) {
+              core.setFailed('Unable to locate branch-sync workflow run.');
+              return;
+            }
+
+            if (run.status !== 'completed') {
+              core.setFailed(`Branch-sync workflow did not complete before timeout (status=${run.status}).`);
+              return;
+            }
+
+            core.setOutput('run_id', String(run.id || ''));
+            core.setOutput('run_url', run.html_url || '');
+            core.setOutput('conclusion', run.conclusion || '');
+            core.setOutput('status', run.status || '');
+
+            if ((run.conclusion || '').toLowerCase() !== 'success') {
+              core.setFailed(`Branch-sync workflow concluded with ${run.conclusion || 'unknown'}.`);
+            }
+
+      - name: Check staging PR head
+        id: head_check
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number }}
+          BASELINE_HEAD: ${{ needs.keepalive-instruction.outputs.baseline_head }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const normalise = (value) => String(value || '').trim();
+            const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+            const baseline = normalise(process.env.BASELINE_HEAD);
+
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setOutput('updated', 'false');
+              core.setOutput('new_head', '');
+              core.setOutput('pr_url', '');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const newHead = normalise(pr?.head?.sha);
+            core.setOutput('new_head', newHead);
+            core.setOutput('updated', newHead && baseline && newHead !== baseline ? 'true' : 'false');
+            core.setOutput('pr_url', pr?.html_url || `https://github.com/${owner}/${repo}/pull/${prNumber}`);
+
+      - name: Summarise branch-sync validation
+        env:
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
+          ROUND: ${{ needs.keepalive-instruction.outputs.round }}
+          RUN_URL: ${{ steps.await.outputs.run_url }}
+          CONCLUSION: ${{ steps.await.outputs.conclusion }}
+          PR_URL: ${{ steps.head_check.outputs.pr_url }}
+          UPDATED: ${{ steps.head_check.outputs.updated }}
+          NEW_HEAD: ${{ steps.head_check.outputs.new_head }}
+        run: |
+          head_change='unchanged'
+          if [ "${UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
+            head_change="advanced to ${NEW_HEAD:0:12}"
+          fi
+
+          sync_link='(not available)'
+          if [ -n "${RUN_URL}" ]; then
+            sync_link="[run](${RUN_URL})"
+          fi
+
+          pr_link='(n/a)'
+          if [ -n "${PR_URL}" ]; then
+            pr_link="[link](${PR_URL})"
+          fi
+
+          cat <<EOF >>"$GITHUB_STEP_SUMMARY"
+          ## Branch-sync validation
+          | Round | Trace | Result | Sync run | PR | Head change |
+          |---|---|---|---|---|---|
+          | ${ROUND:-?} | \`${TRACE:-n/a}\` | ${CONCLUSION:-unknown} | ${sync_link} | ${pr_link} | ${head_change} |
+          EOF
+
   keepalive-post-work:
     name: Keepalive post-work sync
     needs:
@@ -1758,6 +2007,7 @@ jobs:
       - keepalive-guard
       - keepalive-instruction
       - keepalive-post-work
+      - dry-run-branch-sync
       - resolve-params
     if: always()
     runs-on: ubuntu-latest
@@ -1900,6 +2150,38 @@ jobs:
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to post keepalive worker outcome for PR #${prNumber}: ${message}`);
             }
+
+      - name: Record branch-sync validation outcome
+        if: needs.dry-run-branch-sync.result == 'success'
+        env:
+          RUN_URL: ${{ needs.dry-run-branch-sync.outputs.run_url }}
+          CONCLUSION: ${{ needs.dry-run-branch-sync.outputs.run_conclusion }}
+          HEAD_UPDATED: ${{ needs.dry-run-branch-sync.outputs.head_updated }}
+          NEW_HEAD: ${{ needs.dry-run-branch-sync.outputs.new_head }}
+          PR_URL: ${{ needs.dry-run-branch-sync.outputs.pr_url }}
+        run: |
+          head_change='unchanged'
+          if [ "${HEAD_UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
+            head_change="advanced to ${NEW_HEAD:0:12}"
+          fi
+
+          sync_link='(not available)'
+          if [ -n "${RUN_URL}" ]; then
+            sync_link="[run](${RUN_URL})"
+          fi
+
+          pr_link='(n/a)'
+          if [ -n "${PR_URL}" ]; then
+            pr_link="[link](${PR_URL})"
+          fi
+
+          cat <<EOF >>"$GITHUB_STEP_SUMMARY"
+          ## Branch-sync validation (dry-run)
+          * Result: ${CONCLUSION:-unknown}
+          * Workflow: ${sync_link}
+          * PR: ${pr_link}
+          * Head change: ${head_change}
+          EOF
   belt-scan-ready-prs:
     name: Scan Codex promotion queue
     needs:
