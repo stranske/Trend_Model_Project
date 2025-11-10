@@ -85,6 +85,8 @@ def test_coerce_policy_and_limit_kwargs():
 def test_coerce_limit_kwarg_rejects_non_numeric_string():
     with pytest.raises(TypeError):
         _coerce_limit_kwarg("not-a-number")
+
+
 def test_normalise_numeric_strings_handles_percent_and_signs():
     frame = pd.DataFrame(
         {
@@ -148,7 +150,10 @@ def test_validate_payload_success(monkeypatch):
     )
     assert list(payload["alpha"]) == [1000.0, 2000.0]
     assert list(payload["beta"]) == [0.25, -0.5]
-    assert captured["missing_policy"] == {"alpha": "ffill", "*": DEFAULT_POLICY_FALLBACK}
+    assert captured["missing_policy"] == {
+        "alpha": "ffill",
+        "*": DEFAULT_POLICY_FALLBACK,
+    }
     assert captured["missing_limit"] == {"alpha": 10, "beta": None}
     assert captured["source"] == "fixture.csv"
 
@@ -169,7 +174,9 @@ def test_validate_payload_logs_and_suppresses_error(monkeypatch, caplog):
     monkeypatch.setattr(data_module, "validate_market_data", fake_validate)
 
     with caplog.at_level("ERROR"):
-        result = _validate_payload(df, origin="bad.csv", errors="log", include_date_column=True)
+        result = _validate_payload(
+            df, origin="bad.csv", errors="log", include_date_column=True
+        )
 
     assert result is None
     assert "Unable to parse Date values in bad.csv" in caplog.text
@@ -181,11 +188,15 @@ def test_validate_payload_reraises_when_requested(monkeypatch):
     monkeypatch.setattr(
         data_module,
         "validate_market_data",
-        lambda *args, **kwargs: (_ for _ in ()).throw(MarketDataValidationError("fail")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            MarketDataValidationError("fail")
+        ),
     )
 
     with pytest.raises(MarketDataValidationError):
-        _validate_payload(df, origin="bad.csv", errors="raise", include_date_column=True)
+        _validate_payload(
+            df, origin="bad.csv", errors="raise", include_date_column=True
+        )
 
 
 def test_finalise_validated_frame_includes_date_column():
@@ -274,7 +285,9 @@ def test_load_parquet_success(tmp_path, monkeypatch):
         _build_metadata(index),
     )
     validated.frame.index.name = "Date"
-    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
+    monkeypatch.setattr(
+        data_module, "validate_market_data", lambda payload, **kwargs: validated
+    )
 
     result = data_module.load_parquet(str(path))
 
@@ -333,7 +346,9 @@ def test_load_csv_legacy_missing_limit(tmp_path, monkeypatch):
     )
     validated.frame.index.name = "Date"
 
-    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
+    monkeypatch.setattr(
+        data_module, "validate_market_data", lambda payload, **kwargs: validated
+    )
 
     data_module.load_csv(
         str(path),
@@ -403,7 +418,9 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
         _build_metadata(index),
     )
     validated.frame.index.name = "Date"
-    monkeypatch.setattr(data_module, "validate_market_data", lambda payload, **kwargs: validated)
+    monkeypatch.setattr(
+        data_module, "validate_market_data", lambda payload, **kwargs: validated
+    )
 
     data_module.load_parquet(
         str(path),
@@ -482,4 +499,3 @@ def test_ensure_datetime_noop_for_datetime_column():
     result = data_module.ensure_datetime(df)
 
     assert result is df
-
