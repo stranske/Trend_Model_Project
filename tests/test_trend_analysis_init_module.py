@@ -6,7 +6,100 @@ from types import ModuleType
 
 import pytest
 
+import inspect
+from importlib import metadata
+from typing import Callable
+
 import trend_analysis
+
+
+# Compatibility helper: Python 3.12 added `module=` to dataclasses.make_dataclass.
+# Make tests work on older runtimes (3.11 CI) by emulating that behaviour when
+# the keyword is not available.
+def _make_dataclass_with_module(
+    name: str, fields: list[tuple[str, type]], module: str | None
+) -> type:
+    import dataclasses
+
+    sig = inspect.signature(dataclasses.make_dataclass)
+    kwargs = {}
+    if "module" in sig.parameters and module is not None:
+        kwargs["module"] = module
+
+    # Create the dataclass (passing module via kwargs on runtimes that
+    # support it). For older stdlib versions the kwargs will be empty and
+    # we'll attach the __module__ and a placeholder in sys.modules below.
+    cls = dataclasses.make_dataclass(name, fields, **kwargs)
+    if module is not None:
+        cls.__module__ = module
+        sys.modules.setdefault(module, ModuleType(module))
+    return cls
+
+
+def _reload_with_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    data_funcs: dict[str, Callable],
+    export_funcs: dict[str, Callable],
+) -> ModuleType:
+    """Reload ``trend_analysis`` after priming stub submodules.
+
+    The package's ``__init__`` eagerly imports a curated list of submodules and
+    then conditionally re-exports helpers from ``data`` and ``export``.  The
+    helper clears any previously imported package state, injects lightweight
+    stand-ins for the required submodules, and finally imports the top-level
+    package so the conditional wiring runs against the controlled environment.
+    """
+
+    for name in list(sys.modules):
+        if name == "trend_analysis" or name.startswith("trend_analysis."):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+
+    def register_stub(name: str, attrs: dict[str, Callable] | None = None) -> None:
+        module = ModuleType(f"trend_analysis.{name}")
+        for attr, value in (attrs or {}).items():
+            setattr(module, attr, value)
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    for eager_name in [
+        "metrics",
+        "config",
+        "pipeline",
+        "signals",
+        "backtesting",
+    ]:
+        register_stub(eager_name)
+
+    register_stub("data", data_funcs)
+    register_stub("export", export_funcs)
+
+    for lazy_name in [
+        "io",
+        "selector",
+        "weighting",
+        "weights",
+        "presets",
+        "run_multi_analysis",
+        "engine",
+        "perf",
+        "regimes",
+        "multi_period",
+        "plugins",
+        "proxy",
+    ]:
+        register_stub(lazy_name)
+
+    # Arrange for importlib.metadata.version to raise PackageNotFoundError so
+    # the package fallback path in the top-level ``trend_analysis`` module is
+    # exercised during tests.
+    monkeypatch.setattr(
+        metadata,
+        "version",
+        lambda _: (_ for _ in ()).throw(metadata.PackageNotFoundError()),
+        raising=False,
+    )
+
+    return importlib.import_module("trend_analysis")
 
 
 @pytest.fixture
@@ -50,8 +143,8 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
     dataclass_module = ModuleType(sentinel_name)
     sys.modules[sentinel_name] = dataclass_module
 
-    dataclass_type = dataclasses.make_dataclass(
-        "Synth", [("value", int)], module=sentinel_name
+    dataclass_type = _make_dataclass_with_module(
+        "Synth", [("value", int)], sentinel_name
     )
     sys.modules.pop(sentinel_name)
 
@@ -135,8 +228,8 @@ def test_patch_guard_propagates_when_module_name_missing(
 ) -> None:
     import dataclasses
 
-    dataclass_type = dataclasses.make_dataclass(
-        "Nameless", [("value", int)], module="tests.nameless"
+    dataclass_type = _make_dataclass_with_module(
+        "Nameless", [("value", int)], "tests.nameless"
     )
     dataclass_type.__module__ = ""
 
@@ -160,8 +253,8 @@ def test_patch_guard_retries_when_module_already_loaded(
     module = ModuleType(sentinel_name)
     sys.modules[sentinel_name] = module
 
-    dataclass_type = dataclasses.make_dataclass(
-        "Preloaded", [("value", int)], module=sentinel_name
+    dataclass_type = _make_dataclass_with_module(
+        "Preloaded", [("value", int)], sentinel_name
     )
 
     call_counter = {"count": 0}
