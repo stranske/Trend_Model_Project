@@ -39,7 +39,7 @@ Add test coverage for any program functionality with test coverage under 95% or 
 
 | File | Coverage |
 | --- | ---: |
-| `src/trend/reporting/unified.py` | 7% |
+| `src/trend_analysis/reporting/unified.py` | 7% |
 | `src/trend_analysis/api.py` | 23% |
 | `src/trend_analysis/data.py` | 29% |
 | `src/trend_analysis/presets.py` | 15% |
