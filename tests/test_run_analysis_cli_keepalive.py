@@ -26,8 +26,7 @@ class DummyConfig(SimpleNamespace):
         super().__init__(
             data=data,
             export=export or {},
-            sample_split=
-            sample_split
+            sample_split=sample_split
             or {
                 "in_start": "2020-01-01",
                 "in_end": "2020-12-31",
@@ -54,7 +53,9 @@ def default_result() -> DummyResult:
 
 
 @pytest.fixture()
-def export_spy(monkeypatch: pytest.MonkeyPatch) -> list[tuple[tuple[Any, ...], dict[str, Any]]]:
+def export_spy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[tuple[tuple[Any, ...], dict[str, Any]]]:
     calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
     monkeypatch.setattr(
         run_analysis.export,
@@ -86,10 +87,18 @@ def test_main_normalises_missing_policy_aliases(
     captured: dict[str, Any] = {}
 
     def fake_load_csv(
-        path: str, *, errors: str | None = None, missing_policy: str | None = None, missing_limit: int | None = None
+        path: str,
+        *,
+        errors: str | None = None,
+        missing_policy: str | None = None,
+        missing_limit: int | None = None,
     ) -> pd.DataFrame:
         captured["path"] = path
-        captured["kwargs"] = {"errors": errors, "missing_policy": missing_policy, "missing_limit": missing_limit}
+        captured["kwargs"] = {
+            "errors": errors,
+            "missing_policy": missing_policy,
+            "missing_limit": missing_limit,
+        }
         return pd.DataFrame({"a": [1.0]})
 
     cfg = DummyConfig(
@@ -104,7 +113,9 @@ def test_main_normalises_missing_policy_aliases(
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: default_result)
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
+    )
 
     exit_code = run_analysis.main(["-c", "config.yml"])
 
@@ -139,9 +150,22 @@ def test_main_supports_nan_policy_aliases(
     calls: list[dict[str, Any]] = []
 
     def loader_with_nan(
-        path: str, *, errors: str | None = None, nan_policy: str | None = None, nan_limit: int | None = None
+        path: str,
+        *,
+        errors: str | None = None,
+        nan_policy: str | None = None,
+        nan_limit: int | None = None,
     ) -> pd.DataFrame:
-        calls.append({"path": path, "kwargs": {"errors": errors, "nan_policy": nan_policy, "nan_limit": nan_limit}})
+        calls.append(
+            {
+                "path": path,
+                "kwargs": {
+                    "errors": errors,
+                    "nan_policy": nan_policy,
+                    "nan_limit": nan_limit,
+                },
+            }
+        )
         return pd.DataFrame({"value": [1.0]})
 
     cfg = DummyConfig(
@@ -156,7 +180,9 @@ def test_main_supports_nan_policy_aliases(
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", loader_with_nan)
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: default_result)
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_, **__: "summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_, **__: "summary"
+    )
     monkeypatch.setattr(run_analysis.export, "export_data", lambda *_, **__: None)
 
     exit_code = run_analysis.main(["-c", "config.yml", "--detailed"])

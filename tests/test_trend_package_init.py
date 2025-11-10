@@ -27,7 +27,9 @@ def test_dunder_getattr_unknown_attribute() -> None:
         trend.__getattr__("unknown")
 
 
-def test_module_reload_preserves_dunder_getattr(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_module_reload_preserves_dunder_getattr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(trend._metadata, "version", lambda name: "2.0.0")
     reloaded = importlib.reload(trend)
     assert reloaded.__getattr__("__version__") == "2.0.0"
