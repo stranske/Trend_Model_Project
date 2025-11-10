@@ -10,6 +10,32 @@ from typing import Callable
 
 import pytest
 
+import inspect
+
+
+# Compatibility helper: Python 3.12 added `module=` to dataclasses.make_dataclass.
+# Make tests work on older runtimes (3.11 CI) by emulating that behaviour when
+# the keyword is not available.
+def _make_dataclass_with_module(
+    name: str, fields: list[tuple[str, type]], module: str | None
+):
+    import dataclasses
+    from types import ModuleType
+    import sys
+
+    sig = inspect.signature(dataclasses.make_dataclass)
+    if "module" in sig.parameters:
+        return dataclasses.make_dataclass(name, fields, module=module)
+
+    # Fallback for older stdlib: create class then assign module and ensure
+    # a placeholder exists in sys.modules so tests that expect the module to
+    # be present continue to work.
+    cls = dataclasses.make_dataclass(name, fields)
+    if module is not None:
+        cls.__module__ = module
+        sys.modules.setdefault(module, ModuleType(module))
+    return cls
+
 
 def _reload_with_stubs(
     monkeypatch: pytest.MonkeyPatch,
