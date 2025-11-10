@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Focused soft-coverage tests for :mod:`trend_analysis.regimes`."""
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -105,7 +105,9 @@ def test_compute_regime_series_handles_empty_inputs() -> None:
     assert nan_result.empty
 
 
-def test_compute_regime_series_volatility_and_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_regime_series_volatility_and_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(6)
     proxy = pd.Series([0.0, 0.01, 0.015, 0.2, 0.18, 0.22], index=dates)
     settings = regimes.RegimeSettings(
@@ -128,11 +130,16 @@ def test_compute_regime_series_volatility_and_cache(monkeypatch: pytest.MonkeyPa
     )
 
     assert labels.dtype == "string"
-    assert set(labels.dropna().unique()) >= {settings.risk_on_label, settings.risk_off_label}
+    assert set(labels.dropna().unique()) >= {
+        settings.risk_on_label,
+        settings.risk_off_label,
+    }
     assert cache.calls and cache.calls[0][3].startswith("regime_volatility")
 
 
-def test_compute_regime_series_return_with_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_regime_series_return_with_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(5)
     proxy = pd.Series([0.02, 0.01, 0.0, -0.01, 0.03], index=dates)
     settings = regimes.RegimeSettings(
@@ -223,7 +230,9 @@ def test_compute_regime_series_short_history_and_neutral_band() -> None:
         cache=False,
     )
 
-    labels = regimes._compute_regime_series(proxy, settings, freq="M", periods_per_year=12)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="M", periods_per_year=12
+    )
     assert len(labels) == len(proxy)
     assert set(labels.unique()) <= {
         settings.default_label,
@@ -232,7 +241,9 @@ def test_compute_regime_series_short_history_and_neutral_band() -> None:
     }
 
 
-def test_compute_regime_series_volatility_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_regime_series_volatility_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(5)
     proxy = pd.Series([0.0, 0.02, 0.01, 0.03, 0.015], index=dates)
     settings = regimes.RegimeSettings(
@@ -249,7 +260,9 @@ def test_compute_regime_series_volatility_defaults(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(regimes, "compute_dataset_hash", lambda seq: "vol-hash")
     monkeypatch.setattr(regimes, "get_cache", lambda: cache)
 
-    labels = regimes._compute_regime_series(proxy, settings, freq="W", periods_per_year=None)
+    labels = regimes._compute_regime_series(
+        proxy, settings, freq="W", periods_per_year=None
+    )
     assert not labels.empty
     assert cache.calls[0][3].endswith("_annual0_ppy52.000000")
 
@@ -296,7 +309,9 @@ def test_summary_returns_none_when_no_cagr() -> None:
     assert summary is None
 
 
-def test_aggregate_performance_and_build_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_aggregate_performance_and_build_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(6)
     returns = pd.Series([0.01, 0.0, -0.02, 0.03, 0.02, -0.01], index=dates)
     regimes_series = pd.Series(
@@ -319,7 +334,9 @@ def test_aggregate_performance_and_build_payload(monkeypatch: pytest.MonkeyPatch
     assert "observations" not in " ".join(notes).lower()
 
     extra_index = dates.append(pd.DatetimeIndex([dates[-1] + pd.offsets.MonthEnd()]))
-    data = pd.DataFrame({"Date": dates, "Proxy": returns.values, "Other": returns.values})
+    data = pd.DataFrame(
+        {"Date": dates, "Proxy": returns.values, "Other": returns.values}
+    )
 
     summary_table = table.copy()
     summary_table.loc["Observations", :] = 4.0
@@ -412,7 +429,9 @@ def test_aggregate_performance_handles_disabled_and_empty() -> None:
     assert table.empty and "Regime labels were unavailable" in notes[0]
 
 
-def test_aggregate_performance_notes_for_low_observations(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_aggregate_performance_notes_for_low_observations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(4)
     regimes_series = pd.Series(
         ["Risk-On", "Risk-Off", "Risk-On", "Risk-Off"], index=dates, dtype="string"
@@ -447,7 +466,9 @@ def test_aggregate_performance_all_period_note(monkeypatch: pytest.MonkeyPatch) 
     assert any("All-period aggregate" in note for note in notes)
 
 
-def test_build_regime_payload_handles_empty_regimes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_handles_empty_regimes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(2)
     data = pd.DataFrame({"Date": dates, "Proxy": [0.0, 0.0]})
     returns_map = {"Strategy": pd.Series([0.01, 0.02], index=dates)}
@@ -477,7 +498,9 @@ def test_build_regime_payload_gap_note(monkeypatch: pytest.MonkeyPatch) -> None:
 
     regimes_series = pd.Series([pd.NA, pd.NA, pd.NA], index=dates, dtype="string")
 
-    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: regimes_series)
+    monkeypatch.setattr(
+        regimes, "compute_regimes", lambda *args, **kwargs: regimes_series
+    )
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
@@ -496,7 +519,9 @@ def test_build_regime_payload_gap_note(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Regime labels contained gaps" in payload["notes"][0]
 
 
-def test_build_regime_payload_missing_out_index_note(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_missing_out_index_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(3)
     data = pd.DataFrame({"Date": dates, "Proxy": [0.01, 0.02, 0.03]})
 
@@ -514,7 +539,9 @@ def test_build_regime_payload_missing_out_index_note(monkeypatch: pytest.MonkeyP
     base = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
     short_series = ShortReindexSeries(base)
 
-    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: short_series)
+    monkeypatch.setattr(
+        regimes, "compute_regimes", lambda *args, **kwargs: short_series
+    )
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
@@ -533,12 +560,18 @@ def test_build_regime_payload_missing_out_index_note(monkeypatch: pytest.MonkeyP
     assert any("Proxy series missing" in note for note in payload["notes"])
 
 
-def test_build_regime_payload_summary_fallback_and_note_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_regime_payload_summary_fallback_and_note_dedup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     dates = _sample_index(3)
     data = pd.DataFrame({"Date": dates, "Proxy": [0.0, 0.0, 0.0]})
-    regimes_series = pd.Series(["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string")
+    regimes_series = pd.Series(
+        ["Risk-On", "Risk-Off", "Risk-On"], index=dates, dtype="string"
+    )
 
-    monkeypatch.setattr(regimes, "compute_regimes", lambda *args, **kwargs: regimes_series)
+    monkeypatch.setattr(
+        regimes, "compute_regimes", lambda *args, **kwargs: regimes_series
+    )
     monkeypatch.setattr(
         regimes,
         "aggregate_performance_by_regime",
