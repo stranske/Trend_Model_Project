@@ -20,7 +20,11 @@ def _make_config(
     if data_overrides:
         data.update(data_overrides)
 
-    export = {"directory": str(tmp_path / "outputs"), "formats": ["excel", "json"], "filename": "summary"}
+    export = {
+        "directory": str(tmp_path / "outputs"),
+        "formats": ["excel", "json"],
+        "filename": "summary",
+    }
     if export_overrides:
         export.update(export_overrides)
 
@@ -43,10 +47,17 @@ def config_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_main_exports_all_formats_and_respects_missing_policy(monkeypatch: pytest.MonkeyPatch, config_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_exports_all_formats_and_respects_missing_policy(
+    monkeypatch: pytest.MonkeyPatch,
+    config_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     cfg = _make_config(
         config_dir,
-        data_overrides={"missing_policy": {"Value": "BackFill"}, "missing_limit": {"Value": 3}},
+        data_overrides={
+            "missing_policy": {"Value": "BackFill"},
+            "missing_limit": {"Value": 3},
+        },
     )
 
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
@@ -62,18 +73,24 @@ def test_main_exports_all_formats_and_respects_missing_policy(monkeypatch: pytes
         missing_limit: dict[str, int] | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        load_calls.append((path, errors, include_date_column, missing_policy, missing_limit, kwargs))
+        load_calls.append(
+            (path, errors, include_date_column, missing_policy, missing_limit, kwargs)
+        )
         return pd.DataFrame({"Value": [1.0, 2.0]})
 
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
 
-    def fake_run_simulation(config: SimpleNamespace, frame: pd.DataFrame) -> SimpleNamespace:
+    def fake_run_simulation(
+        config: SimpleNamespace, frame: pd.DataFrame
+    ) -> SimpleNamespace:
         assert config is cfg
         assert list(frame.columns) == ["Value"]
         return SimpleNamespace(
             metrics=pd.DataFrame({"Sharpe": [1.23]}),
             details={
-                "performance_by_regime": pd.DataFrame({"regime": ["bull"], "value": [1.0]}),
+                "performance_by_regime": pd.DataFrame(
+                    {"regime": ["bull"], "value": [1.0]}
+                ),
                 "regime_notes": ("outperformed",),
             },
         )
@@ -81,23 +98,36 @@ def test_main_exports_all_formats_and_respects_missing_policy(monkeypatch: pytes
     monkeypatch.setattr(run_analysis.api, "run_simulation", fake_run_simulation)
 
     summary_args: dict[str, tuple[Any, ...]] = {}
+
     def record_summary(details: dict[str, Any], *dates: str) -> str:
         summary_args["call"] = (details, *dates)
         return "summary text"
 
     monkeypatch.setattr(run_analysis.export, "format_summary_text", record_summary)
-    monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *args, **kwargs: "formatter")
-    monkeypatch.setattr(run_analysis.export, "summary_frame_from_result", lambda details: pd.DataFrame({"metric": [1]}))
+    monkeypatch.setattr(
+        run_analysis.export,
+        "make_summary_formatter",
+        lambda *args, **kwargs: "formatter",
+    )
+    monkeypatch.setattr(
+        run_analysis.export,
+        "summary_frame_from_result",
+        lambda details: pd.DataFrame({"metric": [1]}),
+    )
 
     export_calls: list[tuple[str, Path | tuple[str, ...]]] = []
 
-    def record_export_to_excel(data: dict[str, Any], target: str, **kwargs: Any) -> None:
+    def record_export_to_excel(
+        data: dict[str, Any], target: str, **kwargs: Any
+    ) -> None:
         export_calls.append(("excel", Path(target)))
         assert "summary" in data
         assert "performance_by_regime" in data
         assert "regime_notes" in data
 
-    def record_export_data(data: dict[str, Any], target: str, formats: list[str] | None = None) -> None:
+    def record_export_data(
+        data: dict[str, Any], target: str, formats: list[str] | None = None
+    ) -> None:
         export_calls.append(("data", Path(target)))
         assert formats == ["json"]
         assert "summary" in data
@@ -121,11 +151,20 @@ def test_main_exports_all_formats_and_respects_missing_policy(monkeypatch: pytes
             {},
         )
     ]
-    assert summary_args["call"][1:] == ("2020-01-01", "2020-06-30", "2020-07-01", "2020-12-31")
+    assert summary_args["call"][1:] == (
+        "2020-01-01",
+        "2020-06-30",
+        "2020-07-01",
+        "2020-12-31",
+    )
     assert [kind for kind, _ in export_calls] == ["excel", "data"]
 
 
-def test_main_falls_back_to_nan_policy(monkeypatch: pytest.MonkeyPatch, config_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_falls_back_to_nan_policy(
+    monkeypatch: pytest.MonkeyPatch,
+    config_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     cfg = _make_config(
         config_dir,
         data_overrides={"nan_policy": {"Rate": "Zero"}, "nan_limit": {"Rate": 4}},
@@ -148,7 +187,11 @@ def test_main_falls_back_to_nan_policy(monkeypatch: pytest.MonkeyPatch, config_d
         return pd.DataFrame({"Value": [1.0]})
 
     monkeypatch.setattr(run_analysis, "load_csv", fake_loader)
-    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: SimpleNamespace(metrics=pd.DataFrame(), details={}))
+    monkeypatch.setattr(
+        run_analysis.api,
+        "run_simulation",
+        lambda *_: SimpleNamespace(metrics=pd.DataFrame(), details={}),
+    )
 
     rc = run_analysis.main(["--config", "fallback.yml"])
     assert rc == 0
@@ -163,7 +206,11 @@ def test_main_falls_back_to_nan_policy(monkeypatch: pytest.MonkeyPatch, config_d
     )
 
 
-def test_main_detailed_flag_prints_metrics(monkeypatch: pytest.MonkeyPatch, config_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_detailed_flag_prints_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+    config_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     cfg = _make_config(config_dir)
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(
@@ -184,7 +231,9 @@ def test_main_detailed_flag_prints_metrics(monkeypatch: pytest.MonkeyPatch, conf
     assert "Return" in output and "0.5" in output
 
 
-def test_main_raises_when_csv_missing(monkeypatch: pytest.MonkeyPatch, config_dir: Path) -> None:
+def test_main_raises_when_csv_missing(
+    monkeypatch: pytest.MonkeyPatch, config_dir: Path
+) -> None:
     cfg = _make_config(config_dir, data_overrides={})
     cfg.data.pop("csv_path")
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
@@ -192,7 +241,9 @@ def test_main_raises_when_csv_missing(monkeypatch: pytest.MonkeyPatch, config_di
         run_analysis.main(["--config", "config.yml"])
 
 
-def test_main_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch, config_dir: Path) -> None:
+def test_main_raises_when_loader_returns_none(
+    monkeypatch: pytest.MonkeyPatch, config_dir: Path
+) -> None:
     cfg = _make_config(config_dir)
     monkeypatch.setattr(run_analysis, "load", lambda _: cfg)
     monkeypatch.setattr(run_analysis, "load_csv", lambda *args, **kwargs: None)
