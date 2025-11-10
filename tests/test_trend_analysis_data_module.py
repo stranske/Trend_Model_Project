@@ -86,7 +86,6 @@ def test_coerce_limit_kwarg_rejects_non_numeric_string():
     with pytest.raises(TypeError):
         _coerce_limit_kwarg("not-a-number")
 
-
 def test_normalise_numeric_strings_handles_percent_and_signs():
     frame = pd.DataFrame(
         {
