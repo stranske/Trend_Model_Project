@@ -61,5 +61,5 @@ Add test coverage for any program functionality with test coverage under 95% or 
 > **Note:** Auxiliary probe/automation helpers remain at 0% because they are excluded from current testing scope; focus remains on the core orchestration modules enumerated above.【86999e†L1-L59】
 
 ## Next steps
-- Expand the new initializer regression suite to cover the remaining partial branches (lazy import cache re-population and metadata success path) if business cases demand it.
+- Expand the new initializer regression suite to cover the remaining partial branch (lazy import cache re-population) if business cases demand it. The metadata success path is already covered by `test_version_metadata_success_path` in the test suite.
 - Prioritise targeted suites for the lowest coverage modules called out above, beginning with `trend_analysis/api.py`, `trend_analysis/pipeline.py`, and `trend_analysis/run_analysis.py`, to drive each file beyond the 95% threshold while exercising essential functionality end-to-end.
