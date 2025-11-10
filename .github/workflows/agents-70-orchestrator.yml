@@ -982,6 +982,7 @@ jobs:
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
 
             const normalise = (value) => String(value || '').trim();
+            const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
             const prNumberRaw = normalise(process.env.PR_NUMBER);
             const prNumber = Number.parseInt(prNumberRaw, 10);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
