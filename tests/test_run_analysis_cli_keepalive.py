@@ -79,7 +79,7 @@ def test_main_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) -
         run_analysis.main(["-c", "config.yml"])
 
 
-def test_main_normalises_missing_policy_aliases(
+def test_main_normalizes_missing_policy_aliases(
     monkeypatch: pytest.MonkeyPatch,
     default_result: DummyResult,
     export_spy: list[tuple[tuple[Any, ...], dict[str, Any]]],
