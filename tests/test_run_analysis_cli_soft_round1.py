@@ -80,12 +80,18 @@ def test_main_translates_missing_arguments(
 
     def fake_load(path: str) -> DummyConfig:
         if factory is _summary_result:
-            config_template.data = {
+            data = {
                 "csv_path": Path("prices.csv"),
                 "nan_policy": "keep",
                 "nan_limit": 2,
             }
-        return config_template
+        else:
+            data = config_template.data
+        return DummyConfig(
+            data=data,
+            sample_split=config_template.sample_split,
+            export=config_template.export,
+        )
 
     def load_csv_new(
         path: str,
