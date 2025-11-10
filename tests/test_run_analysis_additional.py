@@ -247,7 +247,10 @@ def test_main_skips_optional_loader_kwargs_when_not_supported(
         captured["path"] = path
         captured["kwargs"] = kwargs
         return pd.DataFrame(
-            {"Date": pd.date_range("2024-01-31", periods=2, freq="M"), "Fund": [0.1, 0.2]}
+            {
+                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Fund": [0.1, 0.2],
+            }
         )
 
     monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
@@ -258,10 +261,16 @@ def test_main_skips_optional_loader_kwargs_when_not_supported(
     )
     monkeypatch.setattr(run_analysis.export, "make_summary_formatter", lambda *_: "fmt")
     monkeypatch.setattr(
-        run_analysis.export, "summary_frame_from_result", lambda *_args, **_kwargs: pd.DataFrame()
+        run_analysis.export,
+        "summary_frame_from_result",
+        lambda *_args, **_kwargs: pd.DataFrame(),
     )
-    monkeypatch.setattr(run_analysis.export, "export_to_excel", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        run_analysis.export, "export_to_excel", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        run_analysis.export, "export_data", lambda *_args, **_kwargs: None
+    )
 
     result = run_analysis.main(["-c", "config.yml"])
 
