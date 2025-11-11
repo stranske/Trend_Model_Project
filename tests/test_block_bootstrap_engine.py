@@ -21,6 +21,16 @@ def test_sample_before_fit_raises():
         model.sample(5, 1)
 
 
+def test_return_model_base_methods_raise():
+    base = ReturnModel()
+
+    with pytest.raises(NotImplementedError):
+        base.fit(pd.DataFrame())
+
+    with pytest.raises(NotImplementedError):
+        base.sample(2, 1)
+
+
 def test_output_shape_and_reproducibility():
     panel = make_panel()
     cfg = ReturnModelConfig(block=4, seed=42)
