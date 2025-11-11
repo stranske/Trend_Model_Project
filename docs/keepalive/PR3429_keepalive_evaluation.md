@@ -149,6 +149,46 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - Historical reference: run `19244506591` (2025-11-10 20:03Z) resolved `KEEPALIVE_PR=3444` and reached `keepalive_gate_proceed=true`. The job summary (UI-only) records the run-cap utilisation, but that markdown is not exposed through the CLI logs we pulled; we still need to observe a gate **success** with the new notices to capture inflight/recent counts above zero.
 - Prepare a regression patch if the sweep still exceeds the cap; otherwise promote the guardrail test plan into CI once evidence shows the throttle is effective.
 
+## 11. PR #3471 Activity Snapshot (2025-11-11)
+
+Recent orchestrator traffic on PR [#3471](https://github.com/stranske/Trend_Model_Project/pull/3471) shows repeated keepalive sweeps that never escalated to the worker. The last fourteen runs inside the four-hour window ending 17:19Z stacked up to **three concurrent executions**, while every `Codex Belt Worker` job was `skipped`. This flood of workflow posts generates policy-blocked requests (no code paths executed) yet still emits instruction/log chatter.
+
+| Run ID | Start (UTC) | End (UTC) | Duration (s) | Conclusion | Worker |
+| --- | --- | --- | --- | --- | --- |
+| 19270321801 | 2025-11-11T15:24:36+00:00 | 2025-11-11T15:25:28+00:00 | 52 | success | skipped |
+| 19270597214 | 2025-11-11T15:34:30+00:00 | 2025-11-11T15:35:17+00:00 | 47 | success | skipped |
+| 19270801160 | 2025-11-11T15:41:48+00:00 | 2025-11-11T15:42:23+00:00 | 35 | cancelled | n/a |
+| 19271102929 | 2025-11-11T15:53:03+00:00 | 2025-11-11T15:55:44+00:00 | 161 | success | skipped |
+| 19272105554 | 2025-11-11T16:30:41+00:00 | 2025-11-11T16:34:20+00:00 | 219 | cancelled | n/a |
+| 19272244682 | 2025-11-11T16:36:14+00:00 | 2025-11-11T16:37:50+00:00 | 96 | success | skipped |
+| 19272797428 | 2025-11-11T16:57:27+00:00 | 2025-11-11T16:58:24+00:00 | 57 | success | skipped |
+| 19272975227 | 2025-11-11T17:04:08+00:00 | 2025-11-11T17:04:57+00:00 | 49 | cancelled | n/a |
+| 19273018969 | 2025-11-11T17:05:48+00:00 | 2025-11-11T17:07:58+00:00 | 130 | cancelled | n/a |
+| 19273093243 | 2025-11-11T17:08:41+00:00 | 2025-11-11T17:12:43+00:00 | 242 | success | skipped |
+| 19273268073 | 2025-11-11T17:15:30+00:00 | 2025-11-11T17:16:21+00:00 | 51 | success | skipped |
+| 19273279373 | 2025-11-11T17:15:56+00:00 | 2025-11-11T17:16:20+00:00 | 24 | cancelled | n/a |
+| 19273289212 | 2025-11-11T17:16:18+00:00 | 2025-11-11T17:17:03+00:00 | 45 | success | skipped |
+| 19273340468 | 2025-11-11T17:18:21+00:00 | 2025-11-11T17:19:09+00:00 | 48 | success | skipped |
+
+The 17:18Z gate log for run 19273340468 reports:
+
+```
+::notice::keepalive_gate_proceed=false
+::notice::keepalive_gate_reason=gate-not-concluded
+::notice::keepalive_run_cap=2
+::notice::keepalive_active_runs=3
+::notice::keepalive_active_runs_recent=3
+::notice::keepalive_active_runs_recent_window=5
+```
+
+Despite the cap being `2`, we observed three overlapping runs (17:15:56Z–17:16:20Z). Because each run still proceeds into instruction summarisation even when the worker is skipped, automation keeps posting non-actionable notices — effectively noise — without progressing code generation.
+
+### Remediation focus
+
+- **Pre-dispatch gating:** extend `idle-precheck` and `belt-dispatch` so they refuse to enqueue new runs when `countActiveRuns()` already equals the cap. This prevents overlaps without cancelling jobs mid-flight.
+- **Instruction throttling:** block redundant instruction/comment emission when the previous round concluded without a worker run, reducing policy-blocked posts.
+- **Run-cap telemetry:** persist non-zero `active_runs_recent` stats to surface when the guard is close to tripping, enabling operators to pause before the system spams again.
+
 ### Review Procedure – 2025-11-11
 
 1. Re-read `docs/keepalive/GoalsAndPlumbing.md` (focus on §§1–5, §8, §9) and `docs/keepalive/SyncChecklist.md` to restate expected behaviour before evaluating evidence.

@@ -8,11 +8,20 @@ const {
   RECENT_RUN_LOOKBACK_MINUTES,
 } = require('../keepalive_gate.js');
 
-function makeGithubStub(registry) {
+function makeGithubStub(registry, details = {}) {
   return {
     rest: {
       actions: {
         listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun({ run_id: runId }) {
+          const key = Number(runId);
+          if (Object.prototype.hasOwnProperty.call(details, key)) {
+            return { data: details[key] };
+          }
+          const error = new Error('workflow run not found');
+          error.status = 404;
+          throw error;
+        },
       },
     },
     async paginate(_fn, params, mapFn) {
@@ -137,6 +146,35 @@ test('countActiveRuns recognises PR metadata embedded in run titles', async () =
     prNumber: 42,
     headSha: 'sha42',
     headRef: 'refs/heads/codex/issue-42',
+    currentRunId: 0,
+    workflowFile: 'agents-70-orchestrator.yml',
+    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
+  });
+
+  assert.equal(result.activeRuns, 1);
+  assert.equal(result.inFlightRuns, 1);
+  assert.equal(result.recentRuns, 0);
+});
+
+test('countActiveRuns fetches workflow run details when list payload lacks PR metadata', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [],
+    'agents-70-orchestrator.yml|in_progress': [
+      { id: 888, pull_requests: [] },
+    ],
+    'agents-70-orchestrator.yml|completed': [],
+  };
+  const details = {
+    888: { id: 888, pull_requests: [{ number: 77 }] },
+  };
+  const github = makeGithubStub(registry, details);
+  const result = await countActiveRuns({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 77,
+    headSha: '',
+    headRef: '',
     currentRunId: 0,
     workflowFile: 'agents-70-orchestrator.yml',
     recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
