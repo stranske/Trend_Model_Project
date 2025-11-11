@@ -34,6 +34,19 @@ def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
     return corr_df
 
 
+def _equal_weight_series(index: pd.Index) -> pd.Series:
+    n = len(index)
+    if n == 0:
+        return pd.Series(dtype=float)
+    return pd.Series(np.ones(n) / n, index=index)
+
+
+def _warn_and_equal(index: pd.Index, message: str) -> pd.Series:
+    logger.warning(message)
+    warnings.warn(message, RuntimeWarning, stacklevel=3)
+    return _equal_weight_series(index)
+
+
 @weight_engine_registry.register("hrp")
 class HierarchicalRiskParity(WeightEngine):
     """Hierarchical risk parity weighting with enhanced robustness."""
@@ -51,34 +64,37 @@ class HierarchicalRiskParity(WeightEngine):
         try:
             corr = _cov_to_corr(cov)
 
-            # Check for invalid correlations
             if np.any(~np.isfinite(corr.values)):
-                logger.warning("Non-finite correlations detected in HRP calculation")
-                warnings.warn(
-                    "Non-finite correlations detected in HRP calculation",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                # Fall back to diagonal correlation matrix
-                corr = pd.DataFrame(
-                    np.eye(len(cov)), index=cov.index, columns=cov.columns
+                return _warn_and_equal(
+                    cov.index,
+                    "Non-finite correlations detected in HRP calculation; using equal weights",
                 )
 
-            # Compute distance matrix as numpy array for typing clarity
-            dist_arr: FloatArray = np.sqrt(0.5 * (1.0 - corr.values))
-
-            # Ensure distance matrix is valid
-            if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
-                logger.warning("Invalid distance matrix in HRP, using equal weights")
-                warnings.warn(
-                    "Invalid distance matrix in HRP, using equal weights",
-                    RuntimeWarning,
-                    stacklevel=2,
+            # Reject correlations outside of [-1, 1] before constructing distances.
+            if np.any(np.abs(corr.values) > 1.0 + 1e-9):
+                return _warn_and_equal(
+                    cov.index,
+                    "Correlation coefficients outside [-1, 1] detected; using equal weights",
                 )
-                n = len(cov)
-                return pd.Series(np.ones(n) / n, index=cov.index)
 
-            condensed: FloatArray = squareform(dist_arr, checks=False)
+            dist_arr: FloatArray = np.sqrt(
+                np.clip(0.5 * (1.0 - corr.values), 0.0, None)
+            )
+
+            if np.any(~np.isfinite(dist_arr)):
+                return _warn_and_equal(
+                    cov.index,
+                    "Invalid distance matrix in HRP; using equal weights",
+                )
+
+            try:
+                condensed: FloatArray = squareform(dist_arr, checks=False)
+            except Exception:
+                return _warn_and_equal(
+                    cov.index,
+                    "Failed to convert correlation matrix to distances; using equal weights",
+                )
+
             link = linkage(condensed, method="single")
             sort_ix = corr.index[leaves_list(link)]
             cov_sorted = cov.loc[sort_ix, sort_ix]
@@ -126,14 +142,9 @@ class HierarchicalRiskParity(WeightEngine):
 
             # Final normalization and validation
             if w.sum() == 0:
-                logger.warning("Zero sum weights in HRP, using equal weights")
-                warnings.warn(
-                    "Zero sum weights in HRP, using equal weights",
-                    RuntimeWarning,
-                    stacklevel=2,
+                return _warn_and_equal(
+                    cov.index, "Zero sum weights in HRP; using equal weights"
                 )
-                n = len(cov)
-                return pd.Series(np.ones(n) / n, index=cov.index)
 
             w /= w.sum()
             logger.debug("Successfully computed HRP weights")
@@ -141,10 +152,6 @@ class HierarchicalRiskParity(WeightEngine):
 
         except Exception as e:
             logger.error(f"HRP computation failed: {e}, falling back to equal weights")
-            warnings.warn(
-                "HRP computation failed; using equal weights",
-                RuntimeWarning,
-                stacklevel=2,
+            return _warn_and_equal(
+                cov.index, "HRP computation failed; using equal weights"
             )
-            n = len(cov)
-            return pd.Series(np.ones(n) / n, index=cov.index)

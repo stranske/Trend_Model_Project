@@ -145,12 +145,31 @@ def detect_frequency(df: pd.DataFrame) -> str:
     try:
         info = classify_frequency(df.index)
     except MarketDataValidationError as exc:
-        user_msg = getattr(exc, "user_message", str(exc)) or ""
-        if "irregular" in user_msg.lower():
-            return f"irregular ({user_msg})"
-        return "unknown"
+        user_msg = (getattr(exc, "user_message", "") or str(exc) or "").strip()
+        issues = [str(issue).strip() for issue in getattr(exc, "issues", []) if issue]
+        detail_parts = [part for part in [user_msg, "; ".join(issues)] if part]
+        detail = "; ".join(part for part in detail_parts if part)
+        if detail:
+            return f"irregular ({detail})"
+        return "irregular"
     label = str(info.get("label") or "unknown")
     code = str(info.get("code") or "")
+    issues = info.get("issues") or []
+    message = str(info.get("message") or "")
+    if isinstance(issues, str):
+        issues = [issues]
+    irregular_hint = any(
+        isinstance(item, str) and "irregular" in item.lower() for item in issues
+    ) or ("irregular" in message.lower())
+    if irregular_hint:
+        details = [message.strip()] if message else []
+        details.extend(
+            item.strip() for item in issues if isinstance(item, str) and item.strip()
+        )
+        detail_text = "; ".join(d for d in details if d)
+        if detail_text:
+            return f"irregular ({detail_text})"
+        return "irregular"
     if label == "unknown" and code not in {"", "UNKNOWN"}:
         # Provide the compact code if available (e.g. D/W/M)
         return code

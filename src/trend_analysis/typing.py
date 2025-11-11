@@ -1,14 +1,12 @@
 """Shared typing aliases for trend_analysis multi-period outputs."""
 
-from __future__ import annotations
-
 import sys
 from importlib.machinery import ModuleSpec
 from types import ModuleType
-from typing import Mapping, MutableMapping, MutableSequence, TypedDict
+from typing import Mapping, MutableMapping, MutableSequence, TypeAlias, TypedDict
 
-CovarianceDiagonal = list[float]
-StatsMapping = Mapping[str, float] | MutableMapping[str, float]
+CovarianceDiagonal: TypeAlias = list[float]
+StatsMapping: TypeAlias = Mapping[str, float] | MutableMapping[str, float]
 
 __all__ = ["CovarianceDiagonal", "StatsMapping", "MultiPeriodPeriodResult"]
 
