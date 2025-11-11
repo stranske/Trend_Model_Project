@@ -12,7 +12,7 @@
     - `trend_analysis/backtesting/harness.py` – 100 %【83ab41†L1-L4】
     - `trend_analysis/regimes.py` – 99 %【163de3†L1-L4】
     - `trend_analysis/pipeline.py` – 99 %【6dbcd2†L1-L5】
-    - `trend_analysis/io/validators.py` – 100 %【59d676†L1-L4】
+    - `trend_analysis/io/validators.py` – 96 %【d82bfb†L1-L6】
     - `trend_analysis/run_analysis.py` – 99 %【aecd7d†L1-L5】
     - `trend_analysis/io/market_data.py` – 100 %【1bff4f†L1-L4】
     - `trend_analysis/signal_presets.py` – 100 %【7ce21c†L1-L4】
@@ -25,6 +25,7 @@
     - `trend_analysis/engine/optimizer.py` – 100 %【1b1469†L1-L4】
     - `trend_analysis/config/model.py` – 99 %【a13f70†L1-L4】
     - `trend_portfolio_app/monte_carlo/engine.py` – 100 %【92ae40†L1-L4】
+  - Regression suite for validators: `tests/test_trend_analysis_io_validators.py` (37 passed).【b2c36b†L1-L5】
 - [x] Increase test coverage incrementally for one set of related issues or 1 file below at a time
   - [x] __init__.py
   - [x] data.py
