@@ -146,12 +146,16 @@ def detect_frequency(df: pd.DataFrame) -> str:
         info = classify_frequency(df.index)
     except MarketDataValidationError as exc:
         user_msg = (getattr(exc, "user_message", "") or str(exc) or "").strip()
-        issues = [str(issue).strip() for issue in getattr(exc, "issues", []) if issue]
-        detail_parts = [part for part in [user_msg, "; ".join(issues)] if part]
-        detail = "; ".join(part for part in detail_parts if part)
-        if detail:
-            return f"irregular ({detail})"
-        return "irregular"
+        raw_issues = getattr(exc, "issues", [])
+        issues = [str(issue).strip() for issue in raw_issues if issue]
+        context_tokens = [user_msg.lower()] if user_msg else []
+        context_tokens.extend(issue.lower() for issue in issues if issue)
+        is_irregular = any("irregular" in token for token in context_tokens)
+        if is_irregular:
+            detail_parts = [part for part in [user_msg, "; ".join(issues)] if part]
+            detail = "; ".join(part for part in detail_parts if part)
+            return f"irregular ({detail})" if detail else "irregular"
+        return "unknown"
     label = str(info.get("label") or "unknown")
     code = str(info.get("code") or "")
     issues = info.get("issues") or []
