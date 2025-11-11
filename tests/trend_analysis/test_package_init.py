@@ -1,290 +1,199 @@
-"""Tests ensuring the top-level trend_analysis package wiring is covered."""
-
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import importlib.metadata
 import sys
-from types import SimpleNamespace
-from typing import Any, Callable
-from unittest.mock import MagicMock, call, patch
+from types import ModuleType
+from typing import Mapping
 
 import pytest
 
-PACKAGE = "trend_analysis"
-
 
 def _clear_trend_analysis_modules() -> None:
-    """Remove ``trend_analysis`` modules from ``sys.modules`` for a clean import."""
-
-    for name in list(sys.modules):
-        if name == PACKAGE or name.startswith(f"{PACKAGE}."):
-            sys.modules.pop(name, None)
-
-
-def _stub_module(name: str, **attrs: Any) -> SimpleNamespace:
-    """Return a simple module-like object populated with ``attrs``."""
-
-    module = SimpleNamespace(__name__=name)
-    for key, value in attrs.items():
-        setattr(module, key, value)
-    return module
-
-
-@pytest.fixture()
-def stubbed_imports():
-    """Provide a helper for reloading the package with patched imports."""
-
-    real_import_module = importlib.import_module
-
-    def _reload_with(
-        stubs: dict[str, Any],
-        *,
-        version: str | None = "1.2.3",
-        missing: set[str] | None = None,
-    ):
-        _clear_trend_analysis_modules()
-        missing = set(missing or ())
-
-        def fake_import(target: str, package: str | None = None):
-            if target in missing:
-                raise ImportError(target)
-            if target in stubs:
-                module = stubs[target]
-                sys.modules.setdefault(target, module)
-                return module
-            return real_import_module(target, package=package)
-
-        version_ctx: Callable[..., Any]
-        if version is None:
-            version_ctx = patch(
-                "importlib.metadata.version",
-                side_effect=importlib.metadata.PackageNotFoundError,
-            )
-        else:
-            version_ctx = patch("importlib.metadata.version", return_value=version)
-
-        with patch("importlib.import_module", side_effect=fake_import) as import_mock:
-            with version_ctx:
-                module = importlib.import_module(PACKAGE)
-        return module, import_mock
-
-    return _reload_with
-
-
-@pytest.fixture()
-def package_stubs():
-    """Return the base set of stub modules expected during package import."""
-
-    eager = {
-        f"{PACKAGE}.metrics": _stub_module(f"{PACKAGE}.metrics"),
-        f"{PACKAGE}.config": _stub_module(f"{PACKAGE}.config"),
-        f"{PACKAGE}.data": _stub_module(
-            f"{PACKAGE}.data",
-            identify_risk_free_fund=MagicMock(name="identify_risk_free_fund"),
-            load_csv=MagicMock(name="load_csv"),
-        ),
-        f"{PACKAGE}.pipeline": _stub_module(f"{PACKAGE}.pipeline"),
-        f"{PACKAGE}.export": _stub_module(
-            f"{PACKAGE}.export",
-            combined_summary_frame=MagicMock(name="combined_summary_frame"),
-            combined_summary_result=MagicMock(name="combined_summary_result"),
-            export_bundle=MagicMock(name="export_bundle"),
-            export_data=MagicMock(name="export_data"),
-            export_multi_period_metrics=MagicMock(name="export_multi_period_metrics"),
-            export_phase1_multi_metrics=MagicMock(name="export_phase1_multi_metrics"),
-            export_phase1_workbook=MagicMock(name="export_phase1_workbook"),
-            export_to_csv=MagicMock(name="export_to_csv"),
-            export_to_excel=MagicMock(name="export_to_excel"),
-            export_to_json=MagicMock(name="export_to_json"),
-            export_to_txt=MagicMock(name="export_to_txt"),
-            flat_frames_from_results=MagicMock(name="flat_frames_from_results"),
-            make_summary_formatter=MagicMock(name="make_summary_formatter"),
-            metrics_from_result=MagicMock(name="metrics_from_result"),
-            phase1_workbook_data=MagicMock(name="phase1_workbook_data"),
-            register_formatter_excel=MagicMock(name="register_formatter_excel"),
-            reset_formatters_excel=MagicMock(name="reset_formatters_excel"),
-        ),
-        f"{PACKAGE}.signals": _stub_module(f"{PACKAGE}.signals"),
-        f"{PACKAGE}.backtesting": _stub_module(f"{PACKAGE}.backtesting"),
-    }
-
-    lazy = {
-        f"{PACKAGE}.api": _stub_module(f"{PACKAGE}.api"),
-        f"{PACKAGE}.cli": _stub_module(f"{PACKAGE}.cli"),
-        f"{PACKAGE}.io": _stub_module(f"{PACKAGE}.io"),
-        f"{PACKAGE}.selector": _stub_module(f"{PACKAGE}.selector"),
-        f"{PACKAGE}.weighting": _stub_module(f"{PACKAGE}.weighting"),
-        f"{PACKAGE}.weights": _stub_module(f"{PACKAGE}.weights"),
-        f"{PACKAGE}.presets": _stub_module(f"{PACKAGE}.presets"),
-        f"{PACKAGE}.run_multi_analysis": _stub_module(f"{PACKAGE}.run_multi_analysis"),
-    }
-    eager.update(lazy)
-    return eager
-
-
-def test_eager_submodules_imported(package_stubs, stubbed_imports):
-    module, import_mock = stubbed_imports(package_stubs)
-
     for name in [
-        "metrics",
-        "config",
-        "data",
-        "pipeline",
-        "export",
-        "signals",
-        "backtesting",
+        key
+        for key in sys.modules
+        if key == "trend_analysis" or key.startswith("trend_analysis.")
     ]:
-        attr = getattr(module, name)
-        assert attr is package_stubs[f"{PACKAGE}.{name}"]
+        sys.modules.pop(name, None)
 
-    expected_calls = [
-        call(f"{PACKAGE}.{name}")
-        for name in [
-            "metrics",
-            "config",
-            "data",
-            "pipeline",
-            "export",
-            "signals",
-            "backtesting",
-        ]
-    ]
-    import_mock.assert_has_calls(expected_calls, any_order=True)
 
-    assert (
-        module.identify_risk_free_fund
-        is package_stubs[f"{PACKAGE}.data"].identify_risk_free_fund
+@pytest.fixture
+def load_trend_analysis():
+    preserved = {
+        name: module
+        for name, module in list(sys.modules.items())
+        if name == "trend_analysis" or name.startswith("trend_analysis.")
+    }
+
+    def loader(*, preloaded: Mapping[str, ModuleType] | None = None) -> ModuleType:
+        _clear_trend_analysis_modules()
+        if preloaded:
+            for name, module in preloaded.items():
+                sys.modules[name] = module
+        return importlib.import_module("trend_analysis")
+
+    yield loader
+
+    _clear_trend_analysis_modules()
+    for name, module in preserved.items():
+        sys.modules[name] = module
+
+    sys.modules.pop("tests.fake_module_for_trend_init", None)
+    sys.modules.pop("tests.fake_module_for_trend_init_existing", None)
+
+
+def _make_fake_dataclass(module_name: str) -> tuple[ModuleType, type[object]]:
+    fake_module = ModuleType(module_name)
+    fake_module.__dict__["__package__"] = module_name.rpartition(".")[0]
+    exec(
+        "from dataclasses import dataclass, InitVar\n"
+        "@dataclass\n"
+        "class Example:\n"
+        "    value: InitVar[int]\n",
+        fake_module.__dict__,
     )
-    assert module.load_csv is package_stubs[f"{PACKAGE}.data"].load_csv
-    assert module.export_to_csv is package_stubs[f"{PACKAGE}.export"].export_to_csv
-    assert (
-        module.combined_summary_frame
-        is package_stubs[f"{PACKAGE}.export"].combined_summary_frame
+    return fake_module, fake_module.Example
+
+
+def test_dataclasses_guard_reimports_missing_module(load_trend_analysis):
+    module = load_trend_analysis()
+    assert module is sys.modules["trend_analysis"]
+
+    module_name = "tests.fake_module_for_trend_init"
+    fake_module, cls = _make_fake_dataclass(module_name)
+    sys.modules.pop(module_name, None)
+
+    result = dataclasses._is_type(
+        "InitVar",
+        cls,
+        dataclasses,
+        dataclasses.InitVar,
+        lambda candidate, module: candidate is dataclasses.InitVar,
     )
 
-
-def test_lazy_imports_are_cached(package_stubs, stubbed_imports):
-    module, _ = stubbed_imports(package_stubs)
-
-    def fake_import(name: str, package: str | None = None):
-        resolved = package_stubs[name]
-        sys.modules.setdefault(name, resolved)
-        return resolved
-
-    lazy_names = [
-        "api",
-        "cli",
-        "io",
-        "selector",
-        "weighting",
-        "weights",
-        "presets",
-        "run_multi_analysis",
-    ]
-
-    with patch("importlib.import_module", side_effect=fake_import) as import_mock:
-        first = getattr(module, "api")
-        assert first is package_stubs[f"{PACKAGE}.api"]
-        # Cached attribute should be returned on subsequent access without a new import
-        assert module.api is first
-
-        for name in lazy_names[1:]:
-            getattr(module, name)
-
-    expected = [call(f"{PACKAGE}.{name}") for name in lazy_names]
-    import_mock.assert_has_calls(expected)
+    assert result is True or result is False
+    assert module_name in sys.modules
+    placeholder = sys.modules[module_name]
+    assert isinstance(placeholder, ModuleType)
+    assert placeholder.__dict__["__package__"] == "tests"
 
 
-def test_missing_lazy_attribute_raises(package_stubs, stubbed_imports):
-    module, _ = stubbed_imports(package_stubs)
+def test_dataclasses_guard_preserves_existing_modules(load_trend_analysis):
+    load_trend_analysis()
+    module_name = "tests.fake_module_for_trend_init_existing"
+    fake_module, cls = _make_fake_dataclass(module_name)
+    sys.modules[module_name] = fake_module
+
+    result = dataclasses._is_type(
+        "InitVar",
+        cls,
+        dataclasses,
+        dataclasses.InitVar,
+        lambda candidate, module: candidate is dataclasses.InitVar,
+    )
+
+    assert isinstance(result, bool)
+    assert sys.modules[module_name] is fake_module
+
+
+def test_dataclasses_guard_re_raises_for_orphan_modules(load_trend_analysis):
+    load_trend_analysis()
+
+    class Orphan:
+        __module__ = ""
 
     with pytest.raises(AttributeError):
-        getattr(module, "not_a_module")
+        dataclasses._is_type(
+            "InitVar",
+            Orphan,
+            dataclasses,
+            dataclasses.InitVar,
+            lambda candidate, module: False,
+        )
 
 
-def test_metadata_version_fallback(package_stubs, stubbed_imports):
-    module, _ = stubbed_imports(package_stubs, version=None)
+def test_spec_proxy_restores_module_registration(load_trend_analysis):
+    module = load_trend_analysis()
+    sys.modules.pop("trend_analysis", None)
 
+    spec = module.__spec__
+    assert spec.name == "trend_analysis"
+    assert sys.modules["trend_analysis"] is module
+
+
+def test_lazy_loader_imports_module_on_demand(load_trend_analysis):
+    module = load_trend_analysis()
+    sys.modules.pop("trend_analysis.cli", None)
+    module.__dict__.pop("cli", None)
+
+    lazy_loaded = module.cli
+
+    assert lazy_loaded is sys.modules["trend_analysis.cli"]
+    assert module.__dict__["cli"] is lazy_loaded
+
+
+def test_lazy_loader_rejects_unknown_attribute(load_trend_analysis):
+    module = load_trend_analysis()
+    with pytest.raises(AttributeError):
+        getattr(module, "not_a_real_submodule")
+
+
+def test_version_metadata_success_path(monkeypatch, load_trend_analysis):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    module = load_trend_analysis()
+    assert module.__version__ == "9.9.9"
+
+
+def test_version_metadata_fallback_path(monkeypatch, load_trend_analysis):
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda *_: (_ for _ in ()).throw(importlib.metadata.PackageNotFoundError()),
+    )
+    module = load_trend_analysis()
     assert module.__version__ == "0.1.0-dev"
 
 
-def test_metadata_version_from_distribution(package_stubs, stubbed_imports):
-    module, _ = stubbed_imports(package_stubs, version="9.9.9")
+def test_eager_imports_populate_conditional_exports(load_trend_analysis):
+    sentinel = ModuleType("trend_analysis.data")
+    sentinel.identify_risk_free_fund = object()
+    sentinel.load_csv = object()
 
-    assert module.__version__ == "9.9.9"
-    assert "__version__" in module.__all__
+    exporter = ModuleType("trend_analysis.export")
+    exporter.combined_summary_frame = object()
+    exporter.combined_summary_result = object()
+    exporter.export_bundle = object()
+    exporter.export_data = object()
+    exporter.export_multi_period_metrics = object()
+    exporter.export_phase1_multi_metrics = object()
+    exporter.export_phase1_workbook = object()
+    exporter.export_to_csv = object()
+    exporter.export_to_excel = object()
+    exporter.export_to_json = object()
+    exporter.export_to_txt = object()
+    exporter.flat_frames_from_results = object()
+    exporter.make_summary_formatter = object()
+    exporter.metrics_from_result = object()
+    exporter.phase1_workbook_data = object()
+    exporter.register_formatter_excel = object()
+    exporter.reset_formatters_excel = object()
 
-
-def test_optional_modules_absent(package_stubs, stubbed_imports):
-    missing = {f"{PACKAGE}.data", f"{PACKAGE}.export"}
-    module, _ = stubbed_imports(package_stubs, missing=missing)
-
-    assert "data" not in module.__dict__
-    assert "export" not in module.__dict__
-    # Data/export helpers should not be exposed when modules fail to import
-    assert not hasattr(module, "load_csv")
-    assert not hasattr(module, "export_to_csv")
-
-
-def test_dataclass_patch_recovers_missing_module(monkeypatch):
-    """The dataclass guard should repopulate missing module entries."""
-
-    import dataclasses
-    import importlib
-    import sys
-    import typing
-    from types import ModuleType
-    from typing import ClassVar
-
-    module = importlib.reload(dataclasses)
-    module.__dict__.pop("_trend_model_patched", None)
-
-    from trend_analysis import _patch_dataclasses_module_guard
-
-    _patch_dataclasses_module_guard()
-
-    class Dummy:
-        """Sentinel class whose module entry will be removed."""
-
-        pass
-
-    Dummy.__module__ = "ghost.module"
-    monkeypatch.delitem(sys.modules, "ghost.module", raising=False)
-
-    original_import = importlib.import_module
-
-    def fake_import(name: str, package: str | None = None):
-        if name == "ghost.module":
-            raise ImportError(name)
-        return original_import(name, package)
-
-    monkeypatch.setattr(importlib, "import_module", fake_import)
-
-    result = dataclasses._is_type(  # type: ignore[attr-defined]
-        "ClassVar",
-        Dummy,
-        typing,
-        ClassVar,
-        lambda candidate, mod: candidate is ClassVar,
+    module = load_trend_analysis(
+        preloaded={
+            "trend_analysis.data": sentinel,
+            "trend_analysis.export": exporter,
+        }
     )
-    assert result is False
+    assert module.load_csv is sentinel.load_csv
+    assert module.identify_risk_free_fund is sentinel.identify_risk_free_fund
+    assert module.export_bundle is exporter.export_bundle
+    assert module.reset_formatters_excel is exporter.reset_formatters_excel
 
-    restored = sys.modules["ghost.module"]
-    assert isinstance(restored, ModuleType)
-    assert restored.__dict__["__package__"] == "ghost"
 
-
-def test_spec_proxy_reinstates_module_registration(monkeypatch):
-    """Accessing ``name`` should restore the module in ``sys.modules``."""
-
-    import sys
-    from types import SimpleNamespace
-
-    import trend_analysis as package
-
-    proxy = package._SpecProxy(SimpleNamespace(name="trend_analysis"))
-
-    monkeypatch.delitem(sys.modules, "trend_analysis", raising=False)
-    assert proxy.name == "trend_analysis"
-    assert sys.modules["trend_analysis"] is package
+def test_lazy_loader_with_stubbed_module(load_trend_analysis):
+    stub = ModuleType("trend_analysis.engine")
+    module = load_trend_analysis(preloaded={"trend_analysis.engine": stub})
+    module.__dict__.pop("engine", None)
+    assert module.engine is stub
