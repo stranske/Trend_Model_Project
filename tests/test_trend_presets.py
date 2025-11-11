@@ -298,7 +298,7 @@ def test_trend_preset_defaults_with_sparse_config() -> None:
         label="Custom",
         description="",
         trend_spec=spec,
-        _config=raw_config,
+        _config=raw_config,,
     )
 
     defaults = preset.form_defaults()
