@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,11 @@ def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
     # Check for zero standard deviations
     if np.any(std == 0):
         logger.warning("Zero standard deviations detected in correlation calculation")
+        warnings.warn(
+            "Zero standard deviations detected in correlation calculation",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         std = np.maximum(std, np.max(std) * 1e-8)
 
     # Construct the outer product as a DataFrame to preserve types for mypy
@@ -48,6 +54,11 @@ class HierarchicalRiskParity(WeightEngine):
             # Check for invalid correlations
             if np.any(~np.isfinite(corr.values)):
                 logger.warning("Non-finite correlations detected in HRP calculation")
+                warnings.warn(
+                    "Non-finite correlations detected in HRP calculation",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 # Fall back to diagonal correlation matrix
                 corr = pd.DataFrame(
                     np.eye(len(cov)), index=cov.index, columns=cov.columns
@@ -59,6 +70,11 @@ class HierarchicalRiskParity(WeightEngine):
             # Ensure distance matrix is valid
             if np.any(~np.isfinite(dist_arr)) or np.any(dist_arr < 0):
                 logger.warning("Invalid distance matrix in HRP, using equal weights")
+                warnings.warn(
+                    "Invalid distance matrix in HRP, using equal weights",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 n = len(cov)
                 return pd.Series(np.ones(n) / n, index=cov.index)
 
