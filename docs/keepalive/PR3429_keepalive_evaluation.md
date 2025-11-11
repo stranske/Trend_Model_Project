@@ -99,11 +99,47 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 
 ## Outstanding Actions
 
-1. **Restore guardrail enforcement** – Block instruction emission whenever `agents:keepalive` is absent; add tests mirroring Rounds 11–13 scenario.
-2. **Monitor run-cap throttle** – Recent patch counts recently completed runs when enforcing the cap (5 min window). Observe upcoming scheduled sweeps to confirm the throttling halts rapid-fire reruns.
-3. **Monitor sync dispatches** – Branch-sync workflow now fetches with `git fetch --no-tags --prune origin "$BASE_REF"`; dry-run `19239811962` verified the empty-merge path. Continue to monitor production runs and capture evidence when a non-empty merge or connector PR is required.
-4. **Add failure escalation** – Ensure stale heads after update/create attempts apply `agents:sync-required` and post the escalation note.
-5. **Document outcome** – Update `docs/keepalive/AttemptLog_Nov2025.md` and guardrail docs once fixes land.
+1. **Restore guardrail enforcement** – Block instruction emission whenever `agents:keepalive` is absent and add regression coverage for the Rounds 11–13 scenario; confirm during the next guardrail drill.
+2. **Monitor run-cap throttle** – Recent patch counts recently completed runs when enforcing the cap (5 min window). The 2025-11-11 02:18Z sweep (`19252736124`) exited early with `keepalive_gate_reason=missing-pr-number`, leaving `run_cap`/`active_runs` outputs blank; an earlier run (`19244506591`, 2025-11-10 20:03Z) did reach `keepalive_gate_proceed=true` for PR 3444 but its run-cap summary is only visible in the job UI. We still need a sweep that both resolves the PR number **and** surfaces the run-cap counters in a retrievable log or summary artefact.
+3. **Monitor sync dispatches** – Branch-sync workflow now fetches with `git fetch --no-tags --prune origin "$BASE_REF"`; dry-run `19239811962` verified the empty-merge path. Watch the first non-empty merge to ensure update/create fallbacks succeed.
+4. **Add failure escalation** – Ensure stale heads after update/create attempts apply `agents:sync-required` and post the escalation note; plan escalation script changes once sync validation completes.
+5. **Document outcome** – Keep `docs/keepalive/AttemptLog_Nov2025.md` and guardrail docs in sync as fixes land so PR owners can reference a single status source.
+
+## PR #3444 Evidence Plan (2025-11-11)
+
+| Workflow run (ID) | Job / log reference | Guardrail focus | Planned usage |
+| --- | --- | --- | --- |
+| [Gate (19248010641)](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010641) | `github scripts tests` job – log lines showing `countActiveRuns` subtests (`gh run view 19248010641 --job 55026665489 --log \| sed -n '300,360p'`) | Run-cap throttle counts in-flight + ≤5 min completes | Capture TAP output confirming subtests 34–36 pass so we can cite concrete evidence that the throttle logic is under test. |
+| [Gate (19248010641)](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010641) | `python ci / python 3.12` job – pytest progress lines for `tests/test_agents_pr_meta_keepalive.py`, `tests/test_keepalive_guard_utils.py`, `tests/test_keepalive_post_work.py`, `tests/test_keepalive_workflow.py` (`gh run view 19248010641 --job 55026665495 --log \| sed -n '900,1040p'`) | Label + orchestrator guard behaviour | Record that the keepalive-specific suites executed cleanly, then map each module to Goals §§1–4 and §9 requirements during evaluation. |
+| [Gate summary (19248010641)](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010641) | `summary` job – `Append keepalive checklists` block (`gh run view 19248010641 --job 55026993570 --log \| grep -n "keepalive"`) | Instruction payload completeness | Verify the summary generator still appends the keepalive checklist sections; quote the rendered markdown in the evaluation when assessing noise controls. |
+| [Agents PR meta manager (19248010559)](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010559) | `Upsert PR body sections` job – issue sync log (`gh run view 19248010559 --job 55026653075 --log \| sed -n '320,400p'`) | Task/acceptance traceability | Confirm PR body sync still mirrors issue scope/tasks so instruction comments can inherit accurate checklists. |
+
+## Follow-up – 2025-11-11
+
+- Pulled Gate run [19248010641](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010641) logs. The `github scripts tests` job’s TAP output records:
+	- `ok 34 - countActiveRuns tallies in-flight runs without duplication`
+	- `ok 35 - countActiveRuns treats recent completed runs as active within the window`
+	- `ok 36 - countActiveRuns ignores the current run id to avoid self-counting`
+	These results confirm the newly-instrumented throttle logic (5 min window) is under automated test.
+- The same Gate run’s `python ci / python 3.12` job shows pytest executing the keepalive suites (`tests/test_agents_pr_meta_keepalive.py`, `tests/test_keepalive_guard_utils.py`, `tests/test_keepalive_post_work.py`, `tests/test_keepalive_workflow.py`), providing coverage for label checks, orchestrator dispatch flow, and post-work reconciliation. All modules reported `PASS` in the progress log.
+- The `summary` job within that run includes the `Append keepalive checklists` block and appends the rendered markdown to `gate-summary.md`, establishing that PR summaries still surface scope/tasks/acceptance data sourced from the issue.
+- Agents PR meta manager run [19248010559](https://github.com/stranske/Trend_Model_Project/actions/runs/19248010559) logs show the `Upsert PR body sections` job fetching issue #3442 content and regenerating the automated status summary. This ensures downstream instructions inherit the same checklist structure represented in the summary job.
+- Remaining gap: despite the stronger test coverage, none of the observed jobs enforce the live guardrail state (missing `agents:keepalive` label during Rounds 11–13) or trigger escalation when branch sync stalls. Evidence confirms the tooling is instrumented, but operational failures persist until the outstanding actions above are resolved.
+- Next step: observe the 2025-11-11 scheduled orchestrator sweep to verify the run-cap throttle counters report expected utilisation and block excess dispatches; capture the summary output for the record.
+- New data point: the 2025-11-11 02:18Z orchestrator sweep (`run 19252736124`) shows the `Evaluate keepalive gate` job emitting `::notice::keepalive_gate_proceed=false` and `keepalive_gate_reason=missing-pr-number`. No `run cap detail` line or `active_runs` outputs were produced, so the throttle counters remain unverified when the PR number is absent.
+- Historical reference: run `19244506591` (2025-11-10 20:03Z) resolved `KEEPALIVE_PR=3444` and reached `keepalive_gate_proceed=true`. The job summary (UI-only) records the run-cap utilisation, but that markdown is not exposed through the CLI logs we pulled; we still need an accessible artefact (summary scrape or new run with CLI-visible counters) before we can cite exact inflight/recent counts.
+- Prepare a regression patch if the sweep still exceeds the cap; otherwise promote the guardrail test plan into CI once evidence shows the throttle is effective.
+
+### Review Procedure – 2025-11-11
+
+1. Re-read `docs/keepalive/GoalsAndPlumbing.md` (focus on §§1–5, §8, §9) and `docs/keepalive/SyncChecklist.md` to restate expected behaviour before evaluating evidence.
+2. Collect PR metadata and job history via `gh pr view 3444 --json ...` and `gh pr diff 3444` to enumerate modified artefacts and workflow runs.
+3. Execute the evidence plan in §“PR #3444 Evidence Plan”: 
+	 - Extract the `countActiveRuns` TAP lines from the Gate `github scripts tests` job.
+	 - Pull the pytest progress block covering keepalive test modules from the Gate `python ci / python 3.12` job.
+	 - Capture the `Append keepalive checklists` output and PR-body sync logs from the summary and PR meta manager jobs.
+4. Map each captured log snippet back to the relevant guardrail requirement (Goals §§1–5, §9; Sync Checklist §§1–5) and flag whether the evidence demonstrates enforcement or simply coverage.
+5. Reconcile the findings with the Outstanding Actions list, updating this report and `docs/keepalive/AttemptLog_Nov2025.md` with explicit conclusions and next steps.
 
 ## Remediation Notes (2025-11-10)
 
@@ -113,3 +149,4 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - Branch sync: latest failure `19222734980` (phase-2-dev) recorded minutes before the PR keepalive burst.
 - Branch sync detail: job `Prepare sync branch` formerly aborted with `fatal: depth 0 is not a positive number`, blocking the update-branch fallback.
 - Workflow patch: `agents-keepalive-branch-sync.yml` now uses `git fetch --no-tags --prune origin "$BASE_REF"`; dry run `19239811962` completed successfully (sync empty), validating the fix.
+- 2025-11-11 review: Coverage-focused PR #3444 introduced no changes to keepalive automation; issues in §§1–4 and §§7–9 remain outstanding pending targeted fixes.
