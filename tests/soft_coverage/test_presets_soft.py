@@ -176,11 +176,17 @@ def test_metric_key_helpers_ignore_unknown_values() -> None:
 
 
 def test_helper_functions_cover_edge_cases(tmp_path: Path) -> None:
-    weights = presets._normalise_metric_weights(
-        {"Sharpe": "3", "invalid": object(), "": 1}
-    )
+    # Edge case 1: string coercion
+    weights = presets._normalise_metric_weights({"Sharpe": "3"})
     assert weights == {"sharpe": 3.0}
 
+    # Edge case 2: invalid object type should be ignored
+    weights = presets._normalise_metric_weights({"invalid": object()})
+    assert weights == {}
+
+    # Edge case 3: empty string key should be ignored
+    weights = presets._normalise_metric_weights({"": 1})
+    assert weights == {}
     assert presets._normalise_metric_weights({"Sharpe": "bad"}) == {}
 
     assert presets._coerce_int("not-an-int", default=7, minimum=3) == 7
