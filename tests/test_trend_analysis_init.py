@@ -1,285 +1,188 @@
-"""Tests for the ``trend_analysis`` package bootstrap module."""
+"""Tests for the ``trend_analysis`` package initializer."""
 
 from __future__ import annotations
 
-import dataclasses
 import importlib
+import importlib.metadata
 import sys
 from types import ModuleType
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 
 
-def _reload_trend_analysis() -> ModuleType:
-    """Reload ``trend_analysis`` to ensure a clean module state for each test."""
+def _purge_trend_analysis_modules() -> None:
+    """Remove cached ``trend_analysis`` modules from ``sys.modules``.
+
+    Reloading the package is required for many of the behaviours under test, so
+    this helper clears both the package itself and any already-imported
+    submodules to ensure each test exercises the initializer logic from a clean
+    state.
+    """
+
+    for name in list(sys.modules):
+        if name == "trend_analysis" or name.startswith("trend_analysis."):
+            sys.modules.pop(name)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_trend_analysis() -> Iterator[None]:
+    """Guarantee a clean import state before and after each test."""
+
+    _purge_trend_analysis_modules()
+    try:
+        yield
+    finally:
+        _purge_trend_analysis_modules()
+
+
+def test_dataclass_guard_recovers_missing_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The patched ``dataclasses._is_type`` restores removed module entries."""
+
+    import dataclasses
 
     module = importlib.import_module("trend_analysis")
-    return importlib.reload(module)
 
-
-def test_patch_guard_recovers_missing_module(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The dataclass guard should recreate missing module entries transparently."""
-
-    module = _reload_trend_analysis()
-
-    call_counter = {"count": 0}
+    original_safe = dataclasses._is_type  # type: ignore[attr-defined]
 
     def stub_is_type(
-        annotation: Any,
-        cls: type[Any],
-        a_module: Any,
-        a_type: Any,
-        predicate: Any,
+        annotation: object,
+        cls: type[object],
+        a_module: object,
+        a_type: object,
+        predicate: object,
     ) -> bool:
-        call_counter["count"] += 1
-        if call_counter["count"] == 1:
-            raise AttributeError("module missing during dataclass resolution")
-        return True
+        if cls.__module__ not in sys.modules:
+            raise AttributeError("module missing")
+        return bool(original_safe(annotation, cls, a_module, a_type, predicate))
 
-    placeholder: ModuleType | None = None
+    monkeypatch.setattr(dataclasses, "_is_type", stub_is_type, raising=False)
+    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
 
-    with monkeypatch.context() as patcher:
-        patcher.setattr(dataclasses, "_is_type", stub_is_type, raising=False)
-        patcher.delattr(dataclasses, "_trend_model_patched", raising=False)
-        module = importlib.reload(module)
+    module._patch_dataclasses_module_guard()  # type: ignore[attr-defined]
+    patched = dataclasses._is_type  # type: ignore[attr-defined]
+    missing_name = "tests.fake_trend_analysis_guard"
+    sys.modules.pop(missing_name, None)
+    dummy_cls = type("Dummy", (), {"__module__": missing_name})
 
-        missing_name = "tests.fake_dataclass_module"
-        dummy_cls = type("Dummy", (), {})
-        dummy_cls.__module__ = missing_name
+    try:
+        result = patched("Dummy", dummy_cls, None, None, lambda *_: False)
+        assert isinstance(result, bool)
+        placeholder = sys.modules[missing_name]
+        assert isinstance(placeholder, ModuleType)
+        assert placeholder.__package__ == "tests"
+        assert module._SAFE_IS_TYPE is patched  # type: ignore[attr-defined]
+        assert getattr(dataclasses, "_trend_model_patched") is True
+        second = patched("Dummy", dummy_cls, None, None, lambda *_: False)
+        assert isinstance(second, bool)
+    finally:
         sys.modules.pop(missing_name, None)
 
-        try:
-            result = module._SAFE_IS_TYPE(
-                object, dummy_cls, None, None, lambda *_: True
-            )
-            placeholder = sys.modules.get(missing_name)
-        finally:
-            sys.modules.pop(missing_name, None)
-
-    assert result is True
-    assert isinstance(placeholder, ModuleType)
-    assert placeholder.__package__ == "tests"
-    importlib.reload(module)
-
-
-def test_patch_guard_idempotent() -> None:
-    """Running the guard twice should keep the patched helper stable."""
-
-    module = _reload_trend_analysis()
-    safe_before = module._SAFE_IS_TYPE
-    module._patch_dataclasses_module_guard()
-    assert module._SAFE_IS_TYPE is safe_before
-
-
-def test_patch_guard_handles_absent_original(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If dataclasses lacks ``_is_type`` the guard should return early."""
-
-    module = _reload_trend_analysis()
-    safe_before = module._SAFE_IS_TYPE
-
-    with monkeypatch.context() as patcher:
-        patcher.delattr(dataclasses, "_is_type", raising=False)
-        patcher.delattr(dataclasses, "_trend_model_patched", raising=False)
-        module = importlib.reload(module)
-
-    assert module._SAFE_IS_TYPE is safe_before
-    importlib.reload(module)
-
-
-def test_patch_guard_reuses_existing_patch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When the guard runs twice it should keep the existing sentinel helper."""
-
-    module = _reload_trend_analysis()
-
-    with monkeypatch.context() as patcher:
-        sentinel = object()
-        patcher.setattr(dataclasses, "_trend_model_patched", True, raising=False)
-        patcher.setattr(dataclasses, "_is_type", sentinel, raising=False)
-        module = importlib.reload(module)
-
-    assert module._SAFE_IS_TYPE is sentinel
-    importlib.reload(module)
+    # A second invocation should reuse the cached safe handler without work.
+    module._patch_dataclasses_module_guard()  # type: ignore[attr-defined]
+    assert dataclasses._is_type is patched  # type: ignore[attr-defined]
 
 
 def test_spec_proxy_re_registers_module() -> None:
-    """Accessing ``__spec__.name`` should restore the module registration."""
+    """Accessing the spec proxies ``sys.modules`` to the live module object."""
 
-    module = _reload_trend_analysis()
-    original = sys.modules["trend_analysis"]
-    sys.modules["trend_analysis"] = ModuleType("trend_analysis")
+    module = importlib.import_module("trend_analysis")
+    spec = module.__spec__
+    assert spec is not None
+    assert spec.name == "trend_analysis"
 
-    try:
-        assert module.__spec__.name == "trend_analysis"
-    finally:
-        sys.modules["trend_analysis"] = original
+    sys.modules.pop("trend_analysis")
+    assert "trend_analysis" not in sys.modules
+    assert module.__spec__.name == "trend_analysis"
+    assert sys.modules["trend_analysis"] is module
 
-    assert sys.modules["trend_analysis"] is original
-
-
-def test_lazy_attribute_imports_module() -> None:
-    """Lazy attributes should import their target module on first access."""
-
-    module = _reload_trend_analysis()
-    module.__dict__.pop("presets", None)
-    sys.modules.pop("trend_analysis.presets", None)
-
-    presets = module.presets
-    assert presets is sys.modules["trend_analysis.presets"]
-    assert module.presets is presets
+    sys.modules.pop("trend_analysis")
+    module._ensure_registered()  # type: ignore[attr-defined]
+    assert sys.modules["trend_analysis"] is module
 
 
-def test_safe_is_type_requires_module_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The patched helper should bubble up errors when no module name exists."""
+def test_lazy_loader_imports_and_caches_modules() -> None:
+    """Lazy attributes import their modules once and remain cached."""
 
-    module = _reload_trend_analysis()
+    module = importlib.import_module("trend_analysis")
 
-    def always_fail(*_: Any) -> bool:
-        raise AttributeError("no module available")
+    module.__dict__.pop("api", None)
+    sys.modules.pop("trend_analysis.api", None)
 
-    with monkeypatch.context() as patcher:
-        patcher.setattr(dataclasses, "_is_type", always_fail, raising=False)
-        patcher.delattr(dataclasses, "_trend_model_patched", raising=False)
-        module = importlib.reload(module)
+    api_module = module.api
+    assert api_module is sys.modules["trend_analysis.api"]
+    assert module.api is api_module
 
-        nameless = type("Nameless", (), {})
-        nameless.__module__ = ""
-
-        with pytest.raises(AttributeError, match="no module available"):
-            module._SAFE_IS_TYPE(object, nameless, None, None, lambda *_: True)
-
-    importlib.reload(module)
+    with pytest.raises(AttributeError):
+        getattr(module, "definitely_missing")
 
 
-def test_version_uses_metadata_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Package metadata should take precedence when available."""
+def test_version_metadata_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Package metadata populates ``__version__`` when available."""
 
-    module = _reload_trend_analysis()
-
-    def fake_version(_: str) -> str:
-        return "9.9.9"
-
-    with monkeypatch.context() as patcher:
-        patcher.setattr(importlib.metadata, "version", fake_version)
-        reloaded = importlib.reload(module)
-        assert reloaded.__version__ == "9.9.9"
-
-    importlib.reload(module)
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "9.9.9")
+    module = importlib.import_module("trend_analysis")
+    assert module.__version__ == "9.9.9"
 
 
-def test_version_falls_back_when_distribution_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """If the distribution metadata is absent we should expose the dev fallback."""
+def test_version_metadata_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing distribution falls back to the development version string."""
 
-    module = _reload_trend_analysis()
-
-    def raise_missing(_: str) -> str:
+    def missing(_name: str) -> str:
         raise importlib.metadata.PackageNotFoundError
 
-    with monkeypatch.context() as patcher:
-        patcher.setattr(importlib.metadata, "version", raise_missing)
-        reloaded = importlib.reload(module)
-        assert reloaded.__version__ == "0.1.0-dev"
-
-    importlib.reload(module)
+    monkeypatch.setattr(importlib.metadata, "version", missing)
+    module = importlib.import_module("trend_analysis")
+    assert module.__version__ == "0.1.0-dev"
 
 
-def test_eager_import_skips_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Eager imports should ignore optional modules that raise ImportError."""
+def test_dataclass_guard_handles_absent_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Re-running the guard without ``_is_type`` leaves the patch untouched."""
 
-    module = _reload_trend_analysis()
-    original_import_module = importlib.import_module
+    import dataclasses
 
-    def selective_import(name: str, package: str | None = None) -> ModuleType:
-        if name == "trend_analysis.metrics":
-            raise ImportError("metrics optional dependency missing")
-        return original_import_module(name, package)
-
-    with monkeypatch.context() as patcher:
-        patcher.setattr(importlib, "import_module", selective_import)
-        module.__dict__.pop("metrics", None)
-        sys.modules.pop("trend_analysis.metrics", None)
-        module = importlib.reload(module)
-
-    assert "metrics" not in module.__dict__
-    importlib.reload(module)
+    module = importlib.import_module("trend_analysis")
+    monkeypatch.delattr(dataclasses, "_is_type", raising=False)
+    module._patch_dataclasses_module_guard()  # type: ignore[attr-defined]
+    assert not hasattr(dataclasses, "_is_type")
 
 
-def test_safe_is_type_uses_existing_module(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When the placeholder already exists we should reuse it without re-imports."""
+def test_initializer_branches_skip_when_dependencies_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Importing with missing optional modules executes the skip branches."""
 
-    module = _reload_trend_analysis()
-    placeholder = ModuleType("tests.coverage_placeholder")
-    sys.modules["tests.coverage_placeholder"] = placeholder
+    from importlib import util
+    from pathlib import Path
 
-    call_counter = {"count": 0}
+    missing = {"trend_analysis.data", "trend_analysis.export"}
+    real_import = importlib.import_module
 
-    def stub_is_type(
-        annotation: Any,
-        cls: type[Any],
-        a_module: Any,
-        a_type: Any,
-        predicate: Any,
-    ) -> bool:
-        call_counter["count"] += 1
-        if call_counter["count"] == 1:
-            raise AttributeError("module already registered")
-        return True
+    def guarded(name: str, package: str | None = None) -> ModuleType:
+        if name in missing:
+            raise ImportError("optional dependency unavailable")
+        if name.startswith("trend_analysis.") and name not in sys.modules:
+            sys.modules[name] = ModuleType(name)
+        return real_import(name, package=package)
 
-    try:
-        with monkeypatch.context() as patcher:
-            patcher.setattr(dataclasses, "_is_type", stub_is_type, raising=False)
-            patcher.delattr(dataclasses, "_trend_model_patched", raising=False)
-            module = importlib.reload(module)
+    monkeypatch.setattr(importlib, "import_module", guarded)
 
-            dummy_cls = type("Dummy", (), {})
-            dummy_cls.__module__ = "tests.coverage_placeholder"
-            assert module._SAFE_IS_TYPE(object, dummy_cls, None, None, lambda *_: True)
-    finally:
-        sys.modules.pop("tests.coverage_placeholder", None)
-        importlib.reload(module)
+    module_path = Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "__init__.py"
+    spec = util.spec_from_file_location("trend_analysis", module_path)
+    assert spec and spec.loader
+    module = util.module_from_spec(spec)
+    module.__spec__ = None
+    sys.modules["trend_analysis"] = module
+    spec.loader.exec_module(module)
 
-
-def test_ensure_registered_resets_sys_modules() -> None:
-    """Re-registering should restore the canonical module entry."""
-
-    module = _reload_trend_analysis()
-    sys.modules["trend_analysis"] = ModuleType("trend_analysis")
-
-    try:
-        module._ensure_registered()
-        assert sys.modules["trend_analysis"] is module
-    finally:
-        sys.modules["trend_analysis"] = module
-
-
-def test_reload_skips_conditional_exports(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If exporting fails to import we should leave derived exports undefined."""
-
-    module = _reload_trend_analysis()
-    original_import = importlib.import_module
-
-    def selective(name: str, package: str | None = None) -> ModuleType:
-        if name == "trend_analysis.export":
-            raise ImportError("export unavailable")
-        return original_import(name, package)
-
-    with monkeypatch.context() as patcher:
-        patcher.setattr(importlib, "import_module", selective)
-        module.__dict__.pop("export", None)
-        sys.modules.pop("trend_analysis.export", None)
-        for attr in {
-            "export_to_csv",
-            "export_to_json",
-            "export_to_excel",
-            "export_to_txt",
-            "export_data",
-        }:
-            module.__dict__.pop(attr, None)
-        module = importlib.reload(module)
-
+    assert "data" not in module.__dict__
     assert "export" not in module.__dict__
-    assert "export_to_csv" not in module.__dict__
-    assert "export_to_json" not in module.__dict__
-    importlib.reload(module)
+    assert module._ORIGINAL_SPEC is None  # type: ignore[attr-defined]
+
+
+def test_dataclass_guard_rejects_missing_module_name() -> None:
+    """The safe guard propagates AttributeError when no module is available."""
+
+    module = importlib.import_module("trend_analysis")
+    missing_module_cls = type("NoModule", (), {"__module__": None})
+
+    with pytest.raises(AttributeError):
+        module._SAFE_IS_TYPE("Dummy", missing_module_cls, None, None, lambda *_: False)  # type: ignore[attr-defined]

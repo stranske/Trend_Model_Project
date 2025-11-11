@@ -26,10 +26,10 @@
     17. `trend_analysis/backtesting/bootstrap.py` – 100 % (already above target)【37fc58†L33-L34】
     18. `trend_analysis/backtesting/harness.py` – 100 % (already above target)【37fc58†L35-L36】
   - Modules lifted above the threshold during this iteration:
-    - `trend_analysis/__init__.py` – 98 % (met)【ddf65b†L1-L5】
+    - `trend_analysis/__init__.py` – 99 % (met)【74f6b8†L1-L5】
 - [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
-  - [x] __init__.py – 98 % line coverage after targeted tests【ddf65b†L1-L5】
-    - Command: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis -m pytest tests/test_trend_analysis_init.py`【fa9f59†L1-L1】
+  - [x] __init__.py – 99 % line coverage after targeted tests【74f6b8†L1-L5】
+    - Command: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis -m pytest tests/test_trend_analysis_init.py`【8a4068†L1-L3】
   - [ ] data.py – 30 % line coverage【37fc58†L45-L47】
   - [ ] presets.py – 15 % line coverage【37fc58†L87-L89】
   - [x] harness.py – 100 % line coverage (already satisfies target)【37fc58†L35-L36】
