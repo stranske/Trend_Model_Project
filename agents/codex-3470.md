@@ -4,7 +4,16 @@
 - [ ] Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage
 
 ## Tasks
-- [ ] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
+- [x] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
+  - Coverage findings (≤95%):
+    1. `src/trend/reporting/unified.py` – 88%
+    2. `src/trend_analysis/multi_period/engine.py` – 93%
+    3. `src/trend/cli.py` – 94%
+    4. `src/trend_portfolio_app/app.py` – 94%
+    5. `src/trend_analysis/config/legacy.py` – 95%
+    6. `src/trend_analysis/export/__init__.py` – 95%
+  - Improvements delivered this pass:
+    - `src/trend_portfolio_app/monte_carlo/engine.py` – lifted to 100% via new base-class tests.
 - [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
   - [ ] __init__.py
   - [ ] data.py
@@ -24,7 +33,7 @@
   - [ ] cli.py
   - [ ] optimizer.py
   - [ ] model.py
-  - [ ] engine.py
+  - [x] engine.py
 
 ## Acceptance criteria
 - [ ] Test coverage exceeds 95% for each file

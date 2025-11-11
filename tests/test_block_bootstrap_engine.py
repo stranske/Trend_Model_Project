@@ -4,6 +4,7 @@ import pytest
 
 from trend_portfolio_app.monte_carlo.engine import (
     BlockBootstrapModel,
+    ReturnModel,
     ReturnModelConfig,
 )
 
@@ -18,6 +19,16 @@ def test_sample_before_fit_raises():
     model = BlockBootstrapModel(ReturnModelConfig(block=3, seed=0))
     with pytest.raises(RuntimeError):
         model.sample(5, 1)
+
+
+def test_return_model_base_methods_raise():
+    base = ReturnModel()
+
+    with pytest.raises(NotImplementedError):
+        base.fit(pd.DataFrame())
+
+    with pytest.raises(NotImplementedError):
+        base.sample(2, 1)
 
 
 def test_output_shape_and_reproducibility():
