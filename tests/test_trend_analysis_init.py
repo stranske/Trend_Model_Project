@@ -6,7 +6,7 @@ import importlib
 import importlib.metadata
 import sys
 from types import ModuleType
-from typing import Any, Iterator
+from typing import Iterator
 
 import pytest
 
@@ -36,7 +36,9 @@ def _fresh_trend_analysis() -> Iterator[None]:
         _purge_trend_analysis_modules()
 
 
-def test_dataclass_guard_recovers_missing_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclass_guard_recovers_missing_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The patched ``dataclasses._is_type`` restores removed module entries."""
 
     import dataclasses
@@ -136,7 +138,9 @@ def test_version_metadata_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert module.__version__ == "0.1.0-dev"
 
 
-def test_dataclass_guard_handles_absent_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclass_guard_handles_absent_helpers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Re-running the guard without ``_is_type`` leaves the patch untouched."""
 
     import dataclasses
@@ -147,7 +151,9 @@ def test_dataclass_guard_handles_absent_helpers(monkeypatch: pytest.MonkeyPatch)
     assert not hasattr(dataclasses, "_is_type")
 
 
-def test_initializer_branches_skip_when_dependencies_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_initializer_branches_skip_when_dependencies_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Importing with missing optional modules executes the skip branches."""
 
     from importlib import util
@@ -165,7 +171,9 @@ def test_initializer_branches_skip_when_dependencies_missing(monkeypatch: pytest
 
     monkeypatch.setattr(importlib, "import_module", guarded)
 
-    module_path = Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "__init__.py"
+    module_path = (
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "__init__.py"
+    )
     spec = util.spec_from_file_location("trend_analysis", module_path)
     assert spec and spec.loader
     module = util.module_from_spec(spec)
