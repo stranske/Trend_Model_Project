@@ -59,7 +59,11 @@ def test_main_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) -
         return None
 
     monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
-    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: pytest.fail("run_simulation should not run"))
+    monkeypatch.setattr(
+        run_analysis.api,
+        "run_simulation",
+        lambda *_: pytest.fail("run_simulation should not run"),
+    )
 
     with pytest.raises(FileNotFoundError):
         run_analysis.main(["--config", "config.yml"])
@@ -125,11 +129,15 @@ def test_main_runs_pipeline_and_exports(monkeypatch: pytest.MonkeyPatch) -> None
         format_args["split"] = split
         return "Rendered summary"
 
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", fake_format_summary_text)
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", fake_format_summary_text
+    )
 
     export_calls: dict[str, object] = {}
 
-    def fake_export_data(data: dict[str, object], path: str, *, formats: list[str]) -> None:
+    def fake_export_data(
+        data: dict[str, object], path: str, *, formats: list[str]
+    ) -> None:
         export_calls["data"] = data
         export_calls["path"] = path
         export_calls["formats"] = formats
@@ -147,7 +155,9 @@ def test_main_runs_pipeline_and_exports(monkeypatch: pytest.MonkeyPatch) -> None
     assert kwargs["extra"] == {}
 
     assert run_args["config"] is config
-    pd.testing.assert_frame_equal(run_args["dataframe"], pd.DataFrame({"metric": [1.0]}))
+    pd.testing.assert_frame_equal(
+        run_args["dataframe"], pd.DataFrame({"metric": [1.0]})
+    )
 
     assert format_args["split"] == (
         "2020-01-01",
@@ -164,7 +174,9 @@ def test_main_runs_pipeline_and_exports(monkeypatch: pytest.MonkeyPatch) -> None
     pd.testing.assert_frame_equal(exported["performance_by_regime"], regime_table)
 
 
-def test_main_uses_existing_missing_policy(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_uses_existing_missing_policy(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     config = _make_config(
         data={
             "csv_path": "input.csv",
@@ -196,8 +208,14 @@ def test_main_uses_existing_missing_policy(monkeypatch: pytest.MonkeyPatch, caps
         details={},
     )
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: result)
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_: pytest.fail("no summary"))
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *_args, **_kwargs: pytest.fail("no export expected"))
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_: pytest.fail("no summary")
+    )
+    monkeypatch.setattr(
+        run_analysis.export,
+        "export_data",
+        lambda *_args, **_kwargs: pytest.fail("no export expected"),
+    )
 
     status = run_analysis.main(["--config", "config.yml", "--detailed"])
     assert status == 0
@@ -211,7 +229,9 @@ def test_main_uses_existing_missing_policy(monkeypatch: pytest.MonkeyPatch, caps
 
 
 def test_main_supports_legacy_nan_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = _make_config(data={"csv_path": "legacy.csv", "nan_policy": "bfill", "nan_limit": 1})
+    config = _make_config(
+        data={"csv_path": "legacy.csv", "nan_policy": "bfill", "nan_limit": 1}
+    )
     monkeypatch.setattr(run_analysis, "load", lambda _path: config)
 
     captured: dict[str, object] = {}
@@ -233,14 +253,21 @@ def test_main_supports_legacy_nan_arguments(monkeypatch: pytest.MonkeyPatch) -> 
     metrics = pd.DataFrame({"return": [0.2]})
     result = SimpleNamespace(
         metrics=metrics,
-        details={"performance_by_regime": pd.DataFrame({"regime": [], "value": []}), "regime_notes": []},
+        details={
+            "performance_by_regime": pd.DataFrame({"regime": [], "value": []}),
+            "regime_notes": [],
+        },
     )
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: result)
 
     export_calls: dict[str, object] = {}
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_args: "Legacy summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_args: "Legacy summary"
+    )
 
-    def record_export(data: dict[str, object], path: str, *, formats: list[str]) -> None:
+    def record_export(
+        data: dict[str, object], path: str, *, formats: list[str]
+    ) -> None:
         export_calls["data"] = data
         export_calls["path"] = path
         export_calls["formats"] = formats
@@ -273,17 +300,24 @@ def test_main_falls_back_to_default_export(monkeypatch: pytest.MonkeyPatch) -> N
 
     result = SimpleNamespace(
         metrics=pd.DataFrame({"metric": [3.0]}),
-        details={"performance_by_regime": pd.DataFrame({"regime": ["A"], "value": [1.0]}), "regime_notes": ["X"]},
+        details={
+            "performance_by_regime": pd.DataFrame({"regime": ["A"], "value": [1.0]}),
+            "regime_notes": ["X"],
+        },
     )
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: result)
 
     monkeypatch.setattr(run_analysis, "DEFAULT_OUTPUT_DIRECTORY", "generated")
     monkeypatch.setattr(run_analysis, "DEFAULT_OUTPUT_FORMATS", ["csv"])
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_args: "Default summary")
+    monkeypatch.setattr(
+        run_analysis.export, "format_summary_text", lambda *_args: "Default summary"
+    )
 
     export_calls: dict[str, object] = {}
 
-    def record_export(data: dict[str, object], path: str, *, formats: list[str]) -> None:
+    def record_export(
+        data: dict[str, object], path: str, *, formats: list[str]
+    ) -> None:
         export_calls["data"] = data
         export_calls["path"] = path
         export_calls["formats"] = formats
@@ -298,7 +332,9 @@ def test_main_falls_back_to_default_export(monkeypatch: pytest.MonkeyPatch) -> N
     assert "regime_notes" in export_calls["data"]
 
 
-def test_main_detailed_mode(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_detailed_mode(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     config = _make_config(export={})
     monkeypatch.setattr(run_analysis, "load", lambda _path: config)
 
@@ -319,8 +355,16 @@ def test_main_detailed_mode(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Capt
         details={"performance_by_regime": pd.DataFrame(), "regime_notes": []},
     )
     monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: result)
-    monkeypatch.setattr(run_analysis.export, "format_summary_text", lambda *_: pytest.fail("summary not expected"))
-    monkeypatch.setattr(run_analysis.export, "export_data", lambda *_args, **_kwargs: pytest.fail("no export"))
+    monkeypatch.setattr(
+        run_analysis.export,
+        "format_summary_text",
+        lambda *_: pytest.fail("summary not expected"),
+    )
+    monkeypatch.setattr(
+        run_analysis.export,
+        "export_data",
+        lambda *_args, **_kwargs: pytest.fail("no export"),
+    )
 
     status = run_analysis.main(["--config", "config.yml", "--detailed"])
     assert status == 0
