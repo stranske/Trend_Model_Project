@@ -358,3 +358,751 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
     assert results[0]["cache_stats"] == {"updates": 0}
     assert results[1]["cov_diag"] == [1.5, 2.5]
     assert results[1]["cache_stats"] == {"updates": 1}
+
+
+def test_run_missing_policy_removal_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyCfg()
+    cfg.data = {"csv_path": "demo.csv", "nan_policy": "drop", "nan_limit": 2}
+    cfg.performance = {}
+
+    loaded = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "FundA": [0.01, 0.02, 0.03],
+        }
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str,
+        missing_policy: object,
+        missing_limit: object,
+    ) -> pd.DataFrame:
+        captured.update(
+            {
+                "path": path,
+                "errors": errors,
+                "policy": missing_policy,
+                "limit": missing_limit,
+            }
+        )
+        return loaded
+
+    monkeypatch.setattr(engine, "load_csv", fake_load_csv)
+
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: object,
+        limit: object,
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        empty = frame.copy()
+        empty[:] = np.nan
+        return empty, {"policy": policy, "limit": limit}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+
+    with pytest.raises(ValueError, match="Missing-data policy removed all assets"):
+        engine.run(cfg)
+
+    assert captured == {
+        "path": "demo.csv",
+        "errors": "raise",
+        "policy": "drop",
+        "limit": 2,
+    }
+
+
+def test_run_threshold_hold_low_weight_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trend_analysis.core import rank_selection
+
+    class THConfig(DummyCfg):
+        def __init__(self) -> None:
+            super().__init__()
+            self.data = {"missing_policy": "ffill"}
+            self.portfolio.update(
+                {
+                    "policy": "threshold_hold",
+                    "threshold_hold": {
+                        "metric": "Sharpe",
+                        "target_n": 4,
+                        "min_weight_strikes": 1,
+                    },
+                    "constraints": {
+                        "min_weight": 0.3,
+                        "max_weight": 0.6,
+                        "max_funds": 4,
+                        "min_weight_strikes": 1,
+                    },
+                    "weighting": {"name": "equal"},
+                    "transaction_cost_bps": 25,
+                    "max_turnover": 0.4,
+                }
+            )
+
+    cfg = THConfig()
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-02",
+            out_start="2020-03",
+            out_end="2020-03",
+        ),
+        SimpleNamespace(
+            in_start="2020-02",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-04",
+        ),
+    ]
+
+    monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
+
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates.strftime("%Y-%m-%d"),
+            "FundA": [0.05, 0.01, 0.08, 0.02, 0.07],
+            "FundB": np.linspace(0.02, 0.06, num=5),
+            "FundC": np.linspace(0.03, 0.07, num=5),
+            "FundD": [0.01, 0.01, 0.01, 0.01, 0.01],
+            "FundE": np.linspace(0.05, 0.09, num=5),
+        }
+    )
+
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: object,
+        limit: object,
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        return frame, {"policy": policy, "limit": limit}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
+        base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
+        return pd.Series(base, index=frame.columns, dtype=float)
+
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
+
+    class SelectorStub:
+        def select(self, sf: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return sf, sf
+
+    class WeightingStub:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
+            self.calls += 1
+            mapping = {
+                1: pd.Series(
+                    [0.2, 0.2, 0.2, 0.2],
+                    index=["FundA", "FundB", "FundC", "FundD"],
+                ),
+                2: pd.Series(
+                    [0.05, 0.55, 0.2, 0.2],
+                    index=["FundA", "FundB", "FundC", "FundD"],
+                ),
+                3: pd.Series(
+                    [0.4, 0.3, 0.2, 0.1],
+                    index=["FundB", "FundC", "FundD", "FundE"],
+                ),
+            }
+            choice = mapping.get(self.calls, mapping[max(mapping)])
+            weights = choice.reindex(selected.index).fillna(0.1)
+            return pd.DataFrame({"weight": weights.astype(float)})
+
+    weighting_stub = WeightingStub()
+    monkeypatch.setattr(engine, "EqualWeight", lambda: weighting_stub)
+    selector_stub = SelectorStub()
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
+
+    class RebalancerStub:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.calls = 0
+
+        def apply_triggers(
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        ) -> pd.Series:
+            del score_frame
+            self.calls += 1
+            return prev_weights
+
+    reb_stub = RebalancerStub()
+    monkeypatch.setattr(engine, "Rebalancer", lambda *a, **k: reb_stub)
+
+    analysis_calls: list[list[str] | None] = []
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame,
+        in_start: str,
+        in_end: str,
+        out_start: str,
+        out_end: str,
+        *_args: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        del df_arg, in_start, in_end, out_start, out_end
+        analysis_calls.append(kwargs.get("manual_funds"))
+        return {"ok": True}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    results = engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert "FundA" in analysis_calls[0]
+    assert "FundE" in analysis_calls[1]
+
+    events = results[1]["manager_changes"]
+    drop_event = next(
+        e for e in events if e["manager"] == "FundA" and e["action"] == "dropped"
+    )
+    assert drop_event["reason"] == "low_weight_strikes"
+    add_event = next(
+        e for e in events if e["manager"] == "FundE" and e["action"] == "added"
+    )
+    assert add_event["reason"] == "replacement"
+
+    turnover_cap = cfg.portfolio["max_turnover"]
+    assert results[1]["turnover"] <= turnover_cap + 1e-9
+    expected_cost = results[1]["turnover"] * (
+        cfg.portfolio["transaction_cost_bps"] / 10000
+    )
+    assert results[1]["transaction_cost"] == pytest.approx(expected_cost)
+
+
+def test_run_threshold_hold_weight_bounds_fill_deficit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trend_analysis.core import rank_selection
+
+    class THConfig(DummyCfg):
+        def __init__(self) -> None:
+            super().__init__()
+            self.data = {"missing_policy": "ffill"}
+            self.portfolio.update(
+                {
+                    "policy": "threshold_hold",
+                    "threshold_hold": {"metric": "Sharpe", "target_n": 2},
+                    "constraints": {
+                        "min_weight": 0.3,
+                        "max_weight": 0.6,
+                        "max_funds": 2,
+                    },
+                    "weighting": {"name": "equal"},
+                    "max_turnover": 1.0,
+                }
+            )
+
+    cfg = THConfig()
+
+    period = SimpleNamespace(
+        in_start="2020-01",
+        in_end="2020-02",
+        out_start="2020-03",
+        out_end="2020-03",
+    )
+
+    monkeypatch.setattr(engine, "generate_periods", lambda _: [period])
+
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "FundA": [0.01, 0.02, 0.015],
+            "FundB": [0.03, 0.025, 0.02],
+            "FundC": [0.04, 0.045, 0.05],
+        }
+    )
+
+    monkeypatch.setattr(
+        engine,
+        "apply_missing_policy",
+        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+    )
+
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
+        base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
+        return pd.Series(base, index=frame.columns, dtype=float)
+
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
+
+    class SelectorStub:
+        def select(self, sf: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return sf, sf
+
+    selector_stub = SelectorStub()
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
+
+    class WeightingStub:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
+            self.calls += 1
+            base = pd.Series(0.1, index=selected.index, dtype=float)
+            return pd.DataFrame({"weight": base})
+
+    monkeypatch.setattr(engine, "EqualWeight", lambda: WeightingStub())
+    monkeypatch.setattr(
+        engine,
+        "Rebalancer",
+        lambda *a, **k: SimpleNamespace(apply_triggers=lambda w, sf: w),
+    )
+
+    captured_weights: list[dict[str, float] | None] = []
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame,
+        *_args: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        del df_arg
+        captured_weights.append(kwargs.get("custom_weights"))
+        return {"ok": True}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    results = engine.run(cfg, df=df)
+
+    assert len(results) == 1
+    final_weights = captured_weights[0]
+    assert final_weights is not None
+    # custom weights expressed in percentages; ensure they sum to 100%
+    assert pytest.approx(sum(final_weights.values()), rel=1e-9) == 100.0
+
+
+def test_run_threshold_hold_reseeds_and_skips_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trend_analysis.core import rank_selection
+
+    class THConfig(DummyCfg):
+        def __init__(self) -> None:
+            super().__init__()
+            self.data = {"missing_policy": "ffill"}
+            self.portfolio.update(
+                {
+                    "policy": "threshold_hold",
+                    "threshold_hold": {"metric": "Sharpe", "target_n": 3},
+                    "constraints": {
+                        "min_weight": 0.2,
+                        "max_weight": 0.6,
+                        "max_funds": 3,
+                    },
+                    "weighting": {"name": "equal"},
+                    "max_turnover": 1.0,
+                }
+            )
+
+    cfg = THConfig()
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-02",
+            out_start="2020-03",
+            out_end="2020-03",
+        ),
+        SimpleNamespace(
+            in_start="2020-02",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-04",
+        ),
+    ]
+
+    monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
+
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
+            "FundA": [0.03, 0.04, 0.05, 0.06],
+            "FundB": [0.025, 0.03, 0.028, 0.029],
+            "FundC": [0.035, 0.04, 0.038, 0.039],
+            "FundD": [0.01, 0.01, 0.01, 0.01],
+        }
+    )
+
+    monkeypatch.setattr(
+        engine,
+        "apply_missing_policy",
+        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+    )
+
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
+        base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
+        return pd.Series(base, index=frame.columns, dtype=float)
+
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
+
+    class SelectorStub:
+        def select(self, sf: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return sf, sf
+
+    selector_stub = SelectorStub()
+    from trend_analysis import selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: selector_stub
+    )
+
+    class WeightingStub:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
+            del date
+            self.calls += 1
+            mapping = {
+                1: pd.Series([0.4, 0.35, 0.25], index=["FundA", "FundB", "FundC"]),
+                2: pd.Series([0.6, 0.4], index=["FundB", "FundC"]),
+            }
+            choice = mapping.get(self.calls, mapping[max(mapping)])
+            weights = choice.reindex(selected.index).fillna(0.2)
+            return pd.DataFrame({"weight": weights.astype(float)})
+
+    weighting_stub = WeightingStub()
+    monkeypatch.setattr(engine, "EqualWeight", lambda: weighting_stub)
+
+    class RebalancerStub:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.calls = 0
+
+        def apply_triggers(
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        ) -> pd.Series:
+            del score_frame
+            self.calls += 1
+            if self.calls == 1:
+                return prev_weights
+            return pd.Series([0.2], index=["Ghost"], dtype=float)
+
+    reb_stub = RebalancerStub()
+    monkeypatch.setattr(engine, "Rebalancer", lambda *a, **k: reb_stub)
+
+    analysis_calls: list[list[str] | None] = []
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame,
+        *_args: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None:
+        del df_arg
+        analysis_calls.append(kwargs.get("manual_funds"))
+        if len(analysis_calls) == 2:
+            return None
+        return {"ok": True}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    results = engine.run(cfg, df=df)
+
+    assert len(results) == 1
+    assert set(analysis_calls[0]) == {"FundA", "FundB", "FundC"}
+    reseat_events = results[0]["manager_changes"]
+    assert any(e["reason"] == "seed" for e in reseat_events)
+    # Second period is skipped, but reseed should have been attempted
+    assert "FundB" in analysis_calls[1]
+    assert "FundC" in analysis_calls[1]
+
+
+def test_run_raises_when_load_csv_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyCfg()
+    cfg.performance = {}
+
+    monkeypatch.setattr(engine, "load_csv", lambda *a, **k: None)
+
+    with pytest.raises(ValueError, match="Failed to load CSV data"):
+        engine.run(cfg)
+
+
+def test_run_requires_date_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyCfg()
+    cfg.performance = {}
+
+    df = pd.DataFrame({"value": [0.1, 0.2]})
+
+    with pytest.raises(ValueError, match="must contain a 'Date' column"):
+        engine.run(cfg, df=df)
+
+
+def test_run_covariance_cache_converts_string_dates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = DummyCfg()
+    cfg.portfolio["policy"] = "classic"
+    cfg.performance = {"enable_cache": True, "incremental_cov": True}
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-02",
+            out_start="2020-03",
+            out_end="2020-04",
+        ),
+        SimpleNamespace(
+            in_start="2020-02",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-05",
+        ),
+    ]
+
+    monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
+
+    captured_frames: list[pd.DataFrame] = []
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        captured_frames.append(df_arg.copy())
+        return {
+            "manager_changes": [],
+            "selected_funds": [],
+            "fund_weights": {},
+            "in_sample_stats": {},
+            "out_sample_stats": {},
+            "benchmark_stats": {},
+            "benchmark_ir": {},
+            "in_sample_scaled": pd.DataFrame(),
+            "out_sample_scaled": pd.DataFrame(),
+        }
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: object, limit: object
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        if "Date" in frame.columns:
+            working = frame.set_index("Date")
+        else:
+            working = frame.copy()
+        return working, {"policy": policy, "limit": limit}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+
+    import trend_analysis.perf.cache as cache_mod
+
+    class StubCovPayload:
+        def __init__(self, size: int) -> None:
+            self.cov = np.eye(size)
+
+    class StubCovCache:
+        def __init__(self) -> None:
+            self.incremental_updates = 0
+
+        def stats(self) -> dict[str, int]:
+            return {"updates": self.incremental_updates}
+
+    monkeypatch.setattr(cache_mod, "CovCache", StubCovCache)
+
+    captured_index_types: list[str] = []
+
+    def fake_compute_cov_payload(
+        frame: pd.DataFrame, *, materialise_aggregates: bool
+    ) -> StubCovPayload:
+        captured_index_types.append(str(frame.index.dtype))
+        return StubCovPayload(len(frame.columns))
+
+    def fake_incremental(payload: StubCovPayload, *_args: Any) -> StubCovPayload:
+        new_payload = StubCovPayload(len(payload.cov))
+        new_payload.cov = payload.cov + np.eye(len(payload.cov)) * 0.5
+        return new_payload
+
+    monkeypatch.setattr(cache_mod, "compute_cov_payload", fake_compute_cov_payload)
+    monkeypatch.setattr(cache_mod, "incremental_cov_update", fake_incremental)
+
+    df = pd.DataFrame(
+        {
+            "Date": ["2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30"],
+            "FundA": [0.01, 0.02, 0.015, 0.03],
+            "FundB": [0.03, 0.01, 0.025, 0.02],
+            "Benchmark": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+    results = engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    assert all(dtype.startswith("datetime64") for dtype in captured_index_types)
+    assert captured_frames and set(captured_frames[0].columns) == {
+        "Date",
+        "FundA",
+        "FundB",
+        "Benchmark",
+    }
+
+
+def test_threshold_hold_replacements_and_turnover_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = DummyCfg()
+    cfg.data = {"csv_path": "unused.csv"}
+    cfg.portfolio.update(
+        {
+            "policy": "threshold_hold",
+            "threshold_hold": {"metric": "Sharpe", "min_weight_strikes": 1},
+            "constraints": {"min_weight": 0.2, "max_weight": 0.6, "max_funds": 3},
+            "weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}},
+            "transaction_cost_bps": 25,
+            "max_turnover": 0.1,
+        }
+    )
+    cfg.performance = {"enable_cache": False}
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-02",
+            out_start="2020-03",
+            out_end="2020-04",
+        ),
+        SimpleNamespace(
+            in_start="2020-02",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-05",
+        ),
+    ]
+
+    monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
+
+    class StubSelector:
+        rank_column = "Sharpe"
+
+        def select(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            return frame.iloc[:3], frame.iloc[:3]
+
+    import trend_analysis.selector as selector_mod
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *_a, **_k: StubSelector()
+    )
+
+    import trend_analysis.core.rank_selection as rank_selection_mod
+
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, stats_cfg: object
+    ) -> pd.Series:
+        base = pd.Series(
+            {
+                "Alpha Fund": 0.9,
+                "Beta Fund": 0.6,
+                "Gamma Fund": 0.5,
+                "Delta Fund": 1.2,
+            }
+        )
+        return base.reindex(frame.columns, fill_value=0.4)
+
+    monkeypatch.setattr(
+        rank_selection_mod, "_compute_metric_series", fake_metric_series
+    )
+
+    class StubBayes:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.updates: list[tuple[list[str], int]] = []
+
+        def weight(self, frame: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:
+            self.calls += 1
+            plans = [
+                {"Alpha Fund": 0.05, "Beta Fund": 0.5, "Gamma Fund": 0.45},
+                {"Beta Fund": 0.4, "Gamma Fund": 0.35, "Delta Fund": 0.25},
+                {"Beta Fund": 0.05, "Gamma Fund": 0.05, "Delta Fund": 0.9},
+            ]
+            plan = plans[min(self.calls, len(plans)) - 1]
+            weights = pd.Series(plan, dtype=float).reindex(frame.index, fill_value=0.0)
+            return pd.DataFrame({"weight": weights})
+
+        def update(self, series: pd.Series, days: int) -> None:
+            self.updates.append((series.index.tolist(), days))
+
+    stub_weighting = StubBayes()
+    monkeypatch.setattr(engine, "ScorePropBayesian", lambda *a, **k: stub_weighting)
+
+    monkeypatch.setattr(
+        engine,
+        "Rebalancer",
+        lambda *_a, **_k: SimpleNamespace(apply_triggers=lambda weights, sf: weights),
+    )
+
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: object, limit: object
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        if "Date" in frame.columns:
+            working = frame.set_index("Date")
+        else:
+            working = frame.copy()
+        return working, {}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+
+    captured_custom_weights: list[dict[str, float]] = []
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        custom = kwargs.get("custom_weights", {})
+        captured_custom_weights.append(dict(custom))
+        return {
+            "manager_changes": [],
+            "selected_funds": [],
+            "fund_weights": custom,
+            "in_sample_stats": {},
+            "out_sample_stats": {},
+            "benchmark_stats": {},
+            "benchmark_ir": {},
+            "in_sample_scaled": pd.DataFrame(),
+            "out_sample_scaled": pd.DataFrame(),
+        }
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=6, freq="M"),
+            "Alpha Fund": np.linspace(0.01, 0.02, num=6),
+            "Beta Fund": np.linspace(0.02, 0.03, num=6),
+            "Gamma Fund": np.linspace(0.015, 0.025, num=6),
+            "Delta Fund": np.linspace(0.03, 0.04, num=6),
+        }
+    )
+
+    results = engine.run(cfg, df=df)
+
+    assert len(results) == 2
+    first_weights = captured_custom_weights[0]
+    assert "Delta Fund" in first_weights
+    assert captured_custom_weights
+    assert pytest.approx(sum(captured_custom_weights[-1].values())) == 100.0
