@@ -74,6 +74,32 @@ function escapeForRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function extractPrNumberFromRunMetadata(run) {
+  if (!run || typeof run !== 'object') {
+    return null;
+  }
+  const candidates = [];
+  if (typeof run.display_title === 'string' && run.display_title) {
+    candidates.push(run.display_title);
+  }
+  if (typeof run.name === 'string' && run.name) {
+    candidates.push(run.name);
+  }
+  if (typeof run.run_name === 'string' && run.run_name) {
+    candidates.push(run.run_name);
+  }
+  for (const candidate of candidates) {
+    const match = /#(\d+)/.exec(candidate);
+    if (match) {
+      const value = Number.parseInt(match[1], 10);
+      if (Number.isFinite(value)) {
+        return value;
+      }
+    }
+  }
+  return null;
+}
+
 function buildMentionPatterns(aliases) {
   return aliases.map((alias) => {
     const escaped = escapeForRegex(alias);
@@ -409,6 +435,12 @@ async function countActiveRuns({
     }
     if (headRef && run.head_branch === headRef) {
       return true;
+    }
+    if (Number.isFinite(prNumber)) {
+      const resolved = extractPrNumberFromRunMetadata(run);
+      if (resolved === prNumber) {
+        return true;
+      }
     }
     return false;
   };

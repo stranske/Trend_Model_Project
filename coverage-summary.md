@@ -7,7 +7,7 @@
 | Module | Coverage |
 | --- | --- |
 | `trend_analysis/__init__.py` | 96% |
-| `trend_analysis/data.py` | 98% |
+| `trend_analysis/data.py` | 99% |
 | `trend_analysis/presets.py` | 100% |
 | `trend_analysis/backtesting/harness.py` | 100% |
 | `trend_analysis/regimes.py` | 100% |
