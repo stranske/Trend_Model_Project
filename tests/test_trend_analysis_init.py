@@ -87,6 +87,21 @@ def test_patch_guard_handles_absent_original(monkeypatch: pytest.MonkeyPatch) ->
     importlib.reload(module)
 
 
+def test_patch_guard_reuses_existing_patch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the guard runs twice it should keep the existing sentinel helper."""
+
+    module = _reload_trend_analysis()
+
+    with monkeypatch.context() as patcher:
+        sentinel = object()
+        patcher.setattr(dataclasses, "_trend_model_patched", True, raising=False)
+        patcher.setattr(dataclasses, "_is_type", sentinel, raising=False)
+        module = importlib.reload(module)
+
+    assert module._SAFE_IS_TYPE is sentinel
+    importlib.reload(module)
+
+
 def test_spec_proxy_re_registers_module() -> None:
     """Accessing ``__spec__.name`` should restore the module registration."""
 
@@ -188,4 +203,85 @@ def test_eager_import_skips_missing_dependency(monkeypatch: pytest.MonkeyPatch) 
         module = importlib.reload(module)
 
     assert "metrics" not in module.__dict__
+    importlib.reload(module)
+
+
+def test_safe_is_type_uses_existing_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the placeholder already exists we should reuse it without re-imports."""
+
+    module = _reload_trend_analysis()
+    placeholder = ModuleType("tests.coverage_placeholder")
+    sys.modules["tests.coverage_placeholder"] = placeholder
+
+    call_counter = {"count": 0}
+
+    def stub_is_type(
+        annotation: Any,
+        cls: type[Any],
+        a_module: Any,
+        a_type: Any,
+        predicate: Any,
+    ) -> bool:
+        call_counter["count"] += 1
+        if call_counter["count"] == 1:
+            raise AttributeError("module already registered")
+        return True
+
+    try:
+        with monkeypatch.context() as patcher:
+            patcher.setattr(dataclasses, "_is_type", stub_is_type, raising=False)
+            patcher.delattr(dataclasses, "_trend_model_patched", raising=False)
+            module = importlib.reload(module)
+
+            dummy_cls = type("Dummy", (), {})
+            dummy_cls.__module__ = "tests.coverage_placeholder"
+            assert module._SAFE_IS_TYPE(
+                object, dummy_cls, None, None, lambda *_: True
+            )
+    finally:
+        sys.modules.pop("tests.coverage_placeholder", None)
+        importlib.reload(module)
+
+
+def test_ensure_registered_resets_sys_modules() -> None:
+    """Re-registering should restore the canonical module entry."""
+
+    module = _reload_trend_analysis()
+    sys.modules["trend_analysis"] = ModuleType("trend_analysis")
+
+    try:
+        module._ensure_registered()
+        assert sys.modules["trend_analysis"] is module
+    finally:
+        sys.modules["trend_analysis"] = module
+
+
+def test_reload_skips_conditional_exports(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If exporting fails to import we should leave derived exports undefined."""
+
+    module = _reload_trend_analysis()
+    original_import = importlib.import_module
+
+    def selective(name: str, package: str | None = None) -> ModuleType:
+        if name == "trend_analysis.export":
+            raise ImportError("export unavailable")
+        return original_import(name, package)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(importlib, "import_module", selective)
+        module.__dict__.pop("export", None)
+        sys.modules.pop("trend_analysis.export", None)
+        for attr in {
+            "export_to_csv",
+            "export_to_json",
+            "export_to_excel",
+            "export_to_txt",
+            "export_data",
+        }:
+            module.__dict__.pop(attr, None)
+        module = importlib.reload(module)
+
+    assert "export" not in module.__dict__
+    assert "export_to_csv" not in module.__dict__
+    assert "export_to_json" not in module.__dict__
     importlib.reload(module)
