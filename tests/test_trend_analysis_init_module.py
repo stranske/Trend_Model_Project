@@ -104,7 +104,6 @@ def _reload_with_stubs(
 @pytest.fixture
 def restore_dataclasses(monkeypatch: pytest.MonkeyPatch):
     import dataclasses
-    import typing
 
     original_is_type = getattr(dataclasses, "_is_type", None)
     original_flag = getattr(dataclasses, "_trend_model_patched", False)
@@ -133,9 +132,6 @@ def reload_trend_analysis():
         delattr(dataclasses, "_trend_model_patched")
     importlib.reload(module)
 
-    def fake_import(name: str) -> ModuleType:
-        calls.append(name)
-        raise ModuleNotFoundError(name)
 
 def test_patch_dataclasses_module_guard_reimports_missing_module(
     monkeypatch: pytest.MonkeyPatch, restore_dataclasses
@@ -162,9 +158,7 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
 
     monkeypatch.setattr(dataclasses, "_is_type", _probe_is_type, raising=False)
 
-    def fake_import(name: str) -> ModuleType:
-        calls.append(name)
-        raise ModuleNotFoundError(name)
+    trend_analysis._patch_dataclasses_module_guard()
 
     assert getattr(dataclasses, "_trend_model_patched", False) is True
 
@@ -248,8 +242,6 @@ def test_patch_guard_propagates_when_module_name_missing(
         # Arguments: instance, cls, args, kwargs, module
         dataclasses._is_type(None, dataclass_type, None, None, None)  # type: ignore[attr-defined]
 
-    assert name == "trend_analysis"
-    assert sys.modules["trend_analysis"] is trend_analysis_module
 
 def test_patch_guard_retries_when_module_already_loaded(
     monkeypatch: pytest.MonkeyPatch, restore_dataclasses

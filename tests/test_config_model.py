@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 pytest.importorskip("yaml")
 
-from trend_analysis.config import model as config_model
+from trend_analysis.config import model as config_model  # noqa: E402
 
 
 class TestResolvePath:
