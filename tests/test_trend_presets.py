@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 import pytest
 import yaml
@@ -25,7 +25,7 @@ def _write_yaml(path: Any, data: Mapping[str, Any]) -> None:
 @pytest.fixture
 def preset_environment(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
-) -> tuple[Any, Any]:
+) -> Iterator[tuple[Any, Any]]:
     base_dir = tmp_path / "base"
     env_dir = tmp_path / "env"
     base_dir.mkdir()
@@ -298,7 +298,7 @@ def test_trend_preset_defaults_with_sparse_config() -> None:
         label="Custom",
         description="",
         trend_spec=spec,
-        _config=raw_config,,
+        _config=raw_config,
     )
 
     defaults = preset.form_defaults()
