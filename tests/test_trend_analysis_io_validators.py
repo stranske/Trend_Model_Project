@@ -126,7 +126,9 @@ def test_detect_frequency_prefers_label_then_code(
     assert validators.detect_frequency(df) == expected
 
 
-def test_detect_frequency_formats_irregular_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_formats_irregular_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(index=pd.date_range("2023-01-01", periods=3, freq="D"))
 
     def raise_irregular(_: pd.DatetimeIndex) -> dict[str, Any]:
@@ -139,7 +141,9 @@ def test_detect_frequency_formats_irregular_errors(monkeypatch: pytest.MonkeyPat
     assert "Irregular cadence" in result
 
 
-def test_detect_frequency_handles_generic_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_handles_generic_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = pd.DataFrame(index=pd.date_range("2023-01-01", periods=3, freq="D"))
 
     def raise_generic(_: pd.DatetimeIndex) -> dict[str, Any]:
@@ -207,7 +211,9 @@ def test_read_uploaded_file_rejects_directory(tmp_path: Path) -> None:
         validators._read_uploaded_file(tmp_path)
 
 
-def test_read_uploaded_file_handles_excel_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_handles_excel_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FakeUpload(io.BytesIO):
         def __init__(self) -> None:
             super().__init__(b"binary-data")
@@ -229,7 +235,9 @@ def test_read_uploaded_file_handles_excel_stream(monkeypatch: pytest.MonkeyPatch
     assert fake.tell() == 0
 
 
-def test_read_uploaded_file_handles_parquet_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_handles_parquet_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FakeParquet(io.BytesIO):
         def __init__(self) -> None:
             super().__init__(b"parquet-data")
@@ -260,7 +268,9 @@ def test_read_uploaded_file_handles_csv_stream() -> None:
     assert frame.equals(pd.DataFrame({"value": [1]}))
 
 
-def test_read_uploaded_file_path_excel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_path_excel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "workbook.xlsx"
     path.write_bytes(b"dummy")
     expected = pd.DataFrame({"value": [11]})
@@ -272,7 +282,9 @@ def test_read_uploaded_file_path_excel(tmp_path: Path, monkeypatch: pytest.Monke
     assert source == str(path)
 
 
-def test_read_uploaded_file_path_parquet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_path_parquet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "dataset.parquet"
     path.write_bytes(b"dummy")
     expected = pd.DataFrame({"value": [3, 4]})
@@ -284,7 +296,9 @@ def test_read_uploaded_file_path_parquet(tmp_path: Path, monkeypatch: pytest.Mon
     assert source == str(path)
 
 
-def test_read_uploaded_file_path_generic_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_path_generic_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "broken.csv"
     path.write_text("value\n1\n")
 
@@ -327,7 +341,9 @@ def test_read_uploaded_file_translates_stream_errors(
         validators._read_uploaded_file(stream)
 
 
-def test_read_uploaded_file_named_without_reader(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_named_without_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class NamedOnly:
         def __init__(self) -> None:
             self.name = "fallback.csv"
@@ -345,7 +361,9 @@ def test_read_uploaded_file_named_without_reader(monkeypatch: pytest.MonkeyPatch
     assert source == "fallback.csv"
 
 
-def test_read_uploaded_file_fallback_translates_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_fallback_translates_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class NamedOnly:
         def __init__(self) -> None:
             self.name = "broken.csv"
@@ -415,7 +433,9 @@ def test_load_and_validate_upload_success(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(validators, "attach_metadata", record_attach)
 
-    loaded_frame, payload = validators.load_and_validate_upload(SimpleNamespace(name="upload.csv"))
+    loaded_frame, payload = validators.load_and_validate_upload(
+        SimpleNamespace(name="upload.csv")
+    )
 
     assert loaded_frame is frame
     assert attached == [(frame, metadata)]
