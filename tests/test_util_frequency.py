@@ -19,7 +19,9 @@ def test_as_datetime_index_accepts_iterables() -> None:
     ]
 
 
-def test_as_datetime_index_retries_after_initial_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_as_datetime_index_retries_after_initial_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FlakyDatetimeIndex(pd.DatetimeIndex):
         calls = 0
 
@@ -71,7 +73,9 @@ def test_map_inferred_frequency(freq: str | None, expected: str | None) -> None:
         (np.array([140.0, 365.0, 200.0]), "Y"),
     ],
 )
-def test_classify_from_diffs_returns_expected_code(diffs: np.ndarray, expected: str) -> None:
+def test_classify_from_diffs_returns_expected_code(
+    diffs: np.ndarray, expected: str
+) -> None:
     assert frequency._classify_from_diffs(diffs) == expected
 
 
@@ -130,7 +134,9 @@ def test_detect_frequency_handles_irregular_spacing() -> None:
         frequency.detect_frequency(dates)
 
 
-def test_detect_frequency_retries_when_infer_freq_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_retries_when_infer_freq_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     series = pd.date_range("2024-01-01", periods=4, freq="MS")
 
     def boom(_: object) -> None:
@@ -143,7 +149,9 @@ def test_detect_frequency_retries_when_infer_freq_fails(monkeypatch: pytest.Monk
     assert summary.code == "M"
 
 
-def test_detect_frequency_falls_back_when_infer_freq_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_falls_back_when_infer_freq_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     series = pd.date_range("2024-01-01", periods=4, freq="W-WED")
 
     with monkeypatch.context() as patcher:

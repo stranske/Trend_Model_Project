@@ -50,7 +50,14 @@ def test_get_trend_spec_preset_raises_for_unknown() -> None:
 
 
 def test_trend_spec_preset_serialisation_helpers() -> None:
-    spec = TrendSpec(window=21, min_periods=None, lag=2, vol_adjust=False, vol_target=None, zscore=True)
+    spec = TrendSpec(
+        window=21,
+        min_periods=None,
+        lag=2,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=True,
+    )
     preset = TrendSpecPreset(
         name="Custom",
         description="Example",
@@ -74,7 +81,9 @@ def test_trend_spec_preset_serialisation_helpers() -> None:
 
 
 def test_trend_spec_preset_serialisation_includes_optional_fields() -> None:
-    spec = TrendSpec(window=42, min_periods=21, lag=1, vol_adjust=True, vol_target=0.2, zscore=False)
+    spec = TrendSpec(
+        window=42, min_periods=21, lag=1, vol_adjust=True, vol_target=0.2, zscore=False
+    )
     preset = TrendSpecPreset(name="Custom", description="Example", spec=spec)
 
     mapping = preset.as_signal_config()
