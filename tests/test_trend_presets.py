@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping
 
@@ -13,9 +13,9 @@ from trend_analysis.signals import TrendSpec
 
 @dataclass
 class DummyConfig:
-    signals: Any = MappingProxyType({})
-    vol_adjust: Any = MappingProxyType({})
-    run: Any = MappingProxyType({})
+    signals: Any = field(default_factory=lambda: MappingProxyType({}))
+    vol_adjust: Any = field(default_factory=lambda: MappingProxyType({}))
+    run: Any = field(default_factory=lambda: MappingProxyType({}))
 
 
 def _write_yaml(path: Any, data: Mapping[str, Any]) -> None:
