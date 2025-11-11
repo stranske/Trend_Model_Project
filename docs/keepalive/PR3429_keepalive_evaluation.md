@@ -35,6 +35,23 @@ Evidence sources collected during 2025-11-10 include:
 
 The orchestrator ran 12 times in a 10-minute window (14:50:14Z → 15:00Z range) per `gh run list --workflow "Agents 70 Orchestrator"`, demonstrating no effective run cap. Concurrency increases noise and heightens the risk of overlapping traces.
 
+Additional log evidence captured **before** `agents:pause` went live (runs `19254934411` at 04:27Z, `19254946001` at 04:28Z, and `19255030604` at 04:32Z on 2025-11-11) shows the gate emitting `keepalive_run_cap=2` while every utilisation counter remained `0`. The second run landed less than a minute after the first yet still reported zero recent or in-flight executions, confirming the throttle failed to register prior activity prior to the manual pause label being applied.
+
+```
+Run 19254934411 @ 04:27Z
+##[notice]keepalive_run_cap=2
+##[notice]keepalive_active_runs=0
+##[notice]keepalive_active_runs_recent=0
+
+Run 19255030604 @ 04:32Z
+##[notice]keepalive_run_cap=2
+##[notice]keepalive_active_runs=0
+##[notice]keepalive_active_runs_recent=0
+##[notice]keepalive_active_runs_recent_window=5
+```
+
+As of 2025-11-11 05:45Z, orchestrator runs now publish their target in the workflow `run-name` (e.g. “Agents 70 Orchestrator (PR #3471)”), and `countActiveRuns()` falls back to these titles when GitHub omits `pull_requests`. A new Node regression test (`countActiveRuns recognises PR metadata embedded in run titles`) enforces the behaviour; we still need to observe live utilisation counters to confirm the fix.
+
 ❌ Violated – cap is not preventing rapid-fire reruns. Follow-up: on 2025-11-10 we updated `evaluateKeepaliveGate` to treat recently completed orchestrator/worker runs (≤5 min window) as part of the active count, so consecutive cron sweeps should now pause once the throttle engages. Need confirmation from the next scheduled cycle.
 
 ## 4. Pause & Stop Controls (Goals & Plumbing §4)
@@ -99,8 +116,8 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 
 ## Outstanding Actions
 
-1. **Restore guardrail enforcement** – Block instruction emission whenever `agents:keepalive` is absent and add regression coverage for the Rounds 11–13 scenario; confirm during the next guardrail drill.
-2. **Monitor run-cap throttle** – Recent patch counts recently completed runs when enforcing the cap (5 min window). The 2025-11-11 02:18Z sweep (`19252736124`) exited early with `keepalive_gate_reason=missing-pr-number`, leaving `run_cap`/`active_runs` outputs blank; an earlier run (`19244506591`, 2025-11-10 20:03Z) did reach `keepalive_gate_proceed=true` for PR 3444 but its run-cap summary is only visible in the job UI. We still need a sweep that both resolves the PR number **and** surfaces the run-cap counters in a retrievable log or summary artefact.
+1. **Restore guardrail enforcement** – Block instruction emission whenever `agents:keepalive` is absent and add regression coverage for the Rounds 11–13 scenario; confirm during the next guardrail drill. Manual reruns `19254098629` and `19254213558` (trace `manual-run-cap-20251111`) both reported `keepalive_gate_reason=keepalive-label-missing` because they still pointed at PR 3444 (no longer labelled). After retargeting the sweep to PR 3468, run `19254322103` passed the gate with the expected notices. Behaviour now matches configuration; follow-up is to codify the regression tests and ensure we always point validation runs at the labelled PR.
+2. **Monitor run-cap throttle** – Manual sweep `19253985636` (trace `manual-run-cap-20251111`, PR 3444) now exposes the counters in the log (`keepalive_run_cap=2`, `active_runs=0`, `active_runs_inflight=0`, `active_runs_recent=0`, `keepalive_active_runs_recent_window=5`) and halted because `agents:keepalive` was missing. The follow-up run `19254098629` produced the same zeroed utilisation. After retargeting to PR 3468, run `19254322103` succeeded yet still logged zero active runs. Newly captured **pre-pause** runs on PR 3471 (`19254934411`, `19254946001`, `19255030604`) show the same zero utilisation even though the executions land within the five-minute window, confirming the throttle was ignoring prior runs. We updated the orchestrator run name plus `countActiveRuns()` (2025-11-11 05:45Z) so default-branch runs expose the PR number and are counted; next scheduled sweep should demonstrate non-zero inflight/recent counts or reveal any remaining gaps.
 3. **Monitor sync dispatches** – Branch-sync workflow now fetches with `git fetch --no-tags --prune origin "$BASE_REF"`; dry-run `19239811962` verified the empty-merge path. Watch the first non-empty merge to ensure update/create fallbacks succeed.
 4. **Add failure escalation** – Ensure stale heads after update/create attempts apply `agents:sync-required` and post the escalation note; plan escalation script changes once sync validation completes.
 5. **Document outcome** – Keep `docs/keepalive/AttemptLog_Nov2025.md` and guardrail docs in sync as fixes land so PR owners can reference a single status source.
@@ -127,14 +144,16 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - Remaining gap: despite the stronger test coverage, none of the observed jobs enforce the live guardrail state (missing `agents:keepalive` label during Rounds 11–13) or trigger escalation when branch sync stalls. Evidence confirms the tooling is instrumented, but operational failures persist until the outstanding actions above are resolved.
 - Next step: observe the 2025-11-11 scheduled orchestrator sweep to verify the run-cap throttle counters report expected utilisation and block excess dispatches; capture the summary output for the record.
 - New data point: the 2025-11-11 02:18Z orchestrator sweep (`run 19252736124`) shows the `Evaluate keepalive gate` job emitting `::notice::keepalive_gate_proceed=false` and `keepalive_gate_reason=missing-pr-number`. No `run cap detail` line or `active_runs` outputs were produced, so the throttle counters remain unverified when the PR number is absent.
-- Historical reference: run `19244506591` (2025-11-10 20:03Z) resolved `KEEPALIVE_PR=3444` and reached `keepalive_gate_proceed=true`. The job summary (UI-only) records the run-cap utilisation, but that markdown is not exposed through the CLI logs we pulled; we still need an accessible artefact (summary scrape or new run with CLI-visible counters) before we can cite exact inflight/recent counts.
+- Additional data point: manual sweep `19253985636` (2025-11-11 03:30Z) halted with `keepalive_gate_reason=keepalive-label-missing` and recorded the counters directly in the log (`keepalive_run_cap=2`, `active_runs=0`, `active_runs_inflight=0`, `active_runs_recent=0`, `keepalive_active_runs_recent_window=5`), confirming the new notices render even when the gate blocks the run.
+- Follow-up reruns `19254098629` (2025-11-11 03:37Z) and `19254213558` (2025-11-11 03:44Z) — both executed after we believed the guardrail label was restored — still surfaced `keepalive_gate_reason=keepalive-label-missing` with the same zeroed counters. `gh pr view 3468 --json labels` confirms the label exists on the branch PR, but `gh api ... issues/3444/timeline` shows it was removed from PR 3444 at 20:05Z on 2025-11-10 and never re-added. The manual sweep was querying PR 3444; after rerunning with `keepalive_pr=3468` (run `19254322103`) the gate proceeded and emitted the notices. Next step is to capture a run with non-zero utilisation and bake the target-PR check into the regression harness.
+- Historical reference: run `19244506591` (2025-11-10 20:03Z) resolved `KEEPALIVE_PR=3444` and reached `keepalive_gate_proceed=true`. The job summary (UI-only) records the run-cap utilisation, but that markdown is not exposed through the CLI logs we pulled; we still need to observe a gate **success** with the new notices to capture inflight/recent counts above zero.
 - Prepare a regression patch if the sweep still exceeds the cap; otherwise promote the guardrail test plan into CI once evidence shows the throttle is effective.
 
 ### Review Procedure – 2025-11-11
 
 1. Re-read `docs/keepalive/GoalsAndPlumbing.md` (focus on §§1–5, §8, §9) and `docs/keepalive/SyncChecklist.md` to restate expected behaviour before evaluating evidence.
 2. Collect PR metadata and job history via `gh pr view 3444 --json ...` and `gh pr diff 3444` to enumerate modified artefacts and workflow runs.
-3. Execute the evidence plan in §“PR #3444 Evidence Plan”: 
+3. Execute the evidence plan in §“PR #3444 Evidence Plan”:
 	 - Extract the `countActiveRuns` TAP lines from the Gate `github scripts tests` job.
 	 - Pull the pytest progress block covering keepalive test modules from the Gate `python ci / python 3.12` job.
 	 - Capture the `Append keepalive checklists` output and PR-body sync logs from the summary and PR meta manager jobs.
@@ -150,3 +169,8 @@ Each instruction comment carries the required hidden markers, scope/tasks tables
 - Branch sync detail: job `Prepare sync branch` formerly aborted with `fatal: depth 0 is not a positive number`, blocking the update-branch fallback.
 - Workflow patch: `agents-keepalive-branch-sync.yml` now uses `git fetch --no-tags --prune origin "$BASE_REF"`; dry run `19239811962` completed successfully (sync empty), validating the fix.
 - 2025-11-11 review: Coverage-focused PR #3444 introduced no changes to keepalive automation; issues in §§1–4 and §§7–9 remain outstanding pending targeted fixes.
+
+## Immediate mitigation applied (2025-11-11 04:50 UTC)
+
+- Created repository label `agents:pause` and applied it to PR #3471 to halt further keepalive rounds while the evaluation continues. This enforces Goals §4 (Pause & Stop Controls) immediately and prevents additional instruction posts or orchestrator dispatches targeting that PR until the label is removed. See `docs/keepalive/AttemptLog_Nov2025.md` step 39 for the recorded action.
+

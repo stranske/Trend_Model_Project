@@ -120,3 +120,29 @@ test('countActiveRuns ignores the current run id to avoid self-counting', async 
   assert.equal(result.inFlightRuns, 0);
   assert.equal(result.recentRuns, 0);
 });
+
+test('countActiveRuns recognises PR metadata embedded in run titles', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      { id: 701, pull_requests: [], display_title: 'Agents 70 Orchestrator (PR #42)' },
+    ],
+    'agents-70-orchestrator.yml|in_progress': [],
+    'agents-70-orchestrator.yml|completed': [],
+  };
+  const github = makeGithubStub(registry);
+  const result = await countActiveRuns({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 42,
+    headSha: 'sha42',
+    headRef: 'refs/heads/codex/issue-42',
+    currentRunId: 0,
+    workflowFile: 'agents-70-orchestrator.yml',
+    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
+  });
+
+  assert.equal(result.activeRuns, 1);
+  assert.equal(result.inFlightRuns, 1);
+  assert.equal(result.recentRuns, 0);
+});
