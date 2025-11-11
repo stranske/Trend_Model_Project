@@ -1,7 +1,7 @@
 <!-- bootstrap for codex on issue #3470 -->
 
 ## Scope
-- [x] Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage
+- [x] Add test coverage for any program functionality with test coverage under 95% or for essential program functionality that does not currently have test coverage.
 
 ## Tasks
 - [x] Run soft coverage and prepare a list of the files with lowest coverage from least coverage on up for any file with less than 95% test coverage or any file with significant functionality that isn't covered.
