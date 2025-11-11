@@ -10,14 +10,14 @@ from typing import Callable
 import pandas as pd
 import pytest
 
+from trend_analysis.io import validators
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
     MarketDataMode,
     MarketDataValidationError,
     MissingPolicyFillDetails,
 )
-from trend_analysis.io import validators
-from trend_analysis.io.validators import _ValidationSummary, _read_uploaded_file
+from trend_analysis.io.validators import _read_uploaded_file, _ValidationSummary
 
 
 class _PathLikeNoRead(os.PathLike[str]):
@@ -47,7 +47,9 @@ def summary_metadata() -> MarketDataMetadata:
         missing_policy="zero",
         missing_policy_dropped=["Sparse"],
         missing_policy_summary="Dropped Sparse using zero policy",
-        missing_policy_filled={"Core": MissingPolicyFillDetails(method="ffill", count=2)},
+        missing_policy_filled={
+            "Core": MissingPolicyFillDetails(method="ffill", count=2)
+        },
         start=start,
         end=end,
         rows=4,
@@ -55,7 +57,9 @@ def summary_metadata() -> MarketDataMetadata:
     )
 
 
-def test_validation_summary_reports_all_conditions(summary_metadata: MarketDataMetadata) -> None:
+def test_validation_summary_reports_all_conditions(
+    summary_metadata: MarketDataMetadata,
+) -> None:
     frame = pd.DataFrame(
         {
             "Core": [0.1, 0.2, 0.1, 0.15],
@@ -71,7 +75,9 @@ def test_validation_summary_reports_all_conditions(summary_metadata: MarketDataM
     assert any("Missing-data policy applied" in warning for warning in warnings)
 
 
-def test_validation_result_get_report_handles_metadata(summary_metadata: MarketDataMetadata) -> None:
+def test_validation_result_get_report_handles_metadata(
+    summary_metadata: MarketDataMetadata,
+) -> None:
     result = validators.ValidationResult(
         True,
         issues=[],
@@ -110,7 +116,9 @@ def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> 
     assert validators.detect_frequency(df).startswith("irregular (")
 
 
-def test_detect_frequency_handles_generic_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_handles_generic_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def raise_error(index: pd.Index) -> dict:
         raise MarketDataValidationError("Some failure")
 
@@ -120,7 +128,9 @@ def test_detect_frequency_handles_generic_error(monkeypatch: pytest.MonkeyPatch)
     assert validators.detect_frequency(df) == "unknown"
 
 
-def test_detect_frequency_uses_code_when_label_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_detect_frequency_uses_code_when_label_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         validators,
         "classify_frequency",
@@ -137,7 +147,9 @@ def test_detect_frequency_returns_label() -> None:
     assert validators.detect_frequency(df) == "weekly"
 
 
-def test_read_uploaded_file_reads_excel_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_reads_excel_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     excel_path = tmp_path / "data.xlsx"
     excel_path.write_bytes(b"")
     fake_frame = pd.DataFrame({"A": [1]})
@@ -147,7 +159,9 @@ def test_read_uploaded_file_reads_excel_path(tmp_path: Path, monkeypatch: pytest
     assert source.endswith("data.xlsx")
 
 
-def test_read_uploaded_file_reads_parquet_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_reads_parquet_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
     fake_frame = pd.DataFrame({"B": [2]})
@@ -157,7 +171,9 @@ def test_read_uploaded_file_reads_parquet_path(tmp_path: Path, monkeypatch: pyte
     assert source.endswith("data.parquet")
 
 
-def test_read_uploaded_file_path_failure_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_uploaded_file_path_failure_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     csv_path = tmp_path / "broken.csv"
     csv_path.write_text("oops")
 
@@ -256,4 +272,3 @@ def test_read_uploaded_file_rejects_unknown_source() -> None:
 
     with pytest.raises(ValueError, match="Unsupported upload source"):
         _read_uploaded_file(Mystery())
-
