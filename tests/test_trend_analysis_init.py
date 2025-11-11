@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import sys
 from types import ModuleType
 from typing import Any
 
-import dataclasses
 import pytest
 
 
@@ -50,7 +50,9 @@ def test_patch_guard_recovers_missing_module(monkeypatch: pytest.MonkeyPatch) ->
         sys.modules.pop(missing_name, None)
 
         try:
-            result = module._SAFE_IS_TYPE(object, dummy_cls, None, None, lambda *_: True)
+            result = module._SAFE_IS_TYPE(
+                object, dummy_cls, None, None, lambda *_: True
+            )
             placeholder = sys.modules.get(missing_name)
         finally:
             sys.modules.pop(missing_name, None)
@@ -150,7 +152,9 @@ def test_version_uses_metadata_when_available(monkeypatch: pytest.MonkeyPatch) -
     importlib.reload(module)
 
 
-def test_version_falls_back_when_distribution_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_falls_back_when_distribution_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """If the distribution metadata is absent we should expose the dev fallback."""
 
     module = _reload_trend_analysis()
