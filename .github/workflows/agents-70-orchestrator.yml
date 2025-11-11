@@ -205,6 +205,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
+      keepalive_cap_blocked: ${{ steps.precheck.outputs.keepalive_cap_blocked || 'false' }}
+      keepalive_run_cap: ${{ steps.precheck.outputs.keepalive_run_cap || '' }}
+      keepalive_active_runs: ${{ steps.precheck.outputs.keepalive_active_runs || '' }}
+      keepalive_active_runs_inflight: ${{ steps.precheck.outputs.keepalive_active_runs_inflight || '' }}
+      keepalive_active_runs_recent: ${{ steps.precheck.outputs.keepalive_active_runs_recent || '' }}
+      keepalive_active_runs_recent_window: ${{ steps.precheck.outputs.keepalive_active_runs_recent_window || '' }}
+      keepalive_target: ${{ steps.precheck.outputs.keepalive_target || '' }}
     steps:
       - name: Detect manual dispatch origin
         if: github.event_name == 'repository_dispatch'
@@ -215,6 +222,14 @@ jobs:
             const type = context.payload?.action || context.payload?.event_type || 'agents-orchestrator-ping';
             core.info(`Repository dispatch received from @${sender} (type: ${type}).`);
 
+      - name: Checkout guard helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
       - name: Count agent issues
         id: precheck
         uses: actions/github-script@v7
@@ -222,6 +237,7 @@ jobs:
           script: |
             const summary = core.summary;
             const { owner, repo } = context.repo;
+            const { countActiveRuns, parseRunCap, RECENT_RUN_LOOKBACK_MINUTES } = require('./.github/scripts/keepalive_gate.js');
             const started = Date.now();
 
             const normalise = (value) => String(value ?? '').trim();
@@ -262,15 +278,19 @@ jobs:
 
             let keepaliveRequested = false;
             let keepaliveTrace = '';
+            let keepaliveTarget = '';
             const keepaliveSources = new Set();
 
-            const markKeepalive = (source, trace) => {
+            const markKeepalive = (source, trace, prCandidate) => {
               keepaliveRequested = true;
               if (source) {
                 keepaliveSources.add(source);
               }
               if (!keepaliveTrace && typeof trace === 'string' && trace.trim()) {
                 keepaliveTrace = trace.trim();
+              }
+              if (!keepaliveTarget && typeof prCandidate === 'string' && prCandidate.trim()) {
+                keepaliveTarget = prCandidate.trim();
               }
             };
 
@@ -282,17 +302,21 @@ jobs:
               }
               const prInput = String(inputs.pr_number ?? '').trim();
               if (prInput) {
-                markKeepalive('workflow_dispatch.pr_number', prInput);
+                markKeepalive('workflow_dispatch.pr_number', prInput, prInput);
               }
               const params = parseMaybeJson(inputs.params_json);
               if (params && toBool(params.enable_keepalive)) {
-                markKeepalive('workflow_dispatch.params_json');
+                const candidate = String(params.keepalive_pr ?? params.pr ?? '').trim();
+                markKeepalive('workflow_dispatch.params_json', undefined, candidate);
               }
               const options = parseMaybeJson(inputs.options_json);
               if (options) {
                 const trace = options.keepalive_trace || options.trace;
+                const prCandidate = String(options.keepalive_pr ?? options.pr ?? '').trim();
                 if (trace) {
-                  markKeepalive('workflow_dispatch.options_json', trace);
+                  markKeepalive('workflow_dispatch.options_json', trace, prCandidate);
+                } else if (prCandidate) {
+                  markKeepalive('workflow_dispatch.options_json', undefined, prCandidate);
                 }
               }
             } else if (eventName === 'repository_dispatch') {
@@ -302,13 +326,17 @@ jobs:
               }
               const params = parseMaybeJson(payload.params_json || payload.params);
               if (params && toBool(params.enable_keepalive)) {
-                markKeepalive('repository_dispatch.params');
+                const candidate = String(params.keepalive_pr ?? params.pr ?? '').trim();
+                markKeepalive('repository_dispatch.params', undefined, candidate);
               }
               const options = parseMaybeJson(payload.options_json || payload.options);
               if (options) {
                 const trace = options.keepalive_trace || options.trace;
+                const prCandidate = String(options.keepalive_pr ?? options.pr ?? '').trim();
                 if (trace) {
-                  markKeepalive('repository_dispatch.options', trace);
+                  markKeepalive('repository_dispatch.options', trace, prCandidate);
+                } else if (prCandidate) {
+                  markKeepalive('repository_dispatch.options', undefined, prCandidate);
                 }
               }
             }
@@ -346,9 +374,92 @@ jobs:
               }
             );
 
-            const hasWork = keepaliveRequested || count > 0;
+            let hasWork = keepaliveRequested || count > 0;
+            let runCapBlocked = false;
+            let runCapValue = Number.NaN;
+            let activeRunsCount = Number.NaN;
+            let inflightCount = Number.NaN;
+            let recentCount = Number.NaN;
+            let recentWindow = RECENT_RUN_LOOKBACK_MINUTES;
+
+            if (keepaliveRequested && keepaliveTarget) {
+              const prNumber = Number.parseInt(keepaliveTarget, 10);
+              if (Number.isFinite(prNumber) && prNumber > 0) {
+                try {
+                  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                  runCapValue = parseRunCap(pr?.labels || []);
+                  const counts = await countActiveRuns({
+                    github,
+                    owner,
+                    repo,
+                    prNumber,
+                    headSha: pr?.head?.sha || '',
+                    headRef: pr?.head?.ref || '',
+                    currentRunId: context.runId,
+                    workflowFile: ['agents-70-orchestrator.yml', 'agents-72-codex-belt-worker.yml'],
+                    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
+                  });
+
+                  if (counts && typeof counts === 'object') {
+                    if (Number.isFinite(counts.recentWindowMinutes)) {
+                      recentWindow = counts.recentWindowMinutes;
+                    }
+                    if (Number.isFinite(counts.activeRuns)) {
+                      activeRunsCount = counts.activeRuns;
+                    }
+                    if (Number.isFinite(counts.inFlightRuns)) {
+                      inflightCount = counts.inFlightRuns;
+                    }
+                    if (Number.isFinite(counts.recentRuns)) {
+                      recentCount = counts.recentRuns;
+                    }
+                    if (counts.error) {
+                      core.warning(
+                        `Idle precheck: unable to count active runs for PR #${prNumber}: ${counts.error}`
+                      );
+                    }
+                  }
+
+                  if (
+                    Number.isFinite(activeRunsCount) &&
+                    Number.isFinite(runCapValue) &&
+                    activeRunsCount >= runCapValue
+                  ) {
+                    runCapBlocked = true;
+                    if (count === 0) {
+                      hasWork = false;
+                    }
+                  }
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  core.warning(
+                    `Idle precheck: failed to evaluate keepalive run cap for PR #${keepaliveTarget}: ${message}`
+                  );
+                }
+              }
+            }
+
             const elapsed = Math.round((Date.now() - started) / 100) / 10;
             core.setOutput('has_work', hasWork ? 'true' : 'false');
+            core.setOutput('keepalive_cap_blocked', runCapBlocked ? 'true' : 'false');
+            core.setOutput('keepalive_run_cap', Number.isFinite(runCapValue) ? String(runCapValue) : '');
+            core.setOutput(
+              'keepalive_active_runs',
+              Number.isFinite(activeRunsCount) ? String(activeRunsCount) : ''
+            );
+            core.setOutput(
+              'keepalive_active_runs_inflight',
+              Number.isFinite(inflightCount) ? String(inflightCount) : ''
+            );
+            core.setOutput(
+              'keepalive_active_runs_recent',
+              Number.isFinite(recentCount) ? String(recentCount) : ''
+            );
+            core.setOutput(
+              'keepalive_active_runs_recent_window',
+              Number.isFinite(recentWindow) ? String(recentWindow) : ''
+            );
+            core.setOutput('keepalive_target', keepaliveTarget || '');
 
             summary.addHeading('Agents orchestrator idle precheck');
             summary.addRaw(`agent:* issues detected: ${count}`);
@@ -363,6 +474,30 @@ jobs:
               if (keepaliveTrace) {
                 summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
               }
+              if (Number.isFinite(runCapValue)) {
+                const activeDisplay = Number.isFinite(activeRunsCount) ? activeRunsCount : '?';
+                const inflightDisplay = Number.isFinite(inflightCount) ? inflightCount : '?';
+                const recentDisplay = Number.isFinite(recentCount) ? recentCount : '?';
+                const windowDisplay = Number.isFinite(recentWindow) ? recentWindow : '?';
+                summary
+                  .addRaw(
+                    `Keepalive run cap utilisation: ${activeDisplay}/${runCapValue} (in-flight=${inflightDisplay}, recent<=${windowDisplay}m=${recentDisplay})`
+                  )
+                  .addEOL();
+                if (runCapBlocked) {
+                  summary
+                    .addRaw(
+                      count === 0
+                        ? 'Result: run cap reached; idle precheck suppressed new keepalive dispatches.'
+                        : 'Run cap reached but agent issues remain; continuing orchestration without new keepalive dispatch.'
+                    )
+                    .addEOL();
+                }
+              } else if (keepaliveTarget) {
+                summary
+                  .addRaw(`Keepalive run cap could not be evaluated for PR #${keepaliveTarget}.`)
+                  .addEOL();
+              }
             }
             if (!hasWork) {
               summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
@@ -370,7 +505,14 @@ jobs:
             await summary.write();
 
             if (!hasWork) {
-              core.info('Idle, skipping orchestrator dispatch.');
+              if (runCapBlocked && keepaliveRequested && count === 0) {
+                const capDisplay = Number.isFinite(runCapValue)
+                  ? `${Number.isFinite(activeRunsCount) ? activeRunsCount : '?'} / ${runCapValue}`
+                  : 'unknown';
+                core.info(`Idle, suppressing keepalive because run cap is already saturated (${capDisplay}).`);
+              } else {
+                core.info('Idle, skipping orchestrator dispatch.');
+              }
             } else if (keepaliveRequested) {
               const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
               core.info(`Keepalive request detected${traceInfo}; proceeding regardless of open agent issues.`);
@@ -1765,6 +1907,7 @@ jobs:
     needs:
       - resolve-params
       - keepalive-guard
+    if: needs.keepalive-guard.outputs.proceed != 'false'
     uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
     with:
       force_issue: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}

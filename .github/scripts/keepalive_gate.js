@@ -402,6 +402,9 @@ async function countActiveRuns({
   const activeRunIds = new Set();
   const recentRunIds = new Set();
 
+  const runMatchCache = new Map();
+  const runDetailCache = new Map();
+
   const workflowIds = Array.isArray(workflowFile)
     ? workflowFile.filter(Boolean)
     : [workflowFile].filter(Boolean);
@@ -418,7 +421,7 @@ async function countActiveRuns({
     return runId === parsedCurrent;
   };
 
-  const matchesPull = (run) => {
+  const directMatch = (run) => {
     if (!run) {
       return false;
     }
@@ -445,6 +448,44 @@ async function countActiveRuns({
     return false;
   };
 
+  const matchesPull = async (run) => {
+    if (!run) {
+      return false;
+    }
+    const runId = Number(run?.id || 0);
+    if (Number.isFinite(runId) && runId > 0 && runMatchCache.has(runId)) {
+      return runMatchCache.get(runId);
+    }
+
+    let matched = directMatch(run);
+
+    if (!matched && Number.isFinite(runId) && runId > 0 && github?.rest?.actions?.getWorkflowRun) {
+      try {
+        let detail = runDetailCache.get(runId);
+        if (detail === undefined) {
+          const response = await github.rest.actions.getWorkflowRun({
+            owner,
+            repo,
+            run_id: runId,
+          });
+          detail = response?.data || null;
+          runDetailCache.set(runId, detail);
+        }
+        if (detail) {
+          matched = directMatch(detail);
+        }
+      } catch (error) {
+        runDetailCache.set(runId, null);
+      }
+    }
+
+    if (Number.isFinite(runId) && runId > 0) {
+      runMatchCache.set(runId, matched);
+    }
+
+    return matched;
+  };
+
   for (const workflowId of workflowIds) {
     if (!workflowId) {
       continue;
@@ -462,7 +503,7 @@ async function countActiveRuns({
           if (isSameRun(run)) {
             continue;
           }
-          if (!matchesPull(run)) {
+          if (!(await matchesPull(run))) {
             continue;
           }
           const runId = Number(run?.id || 0);
@@ -492,46 +533,34 @@ async function countActiveRuns({
         continue;
       }
       try {
-        await github.paginate(
-          github.rest.actions.listWorkflowRuns,
-          {
-            owner,
-            repo,
-            workflow_id: workflowId,
-            status: 'completed',
-            per_page: 100,
-          },
-          (response, done) => {
-            let shouldStop = false;
-            const entries = Array.isArray(response?.data) ? response.data : [];
-            for (const run of entries) {
-              if (!run) {
-                continue;
-              }
-              const timestamp =
-                Date.parse(run.updated_at || run.run_started_at || run.created_at || '') || 0;
-              if (timestamp && timestamp < cutoff) {
-                shouldStop = true;
-                break;
-              }
-              if (isSameRun(run) || !matchesPull(run)) {
-                continue;
-              }
-              const runId = Number(run?.id || 0);
-              if (!Number.isFinite(runId) || runId <= 0) {
-                continue;
-              }
-              activeRunIds.add(runId);
-              if (!inflightRunIds.has(runId)) {
-                recentRunIds.add(runId);
-              }
-            }
-            if (shouldStop && typeof done === 'function') {
-              done();
-            }
-            return [];
+        const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+          owner,
+          repo,
+          workflow_id: workflowId,
+          status: 'completed',
+          per_page: 100,
+        });
+        for (const run of runs) {
+          if (!run) {
+            continue;
           }
-        );
+          const timestamp =
+            Date.parse(run.updated_at || run.run_started_at || run.created_at || '') || 0;
+          if (timestamp && timestamp < cutoff) {
+            break;
+          }
+          if (isSameRun(run) || !(await matchesPull(run))) {
+            continue;
+          }
+          const runId = Number(run?.id || 0);
+          if (!Number.isFinite(runId) || runId <= 0) {
+            continue;
+          }
+          activeRunIds.add(runId);
+          if (!inflightRunIds.has(runId)) {
+            recentRunIds.add(runId);
+          }
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
@@ -795,5 +824,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 module.exports = {
   evaluateKeepaliveGate,
   countActiveRuns,
+  parseRunCap,
   RECENT_RUN_LOOKBACK_MINUTES,
 };
