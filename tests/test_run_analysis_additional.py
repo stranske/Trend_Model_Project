@@ -32,7 +32,9 @@ def basic_config() -> SimpleNamespace:
     )
 
 
-def test_main_requires_csv_path(monkeypatch: pytest.MonkeyPatch, basic_config: SimpleNamespace) -> None:
+def test_main_requires_csv_path(
+    monkeypatch: pytest.MonkeyPatch, basic_config: SimpleNamespace
+) -> None:
     cfg = SimpleNamespace(data={}, sample_split={}, export={})
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: cfg)
 
@@ -69,7 +71,10 @@ def test_main_handles_nan_policy_without_errors_parameter(
         captured["nan_policy"] = nan_policy
         captured["nan_limit"] = nan_limit
         return pd.DataFrame(
-            {"Date": pd.date_range("2020-01-31", periods=2, freq="ME"), "FundA": [0.1, 0.2]}
+            {
+                "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
+                "FundA": [0.1, 0.2],
+            }
         )
 
     result = DummyResult(
@@ -115,17 +120,25 @@ def test_main_assigns_default_output_when_missing_export_settings(
     exported: dict[str, object] = {}
 
     def fake_load_csv(path: str, **kwargs: object) -> pd.DataFrame:
-        return pd.DataFrame({
-            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
-            "FundA": [0.1, 0.2, 0.3],
-        })
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+                "FundA": [0.1, 0.2, 0.3],
+            }
+        )
 
     with monkeypatch.context() as mp:
         mp.setattr(run_analysis_mod, "load", lambda path: cfg)
         mp.setattr(run_analysis_mod, "load_csv", fake_load_csv)
         mp.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: result)
-        mp.setattr(run_analysis_mod.export, "format_summary_text", lambda *_, **__: "summary")
-        mp.setattr(run_analysis_mod.export, "make_summary_formatter", lambda *_, **__: lambda df: None)
+        mp.setattr(
+            run_analysis_mod.export, "format_summary_text", lambda *_, **__: "summary"
+        )
+        mp.setattr(
+            run_analysis_mod.export,
+            "make_summary_formatter",
+            lambda *_, **__: lambda df: None,
+        )
         mp.setattr(
             run_analysis_mod.export,
             "summary_frame_from_result",
