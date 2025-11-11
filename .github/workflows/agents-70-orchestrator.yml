@@ -946,6 +946,11 @@ jobs:
           echo "::notice::keepalive_gate_proceed=${{ steps.guard.outputs.proceed }}"
           echo "::notice::keepalive_gate_reason=${{ steps.guard.outputs.reason }}"
           echo "::notice::resolve_enable_keepalive=${{ needs.resolve-params.outputs.enable_keepalive }}"
+          echo "::notice::keepalive_run_cap=${{ steps.guard.outputs.run_cap }}"
+          echo "::notice::keepalive_active_runs=${{ steps.guard.outputs.active_runs }}"
+          echo "::notice::keepalive_active_runs_inflight=${{ steps.guard.outputs.active_runs_inflight }}"
+          echo "::notice::keepalive_active_runs_recent=${{ steps.guard.outputs.active_runs_recent }}"
+          echo "::notice::keepalive_active_runs_recent_window=${{ steps.guard.outputs.active_runs_recent_window }}"
 
 
   keepalive-instruction:
