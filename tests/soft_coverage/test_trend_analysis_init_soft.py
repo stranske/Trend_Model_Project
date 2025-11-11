@@ -21,7 +21,9 @@ def _reload_trend_analysis() -> ModuleType:
     return importlib.reload(module)
 
 
-def test_dataclass_guard_recovers_missing_module(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataclass_guard_recovers_missing_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _reload_trend_analysis()
     call_counter = {"count": 0}
 
@@ -79,7 +81,9 @@ def test_lazy_attribute_imports_on_demand() -> None:
     importlib.reload(module)
 
 
-def test_version_fallback_when_metadata_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_fallback_when_metadata_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = _reload_trend_analysis()
 
     def raise_missing(_: str) -> str:

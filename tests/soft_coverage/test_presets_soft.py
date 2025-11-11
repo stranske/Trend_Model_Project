@@ -29,7 +29,7 @@ def _write_yaml(path: Path, content: str) -> None:
 
 
 def test_candidate_dirs_include_environment_override(
-    preset_workspace: tuple[Path, Path]
+    preset_workspace: tuple[Path, Path],
 ) -> None:
     base, extra = preset_workspace
     dirs = presets._candidate_preset_dirs()
@@ -63,7 +63,9 @@ signals:
     preset = registry["global"]
     assert preset.label == "Global Override"
     assert preset.trend_spec.window == 55
-    assert any("Duplicate trend preset slug" in record.message for record in caplog.records)
+    assert any(
+        "Duplicate trend preset slug" in record.message for record in caplog.records
+    )
 
 
 def test_trend_preset_helpers_normalise_values() -> None:
@@ -140,9 +142,7 @@ def test_apply_trend_preset_updates_config() -> None:
     assert config.vol_adjust["window"]["length"] == 30
 
 
-def test_preset_lookup_and_alias_helpers(
-    preset_workspace: tuple[Path, Path]
-) -> None:
+def test_preset_lookup_and_alias_helpers(preset_workspace: tuple[Path, Path]) -> None:
     base, _ = preset_workspace
     _write_yaml(
         base / "momentum.yml",
@@ -221,7 +221,9 @@ def test_vol_adjust_defaults_uses_fallbacks() -> None:
     defaults = preset.vol_adjust_defaults()
     assert defaults["enabled"] is presets._DEFAULT_VOL_ADJUST["enabled"]
     assert defaults["target_vol"] == presets._DEFAULT_VOL_ADJUST["target_vol"]
-    assert defaults["window"]["length"] == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    assert (
+        defaults["window"]["length"] == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    )
 
 
 def test_vol_adjust_defaults_reads_signal_overrides() -> None:
@@ -252,7 +254,9 @@ def test_vol_adjust_defaults_handles_mapping_proxy() -> None:
     assert defaults["window"]["length"] == 45
 
 
-def test_candidate_dirs_include_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_candidate_dirs_include_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     base = tmp_path / "primary"
     base.mkdir()
     defaults_parent = tmp_path / "config" / "presets"
@@ -276,7 +280,9 @@ def test_candidate_dirs_include_defaults(tmp_path: Path, monkeypatch: pytest.Mon
     assert duplicate_dirs.count(base) == 1
 
 
-def test_preset_registry_ignores_empty_files(preset_workspace: tuple[Path, Path]) -> None:
+def test_preset_registry_ignores_empty_files(
+    preset_workspace: tuple[Path, Path],
+) -> None:
     base, _ = preset_workspace
     _write_yaml(base / "empty.yml", "")
     presets._preset_registry.cache_clear()
@@ -293,7 +299,9 @@ def test_apply_trend_preset_handles_non_mapping_sections() -> None:
         _config=presets._freeze_mapping({}),
     )
 
-    config = SimpleNamespace(signals=None, vol_adjust=MappingProxyType({"kept": 1}), run=None)
+    config = SimpleNamespace(
+        signals=None, vol_adjust=MappingProxyType({"kept": 1}), run=None
+    )
     presets.apply_trend_preset(config, preset)
 
     assert isinstance(config.signals, dict)
