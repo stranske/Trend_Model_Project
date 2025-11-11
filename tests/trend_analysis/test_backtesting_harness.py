@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+import pandas.testing as pdt
 import pytest
 
 from trend_analysis.backtesting import harness as h
@@ -186,6 +187,85 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
         )
 
 
+def test_run_backtest_errors_on_empty_prepared_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]}
+    )
+
+    monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
+
+    with pytest.raises(ValueError, match="at least one row"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_errors_when_calendar_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame(
+        {"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01}
+    )
+
+    monkeypatch.setattr(h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([]))
+
+    with pytest.raises(ValueError, match="rebalance calendar"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            window_mode="rolling",
+        )
+
+
+def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
+    dates = pd.to_datetime(
+        [
+            "2021-01-31",
+            "2021-01-31",
+            "2021-02-28",
+            "2021-02-28",
+            "2021-03-31",
+        ]
+    )
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.01, 0.002, 0.003, 0.004, 0.005],
+            "FundB": [0.0, 0.001, 0.002, 0.003, 0.004],
+        }
+    )
+
+    def equal_weight(frame: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=frame.columns)
+
+    result = h.run_backtest(
+        returns,
+        equal_weight,
+        rebalance_freq="M",
+        window_size=2,
+        window_mode="rolling",
+        transaction_cost_bps=50,
+    )
+
+    prepared = returns.set_index("Date").astype(float)
+    expected_raw = float(np.dot(prepared.iloc[2], [0.5, 0.5]))
+    expected = expected_raw - 0.005
+
+    # First non-null portfolio return reflects a one-off cost deduction.
+    first_realised = result.returns.dropna().iloc[0]
+    assert first_realised == pytest.approx(expected)
+    # Duplicate dates still yield a single set of stored weights per rebalance.
+    assert list(result.weights.index) == sorted(result.weights.index)
+
+
 def test_helpers_cover_frequency_conversion_and_json_default(
     sample_calendar: pd.DatetimeIndex,
 ) -> None:
@@ -193,6 +273,8 @@ def test_helpers_cover_frequency_conversion_and_json_default(
     assert h._normalise_frequency("3M") == "3ME"
     assert h._normalise_frequency("Q") == "QE"
     assert h._normalise_frequency("  1y ") == "1YE"
+    assert h._normalise_frequency("ME") == "ME"
+    assert h._normalise_frequency("BM") == "BM"
 
     inferred = h._infer_periods_per_year(sample_calendar)
     assert inferred == 12
@@ -232,3 +314,166 @@ def test_initial_and_normalised_weights_round_trip() -> None:
     normalised = h._normalise_weights({"X": 0.3}, columns)
     assert normalised.loc["X"] == pytest.approx(0.3)
     assert normalised.loc["Y"] == 0.0
+
+
+def test_run_backtest_rejects_empty_prepared_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = pd.DataFrame(
+        {
+            "Date": pd.date_range("2021-01-01", periods=2, freq="D"),
+            "FundA": [0.01, 0.02],
+        }
+    )
+
+    monkeypatch.setattr(
+        h,
+        "_prepare_returns",
+        lambda _: pd.DataFrame(
+            columns=["FundA"], index=pd.DatetimeIndex([], name="Date")
+        ),
+    )
+
+    with pytest.raises(ValueError, match="at least one row"):
+        h.run_backtest(
+            base,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="M",
+            window_size=1,
+        )
+
+
+def test_run_backtest_rejects_empty_rebalance_calendar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2021-01-31", periods=3, freq="ME"),
+            "FundA": [0.01, 0.02, 0.03],
+        }
+    )
+
+    monkeypatch.setattr(
+        h, "_prepare_returns", lambda frame: frame.set_index("Date")[["FundA"]]
+    )
+    monkeypatch.setattr(
+        h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([], name="rebalance_date")
+    )
+
+    with pytest.raises(ValueError, match="rebalance calendar produced no dates"):
+        h.run_backtest(
+            df,
+            lambda _: {"FundA": 1.0},
+            rebalance_freq="MS",
+            window_size=2,
+        )
+
+
+def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
+    dates = pd.DatetimeIndex(
+        [
+            "2021-01-01",
+            "2021-01-01",
+            "2021-01-02",
+            "2021-01-02",
+            "2021-01-03",
+        ]
+    )
+    returns = pd.DataFrame(
+        {
+            "FundA": [0.01, 0.02, 0.03, 0.04, 0.05],
+            "FundB": [-0.02, -0.01, 0.0, 0.01, 0.02],
+        },
+        index=dates,
+    )
+
+    def flip_strategy(frame: pd.DataFrame) -> dict[str, float]:
+        return (
+            {"FundA": 1.0, "FundB": 0.0}
+            if frame.index[-1].day % 2
+            else {"FundA": 0.0, "FundB": 1.0}
+        )
+
+    result = h.run_backtest(
+        returns,
+        flip_strategy,
+        rebalance_freq="D",
+        window_size=1,
+        transaction_cost_bps=10,
+    )
+
+    assert result.turnover.loc[pd.Timestamp("2021-01-01")] == pytest.approx(1.0)
+    assert result.transaction_costs.loc[pd.Timestamp("2021-01-01")] == pytest.approx(
+        0.001
+    )
+    # The first realised return reflects the pending transaction cost deduction.
+    realised = result.returns.loc[pd.Timestamp("2021-01-02")]
+    assert realised.iloc[0] == pytest.approx(0.029)
+
+
+def test_prepare_returns_validation_errors() -> None:
+    with pytest.raises(ValueError, match="DatetimeIndex"):
+        h._prepare_returns(pd.DataFrame({"FundA": [0.1, 0.2]}))
+
+    with pytest.raises(ValueError, match="numeric columns"):
+        h._prepare_returns(
+            pd.DataFrame(
+                {
+                    "Date": pd.date_range("2021-01-01", periods=2, freq="D"),
+                    "Label": ["a", "b"],
+                }
+            )
+        )
+
+
+def test_infer_periods_per_year_branch_coverage() -> None:
+    assert h._infer_periods_per_year(pd.DatetimeIndex(["2021-01-01"])) == 1
+    duplicate_days = pd.DatetimeIndex(["2021-01-01", "2021-01-01", "2021-01-01"])
+    assert h._infer_periods_per_year(duplicate_days) == 1
+    assert (
+        h._infer_periods_per_year(pd.date_range("2021-01-01", periods=60, freq="B"))
+        == 252
+    )
+    assert (
+        h._infer_periods_per_year(pd.date_range("2021-01-03", periods=12, freq="W"))
+        == 52
+    )
+    assert (
+        h._infer_periods_per_year(pd.date_range("2021-01-31", periods=6, freq="ME"))
+        == 12
+    )
+    assert (
+        h._infer_periods_per_year(pd.date_range("2021-03-31", periods=6, freq="QE"))
+        == 4
+    )
+    irregular = pd.DatetimeIndex(
+        ["2021-01-01", "2021-01-21", "2021-02-10", "2021-03-05"]
+    )
+    assert h._infer_periods_per_year(irregular) == 18
+
+
+def test_rolling_sharpe_enforces_minimum_window() -> None:
+    returns = pd.Series(
+        [0.01, -0.005, 0.0, 0.004],
+        index=pd.date_range("2021-01-01", periods=4, freq="D"),
+    )
+    sharpe = h._rolling_sharpe(returns, periods_per_year=252, window=1)
+    expected = returns.rolling(window=2).mean() / returns.rolling(window=2).std(ddof=0)
+    expected *= np.sqrt(252)
+    expected = expected.replace([np.inf, -np.inf], np.nan)
+
+    pdt.assert_series_equal(sharpe, expected)
+
+
+def test_series_and_weights_to_dict_edge_cases() -> None:
+    assert h._series_to_dict(pd.Series(dtype=float)) == {}
+
+    empty_weights = pd.DataFrame(columns=["FundA", "FundB"])
+    assert h._weights_to_dict(empty_weights) == {}
+
+    zero_only = pd.DataFrame(
+        [[0.0, 0.0]],
+        index=[pd.Timestamp("2021-01-01")],
+        columns=["FundA", "FundB"],
+    )
+    assert h._weights_to_dict(zero_only) == {}
