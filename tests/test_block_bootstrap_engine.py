@@ -4,6 +4,7 @@ import pytest
 
 from trend_portfolio_app.monte_carlo.engine import (
     BlockBootstrapModel,
+    ReturnModel,
     ReturnModelConfig,
 )
 
@@ -48,3 +49,11 @@ def test_stitching_with_non_divisible_periods():
     out = model.sample(10, 1)
     assert out.shape == (1, 10, panel.shape[1])
     assert (out != 0).all()
+
+
+def test_return_model_base_class_contract():
+    base = ReturnModel()
+    with pytest.raises(NotImplementedError):
+        base.fit(pd.DataFrame())
+    with pytest.raises(NotImplementedError):
+        base.sample(1, 1)
