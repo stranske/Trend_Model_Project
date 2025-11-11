@@ -127,6 +127,11 @@ class HierarchicalRiskParity(WeightEngine):
             # Final normalization and validation
             if w.sum() == 0:
                 logger.warning("Zero sum weights in HRP, using equal weights")
+                warnings.warn(
+                    "Zero sum weights in HRP, using equal weights",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 n = len(cov)
                 return pd.Series(np.ones(n) / n, index=cov.index)
 
@@ -136,5 +141,10 @@ class HierarchicalRiskParity(WeightEngine):
 
         except Exception as e:
             logger.error(f"HRP computation failed: {e}, falling back to equal weights")
+            warnings.warn(
+                "HRP computation failed; using equal weights",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             n = len(cov)
             return pd.Series(np.ones(n) / n, index=cov.index)
