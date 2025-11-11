@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
+from typing import Iterable
 
 import pandas as pd
 import pytest
@@ -257,6 +258,27 @@ def test_check_monotonic_index_reports_out_of_order() -> None:
 
 def test_check_monotonic_index_sorted_unique_returns_empty() -> None:
     index = pd.date_range("2024-01-01", periods=5, freq="D")
+    assert market_data._check_monotonic_index(index) == []
+
+
+def test_check_monotonic_index_handles_non_breaking_false_flag() -> None:
+    class LoopCompletingIndex(pd.DatetimeIndex):
+        def __new__(cls, data: Iterable[str]):
+            return super().__new__(cls, data)
+
+        @property
+        def is_monotonic_increasing(self) -> bool:  # pragma: no cover - exercised via subclass
+            return False
+
+        def sort_values(self, *args: object, **kwargs: object) -> pd.DatetimeIndex:
+            return pd.DatetimeIndex(self)
+
+    index = LoopCompletingIndex([
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03",
+    ])
+
     assert market_data._check_monotonic_index(index) == []
 
 
