@@ -267,17 +267,21 @@ def test_check_monotonic_index_handles_non_breaking_false_flag() -> None:
             return super().__new__(cls, data)
 
         @property
-        def is_monotonic_increasing(self) -> bool:  # pragma: no cover - exercised via subclass
+        def is_monotonic_increasing(
+            self,
+        ) -> bool:  # pragma: no cover - exercised via subclass
             return False
 
         def sort_values(self, *args: object, **kwargs: object) -> pd.DatetimeIndex:
             return pd.DatetimeIndex(self)
 
-    index = LoopCompletingIndex([
-        "2024-01-01",
-        "2024-01-02",
-        "2024-01-03",
-    ])
+    index = LoopCompletingIndex(
+        [
+            "2024-01-01",
+            "2024-01-02",
+            "2024-01-03",
+        ]
+    )
 
     assert market_data._check_monotonic_index(index) == []
 
