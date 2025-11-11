@@ -241,7 +241,9 @@ def test_load_csv_reraises_validation_error_when_requested(
 
 
 def test_load_csv_logs_validation_error_without_parse_hint(
-    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    tmp_path: pytest.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Messages lacking parse keywords should be logged verbatim."""
 
@@ -287,7 +289,9 @@ def test_load_parquet_reraises_validation_error_when_requested(
 
 
 def test_load_parquet_logs_validation_error_without_parse_hint(
-    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    tmp_path: pytest.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """``load_parquet`` preserves messages without parse hints."""
 
