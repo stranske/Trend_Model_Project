@@ -14,23 +14,25 @@
     5. `trend_analysis/io/validators.py` – 14 %【37fc58†L53-L55】
     6. `trend_analysis/presets.py` – 15 %【37fc58†L87-L89】
     7. `trend_analysis/engine/optimizer.py` – 22 %【37fc58†L71-L73】
-    8. `trend_analysis/data.py` – 30 %【37fc58†L45-L47】
-    9. `trend_analysis/pipeline.py` – 38 %【37fc58†L79-L83】
-    10. `trend_portfolio_app/monte_carlo/engine.py` – 39 %【37fc58†L121-L122】
-    11. `trend_analysis/config/model.py` – 44 %【37fc58†L75-L77】
-    12. `trend_analysis/util/frequency.py` – 46 %【37fc58†L109-L110】
-    13. `trend_analysis/signal_presets.py` – 52 %【37fc58†L101-L103】
-    14. `trend_analysis/io/market_data.py` – 54 %【37fc58†L57-L60】
-    15. `trend_analysis/signals.py` – 65 %【37fc58†L105-L106】
-    16. `trend_analysis/risk.py` – 70 %【37fc58†L95-L96】
-    17. `trend_analysis/backtesting/bootstrap.py` – 100 % (already above target)【37fc58†L33-L34】
-    18. `trend_analysis/backtesting/harness.py` – 100 % (already above target)【37fc58†L35-L36】
+    8. `trend_analysis/pipeline.py` – 38 %【37fc58†L79-L83】
+    9. `trend_portfolio_app/monte_carlo/engine.py` – 39 %【37fc58†L121-L122】
+    10. `trend_analysis/config/model.py` – 44 %【37fc58†L75-L77】
+    11. `trend_analysis/util/frequency.py` – 46 %【37fc58†L109-L110】
+    12. `trend_analysis/signal_presets.py` – 52 %【37fc58†L101-L103】
+    13. `trend_analysis/io/market_data.py` – 54 %【37fc58†L57-L60】
+    14. `trend_analysis/signals.py` – 65 %【37fc58†L105-L106】
+    15. `trend_analysis/risk.py` – 70 %【37fc58†L95-L96】
+    16. `trend_analysis/backtesting/bootstrap.py` – 100 % (already above target)【37fc58†L33-L34】
+    17. `trend_analysis/backtesting/harness.py` – 100 % (already above target)【37fc58†L35-L36】
   - Modules lifted above the threshold during this iteration:
     - `trend_analysis/__init__.py` – 98 % (met)【ddf65b†L1-L5】
+    - `trend_analysis/data.py` – 99 % (met)【1198e5†L1-L5】
 - [ ] Increase test coverage incrementally for one set of related issues or 1 file below at a time
   - [x] __init__.py – 98 % line coverage after targeted tests【ddf65b†L1-L5】
     - Command: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis -m pytest tests/test_trend_analysis_init.py`【fa9f59†L1-L1】
-  - [ ] data.py – 30 % line coverage【37fc58†L45-L47】
+  - [x] data.py – 99 % line coverage (parse-hint logging verified).【aa2552†L1-L1】【1198e5†L1-L5】
+    - Command: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m coverage run --source=trend_analysis.data -m pytest tests/test_trend_analysis_data.py tests/test_trend_analysis_data_additional.py`【aa2552†L1-L1】
+    - Report: `python -m coverage report -m src/trend_analysis/data.py`【1198e5†L1-L5】
   - [ ] presets.py – 15 % line coverage【37fc58†L87-L89】
   - [x] harness.py – 100 % line coverage (already satisfies target)【37fc58†L35-L36】
   - [ ] regimes.py – 11 % line coverage【37fc58†L93-L95】

@@ -240,6 +240,31 @@ def test_load_csv_reraises_validation_error_when_requested(
         load_csv(str(path), errors="raise")
 
 
+def test_load_csv_logs_validation_error_without_parse_hint(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Messages lacking parse keywords should be logged verbatim."""
+
+    path = tmp_path / "data.csv"
+    frame = pd.DataFrame({"Date": ["2024-01-01"], "A": [1]})
+    frame.to_csv(path, index=False)
+
+    def fake_validate(*_: Any, **__: Any) -> Any:
+        raise MarketDataValidationError("General validation failure", [])
+
+    monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
+
+    caplog.set_level(logging.ERROR, logger="trend_analysis.data")
+    load_csv(str(path), errors="log")
+
+    assert any(
+        record.levelno == logging.ERROR
+        and "General validation failure" in record.getMessage()
+        and "Unable to parse Date values" not in record.getMessage()
+        for record in caplog.records
+    )
+
+
 def test_load_parquet_reraises_validation_error_when_requested(
     tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -259,6 +284,35 @@ def test_load_parquet_reraises_validation_error_when_requested(
 
     with pytest.raises(MarketDataValidationError):
         load_parquet(str(path), errors="raise")
+
+
+def test_load_parquet_logs_validation_error_without_parse_hint(
+    tmp_path: pytest.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """``load_parquet`` preserves messages without parse hints."""
+
+    path = tmp_path / "data.parquet"
+    path.write_bytes(b"")
+
+    monkeypatch.setattr(
+        "trend_analysis.data.pd.read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Date": ["2024-01-01"], "A": [1]}),
+    )
+
+    def fake_validate(*_: Any, **__: Any) -> Any:
+        raise MarketDataValidationError("Validation failed for column weights", [])
+
+    monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
+
+    caplog.set_level(logging.ERROR, logger="trend_analysis.data")
+    load_parquet(str(path), errors="log")
+
+    assert any(
+        record.levelno == logging.ERROR
+        and "Validation failed for column weights" in record.getMessage()
+        and "Unable to parse Date values" not in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_ensure_datetime_noop_when_column_missing() -> None:
