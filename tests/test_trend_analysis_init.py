@@ -235,9 +235,7 @@ def test_safe_is_type_uses_existing_module(monkeypatch: pytest.MonkeyPatch) -> N
 
             dummy_cls = type("Dummy", (), {})
             dummy_cls.__module__ = "tests.coverage_placeholder"
-            assert module._SAFE_IS_TYPE(
-                object, dummy_cls, None, None, lambda *_: True
-            )
+            assert module._SAFE_IS_TYPE(object, dummy_cls, None, None, lambda *_: True)
     finally:
         sys.modules.pop("tests.coverage_placeholder", None)
         importlib.reload(module)
