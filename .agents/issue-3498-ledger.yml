@@ -29,10 +29,10 @@ tasks:
   - id: task-04
     title: 'Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha
       }.'
-    status: done
-    started_at: '2025-11-12T04:24:38Z'
-    finished_at: '2025-11-12T04:24:43Z'
-    commit: 2fd266fd08be3308642ad776d33acf819dd3369d
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
     notes: []
   - id: task-05
     title: Orchestrator (.github/workflows/agents-70-orchestrator.yml)
