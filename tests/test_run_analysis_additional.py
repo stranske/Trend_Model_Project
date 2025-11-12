@@ -263,6 +263,7 @@ def test_main_detailed_no_results(
     out = capsys.readouterr().out
     assert "No results" in out
 
+
 def test_main_passes_nan_policy_kwargs(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
