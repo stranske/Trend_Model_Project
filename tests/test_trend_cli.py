@@ -429,6 +429,7 @@ def test_main_report_handles_runtime_error(monkeypatch, tmp_path: Path, capsys) 
         "trend.cli._resolve_returns_path",
         lambda *args, **kwargs: returns_path,
     )
+
     def raise_generate(*_args, **_kwargs):
         raise RuntimeError("boom")
 
@@ -659,7 +660,9 @@ def test_handle_exports_only_excel_format(monkeypatch, tmp_path: Path) -> None:
 
     cli._handle_exports(cfg, result, structured_log=False, run_id="rid")
 
-    assert recorded and all(entry.endswith("analysis.xlsx") for entry in recorded if entry != "data-called")
+    assert recorded and all(
+        entry.endswith("analysis.xlsx") for entry in recorded if entry != "data-called"
+    )
     assert "data-called" not in recorded
 
 
@@ -865,7 +868,9 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
     assert getattr(result, "config") == cfg.__dict__
 
 
-def test_write_bundle_accepts_explicit_file(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_write_bundle_accepts_explicit_file(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
     cfg = SimpleNamespace(__dict__={"key": "value"})
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
