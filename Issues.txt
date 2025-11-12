@@ -1,173 +1,194 @@
-1.Keepalive finalization: silence connector comments (without affecting stranske posts) + robust ACK + strict Gate=success + per‑PR run‑cap + branch‑sync hard gate + deterministic scope extraction + quiet/no‑noise
+1. Keepalive parallelism: cap‑aware concurrency (default 2), no unintended serialization, per‑comment dedupe, and “last‑green” Gate window
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-
-The connector (e.g., chatgpt-codex-connector[bot]) sometimes posts comments that clutter the thread or collide with instruction flow. We want to prevent connector-authored comments while preserving automation posts authored as stranske (using ACTION_BOT_PAT) so the agent still acts on human‑authored instructions.
-
-We still hit timing races and occasional content gaps:
-
-Orchestrator sometimes misses PR‑meta’s ACK within TTL and fires a fallback dispatch even though ACK arrives seconds later.
-
-Some instruction rounds render “No scope information available”, weakening prompts.
-
-Gate needs to be enforced as conclusion=success for the current head SHA (not just “completed”).
-
-Branch‑sync must be a blocking gate before Round N+1.
-
-We must keep the PR quiet when gates fail (step summaries only), and keep a run‑cap (default 2; label‑driven override).
-
-This issue delivers those corrections without expanding scope.
+We’re seeing only one run at a time even when agents:keepalive and Gate are satisfied. Root causes are likely: (1) active‑run counting that over‑counts (serializing runs), (2) a too‑coarse concurrency group, and (3) a Gate policy that forces a fresh Gate cycle between back‑to‑back instructions on the same unchanged head SHA.
 
 Scope
 
-Implement the following, and only the following:
+- Active‑run counting: compute active as the number of Orchestrator (and optionally Worker) runs for this PR only with status ∈ {queued, in_progress}. Do not count PR‑meta, status jobs, or other PRs.
 
-- Silence the connector’s PR comments while preserving all posts authored by stranske:
+- Cap: default cap = 2; allow override via label agents:max-runs:X (X ∈ 1..5).
 
-- Do not send connector comment‑based command prompts anymore (repository‑dispatch only).
+- Concurrency: set Orchestrator concurrency.group = "pr-${PR}-agent-${ALIAS}", cancel-in-progress: false. PR‑meta may keep a PR‑wide group as long as it does not cancel in‑flight.
 
-- Add a “moderate connector comments” workflow: on issue_comment.created, if author ∈ { chatgpt-codex-connector[bot] } (extensible allow/deny lists), delete the comment using the human PAT, unless a debug label (e.g., agents:debug) is present.
+- Per‑comment dedupe: PR‑meta dedupes only by the current comment id (via 🚀 reaction). No PR‑wide locks.
 
-- If the connector supports a “quiet” flag in repository_dispatch payload, set it; otherwise rely on auto‑delete as above.
+- Gate window: treat Gate conclusion=success on the current head SHA as valid for launching up to cap parallel runs on that unchanged SHA (no extra Gate cycle required between the first and second instruction if the head didn’t move).
 
-- Instruction author & creation:
-
-    - Post the instruction as stranske using ACTION_BOT_PAT; fallback to SERVICE_BOT_PAT only if missing.
-
-    - Create a new instruction comment (never edit). Body must begin with the three hidden markers + TRACE, then @<agent> derived from agent:* labels, then the Scope/Tasks/AC block.
-
-- PR‑meta & Orchestrator pre‑gates (both paths):
-
-  - Require agents:keepalive label.
-
-  - First activation: require a human @<agent> (where <agent> is from agent:* labels). When the gate passes the first time, auto‑apply agents:activated; later rounds must not require another human comment.
-
-  - Gate strictness: for the PR’s current head SHA, Gate.status='completed' && Gate.conclusion='success'.
-
-  - Per‑PR run‑cap: default 2; override by label agents:max-runs:X (X=1..5). Count only this PR’s Orchestrator/Worker runs in {queued,in_progress}.
-
-  - No noise: if any gate fails, post no PR comment; write a one‑line reason to $GITHUB_STEP_SUMMARY.
-
-  - ACK robustness:
-
-  - Orchestrator should wait up to ~120–180s for PR‑meta’s ACK (🚀 reaction) on the exact instruction comment id containing the same TRACE; treat a fresh, successful PR‑meta run for that comment as equivalent ACK; only then consider fallback dispatch.
-
-  - Branch‑sync hard gate (before Round N+1):
-
-  - If PR head SHA unchanged after a “done” round, attempt update‑branch (repo‑dispatch/recognized command); if still unchanged, attempt create‑pr + auto‑merge; if still unchanged, apply agents:sync-required and do not post the next instruction.
-
-- Deterministic Scope/Tasks/AC extraction:
-
-  - When rendering the instruction body, source the block in this order: (1) PR body ### Keepalive checklist → (2) linked Source Issue body → (3) most recent Automated Status Summary comment. If none found, insert a short placeholder and retry next round; never omit hidden markers.
-
-- Branch‑protection GraphQL:
-
-  - If the “Upsert PR body sections” step requires branch‑protection info, use ACTION_BOT_PAT for that GraphQL call; otherwise guard it and skip cleanly if unauthorized.
+- Observability (no PR noise): print one line to $GITHUB_STEP_SUMMARY showing cap and active for each gate evaluation.
 
 Non‑Goals
 
-Changing acceptance criteria content or Gate’s internal tests
+Changing acceptance criteria, Gate internals, or adding new agent types
 
-Altering belt/worker code beyond pre‑gate call and branch‑sync gate placement
-
-Introducing new secrets (use existing: ACTION_BOT_PAT preferred; SERVICE_BOT_PAT fallback)
-
-Replacing ACK dedupe or the status/checklist updater
+Any connector configuration changes
 
 Tasks
-- Silence connector comments (but keep stranske posts)
 
-  - Stop comment‑based prompts to the connector (keep repository‑dispatch only).
+- Gate helper (.github/scripts/keepalive_gate.js)
 
-  - Add a workflow .github/workflows/agents-moderate-connector.yml:
+  - Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator (and, if needed, Worker) runs only, filters to this PR (use inputs.options_json.pr or head ref pattern), and counts queued + in_progress.
 
-  - on: issue_comment: [created]
+  - Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
 
-  - If comment.user.login ∈ deny‑list (start with chatgpt-codex-connector[bot]) and PR lacks agents:debug:
+  - Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha }.
 
-  - Delete the comment via REST issues.deleteComment using ACTION_BOT_PAT.
+- Orchestrator (.github/workflows/agents-70-orchestrator.yml)
 
-  - Write a brief line to $GITHUB_STEP_SUMMARY (no PR noise).
+  - Set concurrency:
+    concurrency:
+      group: pr-${{ env.PR_NUMBER }}-agent-${{ env.AGENT_ALIAS }}
+      cancel-in-progress: false
 
-  - Allowlist maintainers and stranske/automation bot explicitly.
 
-  - Add a quiet: true / reply: 'none' field to the repository_dispatch payload if the connector supports it (optional; harmless if ignored).
+  - Before posting an instruction, call the gate helper; block when active >= cap.
 
-- Instruction author & creation
+- PR‑meta (.github/workflows/agents-pr-meta.yml)
 
-  - In Orchestrator’s poster, prefer ACTION_BOT_PAT (author=stranske), else fallback SERVICE_BOT_PAT.
+  - Deduplicate strictly per comment id (🚀 on that comment).
 
-  - Create a new comment (never edit) with required markers + TRACE + @<agent> + Scope/Tasks/AC; capture comment_id & comment_url; write a summary line.
+  - Gate before dispatch; allow last‑green window when headSha === lastGreenSha.
 
-- Pre‑gates in PR‑meta & Orchestrator
+- Summary line: in both workflows, always print:
+  GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active> head=<sha7>
 
-  - Call the shared gate helper before any detection/dispatch (PR‑meta) and before any instruction posting (Orchestrator).
-
-  - First‑run only requires a human @agent. If gate passes and agents:activated is absent → add label via ACTION_BOT_PAT.
-
-  - Enforce: Gate.conclusion='success' on head SHA; run‑cap (label override); presence of agents:keepalive.
-
-  - On failure: no PR comment; write the one‑liner to $GITHUB_STEP_SUMMARY.
-
-- Robust ACK
-
-  - Orchestrator waits up to 120–180s; poll for 🚀 on that comment id and confirm keepalive-trace: {TRACE} is present; also treat a new successful PR‑meta run that started after the comment time as an ACK.
-
-  - Only if no ACK by deadline, emit the fallback dispatch; note outcome in summary.
-
-- Branch‑sync gate (blocking)
-
-  - After “done”, if head SHA unchanged:
-
-  - Try update‑branch; poll for head change (TTL short).
-
-  - If still unchanged, try create‑pr + auto‑merge; poll again.
-
-  - If still unchanged, add agents:sync-required; do not post Round N+1; summary only.
-
-- Deterministic Scope/Tasks/AC extraction
-
-  - Implement the 3‑stage fallback (PR body → Source Issue → last Summary).
-
-  - Never omit hidden markers; if all sources fail, insert placeholder + retry flag.
-
-- Branch‑protection GraphQL
-
-  - Use ACTION_BOT_PAT for the GraphQL call; on 403, skip quietly (no PR noise).
 
 Acceptance criteria
 
-- Connector comments are gone: when the connector attempts to comment, the moderation workflow deletes it unless agents:debug is present; posts authored by stranske remain untouched.
+- On a test PR with agents:max-runs:2, two instruction comments posted close together start two Orchestrator runs (no cancellations); gate summaries show active: 0 → 1 → 2.
 
-- Instruction comments are authored by stranske (PAT present) or by the automation bot only on fallback; always created (not edited) and begin with the three hidden markers + TRACE + @<agent>.
+- A third instruction while both are active is blocked (no comment/dispatch), summary shows reason=run-cap-reached.
 
-- Pre‑gates work in both paths: with agents:keepalive + first human @agent + Gate success + under cap, PR‑meta/Orchestrator proceed; otherwise no PR comment is posted, and the run summary shows the one‑line reason.
+- PR‑meta dedupes by comment id only; separate comments process independently.
 
-- agents:activated is auto‑applied on first valid activation; later rounds do not require a new human @agent.
-
-- ACK: Orchestrator observes ACK (🚀 or PR‑meta success) within the extended window in normal cases; fallback dispatch triggers only when ACK truly never arrives.
-
-- Branch‑sync hard gate: when the agent “done” round didn’t move the head SHA, the system performs update‑branch → create‑pr+merge as needed; if still unchanged, applies agents:sync-required and suppresses Round N+1.
-
-- Scope/Tasks/AC: every instruction contains a non‑empty block sourced via the 3‑stage fallback; no “No scope…” posts.
-
-- Strict Gate: keepalive posts/dispatches occur only when Gate succeeds on the current head SHA.
-
-- Quiet when blocked: on missing label, missing first‑run human @agent, Gate not success, cap reached, or sync unresolved, no PR comments are posted; the reason appears only in the run summary.
+- Gate is considered satisfied for multiple instructions off the same unchanged, last‑green head SHA.
 
 Implementation notes
 
-Secrets: use existing ACTION_BOT_PAT (preferred) and SERVICE_BOT_PAT only.
+Filter runs by orchestrator workflow id/name to avoid counting PR‑meta and status jobs.
 
-Deny/allow lists for moderation: start with deny { chatgpt-codex-connector[bot] }; allow { stranske, stranske-automation-bot, maintainers }; make both lists configurable at the top of the workflow.
+If Worker is a separate workflow, you may include it in active (document the choice in the summary).
 
-Repository‑dispatch payload: keep your current shape; add an optional quiet: true flag if the connector recognizes it.
+No PR comments are added for gate failures; use summaries only.
 
-Gate helper: expose outputs { ok, reason, cap, active, hasKeepaliveLabel, hasActivatedLabel, primaryAgent } so both workflows can write the same one‑line summary:
+2. Keepalive: make branch‑sync a blocking gate — try update-branch, then create-pr + auto‑merge, else label agents:sync-required and block Round N+1
 
-GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active> head=<sha7>
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
+Why
+After an agent “done” response, the PR head often doesn’t change; you have to click Update Branch (or Create PR) on the Codex site. We need a headless, blocking sequence that lands the agent’s work before the next instruction, or cleanly pauses with agents:sync-required.
+
+Scope
+
+- When: After a round completes and before posting the next instruction.
+
+- If head SHA unchanged since the instruction was posted:
+
+  - Try update‑branch via repository_dispatch (exact event type/payload the connector supports); poll PR head for ≤ 2–5 min.
+
+  - If still unchanged, try create‑pr, then auto‑merge the created PR into the working branch (squash/ff), poll again.
+
+  - If still unchanged, apply agents:sync-required and do not post Round N+1.
+
+- Observability (no PR noise): print one line to $GITHUB_STEP_SUMMARY with action and outcome.
+
+Non‑Goals
+
+Changing moderation rules for connector comments
+
+Turning off quiet: true / reply: 'none' flags in dispatch (keep them)
+
+Tasks
+
+- Orchestrator post‑work step:
+
+  - Capture head_sha_at_instruction. After agent “done”, compare to current head_sha.
+
+  - If unchanged → call a helper (e.g., .github/scripts/keepalive_post_work.js) that:
+
+    - emits repo‑dispatch for update-branch (event_type and payload fields the connector actually supports), polls the PR head;
+
+    - if unchanged → emits repo‑dispatch for create-pr, then auto‑merges the PR using ACTION_BOT_PAT, polls again;
+
+    - if unchanged → adds agents:sync-required and returns escalate;
+
+    - sets outputs { action, changed }.
+
+  - If changed: false → exit without posting next instruction.
+
+- Summary line:
+  SYNC: action=<update-branch|create-pr|escalate|skip> head_moved=<true|false> trace=<trace>
+
+Acceptance criteria
+
+- In a test where the agent doesn’t push, the workflow attempts update-branch; if head moves, posts Round N+1; otherwise tries create-pr + auto‑merge; if head moves, posts Round N+1; otherwise labels agents:sync-required and does not post Round N+1.
+
+- No human clicks are needed; no PR noise (only summaries).
+
+- When branch‑sync succeeds, Round N+1 never repeats the previous work.
+
+Implementation notes
+
+Confirm connector contract: if the connector doesn’t honor repo‑dispatch for these actions, implement a comment‑command fallback issued as stranske (e.g., /update-branch, then /create-pr) while keeping the moderation workflow to delete any connector replies.
+
+Use ACTION_BOT_PAT for auto‑merge; whitelist and redact any connector URLs.
+
+3. Keepalive: eliminate duplicate round comments (single source of truth) while preserving stranske‑automation‑bot posts; unambiguous instruction detection by markers + id
+
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement
+
+Why
+It’s acceptable for stranske‑automation‑bot to author comments; however, we occasionally see duplicated round content (one from the bot and one from stranske). Duplication confuses detection and users. We need a low‑risk cleanup that keeps the current behavior but ensures only one comment per round is treated as the instruction, and that the other (status) never triggers a new round.
+
+Scope
+
+- Instruction source of truth: Only comments that (a) are created (not edited), (b) include the three hidden markers plus TRACE, and (c) have an idempotency key (e.g., reaction keepalive-instruction) are treated as instructions.
+
+- Status/summary comments (including edited bot comments) must not be considered instructions.
+
+- No functional change to who authors (bot is fine), but ensure only one instruction comment per round and detection is unambiguous.
+
+Non‑Goals
+
+Changing which identity posts (human vs bot)—we will not switch authorship in this issue
+
+Editing/moderating the status updater logic beyond excluding it from instruction detection
+
+Tasks
+
+- PR‑meta detection
+
+  - Match only issue_comment.created events where the comment body contains:
+
+    <!-- keepalive-round: N -->,
+    <!-- codex-keepalive-marker -->,
+    <!-- keepalive-trace: ... -->.
+
+  - Immediately add a distinct reaction (e.g., 🎯) to mark it as “instruction processed” (separate from 🚀 used for dedupe if you prefer).
+
+  - Ignore edited comments and any comments missing the full marker set (e.g., status summary).
+
+- Poster (Orchestrator)
+
+  - Post only one instruction comment per round. Use the same TRACE in the hidden markers and in your step‑summary; after posting, add the 🎯 reaction yourself (idempotency) to guard against double‑posts in retries.
+
+- Summary line for detection:
+  INSTRUCTION: comment_id=<id> trace=<trace> source=<stranske|bot> seen=<true|false> deduped=<true|false>
+
+Acceptance criteria
+
+- Each round results in exactly one instruction comment (created, not edited) that contains the three hidden markers + TRACE.
+
+- Status/summary comments never trigger PR‑meta detection (no duplicate launches).
+
+- Detection marks the instruction with a distinct reaction and prints the one‑line summary; retries do not create additional instruction comments.
+
+Implementation notes
+
+This keeps both identities working but avoids duplicate processing by making the instruction contract unambiguous (markers + comment id + reaction).
+
+If you prefer not to add a new reaction, you can reuse 🚀 strictly for the instruction idempotency and use PR‑meta run success as the ACK.
 
 No PR noise: don’t post explanatory comments unless a debug label (e.g., agents:debug) is present.
