@@ -80,29 +80,39 @@ class EmptyRebalancer:
         return prev_weights.iloc[0:0]
 
 
-def _patch_generate_periods(monkeypatch: pytest.MonkeyPatch, periods: List[DummyPeriod]) -> None:
+def _patch_generate_periods(
+    monkeypatch: pytest.MonkeyPatch, periods: List[DummyPeriod]
+) -> None:
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
 
-def test_run_schedule_handles_missing_rank_column(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_handles_missing_rank_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     frames = {
         "2024-01-31": pd.DataFrame({"Sharpe": [1.0], "Other": [0.5]}, index=["FundA"]),
         "2024-02-29": pd.DataFrame({"Sharpe": [0.9], "Other": [0.4]}, index=["FundA"]),
     }
 
     class Selector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class Weighting(BaseWeighting):
         def __init__(self) -> None:
             self.update_calls: list[int] = []
 
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             return pd.DataFrame({"weight": [1.0]}, index=selected.index)
 
-        def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - invoked conditionally
+        def update(
+            self, scores: pd.Series, days: int
+        ) -> None:  # pragma: no cover - invoked conditionally
             self.update_calls.append(days)
 
     weighting = Weighting()
@@ -125,7 +135,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, Any] = {}
 
-    def fake_missing_policy(frame: pd.DataFrame, *, policy: str, limit: Any) -> tuple[pd.DataFrame, dict[str, Any]]:
+    def fake_missing_policy(
+        frame: pd.DataFrame, *, policy: str, limit: Any
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
         captured["policy"] = policy
         captured["limit"] = limit
         return frame, {"applied": True}
@@ -144,7 +156,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
     )
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_missing_policy)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"})
+    monkeypatch.setattr(
+        mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"}
+    )
 
     results = mp_engine.run(cfg, df=df)
 
@@ -158,7 +172,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_run_skips_missing_policy_when_price_frames_present(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_skips_missing_policy_when_price_frames_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = BasicConfig()
     cfg.performance = {"enable_cache": False}
 
@@ -177,14 +193,18 @@ def test_run_skips_missing_policy_when_price_frames_present(monkeypatch: pytest.
 
     called = False
 
-    def fail_missing_policy(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - guard
+    def fail_missing_policy(
+        *_args: Any, **_kwargs: Any
+    ) -> None:  # pragma: no cover - guard
         nonlocal called
         called = True
         raise AssertionError("apply_missing_policy should not be invoked")
 
     captures: list[pd.DataFrame] = []
 
-    def fake_run_analysis(df: pd.DataFrame, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *_args: Any, **_kwargs: Any
+    ) -> dict[str, Any]:
         captures.append(df.copy())
         return {"analysis": "ok"}
 
@@ -206,7 +226,9 @@ def test_run_skips_missing_policy_when_price_frames_present(monkeypatch: pytest.
     assert not called
     assert results
     combined = captures[0]
-    assert list(combined["Date"]) == list(pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"]))
+    assert list(combined["Date"]) == list(
+        pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"])
+    )
     assert set(combined.columns) == {"Date", "FundA", "FundB"}
 
 
@@ -220,7 +242,9 @@ def test_run_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) ->
         mp_engine.run(cfg, df=None)
 
 
-def test_threshold_hold_returns_placeholder_for_empty_universe(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_threshold_hold_returns_placeholder_for_empty_universe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = BasicConfig()
     cfg.portfolio = {
         "policy": "threshold_hold",
@@ -250,7 +274,9 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(monkeypatch: pyte
         lambda *_a, **_k: StaticSelector(),
     )
     monkeypatch.setattr(mp_engine, "Rebalancer", EmptyRebalancer)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"})
+    monkeypatch.setattr(
+        mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"}
+    )
 
     results = mp_engine.run(cfg, df=df)
 
@@ -261,7 +287,9 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(monkeypatch: pyte
     assert entry["manager_changes"] == []
 
 
-def test_run_loads_csv_with_nan_policy_and_string_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_loads_csv_with_nan_policy_and_string_dates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = BasicConfig()
     cfg.performance = {"enable_cache": False}
     cfg.data.update({"nan_policy": "ffill", "nan_limit": 3})
@@ -282,7 +310,9 @@ def test_run_loads_csv_with_nan_policy_and_string_dates(monkeypatch: pytest.Monk
 
     captured_dates: list[pd.Timestamp] = []
 
-    def fake_run_analysis(df: pd.DataFrame, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    def fake_run_analysis(
+        df: pd.DataFrame, *_args: Any, **_kwargs: Any
+    ) -> dict[str, Any]:
         captured_dates.extend(df["Date"].tolist())
         return {"ok": True}
 
@@ -292,5 +322,3 @@ def test_run_loads_csv_with_nan_policy_and_string_dates(monkeypatch: pytest.Monk
 
     assert results
     assert captured_dates == list(pd.to_datetime(["2020-01-31", "2020-02-29"]))
-
-
