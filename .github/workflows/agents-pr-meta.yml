@@ -39,9 +39,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  comment_event_context:
+    if: >-
+      ${{ github.event_name == 'issue_comment'
+          && github.event.action == 'created'
+          && github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+    steps:
+      - name: Resolve pull request number
+        id: resolve
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          pr="${PR_NUMBER:-}"
+          if [[ -z "${pr}" ]]; then
+            pr="unknown"
+          fi
+          printf 'pr=%s\n' "${pr}" >>"${GITHUB_OUTPUT}"
+
   keepalive_dispatch:
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    needs: comment_event_context
+    if: >-
+      ${{ github.event_name == 'issue_comment'
+          && github.event.action == 'created'
+          && github.event.issue.pull_request }}
     name: Detect keepalive round comments
+    concurrency:
+      group: >-
+        ${{ format('pr-meta-dispatch-{0}', needs.comment_event_context.outputs.pr) }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
       dispatch: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
@@ -152,7 +181,7 @@ jobs:
             head='unknown'
           fi
           printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
+            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
         env:
           OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
           REASON: ${{ steps.pre_gate.outputs.reason || 'unspecified' }}
@@ -204,42 +233,6 @@ jobs:
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             await detectKeepalive({ core, github, context, env: process.env });
 
-      - name: Prepare keepalive summary context
-        id: summary_context
-        run: |
-          set -euo pipefail
-          comment_id="${COMMENT_ID:-}"
-          comment_url="${COMMENT_URL:-}"
-
-          if [[ -n "${comment_id}" && -n "${comment_url}" ]]; then
-            value="[#${comment_id}](${comment_url})"
-          elif [[ -n "${comment_id}" ]]; then
-            value="${comment_id}"
-          else
-            value="—"
-          fi
-
-          printf 'comment=%s\n' "${value}" >>"${GITHUB_OUTPUT}"
-        env:
-          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
-
-      - name: Summarise keepalive evaluation
-        run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ## Keepalive detection
-          | ok | reason | author | comment | pr | round | trace |
-          | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
-          
-          **Gate inputs**
-          
-          - keepalive label: ${{ steps.pre_gate.outputs.has_keepalive_label || 'false' }}
-          - human activation: ${{ steps.pre_gate.outputs.has_human_activation || 'false' }}
-          - gate concluded: ${{ steps.pre_gate.outputs.gate_concluded || 'false' }}
-          - run cap: ${{ steps.pre_gate.outputs.active_runs || '0' }}/${{ steps.pre_gate.outputs.run_cap || '2' }}
-          EOF
-
       - name: Register keepalive detection
         if: steps.detect.outputs.dispatch == 'true'
         run: |
@@ -250,10 +243,44 @@ jobs:
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
 
-  keepalive_from_gate:
+  gate_event_context:
     if: >-
-      ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+      ${{ github.event_name == 'workflow_run'
+          && github.event.workflow_run.name == 'Gate'
+          && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+      has_pr: ${{ steps.resolve.outputs.has_pr }}
+    steps:
+      - name: Resolve Gate pull request context
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pullRequests = Array.isArray(context.payload?.workflow_run?.pull_requests)
+              ? context.payload.workflow_run.pull_requests
+              : [];
+            const first = pullRequests.length > 0 ? pullRequests[0] : null;
+            const prNumber = Number(first?.number || 0);
+            const hasPr = Number.isFinite(prNumber) && prNumber > 0;
+            core.setOutput('has_pr', hasPr ? 'true' : 'false');
+            core.setOutput('pr', hasPr ? String(prNumber) : 'unknown');
+
+  keepalive_from_gate:
+    needs: gate_event_context
+    if: >-
+      ${{ github.event_name == 'workflow_run'
+          && github.event.workflow_run.name == 'Gate'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.pull_requests
+          && github.event.workflow_run.pull_requests[0].number }}
     name: Resume keepalive after Gate
+    concurrency:
+      group: >-
+        ${{ format('pr-meta-dispatch-{0}', needs.gate_event_context.outputs.pr) }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
       dispatch: ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
@@ -367,7 +394,7 @@ jobs:
             head='unknown'
           fi
           printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
+            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
         env:
           OK: ${{ steps.gate.outputs.ok || 'false' }}
           REASON: ${{ steps.gate.outputs.reason || 'unspecified' }}
@@ -481,45 +508,6 @@ jobs:
 
             await detectKeepalive({ core, github, context: detectionContext, env: process.env });
 
-      - name: Prepare keepalive summary context
-        id: summary_context
-        if: steps.detect.outputs.comment_id != '' || steps.detect.outputs.reason != ''
-        run: |
-          set -euo pipefail
-          comment_id="${COMMENT_ID:-}"
-          comment_url="${COMMENT_URL:-}"
-
-          if [[ -n "${comment_id}" && -n "${comment_url}" ]]; then
-            value="[#${comment_id}](${comment_url})"
-          elif [[ -n "${comment_id}" ]]; then
-            value="${comment_id}"
-          else
-            value="—"
-          fi
-
-          printf 'comment=%s\n' "${value}" >>"${GITHUB_OUTPUT}"
-        env:
-          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
-
-      - name: Summarise keepalive evaluation
-        if: steps.detect.outputs.reason != '' || steps.detect.outputs.comment_id != ''
-        run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ## Keepalive detection (Gate)
-          | ok | reason | author | comment | pr | round | trace |
-          | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
-
-          **Gate inputs**
-
-          - keepalive label: ${{ steps.gate.outputs.has_keepalive_label || 'false' }}
-          - activated label: ${{ steps.gate.outputs.has_activated_label || 'false' }}
-          - human activation: ${{ steps.gate.outputs.has_human_activation || 'false' }}
-          - gate success: ${{ steps.gate.outputs.gate_succeeded || 'false' }}
-          - run cap: ${{ steps.gate.outputs.active_runs || '0' }}/${{ steps.gate.outputs.run_cap || '2' }}
-          EOF
-
       - name: Register keepalive detection
         if: steps.detect.outputs.dispatch == 'true'
         run: |
@@ -584,21 +572,6 @@ jobs:
                 dry_run: 'false',
               },
             });
-
-            core.summary
-              .addHeading('Keepalive orchestrator dispatch (Gate)')
-              .addRaw(`Workflow: ${workflowId}`)
-              .addEOL()
-              .addRaw(`PR: ${prNumber ? `#${prNumber}` : '(unknown)'}`)
-              .addEOL()
-              .addRaw(`Round: ${round || 'n/a'}`)
-              .addEOL()
-              .addRaw(`Trace: ${trace || '(not detected)'}`)
-              .addEOL()
-              .addRaw(`Branch: ${branch || '(not detected)'}`)
-              .addEOL()
-              .addRaw(`Base: ${base || '(not detected)'}`)
-              .write();
 
       - name: Ensure connector dispatch token available
         if: steps.detect.outputs.dispatch == 'true'
@@ -686,24 +659,94 @@ jobs:
               client_payload: clientPayload,
             });
 
-            core.summary
-              .addHeading('Codex keepalive dispatch (Gate)')
-              .addRaw(`Pull request: #${prNumber}`)
-              .addEOL()
-              .addRaw(`Base branch: ${clientPayload.base}`)
-              .addEOL()
-              .addRaw(`Head branch: ${clientPayload.head}`)
-              .addEOL()
-              .addRaw(`Comment ID: ${clientPayload.comment_id}`)
-              .addEOL()
-              .addLink('Comment URL', clientPayload.comment_url)
-              .addEOL()
-              .addRaw(`Round: ${round || '(unknown)'}`)
-              .addEOL()
-              .addRaw(`Trace: ${trace || '(missing)'}`)
-              .write();
-
             core.info(`repository_dispatch emitted for PR #${prNumber} (Gate-triggered).`);
+
+      - name: Write dispatch summary
+        if: always()
+        env:
+          PATH_LABEL: gate
+          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch }}
+          DETECT_REASON: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
+          DETECT_TRACE: ${{ steps.detect.outputs.trace }}
+          DETECT_PR: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
+          FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
+          DETECT_COMMENT: ${{ steps.detect.outputs.comment_id }}
+        run: |
+          set -euo pipefail
+          path="${PATH_LABEL}"
+          dispatch="${DETECT_DISPATCH:-}"
+          reason="${DETECT_REASON:-}"
+          trace="${DETECT_TRACE:-}"
+          pr="${DETECT_PR:-}"
+          fallback="${FALLBACK_PR:-}"
+          comment_id="${DETECT_COMMENT:-}"
+
+          if [[ -z "${trace}" ]]; then
+            trace='-'
+          fi
+
+          if [[ -z "${pr}" || "${pr}" == '0' || "${pr}" == 'unknown' ]]; then
+            pr="${fallback:-}"
+          fi
+
+          format_pr() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '#%s' "${raw}"
+            else
+              printf '#?'
+            fi
+          }
+
+          activation_value='<none>'
+          if [[ -n "${comment_id}" ]]; then
+            activation_value="${comment_id}"
+          fi
+
+          pr_value="$(format_pr "${pr}")"
+
+          if [[ "${dispatch}" == 'true' ]]; then
+            line="DISPATCH: ok=true path=${path} pr=${pr_value} activation=${activation_value} lock=acquired trace=${trace}"
+          else
+            summary_reason='no-activation'
+            if [[ "${reason}" == 'duplicate-keepalive' ]]; then
+              summary_reason='lock-held'
+            elif [[ "${reason}" == 'missing-pr-number' ]]; then
+              summary_reason='no-linked-pr'
+            elif [[ -n "${reason}" ]]; then
+              summary_reason="${reason}"
+            fi
+
+            case "${summary_reason}" in
+              lock-held)
+                if [[ "${activation_value}" == '<none>' && -n "${comment_id}" ]]; then
+                  activation_value="${comment_id}"
+                fi
+                line="DISPATCH: ok=false reason=lock-held path=${path} pr=${pr_value} activation=${activation_value} trace=${trace}"
+                ;;
+              no-linked-pr)
+                line="DISPATCH: ok=false reason=no-linked-pr path=${path} activation=<none> trace=${trace}"
+                ;;
+              *)
+                line="DISPATCH: ok=false reason=no-activation path=${path} pr=${pr_value} activation=<none> trace=${trace}"
+                ;;
+            esac
+          fi
+
+          echo "${line}" >>"${GITHUB_STEP_SUMMARY}"
+
+  gate_no_pr_summary:
+    needs: gate_event_context
+    if: >-
+      ${{ github.event_name == 'workflow_run'
+          && github.event.workflow_run.name == 'Gate'
+          && github.event.workflow_run.conclusion == 'success'
+          && needs.gate_event_context.outputs.has_pr != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write dispatch summary
+        run: |
+          echo "DISPATCH: ok=false reason=no-linked-pr path=gate activation=<none> trace=-" >>"${GITHUB_STEP_SUMMARY}"
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
@@ -766,27 +809,11 @@ jobs:
               },
             });
 
-            core.summary
-              .addHeading('Keepalive orchestrator dispatch')
-              .addRaw(`Workflow: ${workflowId}`)
-              .addEOL()
-              .addRaw(`Issue: ${issue ? `#${issue}` : 'unknown'}`)
-              .addEOL()
-              .addRaw(`PR: ${prNumber ? `#${prNumber}` : (context.payload?.issue?.number ? `#${context.payload.issue.number}` : 'unknown')}`)
-              .addEOL()
-              .addRaw(`Round: ${round || 'n/a'}`)
-              .addEOL()
-              .addRaw(`Trace: ${trace || '(not detected)'}`)
-              .addEOL()
-              .addRaw(`Branch: ${branch || '(not detected)'}`)
-              .addEOL()
-              .addRaw(`Base: ${base || '(not detected)'}`)
-              .write();
-
   listen_commands:
     needs: keepalive_dispatch
     if: >-
       ${{ github.event_name == 'issue_comment'
+          && github.event.action == 'created'
           && github.event.issue.pull_request
           && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
@@ -886,27 +913,84 @@ jobs:
               client_payload: clientPayload,
             });
 
-            core.summary
-              .addHeading('Codex keepalive dispatch')
-              .addRaw(`Pull request: #${pullNumber}`)
-              .addEOL()
-              .addRaw(`Base branch: ${clientPayload.base}`)
-              .addEOL()
-              .addRaw(`Head branch: ${clientPayload.head}`)
-              .addEOL()
-              .addRaw(`Comment ID: ${clientPayload.comment_id}`)
-              .addEOL()
-              .addLink('Comment URL', clientPayload.comment_url)
-              .addEOL()
-              .addRaw(`Round: ${round || '(unknown)'}`)
-              .addEOL()
-              .addRaw(`Trace: ${trace || '(missing)'}`)
-              .write();
-
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
+      - name: Write dispatch summary
+        if: always()
+        env:
+          PATH_LABEL: comment
+          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch }}
+          DETECT_REASON: ${{ steps.detect.outputs.reason }}
+          DETECT_TRACE: ${{ steps.detect.outputs.trace }}
+          DETECT_PR: ${{ steps.detect.outputs.pr }}
+          FALLBACK_PR: ${{ needs.comment_event_context.outputs.pr }}
+          DETECT_COMMENT: ${{ steps.detect.outputs.comment_id }}
+        run: |
+          set -euo pipefail
+          path="${PATH_LABEL}"
+          dispatch="${DETECT_DISPATCH:-}"
+          reason="${DETECT_REASON:-}"
+          trace="${DETECT_TRACE:-}"
+          pr="${DETECT_PR:-}"
+          fallback="${FALLBACK_PR:-}"
+          comment_id="${DETECT_COMMENT:-}"
+
+          if [[ -z "${trace}" ]]; then
+            trace='-'
+          fi
+
+          if [[ -z "${pr}" || "${pr}" == '0' || "${pr}" == 'unknown' ]]; then
+            pr="${fallback:-}"
+          fi
+
+          format_pr() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '#%s' "${raw}"
+            else
+              printf '#?'
+            fi
+          }
+
+          activation_value='<none>'
+          if [[ -n "${comment_id}" ]]; then
+            activation_value="${comment_id}"
+          fi
+
+          pr_value="$(format_pr "${pr}")"
+
+          if [[ "${dispatch}" == 'true' ]]; then
+            line="DISPATCH: ok=true path=${path} pr=${pr_value} activation=${activation_value} lock=acquired trace=${trace}"
+          else
+            summary_reason='no-activation'
+            if [[ "${reason}" == 'duplicate-keepalive' ]]; then
+              summary_reason='lock-held'
+            elif [[ "${reason}" == 'missing-pr-number' ]]; then
+              summary_reason='no-linked-pr'
+            elif [[ -n "${reason}" ]]; then
+              summary_reason="${reason}"
+            fi
+
+            case "${summary_reason}" in
+              lock-held)
+                if [[ "${activation_value}" == '<none>' && -n "${comment_id}" ]]; then
+                  activation_value="${comment_id}"
+                fi
+                line="DISPATCH: ok=false reason=lock-held path=${path} pr=${pr_value} activation=${activation_value} trace=${trace}"
+                ;;
+              no-linked-pr)
+                line="DISPATCH: ok=false reason=no-linked-pr path=${path} activation=<none> trace=${trace}"
+                ;;
+              *)
+                line="DISPATCH: ok=false reason=no-activation path=${path} pr=${pr_value} activation=<none> trace=${trace}"
+                ;;
+            esac
+          fi
+
+          echo "${line}" >>"${GITHUB_STEP_SUMMARY}"
+
   update_body:
-    if: github.event_name != 'issue_comment'
+    if: github.event_name == 'pull_request'
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
