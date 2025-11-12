@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 
 const { countActive } = require('../keepalive_gate.js');
 
+// The `details` parameter provides mock run details for getWorkflowRun.
+// By default, it is an empty object, so getWorkflowRun will throw a 404 error
+// for any runId not explicitly provided in `details`. This is intentional and
+// expected behavior for test isolation, simulating the real GitHub API's response.
 function makeGithubStub(registry, details = {}) {
   return {
     rest: {
