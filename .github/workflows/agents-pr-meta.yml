@@ -84,6 +84,8 @@ jobs:
       author: ${{ steps.detect.outputs.author }}
       comment_id: ${{ steps.detect.outputs.comment_id }}
       comment_url: ${{ steps.detect.outputs.comment_url }}
+      processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
+      deduped: ${{ steps.detect.outputs.deduped }}
       gate_reason: ${{ steps.pre_gate.outputs.reason }}
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       has_human_activation: ${{ steps.pre_gate.outputs.has_human_activation }}
@@ -234,9 +236,16 @@ jobs:
             await detectKeepalive({ core, github, context, env: process.env });
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'duplicate-keepalive'
         run: |
-          echo "Keepalive round ${{ steps.detect.outputs.round }} detected for issue ${{ steps.detect.outputs.issue }} on branch ${{ steps.detect.outputs.branch }} (trace ${{ steps.detect.outputs.trace }})"
+          set -euo pipefail
+          comment_id="${{ steps.detect.outputs.comment_id || '?' }}"
+          trace="${{ steps.detect.outputs.trace || '(missing)' }}"
+          source="${{ steps.detect.outputs.author || 'unknown' }}"
+          seen="${{ steps.detect.outputs.processed_reaction || 'false' }}"
+          deduped="${{ steps.detect.outputs.deduped || 'false' }}"
+          printf 'INSTRUCTION: comment_id=%s trace=%s source=%s seen=%s deduped=%s\n' \
+            "${comment_id}" "${trace}" "${source}" "${seen}" "${deduped}"
 
       - name: Report keepalive dispatch outcome
         if: steps.detect.outputs.dispatch != 'true'
@@ -294,6 +303,8 @@ jobs:
       author: ${{ steps.detect.outputs.author }}
       comment_id: ${{ steps.detect.outputs.comment_id }}
       comment_url: ${{ steps.detect.outputs.comment_url }}
+      processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
+      deduped: ${{ steps.detect.outputs.deduped }}
       gate_reason: ${{ steps.gate.outputs.reason }}
       agent_alias: ${{ steps.gate.outputs.agent_alias }}
       has_human_activation: ${{ steps.gate.outputs.has_human_activation }}
@@ -443,6 +454,7 @@ jobs:
           GATE_OK: ${{ steps.gate.outputs.ok || 'false' }}
           GATE_REASON: ${{ steps.gate.outputs.reason || '' }}
           GATE_PENDING: ${{ steps.gate.outputs.pending_gate || 'false' }}
+          ALLOW_REPLAY: 'true'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -509,9 +521,16 @@ jobs:
             await detectKeepalive({ core, github, context: detectionContext, env: process.env });
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'duplicate-keepalive'
         run: |
-          echo "Gate-triggered keepalive round ${{ steps.detect.outputs.round }} detected for PR ${{ steps.detect.outputs.pr }} (trace ${{ steps.detect.outputs.trace }})."
+          set -euo pipefail
+          comment_id="${{ steps.detect.outputs.comment_id || '?' }}"
+          trace="${{ steps.detect.outputs.trace || '(missing)' }}"
+          source="${{ steps.detect.outputs.author || 'unknown' }}"
+          seen="${{ steps.detect.outputs.processed_reaction || 'false' }}"
+          deduped="${{ steps.detect.outputs.deduped || 'false' }}"
+          printf 'INSTRUCTION: comment_id=%s trace=%s source=%s seen=%s deduped=%s\n' \
+            "${comment_id}" "${trace}" "${source}" "${seen}" "${deduped}"
 
       - name: Report keepalive dispatch outcome
         if: steps.detect.outputs.reason != '' && steps.detect.outputs.dispatch != 'true'
