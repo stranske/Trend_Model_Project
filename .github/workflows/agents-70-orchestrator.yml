@@ -37,6 +37,20 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
+concurrency:
+  group: >-
+    agents-70-orchestrator-${{
+      github.event.inputs.options_json
+      || (
+        github.event.client_payload
+        && (
+          github.event.client_payload.options_json
+          || github.event.client_payload.options
+        )
+      )
+      || ''
+    }}-${{ github.run_id }}
+  cancel-in-progress: false
 jobs:
   idle-precheck:
     name: Idle precheck
