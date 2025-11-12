@@ -1,123 +1,174 @@
-1. Keepalive PR‑meta hardening — single dispatch per activation (shared reaction lock), and scope detect/dispatch to the correct event path
+1. Keepalive (Option A): move orchestrator concurrency to the job; resolve PR/agent at job start; remove top‑level env.* usage that broke validation
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-On PR #3491, the Agents PR meta manager workflow executed its keepalive sub‑jobs repeatedly under on: pull_request as well as its usual issue_comment route (see the Checks list), and the workflow file rendered for that run shows PR‑meta is configured to trigger on issue_comment, pull_request, and workflow_run: Gate.completed. Because the PR‑meta concurrency group falls back to github.run_id when it cannot resolve a PR number on the workflow_run payload, the Gate path and the comment path can run concurrently and each can reach a dispatch step, resulting in multiple near‑simultaneous runs. Evidence:
 
-Multiple PR‑meta runs listed under “on: pull_request” on #3491.
+The current workflow‑level concurrency in .github/workflows/agents-70-orchestrator.yml references env.* during parse time, which caused a fatal error (“Unrecognized named‑value: env”), blocking all orchestrator runs. Keepalive can’t fire if the orchestrator workflow is invalid.
+Option A fixes this by:
 
-PR‑meta workflow file for #3491 showing on: issue_comment, pull_request, and workflow_run: Gate with a concurrency group that falls back to github.run_id.
+moving concurrency down to the orchestrator job (where env.* and step outputs are valid), and
 
-The same workflow file contains both the comment path (Detect keepalive round comments) and the Gate path (Resume keepalive after Gate) and each includes a dispatch step that uses the same comment_id/comment_url.
+resolving PR number and agent alias inside the job across all triggers (issue_comment, workflow_run for Gate, repository_dispatch, workflow_dispatch).
+
+This change keeps your design: cap‑aware parallelism enforced by the gate (not by concurrency), and support for multi‑trigger activation.
 
 Scope
 
-- Scope detect/dispatch to run only on issue_comment.created.
+Implement only the following in .github/workflows/agents-70-orchestrator.yml:
 
-- Scope Gate resume (no detect) to run only on workflow_run where workflow_run.name == 'Gate' and conclusion == 'success' and pull_requests[0].number is present.
+- Remove the workflow‑level concurrency: block (the one at the top of the file).
 
-- Add a shared reaction lock on the activation comment_id so only one path (comment or Gate) can dispatch per activation.
+- Add a Resolve context step early in the orchestrator job to compute:
 
-- Add a dispatch‑stage concurrency group per PR to serialize “dispatch orchestrator” across PR‑meta instances.
+  - pr_number (from event payloads / inputs),
+
+  - agent_alias (from labels or options payloads).
+
+- Add job‑level concurrency that uses those values:
+
+  - group key: keepalive-orchestrator-pr-${PR_NUMBER}-agent-${AGENT_ALIAS}-run-${github.run_id}
+
+  - cancel-in-progress: false (so runs aren’t cancelled)
+
+- Do not change run‑cap logic, PR‑meta locks, or branch‑sync in this issue.
 
 Non‑Goals
 
-Changing acceptance criteria, Gate contents, or branch‑sync behavior
+No edits to PR‑meta (reaction lock, dispatch scoping, run‑cap)
 
-Changing moderation of connector comments
+No changes to branch‑sync or connector behavior
+
+No change to acceptance‑criteria content or Gate internals
 
 Tasks
 
-- Scope jobs by event in .github/workflows/agents-pr-meta.yml:
+- Delete workflow‑level concurrency
 
-  - keepalive_dispatch (Detect keepalive round comments & Dispatch) →
-    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+  - Remove any concurrency: defined at the top level of agents-70-orchestrator.yml.
 
-  - keepalive_from_gate (Resume keepalive after Gate) →
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number
+- Resolve context (job step)
 
-  - upsert_pr_body_sections →
-    if: github.event_name == 'pull_request' (no dispatch in this job)
+  - Add a step (e.g., id: resolve) that sets pr_number and agent_alias covering all triggers:
 
-- Shared reaction lock (cross‑event) before any dispatch step (both paths):
+    - issue_comment: github.event.issue.number
 
-  - Use issues.createReaction on the activation comment_id with content: 'rocket'.
+    - workflow_run (Gate): github.event.workflow_run.pull_requests[0].number (if present)
 
-  - If HTTP 409 (already exists), exit that job branch (another path already dispatched).
+    - repository_dispatch: github.event.client_payload.pr || pr_number || issue
 
-- Dispatch‑stage concurrency
+    - workflow_dispatch: inputs.pr_number
 
-  - For the exact step/job that calls repos.createDispatchEvent / actions.createWorkflowDispatch, add:
+    - Fallback to github.run_id (only as a last resort, to avoid null keys)
+
+    - For agent_alias, prefer:
+
+      - from inputs.options_json or client_payload (agent / agent_alias), else
+
+      - from PR labels agent:* (strip prefix), else default 'codex'.
+
+Example (github‑script)
+
+- name: Resolve PR number and agent alias
+  id: resolve
+  uses: actions/github-script@v7
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    script: |
+      const ev = context.payload || {};
+      let prNumber =
+        ev.pull_request?.number ??
+        ev.issue?.number ??
+        ev.workflow_run?.pull_requests?.[0]?.number ??
+        ev.inputs?.pr_number ??
+        ev.client_payload?.pr ??
+        ev.client_payload?.pr_number ??
+        ev.client_payload?.issue ??
+        null;
+
+      // Try labels only if we have a PR
+      async function agentFromLabels(n) {
+        if (!n) return null;
+        const {owner, repo} = context.repo;
+        const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {owner, repo, issue_number: n, per_page: 100});
+        const a = labels.find(l => /^agent:/i.test(l.name));
+        return a ? a.name.replace(/^agent:/i, '').trim() : null;
+      }
+
+      // Parse options_json once, with error handling
+      let optionsFromInput = null;
+      if (ev.inputs?.options_json) {
+        try {
+          optionsFromInput = JSON.parse(ev.inputs.options_json);
+        } catch (e) {
+          // Optionally log or ignore parse errors
+        }
+      }
+
+      const fromPayload =
+        ev.client_payload?.agent ||
+        ev.client_payload?.agent_alias ||
+        (ev.client_payload?.options && (ev.client_payload.options.agent || ev.client_payload.options.agent_alias)) ||
+        (optionsFromInput?.agent || optionsFromInput?.agent_alias);
+
+      let agentAlias = fromPayload || null;
+      if (!agentAlias) agentAlias = await agentFromLabels(prNumber);
+      if (!agentAlias) agentAlias = 'codex';
+
+      // Fallback PR number if truly missing
+      if (!prNumber) prNumber = String(context.runId);
+
+      core.setOutput('pr_number', String(prNumber));
+      core.setOutput('agent_alias', String(agentAlias));
+
+- Add job‑level concurrency
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
     concurrency:
-      group: pr-meta-dispatch-${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER }}
+      group: keepalive-orchestrator-pr-${{ inputs.pr_number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}-agent-${{ inputs.agent_alias || github.event.client_payload.agent_alias || 'codex' }}-run-${{ github.run_id }}
       cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve PR number and agent alias
+        id: resolve
+        # (script from Task 2)
+      # … existing steps (gate, cap, post instruction, ack, branch-sync, etc.) …
 
-  - One‑line summary (no PR noise):
 
-    - After the lock, print:
-      DISPATCH: ok=<true|false> path=<comment|gate> pr=#<n> comment_id=<id> trace=<trace>
+- Set env (optional)
 
-Acceptance criteria
+  - If later steps need PR_NUMBER/AGENT_ALIAS, export them:
 
-- On a test PR with both issue_comment and Gate completion close together, only one dispatch happens for a given activation comment; the other path exits with the lock summary.
+    - name: Export resolved values
+      run: |
+        echo "PR_NUMBER=${{ steps.resolve.outputs.pr_number }}" >> $GITHUB_ENV
+        echo "AGENT_ALIAS=${{ steps.resolve.outputs.agent_alias }}" >> $GITHUB_ENV
 
-- The Checks list no longer shows “Detect keepalive round comments / Dispatch” running under on: pull_request.
 
-- Keepalive continues to work for normal sequences (human @agent → Gate success → instruction → agent run).
+- Sanity check
 
-Implementation notes
+  - Push the change; ensure the orchestrator no longer shows “Invalid workflow file … Unrecognized named‑value: env”.
 
-All evidence for these changes is present on #3491 and its workflow file: multi‑event triggers, concurrency fallback, and duplicate dispatch paths.
-
-2. Keepalive run‑cap: enforce at PR‑meta dispatch by counting orchestrator runs in {queued,in_progress} for this PR (prevents bursts)
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
-
-Why
-On PR #3491, several PR‑meta runs launched close together and orchestrator accepted parallel starts (as designed). The cap didn’t prevent the burst because, at dispatch time, concurrent PR‑meta instances likely evaluated the cap before any orchestrator run had flipped to in_progress. With the current PR‑meta triggers (issue_comment, pull_request, and workflow_run: Gate.completed), it’s critical to count queued runs as active and to tie the count to this PR, independent of event type. Evidence:
-
-multiple PR‑meta runs visible on #3491, including under on: pull_request; orchestrator triggers support parallel acceptance.
-
-Scope
-
-In PR‑meta (before any dispatch), compute active = # of orchestrator runs for this PR with status ∈ {queued, in_progress} and enforce active < cap.
-
-Cap defaults to 2; override via label agents:max-runs:X (X ∈ 1..5).
-
-Use workflow id/name to filter orchestrator runs; use a PR discriminator independent of event type.
-
-Non‑Goals
-
-Changing orchestrator concurrency or the worker pipeline
-
-Changing label names or defaults
-
-Tasks
-
-- Active‑run counter (github‑script step) in agents-pr-meta.yml just before dispatch:
-
-  - List orchestrator workflow runs twice (status queued and in_progress).
-
-  - Filter by this PR using a discriminator you control (e.g., the orchestrator’s concurrency.group embeds the PR number, or inputs.options_json.pr is echoed into the run’s display_title/run_name).
-
-  - Return active and cap (from label or default 2); set ok = active < cap.
-
-- Gate decision: if ok == false, skip dispatch and write one summary line:
-  CAP: ok=false reason=run-cap-reached pr=#<n> cap=<cap> active=<active>
-
-- Mirror the same check in Orchestrator before posting the next instruction (prevents over‑posting when several orchestrators are in flight).
+  - Trigger from each path (comment / Gate / repo‑dispatch) and confirm the same PR maps to a stable group prefix (keepalive-orchestrator-pr-<PR>-agent-<alias>-run-<run_id>).
 
 Acceptance criteria
 
-- On a test PR with agents:max-runs:2, two dispatches in quick succession succeed; a third concurrent dispatch attempt is skipped with the cap summary line.
+- Parsing succeeds: The orchestrator workflow loads cleanly; no “Unrecognized named‑value: env” (or similar top‑level parse errors) appear on push.
 
-- The orchestrator still runs in parallel up to the cap; no unintended serialization occurs.
+- Job‑level concurrency is active: Orchestrator runs show a concurrency.group that starts with keepalive-orchestrator-pr-<PR>-agent-<alias>-run-<run_id>.
 
-- The Checks tab shows no bursts beyond the set cap.
+- Multi‑trigger correctness: For a single PR, activations via issue_comment.created, workflow_run (Gate success), and repository_dispatch all produce the same pr-<PR>-agent-<alias> prefix (final run-<id> differs), proving consistent resolution.
+
+- Parallelism preserved: Starting two orchestrators for the same PR/agent (within the configured cap, enforced elsewhere) results in two active runs; concurrency does not serialize them (cap remains enforced by the gate, not by concurrency).
+
+- No regressions: Existing gate checks, run‑cap enforcement, reaction lock, ACK, and branch‑sync behavior are unchanged.
 
 Implementation notes
 
-Counting both queued and in_progress is essential because parallel PR‑meta instances evaluate the cap before the first run transitions to in_progress.
+Do not re‑introduce workflow‑level concurrency. Keep it only on the orchestrator job.
 
-Filtering by PR must not rely on pull_requests[] for repository_dispatch/workflow_run events; use the orchestrator workflow name/id and your own PR discriminator (e.g., concurrency group containing -<PR>-).
+Concurrency is not your cap; it’s there to avoid cancellation and accidental same‑millisecond duplicates. Your parallelism limit remains enforced by the run‑cap gate in PR‑meta and the pre‑post gate in the orchestrator job.
+
+If you later need the alias from labels earlier, you can move the label lookup to PR‑meta and pass it through options_json / client_payload. For Option A, the in‑job resolution above is sufficient.
