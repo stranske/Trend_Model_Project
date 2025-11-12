@@ -68,6 +68,10 @@ jobs:
       run_cap: ${{ steps.pre_gate.outputs.run_cap }}
       require_human_activation: ${{ steps.pre_gate.outputs.require_human_activation }}
       activation_comment: ${{ steps.pre_gate.outputs.activation_comment }}
+      run_cap_ok: ${{ steps.run_cap.outputs.ok || 'false' }}
+      run_cap_reason: ${{ steps.run_cap.outputs.reason || '' }}
+      run_cap_active: ${{ steps.run_cap.outputs.active || '' }}
+      run_cap_limit: ${{ steps.run_cap.outputs.cap || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -252,6 +256,68 @@ jobs:
             }
 
             core.setOutput('reason', '');
+
+      - name: Evaluate orchestrator run cap
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
+        id: run_cap
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '' }}
+          HEAD_REF: ${{ steps.detect.outputs.branch || '' }}
+          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateRunCapForPr } = require('./.github/scripts/keepalive_gate.js');
+
+            const normalise = (value) => String(value || '').trim();
+            const prValue = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+
+            if (!Number.isFinite(prValue) || prValue <= 0) {
+              core.setOutput('ok', 'false');
+              core.setOutput('reason', 'missing-pr-number');
+              core.setOutput('cap', '');
+              core.setOutput('active', '');
+              core.setOutput('breakdown', '{}');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const result = await evaluateRunCapForPr({
+              core,
+              github,
+              owner,
+              repo,
+              prNumber: prValue,
+              headRef: normalise(process.env.HEAD_REF),
+              headSha: normalise(process.env.HEAD_SHA),
+              includeWorker: false,
+            });
+
+            const bool = (value) => (value ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('cap', String(result.runCap ?? ''));
+            core.setOutput('active', String(result.activeRuns ?? ''));
+            core.setOutput('breakdown', JSON.stringify(result.breakdown || {}));
+            core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('head_ref', result.headRef || '');
+
+      - name: Record run cap summary
+        if: steps.run_cap.outputs.ok == 'false'
+        run: |
+          set -euo pipefail
+          cap="${CAP:-?}"
+          active="${ACTIVE:-0}"
+          reason="${REASON:-run-cap-reached}"
+          pr="${PR_NUMBER:-?}"
+          printf 'CAP: ok=false reason=%s pr=#%s cap=%s active=%s\n' \
+            "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
+        env:
+          CAP: ${{ steps.run_cap.outputs.cap || '' }}
+          ACTIVE: ${{ steps.run_cap.outputs.active || '' }}
+          REASON: ${{ steps.run_cap.outputs.reason || 'run-cap-reached' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '' }}
 
       - name: Log dispatch summary
         if: steps.detect.outputs.comment_id != ''
@@ -698,8 +764,66 @@ jobs:
         run: |
           echo "Gate-triggered keepalive dispatch skipped: ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.gate.outputs.reason }}"
 
+      - name: Evaluate orchestrator run cap
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
+        id: run_cap
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          HEAD_REF: ${{ steps.gate.outputs.head_ref || '' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateRunCapForPr } = require('./.github/scripts/keepalive_gate.js');
+
+            const normalise = (value) => String(value || '').trim();
+            const prValue = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+
+            if (!Number.isFinite(prValue) || prValue <= 0) {
+              core.setOutput('ok', 'false');
+              core.setOutput('reason', 'missing-pr-number');
+              core.setOutput('cap', '');
+              core.setOutput('active', '');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const result = await evaluateRunCapForPr({
+              core,
+              github,
+              owner,
+              repo,
+              prNumber: prValue,
+              headRef: normalise(process.env.HEAD_REF),
+              headSha: normalise(process.env.HEAD_SHA),
+              includeWorker: false,
+            });
+
+            const bool = (value) => (value ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('cap', String(result.runCap ?? ''));
+            core.setOutput('active', String(result.activeRuns ?? ''));
+
+      - name: Record run cap summary
+        if: steps.run_cap.outputs.ok == 'false'
+        run: |
+          set -euo pipefail
+          cap="${CAP:-?}"
+          active="${ACTIVE:-0}"
+          reason="${REASON:-run-cap-reached}"
+          pr="${PR_NUMBER:-?}"
+          printf 'CAP: ok=false reason=%s pr=#%s cap=%s active=%s\n' \
+            "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
+        env:
+          CAP: ${{ steps.run_cap.outputs.cap || '' }}
+          ACTIVE: ${{ steps.run_cap.outputs.active || '' }}
+          REASON: ${{ steps.run_cap.outputs.reason || 'run-cap-reached' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+
       - name: Ensure keepalive dispatch token available
-        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && (steps.run_cap.outputs.ok == 'true' || steps.run_cap.outputs.ok == '')
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -710,7 +834,7 @@ jobs:
           fi
 
       - name: Dispatch Agents 70 run for keepalive
-        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && (steps.run_cap.outputs.ok == 'true' || steps.run_cap.outputs.ok == '')
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
@@ -769,7 +893,7 @@ jobs:
               .write();
 
       - name: Ensure connector dispatch token available
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && (steps.run_cap.outputs.ok == 'true' || steps.run_cap.outputs.ok == '')
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -780,7 +904,7 @@ jobs:
           fi
 
       - name: Dispatch codex keepalive command
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && (steps.run_cap.outputs.ok == 'true' || steps.run_cap.outputs.ok == '')
         uses: actions/github-script@v7
         env:
           BASE: ${{ steps.detect.outputs.base }}
@@ -884,7 +1008,73 @@ jobs:
       group: pr-meta-dispatch-${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER }}
       cancel-in-progress: false
     steps:
+      - name: Checkout run cap helpers
+        if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Evaluate orchestrator run cap
+        if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+        id: run_cap
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER || '' }}
+          HEAD_REF: ${{ needs.keepalive_dispatch.outputs.branch || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateRunCapForPr } = require('./.github/scripts/keepalive_gate.js');
+
+            const normalise = (value) => String(value || '').trim();
+            const prValue = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+
+            if (!Number.isFinite(prValue) || prValue <= 0) {
+              core.setOutput('ok', 'false');
+              core.setOutput('reason', 'missing-pr-number');
+              core.setOutput('cap', '');
+              core.setOutput('active', '');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const result = await evaluateRunCapForPr({
+              core,
+              github,
+              owner,
+              repo,
+              prNumber: prValue,
+              headRef: normalise(process.env.HEAD_REF),
+              includeWorker: false,
+            });
+
+            const bool = (value) => (value ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('cap', String(result.runCap ?? ''));
+            core.setOutput('active', String(result.activeRuns ?? ''));
+
+      - name: Record run cap summary
+        if: steps.run_cap.outputs.ok == 'false'
+        run: |
+          set -euo pipefail
+          cap="${CAP:-?}"
+          active="${ACTIVE:-0}"
+          reason="${REASON:-run-cap-reached}"
+          pr="${PR_NUMBER:-?}"
+          printf 'CAP: ok=false reason=%s pr=#%s cap=%s active=%s\n' \
+            "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
+        env:
+          CAP: ${{ steps.run_cap.outputs.cap || '' }}
+          ACTIVE: ${{ steps.run_cap.outputs.active || '' }}
+          REASON: ${{ steps.run_cap.outputs.reason || 'run-cap-reached' }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER || '' }}
+
       - name: Ensure keepalive dispatch token available
+        if: steps.run_cap.outputs.ok == 'true'
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -895,6 +1085,7 @@ jobs:
           fi
 
       - name: Dispatch Agents 70 run for keepalive
+        if: steps.run_cap.outputs.ok == 'true'
         id: orchestrator
         uses: actions/github-script@v7
         with:
@@ -970,6 +1161,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Ensure connector dispatch token available
+        if: needs.keepalive_dispatch.outputs.dispatch == 'true' && needs.keepalive_dispatch.outputs.run_cap_ok == 'true'
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -980,6 +1172,7 @@ jobs:
           fi
 
       - name: Dispatch codex keepalive command
+        if: needs.keepalive_dispatch.outputs.dispatch == 'true' && needs.keepalive_dispatch.outputs.run_cap_ok == 'true'
         id: dispatch
         uses: actions/github-script@v7
         env:
