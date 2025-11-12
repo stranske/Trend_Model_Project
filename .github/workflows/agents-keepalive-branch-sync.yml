@@ -42,7 +42,7 @@ jobs:
       contents: write
       pull-requests: write
     env:
-      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+      PREFERRED_TOKEN: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v4

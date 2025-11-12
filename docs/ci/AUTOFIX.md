@@ -73,7 +73,7 @@ job summary for quick inspection.
 
 The job fails fast if:
 
-- The `ACTIONS_BOT_PAT` secret is missing.
+- The `ACTION_BOT_PAT` secret is missing.
 - Tooling cannot be installed.
 - Disallowed files were modified by the sweep.
 - Git operations (commit/push) fail.

@@ -17,7 +17,7 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 | Acceptance Criterion | Status | Evidence |
 | --- | --- | --- |
 | New instruction comment created each cycle with required markers and @codex. | ❌ Not satisfied | Latest orchestrator runs [#19087371981](https://github.com/stranske/Trend_Model_Project/actions/runs/19087371981) and [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) failed before the first job, so no instruction comments were posted. |
-| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Because no instruction comment was created in the recent runs, author provenance could not be validated. |
+| Comment author resolves to `stranske` (ACTION_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Because no instruction comment was created in the recent runs, author provenance could not be validated. |
 | PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Ack loop never started; orchestrator aborted pre-job and emitted neither 🎉/🚀 reactions nor the fallback skip comment. |
 | Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) produced no step summary output, leaving all summary fields unverified. |
 
