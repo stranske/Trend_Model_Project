@@ -1609,6 +1609,7 @@ jobs:
     needs:
       - resolve-params
       - belt-dispatch
+      - keepalive-guard
       - belt-check-existing-pr
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
@@ -1966,6 +1967,7 @@ jobs:
       - keepalive-prep
       - keepalive-post-work
     if: |
+      always() &&
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.enable_keepalive == 'true' &&
       needs.keepalive-cap.outputs.ok == 'true'
