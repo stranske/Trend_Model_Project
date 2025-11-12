@@ -430,7 +430,7 @@ async function countActive({
 }) {
   const targetPr = Number(prNumber);
   if (!Number.isFinite(targetPr) || targetPr <= 0) {
-    return { active: 0, breakdown: Object.fromEntries(new Map()), runIds: new Set() };
+    return { active: 0, breakdown: new Map(), runIds: new Set(), error: null };
   }
 
   const statuses = ['queued', 'in_progress'];
@@ -586,7 +586,7 @@ async function countActive({
 
   return {
     active: runIds.size,
-    breakdown: Object.fromEntries(breakdown),
+    breakdown,
     runIds,
     error,
   };
@@ -601,9 +601,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const {
     prNumber: rawPrNumber,
     headSha: inputHeadSha,
-  requireHumanActivation = false,
-  allowPendingGate = false,
-  requireGateSuccess = false,
+    requireHumanActivation = false,
+    allowPendingGate = false,
+    requireGateSuccess = false,
     comments,
     pullRequest,
     currentRunId,
@@ -732,9 +732,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     currentRunId,
     includeWorker: true,
   });
-  if (runError) {
-    core.warning(`Unable to count active orchestrator runs: ${runError}`);
-  }
   const underRunCap = activeRuns < runCap;
 
   let ok = true;
@@ -742,7 +739,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pendingGate = false;
 
   if (hasSyncRequiredLabel) {
-    ok = false;
     reason = 'sync-required';
   } else if (!hasKeepaliveLabel) {
     ok = false;
