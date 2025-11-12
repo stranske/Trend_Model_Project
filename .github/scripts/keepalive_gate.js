@@ -8,9 +8,67 @@ const ACTIVATED_LABEL = 'agents:activated';
 const DEFAULT_RUN_CAP = 2;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
-const RECENT_RUN_LOOKBACK_MINUTES = 5;
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
+
+function toInteger(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
+function normaliseBranch(value) {
+  const branch = String(value || '').trim();
+  if (!branch) {
+    return '';
+  }
+  return branch.replace(/^refs\/(heads|remotes)\//i, '');
+}
+
+function extractPrNumbersFromText(text) {
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+  const result = new Set();
+  const candidates = [
+    /#(\d{1,6})/g,
+    /(?:^|[^A-Za-z0-9])pr[-_/\s]*(\d{1,6})(?=[^A-Za-z0-9]|$)/gi,
+    /(?:^|[^A-Za-z0-9])pull[-_/\s]*(\d{1,6})(?=[^A-Za-z0-9]|$)/gi,
+    /(?:^|[^A-Za-z0-9])issue[-_/\s]*(\d{1,6})(?=[^A-Za-z0-9]|$)/gi,
+  ];
+  for (const pattern of candidates) {
+    for (const match of text.matchAll(pattern)) {
+      const parsed = toInteger(match[1]);
+      if (Number.isFinite(parsed)) {
+        result.add(parsed);
+      }
+    }
+  }
+  return Array.from(result);
+}
+
+function parseMaybeJson(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    return null;
+  }
+}
 const GATE_WORKFLOW_FILE = 'pr-00-gate.yml';
 
 function normaliseLabelName(name) {
@@ -360,7 +418,7 @@ async function fetchGateStatus({ github, owner, repo, headSha }) {
   }
 }
 
-async function countActiveRuns({
+async function countActive({
   github,
   owner,
   repo,
@@ -368,155 +426,169 @@ async function countActiveRuns({
   headSha,
   headRef,
   currentRunId,
-  workflowFile = ORCHESTRATOR_WORKFLOW_FILE,
-  recentWindowMinutes = RECENT_RUN_LOOKBACK_MINUTES,
+  includeWorker = true,
 }) {
+  const targetPr = Number(prNumber);
+  if (!Number.isFinite(targetPr) || targetPr <= 0) {
+    return { active: 0, breakdown: new Map(), runIds: new Set(), error: null };
+  }
+
   const statuses = ['queued', 'in_progress'];
-  const inflightRunIds = new Set();
-  const activeRunIds = new Set();
-  const recentRunIds = new Set();
+  const workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
+  if (includeWorker) {
+    workflowFiles.push(WORKER_WORKFLOW_FILE);
+  }
 
-  const workflowIds = Array.isArray(workflowFile)
-    ? workflowFile.filter(Boolean)
-    : [workflowFile].filter(Boolean);
+  const runIds = new Set();
+  const breakdown = new Map();
+  let error = null;
 
-  const isSameRun = (run) => {
-    if (!currentRunId) {
-      return false;
+  const normalisedHeadRef = normaliseBranch(headRef);
+  const normalisedHeadSha = String(headSha || '').trim();
+  const currentRunNumeric = Number(currentRunId);
+
+  const fetchRunDetails = async (runId, attempt) => {
+    if (!github?.rest?.actions?.getWorkflowRun) {
+      return null;
     }
-    const runId = Number(run?.id || 0);
-    const parsedCurrent = Number(currentRunId);
-    if (!Number.isFinite(runId) || !Number.isFinite(parsedCurrent)) {
-      return false;
+    try {
+      const response = await github.rest.actions.getWorkflowRun({
+        owner,
+        repo,
+        run_id: runId,
+      });
+      if (!response?.data) {
+        return null;
+      }
+      return response.data;
+    } catch (fetchError) {
+      return null;
     }
-    return runId === parsedCurrent;
   };
 
-  const matchesPull = (run) => {
+  const runMatchesPr = async (run) => {
     if (!run) {
       return false;
     }
+
+    if (Number.isFinite(currentRunNumeric) && currentRunNumeric > 0) {
+      const runId = Number(run.id || 0);
+      if (Number.isFinite(runId) && runId === currentRunNumeric) {
+        return false;
+      }
+    }
+
     if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
       for (const pr of run.pull_requests) {
         const candidate = Number(pr?.number);
-        if (Number.isFinite(candidate) && candidate === prNumber) {
+        if (Number.isFinite(candidate) && candidate === targetPr) {
           return true;
         }
       }
     }
-    if (headSha && run.head_sha === headSha) {
+
+    const runHeadSha = String(run.head_sha || '').trim();
+    if (normalisedHeadSha && runHeadSha && runHeadSha === normalisedHeadSha) {
       return true;
     }
-    if (headRef && run.head_branch === headRef) {
+
+    const runHeadBranch = normaliseBranch(run.head_branch);
+    if (normalisedHeadRef && runHeadBranch && runHeadBranch === normalisedHeadRef) {
       return true;
     }
+
+    const textCandidates = [run.name, run.display_title, runHeadBranch];
+    for (const text of textCandidates) {
+      const numbers = extractPrNumbersFromText(text || '');
+      if (numbers.includes(targetPr)) {
+        return true;
+      }
+    }
+
+    const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
+    if (!details) {
+      return false;
+    }
+
+    if (Array.isArray(details.pull_requests) && details.pull_requests.length > 0) {
+      for (const pr of details.pull_requests) {
+        const candidate = Number(pr?.number);
+        if (Number.isFinite(candidate) && candidate === targetPr) {
+          return true;
+        }
+      }
+    }
+
+    const detailHeadBranch = normaliseBranch(details.head_branch);
+    if (normalisedHeadRef && detailHeadBranch && detailHeadBranch === normalisedHeadRef) {
+      return true;
+    }
+
+    const detailHeadSha = String(details.head_sha || '').trim();
+    if (normalisedHeadSha && detailHeadSha && detailHeadSha === normalisedHeadSha) {
+      return true;
+    }
+
+    const detailTexts = [details.name, details.display_title, detailHeadBranch];
+    for (const text of detailTexts) {
+      const numbers = extractPrNumbersFromText(text || '');
+      if (numbers.includes(targetPr)) {
+        return true;
+      }
+    }
+
+    if (details.event === 'workflow_dispatch' || details.event === 'repository_dispatch') {
+      const inputs = details?.inputs || {};
+      const optionsRaw = inputs.options_json || inputs.options || '';
+      const parsedOptions = parseMaybeJson(optionsRaw);
+      if (parsedOptions && typeof parsedOptions === 'object') {
+        const directCandidate = Number(parsedOptions.pr ?? parsedOptions.keepalive_pr);
+        if (Number.isFinite(directCandidate) && directCandidate === targetPr) {
+          return true;
+        }
+      }
+    }
+
     return false;
   };
 
-  for (const workflowId of workflowIds) {
-    if (!workflowId) {
-      continue;
-    }
+  for (const workflowFile of workflowFiles) {
+    const label = workflowFile === WORKER_WORKFLOW_FILE ? 'worker' : 'orchestrator';
     for (const status of statuses) {
       try {
         const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
           owner,
           repo,
-          workflow_id: workflowId,
+          workflow_id: workflowFile,
           status,
           per_page: 100,
         });
         for (const run of runs) {
-          if (isSameRun(run)) {
-            continue;
-          }
-          if (!matchesPull(run)) {
-            continue;
-          }
           const runId = Number(run?.id || 0);
           if (!Number.isFinite(runId) || runId <= 0) {
             continue;
           }
-          inflightRunIds.add(runId);
-          activeRunIds.add(runId);
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          activeRuns: activeRunIds.size,
-          inFlightRuns: inflightRunIds.size,
-          recentRuns: recentRunIds.size,
-          error: message,
-        };
-      }
-    }
-  }
-
-  const windowMinutes = Number.isFinite(recentWindowMinutes) ? Number(recentWindowMinutes) : 0;
-  if (windowMinutes > 0) {
-    const cutoff = Date.now() - windowMinutes * 60 * 1000;
-    for (const workflowId of workflowIds) {
-      if (!workflowId) {
-        continue;
-      }
-      try {
-        await github.paginate(
-          github.rest.actions.listWorkflowRuns,
-          {
-            owner,
-            repo,
-            workflow_id: workflowId,
-            status: 'completed',
-            per_page: 100,
-          },
-          (response, done) => {
-            let shouldStop = false;
-            const entries = Array.isArray(response?.data) ? response.data : [];
-            for (const run of entries) {
-              if (!run) {
-                continue;
-              }
-              const timestamp =
-                Date.parse(run.updated_at || run.run_started_at || run.created_at || '') || 0;
-              if (timestamp && timestamp < cutoff) {
-                shouldStop = true;
-                break;
-              }
-              if (isSameRun(run) || !matchesPull(run)) {
-                continue;
-              }
-              const runId = Number(run?.id || 0);
-              if (!Number.isFinite(runId) || runId <= 0) {
-                continue;
-              }
-              activeRunIds.add(runId);
-              if (!inflightRunIds.has(runId)) {
-                recentRunIds.add(runId);
-              }
-            }
-            if (shouldStop && typeof done === 'function') {
-              done();
-            }
-            return [];
+          if (runIds.has(runId)) {
+            continue;
           }
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          activeRuns: activeRunIds.size,
-          inFlightRuns: inflightRunIds.size,
-          recentRuns: recentRunIds.size,
-          error: message,
-        };
+          if (await runMatchesPr(run)) {
+            runIds.add(runId);
+            breakdown.set(label, (breakdown.get(label) || 0) + 1);
+          }
+        }
+      } catch (err) {
+        if (!error) {
+          error = err instanceof Error ? err.message : String(err);
+        }
       }
     }
   }
 
   return {
-    activeRuns: activeRunIds.size,
-    inFlightRuns: inflightRunIds.size,
-    recentRuns: recentRunIds.size,
-    recentWindowMinutes: windowMinutes,
+    active: runIds.size,
+    breakdown,
+    runIds,
+    error,
   };
 }
 
@@ -529,13 +601,12 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const {
     prNumber: rawPrNumber,
     headSha: inputHeadSha,
-  requireHumanActivation = false,
-  allowPendingGate = false,
-  requireGateSuccess = false,
+    requireHumanActivation = false,
+    allowPendingGate = false,
+    requireGateSuccess = false,
     comments,
     pullRequest,
     currentRunId,
-    workflowFile,
   } = options;
 
   let prNumber = Number(rawPrNumber);
@@ -651,28 +722,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const gateSucceeded = gateConcluded && gateStatus.success === true;
 
   const runCap = parseRunCap(labels);
-  const workflowCandidates = new Set();
-  if (Array.isArray(workflowFile)) {
-    for (const candidate of workflowFile) {
-      if (candidate) {
-        workflowCandidates.add(candidate);
-      }
-    }
-  } else if (workflowFile) {
-    workflowCandidates.add(workflowFile);
-  }
-  workflowCandidates.add(ORCHESTRATOR_WORKFLOW_FILE);
-  workflowCandidates.add(WORKER_WORKFLOW_FILE);
-
-  const workflowList = Array.from(workflowCandidates);
-
-  const {
-    activeRuns,
-    inFlightRuns,
-    recentRuns,
-    recentWindowMinutes,
-    error: runError,
-  } = await countActiveRuns({
+  const { active: activeRuns, breakdown: activeBreakdown, error: runError } = await countActive({
     github,
     owner,
     repo,
@@ -680,11 +730,8 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     currentRunId,
-    workflowFile: workflowList,
+    includeWorker: true,
   });
-  if (runError) {
-    core.warning(`Unable to count active orchestrator runs: ${runError}`);
-  }
   const underRunCap = activeRuns < runCap;
 
   let ok = true;
@@ -692,7 +739,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pendingGate = false;
 
   if (hasSyncRequiredLabel) {
-    ok = false;
     reason = 'sync-required';
   } else if (!hasKeepaliveLabel) {
     ok = false;
@@ -743,14 +789,15 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     gateSucceeded,
     underRunCap,
     runCap,
+    cap: runCap,
     activeRuns,
-    inFlightRuns,
-    recentRuns,
-    recentWindowMinutes,
+    active: activeRuns,
+    activeBreakdown: activeBreakdown ? Object.fromEntries(activeBreakdown) : {},
     agentAliases,
     primaryAgent,
     headSha,
     headRef,
+    lastGreenSha: gateSucceeded ? headSha : '',
     hasSyncRequiredLabel,
     hasActivatedLabel,
     requireHumanActivation: requireHuman,
@@ -762,6 +809,5 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
 module.exports = {
   evaluateKeepaliveGate,
-  countActiveRuns,
-  RECENT_RUN_LOOKBACK_MINUTES,
+  countActive,
 };

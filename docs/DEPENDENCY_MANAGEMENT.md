@@ -52,7 +52,7 @@ pip install -r requirements.txt
 pip install -e '.[dev]'
 
 # External tools (must be installed separately)
-# - Node.js v16+: https://nodejs.org/
+# - Node.js v20+: https://nodejs.org/
 # - uv: https://github.com/astral-sh/uv
 ```
 
@@ -89,7 +89,7 @@ These packages are **optional**. Tests requiring them will skip gracefully if mi
 
 These tools are **not pip-installable** and must be installed separately. Tests requiring them will skip with clear messages:
 
-- **Node.js v16+** and **npm** - Required for JavaScript workflow tests
+- **Node.js v20+** and **npm** - Required for JavaScript workflow tests
   - 19 tests skip without Node.js
   - Install from: https://nodejs.org/
   
@@ -112,7 +112,7 @@ hypothesis
 coverage
 jsonschema
 
-# Note: Node.js (v16+) and npm are required for JavaScript workflow tests
+# Note: Node.js (v20+) and npm are required for JavaScript workflow tests
 # Install from: https://nodejs.org/
 # Optional: uv (for lockfile tests) - https://github.com/astral-sh/uv
 ```
@@ -134,7 +134,7 @@ dev = [
 ]
 
 # Note: External dependencies not managed by pip:
-# - Node.js (v16+) and npm - Required for JavaScript workflow tests
+# - Node.js (v20+) and npm - Required for JavaScript workflow tests
 # - uv - Optional, for lockfile consistency tests
 ```
 
@@ -308,7 +308,7 @@ pip install -e '.[dev]'
 ### JavaScript tests skipping
 
 ```bash
-# Install Node.js v16+ from https://nodejs.org/
+# Install Node.js v20+ from https://nodejs.org/
 # Verify installation
 node --version
 npm --version
