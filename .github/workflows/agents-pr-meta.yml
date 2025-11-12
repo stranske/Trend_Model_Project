@@ -99,6 +99,8 @@ jobs:
       run_cap: ${{ steps.pre_gate.outputs.run_cap }}
       require_human_activation: ${{ steps.pre_gate.outputs.require_human_activation }}
       activation_comment: ${{ steps.pre_gate.outputs.activation_comment }}
+      instruction_body: ${{ steps.detect.outputs.instruction_body }}
+      instruction_bytes: ${{ steps.detect.outputs.instruction_bytes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -624,6 +626,7 @@ jobs:
           COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
           COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
           AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
+          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -668,6 +671,12 @@ jobs:
               return;
             }
 
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+            if (!instructionBody) {
+              core.setFailed('Instruction body unavailable for keepalive dispatch.');
+              return;
+            }
+
             const clientPayload = {
               issue: prNumber,
               base: resolvedBase,
@@ -677,6 +686,7 @@ jobs:
               comment_url: commentUrl,
               round,
               trace,
+              instruction_body: instructionBody,
               quiet: true,
               reply: 'none',
             };
@@ -699,6 +709,9 @@ jobs:
           PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
           FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
           COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.gate.outputs.reason }}
+          DISPATCH_AGENT: ${{ steps.gate.outputs.agent_alias || 'codex' }}
+          DISPATCH_BYTES: ${{ steps.detect.outputs.instruction_bytes || '0' }}
         run: bash .github/scripts/write_dispatch_summary.sh
 
   gate_no_pr_summary:
@@ -712,7 +725,7 @@ jobs:
     steps:
       - name: Write dispatch summary
         run: |
-          echo "DISPATCH: ok=false reason=no-linked-pr path=gate activation=<none> trace=-" >>"${GITHUB_STEP_SUMMARY}"
+          echo "DISPATCH: ok=false reason=no-linked-pr pr=#? comment=<none> agent=? bytes=0" >>"${GITHUB_STEP_SUMMARY}"
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
@@ -808,6 +821,7 @@ jobs:
           COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
           COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
           AGENT_ALIAS: ${{ needs.keepalive_dispatch.outputs.agent_alias }}
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -862,6 +876,12 @@ jobs:
               }
             }
 
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+            if (!instructionBody) {
+              core.setFailed('Instruction body unavailable for keepalive dispatch.');
+              return;
+            }
+
             const clientPayload = {
               issue: pullNumber,
               base: resolvedBase,
@@ -871,6 +891,7 @@ jobs:
               comment_url: commentUrl || fallbackCommentUrl,
               round,
               trace,
+              instruction_body: instructionBody,
               quiet: true,
               reply: 'none',
             };
@@ -894,6 +915,9 @@ jobs:
           FALLBACK_PR: ${{ github.event.issue.number }}
           COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
           COMMENT_FALLBACK: ${{ github.event.comment.id }}
+          DISPATCH_REASON: ${{ needs.keepalive_dispatch.outputs.dispatch == 'true' && 'ok' || needs.keepalive_dispatch.outputs.reason || '' }}
+          DISPATCH_AGENT: ${{ needs.keepalive_dispatch.outputs.agent_alias || 'codex' }}
+          DISPATCH_BYTES: ${{ needs.keepalive_dispatch.outputs.instruction_bytes || '0' }}
         run: bash .github/scripts/write_dispatch_summary.sh
 
   update_body:
