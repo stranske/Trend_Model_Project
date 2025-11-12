@@ -117,7 +117,7 @@ jobs:
   orchestrate:
     runs-on: ubuntu-latest
     concurrency:
-      group: keepalive-orchestrator-pr-${{ steps.resolve.outputs.pr_number }}-agent-${{ steps.resolve.outputs.agent_alias }}-run-${{ github.run_id }}
+      group: keepalive-orchestrator-pr-${{ inputs.pr_number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}-agent-${{ inputs.agent_alias || github.event.client_payload.agent_alias || 'codex' }}-run-${{ github.run_id }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
