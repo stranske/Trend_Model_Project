@@ -58,7 +58,7 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     created = calls.get("reactionsCreated", [])
     assert created == [
         {"comment_id": 987654321, "content": "hooray"},
-        {"comment_id": 987654321, "content": "rocket"},
+        {"comment_id": 987654321, "content": "dart"},
     ]
 
 

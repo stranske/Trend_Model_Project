@@ -1589,13 +1589,17 @@ jobs:
             const prNumber = existing.number ? String(existing.number) : '';
             const prUrl = existing.html_url || (prNumber ? `https://github.com/${owner}/${repo}/pull/${prNumber}` : '');
 
-            summary
-              .addRaw(`Existing PR detected: <a href="${prUrl}">#${prNumber || '(unknown)'}</a>.`)
-              .addEOL()
-              .addRaw(keepaliveEnabled
-                ? 'Result: keepalive override active – worker may resume existing branch.'
-                : 'Result: skipped: PR exists.')
-              .write();
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner,
+                repo,
+                comment_id: commentId,
+                content: 'dart',
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add 🎯 reaction to keepalive comment ${commentId}: ${message}`);
+            }
 
             core.info(keepaliveEnabled
               ? 'PR already exists; keepalive override allows worker to continue.'
@@ -1715,7 +1719,28 @@ jobs:
               comment_url: String(process.env.COMMENT_URL || ''),
             };
 
-            inputs.idempotency_key = `${inputs.trace || 'trace'}-${inputs.head_sha || 'head'}-${Date.now()}`;
+            while (Date.now() < deadline) {
+              const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+                owner,
+                repo,
+                comment_id: commentId,
+                per_page: 100,
+              });
+              if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'dart')) {
+                acknowledged = true;
+                ackSource = 'reaction';
+                break;
+              }
+
+              if (Date.now() - lastRunCheck >= runPollInterval) {
+                lastRunCheck = Date.now();
+                const runAck = await checkWorkflowRuns();
+                if (runAck) {
+                  acknowledged = true;
+                  ackSource = 'pr-meta';
+                  break;
+                }
+              }
 
             await github.rest.actions.createWorkflowDispatch({
               owner,
