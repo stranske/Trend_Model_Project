@@ -14,8 +14,8 @@ tasks:
     title: Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator
       (and, if needed, Worker) runs only, filters to this PR (use inputs.options_json.pr
       or head ref pattern), and counts queued + in_progress.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-12T02:53:07Z'
     finished_at: null
     commit: ''
     notes: []
