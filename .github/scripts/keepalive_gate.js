@@ -592,6 +592,86 @@ async function countActive({
   };
 }
 
+async function evaluateRunCapForPr({
+  core,
+  github,
+  owner,
+  repo,
+  prNumber,
+  headSha = '',
+  headRef = '',
+  includeWorker = false,
+  currentRunId,
+} = {}) {
+  const number = Number(prNumber);
+  if (!Number.isFinite(number) || number <= 0) {
+    return {
+      ok: false,
+      reason: 'missing-pr-number',
+      runCap: DEFAULT_RUN_CAP,
+      activeRuns: 0,
+      breakdown: {},
+      headSha: '',
+      headRef: '',
+    };
+  }
+
+  let pull;
+  try {
+    const response = await github.rest.pulls.get({ owner, repo, pull_number: number });
+    pull = response.data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (core?.warning) {
+      core.warning(`Run cap evaluation failed to load PR #${number}: ${message}`);
+    }
+    return {
+      ok: false,
+      reason: 'pr-fetch-failed',
+      runCap: DEFAULT_RUN_CAP,
+      activeRuns: 0,
+      breakdown: {},
+      error: message,
+      headSha: '',
+      headRef: '',
+    };
+  }
+
+  const labels = Array.isArray(pull?.labels) ? pull.labels : [];
+  const runCap = parseRunCap(labels);
+  const resolvedHeadSha = String(headSha || pull?.head?.sha || '').trim();
+  const resolvedHeadRef = String(headRef || pull?.head?.ref || '').trim();
+
+  const { active, breakdown, error } = await countActive({
+    github,
+    owner,
+    repo,
+    prNumber: number,
+    headSha: resolvedHeadSha,
+    headRef: resolvedHeadRef,
+    includeWorker,
+    currentRunId,
+  });
+
+  if (error && core?.warning) {
+    core.warning(`Run cap evaluation encountered an error while counting runs: ${error}`);
+  }
+
+  const ok = active < runCap;
+  const reason = ok ? 'ok' : 'run-cap-reached';
+
+  return {
+    ok,
+    reason,
+    runCap,
+    activeRuns: active,
+    breakdown: breakdown ? Object.fromEntries(breakdown) : {},
+    error: error || null,
+    headSha: resolvedHeadSha,
+    headRef: resolvedHeadRef,
+  };
+}
+
 async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const { owner, repo } = context.repo || {};
   if (!owner || !repo) {
@@ -810,4 +890,5 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 module.exports = {
   evaluateKeepaliveGate,
   countActive,
+  evaluateRunCapForPr,
 };
