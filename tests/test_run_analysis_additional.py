@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -261,3 +262,88 @@ def test_main_detailed_no_results(
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "No results" in out
+
+def test_main_passes_nan_policy_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str | None = None,
+        nan_policy: str | None = None,
+        nan_limit: int | None = None,
+    ) -> pd.DataFrame:
+        captured["path"] = path
+        captured["errors"] = errors
+        captured["nan_policy"] = nan_policy
+        captured["nan_limit"] = nan_limit
+        return pd.DataFrame({"value": [1.0]})
+
+    cfg = SimpleNamespace(
+        data={"csv_path": Path("input.csv"), "nan_policy": "ffill", "nan_limit": 7},
+        sample_split={},
+        export={},
+    )
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: EmptyResult())
+
+    exit_code = run_analysis.main(["-c", "cfg.yml", "--detailed"])
+    assert exit_code == 0
+
+    output = capsys.readouterr().out
+    assert "No results" in output
+    assert captured["path"] == "input.csv"
+    assert captured["errors"] == "raise"
+    assert captured["nan_policy"] == "ffill"
+    assert captured["nan_limit"] == 7
+
+
+def test_main_prefers_missing_policy_signature(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_load_csv(
+        path: str,
+        *,
+        errors: str | None = None,
+        missing_policy: str | None = None,
+        missing_limit: int | None = None,
+    ) -> pd.DataFrame:
+        captured["path"] = path
+        captured["errors"] = errors
+        captured["missing_policy"] = missing_policy
+        captured["missing_limit"] = missing_limit
+        return pd.DataFrame({"value": [1.0]})
+
+    cfg = SimpleNamespace(
+        data={
+            "csv_path": "input.csv",
+            "missing_policy": "drop",
+            "missing_limit": 3,
+            "nan_policy": "ignored",
+            "nan_limit": 5,
+        },
+        sample_split={},
+        export={},
+    )
+
+    monkeypatch.setattr(run_analysis, "load", lambda _path: cfg)
+    monkeypatch.setattr(run_analysis, "load_csv", fake_load_csv)
+    monkeypatch.setattr(run_analysis.api, "run_simulation", lambda *_: EmptyResult())
+
+    exit_code = run_analysis.main(["-c", "cfg.yml", "--detailed"])
+    assert exit_code == 0
+
+    output = capsys.readouterr().out
+    assert "No results" in output
+    assert captured["path"] == "input.csv"
+    assert captured["errors"] == "raise"
+    assert captured["missing_policy"] == "drop"
+    assert captured["missing_limit"] == 3
