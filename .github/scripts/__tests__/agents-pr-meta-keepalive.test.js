@@ -213,3 +213,100 @@ test('manual restated instructions are autopatched to the next round', async () 
   assert.equal(updatedBodies.length, 0);
   assert.deepEqual(reactionCalls, []);
 });
+
+test('keepalive detection captures instruction body without status bundle', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+  const scopeBlock = [
+    '<!-- keepalive-round: 3 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- keepalive-trace: trace-456 -->',
+    '@codex Continue working.',
+    '',
+    '## Automated Status Summary',
+    '#### Scope',
+    '- [ ] Scope entry',
+    '',
+    '#### Tasks',
+    '- [ ] Task entry',
+    '',
+    '#### Acceptance criteria',
+    '- [ ] Acceptance entry',
+    '',
+    '**Head SHA:** deadbeef',
+    '**Latest Runs:** pending',
+    '| Workflow / Job | Result | Logs |',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              head: { ref: 'codex/issue-1', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'phase-2-dev', repo: { owner: { login: 'stranske' } } },
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          return { status: 201, data: { content } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues?.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    payload: {
+      comment: {
+        id: 99,
+        html_url: 'https://example.test/comment/99',
+        body: scopeBlock,
+        user: { login: 'stranske' },
+      },
+      issue: { number: 4000 },
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'stranske',
+    KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+    GATE_OK: 'true',
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.reason, 'keepalive-detected');
+  assert.ok(outputs.instruction_body);
+  assert.equal(outputs.instruction_bytes, String(Buffer.byteLength(outputs.instruction_body, 'utf8')));
+  assert.ok(!outputs.instruction_body.includes('Head SHA'));
+  assert.ok(!outputs.instruction_body.includes('Workflow / Job'));
+  assert.ok(reactionCalls.includes('hooray'));
+});

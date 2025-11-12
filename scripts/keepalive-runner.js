@@ -1,5 +1,10 @@
 'use strict';
 
+const {
+  extractInstructionSegment,
+  computeInstructionByteLength,
+} = require('./keepalive_instruction_segment.js');
+
 function parseJson(value, fallback) {
   try {
     return value ? JSON.parse(value) : fallback;
@@ -69,6 +74,18 @@ const NON_ASSIGNABLE_LOGINS = new Set([
 ]);
 
 const KEEPALIVE_INSTRUCTION_REACTION = 'hooray';
+
+function recordDispatchSummary({ summary, ok, reason, prNumber, commentId, agentAlias, bytes }) {
+  if (!summary || typeof summary.addRaw !== 'function') {
+    return;
+  }
+  const prValue = Number.isFinite(prNumber) && prNumber > 0 ? `#${prNumber}` : '#?';
+  const commentValue = commentId ? String(commentId) : '<none>';
+  const agentValue = (agentAlias || 'codex').trim() || 'codex';
+  const byteValue = Number.isFinite(bytes) && bytes >= 0 ? String(bytes) : '0';
+  const line = `DISPATCH: ok=${ok ? 'true' : 'false'} reason=${reason || 'unspecified'} pr=${prValue} comment=${commentValue} agent=${agentValue} bytes=${byteValue}`;
+  summary.addRaw(line).addEOL();
+}
 
 function isAssignable(login) {
   const raw = String(login ?? '').trim();
@@ -817,6 +834,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         bodyParts.push('', marker);
       }
       const body = bodyParts.join('\n');
+      const instructionSegment = extractInstructionSegment(body);
+      const instructionBytes = instructionSegment ? computeInstructionByteLength(instructionSegment) : 0;
       
       // Ensure agent connectors are assigned before posting keepalive
       // This is critical so the agent actually engages when mentioned
@@ -917,28 +936,52 @@ async function runKeepalive({ core, github, context, env = process.env }) {
             }
           }
 
-          try {
-            await dispatchKeepaliveCommand({
-              core,
-              github,
-              owner,
-              repo,
-              token: env.ACTION_BOT_PAT || env.action_bot_pat || '',
-              payload: {
-                issue: prNumber,
-                agent: 'codex',
-                comment_id: commentId,
-                comment_url: commentUrl,
-                base: pr.base?.ref || '',
-                head: pr.head?.ref || headRef,
-                trace: traceToken,
-                round: nextRound,
-              },
+          const agentAlias = 'codex';
+          if (!instructionSegment) {
+            core.warning(`#${prNumber}: unable to extract instruction segment; connector dispatch skipped.`);
+            recordDispatchSummary({
+              summary,
+              ok: false,
+              reason: 'no-instruction-segment',
+              prNumber,
+              commentId,
+              agentAlias,
+              bytes: 0,
             });
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
-            throw error;
+          } else {
+            try {
+              await dispatchKeepaliveCommand({
+                core,
+                github,
+                owner,
+                repo,
+                token: env.ACTION_BOT_PAT || env.action_bot_pat || '',
+                payload: {
+                  issue: prNumber,
+                  agent: agentAlias,
+                  comment_id: commentId,
+                  comment_url: commentUrl,
+                  base: pr.base?.ref || '',
+                  head: pr.head?.ref || headRef,
+                  trace: traceToken,
+                  round: nextRound,
+                  instruction_body: instructionSegment,
+                },
+              });
+              recordDispatchSummary({
+                summary,
+                ok: true,
+                reason: 'ok',
+                prNumber,
+                commentId,
+                agentAlias,
+                bytes: instructionBytes,
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
+              throw error;
+            }
           }
         }
       }

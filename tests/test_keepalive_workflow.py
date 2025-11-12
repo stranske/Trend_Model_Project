@@ -63,6 +63,10 @@ def _dispatch_events(data: dict) -> list[dict]:
     return list(data.get("dispatch_events") or [])
 
 
+def _dispatch_lines(summary: dict) -> list[str]:
+    return [line for line in _raw_entries(summary) if line.startswith("DISPATCH: ")]
+
+
 def _assert_no_dispatch(data: dict) -> None:
     assert _dispatch_events(data) == []
 
@@ -119,6 +123,10 @@ def _assert_single_dispatch(
     assert isinstance(payload["trace"], str)
     assert payload.get("quiet") is True
     assert payload.get("reply") == "none"
+    instruction_body = payload.get("instruction_body")
+    assert isinstance(instruction_body, str) and instruction_body
+    assert "Head SHA" not in instruction_body
+    assert "Workflow / Job" not in instruction_body
     if round_expected is not None:
         assert payload["round"] == round_expected
     else:
@@ -176,6 +184,10 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert "Refreshed keepalive count: 0" in raw
     assert "Evaluated pull requests: 3" in raw
     assert "Skipped 0 paused PRs." in raw
+
+    dispatch_lines = _dispatch_lines(summary)
+    assert any("reason=ok" in line for line in dispatch_lines)
+    assert any("agent=codex" in line for line in dispatch_lines)
 
     assignee_entries = _assignee_entries(summary)
     assert any(
