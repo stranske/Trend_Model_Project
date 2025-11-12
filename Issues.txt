@@ -95,11 +95,21 @@ Example (github‑script)
         return a ? a.name.replace(/^agent:/i, '').trim() : null;
       }
 
+      // Parse options_json once, with error handling
+      let optionsFromInput = null;
+      if (ev.inputs?.options_json) {
+        try {
+          optionsFromInput = JSON.parse(ev.inputs.options_json);
+        } catch (e) {
+          // Optionally log or ignore parse errors
+        }
+      }
+
       const fromPayload =
         ev.client_payload?.agent ||
         ev.client_payload?.agent_alias ||
         (ev.client_payload?.options && (ev.client_payload.options.agent || ev.client_payload.options.agent_alias)) ||
-        (ev.inputs?.options_json ? (JSON.parse(ev.inputs.options_json).agent || JSON.parse(ev.inputs.options_json).agent_alias) : null);
+        (optionsFromInput?.agent || optionsFromInput?.agent_alias);
 
       let agentAlias = fromPayload || null;
       if (!agentAlias) agentAlias = await agentFromLabels(prNumber);
