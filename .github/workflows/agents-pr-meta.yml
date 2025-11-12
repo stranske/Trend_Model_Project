@@ -40,12 +40,12 @@ concurrency:
 
 jobs:
   keepalive_dispatch:
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
     name: Detect keepalive round comments
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-      reason: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
+      dispatch: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && 'true' || 'false' }}
+      reason: ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -204,6 +204,86 @@ jobs:
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             await detectKeepalive({ core, github, context, env: process.env });
 
+      - name: Acquire keepalive dispatch lock
+        id: dispatch_lock
+        if: >-
+          ${{ steps.pre_gate.outputs.ok == 'true'
+              && steps.detect.outputs.dispatch == 'true'
+              && steps.detect.outputs.comment_id != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = Number('${{ steps.detect.outputs.comment_id || '0' }}');
+            const prNumber = Number('${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.warning('Dispatch lock skipped: missing activation comment id.');
+              core.setOutput('acquired', 'false');
+              core.setOutput('reason', 'missing-comment-id');
+              return;
+            }
+
+            try {
+              if (github.rest.issues && typeof github.rest.issues.createReaction === 'function') {
+                await github.rest.issues.createReaction({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              } else {
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              }
+              core.info(`Acquired dispatch lock on comment ${commentId} for PR #${prNumber || '?'} (comment path).`);
+              core.setOutput('acquired', 'true');
+            } catch (error) {
+              if (error && error.status === 409) {
+                core.info(`Dispatch lock already exists on comment ${commentId}; skipping comment-path dispatch.`);
+                core.setOutput('acquired', 'false');
+                core.setOutput('reason', 'lock-exists');
+                return;
+              }
+              throw error;
+            }
+
+            core.setOutput('reason', '');
+
+      - name: Log dispatch summary
+        if: steps.detect.outputs.comment_id != ''
+        run: |
+          set -euo pipefail
+          ok="false"
+          if [[ "${PRE_GATE_OK}" == "true" && "${DETECT_DISPATCH}" == "true" && "${LOCK_ACQUIRED}" == "true" ]]; then
+            ok="true"
+          fi
+
+          pr_value="#?"
+          if [[ -n "${PR_NUMBER}" ]]; then
+            pr_value="#${PR_NUMBER}"
+          fi
+
+          comment_value="${COMMENT_ID:-?}"
+
+          trace_value="${TRACE:-?}"
+          if [[ -z "${trace_value}" ]]; then
+            trace_value='?'
+          fi
+
+          printf 'DISPATCH: ok=%s path=comment pr=%s comment_id=%s trace=%s\n' \
+            "${ok}" "${pr_value}" "${comment_value}" "${trace_value}"
+        env:
+          PRE_GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
+          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
+          LOCK_ACQUIRED: ${{ steps.dispatch_lock.outputs.acquired || 'false' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '' }}
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id || '' }}
+          TRACE: ${{ steps.detect.outputs.trace || '' }}
+
       - name: Prepare keepalive summary context
         id: summary_context
         run: |
@@ -230,7 +310,7 @@ jobs:
           ## Keepalive detection
           | ok | reason | author | comment | pr | round | trace |
           | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ${{ steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && 'true' || 'false' }} | ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
           
           **Gate inputs**
           
@@ -241,23 +321,33 @@ jobs:
           EOF
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
         run: |
           echo "Keepalive round ${{ steps.detect.outputs.round }} detected for issue ${{ steps.detect.outputs.issue }} on branch ${{ steps.detect.outputs.branch }} (trace ${{ steps.detect.outputs.trace }})"
 
       - name: Report keepalive dispatch outcome
-        if: steps.detect.outputs.dispatch != 'true'
+        if: steps.detect.outputs.dispatch != 'true' || steps.dispatch_lock.outputs.acquired != 'true'
         run: |
-          echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
+          echo "Keepalive dispatch skipped: ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
 
   keepalive_from_gate:
     if: >-
-      ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+      ${{ github.event_name == 'workflow_run'
+          && github.event.workflow_run.name == 'Gate'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.pull_requests
+          && github.event.workflow_run.pull_requests[0]
+          && github.event.workflow_run.pull_requests[0].number }}
     name: Resume keepalive after Gate
     runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+    concurrency:
+      group: pr-meta-dispatch-${{ env.PR_NUMBER || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+      cancel-in-progress: false
     outputs:
-      dispatch: ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-      reason: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
+      dispatch: ${{ steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && 'true' || 'false' }}
+      reason: ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.gate.outputs.reason }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -481,6 +571,84 @@ jobs:
 
             await detectKeepalive({ core, github, context: detectionContext, env: process.env });
 
+      - name: Acquire keepalive dispatch lock
+        id: dispatch_lock
+        if: >-
+          ${{ steps.detect.outputs.dispatch == 'true'
+              && steps.detect.outputs.comment_id != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commentId = Number('${{ steps.detect.outputs.comment_id || '0' }}');
+            const prNumber = Number('${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '0' }}');
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.warning('Dispatch lock skipped: missing activation comment id (Gate path).');
+              core.setOutput('acquired', 'false');
+              core.setOutput('reason', 'missing-comment-id');
+              return;
+            }
+
+            try {
+              if (github.rest.issues && typeof github.rest.issues.createReaction === 'function') {
+                await github.rest.issues.createReaction({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              } else {
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              }
+              core.info(`Acquired dispatch lock on comment ${commentId} for PR #${prNumber || '?'} (Gate path).`);
+              core.setOutput('acquired', 'true');
+            } catch (error) {
+              if (error && error.status === 409) {
+                core.info(`Dispatch lock already exists on comment ${commentId}; skipping Gate-path dispatch.`);
+                core.setOutput('acquired', 'false');
+                core.setOutput('reason', 'lock-exists');
+                return;
+              }
+              throw error;
+            }
+
+            core.setOutput('reason', '');
+
+      - name: Log dispatch summary
+        if: steps.detect.outputs.comment_id != ''
+        run: |
+          set -euo pipefail
+          ok="false"
+          if [[ "${DETECT_DISPATCH}" == "true" && "${LOCK_ACQUIRED}" == "true" ]]; then
+            ok="true"
+          fi
+
+          pr_value="#?"
+          if [[ -n "${PR_NUMBER}" ]]; then
+            pr_value="#${PR_NUMBER}"
+          fi
+
+          comment_value="${COMMENT_ID:-?}"
+
+          trace_value="${TRACE:-?}"
+          if [[ -z "${trace_value}" ]]; then
+            trace_value='?'
+          fi
+
+          printf 'DISPATCH: ok=%s path=gate pr=%s comment_id=%s trace=%s\n' \
+            "${ok}" "${pr_value}" "${comment_value}" "${trace_value}"
+        env:
+          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
+          LOCK_ACQUIRED: ${{ steps.dispatch_lock.outputs.acquired || 'false' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id || '' }}
+          TRACE: ${{ steps.detect.outputs.trace || '' }}
+
       - name: Prepare keepalive summary context
         id: summary_context
         if: steps.detect.outputs.comment_id != '' || steps.detect.outputs.reason != ''
@@ -509,7 +677,7 @@ jobs:
           ## Keepalive detection (Gate)
           | ok | reason | author | comment | pr | round | trace |
           | --- | --- | --- | --- | --- | --- | --- |
-          | ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }} | ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
+          | ${{ steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && 'true' || 'false' }} | ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.gate.outputs.reason || '(none)' }} | ${{ steps.detect.outputs.author || '—' }} | ${{ steps.summary_context.outputs.comment || '—' }} | ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '—' }} | ${{ steps.detect.outputs.round || '—' }} | ${{ steps.detect.outputs.trace || '—' }} |
 
           **Gate inputs**
 
@@ -521,17 +689,17 @@ jobs:
           EOF
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
         run: |
           echo "Gate-triggered keepalive round ${{ steps.detect.outputs.round }} detected for PR ${{ steps.detect.outputs.pr }} (trace ${{ steps.detect.outputs.trace }})."
 
       - name: Report keepalive dispatch outcome
-        if: steps.detect.outputs.reason != '' && steps.detect.outputs.dispatch != 'true'
+        if: steps.detect.outputs.dispatch != 'true' || steps.dispatch_lock.outputs.acquired != 'true'
         run: |
-          echo "Gate-triggered keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}"
+          echo "Gate-triggered keepalive dispatch skipped: ${{ steps.dispatch_lock.outputs.reason || steps.detect.outputs.reason || steps.gate.outputs.reason }}"
 
       - name: Ensure keepalive dispatch token available
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -542,7 +710,7 @@ jobs:
           fi
 
       - name: Dispatch Agents 70 run for keepalive
-        if: steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
@@ -710,6 +878,11 @@ jobs:
     if: needs.keepalive_dispatch.outputs.dispatch == 'true'
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr }}
+    concurrency:
+      group: pr-meta-dispatch-${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER }}
+      cancel-in-progress: false
     steps:
       - name: Ensure keepalive dispatch token available
         env:
@@ -790,6 +963,11 @@ jobs:
           && github.event.issue.pull_request
           && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number }}
+    concurrency:
+      group: pr-meta-dispatch-${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER }}
+      cancel-in-progress: false
     steps:
       - name: Ensure connector dispatch token available
         env:
@@ -905,8 +1083,8 @@ jobs:
 
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
-  update_body:
-    if: github.event_name != 'issue_comment'
+  upsert_pr_body_sections:
+    if: github.event_name == 'pull_request'
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:

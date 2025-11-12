@@ -101,6 +101,73 @@ def _compute_turnover_state(
     return turnover, nidx, nvals
 
 
+def _apply_weight_bounds(
+    weights: pd.Series,
+    min_w_bound: float,
+    max_w_bound: float,
+) -> pd.Series:
+    """Clamp weights to the configured bounds while preserving normalisation."""
+
+    if weights.empty:
+        return weights
+
+    bounded = weights.astype(float, copy=False)
+    bounded = bounded.clip(lower=0.0)
+    capped = bounded.clip(upper=max_w_bound)
+    floored = capped.copy()
+    floored[floored < min_w_bound] = min_w_bound
+
+    total = floored.sum()
+    at_min = floored <= (min_w_bound + NUMERICAL_TOLERANCE_HIGH)
+    at_max = floored >= (max_w_bound - NUMERICAL_TOLERANCE_HIGH)
+
+    if total > 1.0 + NUMERICAL_TOLERANCE_HIGH:
+        excess = total - 1.0
+        donors = floored[~at_min]
+        if not donors.empty:
+            avail = (donors - min_w_bound).clip(lower=0.0)
+            avail_sum = avail.sum()
+            if avail_sum > 0:
+                cut = (avail / avail_sum) * excess
+                floored.loc[donors.index] = (donors - cut).clip(lower=min_w_bound)
+    elif total < 1.0 - NUMERICAL_TOLERANCE_HIGH:
+        deficit = 1.0 - total
+        receivers = floored[~at_max]
+        if not receivers.empty:
+            room = (max_w_bound - receivers).clip(lower=0.0)
+            room_sum = room.sum()
+            if room_sum > 0:
+                add = (room / room_sum) * deficit
+                floored.loc[receivers.index] = (receivers + add).clip(upper=max_w_bound)
+
+    floored = floored.clip(lower=min_w_bound, upper=max_w_bound)
+
+    total = floored.sum()
+    if abs(total - 1.0) > 1e-9:
+        if total > 1.0:
+            excess = total - 1.0
+            donors = floored[~(floored <= min_w_bound + NUMERICAL_TOLERANCE_HIGH)]
+            if not donors.empty:
+                share = (donors - min_w_bound).clip(lower=0.0)
+                sh = share.sum()
+                if sh > 0:
+                    floored.loc[donors.index] = (donors - (share / sh) * excess).clip(
+                        lower=min_w_bound
+                    )
+        else:
+            deficit = 1.0 - total
+            receivers = floored[~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)]
+            if not receivers.empty:
+                room = (max_w_bound - receivers).clip(lower=0.0)
+                rm = room.sum()
+                if rm > 0:
+                    floored.loc[receivers.index] = (
+                        receivers + (room / rm) * deficit
+                    ).clip(upper=max_w_bound)
+
+    return floored
+
+
 @dataclass
 class Portfolio:
     """Minimal container for weight, turnover and cost history."""
@@ -802,73 +869,6 @@ def run(
             deduped.append(fund)
         return deduped
 
-    def _apply_weight_bounds(w: pd.Series) -> pd.Series:
-        if w.empty:
-            return w
-        w = w.clip(lower=0.0)
-        # Step 1: cap at max
-        capped = w.clip(upper=max_w_bound)
-        # Step 2: floor at min
-        floored = capped.copy()
-        floored[floored < min_w_bound] = min_w_bound
-        # Step 3: adjust to sum to 1.0 without violating bounds
-        total = floored.sum()
-        # Helper masks
-        at_min = floored <= (min_w_bound + NUMERICAL_TOLERANCE_HIGH)
-        at_max = floored >= (max_w_bound - NUMERICAL_TOLERANCE_HIGH)
-
-        if total > 1.0 + NUMERICAL_TOLERANCE_HIGH:
-            # Need to reduce 'excess' from those above min (prefer free > min)
-            excess = total - 1.0
-            donors = floored[~at_min]
-            if not donors.empty:
-                # available to shave above min
-                avail = (donors - min_w_bound).clip(lower=0.0)
-                avail_sum = avail.sum()
-                if avail_sum > 0:
-                    cut = (avail / avail_sum) * excess
-                    floored.loc[donors.index] = (donors - cut).clip(lower=min_w_bound)
-        elif total < 1.0 - NUMERICAL_TOLERANCE_HIGH:
-            # Need to distribute deficit to those below max (prefer free < max)
-            deficit = 1.0 - total
-            receivers = floored[~at_max]
-            if not receivers.empty:
-                room = (max_w_bound - receivers).clip(lower=0.0)
-                room_sum = room.sum()
-                if room_sum > 0:
-                    add = (room / room_sum) * deficit
-                    floored.loc[receivers.index] = (receivers + add).clip(
-                        upper=max_w_bound
-                    )
-        # One more clamp to be safe
-        floored = floored.clip(lower=min_w_bound, upper=max_w_bound)
-        # Final small normalise if tiny drift remains, distribute to those with room
-        total = floored.sum()
-        if abs(total - 1.0) > 1e-9:
-            if total > 1.0:
-                excess = total - 1.0
-                donors = floored[~(floored <= min_w_bound + NUMERICAL_TOLERANCE_HIGH)]
-                if not donors.empty:
-                    share = (donors - min_w_bound).clip(lower=0.0)
-                    sh = share.sum()
-                    if sh > 0:
-                        floored.loc[donors.index] = (
-                            donors - (share / sh) * excess
-                        ).clip(lower=min_w_bound)
-            else:
-                deficit = 1.0 - total
-                receivers = floored[
-                    ~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)
-                ]
-                if not receivers.empty:
-                    room = (max_w_bound - receivers).clip(lower=0.0)
-                    rm = room.sum()
-                    if rm > 0:
-                        floored.loc[receivers.index] = (
-                            receivers + (room / rm) * deficit
-                        ).clip(upper=max_w_bound)
-        return floored
-
     for pt in periods:
         period_ts = pd.to_datetime(pt.out_end)
         in_df, out_df, fund_cols, _rf_col = _valid_universe(
@@ -1116,7 +1116,7 @@ def run(
                 prev_weights = nat_w.copy()
 
         # Apply weight bounds and renormalise
-        bounded_w = _apply_weight_bounds(prev_weights)
+        bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
 
         # Enforce optional turnover cap by scaling trades towards target
         target_w = bounded_w.copy()
@@ -1138,7 +1138,7 @@ def run(
             scale = max_turnover_cap / desired_turnover if desired_turnover > 0 else 0.0
             final_w = last_aligned + desired_trades * scale
         # Ensure bounds and normalisation remain satisfied
-        final_w = _apply_weight_bounds(final_w)
+        final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
 
         # Track turnover/cost for this period; persist weights for next period
         period_turnover = float((final_w - last_aligned).abs().sum())
