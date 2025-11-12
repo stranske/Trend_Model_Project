@@ -372,15 +372,21 @@ async function dispatchKeepaliveCommand({
     throw new Error('Octokit instance missing repos.createDispatchEvent for keepalive dispatch.');
   }
 
+  const clientPayload = {
+    ...payload,
+    quiet: true,
+    reply: 'none',
+  };
+
   await octokit.rest.repos.createDispatchEvent({
     owner,
     repo,
     event_type: 'codex-pr-comment-command',
-    client_payload: payload,
+    client_payload: clientPayload,
   });
 
   core.info(
-    `Emitted repository_dispatch codex-pr-comment-command for PR #${payload.issue} (comment ${payload.comment_id}).`
+    `Emitted repository_dispatch codex-pr-comment-command for PR #${clientPayload.issue} (comment ${clientPayload.comment_id}).`
   );
 }
 

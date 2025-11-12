@@ -77,6 +77,10 @@ def test_keepalive_sync_update_branch_success() -> None:
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
     assert actions == ["update-branch"]
+    for dispatch in events["dispatches"]:
+        payload = dispatch["client_payload"]
+        assert payload.get("quiet") is True
+        assert payload.get("reply") == "none"
     assert events["labelsRemoved"] == ["agents:sync-required"]
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
@@ -98,6 +102,10 @@ def test_keepalive_sync_create_pr_flow() -> None:
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
     assert actions == ["update-branch", "create-pr"]
+    for dispatch in events["dispatches"]:
+        payload = dispatch["client_payload"]
+        assert payload.get("quiet") is True
+        assert payload.get("reply") == "none"
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
     assert other_comments == []
@@ -117,6 +125,10 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
     assert actions == ["update-branch", "create-pr"]
+    for dispatch in events["dispatches"]:
+        payload = dispatch["client_payload"]
+        assert payload.get("quiet") is True
+        assert payload.get("reply") == "none"
     assert events["labelsAdded"] == [["agents:sync-required"]]
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1

@@ -563,29 +563,6 @@ jobs:
               appendDetails(details);
               await summary.write();
 
-              const commentable = Number.isFinite(prNumber) && prNumber > 0;
-              if (commentable) {
-                try {
-                  const skipCount = Number(options.skipCount);
-                  const commentLines = [SKIP_MARKER];
-                  if (Number.isFinite(skipCount) && skipCount > 0) {
-                    commentLines.push(`<!-- keepalive-skip-count: ${skipCount} -->`);
-                  }
-                  commentLines.push(line);
-                  await github.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    body: commentLines.join('\n'),
-                  });
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : String(error);
-                  core.warning(`Failed to post keepalive skip comment on PR #${prNumber}: ${message}`);
-                }
-              } else {
-                core.warning('Unable to determine pull request number for keepalive skip comment.');
-              }
-
               setOutputs(false, reason);
             };
 
@@ -623,7 +600,8 @@ jobs:
                 prNumber,
                 pullRequest: pr,
                 currentRunId: context.runId,
-                requireHumanActivation: false,
+                requireHumanActivation: true,
+                requireGateSuccess: true,
               },
             });
 
@@ -1038,60 +1016,159 @@ jobs:
             let round = Number.isFinite(roundHint) && roundHint > 0 ? roundHint : 0;
 
             const { owner, repo } = context.repo;
-            const defaultScopeBlock = [
-              '#### Scope',
-              '_No scope information available_',
-              '',
-              '#### Tasks',
-              '- [ ] _No tasks defined_',
-              '',
-              '#### Acceptance criteria',
-              '- [ ] _No acceptance criteria defined_',
-            ].join('\n');
+            const { extractIssueNumberFromPull } = require('./.github/scripts/agents_pr_meta_keepalive.js');
 
-            const extractScopeTasksAcceptance = (body) => {
-              const summaryMatch = normaliseNewlines(body).match(/<!--\s*auto-status-summary:start\s*-->([\s\S]*?)<!--\s*auto-status-summary:end\s*-->/i);
-              if (!summaryMatch) {
-                return defaultScopeBlock;
-              }
-              const summarySection = summaryMatch[1];
-              const sectionFor = (heading) => {
-                const pattern = new RegExp(`####\\s*${heading}\\s*([\\s\\S]*?)(?=####\\s*|$)`, 'i');
-                const match = summarySection.match(pattern);
-                if (!match) {
-                  return '';
+            const defaultSections = {
+              scope: '_Keepalive checklist unavailable; will retry next round._',
+              tasks: '- [ ] _Rehydrate keepalive checklist content_',
+              acceptance: '- [ ] _Rehydrate keepalive checklist content_',
+            };
+
+            const formatBlock = ({ scope, tasks, acceptance }) => {
+              const ensureChecklist = (value, fallback) => {
+                const trimmed = String(value || '').trim();
+                if (!trimmed) {
+                  return fallback;
                 }
-                const value = match[1].trim();
-                return value || '';
+                return trimmed
+                  .split('\n')
+                  .map((line) => {
+                    const raw = String(line || '').trim();
+                    if (!raw) {
+                      return '- [ ]';
+                    }
+                    if (/^[-*]\s*\[[ xX]\]/.test(raw)) {
+                      const mark = raw.match(/^[-*]\s*\[([ xX])\]/)[1];
+                      const rest = raw.replace(/^[-*]\s*\[[ xX]\]\s*/, '');
+                      const normalisedMark = mark.toLowerCase() === 'x' ? 'x' : ' ';
+                      return `- [${normalisedMark}] ${rest.trim()}`;
+                    }
+                    if (/^[-*]\s+/.test(raw)) {
+                      const rest = raw.replace(/^[-*]\s+/, '');
+                      return `- [ ] ${rest.trim()}`;
+                    }
+                    return `- [ ] ${raw}`;
+                  })
+                  .join('\n');
               };
 
-              const scope = sectionFor('Scope') || '_No scope information available_';
-              const tasks = sectionFor('Tasks') || '- [ ] _No tasks defined_';
-              const acceptance = sectionFor('Acceptance criteria') || '- [ ] _No acceptance criteria defined_';
+              const trimmed = (value, fallback) => {
+                const text = String(value || '').trim();
+                return text || fallback;
+              };
 
               return [
                 '#### Scope',
-                scope,
+                trimmed(scope, defaultSections.scope),
                 '',
                 '#### Tasks',
-                tasks,
+                ensureChecklist(tasks, defaultSections.tasks),
                 '',
                 '#### Acceptance criteria',
-                acceptance,
+                ensureChecklist(acceptance, defaultSections.acceptance),
               ]
                 .map((block) => block.replace(/\s+$/, ''))
                 .join('\n');
             };
 
+            const defaultScopeBlock = formatBlock(defaultSections);
+
+            const parseSections = (body) => {
+              const content = normaliseNewlines(body);
+              if (!content) {
+                return null;
+              }
+              const section = (labels) => {
+                const patterns = Array.isArray(labels) ? labels : [labels];
+                for (const label of patterns) {
+                  const pattern = new RegExp(`####\\s*${label}\\s*([\\s\\S]*?)(?=####\\s*|$)`, 'i');
+                  const match = content.match(pattern);
+                  if (match && match[1]) {
+                    return match[1].trim();
+                  }
+                }
+                return '';
+              };
+
+              const sections = {
+                scope: section('Scope'),
+                tasks: section(['Tasks', 'Task list']),
+                acceptance: section(['Acceptance criteria', 'Acceptance Criteria', 'Success criteria', 'Definition of done']),
+              };
+
+              const values = Object.values(sections).filter((value) => String(value || '').trim());
+              return values.length > 0 ? sections : null;
+            };
+
+            const extractKeepaliveChecklist = (body) => {
+              const match = normaliseNewlines(body).match(/###\s*Keepalive checklist\s*([\s\S]*)/i);
+              if (!match) {
+                return '';
+              }
+              const remainder = match[1] || '';
+              const next = remainder.search(/\n###\s+/);
+              const segment = next >= 0 ? remainder.slice(0, next) : remainder;
+              return segment.trim();
+            };
+
             let scopeBlock = defaultScopeBlock;
+            let scopeSource = 'placeholder';
+
             try {
               const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              scopeBlock = extractScopeTasksAcceptance(pr?.body || '') || defaultScopeBlock;
+              const prBody = pr?.body || '';
+              const keepaliveSection = extractKeepaliveChecklist(prBody);
+              const fromKeepalive = parseSections(keepaliveSection);
+              if (fromKeepalive) {
+                scopeBlock = formatBlock(fromKeepalive);
+                scopeSource = 'pr-keepalive';
+              } else {
+                const issueNumber = extractIssueNumberFromPull(pr);
+                if (issueNumber) {
+                  try {
+                    const issueResponse = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                    const issueSections = parseSections(issueResponse.data?.body || '');
+                    if (issueSections) {
+                      scopeBlock = formatBlock(issueSections);
+                      scopeSource = 'issue-body';
+                    }
+                  } catch (issueError) {
+                    const message = issueError instanceof Error ? issueError.message : String(issueError);
+                    core.warning(`Unable to read source issue #${issueNumber} for PR #${prNumber}: ${message}`);
+                  }
+                }
+
+                if (scopeSource === 'placeholder') {
+                  try {
+                    const comments = await github.paginate(github.rest.issues.listComments, {
+                      owner,
+                      repo,
+                      issue_number: prNumber,
+                      per_page: 100,
+                    });
+                    const candidates = comments
+                      .filter((comment) => /##\s*Automated Status Summary/i.test(comment?.body || ''))
+                      .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+                    const latest = candidates[0];
+                    const fromComment = latest ? parseSections(latest.body || '') : null;
+                    if (fromComment) {
+                      scopeBlock = formatBlock(fromComment);
+                      scopeSource = 'auto-status-comment';
+                    }
+                  } catch (commentError) {
+                    const message = commentError instanceof Error ? commentError.message : String(commentError);
+                    core.warning(`Unable to inspect keepalive status comments: ${message}`);
+                  }
+                }
+              }
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Unable to extract scope/tasks/acceptance for PR #${prNumber}: ${message}`);
               scopeBlock = defaultScopeBlock;
             }
+
+            core.info(`Keepalive scope block sourced from: ${scopeSource}`);
+            core.setOutput('scope_block_source', scopeSource);
 
             core.exportVariable('SCOPE_TASKS_ACCEPTANCE', scopeBlock);
             core.setOutput('scope_block', scopeBlock);
@@ -1446,8 +1523,50 @@ jobs:
               core.warning(`Failed to add 👀 reaction to keepalive comment ${commentId}: ${message}`);
             }
 
-            const deadline = Date.now() + 60_000;
+            let commentTimestamp = 0;
+            try {
+              const { data: commentDetails } = await github.rest.issues.getComment({ owner, repo, comment_id: commentId });
+              commentTimestamp = Date.parse(commentDetails?.updated_at || commentDetails?.created_at || '') || 0;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to fetch keepalive comment ${commentId} metadata: ${message}`);
+            }
+
+            const deadline = Date.now() + 180_000;
+            const pollDelay = 5_000;
+            const runPollInterval = 15_000;
+            let lastRunCheck = 0;
             let acknowledged = false;
+            let ackSource = '';
+
+            const checkWorkflowRuns = async () => {
+              try {
+                const response = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: 'agents-pr-meta.yml',
+                  event: 'issue_comment',
+                  per_page: 20,
+                });
+                const runs = Array.isArray(response?.data?.workflow_runs) ? response.data.workflow_runs : [];
+                for (const run of runs) {
+                  const startedAt = Date.parse(run?.run_started_at || run?.created_at || '') || 0;
+                  if (commentTimestamp && startedAt && startedAt + 5000 < commentTimestamp) {
+                    continue;
+                  }
+                  const status = String(run?.status || '').toLowerCase();
+                  const conclusion = String(run?.conclusion || '').toLowerCase();
+                  if (status === 'completed' && conclusion === 'success') {
+                    return true;
+                  }
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to inspect PR-meta workflow runs for comment ${commentId}: ${message}`);
+              }
+              return false;
+            };
+
             while (Date.now() < deadline) {
               const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
                 owner,
@@ -1457,12 +1576,25 @@ jobs:
               });
               if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket')) {
                 acknowledged = true;
+                ackSource = 'reaction';
                 break;
               }
-              await new Promise((resolve) => setTimeout(resolve, 5000));
+
+              if (Date.now() - lastRunCheck >= runPollInterval) {
+                lastRunCheck = Date.now();
+                const runAck = await checkWorkflowRuns();
+                if (runAck) {
+                  acknowledged = true;
+                  ackSource = 'pr-meta';
+                  break;
+                }
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollDelay));
             }
 
             core.setOutput('acknowledged', acknowledged ? 'true' : 'false');
+            core.setOutput('ack_source', ackSource);
 
       - name: Emit fallback dispatch
         if: steps.ack.outputs.acknowledged != 'true' && steps.prepare.outputs.actions_available == 'true'
@@ -1533,6 +1665,8 @@ jobs:
               round: process.env.ROUND || '',
               trace: process.env.TRACE || '',
               dispatch_mode: process.env.DISPATCH_MODE || '',
+              quiet: true,
+              reply: 'none',
             };
 
             await github.rest.repos.createDispatchEvent({
