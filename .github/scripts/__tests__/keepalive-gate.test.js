@@ -209,3 +209,47 @@ test('evaluateRunCapForPr enforces cap using default when label absent', async (
   assert.equal(result.runCap, 2);
   assert.equal(result.activeRuns, 2);
 });
+
+test('evaluateRunCapForPr respects labelled cap across successive attempts', async () => {
+  const registry = {};
+  const pulls = {
+    50: {
+      number: 50,
+      head: { ref: 'feature/run-cap', sha: 'abc999' },
+      labels: [{ name: 'agents:max-runs:2' }],
+    },
+  };
+  const github = makeGithubStub(registry, {}, pulls);
+  const baseArgs = {
+    core: { warning: () => {} },
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 50,
+  };
+
+  let result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 900 });
+  assert.equal(result.ok, true);
+  assert.equal(result.runCap, 2);
+  assert.equal(result.activeRuns, 0);
+
+  registry['agents-70-orchestrator.yml|queued'] = [
+    { id: 900, pull_requests: [{ number: 50 }] },
+    { id: 901, pull_requests: [{ number: 50 }] },
+  ];
+
+  result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 901 });
+  assert.equal(result.ok, true);
+  assert.equal(result.activeRuns, 1);
+
+  registry['agents-70-orchestrator.yml|queued'] = [
+    { id: 900, pull_requests: [{ number: 50 }] },
+    { id: 901, pull_requests: [{ number: 50 }] },
+    { id: 902, pull_requests: [{ number: 50 }] },
+  ];
+
+  result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 902 });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'run-cap-reached');
+  assert.equal(result.activeRuns, 2);
+});

@@ -1008,17 +1008,16 @@ jobs:
             core.setOutput('active', String(result.activeRuns ?? ''));
 
       - name: Summarise run cap decision
+        if: steps.cap.outputs.ok == 'false'
         run: |
           set -euo pipefail
-          ok="${OK:-false}"
           reason="${REASON:-run-cap-reached}"
           pr="${PR_NUMBER:-?}"
           cap="${CAP:-?}"
           active="${ACTIVE:-0}"
-          printf 'CAP: ok=%s reason=%s pr=#%s cap=%s active=%s\n' \
-            "${ok}" "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
+          printf 'CAP: ok=false reason=%s pr=#%s cap=%s active=%s\n' \
+            "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
         env:
-          OK: ${{ steps.cap.outputs.ok || 'false' }}
           REASON: ${{ steps.cap.outputs.reason || 'run-cap-reached' }}
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
           CAP: ${{ steps.cap.outputs.cap || '' }}
