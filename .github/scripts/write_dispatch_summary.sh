@@ -3,15 +3,12 @@
 set -euo pipefail
 
 path_label=${PATH_LABEL:-unknown}
-dispatch=${DISPATCH:-}
-reason=${REASON:-}
+dispatch_value=${DISPATCH:-}
 trace_value=${TRACE:-}
 pr_value_raw=${PR_NUMBER:-}
 fallback_pr=${FALLBACK_PR:-}
-activation_id=${ACTIVATION_ID:-}
-activation_fallback=${ACTIVATION_FALLBACK:-}
-concurrency_success=${CONCURRENCY_SUCCESS:-granted}
-concurrency_held=${CONCURRENCY_HELD:-held}
+comment_id_raw=${COMMENT_ID:-}
+comment_fallback=${COMMENT_FALLBACK:-}
 
 if [[ -z "${trace_value}" ]]; then
   trace_value='-'
@@ -21,12 +18,8 @@ if [[ -z "${pr_value_raw}" || "${pr_value_raw}" == '0' || "${pr_value_raw}" == '
   pr_value_raw="${fallback_pr:-}"
 fi
 
-activation_value="${activation_id:-}"
-if [[ -z "${activation_value}" ]]; then
-  activation_value="${activation_fallback:-}"
-fi
-if [[ -z "${activation_value}" ]]; then
-  activation_value='<none>'
+if [[ -z "${comment_id_raw}" || "${comment_id_raw}" == '0' || "${comment_id_raw}" == 'unknown' ]]; then
+  comment_id_raw="${comment_fallback:-}"
 fi
 
 format_pr() {
@@ -40,41 +33,19 @@ format_pr() {
 
 pr_value=$(format_pr "${pr_value_raw}")
 
-summary_reason='no-activation'
-if [[ -n "${reason}" ]]; then
-  summary_reason="${reason}"
+comment_value=${comment_id_raw:-}
+if [[ -z "${comment_value}" ]]; then
+  comment_value='<none>'
 fi
 
-case "${summary_reason}" in
-  duplicate-keepalive)
-    summary_reason='lock-held'
-    ;;
-  missing-pr-number)
-    summary_reason='no-linked-pr'
-    ;;
-esac
-
-if [[ "${dispatch}" == 'true' ]]; then
-  concurrency_label="${concurrency_success}"
-  summary_line="DISPATCH: ok=true path=${path_label} pr=${pr_value} activation=${activation_value} concurrency=${concurrency_label} trace=${trace_value}"
+dispatch_normalised=$(printf '%s' "${dispatch_value}" | tr '[:upper:]' '[:lower:]')
+if [[ "${dispatch_normalised}" == 'true' ]]; then
+  ok_value='true'
 else
-  case "${summary_reason}" in
-    lock-held)
-      concurrency_label="${concurrency_held}"
-      summary_line="DISPATCH: ok=false reason=lock-held path=${path_label} pr=${pr_value} activation=${activation_value} concurrency=${concurrency_label} trace=${trace_value}"
-      ;;
-    no-linked-pr)
-      summary_line="DISPATCH: ok=false reason=no-linked-pr path=${path_label} activation=<none> trace=${trace_value}"
-      ;;
-    *)
-      summary_line="DISPATCH: ok=false reason=${summary_reason} path=${path_label} pr=${pr_value} activation=<none> trace=${trace_value}"
-      ;;
-  esac
+  ok_value='false'
 fi
 
-if [[ -z "${summary_line:-}" ]]; then
-  summary_line="DISPATCH: ok=false reason=summary-error path=${path_label} trace=${trace_value}"
-fi
+summary_line="DISPATCH: ok=${ok_value} path=${path_label} pr=${pr_value} comment_id=${comment_value} trace=${trace_value}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
