@@ -1,4 +1,4 @@
-name: Agents moderate connector comments
+name: Agents Moderate Connector Comments
 
 on:
   issue_comment:
