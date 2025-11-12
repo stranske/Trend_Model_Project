@@ -26,7 +26,7 @@ jobs:
     name: Trigger bounded autofix branch
     runs-on: ubuntu-latest
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat != '' && secrets.actions_bot_pat || secrets.ACTIONS_BOT_PAT }}
+      ACTION_BOT_PAT: ${{ secrets.action_bot_pat != '' && secrets.action_bot_pat || secrets.ACTION_BOT_PAT }}
       ALLOWED_GLOBS: |-
         **/*.py
         **/*.pyi
@@ -169,10 +169,10 @@ jobs:
               return;
             }
 
-            const token = String(process.env.ACTIONS_BOT_PAT || '').trim();
+            const token = String(process.env.ACTION_BOT_PAT || '').trim();
             if (!token) {
               result.skip_reason = 'missing-actions-bot-pat';
-              summary.addRaw('ACTIONS_BOT_PAT secret is missing; skipping autofix.').addEOL();
+              summary.addRaw('ACTION_BOT_PAT secret is missing; skipping autofix.').addEOL();
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
@@ -321,11 +321,11 @@ jobs:
             }
             await summary.write();
 
-      - name: Ensure ACTIONS_BOT_PAT is configured
+      - name: Ensure ACTION_BOT_PAT is configured
         if: steps.context.outputs.should_run == 'true'
         run: |
-          if [ -z "${ACTIONS_BOT_PAT}" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for autofix pushes.'
+          if [ -z "${ACTION_BOT_PAT}" ]; then
+            echo '::error::ACTION_BOT_PAT secret is required for autofix pushes.'
             exit 1
           fi
 
@@ -338,7 +338,7 @@ jobs:
         if: steps.context.outputs.should_run == 'true'
         uses: actions/checkout@v4
         with:
-          token: ${{ env.ACTIONS_BOT_PAT }}
+          token: ${{ env.ACTION_BOT_PAT }}
           ref: ${{ steps.context.outputs.head_ref }}
           fetch-depth: 0
 
@@ -585,7 +585,7 @@ jobs:
           FILE_COUNT: ${{ steps.diff.outputs.file_count || '0' }}
           CHANGED: ${{ steps.diff.outputs.changed || 'false' }}
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || '0');
             if (!prNumber) {
@@ -667,7 +667,7 @@ jobs:
       #   if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed == 'true'
       #   uses: actions/github-script@v7
       #   with:
-      #     github-token: ${{ env.ACTIONS_BOT_PAT }}
+      #     github-token: ${{ env.ACTION_BOT_PAT }}
       #     script: |
       #       const prNumber = Number(core.getInput('pr_number'));
       #       if (!prNumber) {
