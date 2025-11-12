@@ -59,6 +59,7 @@ def _partition_comments(
 def test_keepalive_sync_detects_head_change_without_actions() -> None:
     data = _run_scenario("head_change")
     events = data["events"]
+    outputs = data["outputs"]
     assert events["dispatches"] == []
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
@@ -68,11 +69,16 @@ def test_keepalive_sync_detects_head_change_without_actions() -> None:
         row[0] == "Initial poll" and "Branch advanced" in row[1] for row in table
     )
     assert any(row[0] == "Result" and "mode=already-synced" in row[1] for row in table)
+    assert outputs["action"] == "skip"
+    assert outputs["changed"] == "true"
+    assert outputs["mode"] == "already-synced"
+    assert outputs["success"] == "true"
 
 
 def test_keepalive_sync_update_branch_success() -> None:
     data = _run_scenario("update_branch")
     events = data["events"]
+    outputs = data["outputs"]
     actions = [
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
@@ -93,11 +99,16 @@ def test_keepalive_sync_update_branch_success() -> None:
     assert any(
         row[0] == "Result" and "mode=dispatch-update-branch" in row[1] for row in table
     )
+    assert outputs["action"] == "update-branch"
+    assert outputs["changed"] == "true"
+    assert outputs["mode"] == "dispatch-update-branch"
+    assert outputs["success"] == "true"
 
 
 def test_keepalive_sync_create_pr_flow() -> None:
     data = _run_scenario("create_pr")
     events = data["events"]
+    outputs = data["outputs"]
     actions = [
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
@@ -116,11 +127,16 @@ def test_keepalive_sync_create_pr_flow() -> None:
     assert any(
         row[0] == "Result" and "mode=dispatch-create-pr" in row[1] for row in table
     )
+    assert outputs["action"] == "create-pr"
+    assert outputs["changed"] == "true"
+    assert outputs["mode"] == "dispatch-create-pr"
+    assert outputs["success"] == "true"
 
 
 def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     data = _run_scenario("escalation")
     events = data["events"]
+    outputs = data["outputs"]
     actions = [
         dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
     ]
@@ -136,3 +152,7 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     assert "update-branch/create-pr" in other_comments[0]["body"]
     table = _summary_table(data)
     assert any(row[0] == "Result" and "mode=sync-timeout" in row[1] for row in table)
+    assert outputs["action"] == "escalate"
+    assert outputs["changed"] == "false"
+    assert outputs["mode"] == "sync-timeout"
+    assert outputs["success"] == "false"
