@@ -430,7 +430,7 @@ async function countActive({
 }) {
   const targetPr = Number(prNumber);
   if (!Number.isFinite(targetPr) || targetPr <= 0) {
-    return { active: 0, breakdown: {}, runIds: new Set() };
+    return { active: 0, breakdown: Object.fromEntries(new Map()), runIds: new Set() };
   }
 
   const statuses = ['queued', 'in_progress'];
