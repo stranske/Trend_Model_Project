@@ -362,7 +362,7 @@ async function dispatchKeepaliveCommand({
 }) {
   const trimmedToken = String(token ?? '').trim();
   if (!trimmedToken) {
-    throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
+    throw new Error('ACTION_BOT_PAT is required for keepalive dispatch.');
   }
 
   const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
@@ -923,7 +923,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
               github,
               owner,
               repo,
-              token: env.ACTIONS_BOT_PAT || env.actions_bot_pat || '',
+              token: env.ACTION_BOT_PAT || env.action_bot_pat || '',
               payload: {
                 issue: prNumber,
                 agent: 'codex',

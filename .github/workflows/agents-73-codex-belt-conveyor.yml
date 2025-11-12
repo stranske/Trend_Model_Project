@@ -28,7 +28,7 @@ on:
         default: false
         type: boolean
     secrets:
-      actions_bot_pat:
+      action_bot_pat:
         required: true
 
 permissions:
@@ -51,13 +51,13 @@ jobs:
       mode: ${{ steps.mode.outputs.mode_label || 'live' }}
       concurrency_group: ${{ steps.summary.outputs.concurrency_group || '' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.actions_bot_pat }}
+      ACTION_BOT_PAT: ${{ secrets.action_bot_pat }}
 
     steps:
-      - name: Ensure ACTIONS_BOT_PAT is configured
+      - name: Ensure ACTION_BOT_PAT is configured
         run: |
-          if [ -z "$ACTIONS_BOT_PAT" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for conveyor actions.'
+          if [ -z "$ACTION_BOT_PAT" ]; then
+            echo '::error::ACTION_BOT_PAT secret is required for conveyor actions.'
             exit 1
           fi
 
@@ -143,7 +143,7 @@ jobs:
         id: pr
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const branch = '${{ inputs.branch }}'.trim();
@@ -182,7 +182,7 @@ jobs:
         id: gate
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const headSha = '${{ inputs.head_sha }}'.trim() || '${{ steps.pr.outputs.head_sha }}';
             if (!headSha) {
@@ -201,7 +201,7 @@ jobs:
         id: bootstrap
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const inferredIssue = Number('${{ steps.pr.outputs.issue || inputs.issue }}') || null;
@@ -266,7 +266,7 @@ jobs:
         id: merge
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const { owner, repo } = context.repo;
@@ -281,7 +281,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const branch = '${{ inputs.branch }}';
             const { owner, repo } = context.repo;
@@ -295,7 +295,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
@@ -325,7 +325,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
@@ -347,7 +347,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.ACTION_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             try {
