@@ -21,10 +21,10 @@ tasks:
     notes: []
   - id: task-03
     title: Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
-    status: doing
+    status: done
     started_at: '2025-11-12T03:28:25Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-12T03:28:31Z'
+    commit: 88e45ca011458b28833234909b5ccc306f17222b
     notes: []
   - id: task-04
     title: 'Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha
