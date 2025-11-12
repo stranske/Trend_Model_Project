@@ -93,7 +93,7 @@ When posting is allowed:
 
    <Scope/Tasks/Acceptance block>
    ```
-4. **Reaction contract:** After posting, add 🎉 (`:hooray:`). That reaction is the idempotency marker; PR-meta acknowledges by
+4. **Reaction contract:** After posting, add 👀 (`:eyes:`). That reaction is the idempotency marker; PR-meta acknowledges by
    adding 🚀 for dedupe within the expected TTL.
 
 ---
@@ -102,8 +102,9 @@ When posting is allowed:
 
 - **Event listener:** PR-meta consumes `issue_comment.created` events from `stranske` or the automation bot. Replayed workflow
   runs pass `ALLOW_REPLAY=true` explicitly and reuse the stored payload.
-- **Validation:** Hidden markers (round, sentinel, trace) are mandatory. The detector records the 🎉 (`:hooray:`) instruction
-  reaction before continuing and uses 🚀 for dedupe. Comments missing markers or arriving as edits are ignored.
+- **Validation:** Hidden markers (round, sentinel, trace) are mandatory. The detector records the 👀 (`:eyes:`) instruction
+  reaction before continuing and uses 🚀 for dedupe. Only `issue_comment.created` events qualify; edited comments or automation
+  summaries without the full marker set are ignored.
 - **Dispatch actions:**
   - Trigger `workflow_dispatch → Agents-70 Orchestrator` with `options_json = { round, trace, pr }`.
   - Trigger `repository_dispatch (codex-pr-comment-command)` with `{ issue, base, head, comment_id, comment_url, agent }`.
@@ -150,7 +151,7 @@ Before the next round begins:
 | Activation | `agents:keepalive` label · human @mention from valid agent label · Gate success |
 | Repeat | Activation guardrails still true · run cap respected · branch-sync satisfied |
 | Posting | Fresh comment · required hidden markers · correct author identity |
-| Dispatch | Hidden markers validated · 🎉/🚀 reactions complete · orchestrator and connector dispatch triggered |
+| Dispatch | Hidden markers validated · 👀/🚀 reactions complete · orchestrator and connector dispatch triggered |
 | Exit | All acceptance criteria satisfied · keepalive removed or marked `agents:done` |
 
 Keep this document in sync with `docs/agent-automation.md` and `docs/keepalive/SyncChecklist.md` whenever the workflow evolves.

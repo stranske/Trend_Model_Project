@@ -56,7 +56,10 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
 
     calls = data.get("calls", {})
     created = calls.get("reactionsCreated", [])
-    assert created == [{"comment_id": 987654321, "content": "rocket"}]
+    assert created == [
+        {"comment_id": 987654321, "content": "eyes"},
+        {"comment_id": 987654321, "content": "rocket"},
+    ]
 
 
 def test_keepalive_detection_handles_after_markers() -> None:
@@ -100,22 +103,15 @@ def test_keepalive_detection_validates_author() -> None:
     assert outputs["reason"] == "unauthorised-author"
 
 
-def test_keepalive_detection_autofixes_missing_markers() -> None:
+def test_keepalive_detection_requires_all_markers_on_instruction() -> None:
     data = _run_scenario("autofix_instruction")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "true"
-    assert outputs["reason"] == "keepalive-detected"
-    assert outputs["round"] == "1"
-    trace = outputs["trace"]
-    assert isinstance(trace, str) and len(trace) >= 8
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
 
     calls = data.get("calls", {})
     updates = calls.get("commentsUpdated", [])
-    assert len(updates) == 1
-    updated_body = updates[0]["body"]
-    assert updated_body.startswith(
-        "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace:"
-    )
+    assert updates == []
 
 
 def test_keepalive_detection_ignores_autofix_status_comment() -> None:
@@ -126,29 +122,22 @@ def test_keepalive_detection_ignores_autofix_status_comment() -> None:
     assert outputs["comment_id"] == "3492705833"
 
 
-def test_keepalive_detection_autopatches_simple_manual_round() -> None:
+def test_keepalive_detection_rejects_manual_round_without_markers() -> None:
     data = _run_scenario("manual_round")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "true"
-    assert outputs["reason"] == "keepalive-detected"
-    assert outputs["round"] == "2"
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
     calls = data.get("calls", {})
     updates = calls.get("commentsUpdated", [])
-    assert len(updates) == 1
+    assert updates == []
 
 
-def test_keepalive_detection_autopatches_manual_repeat() -> None:
+def test_keepalive_detection_rejects_manual_repeat_without_markers() -> None:
     data = _run_scenario("manual_repeat")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "true"
-    assert outputs["reason"] == "keepalive-detected"
-    assert outputs["round"] == "2"
-    trace = outputs["trace"]
-    assert isinstance(trace, str) and len(trace) >= 8
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
 
     calls = data.get("calls", {})
     updates = calls.get("commentsUpdated", [])
-    assert len(updates) == 1
-    updated_body = updates[0]["body"]
-    assert "<!-- keepalive-round: 2 -->" in updated_body
-    assert "<!-- codex-keepalive-marker -->" in updated_body
+    assert updates == []
