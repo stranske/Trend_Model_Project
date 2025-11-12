@@ -1,194 +1,123 @@
-1. Keepalive parallelism: cap‑aware concurrency (default 2), no unintended serialization, per‑comment dedupe, and “last‑green” Gate window
+1. Keepalive PR‑meta hardening — single dispatch per activation (shared reaction lock), and scope detect/dispatch to the correct event path
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-We’re seeing only one run at a time even when agents:keepalive and Gate are satisfied. Root causes are likely: (1) active‑run counting that over‑counts (serializing runs), (2) a too‑coarse concurrency group, and (3) a Gate policy that forces a fresh Gate cycle between back‑to‑back instructions on the same unchanged head SHA.
+On PR #3491, the Agents PR meta manager workflow executed its keepalive sub‑jobs repeatedly under on: pull_request as well as its usual issue_comment route (see the Checks list), and the workflow file rendered for that run shows PR‑meta is configured to trigger on issue_comment, pull_request, and workflow_run: Gate.completed. Because the PR‑meta concurrency group falls back to github.run_id when it cannot resolve a PR number on the workflow_run payload, the Gate path and the comment path can run concurrently and each can reach a dispatch step, resulting in multiple near‑simultaneous runs. Evidence:
+
+Multiple PR‑meta runs listed under “on: pull_request” on #3491.
+
+PR‑meta workflow file for #3491 showing on: issue_comment, pull_request, and workflow_run: Gate with a concurrency group that falls back to github.run_id.
+
+The same workflow file contains both the comment path (Detect keepalive round comments) and the Gate path (Resume keepalive after Gate) and each includes a dispatch step that uses the same comment_id/comment_url.
 
 Scope
 
-- Active‑run counting: compute active as the number of Orchestrator (and optionally Worker) runs for this PR only with status ∈ {queued, in_progress}. Do not count PR‑meta, status jobs, or other PRs.
+- Scope detect/dispatch to run only on issue_comment.created.
 
-- Cap: default cap = 2; allow override via label agents:max-runs:X (X ∈ 1..5).
+- Scope Gate resume (no detect) to run only on workflow_run where workflow_run.name == 'Gate' and conclusion == 'success' and pull_requests[0].number is present.
 
-- Concurrency: set Orchestrator concurrency.group = "pr-${PR}-agent-${ALIAS}", cancel-in-progress: false. PR‑meta may keep a PR‑wide group as long as it does not cancel in‑flight.
+- Add a shared reaction lock on the activation comment_id so only one path (comment or Gate) can dispatch per activation.
 
-- Per‑comment dedupe: PR‑meta dedupes only by the current comment id (via 🚀 reaction). No PR‑wide locks.
-
-- Gate window: treat Gate conclusion=success on the current head SHA as valid for launching up to cap parallel runs on that unchanged SHA (no extra Gate cycle required between the first and second instruction if the head didn’t move).
-
-- Observability (no PR noise): print one line to $GITHUB_STEP_SUMMARY showing cap and active for each gate evaluation.
+- Add a dispatch‑stage concurrency group per PR to serialize “dispatch orchestrator” across PR‑meta instances.
 
 Non‑Goals
 
-Changing acceptance criteria, Gate internals, or adding new agent types
+Changing acceptance criteria, Gate contents, or branch‑sync behavior
 
-Any connector configuration changes
+Changing moderation of connector comments
 
 Tasks
 
-- Gate helper (.github/scripts/keepalive_gate.js)
+- Scope jobs by event in .github/workflows/agents-pr-meta.yml:
 
-  - Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator (and, if needed, Worker) runs only, filters to this PR (use inputs.options_json.pr or head ref pattern), and counts queued + in_progress.
+  - keepalive_dispatch (Detect keepalive round comments & Dispatch) →
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
 
-  - Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
+  - keepalive_from_gate (Resume keepalive after Gate) →
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number
 
-  - Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha }.
+  - upsert_pr_body_sections →
+    if: github.event_name == 'pull_request' (no dispatch in this job)
 
-- Orchestrator (.github/workflows/agents-70-orchestrator.yml)
+- Shared reaction lock (cross‑event) before any dispatch step (both paths):
 
-  - Set concurrency:
+  - Use issues.createReaction on the activation comment_id with content: 'rocket'.
+
+  - If HTTP 409 (already exists), exit that job branch (another path already dispatched).
+
+- Dispatch‑stage concurrency
+
+  - For the exact step/job that calls repos.createDispatchEvent / actions.createWorkflowDispatch, add:
     concurrency:
-      group: pr-${{ env.PR_NUMBER }}-agent-${{ env.AGENT_ALIAS }}
+      group: pr-meta-dispatch-${{ needs.keepalive_dispatch.outputs.pr || env.PR_NUMBER }}
       cancel-in-progress: false
 
+  - One‑line summary (no PR noise):
 
-  - Before posting an instruction, call the gate helper; block when active >= cap.
-
-- PR‑meta (.github/workflows/agents-pr-meta.yml)
-
-  - Deduplicate strictly per comment id (🚀 on that comment).
-
-  - Gate before dispatch; allow last‑green window when headSha === lastGreenSha.
-
-- Summary line: in both workflows, always print:
-  GATE: ok=<bool> reason=<code> pr=#<n> agent=<alias> cap=<cap> active=<active> head=<sha7>
-
+    - After the lock, print:
+      DISPATCH: ok=<true|false> path=<comment|gate> pr=#<n> comment_id=<id> trace=<trace>
 
 Acceptance criteria
 
-- On a test PR with agents:max-runs:2, two instruction comments posted close together start two Orchestrator runs (no cancellations); gate summaries show active: 0 → 1 → 2.
+- On a test PR with both issue_comment and Gate completion close together, only one dispatch happens for a given activation comment; the other path exits with the lock summary.
 
-- A third instruction while both are active is blocked (no comment/dispatch), summary shows reason=run-cap-reached.
+- The Checks list no longer shows “Detect keepalive round comments / Dispatch” running under on: pull_request.
 
-- PR‑meta dedupes by comment id only; separate comments process independently.
-
-- Gate is considered satisfied for multiple instructions off the same unchanged, last‑green head SHA.
+- Keepalive continues to work for normal sequences (human @agent → Gate success → instruction → agent run).
 
 Implementation notes
 
-Filter runs by orchestrator workflow id/name to avoid counting PR‑meta and status jobs.
+All evidence for these changes is present on #3491 and its workflow file: multi‑event triggers, concurrency fallback, and duplicate dispatch paths.
 
-If Worker is a separate workflow, you may include it in active (document the choice in the summary).
-
-No PR comments are added for gate failures; use summaries only.
-
-2. Keepalive: make branch‑sync a blocking gate — try update-branch, then create-pr + auto‑merge, else label agents:sync-required and block Round N+1
+2. Keepalive run‑cap: enforce at PR‑meta dispatch by counting orchestrator runs in {queued,in_progress} for this PR (prevents bursts)
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-After an agent “done” response, the PR head often doesn’t change; you have to click Update Branch (or Create PR) on the Codex site. We need a headless, blocking sequence that lands the agent’s work before the next instruction, or cleanly pauses with agents:sync-required.
+On PR #3491, several PR‑meta runs launched close together and orchestrator accepted parallel starts (as designed). The cap didn’t prevent the burst because, at dispatch time, concurrent PR‑meta instances likely evaluated the cap before any orchestrator run had flipped to in_progress. With the current PR‑meta triggers (issue_comment, pull_request, and workflow_run: Gate.completed), it’s critical to count queued runs as active and to tie the count to this PR, independent of event type. Evidence:
+
+multiple PR‑meta runs visible on #3491, including under on: pull_request; orchestrator triggers support parallel acceptance.
 
 Scope
 
-- When: After a round completes and before posting the next instruction.
+In PR‑meta (before any dispatch), compute active = # of orchestrator runs for this PR with status ∈ {queued, in_progress} and enforce active < cap.
 
-- If head SHA unchanged since the instruction was posted:
+Cap defaults to 2; override via label agents:max-runs:X (X ∈ 1..5).
 
-  - Try update‑branch via repository_dispatch (exact event type/payload the connector supports); poll PR head for ≤ 2–5 min.
-
-  - If still unchanged, try create‑pr, then auto‑merge the created PR into the working branch (squash/ff), poll again.
-
-  - If still unchanged, apply agents:sync-required and do not post Round N+1.
-
-- Observability (no PR noise): print one line to $GITHUB_STEP_SUMMARY with action and outcome.
+Use workflow id/name to filter orchestrator runs; use a PR discriminator independent of event type.
 
 Non‑Goals
 
-Changing moderation rules for connector comments
+Changing orchestrator concurrency or the worker pipeline
 
-Turning off quiet: true / reply: 'none' flags in dispatch (keep them)
-
-Tasks
-
-- Orchestrator post‑work step:
-
-  - Capture head_sha_at_instruction. After agent “done”, compare to current head_sha.
-
-  - If unchanged → call a helper (e.g., .github/scripts/keepalive_post_work.js) that:
-
-    - emits repo‑dispatch for update-branch (event_type and payload fields the connector actually supports), polls the PR head;
-
-    - if unchanged → emits repo‑dispatch for create-pr, then auto‑merges the PR using ACTION_BOT_PAT, polls again;
-
-    - if unchanged → adds agents:sync-required and returns escalate;
-
-    - sets outputs { action, changed }.
-
-  - If changed: false → exit without posting next instruction.
-
-- Summary line:
-  SYNC: action=<update-branch|create-pr|escalate|skip> head_moved=<true|false> trace=<trace>
-
-Acceptance criteria
-
-- In a test where the agent doesn’t push, the workflow attempts update-branch; if head moves, posts Round N+1; otherwise tries create-pr + auto‑merge; if head moves, posts Round N+1; otherwise labels agents:sync-required and does not post Round N+1.
-
-- No human clicks are needed; no PR noise (only summaries).
-
-- When branch‑sync succeeds, Round N+1 never repeats the previous work.
-
-Implementation notes
-
-Confirm connector contract: if the connector doesn’t honor repo‑dispatch for these actions, implement a comment‑command fallback issued as stranske (e.g., /update-branch, then /create-pr) while keeping the moderation workflow to delete any connector replies.
-
-Use ACTION_BOT_PAT for auto‑merge; whitelist and redact any connector URLs.
-
-3. Keepalive: eliminate duplicate round comments (single source of truth) while preserving stranske‑automation‑bot posts; unambiguous instruction detection by markers + id
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement
-
-Why
-It’s acceptable for stranske‑automation‑bot to author comments; however, we occasionally see duplicated round content (one from the bot and one from stranske). Duplication confuses detection and users. We need a low‑risk cleanup that keeps the current behavior but ensures only one comment per round is treated as the instruction, and that the other (status) never triggers a new round.
-
-Scope
-
-- Instruction source of truth: Only comments that (a) are created (not edited), (b) include the three hidden markers plus TRACE, and (c) have an idempotency key (e.g., reaction keepalive-instruction) are treated as instructions.
-
-- Status/summary comments (including edited bot comments) must not be considered instructions.
-
-- No functional change to who authors (bot is fine), but ensure only one instruction comment per round and detection is unambiguous.
-
-Non‑Goals
-
-Changing which identity posts (human vs bot)—we will not switch authorship in this issue
-
-Editing/moderating the status updater logic beyond excluding it from instruction detection
+Changing label names or defaults
 
 Tasks
 
-- PR‑meta detection
+- Active‑run counter (github‑script step) in agents-pr-meta.yml just before dispatch:
 
-  - Match only issue_comment.created events where the comment body contains:
+  - List orchestrator workflow runs twice (status queued and in_progress).
 
-    <!-- keepalive-round: N -->,
-    <!-- codex-keepalive-marker -->,
-    <!-- keepalive-trace: ... -->.
+  - Filter by this PR using a discriminator you control (e.g., the orchestrator’s concurrency.group embeds the PR number, or inputs.options_json.pr is echoed into the run’s display_title/run_name).
 
-  - Immediately add a distinct reaction (e.g., 🎯) to mark it as “instruction processed” (separate from 🚀 used for dedupe if you prefer).
+  - Return active and cap (from label or default 2); set ok = active < cap.
 
-  - Ignore edited comments and any comments missing the full marker set (e.g., status summary).
+- Gate decision: if ok == false, skip dispatch and write one summary line:
+  CAP: ok=false reason=run-cap-reached pr=#<n> cap=<cap> active=<active>
 
-- Poster (Orchestrator)
-
-  - Post only one instruction comment per round. Use the same TRACE in the hidden markers and in your step‑summary; after posting, add the 🎯 reaction yourself (idempotency) to guard against double‑posts in retries.
-
-- Summary line for detection:
-  INSTRUCTION: comment_id=<id> trace=<trace> source=<stranske|bot> seen=<true|false> deduped=<true|false>
+- Mirror the same check in Orchestrator before posting the next instruction (prevents over‑posting when several orchestrators are in flight).
 
 Acceptance criteria
 
-- Each round results in exactly one instruction comment (created, not edited) that contains the three hidden markers + TRACE.
+- On a test PR with agents:max-runs:2, two dispatches in quick succession succeed; a third concurrent dispatch attempt is skipped with the cap summary line.
 
-- Status/summary comments never trigger PR‑meta detection (no duplicate launches).
+- The orchestrator still runs in parallel up to the cap; no unintended serialization occurs.
 
-- Detection marks the instruction with a distinct reaction and prints the one‑line summary; retries do not create additional instruction comments.
+- The Checks tab shows no bursts beyond the set cap.
 
 Implementation notes
 
-This keeps both identities working but avoids duplicate processing by making the instruction contract unambiguous (markers + comment id + reaction).
+Counting both queued and in_progress is essential because parallel PR‑meta instances evaluate the cap before the first run transitions to in_progress.
 
-If you prefer not to add a new reaction, you can reuse 🚀 strictly for the instruction idempotency and use PR‑meta run success as the ACK.
-
-No PR noise: don’t post explanatory comments unless a debug label (e.g., agents:debug) is present.
+Filtering by PR must not rely on pull_requests[] for repository_dispatch/workflow_run events; use the orchestrator workflow name/id and your own PR discriminator (e.g., concurrency group containing -<PR>-).
