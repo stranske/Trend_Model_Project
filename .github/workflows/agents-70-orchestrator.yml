@@ -2119,8 +2119,10 @@ jobs:
           HEAD_BRANCH: ${{ needs.belt-dispatch.outputs.branch }}
           PR_HEAD_BRANCH: ${{ needs.keepalive-prep.outputs.head_ref }}
           PREVIOUS_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
-          COMMENT_ID: ''
-          COMMENT_URL: ''
+          COMMENT_ID: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_id }}
+          COMMENT_URL: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_url }}
+          COMMENT_TRACE: ${{ needs.keepalive-prep.outputs.existing_instruction_trace }}
+          COMMENT_ROUND: ${{ needs.keepalive-prep.outputs.existing_instruction_round }}
           AGENT_ALIAS: ${{ needs.keepalive-prep.outputs.agent || needs.keepalive-guard.outputs.agent_alias }}
           TTL_SHORT_MS: 90000
           POLL_SHORT_MS: 5000

@@ -299,6 +299,8 @@ async function main() {
   env.PREVIOUS_HEAD = normaliseEnvValue(env.PREVIOUS_HEAD) || defaultHead;
   env.COMMENT_ID = normaliseEnvValue(env.COMMENT_ID) || '123456';
   env.COMMENT_URL = normaliseEnvValue(env.COMMENT_URL) || 'https://example.test/comment';
+  env.COMMENT_TRACE = normaliseEnvValue(env.COMMENT_TRACE) || 'trace-existing';
+  env.COMMENT_ROUND = normaliseEnvValue(env.COMMENT_ROUND) || '1';
   env.AGENT_ALIAS = normaliseEnvValue(env.AGENT_ALIAS) || 'codex';
   env.TTL_SHORT_MS = normaliseEnvValue(env.TTL_SHORT_MS) || '0';
   env.POLL_SHORT_MS = normaliseEnvValue(env.POLL_SHORT_MS) || '0';

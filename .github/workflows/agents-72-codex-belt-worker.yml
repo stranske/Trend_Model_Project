@@ -67,7 +67,9 @@ jobs:
       base: ${{ steps.base.outputs.branch || '' }}
       pr_number: ${{ steps.pr.outputs.number || '' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
-      allowed: ${{ steps.parallel.outputs.allowed || 'true' }}
+      allowed: ${{ (steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip')) && 'true' || 'false' }}
+      keepalive_action: ${{ steps.keepalive_gate.outputs.action || (inputs.keepalive && 'execute' || '') }}
+      keepalive_reason: ${{ steps.keepalive_gate.outputs.reason || '' }}
       use_step_branch: ${{ steps.mode.outputs.use_step_branch || 'false' }}
       freshness: ${{ steps.freshness.outputs.status || '' }}
       fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
@@ -229,8 +231,65 @@ jobs:
 
             core.setOutput('allowed', 'true');
 
+      - name: Evaluate keepalive worker gate
+        if: ${{ inputs.keepalive == true }}
+        id: keepalive_gate
+        uses: actions/github-script@v7
+        env:
+          KEEPALIVE: ${{ inputs.keepalive && 'true' || 'false' }}
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          HEAD_BRANCH: ${{ steps.ctx.outputs.branch }}
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+        with:
+          github-token: ${{ env.ACTION_BOT_PAT }}
+          script: |
+            const { evaluateKeepaliveWorkerGate } = require('./.github/scripts/keepalive_worker_gate.js');
+            const result = await evaluateKeepaliveWorkerGate({ core, github, context, env: process.env });
+            core.setOutput('action', result.action || 'execute');
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('pr_number', result.prNumber || '');
+            core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('instruction_id', result.instructionId || '');
+            core.setOutput('trace', result.trace || '');
+            core.setOutput('allowed', result.action === 'skip' ? 'false' : 'true');
+            core.setOutput('last_processed_comment_id', result.lastProcessedCommentId || '');
+            core.setOutput('last_processed_head_sha', result.lastProcessedHeadSha || '');
+
+      - name: Record keepalive worker gate
+        if: ${{ inputs.keepalive == true }}
+        env:
+          ACTION: ${{ steps.keepalive_gate.outputs.action || 'execute' }}
+          REASON: ${{ steps.keepalive_gate.outputs.reason || 'missing-history' }}
+          PR: ${{ steps.keepalive_gate.outputs.pr_number || '' }}
+          HEAD: ${{ steps.keepalive_gate.outputs.head_sha || '' }}
+          INSTR: ${{ steps.keepalive_gate.outputs.instruction_id || '' }}
+          TRACE: ${{ steps.keepalive_gate.outputs.trace || '' }}
+        run: |
+          action="${ACTION:-execute}"
+          reason="${REASON:-missing-history}"
+          pr_value="${PR:-}"
+          if [ -n "${pr_value}" ]; then
+            pr_value="#${pr_value}"
+          else
+            pr_value="#?"
+          fi
+          head_value="${HEAD:-}"
+          if [ -n "${head_value}" ]; then
+            head_value="${head_value:0:7}"
+          else
+            head_value="unknown"
+          fi
+          instr_value="${INSTR:-}"
+          if [ -z "${instr_value}" ]; then
+            instr_value="0"
+          fi
+          trace_value="${TRACE:-n/a}"
+          printf 'WORKER: action=%s reason=%s pr=%s head=%s instr=%s trace=%s\n' \
+            "${action}" "${reason}" "${pr_value}" "${head_value}" "${instr_value}" "${trace_value}" >>"$GITHUB_STEP_SUMMARY"
+
       - name: Prune merged step branches
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: prune
         uses: actions/github-script@v7
         with:
@@ -303,7 +362,7 @@ jobs:
             core.setOutput('deleted', JSON.stringify(deleted));
 
       - name: Re-verify issue labels
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: verify
         uses: actions/github-script@v7
         with:
@@ -325,7 +384,7 @@ jobs:
             core.setOutput('has_in_progress', hasInProgress ? 'true' : 'false');
 
       - name: Checkout branch
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ctx.outputs.branch }}
@@ -333,7 +392,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate ledger base branch
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         env:
           DEFAULT_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
@@ -341,7 +400,7 @@ jobs:
           python scripts/ledger_migrate_base.py --check --default "${DEFAULT_BRANCH}"
 
       - name: Preflight branch freshness
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: freshness
         env:
           BRANCH: ${{ steps.ctx.outputs.branch }}
@@ -385,7 +444,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Handle stale branch fallback
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: fallback
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
@@ -450,7 +509,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Prepare ledger task
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: ledger_start
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
@@ -626,12 +685,12 @@ jobs:
           PY
 
       - name: Validate ledger schema (pre-flight)
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.ledger_start.outputs.ledger_changed == 'true' }}
         run: |
           python scripts/ledger_validate.py .agents/issue-${{ steps.ctx.outputs.issue }}-ledger.yml
 
       - name: Commit ledger in-progress state
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
@@ -649,7 +708,7 @@ jobs:
           git push origin "${BRANCH}"
 
       - name: Ensure branch exists remotely
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
@@ -661,7 +720,7 @@ jobs:
           fi
 
       - name: Create placeholder commit when branch matches base
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         env:
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
@@ -681,7 +740,7 @@ jobs:
           fi
 
       - name: Ensure issue labels reflect in-progress state
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -695,7 +754,7 @@ jobs:
             }
 
       - name: Remove residual status:ready label
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -711,7 +770,7 @@ jobs:
             }
 
       - name: Open or refresh Codex PR
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: pr
         uses: actions/github-script@v7
         with:
@@ -765,7 +824,7 @@ jobs:
             core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
 
       - name: Configure auto-merge strategy
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -797,7 +856,7 @@ jobs:
             }
 
       - name: Apply automation labels
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -812,7 +871,7 @@ jobs:
             }
 
       - name: Ensure PR assignees include automation
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -830,7 +889,7 @@ jobs:
             }
 
       - name: Post activation comment
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number && inputs.keepalive != true }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number && inputs.keepalive != true }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -872,7 +931,7 @@ jobs:
             }
 
       - name: Sync issue comment with PR link
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -887,7 +946,7 @@ jobs:
             }
 
       - name: Finalise ledger task
-        if: ${{ always() && steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: ledger_finalize
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
@@ -1113,12 +1172,12 @@ jobs:
           PY
 
       - name: Validate ledger schema (final)
-        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && steps.ledger_finalize.outputs.ledger_path != '' }}
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.ledger_finalize.outputs.ledger_path != '' }}
         run: |
           python scripts/ledger_validate.py ${{ steps.ledger_finalize.outputs.ledger_path }}
 
       - name: Commit ledger completion state
-        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outputs.ledger_changed == 'true' }}
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outputs.ledger_changed == 'true' }}
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
@@ -1136,7 +1195,7 @@ jobs:
           git push origin "${BRANCH}"
 
       - name: Append ledger delta to summary
-        if: ${{ always() && steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         run: |
           if [ -f .agents/.ledger-summary.md ]; then
             cat .agents/.ledger-summary.md >>"$GITHUB_STEP_SUMMARY"
