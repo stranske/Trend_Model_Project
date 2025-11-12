@@ -1,5 +1,4 @@
 import logging
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -55,7 +54,9 @@ def test_normalise_helpers_and_build_trend_spec() -> None:
 
 
 def test_trend_preset_helpers_cover_defaults() -> None:
-    spec = TrendSpec(window=20, min_periods=10, vol_adjust=True, vol_target=0.2, zscore=True)
+    spec = TrendSpec(
+        window=20, min_periods=10, vol_adjust=True, vol_target=0.2, zscore=True
+    )
     preset_cfg = {
         "lookback_months": "18",
         "rebalance_frequency": "quarterly",
@@ -107,7 +108,6 @@ def test_trend_preset_portfolio_mapping_branch() -> None:
     assert defaults["cooldown_months"] == 4
 
 
-
 def test_apply_trend_preset_updates_namespace() -> None:
     spec = TrendSpec(window=15, vol_adjust=False)
     preset = presets.TrendPreset(
@@ -149,10 +149,12 @@ def test_vol_adjust_defaults_copies_window_mapping() -> None:
     from types import MappingProxyType
 
     preset_cfg = {
-        "vol_adjust": MappingProxyType({
-            "window": MappingProxyType({"length": 10}),
-            "enabled": None,
-        })
+        "vol_adjust": MappingProxyType(
+            {
+                "window": MappingProxyType({"length": 10}),
+                "enabled": None,
+            }
+        )
     }
     preset = presets.TrendPreset(
         slug="window",
@@ -197,7 +199,9 @@ def _write_yaml(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def test_preset_registry_precedence_and_warning(preset_paths, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_preset_registry_precedence_and_warning(
+    preset_paths, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     base, override, env_dir = preset_paths
     _write_yaml(
         base / "alpha.yml",
@@ -207,7 +211,7 @@ lookback_months: 12
 signals:
   window: 18
   lag: 2
-"""
+""",
     )
     _write_yaml(
         override / "alpha.yml",
@@ -218,7 +222,7 @@ signals:
   min_periods: 5
 metrics:
   sharpe: 1
-"""
+""",
     )
     _write_yaml(
         env_dir / "beta.yml",
@@ -227,7 +231,7 @@ name: Beta
 metrics:
   sharpe: 0.5
   drawdown: 0.1
-"""
+""",
     )
 
     monkeypatch.setattr(
@@ -241,7 +245,9 @@ metrics:
 
     assert set(registry.keys()) == {"alpha", "beta"}
     # Environment override appended last; duplicates should emit a warning
-    assert any("Duplicate trend preset slug 'alpha'" in message for message in caplog.messages)
+    assert any(
+        "Duplicate trend preset slug 'alpha'" in message for message in caplog.messages
+    )
     alpha = registry["alpha"]
     assert alpha.trend_spec.window == 10
     beta = registry["beta"]
@@ -252,7 +258,9 @@ metrics:
     assert again is registry
 
 
-def test_listing_and_lookup_helpers(preset_paths, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_listing_and_lookup_helpers(
+    preset_paths, monkeypatch: pytest.MonkeyPatch
+) -> None:
     base, override, env_dir = preset_paths
     _write_yaml(
         base / "gamma.yml",
@@ -260,7 +268,7 @@ def test_listing_and_lookup_helpers(preset_paths, monkeypatch: pytest.MonkeyPatc
 name: Gamma
 metrics:
   sharpe: 0.2
-"""
+""",
     )
     _write_yaml(
         base / "labelled.yml",
@@ -269,7 +277,7 @@ name: Friendly
 description: Example preset
 signals:
   window: 5
-"""
+""",
     )
     monkeypatch.setattr(
         presets,
@@ -343,7 +351,9 @@ def test_apply_trend_preset_handles_missing_signals() -> None:
     assert cfg.run["trend_preset"] == "missing"
 
 
-def test_candidate_dirs_includes_env_and_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_candidate_dirs_includes_env_and_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo_root = tmp_path / "repo"
     default_dir = repo_root / "config" / "presets"
     default_dir.mkdir(parents=True)
@@ -352,7 +362,7 @@ def test_candidate_dirs_includes_env_and_defaults(tmp_path: Path, monkeypatch: p
     fake_file = module_dir / "presets.py"
     fake_file.write_text("", encoding="utf-8")
 
-    extra_parent_dir = (repo_root / "src" / "config" / "presets")
+    extra_parent_dir = repo_root / "src" / "config" / "presets"
     extra_parent_dir.mkdir(parents=True)
 
     monkeypatch.setattr(presets, "__file__", str(fake_file))
@@ -367,7 +377,9 @@ def test_candidate_dirs_includes_env_and_defaults(tmp_path: Path, monkeypatch: p
     assert candidates.count(default_dir) == 1
 
 
-def test_preset_registry_skips_empty_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_preset_registry_skips_empty_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     directory = tmp_path / "presets"
     directory.mkdir()
     _write_yaml(directory / "empty.yml", "[]")
@@ -377,7 +389,7 @@ def test_preset_registry_skips_empty_files(tmp_path: Path, monkeypatch: pytest.M
 name: Delta
 signals:
   window: 5
-"""
+""",
     )
     monkeypatch.setattr(presets, "_candidate_preset_dirs", lambda: (directory,))
     _reset_registry()
