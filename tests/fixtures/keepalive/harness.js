@@ -206,6 +206,7 @@ async function runScenario(scenario) {
   }
 
   const createdComments = [];
+  const instructionReactions = [];
   const updatedComments = [];
 
   const listPulls = async ({ per_page = 50, page = 1 }) => {
@@ -276,6 +277,12 @@ async function runScenario(scenario) {
         updateComment,
         listAssignees,
         addAssignees,
+      },
+      reactions: {
+        createForIssueComment: async ({ comment_id, content }) => {
+          instructionReactions.push({ comment_id, content });
+          return { data: { content } };
+        },
       },
       repos: {
         createDispatchEvent: dispatchEvent,
@@ -361,6 +368,7 @@ async function runScenario(scenario) {
     created_comments: createdComments,
     updated_comments: updatedComments,
     dispatch_events: dispatchEvents,
+    instruction_reactions: instructionReactions,
   };
 }
 

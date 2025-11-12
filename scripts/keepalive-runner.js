@@ -68,6 +68,8 @@ const NON_ASSIGNABLE_LOGINS = new Set([
   'dependabot'
 ]);
 
+const KEEPALIVE_INSTRUCTION_REACTION = 'hooray';
+
 function isAssignable(login) {
   const raw = String(login ?? '').trim();
   if (!raw) {
@@ -889,6 +891,32 @@ async function runKeepalive({ core, github, context, env = process.env }) {
             `#${prNumber}: keepalive comment author @${commentAuthor} not in dispatch allow list; connector dispatch skipped.`
           );
         } else {
+          if (commentId) {
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner,
+                repo,
+                comment_id: commentId,
+                content: KEEPALIVE_INSTRUCTION_REACTION,
+              });
+              core.info(
+                `#${prNumber}: keepalive instruction reaction ${KEEPALIVE_INSTRUCTION_REACTION} added to comment ${commentId}.`
+              );
+            } catch (reactionError) {
+              if (reactionError && reactionError.status === 409) {
+                core.info(
+                  `#${prNumber}: keepalive instruction reaction already present on comment ${commentId}.`
+                );
+              } else {
+                const reactionMessage =
+                  reactionError instanceof Error ? reactionError.message : String(reactionError);
+                core.warning(
+                  `#${prNumber}: failed to add keepalive instruction reaction on comment ${commentId}: ${reactionMessage}`
+                );
+              }
+            }
+          }
+
           try {
             await dispatchKeepaliveCommand({
               core,

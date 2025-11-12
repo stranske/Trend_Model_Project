@@ -18,6 +18,7 @@ function createCore(outputs) {
 test('automation summary comment is upgraded to next keepalive round', async () => {
   const outputs = {};
   const updatedBodies = [];
+  const reactionCalls = [];
   const existingComments = [
     {
       body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
@@ -57,8 +58,15 @@ test('automation summary comment is upgraded to next keepalive round', async () 
         async listForIssueComment() {
           return { data: [] };
         },
-        async createForIssueComment() {
-          return { status: 201, data: { content: 'rocket' } };
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          if (content === 'eyes') {
+            return { status: 201, data: { content: 'eyes' } };
+          }
+          if (content === 'rocket') {
+            return { status: 201, data: { content: 'rocket' } };
+          }
+          throw new Error(`Unexpected reaction ${content}`);
         },
       },
     },
@@ -102,19 +110,16 @@ test('automation summary comment is upgraded to next keepalive round', async () 
     env,
   });
 
-  assert.equal(outputs.dispatch, 'true');
-  assert.equal(outputs.round, '2');
-  assert.ok(updatedBodies.length > 0);
-  const patched = updatedBodies[0];
-  assert.match(patched, /<!-- keepalive-round: 2 -->/);
-  assert.match(patched, /<!-- codex-keepalive-marker -->/);
-  assert.match(patched, /keepalive workflow continues nudging until everything is complete/);
-  assert.match(patched, /\*\*Scope\*\*/);
+  assert.equal(outputs.dispatch, 'false');
+  assert.equal(outputs.reason, 'automation-comment');
+  assert.equal(updatedBodies.length, 0);
+  assert.deepEqual(reactionCalls, []);
 });
 
 test('manual restated instructions are autopatched to the next round', async () => {
   const outputs = {};
   const updatedBodies = [];
+  const reactionCalls = [];
   const existingComments = [
     {
       body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
@@ -153,8 +158,15 @@ test('manual restated instructions are autopatched to the next round', async () 
         async listForIssueComment() {
           return { data: [] };
         },
-        async createForIssueComment() {
-          return { status: 201, data: { content: 'rocket' } };
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          if (content === 'eyes') {
+            return { status: 201, data: { content: 'eyes' } };
+          }
+          if (content === 'rocket') {
+            return { status: 201, data: { content: 'rocket' } };
+          }
+          throw new Error(`Unexpected reaction ${content}`);
         },
       },
     },
@@ -196,10 +208,8 @@ test('manual restated instructions are autopatched to the next round', async () 
     env,
   });
 
-  assert.equal(outputs.dispatch, 'true');
-  assert.equal(outputs.round, '2');
-  assert.ok(updatedBodies.length > 0);
-  const patched = updatedBodies[0];
-  assert.match(patched, /<!-- keepalive-round: 2 -->/);
-  assert.match(patched, /<!-- codex-keepalive-marker -->/);
+  assert.equal(outputs.dispatch, 'false');
+  assert.equal(outputs.reason, 'missing-round');
+  assert.equal(updatedBodies.length, 0);
+  assert.deepEqual(reactionCalls, []);
 });

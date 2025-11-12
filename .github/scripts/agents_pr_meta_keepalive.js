@@ -1,118 +1,10 @@
 'use strict';
 
-const { renderInstruction, makeTrace } = require('./keepalive_contract.js');
-
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
-const DEFAULT_AUTOMATION_DIRECTIVE_SUFFIX =
-  'use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.';
-
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
-
-function normaliseBody(value) {
-  return String(value || '').replace(/\r\n/g, '\n').trim();
-}
-
-function isLikelyInstruction(body) {
-  if (!body) {
-    return false;
-  }
-  const normalised = normaliseBody(body);
-  if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
-    return false;
-  }
-  return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
-}
-
-async function computeHighestRound({ github, owner, repo, prNumber }) {
-  let highestRound = 0;
-  try {
-    const comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number: prNumber,
-      per_page: 100,
-    });
-    for (const entry of comments) {
-      const marker = String(entry?.body || '').match(/<!--\s*keepalive-round:\s*(\d+)\s*-->/i);
-      if (!marker) {
-        continue;
-      }
-      const parsed = Number.parseInt(marker[1], 10);
-      if (Number.isFinite(parsed) && parsed > highestRound) {
-        highestRound = parsed;
-      }
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to scan keepalive history: ${message}`);
-  }
-  return highestRound;
-}
-
-function resolveAgentAlias(env) {
-  const value = String(env.KEEPALIVE_AGENT_ALIAS || '').trim();
-  if (value) {
-    return value;
-  }
-  return 'codex';
-}
-
-async function autopatchKeepaliveComment({
-  core,
-  github,
-  owner,
-  repo,
-  prNumber,
-  comment,
-  currentBody,
-  highestRound,
-  agent,
-  allowSubsequentAutomation = false,
-  instructionOverride,
-}) {
-  const sourceBody = instructionOverride !== undefined ? instructionOverride : currentBody;
-  const trimmedSource = normaliseBody(sourceBody);
-  if (!trimmedSource) {
-    return null;
-  }
-
-  if (instructionOverride === undefined && !isLikelyInstruction(normaliseBody(currentBody))) {
-    return null;
-  }
-
-  if (!comment?.id) {
-    return null;
-  }
-
-  let effectiveHighestRound = highestRound;
-  if (!Number.isFinite(effectiveHighestRound)) {
-    effectiveHighestRound = await computeHighestRound({ github, owner, repo, prNumber });
-  }
-
-  const nextRound = effectiveHighestRound + 1;
-  const trace = makeTrace();
-  const patchedBody = renderInstruction({ round: nextRound, trace, body: sourceBody, agent });
-
-  await github.rest.issues.updateComment({
-    owner,
-    repo,
-    comment_id: comment.id,
-    body: patchedBody,
-  });
-
-  core.info(
-    `Inserted keepalive markers for comment ${comment.id} (round ${nextRound}, trace ${trace}).`
-  );
-
-  return {
-    body: patchedBody,
-    round: nextRound,
-    trace,
-    blocked: false,
-  };
-}
+const INSTRUCTION_REACTION = 'hooray';
 
 function normaliseLogin(login) {
   return String(login || '')
@@ -127,11 +19,6 @@ function parseAllowedLogins(env) {
     .map((value) => normaliseLogin(value))
     .filter(Boolean);
   return new Set(raw);
-}
-
-function buildAutomationDirective(agentAlias) {
-  const alias = String(agentAlias || '').trim() || 'codex';
-  return `@${alias} ${DEFAULT_AUTOMATION_DIRECTIVE_SUFFIX}`;
 }
 
 function extractIssueNumberFromPull(pull) {
@@ -173,27 +60,23 @@ function extractIssueNumberFromPull(pull) {
 async function detectKeepalive({ core, github, context, env = process.env }) {
   const allowedLogins = parseAllowedLogins(env);
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
-  const agentAlias = resolveAgentAlias(env);
   const toBool = (value) => String(value || '').trim().toLowerCase() === 'true';
+  const allowReplay = toBool(env.ALLOW_REPLAY);
   const hasValue = (value) => typeof value === 'string' && value.trim() !== '';
   const gateOk = hasValue(env.GATE_OK) ? toBool(env.GATE_OK) : true;
   const gateReasonRaw = String(env.GATE_REASON || '').trim();
   const gatePending = hasValue(env.GATE_PENDING) ? toBool(env.GATE_PENDING) : false;
 
-  const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let eventName = String(context?.eventName || context?.event_name || '').toLowerCase();
+  if (!eventName && context?.payload?.comment) {
+    eventName = 'issue_comment';
+  }
+  let actionName = String(context?.payload?.action || '').toLowerCase();
+  if (!actionName && eventName === 'issue_comment') {
+    actionName = 'created';
+  }
 
-  const decodeHtmlEntities = (value) => {
-    let previous;
-    let current = String(value);
-    do {
-      previous = current;
-      current = current
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&amp;/gi, '&');
-    } while (current !== previous);
-    return current;
-  };
+  const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const findFirstMatch = (source, patterns) => {
     for (const pattern of patterns) {
@@ -211,26 +94,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
   canonicalMarkerPatterns.push(/<!--\s*codex-keepalive-marker\s*-->/i);
 
-  const markerPatterns = canonicalMarkerPatterns.concat([
-    /<-\s*After:\s*codex-keepalive-marker\s*-->/i,
-    /&lt;-\s*After:\s*codex-keepalive-marker\s*--&gt;/i,
-    /&lt;!--\s*codex-keepalive-marker\s*--&gt;/i,
-  ]);
-
   const canonicalRoundPatterns = [/<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i];
-  const roundPatterns = canonicalRoundPatterns.concat([
-    /<-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i,
-    /&lt;!--\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
-    /&lt;-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
-  ]);
 
   const canonicalTracePatterns = [/<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i];
-  const tracePatterns = canonicalTracePatterns.concat([
-    /<-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i,
-    /&lt;!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
-    /&lt;-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
-  ]);
-
 
   const outputs = {
     dispatch: 'false',
@@ -244,6 +110,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     author: '',
     comment_id: '',
     comment_url: '',
+    processed_reaction: 'false',
+    deduped: 'false',
   };
 
   const setBasicOutputs = () => {
@@ -262,6 +130,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('author', outputs.author);
     core.setOutput('comment_id', outputs.comment_id);
     core.setOutput('comment_url', outputs.comment_url);
+    core.setOutput('processed_reaction', outputs.processed_reaction);
+    core.setOutput('deduped', outputs.deduped);
   };
 
   const { comment, issue } = context.payload || {};
@@ -272,36 +142,72 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const contextIssueNumber = issue?.number ? Number.parseInt(issue.number, 10) : NaN;
   const isAuthorAllowed = allowedLogins.has(author);
 
+  let instructionSeen = false;
+  let traceMatch;
+
+  const normaliseBody = (value) => String(value || '').replace(/\r\n/g, '\n').trim();
+
+  const isLikelyInstruction = (value) => {
+    if (!value) {
+      return false;
+    }
+    const normalised = normaliseBody(value);
+    if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
+      return false;
+    }
+    return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
+  };
+
+  const resolveSummarySource = () => {
+    if (author === 'stranske') {
+      return 'stranske';
+    }
+    if (AUTOMATION_LOGINS.has(author)) {
+      return 'bot';
+    }
+    if (author) {
+      return author;
+    }
+    if (authorRaw) {
+      return String(authorRaw);
+    }
+    return 'unknown';
+  };
+
+  const finalise = (seenOverride) => {
+    const seenFlag = (typeof seenOverride === 'boolean' ? seenOverride : instructionSeen) ? 'true' : 'false';
+    setAllOutputs();
+    const commentId = outputs.comment_id || (comment?.id ? String(comment.id) : '') || 'unknown';
+    const traceValueRaw = outputs.trace || (traceMatch && traceMatch[1] ? traceMatch[1].replace(/--+$/u, '').trim() : '');
+    const traceValue = traceValueRaw || 'n/a';
+    const dedupedFlag = outputs.deduped === 'true' ? 'true' : 'false';
+    core.info(
+      `INSTRUCTION: comment_id=${commentId} trace=${traceValue} source=${resolveSummarySource()} seen=${seenFlag} deduped=${dedupedFlag}`
+    );
+    return outputs;
+  };
+
   outputs.author = authorRaw;
   outputs.comment_id = comment?.id ? String(comment.id) : '';
   outputs.comment_url = comment?.html_url || '';
 
-  let workingBody = body;
-  const canonicalRoundMatch = findFirstMatch(body, canonicalRoundPatterns);
-  let roundMatch = canonicalRoundMatch;
-  if (!roundMatch) {
-    const decodedBody = decodeHtmlEntities(body);
-    if (decodedBody !== body) {
-      workingBody = decodedBody;
-    }
-    roundMatch = findFirstMatch(workingBody, roundPatterns);
+  if (eventName === 'issue_comment' && actionName !== 'created') {
+    outputs.reason = 'ignored-comment-action';
+    core.info(`Keepalive dispatch skipped: unsupported issue_comment action "${actionName || 'unknown'}".`);
+    return finalise(false);
   }
 
-  const usedFallbackRound = !canonicalRoundMatch && Boolean(roundMatch);
-  if (usedFallbackRound) {
-    const preview = JSON.stringify(body.slice(0, 160));
-    core.info(`Keepalive canonical round marker not found; matched fallback against payload prefix ${preview}.`);
+  if (eventName !== 'issue_comment' && !allowReplay) {
+    outputs.reason = 'unsupported-event';
+    core.info(`Keepalive dispatch skipped: event ${eventName || 'unknown'} not eligible for keepalive detection.`);
+    return finalise(false);
   }
 
-  let traceMatch = findFirstMatch(body, canonicalTracePatterns);
-  if (!traceMatch) {
-    traceMatch = findFirstMatch(workingBody, tracePatterns);
-  }
+  const roundMatch = findFirstMatch(body, canonicalRoundPatterns);
 
-  let hasKeepaliveMarker = Boolean(findFirstMatch(body, canonicalMarkerPatterns));
-  if (!hasKeepaliveMarker) {
-    hasKeepaliveMarker = Boolean(findFirstMatch(workingBody, markerPatterns));
-  }
+  traceMatch = findFirstMatch(body, canonicalTracePatterns);
+
+  const hasKeepaliveMarker = Boolean(findFirstMatch(body, canonicalMarkerPatterns));
 
   const isAutomationStatusComment = () => {
     const trimmedBody = normaliseBody(body);
@@ -320,93 +226,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return false;
   };
 
-  const commentBodyForOverride = workingBody || body;
-  const automationEligible =
-    AUTOMATION_LOGINS.has(author) &&
-    !isLikelyInstruction(normaliseBody(commentBodyForOverride)) &&
-    Boolean(normaliseBody(commentBodyForOverride));
-
-  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment() && !automationEligible) {
+  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment()) {
     outputs.reason = 'automation-comment';
     core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
-    setAllOutputs();
-    return outputs;
-  }
-
-  let highestRoundCache = null;
-  const ensureHighestRound = async () => {
-    if (highestRoundCache === null) {
-      highestRoundCache = await computeHighestRound({
-        github,
-        owner,
-        repo,
-        prNumber: contextIssueNumber,
-      });
-    }
-    return highestRoundCache;
-  };
-
-  const missingCoreMarkers = !roundMatch && !hasKeepaliveMarker;
-
-  const shouldAttemptAutopatch =
-    missingCoreMarkers &&
-    isAuthorAllowed &&
-    Number.isFinite(contextIssueNumber) &&
-    contextIssueNumber > 0 &&
-    owner &&
-    repo;
-
-  if (!shouldAttemptAutopatch && !roundMatch && isAuthorAllowed) {
-    core.info(
-      `Keepalive autopatch skipped: allowed=${isAuthorAllowed} issue=${Number.isFinite(contextIssueNumber) ? contextIssueNumber : 'n/a'} owner=${Boolean(owner)} repo=${Boolean(repo)} marker=${hasKeepaliveMarker}`
-    );
-  }
-
-  let automationOverride = undefined;
-  if (automationEligible && missingCoreMarkers) {
-    const directive = buildAutomationDirective(agentAlias);
-    const trimmedComment = commentBodyForOverride.trim();
-    automationOverride = trimmedComment ? `${directive}\n\n${trimmedComment}` : directive;
-  }
-
-  if (shouldAttemptAutopatch) {
-    core.info(
-      `Keepalive autopatch attempt: issue=${contextIssueNumber} comment=${comment?.id || outputs.comment_id || 'n/a'} roundMatch=${Boolean(roundMatch)} marker=${hasKeepaliveMarker}`
-    );
-    const highestRound = await ensureHighestRound();
-    try {
-      const patched = await autopatchKeepaliveComment({
-        core,
-        github,
-        owner,
-        repo,
-        prNumber: contextIssueNumber,
-        comment,
-        currentBody: commentBodyForOverride,
-        highestRound,
-        agent: agentAlias,
-        allowSubsequentAutomation: automationEligible,
-        instructionOverride: automationOverride,
-      });
-      if (patched) {
-        if (patched.blocked) {
-          blockedByManualRound = true;
-          core.info(`Keepalive autopatch declined by guard: highestRound=${patched.highestRound ?? highestRound}.`);
-        } else {
-          roundMatch = [null, String(patched.round)];
-          traceMatch = [null, patched.trace];
-          hasKeepaliveMarker = true;
-          core.info(`Keepalive autopatch inserted markers: round=${patched.round} trace=${patched.trace}`);
-        }
-      } else if (automationEligible) {
-        core.info('Keepalive autopatch returned no changes after automation override attempt.');
-      } else {
-        core.info('Keepalive autopatch returned no changes (likely non-instruction comment).');
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      core.warning(`Auto-inserting keepalive markers failed: ${message}`);
-    }
+    return finalise(false);
   }
 
   if (!gateOk && isAuthorAllowed) {
@@ -424,45 +247,39 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
       }
     }
     core.info(`Keepalive dispatch deferred: gate reported ${gateDetail || 'a blocking condition'}.`);
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   if (!roundMatch) {
     outputs.reason = 'missing-round';
     core.info('Keepalive dispatch skipped: comment missing keepalive round marker.');
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   if (!isAuthorAllowed) {
     outputs.reason = 'unauthorised-author';
     core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   if (!hasKeepaliveMarker) {
     outputs.reason = 'missing-sentinel';
     core.info('Keepalive dispatch skipped: comment missing codex keepalive marker.');
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   const round = Number.parseInt(roundMatch[1], 10);
   if (!Number.isFinite(round) || round <= 0) {
     outputs.reason = 'invalid-round';
     core.info('Keepalive dispatch skipped: invalid round marker.');
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   const commentId = comment?.id;
   if (!commentId) {
     outputs.reason = 'missing-comment-id';
     core.warning('Keepalive dispatch skipped: unable to determine comment id for dedupe.');
-    setAllOutputs();
-    return outputs;
+    return finalise(false);
   }
 
   const prNumber = issue?.number;
@@ -470,7 +287,14 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
   const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
+  if (!trace) {
+    outputs.reason = 'missing-trace';
+    core.info('Keepalive dispatch skipped: comment missing keepalive trace marker.');
+    return finalise(false);
+  }
   outputs.trace = trace;
+
+  instructionSeen = true;
 
   let pull;
   try {
@@ -480,8 +304,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     outputs.reason = 'pull-fetch-failed';
     const message = error instanceof Error ? error.message : String(error);
     core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} (${message}).`);
-    setAllOutputs();
-    return outputs;
+    return finalise();
   }
 
   outputs.branch = pull?.head?.ref || '';
@@ -496,8 +319,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   ) {
     outputs.reason = 'fork-pr';
     core.info('Keepalive dispatch skipped: pull request originates from a fork.');
-    setAllOutputs();
-    return outputs;
+    return finalise();
   }
 
   const issueNumber = extractIssueNumberFromPull(pull);
@@ -505,32 +327,70 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     outputs.issue = String(issueNumber);
   }
 
-  let hasRocket = false;
+  let reactions = [];
   try {
-    const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+    reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
       owner,
       repo,
       comment_id: commentId,
       per_page: 100,
     });
-    hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${message}`);
+    reactions = [];
   }
+
+  const hasProcessedReaction = reactions.some(
+    (reaction) => (reaction?.content || '').toLowerCase() === INSTRUCTION_REACTION
+  );
+  let hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+
+  let processedReaction = hasProcessedReaction;
+  if (!processedReaction) {
+    try {
+      const response = await github.rest.reactions.createForIssueComment({
+        owner,
+        repo,
+        comment_id: commentId,
+        content: INSTRUCTION_REACTION,
+      });
+      const status = Number(response?.status || 0);
+      const content = String(response?.data?.content || '').toLowerCase();
+      if (status === 200 || status === 201 || content === INSTRUCTION_REACTION) {
+        processedReaction = true;
+      }
+    } catch (error) {
+      if (error && error.status === 409) {
+        processedReaction = true;
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        outputs.reason = 'instruction-reaction-failed';
+        core.warning(`Failed to add ${INSTRUCTION_REACTION} reaction for keepalive comment ${commentId}: ${message}`);
+        return finalise();
+      }
+    }
+  }
+
+  if (!processedReaction) {
+    outputs.reason = 'missing-instruction-reaction';
+    core.info('Keepalive dispatch skipped: unable to confirm instruction reaction.');
+    return finalise();
+  }
+
+  outputs.processed_reaction = 'true';
 
   if (hasRocket) {
     outputs.reason = 'duplicate-keepalive';
+    outputs.deduped = 'true';
     core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
-    setAllOutputs();
-    return outputs;
+    return finalise(true);
   }
 
   if (!issueNumber) {
     outputs.reason = 'missing-issue-reference';
     core.info('Keepalive dispatch skipped: unable to determine linked issue number.');
-    setAllOutputs();
-    return outputs;
+    return finalise();
   }
 
   let reactionStatus = 0;
@@ -544,14 +404,15 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     });
     reactionStatus = Number(response?.status || 0);
     reactionContent = String(response?.data?.content || '').toLowerCase();
+    outputs.deduped = 'true';
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error && error.status === 409) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
+      outputs.deduped = 'true';
       core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via conflict).`);
-      setAllOutputs();
-      return outputs;
+      return finalise(true);
     }
 
     let hasRocket = false;
@@ -571,9 +432,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     if (hasRocket) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
+      outputs.deduped = 'true';
       core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
-      setAllOutputs();
-      return outputs;
+      return finalise(true);
     }
 
     core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
@@ -582,16 +443,15 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (reactionStatus === 200 && reactionContent === 'rocket') {
     outputs.dispatch = 'false';
     outputs.reason = 'duplicate-keepalive';
+    outputs.deduped = 'true';
     core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`);
-    setAllOutputs();
-    return outputs;
+    return finalise(true);
   }
 
   outputs.dispatch = 'true';
   outputs.reason = 'keepalive-detected';
 
-  setAllOutputs();
-  return outputs;
+  return finalise(true);
 }
 
 module.exports = {

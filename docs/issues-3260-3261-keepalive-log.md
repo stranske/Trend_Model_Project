@@ -22,7 +22,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 - [x] New instruction comment created each cycle with required markers and `@codex` mention (instruction [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) contains required markers and mention from run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611)).
 - [x] Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback (run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) authored the instruction as `stranske`).
-- [x] PR-meta acknowledgment observed, or fallback dispatch and PR comment emitted when acknowledgment is missing (`Ack keepalive instruction` in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611/job/54557502956) recorded the 👀/🚀 loop completing).
+- [x] PR-meta acknowledgment observed, or fallback dispatch and PR comment emitted when acknowledgment is missing (`Ack keepalive instruction` in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611/job/54557502956) recorded the 🎉/🚀 loop completing).
 - [x] Step summary includes `Round`, `Trace`, `Author`, and `CommentId` fields (summary step in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) lists these columns).
 - [x] Valid instruction comment triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated metadata fields (detector run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) logged the populated summary table for comment [#3489991425](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489991425)).
 - [ ] Exactly one orchestrator `workflow_dispatch` fires per accepted instruction comment with matching TRACE and no conflicting cancellations.
@@ -39,7 +39,7 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 | Helper module exports `makeTrace` and `renderInstruction`. | Complete | `.github/scripts/keepalive_contract.js` normalizes inputs and prefixes the required hidden markers. |
 | Orchestrator computes round/trace, selects token, posts comment via helper. | Complete | `Prepare keepalive instruction` job in `.github/workflows/agents-70-orchestrator.yml` resolves round/trace, chooses PAT, and renders the comment body. |
 | Summary records round, trace, author, comment ID. | Complete | `Summarise keepalive instruction` step writes all four fields to `$GITHUB_STEP_SUMMARY`. |
-| Reaction ack loop with 👀/🚀 handling. | Complete | `Ack keepalive instruction` adds 👀 then polls for 🚀 for 60 s at 5 s cadence. |
+| Reaction ack loop with 🎉/🚀 handling. | Complete | `Ack keepalive instruction` adds 🎉 then polls for 🚀 for 60 s at 5 s cadence. |
 | Fallback dispatch and PR comment when ack missing. | Complete | Fallback steps emit the repository_dispatch payload and a one-line PR comment when acknowledgment fails. |
 
 ### Acceptance Criteria Tracking

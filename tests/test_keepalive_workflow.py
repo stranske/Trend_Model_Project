@@ -165,6 +165,9 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert payload["comment_id"] == created[0]["id"]
     assert payload["comment_url"].endswith(f"#comment-{created[0]['id']}")
 
+    reactions = data.get("instruction_reactions", [])
+    assert reactions == [{"comment_id": created[0]["id"], "content": "hooray"}]
+
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and len(details["items"]) == 1
 
