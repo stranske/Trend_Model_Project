@@ -29,8 +29,8 @@ tasks:
   - id: task-04
     title: 'Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha
       }.'
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-12T04:24:38Z'
     finished_at: null
     commit: ''
     notes: []
