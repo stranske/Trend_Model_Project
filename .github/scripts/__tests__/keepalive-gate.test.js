@@ -3,13 +3,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { countActive } = require('../keepalive_gate.js');
+const { countActive, evaluateRunCapForPr } = require('../keepalive_gate.js');
 
 // The `details` parameter provides mock run details for getWorkflowRun.
 // By default, it is an empty object, so getWorkflowRun will throw a 404 error
 // for any runId not explicitly provided in `details`. This is intentional and
 // expected behavior for test isolation, simulating the real GitHub API's response.
-function makeGithubStub(registry, details = {}) {
+function makeGithubStub(registry, details = {}, pulls = {}) {
   return {
     rest: {
       actions: {
@@ -19,6 +19,16 @@ function makeGithubStub(registry, details = {}) {
             return { data: details[runId] };
           }
           const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        },
+      },
+      pulls: {
+        async get({ pull_number: pullNumber }) {
+          if (Object.prototype.hasOwnProperty.call(pulls, pullNumber)) {
+            return { data: pulls[pullNumber] };
+          }
+          const error = new Error('pull not found');
           error.status = 404;
           throw error;
         },
@@ -139,4 +149,107 @@ test('countActive matches by branch metadata when pull requests array is empty',
 
   assert.equal(result.active, 1);
   assert.equal(result.breakdown.get('orchestrator'), 1);
+});
+
+test('evaluateRunCapForPr returns ok when active runs are below cap', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      { id: 701, pull_requests: [{ number: 11 }] },
+    ],
+  };
+  const pulls = {
+    11: {
+      number: 11,
+      head: { ref: 'feature/run-cap', sha: 'abc123' },
+      labels: [
+        { name: 'agents:max-runs:3' },
+      ],
+    },
+  };
+  const github = makeGithubStub(registry, {}, pulls);
+  const result = await evaluateRunCapForPr({
+    core: { warning: () => {} },
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 11,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.runCap, 3);
+  assert.equal(result.activeRuns, 1);
+  assert.deepEqual(result.breakdown, { orchestrator: 1 });
+});
+
+test('evaluateRunCapForPr enforces cap using default when label absent', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      { id: 801, pull_requests: [{ number: 12 }] },
+      { id: 802, pull_requests: [{ number: 12 }] },
+    ],
+  };
+  const pulls = {
+    12: {
+      number: 12,
+      head: { ref: 'feature/default-cap', sha: 'def456' },
+      labels: [],
+    },
+  };
+  const github = makeGithubStub(registry, {}, pulls);
+  const result = await evaluateRunCapForPr({
+    core: { warning: () => {} },
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 12,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'run-cap-reached');
+  assert.equal(result.runCap, 2);
+  assert.equal(result.activeRuns, 2);
+});
+
+test('evaluateRunCapForPr respects labelled cap across successive attempts', async () => {
+  const registry = {};
+  const pulls = {
+    50: {
+      number: 50,
+      head: { ref: 'feature/run-cap', sha: 'abc999' },
+      labels: [{ name: 'agents:max-runs:2' }],
+    },
+  };
+  const github = makeGithubStub(registry, {}, pulls);
+  const baseArgs = {
+    core: { warning: () => {} },
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 50,
+  };
+
+  let result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 900 });
+  assert.equal(result.ok, true);
+  assert.equal(result.runCap, 2);
+  assert.equal(result.activeRuns, 0);
+
+  registry['agents-70-orchestrator.yml|queued'] = [
+    { id: 900, pull_requests: [{ number: 50 }] },
+    { id: 901, pull_requests: [{ number: 50 }] },
+  ];
+
+  result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 901 });
+  assert.equal(result.ok, true);
+  assert.equal(result.activeRuns, 1);
+
+  registry['agents-70-orchestrator.yml|queued'] = [
+    { id: 900, pull_requests: [{ number: 50 }] },
+    { id: 901, pull_requests: [{ number: 50 }] },
+    { id: 902, pull_requests: [{ number: 50 }] },
+  ];
+
+  result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 902 });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'run-cap-reached');
+  assert.equal(result.activeRuns, 2);
 });
