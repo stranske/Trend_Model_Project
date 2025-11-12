@@ -180,8 +180,13 @@ jobs:
           else
             head='unknown'
           fi
-          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
+          if [[ "${reason}" == 'run-cap-reached' ]]; then
+            printf 'CAP: ok=%s reason=%s pr=%s cap=%s active=%s\n' \
+              "${ok}" "${reason}" "${pr_value}" "${cap}" "${active}"
+          else
+            printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+              "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
+          fi
         env:
           OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
           REASON: ${{ steps.pre_gate.outputs.reason || 'unspecified' }}
@@ -393,8 +398,13 @@ jobs:
           else
             head='unknown'
           fi
-          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
-            "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
+          if [[ "${reason}" == 'run-cap-reached' ]]; then
+            printf 'CAP: ok=%s reason=%s pr=%s cap=%s active=%s\n' \
+              "${ok}" "${reason}" "${pr_value}" "${cap}" "${active}"
+          else
+            printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+              "${ok}" "${reason}" "${pr_value}" "${agent}" "${cap}" "${active}" "${head}"
+          fi
         env:
           OK: ${{ steps.gate.outputs.ok || 'false' }}
           REASON: ${{ steps.gate.outputs.reason || 'unspecified' }}

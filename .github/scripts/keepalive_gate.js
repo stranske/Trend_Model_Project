@@ -49,6 +49,27 @@ function extractPrNumbersFromText(text) {
   return Array.from(result);
 }
 
+function extractPrNumbersFromConcurrency(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return [];
+  }
+
+  const numbers = new Set();
+  const tokens = text.split('-').map((token) => token.trim()).filter(Boolean);
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    const marker = tokens[index].toLowerCase();
+    if (!['orchestrator', 'worker', 'pr', 'issue'].includes(marker)) {
+      continue;
+    }
+    const candidate = toInteger(tokens[index + 1]);
+    if (Number.isFinite(candidate)) {
+      numbers.add(candidate);
+    }
+  }
+  return Array.from(numbers);
+}
+
 function parseMaybeJson(value) {
   if (!value) {
     return null;
@@ -497,6 +518,11 @@ async function countActive({
       return true;
     }
 
+    const concurrencyNumbers = extractPrNumbersFromConcurrency(run.concurrency);
+    if (concurrencyNumbers.includes(targetPr)) {
+      return true;
+    }
+
     const textCandidates = [run.name, run.display_title, runHeadBranch];
     for (const text of textCandidates) {
       const numbers = extractPrNumbersFromText(text || '');
@@ -526,6 +552,11 @@ async function countActive({
 
     const detailHeadSha = String(details.head_sha || '').trim();
     if (normalisedHeadSha && detailHeadSha && detailHeadSha === normalisedHeadSha) {
+      return true;
+    }
+
+    const detailConcurrencyNumbers = extractPrNumbersFromConcurrency(details.concurrency);
+    if (detailConcurrencyNumbers.includes(targetPr)) {
       return true;
     }
 
