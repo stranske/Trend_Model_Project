@@ -662,78 +662,18 @@ jobs:
             core.info(`repository_dispatch emitted for PR #${prNumber} (Gate-triggered).`);
 
       - name: Write dispatch summary
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           PATH_LABEL: gate
-          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch }}
-          DETECT_REASON: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
-          DETECT_TRACE: ${{ steps.detect.outputs.trace }}
-          DETECT_PR: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
+          DISPATCH: ${{ steps.detect.outputs.dispatch }}
+          REASON: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
+          TRACE: ${{ steps.detect.outputs.trace }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
           FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
-          DETECT_COMMENT: ${{ steps.detect.outputs.comment_id }}
-        run: |
-          set -euo pipefail
-          path="${PATH_LABEL}"
-          dispatch="${DETECT_DISPATCH:-}"
-          reason="${DETECT_REASON:-}"
-          trace="${DETECT_TRACE:-}"
-          pr="${DETECT_PR:-}"
-          fallback="${FALLBACK_PR:-}"
-          comment_id="${DETECT_COMMENT:-}"
-
-          if [[ -z "${trace}" ]]; then
-            trace='-'
-          fi
-
-          if [[ -z "${pr}" || "${pr}" == '0' || "${pr}" == 'unknown' ]]; then
-            pr="${fallback:-}"
-          fi
-
-          format_pr() {
-            local raw="${1:-}"
-            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
-              printf '#%s' "${raw}"
-            else
-              printf '#?'
-            fi
-          }
-
-          activation_value='<none>'
-          if [[ -n "${comment_id}" ]]; then
-            activation_value="${comment_id}"
-          fi
-
-          pr_value="$(format_pr "${pr}")"
-
-          if [[ "${dispatch}" == 'true' ]]; then
-            line="DISPATCH: ok=true path=${path} pr=${pr_value} activation=${activation_value} lock=acquired trace=${trace}"
-          else
-            summary_reason='no-activation'
-            if [[ "${reason}" == 'duplicate-keepalive' ]]; then
-              summary_reason='lock-held'
-            elif [[ "${reason}" == 'missing-pr-number' ]]; then
-              summary_reason='no-linked-pr'
-            elif [[ -n "${reason}" ]]; then
-              summary_reason="${reason}"
-            fi
-
-            case "${summary_reason}" in
-              lock-held)
-                if [[ "${activation_value}" == '<none>' && -n "${comment_id}" ]]; then
-                  activation_value="${comment_id}"
-                fi
-                line="DISPATCH: ok=false reason=lock-held path=${path} pr=${pr_value} activation=${activation_value} trace=${trace}"
-                ;;
-              no-linked-pr)
-                line="DISPATCH: ok=false reason=no-linked-pr path=${path} activation=<none> trace=${trace}"
-                ;;
-              *)
-                line="DISPATCH: ok=false reason=no-activation path=${path} pr=${pr_value} activation=<none> trace=${trace}"
-                ;;
-            esac
-          fi
-
-          echo "${line}" >>"${GITHUB_STEP_SUMMARY}"
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id }}
+          CONCURRENCY_SUCCESS: granted
+          CONCURRENCY_HELD: held
+        run: bash .github/scripts/write_dispatch_summary.sh
 
   gate_no_pr_summary:
     needs: gate_event_context
@@ -813,7 +753,6 @@ jobs:
     needs: keepalive_dispatch
     if: >-
       ${{ github.event_name == 'issue_comment'
-          && github.event.action == 'created'
           && github.event.issue.pull_request
           && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
     runs-on: ubuntu-latest
@@ -916,78 +855,19 @@ jobs:
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
       - name: Write dispatch summary
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           PATH_LABEL: comment
-          DETECT_DISPATCH: ${{ steps.detect.outputs.dispatch }}
-          DETECT_REASON: ${{ steps.detect.outputs.reason }}
-          DETECT_TRACE: ${{ steps.detect.outputs.trace }}
-          DETECT_PR: ${{ steps.detect.outputs.pr }}
-          FALLBACK_PR: ${{ needs.comment_event_context.outputs.pr }}
-          DETECT_COMMENT: ${{ steps.detect.outputs.comment_id }}
-        run: |
-          set -euo pipefail
-          path="${PATH_LABEL}"
-          dispatch="${DETECT_DISPATCH:-}"
-          reason="${DETECT_REASON:-}"
-          trace="${DETECT_TRACE:-}"
-          pr="${DETECT_PR:-}"
-          fallback="${FALLBACK_PR:-}"
-          comment_id="${DETECT_COMMENT:-}"
-
-          if [[ -z "${trace}" ]]; then
-            trace='-'
-          fi
-
-          if [[ -z "${pr}" || "${pr}" == '0' || "${pr}" == 'unknown' ]]; then
-            pr="${fallback:-}"
-          fi
-
-          format_pr() {
-            local raw="${1:-}"
-            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
-              printf '#%s' "${raw}"
-            else
-              printf '#?'
-            fi
-          }
-
-          activation_value='<none>'
-          if [[ -n "${comment_id}" ]]; then
-            activation_value="${comment_id}"
-          fi
-
-          pr_value="$(format_pr "${pr}")"
-
-          if [[ "${dispatch}" == 'true' ]]; then
-            line="DISPATCH: ok=true path=${path} pr=${pr_value} activation=${activation_value} lock=acquired trace=${trace}"
-          else
-            summary_reason='no-activation'
-            if [[ "${reason}" == 'duplicate-keepalive' ]]; then
-              summary_reason='lock-held'
-            elif [[ "${reason}" == 'missing-pr-number' ]]; then
-              summary_reason='no-linked-pr'
-            elif [[ -n "${reason}" ]]; then
-              summary_reason="${reason}"
-            fi
-
-            case "${summary_reason}" in
-              lock-held)
-                if [[ "${activation_value}" == '<none>' && -n "${comment_id}" ]]; then
-                  activation_value="${comment_id}"
-                fi
-                line="DISPATCH: ok=false reason=lock-held path=${path} pr=${pr_value} activation=${activation_value} trace=${trace}"
-                ;;
-              no-linked-pr)
-                line="DISPATCH: ok=false reason=no-linked-pr path=${path} activation=<none> trace=${trace}"
-                ;;
-              *)
-                line="DISPATCH: ok=false reason=no-activation path=${path} pr=${pr_value} activation=<none> trace=${trace}"
-                ;;
-            esac
-          fi
-
-          echo "${line}" >>"${GITHUB_STEP_SUMMARY}"
+          DISPATCH: ${{ needs.keepalive_dispatch.outputs.dispatch }}
+          REASON: ${{ needs.keepalive_dispatch.outputs.reason }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr }}
+          FALLBACK_PR: ${{ github.event.issue.number }}
+          ACTIVATION_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          ACTIVATION_FALLBACK: ${{ github.event.comment.id }}
+          CONCURRENCY_SUCCESS: granted
+          CONCURRENCY_HELD: held
+        run: bash .github/scripts/write_dispatch_summary.sh
 
   update_body:
     if: github.event_name == 'pull_request'
