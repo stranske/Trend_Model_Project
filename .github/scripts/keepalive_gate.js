@@ -586,7 +586,7 @@ async function countActive({
 
   return {
     active: runIds.size,
-    breakdown,
+    breakdown: Object.fromEntries(breakdown),
     runIds,
     error,
   };
