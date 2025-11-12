@@ -174,7 +174,7 @@ hypothesis
 coverage
 jsonschema
 
-# Note: Node.js (v16+) and npm are required for JavaScript workflow tests
+# Note: Node.js (v20+) and npm are required for JavaScript workflow tests
 # Install from: https://nodejs.org/
 # Optional: uv (for lockfile tests) - https://github.com/astral-sh/uv
 ```
@@ -193,7 +193,7 @@ dev = [
 ]
 
 # Note: External dependencies not managed by pip:
-# - Node.js (v16+) and npm - Required for JavaScript workflow tests
+# - Node.js (v20+) and npm - Required for JavaScript workflow tests
 # - uv - Optional, for lockfile consistency tests
 ```
 
@@ -251,7 +251,7 @@ Created comprehensive 400+ line guide covering:
 ### External CLI Tools
 **Behavior:** Tests skip gracefully, documented in skip messages
 
-**Node.js v16+ and npm:**
+**Node.js v20+ and npm:**
 - Required for JavaScript workflow tests
 - 19 tests skip without Node.js
 - Install: https://nodejs.org/
@@ -392,7 +392,7 @@ pip install -r requirements.txt
 pip install -e '.[dev]'
 
 # External tools (must be installed separately)
-# - Node.js v16+: https://nodejs.org/
+# - Node.js v20+: https://nodejs.org/
 # - uv: https://github.com/astral-sh/uv
 ```
 

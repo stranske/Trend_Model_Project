@@ -28,7 +28,14 @@ permissions:
   checks: read
 
 concurrency:
-  group: agents-pr-meta-${{ github.event.issue.number || github.event.pull_request.number || (github.event.workflow_run && github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number) || inputs.pr_number || github.run_id }}
+  group: >-
+    ${{
+      github.event_name == 'issue_comment'
+      && github.event.comment
+      && github.event.comment.id
+      && format('agents-pr-meta-comment-{0}', github.event.comment.id)
+      || format('agents-pr-meta-run-{0}', github.run_id)
+    }}
   cancel-in-progress: false
 
 jobs:
@@ -98,8 +105,11 @@ jobs:
             core.setOutput('under_run_cap', bool(result.underRunCap));
             core.setOutput('run_cap', String(result.runCap ?? ''));
             core.setOutput('active_runs', String(result.activeRuns ?? ''));
+            core.setOutput('cap', String(result.cap ?? result.runCap ?? ''));
+            core.setOutput('active', String(result.active ?? result.activeRuns ?? ''));
             core.setOutput('agent_alias', result.primaryAgent || '');
             core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('last_green_sha', result.lastGreenSha || '');
             core.setOutput('pr_number', issueNumber > 0 ? String(issueNumber) : '');
             core.setOutput('has_activated_label', bool(result.hasActivatedLabel));
             core.setOutput('require_human_activation', bool(result.requireHumanActivation));
@@ -127,11 +137,11 @@ jobs:
           if [[ -z "${agent}" ]]; then
             agent='?'
           fi
-          cap="${RUN_CAP:-}"
+          cap="${CAP:-}"
           if [[ -z "${cap}" ]]; then
             cap='?'
           fi
-          active="${ACTIVE_RUNS:-}"
+          active="${ACTIVE:-}"
           if [[ -z "${active}" ]]; then
             active='0'
           fi
@@ -148,8 +158,8 @@ jobs:
           REASON: ${{ steps.pre_gate.outputs.reason || 'unspecified' }}
           PR_NUMBER: ${{ steps.pre_gate.outputs.pr_number || '' }}
           AGENT_ALIAS: ${{ steps.pre_gate.outputs.agent_alias || '' }}
-          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || '2' }}
-          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
+          CAP: ${{ steps.pre_gate.outputs.cap || steps.pre_gate.outputs.run_cap || '2' }}
+          ACTIVE: ${{ steps.pre_gate.outputs.active || steps.pre_gate.outputs.active_runs || '0' }}
           HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
 
       - name: Persist keepalive activation label

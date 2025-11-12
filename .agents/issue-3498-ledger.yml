@@ -1,0 +1,86 @@
+version: 1
+issue: 3498
+base: phase-2-dev
+branch: codex/issue-3498
+tasks:
+  - id: task-01
+    title: Gate helper (.github/scripts/keepalive_gate.js)
+    status: done
+    started_at: '2025-11-12T02:46:26Z'
+    finished_at: '2025-11-12T02:46:32Z'
+    commit: b2c59458f5d0b46c65805a6afe399e08387fe24c
+    notes: []
+  - id: task-02
+    title: Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator
+      (and, if needed, Worker) runs only, filters to this PR (use inputs.options_json.pr
+      or head ref pattern), and counts queued + in_progress.
+    status: done
+    started_at: '2025-11-12T02:53:07Z'
+    finished_at: '2025-11-12T02:53:13Z'
+    commit: 51eee546d9f8d896c39149fd15c44c16725d0e6c
+    notes: []
+  - id: task-03
+    title: Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
+    status: done
+    started_at: '2025-11-12T03:28:25Z'
+    finished_at: '2025-11-12T03:28:31Z'
+    commit: 88e45ca011458b28833234909b5ccc306f17222b
+    notes: []
+  - id: task-04
+    title: 'Expose outputs: { ok, reason, cap, active, primaryAgent, headSha, lastGreenSha
+      }.'
+    status: done
+    started_at: '2025-11-12T04:24:38Z'
+    finished_at: '2025-11-12T04:24:43Z'
+    commit: 2fd266fd08be3308642ad776d33acf819dd3369d
+    notes: []
+  - id: task-05
+    title: Orchestrator (.github/workflows/agents-70-orchestrator.yml)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Set concurrency:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Before posting an instruction, call the gate helper; block when active
+      >= cap.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: "PR\u2011meta (.github/workflows/agents-pr-meta.yml)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: "Deduplicate strictly per comment id (\U0001F680 on that comment)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: "Gate before dispatch; allow last\u2011green window when headSha === lastGreenSha."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Summary line: in both workflows, always print:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

@@ -178,7 +178,7 @@ The test will fail if `some_tool` is not in either `REQUIRED_CLI_TOOLS` or `OPTI
 ### External CLI Tools
 
 **Required**:
-- **Node.js** v16+ (for JavaScript workflow tests)
+- **Node.js** v20+ (for JavaScript workflow tests)
 - **npm** (bundled with Node.js)
 
 **Optional**:

@@ -37,110 +37,84 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
+env:
+  PR_NUMBER: >-
+    ${{
+      github.event.pull_request.number
+      || github.event.issue.number
+      || (
+        github.event.workflow_run
+        && github.event.workflow_run.pull_requests
+        && github.event.workflow_run.pull_requests[0]
+        && github.event.workflow_run.pull_requests[0].number
+      )
+      || github.event.inputs.pr_number
+      || (
+        github.event.inputs
+        && fromJson((github.event.inputs.options_json || '{}')).pr
+      )
+      || (
+        github.event.inputs
+        && fromJson((github.event.inputs.options_json || '{}')).keepalive_pr
+      )
+      || (
+        github.event.client_payload
+        && (
+          github.event.client_payload.pr
+          || github.event.client_payload.pr_number
+          || github.event.client_payload.issue
+          || (
+            github.event.client_payload.options
+            && (
+              github.event.client_payload.options.pr
+              || github.event.client_payload.options.keepalive_pr
+            )
+          )
+          || fromJson((github.event.client_payload.options_json || '{}')).pr
+          || fromJson((github.event.client_payload.options_json || '{}')).keepalive_pr
+        )
+      )
+      || ''
+    }}
+  AGENT_ALIAS: >-
+    ${{
+      (
+        github.event.inputs
+        && (
+          fromJson((github.event.inputs.options_json || '{}')).agent
+          || fromJson((github.event.inputs.options_json || '{}')).agent_alias
+        )
+      )
+      || (
+        github.event.client_payload
+        && (
+          github.event.client_payload.agent
+          || github.event.client_payload.agent_alias
+          || (
+            github.event.client_payload.options
+            && (
+              github.event.client_payload.options.agent
+              || github.event.client_payload.options.agent_alias
+            )
+          )
+          || fromJson((github.event.client_payload.options_json || '{}')).agent
+          || fromJson((github.event.client_payload.options_json || '{}')).agent_alias
+        )
+      )
+      || 'codex'
+    }}
+
 concurrency:
   group: >-
-    agents-70-orchestrator-${{
-      format(
-        '{0}-{1}',
-        (
-          github.event_name == 'workflow_dispatch'
-          && (
-            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').pr
-            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_pr
-            || (github.event.inputs && github.event.inputs.pr_number)
-            || 'workflow'
-          )
-        )
-        || (
-          github.event_name == 'repository_dispatch'
-          && github.event.client_payload
-          && (
-            fromJson(
-              github.event.client_payload.options_json
-              || (
-                github.event.client_payload.options
-                && toJson(github.event.client_payload.options)
-              )
-              || '{}'
-            ).pr
-            || fromJson(
-              github.event.client_payload.options_json
-              || (
-                github.event.client_payload.options
-                && toJson(github.event.client_payload.options)
-              )
-              || '{}'
-            ).keepalive_pr
-            || github.event.client_payload.pr
-            || github.event.client_payload.issue
-            || 'dispatch'
-          )
-        )
-        || (
-          github.event_name == 'workflow_run'
-          && github.event.workflow_run
-          && (
-            github.event.workflow_run.pull_requests[0].number
-            || github.event.workflow_run.id
-            || github.run_id
-          )
-        )
-        || github.run_id,
-        (
-          github.event_name == 'workflow_dispatch'
-          && (
-            fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_pr
-            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').pr
-            || (github.event.inputs && github.event.inputs.pr_number)
-            || fromJson((github.event.inputs && github.event.inputs.options_json) || '{}').keepalive_trace
-            || github.run_id
-          )
-        )
-        || (
-          github.event_name == 'repository_dispatch'
-          && github.event.client_payload
-          && (
-            fromJson(
-              github.event.client_payload.options_json
-              || (
-                github.event.client_payload.options
-                && toJson(github.event.client_payload.options)
-              )
-              || '{}'
-            ).keepalive_pr
-            || fromJson(
-              github.event.client_payload.options_json
-              || (
-                github.event.client_payload.options
-                && toJson(github.event.client_payload.options)
-              )
-              || '{}'
-            ).pr
-            || github.event.client_payload.pr
-            || github.event.client_payload.issue
-            || fromJson(
-              github.event.client_payload.options_json
-              || (
-                github.event.client_payload.options
-                && toJson(github.event.client_payload.options)
-              )
-              || '{}'
-            ).keepalive_trace
-            || github.run_id
-          )
-        )
-        || (
-          github.event_name == 'workflow_run'
-          && github.event.workflow_run
-          && (
-            github.event.workflow_run.pull_requests[0].number
-            || github.event.workflow_run.id
-            || github.run_id
-          )
-        )
-        || github.run_id
+    agents-70-orchestrator-${{ env.PR_NUMBER || 'unknown' }}-agent-${{ env.AGENT_ALIAS || 'codex' }}-${{
+      github.event.inputs.options_json || ''
+    }}-${{
+      github.event.client_payload && (
+        github.event.client_payload.options_json ||
+        github.event.client_payload.options ||
+        ''
       )
-    }}
+    }}-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -608,18 +582,15 @@ jobs:
             const agentAlias = preGate.primaryAgent || 'codex';
             const runCap = Number.isFinite(preGate.runCap) ? preGate.runCap : '';
             const activeRuns = Number.isFinite(preGate.activeRuns) ? preGate.activeRuns : '';
-            const inflightRuns = Number.isFinite(preGate.inFlightRuns) ? preGate.inFlightRuns : '';
-            const recentRuns = Number.isFinite(preGate.recentRuns) ? preGate.recentRuns : '';
-            const recentWindow = Number.isFinite(preGate.recentWindowMinutes)
-              ? preGate.recentWindowMinutes
-              : '';
+            const inflightRuns = '';
+            const recentRuns = '';
+            const recentWindow = '';
             const runCapDetail = (() => {
-              const inflightCount = Number.isFinite(preGate.inFlightRuns) ? preGate.inFlightRuns : 0;
-              const recentCount = Number.isFinite(preGate.recentRuns) ? preGate.recentRuns : 0;
-              const windowMinutes = Number.isFinite(preGate.recentWindowMinutes)
-                ? preGate.recentWindowMinutes
-                : '?';
-              return `run cap detail: inflight=${inflightCount}, recent<=${windowMinutes}m=${recentCount}`;
+              const breakdown = preGate.activeBreakdown || {};
+              const orchestratorCount = Number(breakdown.orchestrator ?? breakdown['agents-70-orchestrator.yml'] ?? 0);
+              const workerCount = Number(breakdown.worker ?? breakdown['agents-72-codex-belt-worker.yml'] ?? 0);
+              const normaliseCount = (value) => (Number.isFinite(value) ? value : 0);
+              return `run cap detail: orchestrator=${normaliseCount(orchestratorCount)}, worker=${normaliseCount(workerCount)}`;
             })();
 
             core.setOutput('agent_alias', agentAlias);
@@ -629,6 +600,10 @@ jobs:
             core.setOutput('active_runs_recent', recentRuns !== '' ? String(recentRuns) : '');
             core.setOutput('active_runs_recent_window', recentWindow !== '' ? String(recentWindow) : '');
             core.setOutput('has_sync_label', preGate.hasSyncRequiredLabel ? 'true' : 'false');
+            core.setOutput('cap', runCap !== '' ? String(runCap) : '');
+            core.setOutput('active', activeRuns !== '' ? String(activeRuns) : '');
+            core.setOutput('head_sha', preGate.headSha || '');
+            core.setOutput('last_green_sha', preGate.lastGreenSha || '');
 
             if (!preGate.ok) {
               const reason = preGate.reason || 'precondition-failed';
@@ -659,6 +634,12 @@ jobs:
               .addEOL()
               .addRaw(runCapDetail)
               .addEOL();
+
+            const breakdown = preGate.activeBreakdown || {};
+            const orchestratorActive = breakdown.orchestrator ?? breakdown['agents-70-orchestrator.yml'] ?? 0;
+            const workerActive = breakdown.worker ?? breakdown['agents-72-codex-belt-worker.yml'] ?? 0;
+            core.setOutput('active_breakdown_orchestrator', String(orchestratorActive));
+            core.setOutput('active_breakdown_worker', String(workerActive));
 
             const reasons = [];
             const addReason = (reason) => {
@@ -929,6 +910,43 @@ jobs:
           echo "::notice::keepalive_active_runs_inflight=${{ steps.guard.outputs.active_runs_inflight }}"
           echo "::notice::keepalive_active_runs_recent=${{ steps.guard.outputs.active_runs_recent }}"
           echo "::notice::keepalive_active_runs_recent_window=${{ steps.guard.outputs.active_runs_recent_window }}"
+
+      - name: Record gate summary
+        run: |
+          set -euo pipefail
+          ok="${OK:-false}"
+          reason="${REASON:-unspecified}"
+          pr="${PR_NUMBER:-}"
+          if [[ -n "${pr}" ]]; then
+            pr="#${pr}"
+          else
+            pr="#?"
+          fi
+          agent="${AGENT_ALIAS:-codex}"
+          if [[ -z "${agent}" ]]; then
+            agent='?'
+          fi
+          cap="${CAP:-}"
+          if [[ -z "${cap}" ]]; then
+            cap='?'
+          fi
+          active="${ACTIVE:-0}"
+          head="${HEAD_SHA:-}"
+          if [[ -n "${head}" ]]; then
+            head="${head:0:7}"
+          else
+            head='unknown'
+          fi
+          printf 'GATE: ok=%s reason=%s pr=%s agent=%s cap=%s active=%s head=%s\n' \
+            "${ok}" "${reason}" "${pr}" "${agent}" "${cap}" "${active}" "${head}" >>"$GITHUB_STEP_SUMMARY"
+        env:
+          OK: ${{ steps.guard.outputs.proceed || 'false' }}
+          REASON: ${{ steps.guard.outputs.reason || 'unspecified' }}
+          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
+          AGENT_ALIAS: ${{ steps.guard.outputs.agent_alias || '' }}
+          CAP: ${{ steps.guard.outputs.cap || steps.guard.outputs.run_cap || '2' }}
+          ACTIVE: ${{ steps.guard.outputs.active || steps.guard.outputs.active_runs || '0' }}
+          HEAD_SHA: ${{ steps.guard.outputs.head_sha || '' }}
 
 
   keepalive-instruction:
