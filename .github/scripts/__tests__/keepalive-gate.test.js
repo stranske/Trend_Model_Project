@@ -151,6 +151,31 @@ test('countActive matches by branch metadata when pull requests array is empty',
   assert.equal(result.breakdown.get('orchestrator'), 1);
 });
 
+test('countActive matches runs tagged via concurrency group', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      {
+        id: 615,
+        head_branch: 'phase-2-dev',
+        concurrency: 'agents-70-orchestrator-42-keepalive-trace1234',
+        pull_requests: [],
+      },
+    ],
+  };
+  const github = makeGithubStub(registry);
+  const result = await countActive({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 42,
+    headRef: 'codex/issue-42',
+    headSha: 'non-matching-sha',
+  });
+
+  assert.equal(result.active, 1);
+  assert.equal(result.breakdown.get('orchestrator'), 1);
+});
+
 test('evaluateRunCapForPr returns ok when active runs are below cap', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
