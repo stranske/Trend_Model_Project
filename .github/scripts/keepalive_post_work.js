@@ -708,6 +708,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     '';
   const commentIdEnv = parseNumber(env.COMMENT_ID, NaN, { min: 1 });
   const commentUrlEnv = normalise(env.COMMENT_URL);
+  const commentTraceEnv = normalise(env.COMMENT_TRACE);
+  const commentRoundEnv = normalise(env.COMMENT_ROUND);
   const agentAliasEnv = normalise(env.AGENT_ALIAS) || 'codex';
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
@@ -959,6 +961,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         recorded_at: new Date().toISOString(),
       },
     });
+    await persistLastInstruction(finalHead);
     record('Result', appendRound(`mode=already-synced sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
     applyFinalState({ action: 'skip', success: true, headMoved: true, finalHead, mode: 'already-synced' });
     await complete();
@@ -975,6 +978,32 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   const commentInfo = instructionComment;
+
+  const persistLastInstruction = async (finalHeadValue) => {
+    const payload = {
+      comment_id: commentInfo?.id ? String(commentInfo.id) : '',
+      comment_url: commentInfo?.url || '',
+      trace: commentTraceEnv || '',
+      round: commentRoundEnv || '',
+      head_sha: normalise(finalHeadValue) || '',
+      recorded_at: new Date().toISOString(),
+    };
+
+    const filtered = Object.fromEntries(
+      Object.entries(payload).filter(([key, value]) => {
+        if (key === 'recorded_at') {
+          return true;
+        }
+        return normalise(value) !== '';
+      }),
+    );
+
+    if (Object.keys(filtered).length === 0) {
+      return;
+    }
+
+    await applyStateUpdate({ last_instruction: filtered });
+  };
 
   let finalAction = 'skip';
 
@@ -1307,6 +1336,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         recorded_at: new Date().toISOString(),
       },
     });
+    await persistLastInstruction(finalHead || baselineHead || initialHead);
 
     if (hasSyncLabel) {
       try {
