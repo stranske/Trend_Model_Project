@@ -1104,6 +1104,8 @@ jobs:
       base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
       agent: ${{ steps.render_instruction_body.outputs.agent || steps.prepare.outputs.agent || '' }}
       body: ${{ steps.render_instruction_body.outputs.body || '' }}
+      instruction_body: ${{ steps.extract_instruction_segment.outputs.instruction || '' }}
+      instruction_bytes: ${{ steps.extract_instruction_segment.outputs.bytes || '0' }}
       previous_round: ${{ steps.prepare.outputs.previous_round || '' }}
       existing_instruction_comment_id: ${{ steps.prepare.outputs.existing_instruction_comment_id || '' }}
       existing_instruction_comment_url: ${{ steps.prepare.outputs.existing_instruction_comment_url || '' }}
@@ -1117,6 +1119,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            scripts/keepalive_instruction_segment.js
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
@@ -1597,6 +1600,29 @@ jobs:
             core.setOutput('agent', agentAlias);
             core.setOutput('body', body);
             core.setOutput('pr_number', String(prNumber));
+
+      - name: Extract instruction payload
+        id: extract_instruction_segment
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.render_instruction_body.outputs.body }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {
+              extractInstructionSegment,
+              computeInstructionByteLength,
+            } = require('./scripts/keepalive_instruction_segment.js');
+
+            const body = process.env.COMMENT_BODY || '';
+            const instruction = extractInstructionSegment(body);
+            if (!instruction) {
+              core.setFailed('Keepalive instruction payload is empty after trimming.');
+              return;
+            }
+
+            core.setOutput('instruction', instruction);
+            core.setOutput('bytes', String(computeInstructionByteLength(instruction)));
 
   orchestrate:
     name: Dispatch Agents Toolkit
@@ -2491,6 +2517,7 @@ jobs:
           ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
           DISPATCH_MODE: ${{ needs.keepalive-prep.outputs.dispatch_mode }}
           AGENT_ALIAS: ${{ needs.keepalive-prep.outputs.agent }}
+          INSTRUCTION_BODY: ${{ needs.keepalive-prep.outputs.instruction_body }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT }}
           script: |
@@ -2538,6 +2565,12 @@ jobs:
               return;
             }
 
+            const instructionBody = (process.env.INSTRUCTION_BODY || '').trim();
+            if (!instructionBody) {
+              core.info('Fallback dispatch skipped: instruction segment unavailable.');
+              return;
+            }
+
             const payload = {
               issue: issueNumber || prNumber,
               base,
@@ -2548,6 +2581,7 @@ jobs:
               round: process.env.ROUND || '',
               trace: process.env.TRACE || '',
               dispatch_mode: process.env.DISPATCH_MODE || '',
+              instruction_body: instructionBody,
               quiet: true,
               reply: 'none',
             };

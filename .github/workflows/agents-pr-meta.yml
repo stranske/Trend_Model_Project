@@ -563,6 +563,8 @@ jobs:
       - name: Dispatch Agents 70 run for keepalive
         if: steps.detect.outputs.dispatch == 'true'
         uses: actions/github-script@v7
+        env:
+          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -590,6 +592,11 @@ jobs:
               round: roundValue,
               pr: prValue,
             };
+
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+            if (instructionBody) {
+              options.keepalive_instruction = instructionBody;
+            }
 
             await github.rest.actions.createWorkflowDispatch({
               owner,
@@ -750,6 +757,8 @@ jobs:
       - name: Dispatch Agents 70 run for keepalive
         id: orchestrator
         uses: actions/github-script@v7
+        env:
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -778,6 +787,11 @@ jobs:
               round: roundValue,
               pr: prValue,
             };
+
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+            if (instructionBody) {
+              options.keepalive_instruction = instructionBody;
+            }
 
             await github.rest.actions.createWorkflowDispatch({
               owner,
