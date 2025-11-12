@@ -8,26 +8,26 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 ## Scope
 
-- [ ] Issue 3260 — Keepalive poster enhancements validated with live evidence.
+- [x] Issue 3260 — Keepalive poster enhancements validated with live evidence (orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) posted round-2 instruction [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) with hidden markers).
 - [ ] Issue 3261 — Keepalive detection and dispatch hardening confirmed in production runs.
 
 ## Task List
 
-- [ ] Capture proof that instruction comments are emitted with required markers and mention on every cycle.
+- [x] Capture proof that instruction comments are emitted with required markers and mention on every cycle (instruction [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) from run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) includes all hidden markers and `@codex`).
 - [ ] Demonstrate acknowledgment loop behavior, including fallback dispatch when 🚀 is absent.
-- [ ] Show detector-to-orchestrator hand-off through repository dispatch with populated round/trace metadata.
-- [ ] Record guard skip formatting and labelling outputs for failing keepalive rounds.
+- [x] Show detector-to-orchestrator hand-off through repository dispatch with populated round/trace metadata (detector run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) dispatched orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) with trace `mhlrf2obd4nlr5`).
+- [x] Record guard skip formatting and labelling outputs for failing keepalive rounds (orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) posted skip comment [#3489997416](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489997416) and mirrored the summary line).
 
 ## Acceptance Criteria
 
-- [ ] New instruction comment created each cycle with required markers and `@codex` mention.
-- [ ] Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback.
-- [ ] PR-meta acknowledgment observed, or fallback dispatch and PR comment emitted when acknowledgment is missing.
-- [ ] Step summary includes `Round`, `Trace`, `Author`, and `CommentId` fields.
-- [ ] Valid instruction comment triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated metadata fields.
+- [x] New instruction comment created each cycle with required markers and `@codex` mention (instruction [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) contains required markers and mention from run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611)).
+- [x] Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback (run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) authored the instruction as `stranske`).
+- [x] PR-meta acknowledgment observed, or fallback dispatch and PR comment emitted when acknowledgment is missing (`Ack keepalive instruction` in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611/job/54557502956) recorded the 👀/🚀 loop completing).
+- [x] Step summary includes `Round`, `Trace`, `Author`, and `CommentId` fields (summary step in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) lists these columns).
+- [x] Valid instruction comment triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated metadata fields (detector run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) logged the populated summary table for comment [#3489991425](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489991425)).
 - [ ] Exactly one orchestrator `workflow_dispatch` fires per accepted instruction comment with matching TRACE and no conflicting cancellations.
-- [ ] Exactly one `codex-pr-comment-command` repository_dispatch is emitted per accepted instruction comment.
-- [ ] Guard failures yield PR comment `Keepalive {round} {trace} skipped: <reason>` plus a matching summary entry.
+- [x] Exactly one `codex-pr-comment-command` repository_dispatch is emitted per accepted instruction comment (detector runs [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) and [#19096425133](https://github.com/stranske/Trend_Model_Project/actions/runs/19096425133) each emitted a single dispatch).
+- [x] Guard failures yield PR comment `Keepalive {round} {trace} skipped: <reason>` plus a matching summary entry (orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) produced skip comment [#3489997416](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489997416) and summary line).
 - [ ] Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches.
 
 ## Issue 3260 — Keepalive Poster Enhancements Progress
@@ -46,10 +46,10 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 | Acceptance Criterion | Status | Evidence |
 | --- | --- | --- |
-| New instruction comment created each cycle with required markers and @codex. | ❌ Not satisfied | Latest orchestrator runs [#19087371981](https://github.com/stranske/Trend_Model_Project/actions/runs/19087371981) and [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) ended before the first job, so no instruction comments were produced. |
-| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | No instruction comment was created in recent runs; author provenance remains unverified. |
-| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Ack loop never executed; orchestrator aborted pre-job and emitted neither reactions nor fallback comment. |
-| Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) produced no step summary. |
+| New instruction comment created each cycle with required markers and @codex. | ✅ Complete | Orchestrator workflow-dispatch [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) posted round-2 instruction [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) containing the hidden markers and explicit `@codex` mention. |
+| Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ✅ Complete | The same instruction comment [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704) is authored by `stranske`, satisfying the allowed-author requirement captured in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611). |
+| PR-meta ack observed or fallback dispatch + comment emitted. | ✅ Complete | Run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611/job/54557502956) shows `Ack keepalive instruction` recording `ACK: yes` after the 🚀 reaction, demonstrating the acknowledgement loop. |
+| Step summary includes Round, Trace, Author, CommentId. | ✅ Complete | Step `Summarise keepalive instruction` in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) writes the summary table with Round 2, Trace `mhlrf2obd4nlr5`, Author `stranske`, and Comment [#3489994704](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489994704). |
 
 ### Notes & Local Validation
 
@@ -69,22 +69,22 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 | Acceptance Criterion | Status | Latest Evidence |
 | --- | --- | --- |
-| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ❌ Not satisfied | `Agents PR meta manager` runs [#19087372965](https://github.com/stranske/Trend_Model_Project/actions/runs/19087372965) and [#19087550353](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550353) skipped detection, leaving fields unset. |
-| Exactly one orchestrator `workflow_dispatch` fires with matching TRACE and no cancellations from other rounds. | ❌ Not satisfied | Orchestrator run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) terminated pre-job; no TRACE propagation occurred. |
-| Exactly one `codex-pr-comment-command` repository_dispatch emitted per accepted instruction comment. | ❌ Not satisfied | Detector run [#19087550353](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550353) never reached dispatch; no events recorded. |
-| Guard failures yield PR comment `Keepalive {round} {trace} skipped: <reason>` plus matching summary entry. | ❌ Not satisfied | Orchestrator abort prevented skip comment + summary emission. |
-| Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches. | ❌ Not satisfied | No qualifying consecutive rounds yet. |
+| Valid instruction comment (allowed author, hidden markers) triggers PR-meta run reporting `ok: true`, `reason: keepalive-detected`, and populated round/trace/PR fields. | ✅ Complete | Detector run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) auto-inserted the hidden markers on comment [#3489991425](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489991425) and logged `ok = true`, `reason = keepalive-detected`, `round = 1`, `trace = mhlre7vybcsv40`, `pr = 3285` in the summary table. |
+| Exactly one orchestrator `workflow_dispatch` fires with matching TRACE and no cancellations from other rounds. | ⏳ In progress | Detector runs [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) and [#19096425133](https://github.com/stranske/Trend_Model_Project/actions/runs/19096425133) each emitted a single dispatch, but round 2 halted at the gate guard; need a CI-idle rerun showing the belt worker progressing. |
+| Exactly one `codex-pr-comment-command` repository_dispatch emitted per accepted instruction comment. | ✅ Complete | The same detector runs ([#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085), [#19096425133](https://github.com/stranske/Trend_Model_Project/actions/runs/19096425133)) report `repository_dispatch emitted for PR #3285`, confirming one connector dispatch per instruction. |
+| Guard failures yield PR comment `Keepalive {round} {trace} skipped: <reason>` plus matching summary entry. | ✅ Complete | Orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) recorded the skip summary and posted PR comment [#3489997416](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489997416) with `Keepalive 2 mhlrf2obd4nlr5 skipped: gate-run-status:in_progress`. |
+| Two consecutive valid rounds produce distinct traces, distinct orchestrator runs, and no duplicate dispatches. | ❌ Not satisfied | Guard stop on round 2 prevented observing back-to-back belt executions; still awaiting consecutive runs that both complete. |
 
 ### Task List Status
 
 | Task Group | Task | Status | Latest Evidence |
 | --- | --- | --- | --- |
-| PR-meta detector | Ensure `actions/checkout@v4` occurs before loading detector script. | ⏳ In progress | Checkout step present in `.github/workflows/agents-pr-meta.yml` (commit `777ce17d`); awaiting runtime confirmation. |
-| PR-meta detector | Enforce allowed authors + hidden markers, surface structured outputs. | ⏳ In progress | `.github/scripts/agents_pr_meta_keepalive.js` emits comment ID/URL and `missing-round`; need live run to confirm outputs. |
-| PR-meta detector | Add 🚀 dedupe and dispatch orchestrator (`workflow_dispatch`) + connector (`repository_dispatch`). | ⏳ In progress | Repository dispatch now forwards round/trace plus fallback metadata (commit `777ce17d`); validation pending next accepted keepalive. |
-| PR-meta detector | Emit summary table on every run. | ⏳ In progress | Summary step updated with Comment column; awaiting detector evidence. |
-| Orchestrator | Parse `options_json`, export TRACE/ROUND/PR, configure `concurrency` without cancel-in-progress. | ⏳ In progress | Parameter resolver populates keepalive metadata; need next orchestrator run to confirm. |
-| Orchestrator | Post `Keepalive {round} {trace} skipped:` PR comment + summary when guard fails. | ⏳ In progress | Guard posts formatted skip line (commit `2ce66b54`); awaiting skip event evidence. |
+| PR-meta detector | Ensure `actions/checkout@v4` occurs before loading detector script. | ✅ Complete | Detector run [#19096651969](https://github.com/stranske/Trend_Model_Project/actions/runs/19096651969/jobs/54558266617) shows `actions/checkout@v4` preceding the detection script. |
+| PR-meta detector | Enforce allowed authors + hidden markers, surface structured outputs. | ✅ Complete | Run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) auto-inserted markers and emitted the populated summary table, proving the enforcement path. |
+| PR-meta detector | Add 🚀 dedupe and dispatch orchestrator (`workflow_dispatch`) + connector (`repository_dispatch`). | ✅ Complete | Detector runs [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) and [#19096425133](https://github.com/stranske/Trend_Model_Project/actions/runs/19096425133) each produced exactly one orchestrator dispatch and one `codex-pr-comment-command` event. |
+| PR-meta detector | Emit summary table on every run. | ✅ Complete | Job summary in run [#19096651969](https://github.com/stranske/Trend_Model_Project/actions/runs/19096651969/jobs/54558266617) renders the Markdown table with `ok`, `reason`, and `comment` columns. |
+| Orchestrator | Parse `options_json`, export TRACE/ROUND/PR, configure `concurrency` without cancel-in-progress. | ✅ Complete | Workflow-dispatch [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) echoes keepalive metadata into environment variables while running under the non-cancelling concurrency group. |
+| Orchestrator | Post `Keepalive {round} {trace} skipped:` PR comment + summary when guard fails. | ✅ Complete | Skip path in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) posted comment [#3489997416](https://github.com/stranske/Trend_Model_Project/pull/3285#issuecomment-3489997416) and logged the same line in the job summary. |
 | Orchestrator | Filter assignees to humans; skip gracefully when none remain. | ⏳ In progress | Guard auto-assigns humans and applies `agents:keepalive`/`agent:codex` labels (commit `e3dc4c65`); confirmation pending live run. |
 
 ### Evidence Log
@@ -108,8 +108,8 @@ _A consolidated evidence log for the keepalive poster (Issue #3260) and detector
 
 ### Upcoming Verification Steps
 
-1. Capture the next detector run following a keepalive instruction comment with hidden markers from an allowed author; record detector outputs showing `dispatch=true`, `keepalive-detected`, and populated metadata.
-2. Confirm the orchestrator run triggered by that comment, including TRACE/ROUND propagation, summary output, and ack/fallback handling.
-3. Observe exactly one `codex-pr-comment-command` repository dispatch for the accepted instruction comment.
-4. Intentionally trigger a guard failure to verify the `Keepalive {round} {trace} skipped:` PR comment and summary entry.
-5. Run two valid consecutive rounds to ensure distinct traces, no duplicate dispatches, and absence of cancellations.
+1. ✅ Detector run [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) captured a keepalive instruction with hidden markers and populated metadata (`dispatch=true`, `reason=keepalive-detected`, trace/round/PR recorded).
+2. ✅ Orchestrator run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) propagated TRACE/ROUND, produced the instruction comment, and completed the acknowledgment loop.
+3. ✅ Detector runs [#19096404085](https://github.com/stranske/Trend_Model_Project/actions/runs/19096404085) / [#19096425133](https://github.com/stranske/Trend_Model_Project/actions/runs/19096425133) each emitted exactly one `codex-pr-comment-command` dispatch for their accepted instruction comments.
+4. ✅ Skip guard in run [#19096414611](https://github.com/stranske/Trend_Model_Project/actions/runs/19096414611) posted `Keepalive 2 mhlrf2obd4nlr5 skipped: gate-run-status:in_progress` and mirrored the summary line.
+5. 🔄 Run two valid consecutive rounds to ensure distinct traces, no duplicate dispatches, and absence of cancellations.
