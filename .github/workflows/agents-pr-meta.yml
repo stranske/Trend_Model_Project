@@ -40,10 +40,7 @@ concurrency:
 
 jobs:
   keepalive_dispatch:
-    if: >-
-      ${{ github.event_name == 'issue_comment'
-          && github.event.action == 'created'
-          && github.event.issue.pull_request }}
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
     name: Detect keepalive round comments
     runs-on: ubuntu-latest
     outputs:
@@ -227,12 +224,21 @@ jobs:
             }
 
             try {
-              await github.rest.reactions.createForIssueComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: commentId,
-                content: 'rocket',
-              });
+              if (github.rest.issues && typeof github.rest.issues.createReaction === 'function') {
+                await github.rest.issues.createReaction({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              } else {
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              }
               core.info(`Acquired dispatch lock on comment ${commentId} for PR #${prNumber || '?'} (comment path).`);
               core.setOutput('acquired', 'true');
             } catch (error) {
@@ -248,7 +254,7 @@ jobs:
             core.setOutput('reason', '');
 
       - name: Log dispatch summary
-        if: steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
+        if: steps.detect.outputs.comment_id != ''
         run: |
           set -euo pipefail
           ok="false"
@@ -262,9 +268,6 @@ jobs:
           fi
 
           comment_value="${COMMENT_ID:-?}"
-          if [[ "${comment_value}" != "?" ]]; then
-            comment_value="#${comment_value}"
-          fi
 
           trace_value="${TRACE:-?}"
           if [[ -z "${trace_value}" ]]; then
@@ -340,7 +343,7 @@ jobs:
     env:
       PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
     concurrency:
-      group: pr-meta-dispatch-${{ github.event.workflow_run.pull_requests[0].number || env.PR_NUMBER }}
+      group: pr-meta-dispatch-${{ env.PR_NUMBER || github.event.workflow_run.pull_requests[0].number || github.run_id }}
       cancel-in-progress: false
     outputs:
       dispatch: ${{ steps.detect.outputs.dispatch == 'true' && steps.dispatch_lock.outputs.acquired == 'true' && 'true' || 'false' }}
@@ -587,12 +590,21 @@ jobs:
             }
 
             try {
-              await github.rest.reactions.createForIssueComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: commentId,
-                content: 'rocket',
-              });
+              if (github.rest.issues && typeof github.rest.issues.createReaction === 'function') {
+                await github.rest.issues.createReaction({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              } else {
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId,
+                  content: 'rocket',
+                });
+              }
               core.info(`Acquired dispatch lock on comment ${commentId} for PR #${prNumber || '?'} (Gate path).`);
               core.setOutput('acquired', 'true');
             } catch (error) {
@@ -608,7 +620,7 @@ jobs:
             core.setOutput('reason', '');
 
       - name: Log dispatch summary
-        if: steps.gate.outputs.pr_number != '' || steps.detect.outputs.dispatch != ''
+        if: steps.detect.outputs.comment_id != ''
         run: |
           set -euo pipefail
           ok="false"
@@ -622,9 +634,6 @@ jobs:
           fi
 
           comment_value="${COMMENT_ID:-?}"
-          if [[ "${comment_value}" != "?" ]]; then
-            comment_value="#${comment_value}"
-          fi
 
           trace_value="${TRACE:-?}"
           if [[ -z "${trace_value}" ]]; then
@@ -1074,7 +1083,7 @@ jobs:
 
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
-  update_body:
+  upsert_pr_body_sections:
     if: github.event_name == 'pull_request'
     name: Upsert PR body sections
     runs-on: ubuntu-latest
