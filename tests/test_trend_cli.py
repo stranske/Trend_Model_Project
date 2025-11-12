@@ -82,6 +82,18 @@ def test_build_parser_contains_expected_subcommands() -> None:
         assert getattr(args, "subcommand", None) == subcommand
 
 
+def test_legacy_callable_returns_fallback_when_module_missing(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "_legacy_cli_module", None)
+    monkeypatch.setattr(cli, "_refresh_legacy_cli_module", lambda: None)
+
+    def sentinel() -> str:
+        return "fallback"
+
+    resolved = cli._legacy_callable("missing", sentinel)
+
+    assert resolved is sentinel
+
+
 def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yml"
     cfg_path.write_text("", encoding="utf-8")
@@ -174,6 +186,47 @@ def test_main_run_invokes_pipeline(monkeypatch, tmp_path: Path) -> None:
     pipeline_kwargs = captured["pipeline_args"]
     assert pipeline_kwargs["source_path"] == csv_path.resolve()
     assert pipeline_kwargs["structured_log"] is True
+
+
+def test_main_run_without_structured_log(monkeypatch, tmp_path: Path, capsys) -> None:
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("Date,Mgr_01\n2020-01-31,0.01\n", encoding="utf-8")
+
+    def fake_ensure_dataframe(path: Path) -> pd.DataFrame:
+        assert path == csv_path.resolve()
+        return pd.DataFrame({"Date": ["2020-01-31"], "Mgr_01": [0.01]})
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        assert kwargs["structured_log"] is False
+        return RunResult(pd.DataFrame(), {}, 42, {}), "runXYZ", None
+
+    monkeypatch.setattr("trend.cli._ensure_dataframe", fake_ensure_dataframe)
+    config_obj = SimpleNamespace(
+        sample_split={},
+        vol_adjust={},
+        portfolio={},
+        run={},
+        benchmarks={},
+        export={},
+    )
+    monkeypatch.setattr(cli, "load_config", lambda path: config_obj)
+    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
+
+    exit_code = main(
+        [
+            "run",
+            "--config",
+            "config/demo.yml",
+            "--returns",
+            str(csv_path),
+            "--no-structured-log",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Structured log" not in out
 
 
 def test_main_run_requires_config() -> None:
@@ -357,6 +410,45 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "PDF generation failed" in captured.err
+
+
+def test_main_report_handles_runtime_error(monkeypatch, tmp_path: Path, capsys) -> None:
+    dummy_result = RunResult(pd.DataFrame(), {}, 42, {})
+
+    def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
+        return dummy_result, "err001", None
+
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("Date,Value\n2020-01-31,0.1\n", encoding="utf-8")
+
+    monkeypatch.setattr("trend.cli._ensure_dataframe", lambda _p: pd.DataFrame())
+    monkeypatch.setattr("trend.cli._run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr("trend.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend.cli._write_report_files", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "trend.cli._resolve_returns_path",
+        lambda *args, **kwargs: returns_path,
+    )
+
+    def raise_generate(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("trend.cli.generate_unified_report", raise_generate)
+
+    out_dir = tmp_path / "reports"
+    exit_code = main(
+        [
+            "report",
+            "--config",
+            "config/demo.yml",
+            "--out",
+            str(out_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "boom" in captured.err
 
 
 def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> None:
@@ -543,6 +635,37 @@ def test_handle_exports_with_excel(monkeypatch, tmp_path: Path) -> None:
     assert events
 
 
+def test_handle_exports_only_excel_format(monkeypatch, tmp_path: Path) -> None:
+    metrics = pd.DataFrame({"value": [1.0]})
+    result = RunResult(metrics, {"details": {}}, 1, {})
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": ["xlsx"]},
+        sample_split={},
+    )
+
+    recorded: list[str] = []
+
+    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *_: "fmt")
+    monkeypatch.setattr(cli.export, "summary_frame_from_result", lambda *_: metrics)
+    monkeypatch.setattr(
+        cli.export,
+        "export_to_excel",
+        lambda data, path, default_sheet_formatter: recorded.append(str(path)),
+    )
+    monkeypatch.setattr(
+        cli.export,
+        "export_data",
+        lambda *args, **kwargs: recorded.append("data-called"),
+    )
+
+    cli._handle_exports(cfg, result, structured_log=False, run_id="rid")
+
+    assert recorded and all(
+        entry.endswith("analysis.xlsx") for entry in recorded if entry != "data-called"
+    )
+    assert "data-called" not in recorded
+
+
 def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
     cfg = SimpleNamespace(export={}, sample_split={}, run_id=None)
     returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
@@ -607,6 +730,47 @@ def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
     assert logs
     assert handled
     assert bundles == [tmp_path / "bundle.zip"]
+
+
+def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> None:
+    class FussyCfg:
+        def __init__(self) -> None:
+            object.__setattr__(self, "export", {})
+            object.__setattr__(self, "sample_split", {})
+
+        def __setattr__(self, name: str, value: object) -> None:
+            if name == "run_id":
+                raise RuntimeError("cannot set run_id")
+            object.__setattr__(self, name, value)
+
+    cfg = FussyCfg()
+    returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
+    run_result = RunResult(pd.DataFrame(), "summary", 5, {})
+
+    events: list[str] = []
+
+    def record_event(*args, **kwargs) -> None:
+        events.append(args[2] if len(args) >= 3 else kwargs.get("event", ""))
+
+    monkeypatch.setattr(cli, "run_simulation", lambda *_: run_result)
+    monkeypatch.setattr(cli, "_legacy_maybe_log_step", record_event)
+    monkeypatch.setattr(cli, "_handle_exports", lambda *_a, **_k: None)
+
+    result, run_id, log_path = cli._run_pipeline(
+        cfg,
+        returns,
+        source_path=None,
+        log_file=None,
+        structured_log=False,
+        bundle=None,
+    )
+
+    assert isinstance(result, RunResult)
+    assert result.details == "summary"
+    assert len(run_id) == 12
+    assert log_path is None
+    assert "summary_render" in events
+    assert not hasattr(result, "portfolio")
 
 
 def test_adjust_for_scenario_rejects_unknown() -> None:
@@ -704,6 +868,33 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
     assert getattr(result, "config") == cfg.__dict__
 
 
+def test_write_bundle_accepts_explicit_file(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    cfg = SimpleNamespace(__dict__={"key": "value"})
+    result = RunResult(pd.DataFrame(), {}, 1, {})
+
+    recorded: dict[str, Path] = {}
+
+    import trend_analysis.export.bundle
+
+    monkeypatch.setattr(
+        trend_analysis.export.bundle,
+        "export_bundle",
+        lambda res, path: recorded.update(result=res, path=path),
+    )
+    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
+
+    bundle_file = tmp_path / "custom_bundle.zip"
+    cli._write_bundle(cfg, result, None, bundle_file, False, "run00")
+
+    out = capsys.readouterr().out
+    assert f"Bundle written: {bundle_file.resolve()}" in out
+    assert recorded["path"] == bundle_file.resolve()
+    assert getattr(result, "config") == cfg.__dict__
+    assert getattr(result, "input_path", None) is None
+
+
 def test_print_summary_emits_cache_stats(monkeypatch, capsys) -> None:
     result = RunResult(pd.DataFrame(), {"details": {}}, 1, {})
     cfg = SimpleNamespace(sample_split={"in_start": "2020-01", "out_end": "2020-12"})
@@ -716,6 +907,20 @@ def test_print_summary_emits_cache_stats(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "Summary text" in out
     assert "Cache statistics" in out
+
+
+def test_print_summary_skips_empty_cache_stats(monkeypatch, capsys) -> None:
+    result = RunResult(pd.DataFrame(), {"details": {}}, 1, {})
+    cfg = SimpleNamespace(sample_split={})
+
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a: "Summary text")
+    monkeypatch.setattr(cli, "_legacy_extract_cache_stats", lambda *_: {})
+
+    cli._print_summary(cfg, result)
+
+    out = capsys.readouterr().out
+    assert "Summary text" in out
+    assert "Cache statistics" not in out
 
 
 def test_write_report_files_creates_expected_outputs(
@@ -736,6 +941,23 @@ def test_write_report_files_creates_expected_outputs(
     assert metrics_path.exists()
     assert summary_path.read_text(encoding="utf-8") == "Report summary"
     assert json.loads(details_path.read_text(encoding="utf-8")) == {"details": {}}
+
+
+def test_resolve_report_output_path_with_directory(tmp_path: Path) -> None:
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+
+    resolved = cli._resolve_report_output_path(str(out_dir), None, "run01")
+
+    assert resolved == out_dir / "trend_report_run01.html"
+
+
+def test_resolve_report_output_path_without_suffix(tmp_path: Path) -> None:
+    target = tmp_path / "custom"
+
+    resolved = cli._resolve_report_output_path(str(target), tmp_path, "run02")
+
+    assert resolved == target / "trend_report_run02.html"
 
 
 def test_json_default_handles_known_types(tmp_path: Path) -> None:
