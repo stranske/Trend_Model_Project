@@ -143,6 +143,7 @@ def test_coerce_policy_kwarg_rejects_invalid_type() -> None:
         (5, 5),
         (5.0, 5),
         ("7", 7),
+        ("", None),
         (" none ", None),
         (None, None),
     ],
@@ -162,12 +163,8 @@ def test_coerce_limit_kwarg_rejects_non_numeric_string() -> None:
 
 
 def test_coerce_limit_kwarg_invalid_string_branch() -> None:
-    try:
+    with pytest.raises(TypeError):
         data_mod._coerce_limit_kwarg("invalid")
-    except TypeError:
-        pass
-    else:
-        pytest.fail("Expected TypeError for invalid string limit")
 
 
 def _build_metadata(columns: list[str]) -> MarketDataMetadata:
@@ -564,6 +561,31 @@ def test_load_parquet_legacy_nan_limit(
     assert captured["missing_limit"] == 4
 
 
+def test_load_parquet_legacy_nan_policy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parquet_file = tmp_path / "policy.parquet"
+    parquet_file.write_bytes(b"")
+
+    payload = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-31", periods=1, freq="ME"), "A": [0.1]}
+    )
+    monkeypatch.setattr(pd, "read_parquet", lambda _: payload)
+
+    captured: dict[str, Any] = {}
+
+    def fake_validate(frame: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
+        captured.update(kwargs)
+        return frame
+
+    monkeypatch.setattr(data_mod, "_validate_payload", fake_validate)
+
+    result = data_mod.load_parquet(str(parquet_file), nan_policy="BFill")
+
+    assert isinstance(result, pd.DataFrame)
+    assert captured["missing_policy"] == "BFill"
+
+
 def test_load_parquet_logs_validation_error(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -602,6 +624,23 @@ def test_load_parquet_validation_error_without_hint(
 
     assert result is None
     assert "Unable to parse Date values" not in caplog.text
+
+
+def test_load_parquet_validation_error_raises_when_requested(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parquet_file = tmp_path / "invalid_raise.parquet"
+    parquet_file.write_bytes(b"")
+
+    monkeypatch.setattr(pd, "read_parquet", lambda _: pd.DataFrame())
+
+    def raise_error(*_: Any, **__: Any) -> pd.DataFrame:
+        raise MarketDataValidationError("invalid")
+
+    monkeypatch.setattr(data_mod, "_validate_payload", raise_error)
+
+    with pytest.raises(MarketDataValidationError):
+        data_mod.load_parquet(str(parquet_file), errors="raise")
 
 
 def test_load_parquet_logs_missing_file(
