@@ -21,8 +21,8 @@ tasks:
     notes: []
   - id: task-03
     title: Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2025-11-12T03:28:25Z'
     finished_at: null
     commit: ''
     notes: []
