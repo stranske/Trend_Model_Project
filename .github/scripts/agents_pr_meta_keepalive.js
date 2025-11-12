@@ -5,6 +5,7 @@ const DEFAULT_INSTRUCTION_SIGNATURE =
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const INSTRUCTION_REACTION = 'hooray';
+const DEDUPE_REACTION = 'dart';
 
 function normaliseLogin(login) {
   return String(login || '')
@@ -341,12 +342,12 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     reactions = [];
   }
 
-  const hasProcessedReaction = reactions.some(
+  const hasInstructionReaction = reactions.some(
     (reaction) => (reaction?.content || '').toLowerCase() === INSTRUCTION_REACTION
   );
-  let hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+  let hasDedupeReaction = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === DEDUPE_REACTION);
 
-  let processedReaction = hasProcessedReaction;
+  let processedReaction = hasInstructionReaction;
   if (!processedReaction) {
     try {
       const response = await github.rest.reactions.createForIssueComment({
@@ -380,10 +381,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.processed_reaction = 'true';
 
-  if (hasRocket) {
+  if (hasDedupeReaction) {
     outputs.reason = 'duplicate-keepalive';
     outputs.deduped = 'true';
-    core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
+    core.info(`Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId}.`);
     return finalise(true);
   }
 
@@ -400,7 +401,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
       owner,
       repo,
       comment_id: commentId,
-      content: 'rocket',
+      content: DEDUPE_REACTION,
     });
     reactionStatus = Number(response?.status || 0);
     reactionContent = String(response?.data?.content || '').toLowerCase();
@@ -411,11 +412,13 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
       outputs.deduped = 'true';
-      core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via conflict).`);
+      core.info(
+        `Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId} (detected via conflict).`
+      );
       return finalise(true);
     }
 
-    let hasRocket = false;
+    let hasDedupeReactionRetry = false;
     try {
       const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
         owner,
@@ -423,28 +426,32 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
         comment_id: commentId,
         per_page: 100,
       });
-      hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+      hasDedupeReactionRetry = reactions.some(
+        (reaction) => (reaction?.content || '').toLowerCase() === DEDUPE_REACTION
+      );
     } catch (readError) {
       const readMessage = readError instanceof Error ? readError.message : String(readError);
       core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${readMessage}`);
     }
 
-    if (hasRocket) {
+    if (hasDedupeReactionRetry) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
       outputs.deduped = 'true';
-      core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
+      core.info(`Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId}.`);
       return finalise(true);
     }
 
-    core.warning(`Failed to add rocket reaction for dedupe on comment ${commentId}: ${message}`);
+    core.warning(`Failed to add ${DEDUPE_REACTION} reaction for dedupe on comment ${commentId}: ${message}`);
   }
 
-  if (reactionStatus === 200 && reactionContent === 'rocket') {
+  if (reactionStatus === 200 && reactionContent === DEDUPE_REACTION) {
     outputs.dispatch = 'false';
     outputs.reason = 'duplicate-keepalive';
     outputs.deduped = 'true';
-    core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`);
+    core.info(
+      `Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`
+    );
     return finalise(true);
   }
 

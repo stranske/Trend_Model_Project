@@ -1611,11 +1611,11 @@ jobs:
                 owner,
                 repo,
                 comment_id: commentId,
-                content: 'hooray',
+                content: 'dart',
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              core.warning(`Failed to add 🎉 reaction to keepalive comment ${commentId}: ${message}`);
+              core.warning(`Failed to add 🎯 reaction to keepalive comment ${commentId}: ${message}`);
             }
 
             let commentTimestamp = 0;
@@ -1669,7 +1669,7 @@ jobs:
                 comment_id: commentId,
                 per_page: 100,
               });
-              if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket')) {
+              if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'dart')) {
                 acknowledged = true;
                 ackSource = 'reaction';
                 break;
