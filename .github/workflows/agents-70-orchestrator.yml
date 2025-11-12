@@ -37,86 +37,6 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
-env:
-  PR_NUMBER: >-
-    ${{
-      github.event.pull_request.number
-      || github.event.issue.number
-      || (
-        github.event.workflow_run
-        && github.event.workflow_run.pull_requests
-        && github.event.workflow_run.pull_requests[0]
-        && github.event.workflow_run.pull_requests[0].number
-      )
-      || github.event.inputs.pr_number
-      || (
-        github.event.inputs
-        && fromJson((github.event.inputs.options_json || '{}')).pr
-      )
-      || (
-        github.event.inputs
-        && fromJson((github.event.inputs.options_json || '{}')).keepalive_pr
-      )
-      || (
-        github.event.client_payload
-        && (
-          github.event.client_payload.pr
-          || github.event.client_payload.pr_number
-          || github.event.client_payload.issue
-          || (
-            github.event.client_payload.options
-            && (
-              github.event.client_payload.options.pr
-              || github.event.client_payload.options.keepalive_pr
-            )
-          )
-          || fromJson((github.event.client_payload.options_json || '{}')).pr
-          || fromJson((github.event.client_payload.options_json || '{}')).keepalive_pr
-        )
-      )
-      || ''
-    }}
-  AGENT_ALIAS: >-
-    ${{
-      (
-        github.event.inputs
-        && (
-          fromJson((github.event.inputs.options_json || '{}')).agent
-          || fromJson((github.event.inputs.options_json || '{}')).agent_alias
-        )
-      )
-      || (
-        github.event.client_payload
-        && (
-          github.event.client_payload.agent
-          || github.event.client_payload.agent_alias
-          || (
-            github.event.client_payload.options
-            && (
-              github.event.client_payload.options.agent
-              || github.event.client_payload.options.agent_alias
-            )
-          )
-          || fromJson((github.event.client_payload.options_json || '{}')).agent
-          || fromJson((github.event.client_payload.options_json || '{}')).agent_alias
-        )
-      )
-      || 'codex'
-    }}
-
-concurrency:
-  group: >-
-    agents-70-orchestrator-${{ env.PR_NUMBER || 'unknown' }}-agent-${{ env.AGENT_ALIAS || 'codex' }}-${{
-      github.event.inputs.options_json || ''
-    }}-${{
-      github.event.client_payload && (
-        github.event.client_payload.options_json ||
-        github.event.client_payload.options ||
-        ''
-      )
-    }}-${{ github.run_id }}
-  cancel-in-progress: false
-
 jobs:
   idle-precheck:
     name: Idle precheck
@@ -1024,6 +944,121 @@ jobs:
           ACTIVE: ${{ steps.cap.outputs.active || '' }}
 
 
+  resolve-orchestrator-context:
+    name: Resolve orchestrator context
+    needs:
+      - resolve-params
+      - keepalive-guard
+    if: needs.keepalive-guard.outputs.proceed != 'false'
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number || '' }}
+      agent_alias: ${{ steps.resolve.outputs.agent_alias || '' }}
+    steps:
+      - name: Resolve PR number and agent alias
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ev = context.payload || {};
+
+            const parseMaybeJson = (value) => {
+              if (!value) {
+                return null;
+              }
+              if (typeof value === 'object') {
+                return value;
+              }
+              if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (!trimmed) {
+                  return null;
+                }
+                try {
+                  return JSON.parse(trimmed);
+                } catch (error) {
+                  core.warning(`resolve-context: failed to parse JSON payload: ${error.message || error}`);
+                  return null;
+                }
+              }
+              return null;
+            };
+
+            let prNumber =
+              ev.pull_request?.number ??
+              ev.issue?.number ??
+              ev.workflow_run?.pull_requests?.[0]?.number ??
+              ev.inputs?.pr_number ??
+              ev.client_payload?.pr ??
+              ev.client_payload?.pr_number ??
+              ev.client_payload?.issue ??
+              null;
+
+            const inputOptions = parseMaybeJson(ev.inputs?.options_json);
+            const payloadOptions = parseMaybeJson(ev.client_payload?.options_json || ev.client_payload?.options);
+
+            const fromPayload =
+              ev.client_payload?.agent ||
+              ev.client_payload?.agent_alias ||
+              (payloadOptions && (payloadOptions.agent || payloadOptions.agent_alias)) ||
+              (inputOptions && (inputOptions.agent || inputOptions.agent_alias)) ||
+              null;
+
+            const agentFromLabels = async (value) => {
+              if (!value) {
+                return null;
+              }
+              const numeric = Number.parseInt(String(value), 10);
+              if (!Number.isFinite(numeric) || numeric <= 0) {
+                return null;
+              }
+              try {
+                const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: numeric,
+                  per_page: 100,
+                });
+                const agentLabel = Array.isArray(labels)
+                  ? labels.find((entry) => {
+                      const labelName = typeof entry === 'string' ? entry : entry?.name;
+                      return typeof labelName === 'string' && /^agent:/i.test(labelName);
+                    })
+                  : null;
+                if (!agentLabel) {
+                  return null;
+                }
+                const value = typeof agentLabel === 'string' ? agentLabel : agentLabel?.name;
+                if (typeof value !== 'string') {
+                  return null;
+                }
+                const stripped = value.replace(/^agent:/i, '').trim();
+                return stripped || null;
+              } catch (error) {
+                core.warning(`resolve-context: failed to fetch labels for #${numeric}: ${error.message || error}`);
+                return null;
+              }
+            };
+
+            let agentAlias = fromPayload;
+            if (!agentAlias) {
+              agentAlias = await agentFromLabels(prNumber);
+            }
+            if (!agentAlias) {
+              agentAlias = 'codex';
+            }
+
+            if (!prNumber) {
+              prNumber = String(context.runId);
+            }
+
+            core.setOutput('pr_number', String(prNumber));
+            core.setOutput('agent_alias', String(agentAlias));
+
+            core.info(`Resolved orchestrator context: pr_number=${prNumber}, agent_alias=${agentAlias}`);
+
+
   keepalive-prep:
     name: Prepare keepalive round
     needs:
@@ -1547,7 +1582,11 @@ jobs:
     needs:
       - resolve-params
       - keepalive-guard
+      - resolve-orchestrator-context
     if: needs.keepalive-guard.outputs.proceed != 'false'
+    concurrency:
+      group: keepalive-orchestrator-pr-${{ needs.resolve-orchestrator-context.outputs.pr_number || github.run_id }}-agent-${{ needs.resolve-orchestrator-context.outputs.agent_alias || 'codex' }}-run-${{ github.run_id }}
+      cancel-in-progress: false
     uses: ./.github/workflows/reusable-16-agents.yml
     # Job timeouts live inside reusable-16-agents.yml to satisfy workflow_call constraints.
     with:
