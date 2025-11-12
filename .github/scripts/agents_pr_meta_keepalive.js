@@ -2,6 +2,10 @@
 
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
+const {
+  extractInstructionSegment,
+  computeInstructionByteLength,
+} = require('../../scripts/keepalive_instruction_segment.js');
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const INSTRUCTION_REACTION = 'hooray';
@@ -113,6 +117,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     comment_url: '',
     processed_reaction: 'false',
     deduped: 'false',
+    instruction_body: '',
+    instruction_bytes: '0',
   };
 
   const setBasicOutputs = () => {
@@ -133,6 +139,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('comment_url', outputs.comment_url);
     core.setOutput('processed_reaction', outputs.processed_reaction);
     core.setOutput('deduped', outputs.deduped);
+    core.setOutput('instruction_body', outputs.instruction_body || '');
+    core.setOutput('instruction_bytes', outputs.instruction_bytes || '0');
   };
 
   const { comment, issue } = context.payload || {};
@@ -310,6 +318,16 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.branch = pull?.head?.ref || '';
   outputs.base = pull?.base?.ref || '';
+
+  const instructionBody = extractInstructionSegment(body);
+  if (!instructionBody) {
+    outputs.reason = 'no-instruction-segment';
+    outputs.dispatch = 'false';
+    core.info('Keepalive dispatch skipped: unable to extract instruction segment.');
+    return finalise(true);
+  }
+  outputs.instruction_body = instructionBody;
+  outputs.instruction_bytes = String(computeInstructionByteLength(instructionBody));
 
   const headRepo = pull?.head?.repo;
   const baseRepo = pull?.base?.repo;

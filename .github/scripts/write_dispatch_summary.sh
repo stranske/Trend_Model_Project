@@ -9,6 +9,9 @@ pr_value_raw=${PR_NUMBER:-}
 fallback_pr=${FALLBACK_PR:-}
 comment_id_raw=${COMMENT_ID:-}
 comment_fallback=${COMMENT_FALLBACK:-}
+reason_value=${DISPATCH_REASON:-}
+agent_value=${DISPATCH_AGENT:-}
+bytes_value=${DISPATCH_BYTES:-}
 
 if [[ -z "${trace_value}" ]]; then
   trace_value='-'
@@ -38,6 +41,16 @@ if [[ -z "${comment_value}" ]]; then
   comment_value='<none>'
 fi
 
+if [[ -z "${reason_value}" ]]; then
+  reason_value='unspecified'
+fi
+if [[ -z "${agent_value}" ]]; then
+  agent_value='?'
+fi
+if [[ -z "${bytes_value}" ]]; then
+  bytes_value='0'
+fi
+
 dispatch_normalised=$(printf '%s' "${dispatch_value}" | tr '[:upper:]' '[:lower:]')
 if [[ "${dispatch_normalised}" == 'true' ]]; then
   ok_value='true'
@@ -45,7 +58,7 @@ else
   ok_value='false'
 fi
 
-summary_line="DISPATCH: ok=${ok_value} path=${path_label} pr=${pr_value} comment_id=${comment_value} trace=${trace_value}"
+summary_line="DISPATCH: ok=${ok_value} reason=${reason_value} pr=${pr_value} comment=${comment_value} agent=${agent_value} bytes=${bytes_value}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
