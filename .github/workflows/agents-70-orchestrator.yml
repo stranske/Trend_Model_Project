@@ -1611,11 +1611,11 @@ jobs:
                 owner,
                 repo,
                 comment_id: commentId,
-                content: 'eyes',
+                content: 'hooray',
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              core.warning(`Failed to add 👀 reaction to keepalive comment ${commentId}: ${message}`);
+              core.warning(`Failed to add 🎉 reaction to keepalive comment ${commentId}: ${message}`);
             }
 
             let commentTimestamp = 0;
@@ -1799,28 +1799,19 @@ jobs:
       - name: Summarise keepalive instruction
         run: |
           set -euo pipefail
-          round="${ROUND:-?}"
+          comment_id="${COMMENT_ID:-?}"
           trace="${TRACE:-missing}"
-          author="${AUTHOR:-unknown}"
-          agent="${AGENT:-codex}"
-          ack="${ACK:-no}"
-          comment_ref="${COMMENT_URL:-}"
-          if [ -n "${COMMENT_URL}" ]; then
-            comment_ref="${COMMENT_URL}"
-          elif [ -n "${COMMENT_ID}" ]; then
-            comment_ref="#${COMMENT_ID}"
-          else
-            comment_ref='(unavailable)'
-          fi
-          printf 'INSTRUCTION: round=%s trace=%s author=%s agent=%s comment=%s ack=%s\n' \
-            "${round}" "${trace}" "${author}" "${agent}" "${comment_ref}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
+          source="${AUTHOR:-unknown}"
+          seen="${SEEN:-false}"
+          deduped="${DEDUPED:-false}"
+          printf 'INSTRUCTION: comment_id=%s trace=%s source=%s seen=%s deduped=%s\n' \
+            "${comment_id}" "${trace}" "${source}" "${seen}" "${deduped}" >>"$GITHUB_STEP_SUMMARY"
         env:
-          ROUND: ${{ steps.prepare.outputs.round || '(unknown)' }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '(unavailable)' }}
           TRACE: ${{ steps.prepare.outputs.trace || '(missing)' }}
           AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '(unknown)' }}
-          AGENT: ${{ steps.render_instruction_summary.outputs.agent || steps.prepare.outputs.agent || 'codex' }}
-          COMMENT_LINK: ${{ steps.capture_comment.outputs.comment_url != '' && format('[#{0}]({1})', steps.capture_comment.outputs.comment_id, steps.capture_comment.outputs.comment_url) || steps.capture_comment.outputs.comment_id || '(unavailable)' }}
-          ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
+          SEEN: 'true'
+          DEDUPED: ${{ steps.ack.outputs.ack_source == 'reaction' && 'true' || 'false' }}
 
   orchestrate:
     name: Dispatch Agents Toolkit

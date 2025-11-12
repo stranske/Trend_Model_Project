@@ -9,6 +9,7 @@ const DEFAULT_AUTOMATION_DIRECTIVE_SUFFIX =
   'use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.';
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
+const INSTRUCTION_REACTION = 'hooray';
 
 function normaliseBody(value) {
   return String(value || '').replace(/\r\n/g, '\n').trim();
@@ -175,10 +176,20 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const keepaliveMarker = env.KEEPALIVE_MARKER || '';
   const agentAlias = resolveAgentAlias(env);
   const toBool = (value) => String(value || '').trim().toLowerCase() === 'true';
+  const allowReplay = toBool(env.ALLOW_REPLAY);
   const hasValue = (value) => typeof value === 'string' && value.trim() !== '';
   const gateOk = hasValue(env.GATE_OK) ? toBool(env.GATE_OK) : true;
   const gateReasonRaw = String(env.GATE_REASON || '').trim();
   const gatePending = hasValue(env.GATE_PENDING) ? toBool(env.GATE_PENDING) : false;
+
+  let eventName = String(context?.eventName || context?.event_name || '').toLowerCase();
+  if (!eventName && context?.payload?.comment) {
+    eventName = 'issue_comment';
+  }
+  let actionName = String(context?.payload?.action || '').toLowerCase();
+  if (!actionName && eventName === 'issue_comment') {
+    actionName = 'created';
+  }
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -244,6 +255,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     author: '',
     comment_id: '',
     comment_url: '',
+    processed_reaction: 'false',
+    deduped: 'false',
   };
 
   const setBasicOutputs = () => {
@@ -262,6 +275,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('author', outputs.author);
     core.setOutput('comment_id', outputs.comment_id);
     core.setOutput('comment_url', outputs.comment_url);
+    core.setOutput('processed_reaction', outputs.processed_reaction);
+    core.setOutput('deduped', outputs.deduped);
   };
 
   const { comment, issue } = context.payload || {};
@@ -275,6 +290,20 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.author = authorRaw;
   outputs.comment_id = comment?.id ? String(comment.id) : '';
   outputs.comment_url = comment?.html_url || '';
+
+  if (eventName === 'issue_comment' && actionName !== 'created') {
+    outputs.reason = 'ignored-comment-action';
+    core.info(`Keepalive dispatch skipped: unsupported issue_comment action "${actionName || 'unknown'}".`);
+    setAllOutputs();
+    return outputs;
+  }
+
+  if (eventName !== 'issue_comment' && !allowReplay) {
+    outputs.reason = 'unsupported-event';
+    core.info(`Keepalive dispatch skipped: event ${eventName || 'unknown'} not eligible for keepalive detection.`);
+    setAllOutputs();
+    return outputs;
+  }
 
   let workingBody = body;
   const canonicalRoundMatch = findFirstMatch(body, canonicalRoundPatterns);
@@ -470,6 +499,12 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
   const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
+  if (!trace) {
+    outputs.reason = 'missing-trace';
+    core.info('Keepalive dispatch skipped: comment missing keepalive trace marker.');
+    setAllOutputs();
+    return outputs;
+  }
   outputs.trace = trace;
 
   let pull;
@@ -505,22 +540,64 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     outputs.issue = String(issueNumber);
   }
 
-  let hasRocket = false;
+  let reactions = [];
   try {
-    const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+    reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
       owner,
       repo,
       comment_id: commentId,
       per_page: 100,
     });
-    hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${message}`);
+    reactions = [];
   }
+
+  const hasProcessedReaction = reactions.some(
+    (reaction) => (reaction?.content || '').toLowerCase() === INSTRUCTION_REACTION
+  );
+  let hasRocket = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket');
+
+  let processedReaction = hasProcessedReaction;
+  if (!processedReaction) {
+    try {
+      const response = await github.rest.reactions.createForIssueComment({
+        owner,
+        repo,
+        comment_id: commentId,
+        content: INSTRUCTION_REACTION,
+      });
+      const status = Number(response?.status || 0);
+      const content = String(response?.data?.content || '').toLowerCase();
+      if (status === 200 || status === 201 || content === INSTRUCTION_REACTION) {
+        processedReaction = true;
+      }
+    } catch (error) {
+      if (error && error.status === 409) {
+        processedReaction = true;
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        outputs.reason = 'instruction-reaction-failed';
+        core.warning(`Failed to add ${INSTRUCTION_REACTION} reaction for keepalive comment ${commentId}: ${message}`);
+        setAllOutputs();
+        return outputs;
+      }
+    }
+  }
+
+  if (!processedReaction) {
+    outputs.reason = 'missing-instruction-reaction';
+    core.info('Keepalive dispatch skipped: unable to confirm instruction reaction.');
+    setAllOutputs();
+    return outputs;
+  }
+
+  outputs.processed_reaction = 'true';
 
   if (hasRocket) {
     outputs.reason = 'duplicate-keepalive';
+    outputs.deduped = 'true';
     core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
     setAllOutputs();
     return outputs;
@@ -544,11 +621,13 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     });
     reactionStatus = Number(response?.status || 0);
     reactionContent = String(response?.data?.content || '').toLowerCase();
+    outputs.deduped = 'true';
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (error && error.status === 409) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
+      outputs.deduped = 'true';
       core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via conflict).`);
       setAllOutputs();
       return outputs;
@@ -571,6 +650,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     if (hasRocket) {
       outputs.dispatch = 'false';
       outputs.reason = 'duplicate-keepalive';
+      outputs.deduped = 'true';
       core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId}.`);
       setAllOutputs();
       return outputs;
@@ -582,6 +662,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (reactionStatus === 200 && reactionContent === 'rocket') {
     outputs.dispatch = 'false';
     outputs.reason = 'duplicate-keepalive';
+    outputs.deduped = 'true';
     core.info(`Keepalive dispatch skipped: rocket reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`);
     setAllOutputs();
     return outputs;
