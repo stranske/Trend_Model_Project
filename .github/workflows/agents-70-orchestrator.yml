@@ -1265,9 +1265,9 @@ jobs:
             core.setOutput('scope_block', scopeBlock);
 
             let highestRound = 0;
-            const markerRegex = /<!--\s*codex-keepalive-marker\s*-->/i;
-            const roundRegex = /<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i;
-            const traceRegex = /<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i;
+            const markerRegex = /<!--\s*codex-keepalive-marker\s*-->/;
+            const roundRegex = /<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/;
+            const traceRegex = /<!--\s*keepalive-trace\s*:?#?\s*([\s\S]*?)\s*-->/;
             let latestInstruction = null;
 
             try {
@@ -1295,7 +1295,12 @@ jobs:
                   highestRound = parsedRound;
                 }
 
-                const createdAt = Date.parse(comment?.created_at || comment?.updated_at || 0) || 0;
+                const createdAtRaw = comment?.created_at || comment?.updated_at || '';
+                const parsedCreatedAt = createdAtRaw ? Date.parse(createdAtRaw) : Number.NaN;
+                const createdAt = Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : 0;
+                const updatedAtRaw = comment?.updated_at || comment?.created_at || '';
+                const parsedUpdatedAt = updatedAtRaw ? Date.parse(updatedAtRaw) : Number.NaN;
+                const updatedAt = Number.isFinite(parsedUpdatedAt) ? parsedUpdatedAt : createdAt;
                 const candidate = {
                   round: parsedRound,
                   trace: traceMatch[1] ? traceMatch[1].trim() : '',
@@ -1303,14 +1308,17 @@ jobs:
                   commentUrl: comment?.html_url || '',
                   author: comment?.user?.login || '',
                   createdAt,
-                  updatedAt: Date.parse(comment?.updated_at || comment?.created_at || 0) || createdAt,
+                  updatedAt,
                   isEdited: Boolean(comment?.updated_at && comment?.created_at && comment.updated_at !== comment.created_at),
                 };
 
                 if (
                   !latestInstruction ||
                   candidate.round > latestInstruction.round ||
-                  (candidate.round === latestInstruction.round && candidate.createdAt >= latestInstruction.createdAt)
+                  (candidate.round === latestInstruction.round && (
+                    candidate.createdAt > latestInstruction.createdAt ||
+                    (candidate.createdAt === latestInstruction.createdAt && candidate.commentId > latestInstruction.commentId)
+                  ))
                 ) {
                   latestInstruction = candidate;
                 }
@@ -1324,30 +1332,41 @@ jobs:
 
             let existingInstructionReaction = 'false';
             if (latestInstruction?.commentId) {
-              try {
-                const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
-                  owner,
-                  repo,
-                  comment_id: Number(latestInstruction.commentId),
-                  per_page: 100,
-                });
-                existingInstructionReaction = reactions.some(
-                  (reaction) => (reaction?.content || '').toLowerCase() === 'hooray'
-                )
-                  ? 'true'
-                  : 'false';
-              } catch (reactionError) {
-                const message = reactionError instanceof Error ? reactionError.message : String(reactionError);
+              const parsedCommentId = Number(latestInstruction.commentId);
+              if (Number.isFinite(parsedCommentId)) {
+                try {
+                  const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+                    owner,
+                    repo,
+                    comment_id: parsedCommentId,
+                    per_page: 100,
+                  });
+                  existingInstructionReaction = reactions.some(
+                    (reaction) => (reaction?.content || '').toLowerCase() === 'hooray'
+                  )
+                    ? 'true'
+                    : 'false';
+                } catch (reactionError) {
+                  const message = reactionError instanceof Error ? reactionError.message : String(reactionError);
+                  core.warning(
+                    `Unable to retrieve reactions for keepalive instruction comment ${latestInstruction.commentId}: ${message}`
+                  );
+                }
+              } else {
                 core.warning(
-                  `Unable to retrieve reactions for keepalive instruction comment ${latestInstruction.commentId}: ${message}`
+                  `Skipping reaction inspection; keepalive instruction comment id "${latestInstruction.commentId}" is not numeric.`
                 );
               }
             }
 
             if (latestInstruction) {
+              // NOTE: This is a best-effort guard against duplicate postings. The orchestrator lacks
+              // a shared lock, so concurrent runs could still interleave between this scan and the
+              // eventual comment post. In practice the scheduled cadence keeps collisions low and
+              // a matching hooray reaction will prevent ongoing duplication.
               core.setOutput('existing_instruction_comment_id', latestInstruction.commentId || '');
               core.setOutput('existing_instruction_comment_url', latestInstruction.commentUrl || '');
-              core.setOutput('existing_instruction_round', String(latestInstruction.round || ''));
+              core.setOutput('existing_instruction_round', String(latestInstruction.round ?? ''));
               core.setOutput('existing_instruction_trace', latestInstruction.trace || '');
               core.setOutput('existing_instruction_author', latestInstruction.author || '');
               core.setOutput('existing_instruction_reaction', existingInstructionReaction || 'false');
