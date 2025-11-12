@@ -14,10 +14,10 @@ tasks:
     title: Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator
       (and, if needed, Worker) runs only, filters to this PR (use inputs.options_json.pr
       or head ref pattern), and counts queued + in_progress.
-    status: doing
+    status: done
     started_at: '2025-11-12T02:53:07Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-12T02:53:13Z'
+    commit: 51eee546d9f8d896c39149fd15c44c16725d0e6c
     notes: []
   - id: task-03
     title: Default cap = 2; read override from label agents:max-runs:X (clamp 1..5).
