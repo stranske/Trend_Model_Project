@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import base64
 import logging
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 import pandas as pd
@@ -267,7 +266,9 @@ def test_rank_summary_handles_invalid_inputs():
     bad_pct = unified._rank_summary({"inclusion_approach": "top_pct", "pct": "oops"})
     assert bad_pct == "top_pct"
 
-    bad_threshold = unified._rank_summary({"inclusion_approach": "threshold", "threshold": "boom"})
+    bad_threshold = unified._rank_summary(
+        {"inclusion_approach": "threshold", "threshold": "boom"}
+    )
     assert bad_threshold == "threshold"
 
 
@@ -291,7 +292,9 @@ def test_build_param_summary_exposes_optional_fields():
         run={},
         benchmarks={"SPX": "S&P 500", "NDX": "Nasdaq"},
         trend_spec=SimpleNamespace(window=63, lag=1, vol_adjust=False, zscore=False),
-        backtest_spec=SimpleNamespace(regime={"enabled": True, "method": "rolling"}, metrics=()),
+        backtest_spec=SimpleNamespace(
+            regime={"enabled": True, "method": "rolling"}, metrics=()
+        ),
     )
     params = dict(unified._build_param_summary(config))
     assert params["Out-of-sample window"].endswith("→ 2021-12")
@@ -374,7 +377,9 @@ def test_render_pdf_with_stub(monkeypatch: pytest.MonkeyPatch):
     assert pdf_bytes.startswith(b"%PDF")
 
 
-def test_render_pdf_handles_bytearray_and_missing_turnover(monkeypatch: pytest.MonkeyPatch):
+def test_render_pdf_handles_bytearray_and_missing_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+):
     class StubPDF(_StubPDFBase):
         def output(self, dest: str = "S") -> bytearray:
             return bytearray(b"%PDF-bytearray")
@@ -385,7 +390,9 @@ def test_render_pdf_handles_bytearray_and_missing_turnover(monkeypatch: pytest.M
     assert pdf_bytes == b"%PDF-bytearray"
 
 
-def test_render_pdf_logs_when_output_is_str(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+def test_render_pdf_logs_when_output_is_str(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     class StubPDF(_StubPDFBase):
         def output(self, dest: str = "S") -> str:
             return "%PDF-str"
