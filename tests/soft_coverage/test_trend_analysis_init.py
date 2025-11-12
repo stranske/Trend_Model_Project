@@ -1,10 +1,10 @@
 """Soft coverage tests for trend_analysis.__init__ module."""
 
+import dataclasses
 import importlib
 import sys
 from types import ModuleType, SimpleNamespace
 
-import dataclasses
 import pytest
 
 
@@ -76,8 +76,9 @@ def test_lazy_import_loader_registers_modules(trend_analysis_module, monkeypatch
 def test_dataclasses_guard_handles_missing_is_type(monkeypatch):
     """When dataclasses lacks _is_type the guard should exit without patching."""
 
-    import trend_analysis
     import dataclasses
+
+    import trend_analysis
 
     trend_analysis.__dict__.pop("_SAFE_IS_TYPE", None)
     monkeypatch.delattr(dataclasses, "_trend_model_patched", raising=False)
@@ -179,12 +180,16 @@ def test_conditional_forwarders_execute(monkeypatch):
     import trend_analysis
 
     trend_analysis_module = importlib.reload(trend_analysis)
-    trend_analysis_module.__dict__["data"] = importlib.import_module("trend_analysis.data")
+    trend_analysis_module.__dict__["data"] = importlib.import_module(
+        "trend_analysis.data"
+    )
     trend_analysis_module.__dict__["export"] = importlib.import_module(
         "trend_analysis.export"
     )
 
-    block = "\n" * 171 + """
+    block = (
+        "\n" * 171
+        + """
 if "data" in globals():
     from .data import identify_risk_free_fund, load_csv
 
@@ -209,11 +214,21 @@ if "export" in globals():
         reset_formatters_excel,
     )
 """
+    )
 
-    exec(compile(block, trend_analysis_module.__file__, "exec"), trend_analysis_module.__dict__)
+    exec(
+        compile(block, trend_analysis_module.__file__, "exec"),
+        trend_analysis_module.__dict__,
+    )
 
-    assert trend_analysis_module.identify_risk_free_fund is trend_analysis_module.data.identify_risk_free_fund
-    assert trend_analysis_module.export_bundle is trend_analysis_module.export.export_bundle
+    assert (
+        trend_analysis_module.identify_risk_free_fund
+        is trend_analysis_module.data.identify_risk_free_fund
+    )
+    assert (
+        trend_analysis_module.export_bundle
+        is trend_analysis_module.export.export_bundle
+    )
 
 
 def test_version_fallback_used_when_metadata_missing(monkeypatch):
