@@ -5,10 +5,10 @@ branch: codex/issue-3498
 tasks:
   - id: task-01
     title: Gate helper (.github/scripts/keepalive_gate.js)
-    status: doing
+    status: done
     started_at: '2025-11-12T02:46:26Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2025-11-12T02:46:32Z'
+    commit: b2c59458f5d0b46c65805a6afe399e08387fe24c
     notes: []
   - id: task-02
     title: Implement countActive({ prNumber, agentAlias? }) that lists Orchestrator
