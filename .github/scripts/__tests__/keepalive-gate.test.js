@@ -120,3 +120,66 @@ test('countActiveRuns ignores the current run id to avoid self-counting', async 
   assert.equal(result.inFlightRuns, 0);
   assert.equal(result.recentRuns, 0);
 });
+
+test('countActiveRuns recognises orchestrator concurrency tags for keepalive runs', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      {
+        id: 610,
+        concurrency: 'agents-70-orchestrator-42-keepalive-trace1234',
+        head_branch: 'phase-2-dev',
+        pull_requests: [],
+      },
+    ],
+    'agents-70-orchestrator.yml|in_progress': [],
+    'agents-70-orchestrator.yml|completed': [],
+  };
+  const github = makeGithubStub(registry);
+  const result = await countActiveRuns({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 42,
+    headSha: 'different-sha',
+    headRef: 'codex/issue-42',
+    currentRunId: 0,
+    workflowFile: 'agents-70-orchestrator.yml',
+    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
+  });
+
+  assert.equal(result.activeRuns, 1);
+  assert.equal(result.inFlightRuns, 1);
+  assert.equal(result.recentRuns, 0);
+});
+
+test('countActiveRuns detects PR markers in run display titles', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      {
+        id: 702,
+        display_title: 'Agents 70 Orchestrator (#99) keepalive sweep',
+        name: 'agents-70-orchestrator',
+        head_branch: 'phase-2-dev',
+        pull_requests: [],
+      },
+    ],
+    'agents-70-orchestrator.yml|in_progress': [],
+    'agents-70-orchestrator.yml|completed': [],
+  };
+  const github = makeGithubStub(registry);
+  const result = await countActiveRuns({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 99,
+    headSha: 'sha',
+    headRef: 'feature/other-branch',
+    currentRunId: 0,
+    workflowFile: 'agents-70-orchestrator.yml',
+    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
+  });
+
+  assert.equal(result.activeRuns, 1);
+  assert.equal(result.inFlightRuns, 1);
+  assert.equal(result.recentRuns, 0);
+});

@@ -10,6 +10,7 @@ const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
 const RECENT_RUN_LOOKBACK_MINUTES = 5;
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
+const ORCHESTRATOR_CONCURRENCY_PREFIX = 'agents-70-orchestrator-';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const GATE_WORKFLOW_FILE = 'pr-00-gate.yml';
 
@@ -392,6 +393,45 @@ async function countActiveRuns({
     return runId === parsedCurrent;
   };
 
+  const prDigits = Number.isFinite(prNumber) && prNumber > 0 ? String(prNumber) : '';
+
+  const matchesConcurrency = (run) => {
+    if (!prDigits) {
+      return false;
+    }
+    const raw = typeof run?.concurrency === 'string' ? run.concurrency.trim() : '';
+    if (!raw) {
+      return false;
+    }
+    const tokens = raw.split('-').filter(Boolean);
+    const orchestratorIndex = tokens.indexOf('orchestrator');
+    if (orchestratorIndex >= 0 && tokens[orchestratorIndex + 1] === prDigits) {
+      return true;
+    }
+    const workerIndex = tokens.indexOf('worker');
+    if (workerIndex >= 0 && tokens[workerIndex + 1] === prDigits) {
+      return true;
+    }
+    if (raw.startsWith(ORCHESTRATOR_CONCURRENCY_PREFIX)) {
+      const remainder = raw.slice(ORCHESTRATOR_CONCURRENCY_PREFIX.length);
+      const firstDash = remainder.indexOf('-');
+      const firstToken = firstDash === -1 ? remainder : remainder.slice(0, firstDash);
+      if (firstToken === prDigits) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const matchesDisplayTitle = (run) => {
+    if (!prDigits) {
+      return false;
+    }
+    const pattern = new RegExp(`#${escapeForRegex(prDigits)}(?![0-9])`);
+    const candidates = [run?.display_title, run?.name];
+    return candidates.some((value) => typeof value === 'string' && pattern.test(value));
+  };
+
   const matchesPull = (run) => {
     if (!run) {
       return false;
@@ -408,6 +448,12 @@ async function countActiveRuns({
       return true;
     }
     if (headRef && run.head_branch === headRef) {
+      return true;
+    }
+    if (matchesConcurrency(run)) {
+      return true;
+    }
+    if (matchesDisplayTitle(run)) {
       return true;
     }
     return false;
