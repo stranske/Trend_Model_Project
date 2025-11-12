@@ -4,6 +4,7 @@ const { setTimeout: sleep } = require('timers/promises');
 const { createKeepaliveStateManager } = require('./keepalive_state.js');
 
 const AGENT_LABEL_PREFIX = 'agent:';
+const MERGE_METHODS = new Set(['merge', 'squash', 'rebase']);
 
 
 function normalise(value) {
@@ -12,6 +13,75 @@ function normalise(value) {
 
 function normaliseLower(value) {
   return normalise(value).toLowerCase();
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  const lowered = normaliseLower(value);
+  if (!lowered) {
+    return fallback;
+  }
+  if (['true', '1', 'yes', 'on'].includes(lowered)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'off'].includes(lowered)) {
+    return false;
+  }
+  return fallback;
+}
+
+function parseCommaList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => normaliseLower(typeof entry === 'string' ? entry : entry?.login || entry?.name))
+      .filter(Boolean);
+  }
+  if (typeof value !== 'string') {
+    return [];
+  }
+  return value
+    .split(/[\s,]+/)
+    .map((entry) => normaliseLower(entry))
+    .filter(Boolean);
+}
+
+function clampMergeMethod(method, fallback = 'squash') {
+  const candidate = normaliseLower(method);
+  if (MERGE_METHODS.has(candidate)) {
+    return candidate;
+  }
+  if (candidate === 'ff' || candidate === 'fast-forward' || candidate === 'fastforward') {
+    return 'merge';
+  }
+  return fallback;
+}
+
+function toTimestamp(value) {
+  if (!value) {
+    return 0;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return parsed;
+}
+
+async function delay(ms) {
+  const value = Number(ms);
+  const timeout = Number.isFinite(value) && value > 0 ? value : 0;
+  await sleep(timeout);
 }
 
 function parseNumber(value, fallback, { min = Number.NEGATIVE_INFINITY } = {}) {
@@ -399,6 +469,228 @@ async function findFallbackRun({ github, owner, repo, createdAfter, existingRunI
   return null;
 }
 
+function buildAutomationLoginSet(value, fallback = []) {
+  const list = parseCommaList(value);
+  if (!list.length && Array.isArray(fallback) && fallback.length) {
+    return new Set(parseCommaList(fallback));
+  }
+  return new Set(list);
+}
+
+function containsTrace(text, trace) {
+  if (!text || !trace) {
+    return false;
+  }
+  const haystack = normaliseLower(text);
+  const needle = normaliseLower(trace);
+  if (!haystack || !needle) {
+    return false;
+  }
+  return haystack.includes(needle);
+}
+
+function scoreConnectorPr(pr, { trace, baseRef }) {
+  let score = 0;
+  if (!pr || typeof pr !== 'object') {
+    return score;
+  }
+  if (containsTrace(pr.title, trace)) {
+    score += 4;
+  }
+  if (containsTrace(pr.body, trace)) {
+    score += 3;
+  }
+  const headRef = normaliseLower(pr.head?.ref);
+  if (headRef && trace && headRef.includes(normaliseLower(trace))) {
+    score += 2;
+  }
+  if (headRef && baseRef && headRef.includes(normaliseLower(baseRef))) {
+    score += 1;
+  }
+  const createdAt = toTimestamp(pr.created_at || pr.updated_at || pr.closed_at);
+  if (Number.isFinite(createdAt) && createdAt > 0) {
+    score += 0.000001 * createdAt;
+  }
+  return score;
+}
+
+async function locateConnectorPullRequest({
+  github,
+  owner,
+  repo,
+  baseRef,
+  trace,
+  createdAfter,
+  allowedLogins,
+}) {
+  if (!github?.rest?.pulls?.list) {
+    return null;
+  }
+  try {
+    const response = await github.rest.pulls.list({
+      owner,
+      repo,
+      state: 'open',
+      base: baseRef,
+      sort: 'created',
+      direction: 'desc',
+      per_page: 50,
+    });
+    const pulls = Array.isArray(response?.data) ? response.data : [];
+    if (!pulls.length) {
+      return null;
+    }
+    const allowed = allowedLogins instanceof Set ? allowedLogins : new Set();
+    const threshold = createdAfter ? createdAfter - 30_000 : 0;
+    let candidate = null;
+    let candidateScore = Number.NEGATIVE_INFINITY;
+    for (const pr of pulls) {
+      const created = toTimestamp(pr.created_at || pr.updated_at);
+      if (threshold && created && created < threshold) {
+        break;
+      }
+      const login = normaliseLower(pr.user?.login);
+      if (allowed.size && (!login || !allowed.has(login))) {
+        continue;
+      }
+      const score = scoreConnectorPr(pr, { trace, baseRef });
+      if (candidate === null || score > candidateScore) {
+        candidate = pr;
+        candidateScore = score;
+      }
+    }
+    return candidate;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function mergeConnectorPullRequest({
+  github,
+  owner,
+  repo,
+  baseRef,
+  trace,
+  dispatchTimestamp,
+  allowedLogins,
+  mergeMethod,
+  deleteBranch,
+  record,
+  appendRound,
+}) {
+  const createdAfter = dispatchTimestamp ? toTimestamp(dispatchTimestamp) : 0;
+  const pr = await locateConnectorPullRequest({
+    github,
+    owner,
+    repo,
+    baseRef,
+    trace,
+    createdAfter,
+    allowedLogins,
+  });
+  if (!pr) {
+    record('Create-pr auto-merge', appendRound('no connector PR detected.'));
+    return { attempted: true, merged: false };
+  }
+
+  const prNumber = Number(pr.number);
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    record('Create-pr auto-merge', appendRound('skipped: invalid PR identifier.'));
+    return { attempted: true, merged: false };
+  }
+
+  try {
+    await github.rest.pulls.merge({
+      owner,
+      repo,
+      pull_number: prNumber,
+      merge_method: mergeMethod,
+      commit_title: `Keepalive sync ${trace || ''}`.trim(),
+    });
+    record('Create-pr auto-merge', appendRound(`merged PR #${prNumber} using ${mergeMethod}.`));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Create-pr auto-merge', appendRound(`failed: ${message}`));
+    return { attempted: true, merged: false, prNumber, error: message };
+  }
+
+  let branchDeleted = false;
+  if (deleteBranch && pr.head?.ref && !pr.head?.repo?.fork) {
+    try {
+      await github.rest.git.deleteRef({
+        owner,
+        repo,
+        ref: `heads/${pr.head.ref}`,
+      });
+      branchDeleted = true;
+      record('Create-pr cleanup', appendRound(`deleted branch ${pr.head.ref}.`));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      record('Create-pr cleanup', appendRound(`failed to delete branch ${pr.head.ref}: ${message}`));
+    }
+  }
+
+  return { attempted: true, merged: true, prNumber, branchDeleted };
+}
+
+function formatCommandBody(action, trace, round) {
+  const parts = [`/${normalise(action)}`.trim()];
+  if (trace) {
+    parts.push(`trace:${trace}`);
+  }
+  if (round) {
+    parts.push(`round:${round}`);
+  }
+  return parts.filter(Boolean).join(' ');
+}
+
+async function postCommandComment({
+  github,
+  owner,
+  repo,
+  prNumber,
+  action,
+  trace,
+  round,
+  record,
+  appendRound,
+}) {
+  const body = formatCommandBody(action, trace, round);
+  try {
+    const { data } = await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+    const commentId = data?.id ? Number(data.id) : 0;
+    record('Comment command', appendRound(`posted ${body}.`));
+    if (commentId > 0) {
+      try {
+        await github.rest.reactions.createForIssueComment({
+          owner,
+          repo,
+          comment_id: commentId,
+          content: 'eyes',
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        record('Comment reaction', appendRound(`failed to add 👀: ${message}`));
+      }
+    }
+    return {
+      posted: true,
+      body,
+      commentId,
+      commentUrl: data?.html_url || '',
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Comment command', appendRound(`failed to post ${body}: ${message}`));
+    return { posted: false, error: message };
+  }
+}
+
 async function runKeepalivePostWork({ core, github, context, env = process.env }) {
   const summaryHelper = buildSummaryRecorder(core?.summary);
   const record = summaryHelper.record;
@@ -424,18 +716,87 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
   const pollLong = parseNumber(env.POLL_LONG_MS, 5_000, { min: 0 });
+  const automationLogins = buildAutomationLoginSet(env.AUTOMATION_LOGINS);
+  const mergeMethod = clampMergeMethod(env.MERGE_METHOD, 'squash');
+  const deleteTempBranch = parseBoolean(env.DELETE_TEMP_BRANCH, true);
   const roundTag = `round=${round || '?'}`;
   const appendRound = (message) => `${message} ${roundTag}`;
+
+  const finalState = {
+    action: 'skip',
+    headMoved: false,
+    mode: 'none',
+    finalHead: '',
+    success: false,
+    summaryWritten: false,
+  };
+
+  const applyFinalState = (updates = {}) => {
+    if (!updates || typeof updates !== 'object') {
+      return finalState;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'action')) {
+      const value = normaliseLower(updates.action);
+      finalState.action = value || finalState.action;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'headMoved')) {
+      finalState.headMoved = Boolean(updates.headMoved);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'mode')) {
+      const raw = updates.mode;
+      finalState.mode = raw ? String(raw) : finalState.mode;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'finalHead')) {
+      const raw = updates.finalHead;
+      finalState.finalHead = raw ? String(raw) : '';
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'success')) {
+      finalState.success = Boolean(updates.success);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'summaryWritten')) {
+      finalState.summaryWritten = Boolean(updates.summaryWritten);
+    }
+    return finalState;
+  };
+
+  const setOutputsFromFinalState = () => {
+    core?.setOutput?.('action', finalState.action || 'skip');
+    core?.setOutput?.('changed', finalState.headMoved ? 'true' : 'false');
+    core?.setOutput?.('mode', finalState.mode || '');
+    core?.setOutput?.('success', finalState.success ? 'true' : 'false');
+    core?.setOutput?.('merged_sha', finalState.finalHead || '');
+  };
+
+  const flushSummary = async () => {
+    if (!finalState.summaryWritten && core?.summary) {
+      core.summary
+        .addRaw(
+          `SYNC: action=${finalState.action || 'skip'} head_moved=${finalState.headMoved ? 'true' : 'false'} trace=${
+            trace || 'n/a'
+          }`,
+        )
+        .addEOL();
+    }
+    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    finalState.summaryWritten = true;
+  };
+
+  const complete = async () => {
+    setOutputsFromFinalState();
+    await flushSummary();
+  };
 
   const { owner, repo } = context.repo || {};
   if (!owner || !repo) {
     record('Initialisation', 'Repository context missing; aborting.');
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: false, mode: 'initialisation-missing-repo' });
+    await complete();
     return;
   }
   if (!Number.isFinite(prNumber)) {
     record('Initialisation', 'PR number missing; aborting.');
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: false, mode: 'initialisation-missing-pr' });
+    await complete();
     return;
   }
 
@@ -540,9 +901,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       'Preconditions',
       `Agent state ${agentState.value || '(unknown)'} does not indicate completion; skipping sync gate.`,
     );
-    core?.setOutput?.('mode', 'skipped-agent-state');
-    core?.setOutput?.('success', 'false');
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: false, mode: 'skipped-agent-state', headMoved: false });
+    await complete();
     return;
   }
   record('Preconditions', `Agent reported done (${agentState.value || 'done'}).`);
@@ -553,15 +913,15 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     record('Initial head fetch', `Failed: ${message}`);
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: false, mode: 'head-fetch-failed', headMoved: false });
+    await complete();
     return;
   }
 
   if (isForkPull(initialHeadInfo)) {
     record('Initialisation', 'PR originates from a fork; skipping sync operations.');
-    core?.setOutput?.('mode', 'skipped-fork');
-    core?.setOutput?.('success', 'false');
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: false, mode: 'skipped-fork', headMoved: false });
+    await complete();
     return;
   }
 
@@ -599,11 +959,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         recorded_at: new Date().toISOString(),
       },
     });
-    core?.setOutput?.('mode', 'already-synced');
-    core?.setOutput?.('success', 'true');
-    core?.setOutput?.('merged_sha', finalHead || '');
     record('Result', appendRound(`mode=already-synced sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    applyFinalState({ action: 'skip', success: true, headMoved: true, finalHead, mode: 'already-synced' });
+    await complete();
     return;
   }
   const instructionComment = Number.isFinite(commentIdEnv)
@@ -618,6 +976,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
   const commentInfo = instructionComment;
 
+  let finalAction = 'skip';
 
   const attemptCommand = async (action, label) => {
     const actionKey = normalise(action);
@@ -630,9 +989,14 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
     const existing = getCommandActionState(actionKey);
     const alreadyForTrace = existing.idempotency_key && existing.idempotency_key === idempotencyKey && existing.dispatched;
+    const existingComment = existing.comment && typeof existing.comment === 'object' ? existing.comment : {};
+    const alreadyCommentForTrace =
+      existingComment.idempotency_key && existingComment.idempotency_key === idempotencyKey && existingComment.body;
     let dispatched = false;
     let dispatchTimestamp = existing.dispatched_at || new Date().toISOString();
     let reused = false;
+    let commentPosted = false;
+    let commentResult = null;
 
     if (alreadyForTrace) {
       reused = true;
@@ -659,7 +1023,26 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       });
     }
 
-    const mergedEntry = mergeStateShallow(existing, {
+    if (!alreadyForTrace && !dispatched) {
+      if (alreadyCommentForTrace) {
+        record('Comment command', appendRound('skipped: already posted for this trace.'));
+      } else {
+        commentResult = await postCommandComment({
+          github,
+          owner,
+          repo,
+          prNumber,
+          action: actionKey,
+          trace,
+          round,
+          record,
+          appendRound,
+        });
+        commentPosted = Boolean(commentResult?.posted);
+      }
+    }
+
+    let mergedEntry = mergeStateShallow(existing, {
       dispatched: alreadyForTrace ? existing.dispatched : dispatched,
       dispatched_at: dispatchTimestamp,
       idempotency_key: idempotencyKey,
@@ -668,6 +1051,22 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       reused,
     });
 
+    if (commentPosted && commentResult) {
+      mergedEntry = mergeStateShallow(mergedEntry, {
+        comment: {
+          id: commentResult.commentId || existingComment.id || 0,
+          url: commentResult.commentUrl || existingComment.url || '',
+          body: commentResult.body || existingComment.body || '',
+          posted_at: new Date().toISOString(),
+          idempotency_key: idempotencyKey,
+        },
+      });
+    } else if (alreadyCommentForTrace && existingComment) {
+      mergedEntry = mergeStateShallow(mergedEntry, {
+        comment: existingComment,
+      });
+    }
+
     await updateCommandState({
       history: buildHistoryWith(actionKey),
       last_action: actionKey,
@@ -675,9 +1074,45 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       [actionKey]: mergedEntry,
     });
 
-    const shouldPoll = reused || dispatched;
+    const shouldPoll = reused || dispatched || commentPosted || alreadyCommentForTrace;
     let pollResult = null;
     if (shouldPoll) {
+      if (actionKey === 'create-pr') {
+        const autoState = getCommandActionState(actionKey).auto_merge || {};
+        const alreadyMergedForTrace =
+          autoState.idempotency_key && autoState.idempotency_key === idempotencyKey && autoState.merged;
+        if (alreadyMergedForTrace) {
+          record('Create-pr auto-merge', appendRound('skipped: already merged for this trace.'));
+        } else {
+          const mergeResult = await mergeConnectorPullRequest({
+            github,
+            owner,
+            repo,
+            baseRef: headBranch || initialHeadInfo.headRef || '',
+            trace,
+            dispatchTimestamp,
+            allowedLogins: automationLogins,
+            mergeMethod,
+            deleteBranch: deleteTempBranch,
+            record,
+            appendRound,
+          });
+          if (mergeResult.attempted) {
+            await updateCommandState({
+              [actionKey]: mergeStateShallow(getCommandActionState(actionKey), {
+                auto_merge: {
+                  merged: Boolean(mergeResult.merged),
+                  pr_number: mergeResult.prNumber || autoState.pr_number || 0,
+                  merged_at: mergeResult.merged ? new Date().toISOString() : autoState.merged_at,
+                  branch_deleted: mergeResult.branchDeleted || false,
+                  idempotency_key: idempotencyKey,
+                },
+              }),
+            });
+          }
+        }
+      }
+
       pollResult = await pollForHeadChange({
         fetchHead,
         initialSha: baselineHead || initialHead,
@@ -703,9 +1138,10 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       finalHead = pollResult.headSha;
       baselineHead = finalHead;
       mode = `dispatch-${actionKey}`;
+      finalAction = actionKey;
     } else if (shouldPoll) {
-      message = 'Branch unchanged after command wait.';
-    } else if (!alreadyForTrace && !dispatched) {
+      message = commentPosted && !dispatched ? 'Command comment posted; awaiting connector response.' : 'Branch unchanged after command wait.';
+    } else if (!alreadyForTrace && !dispatched && !commentPosted && !alreadyCommentForTrace) {
       message = 'Dispatch unavailable; command not sent.';
     } else {
       message = 'Command already dispatched; awaiting external progress.';
@@ -715,7 +1151,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
     return {
       changed: Boolean(pollResult?.changed),
-      dispatched: dispatched || alreadyForTrace,
+      dispatched: dispatched || alreadyForTrace || commentPosted || alreadyCommentForTrace,
       headSha: pollResult?.headSha,
     };
   };
@@ -800,7 +1236,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         },
       });
     } else if (dispatchInfo.dispatched) {
-  record('Fallback dispatch', appendRound('reuse previous dispatch record.'));
+      record('Fallback dispatch', appendRound('reuse previous dispatch record.'));
     }
 
     const existingRunId = state.fallback_dispatch?.run_id;
@@ -831,7 +1267,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         });
       }
     } else if (dispatchInfo.dispatched) {
-  record('Fallback run', appendRound('pending discovery.'));
+      record('Fallback run', appendRound('pending discovery.'));
     }
 
     if (dispatchInfo.dispatched) {
@@ -848,9 +1284,10 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         finalHead = longPoll.headSha;
         baselineHead = finalHead;
         mode = 'action-sync-pr';
-  record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
+        finalAction = 'create-pr';
+        record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
       } else {
-  record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
+        record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
       }
     }
   }
@@ -858,10 +1295,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (!success && (!mode || mode === 'none')) {
     mode = 'sync-timeout';
   }
-
-  core?.setOutput?.('merged_sha', finalHead || '');
-  core?.setOutput?.('mode', mode);
-  core?.setOutput?.('success', success ? 'true' : 'false');
 
   if (success) {
     await applyStateUpdate({
@@ -887,8 +1320,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record('Sync label', `${syncLabel} not present.`);
     }
     const elapsed = Date.now() - startTime;
-  record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
-    await summaryHelper.flush(buildSyncSummaryLabel(trace));
+    record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
+    applyFinalState({ action: finalAction || 'skip', success: true, headMoved: true, finalHead, mode });
+    await complete();
     return;
   }
 
@@ -904,13 +1338,13 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   if (!hasSyncLabel) {
     try {
       await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
-  record('Sync label', appendRound(`Applied ${syncLabel}.`));
+      record('Sync label', appendRound(`Applied ${syncLabel}.`));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-  record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
+      record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
     }
   } else {
-  record('Sync label', appendRound(`${syncLabel} already present.`));
+    record('Sync label', appendRound(`${syncLabel} already present.`));
   }
 
   if (hasDebugLabel) {
@@ -924,20 +1358,21 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         issue_number: Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber,
         body: escalationMessage,
       });
-  record('Escalation comment', appendRound('Posted debug escalation comment.'));
+      record('Escalation comment', appendRound('Posted debug escalation comment.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-  record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+      record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
     }
   } else {
-  record('Escalation comment', appendRound('Debug label absent; no comment posted.'));
+    record('Escalation comment', appendRound('Debug label absent; no comment posted.'));
   }
 
   const timeoutMessage = appendRound(
     `mode=${mode || 'sync-timeout'} trace:${trace || 'missing'} elapsed=${Date.now() - startTime}ms`,
   );
   record('Result', timeoutMessage);
-  await summaryHelper.flush(buildSyncSummaryLabel(trace));
+  applyFinalState({ action: 'escalate', success: false, headMoved: false, mode, finalHead });
+  await complete();
 }
 
 module.exports = {
