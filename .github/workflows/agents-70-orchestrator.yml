@@ -1048,6 +1048,13 @@ jobs:
       base_ref: ${{ steps.snapshot.outputs.base_ref || '' }}
       agent: ${{ steps.render_instruction_body.outputs.agent || steps.prepare.outputs.agent || '' }}
       body: ${{ steps.render_instruction_body.outputs.body || '' }}
+      previous_round: ${{ steps.prepare.outputs.previous_round || '' }}
+      existing_instruction_comment_id: ${{ steps.prepare.outputs.existing_instruction_comment_id || '' }}
+      existing_instruction_comment_url: ${{ steps.prepare.outputs.existing_instruction_comment_url || '' }}
+      existing_instruction_round: ${{ steps.prepare.outputs.existing_instruction_round || '' }}
+      existing_instruction_trace: ${{ steps.prepare.outputs.existing_instruction_trace || '' }}
+      existing_instruction_author: ${{ steps.prepare.outputs.existing_instruction_author || '' }}
+      existing_instruction_reaction: ${{ steps.prepare.outputs.existing_instruction_reaction || 'false' }}
     steps:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
@@ -1258,6 +1265,11 @@ jobs:
             core.setOutput('scope_block', scopeBlock);
 
             let highestRound = 0;
+            const markerRegex = /<!--\s*codex-keepalive-marker\s*-->/i;
+            const roundRegex = /<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i;
+            const traceRegex = /<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i;
+            let latestInstruction = null;
+
             try {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner,
@@ -1267,21 +1279,85 @@ jobs:
               });
               for (const comment of comments) {
                 const body = comment?.body || '';
-                if (!body.includes('<!-- codex-keepalive-marker -->')) {
+                if (!markerRegex.test(body)) {
                   continue;
                 }
-                const match = body.match(/<!--\s*keepalive-round:\s*(\d+)\s*-->/i);
-                if (!match) {
+                const roundMatch = body.match(roundRegex);
+                const traceMatch = body.match(traceRegex);
+                if (!roundMatch || !traceMatch) {
                   continue;
                 }
-                const parsed = Number.parseInt(match[1], 10);
-                if (Number.isFinite(parsed) && parsed > highestRound) {
-                  highestRound = parsed;
+                const parsedRound = Number.parseInt(roundMatch[1], 10);
+                if (!Number.isFinite(parsedRound)) {
+                  continue;
+                }
+                if (parsedRound > highestRound) {
+                  highestRound = parsedRound;
+                }
+
+                const createdAt = Date.parse(comment?.created_at || comment?.updated_at || 0) || 0;
+                const candidate = {
+                  round: parsedRound,
+                  trace: traceMatch[1] ? traceMatch[1].trim() : '',
+                  commentId: comment?.id ? String(comment.id) : '',
+                  commentUrl: comment?.html_url || '',
+                  author: comment?.user?.login || '',
+                  createdAt,
+                  updatedAt: Date.parse(comment?.updated_at || comment?.created_at || 0) || createdAt,
+                  isEdited: Boolean(comment?.updated_at && comment?.created_at && comment.updated_at !== comment.created_at),
+                };
+
+                if (
+                  !latestInstruction ||
+                  candidate.round > latestInstruction.round ||
+                  (candidate.round === latestInstruction.round && candidate.createdAt >= latestInstruction.createdAt)
+                ) {
+                  latestInstruction = candidate;
                 }
               }
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Unable to scan existing keepalive comments: ${message}`);
+            }
+
+            core.setOutput('previous_round', highestRound ? String(highestRound) : '');
+
+            let existingInstructionReaction = 'false';
+            if (latestInstruction?.commentId) {
+              try {
+                const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+                  owner,
+                  repo,
+                  comment_id: Number(latestInstruction.commentId),
+                  per_page: 100,
+                });
+                existingInstructionReaction = reactions.some(
+                  (reaction) => (reaction?.content || '').toLowerCase() === 'hooray'
+                )
+                  ? 'true'
+                  : 'false';
+              } catch (reactionError) {
+                const message = reactionError instanceof Error ? reactionError.message : String(reactionError);
+                core.warning(
+                  `Unable to retrieve reactions for keepalive instruction comment ${latestInstruction.commentId}: ${message}`
+                );
+              }
+            }
+
+            if (latestInstruction) {
+              core.setOutput('existing_instruction_comment_id', latestInstruction.commentId || '');
+              core.setOutput('existing_instruction_comment_url', latestInstruction.commentUrl || '');
+              core.setOutput('existing_instruction_round', String(latestInstruction.round || ''));
+              core.setOutput('existing_instruction_trace', latestInstruction.trace || '');
+              core.setOutput('existing_instruction_author', latestInstruction.author || '');
+              core.setOutput('existing_instruction_reaction', existingInstructionReaction || 'false');
+            } else {
+              core.setOutput('existing_instruction_comment_id', '');
+              core.setOutput('existing_instruction_comment_url', '');
+              core.setOutput('existing_instruction_round', '');
+              core.setOutput('existing_instruction_trace', '');
+              core.setOutput('existing_instruction_author', '');
+              core.setOutput('existing_instruction_reaction', 'false');
             }
 
             round = Math.max(round, highestRound) + 1;
@@ -2022,6 +2098,13 @@ jobs:
           success="${POST_WORK_SUCCESS}";
           changed="${POST_WORK_CHANGED}";
           dry_run="${DRY_RUN}";
+          existing_round="${EXISTING_ROUND}"
+          existing_trace="${EXISTING_TRACE}"
+          existing_reaction="${EXISTING_REACTION}"
+          existing_comment_id="${EXISTING_COMMENT_ID}"
+          existing_comment_url="${EXISTING_COMMENT_URL}"
+          current_round="${CURRENT_ROUND}"
+          current_trace="${CURRENT_TRACE}"
           should_post='false'
           reason='post-work-unavailable'
 
@@ -2040,15 +2123,37 @@ jobs:
             reason="${result}"
           fi
 
+          if [ "${should_post}" = 'true' ]; then
+            if [ -n "${existing_round}" ] && [ -n "${current_round}" ] && [ "${existing_round}" = "${current_round}" ]; then
+              same_trace='false'
+              if [ -n "${existing_trace}" ] && [ -n "${current_trace}" ] && [ "${existing_trace}" = "${current_trace}" ]; then
+                same_trace='true'
+              fi
+              if [ "${same_trace}" = 'true' ] || [ "${existing_reaction}" = 'true' ]; then
+                should_post='false'
+                reason='existing-instruction'
+              fi
+            fi
+          fi
+
           echo "should_post=${should_post}" >>"$GITHUB_OUTPUT"
           echo "skip_reason=${reason}" >>"$GITHUB_OUTPUT"
           echo "SHOULD_POST=${should_post}" >>"$GITHUB_ENV"
           echo "SKIP_REASON=${reason}" >>"$GITHUB_ENV"
+          echo "EXISTING_COMMENT_ID=${existing_comment_id}" >>"$GITHUB_ENV"
+          echo "EXISTING_COMMENT_URL=${existing_comment_url}" >>"$GITHUB_ENV"
         env:
           POST_WORK_RESULT: ${{ needs.keepalive-post-work.result || '' }}
           POST_WORK_SUCCESS: ${{ needs.keepalive-post-work.outputs.success || '' }}
           POST_WORK_CHANGED: ${{ needs.keepalive-post-work.outputs.changed || '' }}
           DRY_RUN: ${{ needs.resolve-params.outputs.dry_run || '' }}
+          EXISTING_ROUND: ${{ needs.keepalive-prep.outputs.existing_instruction_round || '' }}
+          EXISTING_TRACE: ${{ needs.keepalive-prep.outputs.existing_instruction_trace || '' }}
+          EXISTING_REACTION: ${{ needs.keepalive-prep.outputs.existing_instruction_reaction || 'false' }}
+          EXISTING_COMMENT_ID: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_id || '' }}
+          EXISTING_COMMENT_URL: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_url || '' }}
+          CURRENT_ROUND: ${{ needs.keepalive-prep.outputs.round || '' }}
+          CURRENT_TRACE: ${{ needs.keepalive-prep.outputs.trace || '' }}
 
       - name: Ensure keepalive token available
         if: steps.gate.outputs.should_post == 'true'
@@ -2195,6 +2300,18 @@ jobs:
             }
 
             const { owner, repo } = context.repo;
+
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner,
+                repo,
+                comment_id: commentId,
+                content: 'hooray',
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to add 🥳 reaction to keepalive comment ${commentId}: ${message}`);
+            }
 
             try {
               await github.rest.reactions.createForIssueComment({
@@ -2391,8 +2508,18 @@ jobs:
           set -euo pipefail
           if [ "${SHOULD_POST}" != 'true' ]; then
             reason="${SKIP_REASON:-unknown}"
-            printf 'INSTRUCTION: round=%s trace=%s skipped reason=%s\n' \
-              "${ROUND:-?}" "${TRACE:-missing}" "${reason:-unknown}" >>"$GITHUB_STEP_SUMMARY"
+            extra=''
+            if [ "${reason}" = 'existing-instruction' ]; then
+              existing_ref='(unavailable)'
+              if [ -n "${EXISTING_COMMENT_URL}" ]; then
+                existing_ref="${EXISTING_COMMENT_URL}"
+              elif [ -n "${EXISTING_COMMENT_ID}" ]; then
+                existing_ref="#${EXISTING_COMMENT_ID}"
+              fi
+              extra=" existing=${existing_ref}"
+            fi
+            printf 'INSTRUCTION: round=%s trace=%s skipped reason=%s%s\n' \
+              "${ROUND:-?}" "${TRACE:-missing}" "${reason:-unknown}" "${extra}" >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           round="${ROUND:-?}"
@@ -2420,6 +2547,8 @@ jobs:
           ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
           SHOULD_POST: ${{ steps.gate.outputs.should_post || 'false' }}
           SKIP_REASON: ${{ steps.gate.outputs.skip_reason || '' }}
+          EXISTING_COMMENT_ID: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_id || '' }}
+          EXISTING_COMMENT_URL: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_url || '' }}
 
   belt-dispatch-summary:
     name: Summarise Codex dispatch outcomes
