@@ -2276,6 +2276,12 @@ jobs:
       actions: write
       contents: read
       pull-requests: write
+    outputs:
+      action: ${{ steps.reconcile.outputs.action || '' }}
+      changed: ${{ steps.reconcile.outputs.changed || 'false' }}
+      mode: ${{ steps.reconcile.outputs.mode || '' }}
+      merged_sha: ${{ steps.reconcile.outputs.merged_sha || '' }}
+      success: ${{ steps.reconcile.outputs.success || '' }}
     steps:
       - name: Ensure keepalive sync token available
         env:
@@ -2295,6 +2301,7 @@ jobs:
           fetch-depth: 1
 
       - name: Reconcile keepalive branch state
+        id: reconcile
         uses: actions/github-script@v7
         env:
           TRACE: ${{ needs.keepalive-instruction.outputs.trace }}

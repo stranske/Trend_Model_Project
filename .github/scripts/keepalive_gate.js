@@ -819,6 +819,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pendingGate = false;
 
   if (hasSyncRequiredLabel) {
+    ok = false;
     reason = 'sync-required';
   } else if (!hasKeepaliveLabel) {
     ok = false;
