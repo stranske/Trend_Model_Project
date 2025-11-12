@@ -3,38 +3,32 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  countActiveRuns,
-  RECENT_RUN_LOOKBACK_MINUTES,
-} = require('../keepalive_gate.js');
+const { countActive } = require('../keepalive_gate.js');
 
-function makeGithubStub(registry) {
+function makeGithubStub(registry, details = {}) {
   return {
     rest: {
       actions: {
         listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun({ run_id: runId }) {
+          if (Object.prototype.hasOwnProperty.call(details, runId)) {
+            return { data: details[runId] };
+          }
+          const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        },
       },
     },
-    async paginate(_fn, params, mapFn) {
+    async paginate(_fn, params) {
       const key = `${params.workflow_id}|${params.status}`;
       const payload = registry[key] || [];
-      if (typeof mapFn === 'function') {
-        let stopped = false;
-        const done = () => {
-          stopped = true;
-        };
-        mapFn({ data: payload }, done);
-        if (stopped) {
-          return [];
-        }
-        return [];
-      }
       return payload;
     },
   };
 }
 
-test('countActiveRuns tallies in-flight runs without duplication', async () => {
+test('countActive counts queued and in-progress orchestrator runs without duplication', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
       { id: 101, pull_requests: [{ number: 42 }] },
@@ -44,10 +38,9 @@ test('countActiveRuns tallies in-flight runs without duplication', async () => {
       { id: 103, pull_requests: [{ number: 42 }] },
       { id: 101, pull_requests: [{ number: 42 }] }, // duplicate id should not double count
     ],
-    'agents-70-orchestrator.yml|completed': [],
   };
   const github = makeGithubStub(registry);
-  const result = await countActiveRuns({
+  const result = await countActive({
     github,
     owner: 'stranske',
     repo: 'Trend_Model_Project',
@@ -55,56 +48,55 @@ test('countActiveRuns tallies in-flight runs without duplication', async () => {
     headSha: 'abc',
     headRef: 'feature/run-cap',
     currentRunId: 9999,
-    workflowFile: 'agents-70-orchestrator.yml',
-    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
   });
 
-  assert.equal(result.activeRuns, 2); // ids 101 and 103
-  assert.equal(result.inFlightRuns, 2);
-  assert.equal(result.recentRuns, 0);
+  assert.equal(result.active, 2); // ids 101 and 103
+  assert.equal(result.breakdown.get('orchestrator'), 2);
+  assert.equal(result.breakdown.get('worker'), undefined);
 });
 
-test('countActiveRuns treats recent completed runs as active within the window', async () => {
-  const now = Date.now();
-  const recentIso = new Date(now - 2 * 60 * 1000).toISOString();
-  const oldIso = new Date(now - 15 * 60 * 1000).toISOString();
-
+test('countActive optionally includes worker runs when requested', async () => {
   const registry = {
-    'agents-70-orchestrator.yml|queued': [],
-    'agents-70-orchestrator.yml|in_progress': [],
-    'agents-70-orchestrator.yml|completed': [
-      { id: 201, pull_requests: [{ number: 7 }], updated_at: recentIso },
-      { id: 202, pull_requests: [{ number: 7 }], updated_at: oldIso },
+    'agents-70-orchestrator.yml|queued': [
+      { id: 201, pull_requests: [{ number: 7 }] },
+    ],
+    'agents-72-codex-belt-worker.yml|in_progress': [
+      { id: 301, pull_requests: [{ number: 7 }] },
     ],
   };
   const github = makeGithubStub(registry);
-  const result = await countActiveRuns({
+  const withoutWorker = await countActive({
     github,
     owner: 'stranske',
     repo: 'Trend_Model_Project',
     prNumber: 7,
-    headSha: 'xyz',
-    headRef: 'feature/recent-run',
-    currentRunId: 0,
-    workflowFile: 'agents-70-orchestrator.yml',
-    recentWindowMinutes: 5,
+    includeWorker: false,
   });
 
-  assert.equal(result.inFlightRuns, 0);
-  assert.equal(result.recentRuns, 1);
-  assert.equal(result.activeRuns, 1);
+  assert.equal(withoutWorker.active, 1);
+  assert.equal(withoutWorker.breakdown.get('orchestrator'), 1);
+  assert.equal(withoutWorker.breakdown.get('worker'), undefined);
+
+  const withWorker = await countActive({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 7,
+  });
+
+  assert.equal(withWorker.active, 2);
+  assert.equal(withWorker.breakdown.get('orchestrator'), 1);
+  assert.equal(withWorker.breakdown.get('worker'), 1);
 });
 
-test('countActiveRuns ignores the current run id to avoid self-counting', async () => {
+test('countActive ignores the current run id to avoid self-counting', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
       { id: 555, pull_requests: [{ number: 5 }] },
     ],
-    'agents-70-orchestrator.yml|in_progress': [],
-    'agents-70-orchestrator.yml|completed': [],
   };
   const github = makeGithubStub(registry);
-  const result = await countActiveRuns({
+  const result = await countActive({
     github,
     owner: 'stranske',
     repo: 'Trend_Model_Project',
@@ -112,11 +104,35 @@ test('countActiveRuns ignores the current run id to avoid self-counting', async 
     headSha: 'sha',
     headRef: 'refs/heads/branch',
     currentRunId: 555,
-    workflowFile: 'agents-70-orchestrator.yml',
-    recentWindowMinutes: RECENT_RUN_LOOKBACK_MINUTES,
   });
 
-  assert.equal(result.activeRuns, 0);
-  assert.equal(result.inFlightRuns, 0);
-  assert.equal(result.recentRuns, 0);
+  assert.equal(result.active, 0);
+  assert.equal(result.breakdown.size, 0);
+});
+
+test('countActive matches by branch metadata when pull requests array is empty', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|queued': [
+      { id: 610, head_branch: 'refs/heads/feature/match-me' },
+    ],
+  };
+  const details = {
+    610: {
+      id: 610,
+      head_branch: 'feature/match-me',
+      head_sha: 'abc123',
+    },
+  };
+  const github = makeGithubStub(registry, details);
+  const result = await countActive({
+    github,
+    owner: 'stranske',
+    repo: 'Trend_Model_Project',
+    prNumber: 8,
+    headRef: 'feature/match-me',
+    headSha: 'abc123',
+  });
+
+  assert.equal(result.active, 1);
+  assert.equal(result.breakdown.get('orchestrator'), 1);
 });
