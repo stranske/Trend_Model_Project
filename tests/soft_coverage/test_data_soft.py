@@ -98,9 +98,14 @@ def test_coerce_limit_kwarg_accepts_valid_types() -> None:
         _coerce_limit_kwarg(["bad"])  # type: ignore[arg-type]
 
 
-def test_finalise_validated_frame_includes_metadata(sample_metadata: MarketDataMetadata) -> None:
+def test_finalise_validated_frame_includes_metadata(
+    sample_metadata: MarketDataMetadata,
+) -> None:
     frame = pd.DataFrame(
-        {"Date": pd.date_range("2024-01-01", periods=3, freq="D"), "FundA": [1.0, 2.0, 3.0]}
+        {
+            "Date": pd.date_range("2024-01-01", periods=3, freq="D"),
+            "FundA": [1.0, 2.0, 3.0],
+        }
     ).set_index("Date")
     validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
 
@@ -111,11 +116,17 @@ def test_finalise_validated_frame_includes_metadata(sample_metadata: MarketDataM
     attrs = result.attrs["market_data"]
     assert attrs["metadata"] is sample_metadata
     assert result.attrs["market_data_mode"] == sample_metadata.mode.value
-    assert result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
+    assert (
+        result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
+    )
 
 
-def test_finalise_validated_frame_without_date_column(sample_metadata: MarketDataMetadata) -> None:
-    frame = pd.DataFrame({"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date"))
+def test_finalise_validated_frame_without_date_column(
+    sample_metadata: MarketDataMetadata,
+) -> None:
+    frame = pd.DataFrame(
+        {"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date")
+    )
     validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
 
     result = _finalise_validated_frame(validated, include_date_column=False)
@@ -143,7 +154,9 @@ def test_normalise_numeric_strings_handles_percentages_and_parentheses() -> None
     assert cleaned["Text"].tolist() == ["alpha", "beta", "gamma"]
 
 
-def test_validate_payload_normalises_inputs(monkeypatch: pytest.MonkeyPatch, sample_metadata: MarketDataMetadata) -> None:
+def test_validate_payload_normalises_inputs(
+    monkeypatch: pytest.MonkeyPatch, sample_metadata: MarketDataMetadata
+) -> None:
     payload = pd.DataFrame(
         {
             "Date": pd.date_range("2024-01-01", periods=3, freq="D"),
@@ -189,7 +202,9 @@ def test_validate_payload_normalises_inputs(monkeypatch: pytest.MonkeyPatch, sam
     assert result.attrs["market_data_missing_policy"] == sample_metadata.missing_policy
 
 
-def test_validate_payload_handles_custom_policy_mapping(monkeypatch: pytest.MonkeyPatch, sample_metadata: MarketDataMetadata) -> None:
+def test_validate_payload_handles_custom_policy_mapping(
+    monkeypatch: pytest.MonkeyPatch, sample_metadata: MarketDataMetadata
+) -> None:
     class StarMapping(dict):
         def __contains__(self, key: object) -> bool:  # pragma: no cover - exercised
             return key == "*" or super().__contains__(key)
@@ -220,7 +235,9 @@ def test_validate_payload_handles_custom_policy_mapping(monkeypatch: pytest.Monk
     assert captured["missing_policy"] == {"FundA": "1", "*": DEFAULT_POLICY_FALLBACK}
 
 
-def test_validate_payload_logs_non_parse_failure(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_validate_payload_logs_non_parse_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     payload = pd.DataFrame({"Date": ["bad"], "Value": [1]})
 
     def fake_validate(payload: pd.DataFrame, **_: Any) -> ValidatedMarketData:
@@ -229,13 +246,17 @@ def test_validate_payload_logs_non_parse_failure(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
     with caplog.at_level(logging.ERROR):
-        result = _validate_payload(payload, origin="sample.csv", errors="log", include_date_column=True)
+        result = _validate_payload(
+            payload, origin="sample.csv", errors="log", include_date_column=True
+        )
 
     assert result is None
     assert "Upstream failure" in caplog.text
 
 
-def test_validate_payload_logs_parse_failures(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_validate_payload_logs_parse_failures(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     payload = pd.DataFrame({"Date": ["bad"], "Value": [1]})
 
     def fake_validate(payload: pd.DataFrame, **_: Any) -> ValidatedMarketData:
@@ -244,13 +265,17 @@ def test_validate_payload_logs_parse_failures(monkeypatch: pytest.MonkeyPatch, c
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
     with caplog.at_level(logging.ERROR):
-        result = _validate_payload(payload, origin="sample.csv", errors="log", include_date_column=True)
+        result = _validate_payload(
+            payload, origin="sample.csv", errors="log", include_date_column=True
+        )
 
     assert result is None
     assert "Unable to parse Date values in sample.csv" in caplog.text
 
 
-def test_validate_payload_reraises_when_requested(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_payload_reraises_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = pd.DataFrame({"Date": ["bad"], "Value": [1]})
 
     def fake_validate(payload: pd.DataFrame, **_: Any) -> ValidatedMarketData:
@@ -259,7 +284,9 @@ def test_validate_payload_reraises_when_requested(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
     with pytest.raises(MarketDataValidationError):
-        _validate_payload(payload, origin="sample.csv", errors="raise", include_date_column=True)
+        _validate_payload(
+            payload, origin="sample.csv", errors="raise", include_date_column=True
+        )
 
 
 def test_is_readable_checks_permission_bits() -> None:
@@ -269,7 +296,9 @@ def test_is_readable_checks_permission_bits() -> None:
     assert _is_readable(not_readable_mode) is False
 
 
-def test_load_csv_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_metadata: MarketDataMetadata) -> None:
+def test_load_csv_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_metadata: MarketDataMetadata
+) -> None:
     csv_path = tmp_path / "data.csv"
     frame = pd.DataFrame(
         {
@@ -304,7 +333,9 @@ def test_load_csv_missing_file_logs_error(caplog: pytest.LogCaptureFixture) -> N
     assert missing_path in caplog.text
 
 
-def test_load_csv_directory_returns_none(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_directory_returns_none(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     directory = tmp_path / "nested"
     directory.mkdir()
     with caplog.at_level(logging.ERROR):
@@ -313,7 +344,9 @@ def test_load_csv_directory_returns_none(tmp_path: Path, caplog: pytest.LogCaptu
     assert str(directory) in caplog.text
 
 
-def test_load_csv_permission_denied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_permission_denied(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     csv_path = tmp_path / "data.csv"
     csv_path.write_text("Date,FundA\n2024-01-01,1\n")
 
@@ -328,7 +361,9 @@ def test_load_csv_permission_denied(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         load_csv(str(csv_path), errors="raise")
 
 
-def test_load_csv_reports_validation_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_csv_reports_validation_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     csv_path = tmp_path / "data.csv"
     csv_path.write_text("Date,FundA\n2024-01-01,1\n")
 
@@ -344,7 +379,9 @@ def test_load_csv_reports_validation_failure(monkeypatch: pytest.MonkeyPatch, tm
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_parquet_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_metadata: MarketDataMetadata) -> None:
+def test_load_parquet_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_metadata: MarketDataMetadata
+) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
     frame = pd.DataFrame(
@@ -373,7 +410,9 @@ def test_load_parquet_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, s
     assert list(result.index) == list(frame.set_index("Date").index)
 
 
-def test_load_parquet_logs_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_logs_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     parquet_path = tmp_path / "missing.parquet"
     parquet_path.write_bytes(b"")
 
@@ -395,7 +434,9 @@ def test_load_parquet_missing_file_logs_error(caplog: pytest.LogCaptureFixture) 
     assert "nonexistent.parquet" in caplog.text
 
 
-def test_load_parquet_validation_error_logs_message(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_validation_error_logs_message(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 
@@ -415,7 +456,9 @@ def test_load_parquet_validation_error_logs_message(monkeypatch: pytest.MonkeyPa
     assert "Other failure" in caplog.text
 
 
-def test_load_parquet_logs_errors_in_raise_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_logs_errors_in_raise_mode(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     parquet_path = tmp_path / "empty.parquet"
     parquet_path.write_bytes(b"")
 
@@ -428,7 +471,9 @@ def test_load_parquet_logs_errors_in_raise_mode(monkeypatch: pytest.MonkeyPatch,
         load_parquet(str(parquet_path), errors="raise")
 
 
-def test_load_parquet_directory_logs_error(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_load_parquet_directory_logs_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     directory = tmp_path / "dir"
     directory.mkdir()
     with caplog.at_level(logging.ERROR):
@@ -437,7 +482,9 @@ def test_load_parquet_directory_logs_error(tmp_path: Path, caplog: pytest.LogCap
     assert str(directory) in caplog.text
 
 
-def test_load_parquet_permission_denied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_parquet_permission_denied(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 
@@ -453,16 +500,19 @@ def test_validate_dataframe_delegates(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def fake_validate(payload: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
         called["payload"] = payload
-        return ValidatedMarketData(frame=payload.set_index("Date"), metadata=MarketDataMetadata(
-            mode=MarketDataMode.RETURNS,
-            frequency="daily",
-            frequency_detected="D",
-            frequency_label="Daily",
-            start=datetime(2024, 1, 1),
-            end=datetime(2024, 1, 1),
-            rows=1,
-            columns=["Fund"],
-        ))
+        return ValidatedMarketData(
+            frame=payload.set_index("Date"),
+            metadata=MarketDataMetadata(
+                mode=MarketDataMode.RETURNS,
+                frequency="daily",
+                frequency_detected="D",
+                frequency_label="Daily",
+                start=datetime(2024, 1, 1),
+                end=datetime(2024, 1, 1),
+                rows=1,
+                columns=["Fund"],
+            ),
+        )
 
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
