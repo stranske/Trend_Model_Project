@@ -84,6 +84,7 @@ jobs:
                 prNumber: issueNumber,
                 comments: comment,
                 requireHumanActivation: true,
+                requireGateSuccess: true,
               },
             });
 
@@ -296,6 +297,7 @@ jobs:
                 prNumber,
                 headSha,
                 requireHumanActivation: true,
+                requireGateSuccess: true,
                 currentRunId: workflowRun.id,
               },
             });
@@ -663,6 +665,8 @@ jobs:
               comment_url: commentUrl,
               round,
               trace,
+              quiet: true,
+              reply: 'none',
             };
 
             await github.rest.repos.createDispatchEvent({
@@ -861,6 +865,8 @@ jobs:
               comment_url: commentUrl || fallbackCommentUrl,
               round,
               trace,
+              quiet: true,
+              reply: 'none',
             };
 
             await github.rest.repos.createDispatchEvent({
@@ -897,6 +903,7 @@ jobs:
       - name: Update PR body
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -1274,6 +1281,11 @@ jobs:
                   return rule.requiredStatusCheckContexts.filter((item) => typeof item === 'string' && item.trim());
                 }
               } catch (error) {
+                const status = error && typeof error.status === 'number' ? error.status : null;
+                if (status === 403) {
+                  core.info('Branch protection lookup unauthorized; skipping required check enrichment.');
+                  return [];
+                }
                 core.info(`Branch protection lookup failed: ${error.message}`);
               }
               return [];

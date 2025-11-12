@@ -200,73 +200,8 @@ function isForkPull(initialInfo) {
   return Boolean(forkFlag);
 }
 
-async function postUpdateBranchComment({ github, owner, repo, prNumber, trace, roundTag = 'round=?', record }) {
-  const body = `/update-branch trace:${trace}`;
-  try {
-    const { data } = await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body,
-    });
-    const info = {
-      id: data?.id ? Number(data.id) : 0,
-      url: data?.html_url || '',
-      author: data?.user?.login || '',
-      created_at: data?.created_at || new Date().toISOString(),
-    };
-    record('Comment', `posted=/update-branch id=${info.id || '?'} author=${info.author || 'unknown'} trace=${trace} ${roundTag}`);
-    return info;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    record('Comment', `failed to post /update-branch: ${message} ${roundTag}`);
-    return null;
-  }
-}
 
-async function ensureEyesReaction({ github, owner, repo, commentId, roundTag = 'round=?', record }) {
-  if (!commentId) {
-    return false;
-  }
-  try {
-    await github.rest.reactions.createForIssueComment({
-      owner,
-      repo,
-      comment_id: commentId,
-      content: 'eyes',
-    });
-    record('Comment reaction', `👀 added ${roundTag}`);
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    record('Comment reaction', `failed: ${message} ${roundTag}`);
-    return false;
-  }
-}
 
-async function fetchCommentDetails({ github, owner, repo, commentId, record }) {
-  if (!commentId || !github?.rest?.issues?.getComment) {
-    return null;
-  }
-  try {
-    const { data } = await github.rest.issues.getComment({
-      owner,
-      repo,
-      comment_id: Number(commentId),
-    });
-    return {
-      id: data?.id ? Number(data.id) : Number(commentId),
-      url: data?.html_url || '',
-      author: data?.user?.login || '',
-      body: data?.body || '',
-      created_at: data?.created_at || '',
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    record?.('Comment resolve', `failed to fetch id=${commentId}: ${message}`);
-    return null;
-  }
-}
 
 function mergeStateShallow(target, updates) {
   if (!updates || typeof updates !== 'object') {
@@ -346,6 +281,8 @@ async function dispatchCommand({
   if (idempotencyKey) {
     payload.idempotency_key = idempotencyKey;
   }
+  payload.quiet = true;
+  payload.reply = 'none';
 
   try {
     await github.rest.repos.createDispatchEvent({
@@ -483,7 +420,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
   const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
-  const expectedCommentAuthor = normalise(env.EXPECTED_COMMENT_AUTHOR) || 'stranske';
   const ttlShort = parseNumber(env.TTL_SHORT_MS, 90_000, { min: 0 });
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
@@ -670,105 +606,18 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     await summaryHelper.flush(buildSyncSummaryLabel(trace));
     return;
   }
-
-  const commentState = state.comment_command || {};
-  let commentInfo = commentState.id
-    ? { id: commentState.id, url: commentState.url, author: commentState.author, created_at: commentState.created_at }
+  const instructionComment = Number.isFinite(commentIdEnv)
+    ? { id: Number(commentIdEnv), url: commentUrlEnv || '' }
     : null;
-  let commentPostedThisRun = false;
-  if (!commentInfo && commentIdEnv) {
-    commentInfo = { id: commentIdEnv, url: commentUrlEnv }; // fallback from env if provided
-  }
 
-  const ensureCommentAuthor = async () => {
-    if (!commentInfo?.id) {
-      core?.setOutput?.('comment_author_ok', 'skipped');
-      record('Comment author', appendRound('skipped: no comment id'));
-      return;
-    }
-
-    let resolved = commentInfo;
-    if (!resolved.author) {
-      const fetched = await fetchCommentDetails({ github, owner, repo, commentId: commentInfo.id, record });
-      if (fetched) {
-        resolved = {
-          ...resolved,
-          author: fetched.author || resolved.author,
-          url: fetched.url || resolved.url,
-          created_at: resolved.created_at || fetched.created_at,
-        };
-        await applyStateUpdate({
-          comment_command: {
-            ...(state.comment_command || {}),
-            id: resolved.id,
-            url: resolved.url,
-            author: resolved.author,
-            created_at: resolved.created_at,
-          },
-        });
-      }
-    }
-
-    const actual = normalise(resolved?.author);
-    const expectedLower = expectedCommentAuthor.toLowerCase();
-    const ok = actual && actual.toLowerCase() === expectedLower;
-    if (ok) {
-      record('Comment author', appendRound(`verified author=${actual}`));
-      core?.setOutput?.('comment_author_ok', 'true');
-    } else {
-      record(
-        'Comment author',
-        appendRound(`mismatch expected=${expectedCommentAuthor} actual=${actual || '(unknown)'}`),
-      );
-      core?.setOutput?.('comment_author_ok', 'false');
-    }
-    commentInfo = resolved;
-  };
-
-  if (!commentInfo) {
-    const posted = await postUpdateBranchComment({ github, owner, repo, prNumber, trace, roundTag, record });
-    if (posted && posted.id) {
-      await applyStateUpdate({
-        comment_command: {
-          id: posted.id,
-          url: posted.url,
-          author: posted.author,
-          created_at: posted.created_at,
-        },
-      });
-      commentInfo = posted;
-      commentPostedThisRun = true;
-    }
+  if (instructionComment?.id) {
+    record('Instruction comment', appendRound(`id=${instructionComment.id}`));
   } else {
-    record('Comment', appendRound(`existing /update-branch id=${commentInfo.id || '?'} trace=${trace}`));
+    record('Instruction comment', appendRound('unavailable; proceeding without comment context.'));
   }
 
-  if (commentInfo?.id && commentState?.reaction !== 'eyes') {
-    const reactionAdded = await ensureEyesReaction({
-      github,
-      owner,
-      repo,
-      commentId: commentInfo.id,
-      roundTag,
-      record,
-    });
-    if (reactionAdded) {
-      await applyStateUpdate({
-        comment_command: {
-          ...(state.comment_command || {}),
-          id: commentInfo.id,
-          url: commentInfo.url,
-          author: commentInfo.author,
-          created_at: commentInfo.created_at,
-          reaction: 'eyes',
-        },
-      });
-    }
-  } else if (commentInfo?.id) {
-    record('Comment reaction', appendRound('👀 already recorded.'));
-  }
+  const commentInfo = instructionComment;
 
-  await ensureCommentAuthor();
 
   const attemptCommand = async (action, label) => {
     const actionKey = normalise(action);
@@ -888,7 +737,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     success = true;
     finalHead = shortPoll.headSha;
     baselineHead = finalHead;
-    mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
+    mode = 'already-synced';
     record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
   } else {
   record('Comment wait', appendRound('Head unchanged after comment TTL.'));
@@ -904,7 +753,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         success = true;
         finalHead = freshHead.headSha;
         baselineHead = finalHead;
-        mode = commentPostedThisRun ? 'comment-update-branch' : 'already-synced';
+        mode = 'already-synced';
         record('Pre-dispatch check', appendRound(`Head advanced to ${freshHead.headSha}`));
       }
     } catch (error) {

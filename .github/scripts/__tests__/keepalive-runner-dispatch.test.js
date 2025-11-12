@@ -51,7 +51,12 @@ test('dispatchKeepaliveCommand uses github.getOctokit when available', async () 
   assert.equal(events.length, 1);
   assert.equal(events[0].owner, 'stranske');
   assert.equal(events[0].repo, 'Trend_Model_Project');
-  assert.deepEqual(events[0].client_payload, { issue: 99, comment_id: 1 });
+  assert.deepEqual(events[0].client_payload, {
+    issue: 99,
+    comment_id: 1,
+    quiet: true,
+    reply: 'none',
+  });
 });
 
 test('dispatchKeepaliveCommand falls back to github.constructor when getOctokit is unavailable', async () => {
@@ -84,6 +89,8 @@ test('dispatchKeepaliveCommand falls back to github.constructor when getOctokit 
   assert.equal(events[0].auth, 'token-abc');
   assert.equal(events[0].input.owner, 'owner-co');
   assert.equal(events[0].input.repo, 'repo-co');
+  assert.equal(events[0].input.client_payload.quiet, true);
+  assert.equal(events[0].input.client_payload.reply, 'none');
 });
 
 test('dispatchKeepaliveCommand throws when token is missing', async () => {

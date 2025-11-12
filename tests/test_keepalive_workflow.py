@@ -117,6 +117,8 @@ def _assert_single_dispatch(
     assert payload["comment_url"].startswith("https://example.test/")
     assert payload["trace"], "Dispatch payload must include keepalive trace"
     assert isinstance(payload["trace"], str)
+    assert payload.get("quiet") is True
+    assert payload.get("reply") == "none"
     if round_expected is not None:
         assert payload["round"] == round_expected
     else:
