@@ -9,7 +9,7 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 | Helper module exports `makeTrace` and `renderInstruction`. | Complete | Confirmed helper in `.github/scripts/keepalive_contract.js` normalizes inputs and prepends required markers. |
 | Orchestrator computes round/trace, selects token, posts comment via helper. | Complete | `Prepare keepalive instruction` step in `.github/workflows/agents-70-orchestrator.yml` resolves round/trace, chooses PAT, and renders instruction. |
 | Summary records round, trace, author, comment ID. | Complete | `Summarise keepalive instruction` step writes all four fields to `$GITHUB_STEP_SUMMARY`. |
-| Reaction ack loop with 👀/🚀 handling. | Complete | `Ack keepalive instruction` step adds 👀 then polls for 🚀 for up to 60s (5s cadence). |
+| Reaction ack loop with 🎉/🚀 handling. | Complete | `Ack keepalive instruction` step adds 🎉 then polls for 🚀 for up to 60s (5s cadence). |
 | Fallback dispatch and PR comment when ack missing. | Complete | Fallback steps issue repository_dispatch payload and one-line PR comment when acknowledgment fails. |
 
 ## Acceptance Criteria Tracking
@@ -18,7 +18,7 @@ Tracking implementation and verification work for Issue #3260: Agents keepalive 
 | --- | --- | --- |
 | New instruction comment created each cycle with required markers and @codex. | ❌ Not satisfied | Latest orchestrator runs [#19087371981](https://github.com/stranske/Trend_Model_Project/actions/runs/19087371981) and [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) failed before the first job, so no instruction comments were posted. |
 | Comment author resolves to `stranske` (ACTIONS_BOT_PAT) or `stranske-automation-bot` fallback. | ❌ Not satisfied | Because no instruction comment was created in the recent runs, author provenance could not be validated. |
-| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Ack loop never started; orchestrator aborted pre-job and emitted neither 👀/🚀 reactions nor the fallback skip comment. |
+| PR-meta ack observed or fallback dispatch + comment emitted. | ❌ Not satisfied | Ack loop never started; orchestrator aborted pre-job and emitted neither 🎉/🚀 reactions nor the fallback skip comment. |
 | Step summary includes Round, Trace, Author, CommentId. | ❌ Not satisfied | Run [#19087550223](https://github.com/stranske/Trend_Model_Project/actions/runs/19087550223) produced no step summary output, leaving all summary fields unverified. |
 
 ## Notes

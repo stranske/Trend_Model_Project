@@ -57,27 +57,23 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     calls = data.get("calls", {})
     created = calls.get("reactionsCreated", [])
     assert created == [
-        {"comment_id": 987654321, "content": "eyes"},
+        {"comment_id": 987654321, "content": "hooray"},
         {"comment_id": 987654321, "content": "rocket"},
     ]
 
 
-def test_keepalive_detection_handles_after_markers() -> None:
+def test_keepalive_detection_ignores_sanitised_after_markers() -> None:
     data = _run_scenario("after_markers")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "true"
-    assert outputs["reason"] == "keepalive-detected"
-    assert outputs["round"] == "5"
-    assert outputs["trace"] == "manual-test-2025-11-05-01-35"
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
 
 
-def test_keepalive_detection_handles_html_entities() -> None:
+def test_keepalive_detection_ignores_html_entities() -> None:
     data = _run_scenario("html_entities")
     outputs = data["outputs"]
-    assert outputs["dispatch"] == "true"
-    assert outputs["reason"] == "keepalive-detected"
-    assert outputs["round"] == "6"
-    assert outputs["trace"] == "double-sanitized-check"
+    assert outputs["dispatch"] == "false"
+    assert outputs["reason"] == "missing-round"
 
 
 def test_keepalive_detection_requires_marker() -> None:

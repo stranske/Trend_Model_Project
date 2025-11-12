@@ -68,7 +68,7 @@ const NON_ASSIGNABLE_LOGINS = new Set([
   'dependabot'
 ]);
 
-const KEEPALIVE_INSTRUCTION_REACTION = 'eyes';
+const KEEPALIVE_INSTRUCTION_REACTION = 'hooray';
 
 function isAssignable(login) {
   const raw = String(login ?? '').trim();

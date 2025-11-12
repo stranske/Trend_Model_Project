@@ -4,22 +4,7 @@ const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
-const INSTRUCTION_REACTION = 'eyes';
-
-function normaliseBody(value) {
-  return String(value || '').replace(/\r\n/g, '\n').trim();
-}
-
-function isLikelyInstruction(body) {
-  if (!body) {
-    return false;
-  }
-  const normalised = normaliseBody(body);
-  if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
-    return false;
-  }
-  return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
-}
+const INSTRUCTION_REACTION = 'hooray';
 
 function normaliseLogin(login) {
   return String(login || '')
@@ -93,19 +78,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  const decodeHtmlEntities = (value) => {
-    let previous;
-    let current = String(value);
-    do {
-      previous = current;
-      current = current
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&amp;/gi, '&');
-    } while (current !== previous);
-    return current;
-  };
-
   const findFirstMatch = (source, patterns) => {
     for (const pattern of patterns) {
       const match = source.match(pattern);
@@ -122,26 +94,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
   canonicalMarkerPatterns.push(/<!--\s*codex-keepalive-marker\s*-->/i);
 
-  const markerPatterns = canonicalMarkerPatterns.concat([
-    /<-\s*After:\s*codex-keepalive-marker\s*-->/i,
-    /&lt;-\s*After:\s*codex-keepalive-marker\s*--&gt;/i,
-    /&lt;!--\s*codex-keepalive-marker\s*--&gt;/i,
-  ]);
-
   const canonicalRoundPatterns = [/<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i];
-  const roundPatterns = canonicalRoundPatterns.concat([
-    /<-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i,
-    /&lt;!--\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
-    /&lt;-\s*After:\s*keepalive-round\s*:?#?\s*(\d+)\s*--&gt;/i,
-  ]);
 
   const canonicalTracePatterns = [/<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i];
-  const tracePatterns = canonicalTracePatterns.concat([
-    /<-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i,
-    /&lt;!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
-    /&lt;-\s*After:\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*--&gt;/i,
-  ]);
-
 
   const outputs = {
     dispatch: 'false',
@@ -190,6 +145,19 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   let instructionSeen = false;
   let traceMatch;
 
+  const normaliseBody = (value) => String(value || '').replace(/\r\n/g, '\n').trim();
+
+  const isLikelyInstruction = (value) => {
+    if (!value) {
+      return false;
+    }
+    const normalised = normaliseBody(value);
+    if (!normalised || !normalised.toLowerCase().startsWith('@codex')) {
+      return false;
+    }
+    return normalised.toLowerCase().includes(DEFAULT_INSTRUCTION_SIGNATURE);
+  };
+
   const resolveSummarySource = () => {
     if (author === 'stranske') {
       return 'stranske';
@@ -235,32 +203,11 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise(false);
   }
 
-  let workingBody = body;
-  const canonicalRoundMatch = findFirstMatch(body, canonicalRoundPatterns);
-  let roundMatch = canonicalRoundMatch;
-  if (!roundMatch) {
-    const decodedBody = decodeHtmlEntities(body);
-    if (decodedBody !== body) {
-      workingBody = decodedBody;
-    }
-    roundMatch = findFirstMatch(workingBody, roundPatterns);
-  }
-
-  const usedFallbackRound = !canonicalRoundMatch && Boolean(roundMatch);
-  if (usedFallbackRound) {
-    const preview = JSON.stringify(body.slice(0, 160));
-    core.info(`Keepalive canonical round marker not found; matched fallback against payload prefix ${preview}.`);
-  }
+  const roundMatch = findFirstMatch(body, canonicalRoundPatterns);
 
   traceMatch = findFirstMatch(body, canonicalTracePatterns);
-  if (!traceMatch) {
-    traceMatch = findFirstMatch(workingBody, tracePatterns);
-  }
 
-  let hasKeepaliveMarker = Boolean(findFirstMatch(body, canonicalMarkerPatterns));
-  if (!hasKeepaliveMarker) {
-    hasKeepaliveMarker = Boolean(findFirstMatch(workingBody, markerPatterns));
-  }
+  const hasKeepaliveMarker = Boolean(findFirstMatch(body, canonicalMarkerPatterns));
 
   const isAutomationStatusComment = () => {
     const trimmedBody = normaliseBody(body);

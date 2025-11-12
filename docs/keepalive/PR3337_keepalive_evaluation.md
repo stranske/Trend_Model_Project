@@ -43,7 +43,7 @@ Guardrail failures (e.g. dispatch error) produce run-summary notices only; no su
 ## 6. Instruction Comment Contract (Goals & Plumbing §6)
 
 Instruction comment [`#3500415982`](https://github.com/stranske/Trend_Model_Project/pull/3337#issuecomment-3500415982) includes
-all required hidden markers, was authored by `stranske`, and Round 26 logs confirm 👀/🚀 acknowledgements. | ✅
+all required hidden markers, was authored by `stranske`, and Round 26 logs confirm 🎉/🚀 acknowledgements. | ✅
 
 ## 7. Detection & Dispatch Flow (Goals & Plumbing §7)
 

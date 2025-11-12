@@ -52,7 +52,7 @@ Twenty-four keepalive instructions (plus duplicate Round 5 entries) posted in 
 
 ## 6. Instruction Comment Contract (Goals & Plumbing §6)
 
-Each instruction comment carries the required hidden markers, scope/tasks tables, testing sections, and receives 👀/🚀 reactions. No formatting deviations observed.
+Each instruction comment carries the required hidden markers, scope/tasks tables, testing sections, and receives 🎉/🚀 reactions. No formatting deviations observed.
 
 ✅ Passed.
 
