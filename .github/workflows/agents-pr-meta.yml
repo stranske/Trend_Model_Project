@@ -666,13 +666,10 @@ jobs:
         env:
           PATH_LABEL: gate
           DISPATCH: ${{ steps.detect.outputs.dispatch }}
-          REASON: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
           TRACE: ${{ steps.detect.outputs.trace }}
           PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
           FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
-          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id }}
-          CONCURRENCY_SUCCESS: granted
-          CONCURRENCY_HELD: held
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
         run: bash .github/scripts/write_dispatch_summary.sh
 
   gate_no_pr_summary:
@@ -693,6 +690,10 @@ jobs:
     if: needs.keepalive_dispatch.outputs.dispatch == 'true'
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
+    concurrency:
+      group: >-
+        ${{ format('pr-meta-dispatch-{0}', needs.keepalive_dispatch.outputs.pr || github.event.issue.number || 'unknown') }}
+      cancel-in-progress: false
     steps:
       - name: Ensure keepalive dispatch token available
         env:
@@ -859,14 +860,11 @@ jobs:
         env:
           PATH_LABEL: comment
           DISPATCH: ${{ needs.keepalive_dispatch.outputs.dispatch }}
-          REASON: ${{ needs.keepalive_dispatch.outputs.reason }}
           TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
           PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr }}
           FALLBACK_PR: ${{ github.event.issue.number }}
-          ACTIVATION_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
-          ACTIVATION_FALLBACK: ${{ github.event.comment.id }}
-          CONCURRENCY_SUCCESS: granted
-          CONCURRENCY_HELD: held
+          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          COMMENT_FALLBACK: ${{ github.event.comment.id }}
         run: bash .github/scripts/write_dispatch_summary.sh
 
   update_body:
