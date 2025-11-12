@@ -1,174 +1,118 @@
-1. Keepalive (Option A): move orchestrator concurrency to the job; resolve PR/agent at job start; remove top‑level env.* usage that broke validation
+1. Keepalive Worker: fix skip guard (execute on new instruction even if head SHA hasn’t moved)
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-
-The current workflow‑level concurrency in .github/workflows/agents-70-orchestrator.yml references env.* during parse time, which caused a fatal error (“Unrecognized named‑value: env”), blocking all orchestrator runs. Keepalive can’t fire if the orchestrator workflow is invalid.
-Option A fixes this by:
-
-moving concurrency down to the orchestrator job (where env.* and step outputs are valid), and
-
-resolving PR number and agent alias inside the job across all triggers (issue_comment, workflow_run for Gate, repository_dispatch, workflow_dispatch).
-
-This change keeps your design: cap‑aware parallelism enforced by the gate (not by concurrency), and support for multi‑trigger activation.
+On typical test PRs (e.g., #3529), the worker posts “worker skipped – head <sha7>” immediately after a fresh keepalive instruction comment. That means the worker’s early‑exit checks are bailing purely on “head unchanged,” even when a new instruction exists and should start a round. This prevents code‑producing runs.
 
 Scope
+- Change the worker’s pre‑execute gate so it skips only if both are true:
 
-Implement only the following in .github/workflows/agents-70-orchestrator.yml:
+- No newer instruction (by comment_id/created_at) than the last processed instruction, and
 
-- Remove the workflow‑level concurrency: block (the one at the top of the file).
+- Head SHA unchanged since the last processed instruction.
 
-- Add a Resolve context step early in the orchestrator job to compute:
-
-  - pr_number (from event payloads / inputs),
-
-  - agent_alias (from labels or options payloads).
-
-- Add job‑level concurrency that uses those values:
-
-  - group key: keepalive-orchestrator-pr-${PR_NUMBER}-agent-${AGENT_ALIAS}-run-${github.run_id}
-
-  - cancel-in-progress: false (so runs aren’t cancelled)
-
-- Do not change run‑cap logic, PR‑meta locks, or branch‑sync in this issue.
+If a newer instruction exists, do not skip merely because head is unchanged; proceed to execute the round (dispatch agent) and then run the branch‑sync gate.
 
 Non‑Goals
 
-No edits to PR‑meta (reaction lock, dispatch scoping, run‑cap)
+No changes to instruction formatting or status/summary content
 
-No changes to branch‑sync or connector behavior
+No changes to run‑cap or PR‑meta reaction lock
 
-No change to acceptance‑criteria content or Gate internals
+No changes to branch‑sync logic beyond invocation order
 
 Tasks
 
-- Delete workflow‑level concurrency
+- Track last processed state
 
-  - Remove any concurrency: defined at the top level of agents-70-orchestrator.yml.
+  - Persist (e.g., to job outputs or a lightweight artifact/PR label) the tuple { last_processed_comment_id, last_processed_head_sha } at the end of each successful round.
 
-- Resolve context (job step)
+- Find the latest instruction
 
-  - Add a step (e.g., id: resolve) that sets pr_number and agent_alias covering all triggers:
+  - In the worker pre‑gate, locate the most recent keepalive instruction comment for the PR (must be issue_comment.created, created‑not‑edited, contains the three hidden markers + trace). Extract { comment_id, created_at }.
 
-    - issue_comment: github.event.issue.number
+- Evaluate skip condition
 
-    - workflow_run (Gate): github.event.workflow_run.pull_requests[0].number (if present)
+  - Fetch current head_sha.
 
-    - repository_dispatch: github.event.client_payload.pr || pr_number || issue
+  - Skip only if comment_id <= last_processed_comment_id and head_sha == last_processed_head_sha.
 
-    - workflow_dispatch: inputs.pr_number
+  - Otherwise, proceed: dispatch to the agent and run branch‑sync.
 
-    - Fallback to github.run_id (only as a last resort, to avoid null keys)
+- Summarize outcome (no PR noise)
 
-    - For agent_alias, prefer:
-
-      - from inputs.options_json or client_payload (agent / agent_alias), else
-
-      - from PR labels agent:* (strip prefix), else default 'codex'.
-
-Example (github‑script)
-
-- name: Resolve PR number and agent alias
-  id: resolve
-  uses: actions/github-script@v7
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-    script: |
-      const ev = context.payload || {};
-      let prNumber =
-        ev.pull_request?.number ??
-        ev.issue?.number ??
-        ev.workflow_run?.pull_requests?.[0]?.number ??
-        ev.inputs?.pr_number ??
-        ev.client_payload?.pr ??
-        ev.client_payload?.pr_number ??
-        ev.client_payload?.issue ??
-        null;
-
-      // Try labels only if we have a PR
-      async function agentFromLabels(n) {
-        if (!n) return null;
-        const {owner, repo} = context.repo;
-        const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {owner, repo, issue_number: n, per_page: 100});
-        const a = labels.find(l => /^agent:/i.test(l.name));
-        return a ? a.name.replace(/^agent:/i, '').trim() : null;
-      }
-
-      // Parse options_json once, with error handling
-      let optionsFromInput = null;
-      if (ev.inputs?.options_json) {
-        try {
-          optionsFromInput = JSON.parse(ev.inputs.options_json);
-        } catch (e) {
-          // Optionally log or ignore parse errors
-        }
-      }
-
-      const fromPayload =
-        ev.client_payload?.agent ||
-        ev.client_payload?.agent_alias ||
-        (ev.client_payload?.options && (ev.client_payload.options.agent || ev.client_payload.options.agent_alias)) ||
-        (optionsFromInput?.agent || optionsFromInput?.agent_alias);
-
-      let agentAlias = fromPayload || null;
-      if (!agentAlias) agentAlias = await agentFromLabels(prNumber);
-      if (!agentAlias) agentAlias = 'codex';
-
-      // Fallback PR number if truly missing
-      if (!prNumber) prNumber = String(context.runId);
-
-      core.setOutput('pr_number', String(prNumber));
-      core.setOutput('agent_alias', String(agentAlias));
-
-- Add job‑level concurrency
-
-jobs:
-  orchestrate:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: keepalive-orchestrator-pr-${{ inputs.pr_number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}-agent-${{ inputs.agent_alias || github.event.client_payload.agent_alias || 'codex' }}-run-${{ github.run_id }}
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve PR number and agent alias
-        id: resolve
-        # (script from Task 2)
-      # … existing steps (gate, cap, post instruction, ack, branch-sync, etc.) …
-
-
-- Set env (optional)
-
-  - If later steps need PR_NUMBER/AGENT_ALIAS, export them:
-
-    - name: Export resolved values
-      run: |
-        echo "PR_NUMBER=${{ steps.resolve.outputs.pr_number }}" >> $GITHUB_ENV
-        echo "AGENT_ALIAS=${{ steps.resolve.outputs.agent_alias }}" >> $GITHUB_ENV
-
-
-- Sanity check
-
-  - Push the change; ensure the orchestrator no longer shows “Invalid workflow file … Unrecognized named‑value: env”.
-
-  - Trigger from each path (comment / Gate / repo‑dispatch) and confirm the same PR maps to a stable group prefix (keepalive-orchestrator-pr-<PR>-agent-<alias>-run-<run_id>).
+  - Always write one line to $GITHUB_STEP_SUMMARY:
+    WORKER: action=<skip|execute> reason=<no-new-instruction-and-head-unchanged|new-instruction|head-changed> pr=#<n> head=<sha7> instr=<comment_id> trace=<trace>
 
 Acceptance criteria
 
-- Parsing succeeds: The orchestrator workflow loads cleanly; no “Unrecognized named‑value: env” (or similar top‑level parse errors) appear on push.
+- With a fresh instruction present and head unchanged, the worker executes (does not skip), dispatching the agent and then branch‑syncing.
 
-- Job‑level concurrency is active: Orchestrator runs show a concurrency.group that starts with keepalive-orchestrator-pr-<PR>-agent-<alias>-run-<run_id>.
+- When no newer instruction exists and head is unchanged, the worker skips with reason=no-new-instruction-and-head-unchanged.
 
-- Multi‑trigger correctness: For a single PR, activations via issue_comment.created, workflow_run (Gate success), and repository_dispatch all produce the same pr-<PR>-agent-<alias> prefix (final run-<id> differs), proving consistent resolution.
+- The summary line appears on every run reflecting the decision and inputs.
 
-- Parallelism preserved: Starting two orchestrators for the same PR/agent (within the configured cap, enforced elsewhere) results in two active runs; concurrency does not serialize them (cap remains enforced by the gate, not by concurrency).
-
-- No regressions: Existing gate checks, run‑cap enforcement, reaction lock, ACK, and branch‑sync behavior are unchanged.
+- Subsequent rounds complete without the immediate “worker skipped – head …” pattern seen previously.
 
 Implementation notes
 
-Do not re‑introduce workflow‑level concurrency. Keep it only on the orchestrator job.
+Use the same instruction detector that PR‑meta uses (created, hidden markers, trace) to avoid false positives from status/summary comments.
 
-Concurrency is not your cap; it’s there to avoid cancellation and accidental same‑millisecond duplicates. Your parallelism limit remains enforced by the run‑cap gate in PR‑meta and the pre‑post gate in the orchestrator job.
+If state is persisted via labels, choose a private control label (e.g., agents:last-instruction:<id>), or write to a tiny artifact keyed by PR number; avoid PR noise.
 
-If you later need the alias from labels earlier, you can move the label lookup to PR‑meta and pass it through options_json / client_payload. For Option A, the in‑job resolution above is sufficient.
+2. Keepalive Dispatch Payload: send only the instruction body (exclude status/summary)
+
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement
+
+Why
+On typical test PRs (e.g., #3529), the instruction comment currently includes a long status/summary bundle (Head SHA, “Latest Runs”, “Workflow / Job Result Logs”, coverage) below the Scope/Tasks/Acceptance block. When the full comment body is forwarded to the agent/connector, that additional material can dilute or confuse the prompt. We want the connector to receive only the instruction text (Scope/Tasks/Acceptance + required markers/mention), not the status bundle.
+
+Scope
+
+- In the PR‑meta/orchestrator dispatch step(s), construct the payload so it contains only the instruction body (the part authored for the agent), and exclude the status/summary content.
+
+- Keep existing dispatch flags (quiet: true, reply: 'none') as is.
+
+Non‑Goals
+
+No changes to how/where the status/summary is posted (it can remain in a separate comment or PR body)
+
+No changes to reaction locks, run‑cap, or branch‑sync behavior
+
+Tasks
+
+- Identify instruction segment
+
+  - From the composed comment, extract the instruction segment beginning with the hidden markers + @<agent> header and ending after the Acceptance criteria section (and optional short Execution block with PR/base/head).
+
+  - Explicitly exclude any sections titled “Head SHA”, “Latest Runs”, “Required Status Checks”, “Workflow / Job Result Logs”, “Coverage”, etc.
+
+- Wire dispatch with clean body
+
+ - For both repository_dispatch and any workflow_dispatch used to start the round, pass the instruction segment as the body content (or as a distinct instruction_text field), along with comment_id, comment_url, agent, base, head, and trace.
+
+- Guard rails
+
+  - If the instruction segment cannot be parsed (e.g., missing markers), do not dispatch; write a single summary line and exit 0.
+
+- Summarize dispatch (no PR noise)
+
+  - Write one line to $GITHUB_STEP_SUMMARY:
+    DISPATCH: ok=<true|false> reason=<ok|no-instruction-segment> pr=#<n> comment=<id> agent=<alias> bytes=<len>
+
+Acceptance criteria
+
+- For a test PR, the connector receives only the instruction portion (Scope/Tasks/Acceptance [+ optional short Execution]), not the status bundle.
+
+- When the instruction is missing or malformed, dispatch is skipped with reason=no-instruction-segment (summary only; no PR noise).
+
+- When valid, dispatch succeeds and subsequent agent runs start producing code changes (subject to branch‑sync).
+
+Implementation notes
+
+Keep your current hidden‑marker protocol intact; use those markers to anchor extraction (<!-- codex-keepalive-marker -->, round, trace).
+
+If your instruction composer already generates an instruction block separately from the status bundle, prefer passing that pre‑rendered block directly rather than re‑parsing the combined comment.
+
+Do not alter moderation of connector comments; this issue only controls what is dispatched, not who posts publicly.
