@@ -373,7 +373,9 @@ def test_build_param_summary_exposes_optional_fields():
 
 
 def test_build_param_summary_handles_missing_sections():
-    config = SimpleNamespace(sample_split=None, vol_adjust=None, portfolio=None, run=None, benchmarks=None)
+    config = SimpleNamespace(
+        sample_split=None, vol_adjust=None, portfolio=None, run=None, benchmarks=None
+    )
     params = dict(unified._build_param_summary(config))
     assert params == {}
 
@@ -459,7 +461,9 @@ def test_render_pdf_without_regime_summary(monkeypatch: pytest.MonkeyPatch):
     fake_image = base64.b64encode(b"img").decode("ascii")
     monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
 
-    pdf_bytes = unified._render_pdf(_pdf_context(fake_image, fake_image) | {"regime_summary": ""})
+    pdf_bytes = unified._render_pdf(
+        _pdf_context(fake_image, fake_image) | {"regime_summary": ""}
+    )
     assert pdf_bytes == b"%PDF-no-summary"
 
 
@@ -528,7 +532,9 @@ def test_load_fpdf_returns_class(monkeypatch: pytest.MonkeyPatch):
     class DummyFPDF:
         pass
 
-    monkeypatch.setattr(unified.importlib, "import_module", lambda name: SimpleNamespace(FPDF=DummyFPDF))
+    monkeypatch.setattr(
+        unified.importlib, "import_module", lambda name: SimpleNamespace(FPDF=DummyFPDF)
+    )
 
     assert unified._load_fpdf() is DummyFPDF
 
@@ -556,7 +562,9 @@ def test_exec_summary_and_caveats_edge_cases():
 
 def test_chart_helpers_handle_empty_inputs():
     assert unified._turnover_chart(None) is None
-    dummy_backtest = SimpleNamespace(turnover=pd.Series(dtype=float), weights=pd.DataFrame())
+    dummy_backtest = SimpleNamespace(
+        turnover=pd.Series(dtype=float), weights=pd.DataFrame()
+    )
     assert unified._turnover_chart(dummy_backtest) is None
     assert unified._exposure_chart(dummy_backtest) is None
 

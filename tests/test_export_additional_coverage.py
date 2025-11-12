@@ -6,8 +6,8 @@ import math
 import sys
 import types
 from collections import OrderedDict
-from typing import Iterable, Mapping
 from types import SimpleNamespace
+from typing import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -54,9 +54,9 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
     sys.modules.setdefault("matplotlib.pyplot", pyplot)
 
 from trend_analysis.export import (
+    _format_frequency_policy_line,
     _OpenpyxlWorkbookAdapter,
     _OpenpyxlWorksheetProxy,
-    _format_frequency_policy_line,
     export_multi_period_metrics,
     export_phase1_multi_metrics,
     export_phase1_workbook,
@@ -632,6 +632,7 @@ def test_flat_frames_from_results_includes_manager_tables(monkeypatch):
         "execution_metrics",
     }.issubset(frames)
 
+
 def test_openpyxl_proxy_applies_formatting():
     class DummyFont:
         def __init__(self) -> None:
@@ -705,7 +706,9 @@ def test_maybe_remove_openpyxl_default_sheet_handles_multiple(monkeypatch):
             self.worksheets = [DummySheet("Summary", None), DummySheet("Sheet", None)]
 
         def remove(self, _: object) -> None:  # pragma: no cover - should not run
-            raise AssertionError("remove should not be called when multiple sheets exist")
+            raise AssertionError(
+                "remove should not be called when multiple sheets exist"
+            )
 
     workbook = DummyWorkbook()
     remover = getattr(export_module, "_maybe_remove_openpyxl_default_sheet")
@@ -737,12 +740,17 @@ def test_openpyxl_proxy_column_and_autofilter(monkeypatch):
             self.auto_filter = DummyAutoFilter()
 
         def cell(self, row: int, column: int) -> types.SimpleNamespace:
-            return types.SimpleNamespace(value=None, font=types.SimpleNamespace(copy=lambda **_: types.SimpleNamespace()))
+            return types.SimpleNamespace(
+                value=None,
+                font=types.SimpleNamespace(copy=lambda **_: types.SimpleNamespace()),
+            )
 
     ws = DummyWorksheet()
     proxy = _OpenpyxlWorksheetProxy(ws)
 
-    monkeypatch.setattr(export_module, "get_column_letter", lambda idx: {2: "B", 3: "C"}[idx])
+    monkeypatch.setattr(
+        export_module, "get_column_letter", lambda idx: {2: "B", 3: "C"}[idx]
+    )
 
     proxy.set_column(1, 2, 12.5)
     assert ws.column_dimensions["B"].width == pytest.approx(12.5)
@@ -826,7 +834,9 @@ def test_summary_frame_from_result_includes_diagnostics():
         "in_sample_stats": {"FundA": _stat(), "FundB": _stat()},
         "out_sample_stats": {"FundA": _stat(), "FundB": _stat()},
         "fund_weights": {"FundA": 0.6, "FundB": 0.4},
-        "benchmark_ir": {"Bench": {"FundA": 0.2, "equal_weight": 0.1, "user_weight": 0.15}},
+        "benchmark_ir": {
+            "Bench": {"FundA": 0.2, "equal_weight": 0.1, "user_weight": 0.15}
+        },
         "preprocessing_summary": "Preprocessing ok",
         "risk_diagnostics": {
             "asset_volatility": pd.DataFrame({"FundA": [0.12], "FundB": [0.05]}),
@@ -884,7 +894,9 @@ def test_export_phase1_workbook_without_summary(monkeypatch, tmp_path):
 def test_export_phase1_multi_metrics_skips_empty_metrics(monkeypatch, tmp_path):
     exported: list[tuple[tuple[str, ...], str, Mapping[str, pd.DataFrame]]] = []
 
-    def fake_export(data: Mapping[str, pd.DataFrame], path: str, *, formats: Iterable[str]):
+    def fake_export(
+        data: Mapping[str, pd.DataFrame], path: str, *, formats: Iterable[str]
+    ):
         exported.append((tuple(formats), path, dict(data)))
 
     monkeypatch.setattr(export_module, "export_data", fake_export)
@@ -904,7 +916,9 @@ def test_export_phase1_multi_metrics_skips_empty_metrics(monkeypatch, tmp_path):
 def test_export_multi_period_metrics_handles_other_only(monkeypatch, tmp_path):
     calls: list[tuple[tuple[str, ...], Mapping[str, pd.DataFrame]]] = []
 
-    def fake_export(data: Mapping[str, pd.DataFrame], _: str, *, formats: Iterable[str]):
+    def fake_export(
+        data: Mapping[str, pd.DataFrame], _: str, *, formats: Iterable[str]
+    ):
         calls.append((tuple(formats), dict(data)))
 
     monkeypatch.setattr(export_module, "export_data", fake_export)
