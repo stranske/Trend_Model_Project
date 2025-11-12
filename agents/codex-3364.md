@@ -2,7 +2,7 @@
 
 ## Scope
 - Detect when the PR head SHA has not advanced after an agent reports completion during keepalive rounds.
-- Post a visible `/update-branch trace:{TRACE}` command as **stranske** (ACTIONS_BOT_PAT preferred, SERVICE_BOT_PAT fallback) and react with 👀 whenever an unsynced branch is detected.
+- Post a visible `/update-branch trace:{TRACE}` command as **stranske** (ACTION_BOT_PAT preferred, SERVICE_BOT_PAT fallback) and react with 👀 whenever an unsynced branch is detected.
 - Dispatch the `agents-keepalive-branch-sync.yml` fallback workflow with full metadata when the comment-first path does not land within the short TTL, and poll until the PR head advances or the long TTL expires.
 - Halt further keepalive instructions, apply `agents:sync-required`, and log concise `$GITHUB_STEP_SUMMARY` status when the branch still has not moved after the fallback path.
 - Keep all guardrails (label checks, gate status, run-cap) unchanged while avoiding additional PR noise beyond the command comment (and optional debug escalation).
@@ -12,14 +12,14 @@
   - [ ] Record `{PR, round, trace, head_sha}` at instruction time (e.g., hidden HTML comment or JSON artifact).
   - [ ] Read the stored value post-work and compute `unsynced = (previous_head_sha == current_head_sha)`.
 - [ ] Implement the comment-first update command when `unsynced` is true.
-  - [ ] Select ACTIONS_BOT_PAT, falling back to SERVICE_BOT_PAT if required, to author the comment as stranske.
+  - [ ] Select ACTION_BOT_PAT, falling back to SERVICE_BOT_PAT if required, to author the comment as stranske.
   - [ ] Post a new PR comment with body exactly `/update-branch trace:{TRACE}` and add an 👀 reaction.
   - [ ] Append a `$GITHUB_STEP_SUMMARY` entry logging the comment id, URL, author, trace, and round.
   - [ ] Poll the PR head every 5 seconds up to `TTL_short` (≈60–120s) and mark success (`mode=comment-update-branch`) if the head SHA changes.
 - [ ] Build the fallback dispatch path when the PR head remains unchanged after `TTL_short`.
   - [ ] Ensure the orchestrator job has permissions `actions: write`, `contents: read`, and `pull-requests: write`.
   - [ ] Trigger `agents-keepalive-branch-sync.yml` via `createWorkflowDispatch`, passing `pr_number`, `trace`, `base_ref`, `head_ref`, `head_sha`, `agent`, `round`, `comment_id`, `comment_url`, and an idempotency key (trace is sufficient).
-  - [ ] Authenticate the dispatch with ACTIONS_BOT_PAT.
+  - [ ] Authenticate the dispatch with ACTION_BOT_PAT.
   - [ ] Log the dispatch (status code, workflow file, trace, run URL when available) to `$GITHUB_STEP_SUMMARY`.
 - [ ] Monitor for branch advancement or timeout after the fallback dispatch.
   - [ ] Continue polling the PR head up to `TTL_long` (≈2–5 minutes) and on success log `mode=action-sync-pr` plus the merged commit SHA.
@@ -38,7 +38,7 @@
 - [ ] Guardrail failures (missing labels, Gate incomplete, run cap exceeded) remain PR-noise free and surface only in `$GITHUB_STEP_SUMMARY`.
 
 ## Implementation Notes
-- Use ACTIONS_BOT_PAT whenever possible for both commenting and workflow dispatch; fall back to SERVICE_BOT_PAT solely for the comment command when needed.
+- Use ACTION_BOT_PAT whenever possible for both commenting and workflow dispatch; fall back to SERVICE_BOT_PAT solely for the comment command when needed.
 - Restrict execution to origin-repo PRs and mask tokens in logs; avoid introducing new secrets.
 - Store previous head SHAs via hidden PR comments (e.g., `<!-- keepalive-last-sha:{SHA} trace:{TRACE} -->`) or durable artifacts and read them safely before comparisons.
 - Keep logging concise—limit PR chatter to the `/update-branch` command (and optional debug escalation) while writing detailed traces to `$GITHUB_STEP_SUMMARY`.
@@ -51,7 +51,7 @@
     2. Create or update the hidden comment when a new `{PR, round, trace}` tuple is observed, ensuring idempotency by comparing stored vs. observed values before writing.
     3. Emit structured summary logs (`persist_state=hit` | `persist_state=write`) without surfacing user-visible comments beyond the hidden marker.
   - Designing the comment-first `/update-branch trace:{TRACE}` executor sequence. The design now captures:
-    1. Credential selection flow (prefer ACTIONS_BOT_PAT with SERVICE_BOT_PAT fallback when comment permissions fail).
+    1. Credential selection flow (prefer ACTION_BOT_PAT with SERVICE_BOT_PAT fallback when comment permissions fail).
     2. Comment emission with deterministic body formatting and immediate 👀 reaction on the created comment.
     3. `$GITHUB_STEP_SUMMARY` entry schema: ``comment_update: {"round":<int>,"trace":"<id>","comment_id":<int>,"url":"<html_url>","actor":"stranske"}``.
     4. Short-TTL polling loop parameters (24 iterations × 5s) and success logging (`mode=comment-update-branch`, `new_head_sha`).

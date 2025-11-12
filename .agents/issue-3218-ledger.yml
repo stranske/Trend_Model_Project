@@ -23,7 +23,7 @@ tasks:
   - id: task-03
     title: 'Emit repository_dispatch with event_type: codex-pr-comment-command and
       payload including { issue: <PR number>, agent: "codex", comment_id, comment_url,
-      base, head } using secrets.ACTIONS_BOT_PAT.'
+      base, head } using secrets.ACTION_BOT_PAT.'
     status: done
     started_at: '2025-11-03T05:23:11Z'
     finished_at: '2025-11-03T05:23:16Z'
@@ -32,7 +32,7 @@ tasks:
   - id: task-04
     title: 'If Route B: in the Codex Keepalive Sweep job, after creating the keepalive
       comment, call repos.createDispatchEvent with the same event_type and payload.
-      Use secrets.ACTIONS_BOT_PAT.'
+      Use secrets.ACTION_BOT_PAT.'
     status: done
     started_at: '2025-11-03T05:25:20Z'
     finished_at: '2025-11-03T05:25:25Z'

@@ -529,7 +529,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   scans for open issues labelled `agent:codex` + `status:ready`, creates or
   refreshes the deterministic `codex/issue-*` branch, marks the issue
   `status:in-progress`, and fires a `repository_dispatch` for the worker using
-  `ACTIONS_BOT_PAT` so downstream workflows trigger.
+  `ACTION_BOT_PAT` so downstream workflows trigger.
 - **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml`
   re-validates labels, ensures the branch diverges from the base (injecting an
   empty commit when needed), opens or updates the automation PR, applies labels
