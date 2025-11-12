@@ -47,14 +47,22 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def fake_load_csv(csv_path: str, *, errors: str, missing_policy: str | None, missing_limit: int | None):
+    def fake_load_csv(
+        csv_path: str,
+        *,
+        errors: str,
+        missing_policy: str | None,
+        missing_limit: int | None,
+    ):
         captured["missing_policy"] = missing_policy
         captured["missing_limit"] = missing_limit
         return pd.DataFrame(
             {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "Alpha": [0.1, 0.2]}
         )
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: str | None, limit: int | None
+    ):
         captured["applied_policy"] = policy
         captured["applied_limit"] = limit
         return frame, {}
@@ -72,7 +80,9 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["applied_limit"] == 3
 
 
-def test_run_skips_missing_policy_when_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_skips_missing_policy_when_price_frames(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = DummyCfg()
     frame = pd.DataFrame(
         {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "Alpha": [0.1, 0.2]}
@@ -99,11 +109,11 @@ def test_run_raises_when_policy_drops_all(monkeypatch: pytest.MonkeyPatch) -> No
     cfg = DummyCfg()
 
     def fake_load_csv(*_args, **_kwargs):
-        return pd.DataFrame(
-            {"Date": pd.to_datetime(["2020-01-31"]), "Alpha": [pd.NA]}
-        )
+        return pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"]), "Alpha": [pd.NA]})
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame, *, policy: str | None, limit: int | None
+    ):
         empty = frame.copy()
         empty.iloc[:, :] = pd.NA
         return empty, {"status": "dropped"}
@@ -133,7 +143,9 @@ def test_apply_weight_bounds_fills_deficit() -> None:
     assert result.between(0.1 - 1e-12, 0.6 + 1e-12).all()
 
 
-def test_apply_weight_bounds_final_normalise_handles_excess(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_weight_bounds_final_normalise_handles_excess(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(mp_engine, "NUMERICAL_TOLERANCE_HIGH", 0.2)
     weights = pd.Series({"A": 0.7, "B": 0.45})
     result = mp_engine._apply_weight_bounds(weights, 0.2, 0.7)
@@ -142,7 +154,9 @@ def test_apply_weight_bounds_final_normalise_handles_excess(monkeypatch: pytest.
     assert result.between(0.2 - 1e-12, 0.7 + 1e-12).all()
 
 
-def test_apply_weight_bounds_final_normalise_handles_deficit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_weight_bounds_final_normalise_handles_deficit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(mp_engine, "NUMERICAL_TOLERANCE_HIGH", 0.2)
     weights = pd.Series({"A": 0.2, "B": 0.3, "C": 0.3})
     result = mp_engine._apply_weight_bounds(weights, 0.2, 0.5)
@@ -158,7 +172,9 @@ def test_apply_weight_bounds_returns_empty_series() -> None:
     assert result is empty
 
 
-def test_apply_weight_bounds_handles_zero_available_share(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_weight_bounds_handles_zero_available_share(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(mp_engine, "NUMERICAL_TOLERANCE_HIGH", -1e-9)
     weights = pd.Series({"A": 0.3, "B": 0.3, "C": 0.3, "D": 0.3})
     result = mp_engine._apply_weight_bounds(weights, 0.3, 0.9)
@@ -167,7 +183,9 @@ def test_apply_weight_bounds_handles_zero_available_share(monkeypatch: pytest.Mo
     assert result.between(0.3 - 1e-12, 0.9 + 1e-12).all()
 
 
-def test_apply_weight_bounds_handles_zero_room_share(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_weight_bounds_handles_zero_room_share(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(mp_engine, "NUMERICAL_TOLERANCE_HIGH", -1e-9)
     weights = pd.Series({"A": 0.4, "B": 0.4})
     result = mp_engine._apply_weight_bounds(weights, 0.1, 0.4)
@@ -178,11 +196,15 @@ def test_apply_weight_bounds_handles_zero_room_share(monkeypatch: pytest.MonkeyP
 
 def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> None:
     score_frames = {
-        "2020-01": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Alpha Two"])
+        "2020-01": pd.DataFrame(
+            {"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Alpha Two"]
+        )
     }
 
     class StubSelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class StubWeighting:
@@ -195,7 +217,9 @@ def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> Non
         def __init__(self) -> None:
             pass
 
-        def apply_triggers(self, prev_weights: pd.Series, sf: pd.DataFrame) -> pd.Series:
+        def apply_triggers(
+            self, prev_weights: pd.Series, sf: pd.DataFrame
+        ) -> pd.Series:
             calls.append(prev_weights)
             return prev_weights
 
@@ -209,13 +233,17 @@ def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> Non
     assert calls and isinstance(portfolio, mp_engine.Portfolio)
 
 
-def test_run_schedule_applies_rebalance_strategies(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_schedule_applies_rebalance_strategies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     score_frames = {
         "2020-01": pd.DataFrame({"Sharpe": [1.2, 0.8]}, index=["Alpha", "Beta"])
     }
 
     class StubSelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class StubWeighting:
@@ -230,7 +258,9 @@ def test_run_schedule_applies_rebalance_strategies(monkeypatch: pytest.MonkeyPat
         captured["current"] = current
         return target * 0.5, 1.23
 
-    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply_strategies)
+    monkeypatch.setattr(
+        mp_engine, "apply_rebalancing_strategies", fake_apply_strategies
+    )
 
     portfolio = mp_engine.run_schedule(
         score_frames,

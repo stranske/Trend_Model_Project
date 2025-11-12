@@ -151,14 +151,12 @@ def _apply_weight_bounds(
                 share = (donors - min_w_bound).clip(lower=0.0)
                 sh = share.sum()
                 if sh > 0:
-                    floored.loc[donors.index] = (
-                        donors - (share / sh) * excess
-                    ).clip(lower=min_w_bound)
+                    floored.loc[donors.index] = (donors - (share / sh) * excess).clip(
+                        lower=min_w_bound
+                    )
         else:
             deficit = 1.0 - total
-            receivers = floored[
-                ~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)
-            ]
+            receivers = floored[~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)]
             if not receivers.empty:
                 room = (max_w_bound - receivers).clip(lower=0.0)
                 rm = room.sum()
