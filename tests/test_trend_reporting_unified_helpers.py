@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import base64
+import logging
+from typing import Any, Mapping
+
 import pandas as pd
 import pytest
 
@@ -192,6 +196,219 @@ def test_build_backtest_and_context_generation():
     artifacts = unified.generate_unified_report(result, config, run_id="run-123")
     assert "Executive summary" in artifacts.html
     assert artifacts.pdf_bytes is None
+
+
+def test_stats_to_dict_handles_problematic_inputs():
+    class BadAsDict:
+        def __init__(self) -> None:
+            self.cagr = "0.25"
+            self.vol = 0.1
+
+        def _asdict(self) -> Mapping[str, float]:  # pragma: no cover - runtime hit
+            raise RuntimeError("boom")
+
+    mapping_stats = unified._stats_to_dict({"cagr": "0.15"})
+    assert mapping_stats["cagr"] == pytest.approx(0.15)
+
+    fallback_stats = unified._stats_to_dict(BadAsDict())
+    assert fallback_stats["cagr"] == pytest.approx(0.25)
+
+    seq_stats = unified._stats_to_dict([0.1, 0.2, 0.3, 0.4, -0.5, 0.6])
+    assert seq_stats["max_drawdown"] == pytest.approx(-0.5)
+
+
+def test_periods_per_year_additional_frequencies():
+    weekly = pd.date_range("2024-01-07", periods=4, freq="W-SUN")
+    assert unified._periods_per_year(weekly) == 52.0
+
+    daily = pd.date_range("2024-01-01", periods=5, freq="D")
+    assert unified._periods_per_year(daily) == 252.0
+
+    uneven_fast = pd.DatetimeIndex(["2024-01-01", "2024-01-02", "2024-01-04"])
+    assert unified._periods_per_year(uneven_fast) == 252.0
+
+    uneven_weekly = pd.DatetimeIndex(["2024-01-01", "2024-01-05", "2024-01-13"])
+    assert unified._periods_per_year(uneven_weekly) == 52.0
+
+    uneven_monthly = pd.DatetimeIndex(["2024-01-01", "2024-01-20", "2024-02-18"])
+    assert unified._periods_per_year(uneven_monthly) == 12.0
+
+    uneven_quarterly = pd.DatetimeIndex(["2024-01-01", "2024-03-15", "2024-06-15"])
+    assert unified._periods_per_year(uneven_quarterly) == 4.0
+
+    period_daily = pd.period_range("2024-01-01", periods=3, freq="D")
+    assert unified._periods_per_year(period_daily) == 252.0
+
+
+def test_build_backtest_handles_fallback_portfolio():
+    fallback_series = pd.Series([0.01, -0.02, 0.015], index=[0, 1, 2])
+    details = {
+        "portfolio": fallback_series,
+        "risk_diagnostics": {"turnover": [0.05, 0.02]},
+    }
+    result = SimpleNamespace(details=details, portfolio=None)
+
+    backtest = unified._build_backtest(result)
+    assert backtest is not None
+    assert backtest.calendar.empty
+    assert backtest.turnover.empty is False
+
+
+def test_build_backtest_returns_none_for_empty_series():
+    details = {"portfolio": []}
+    result = SimpleNamespace(details=details, portfolio=None)
+    assert unified._build_backtest(result) is None
+
+
+def test_rank_summary_handles_invalid_inputs():
+    bad_top_n = unified._rank_summary({"inclusion_approach": "top_n", "n": object()})
+    assert bad_top_n == "top_n"
+
+    bad_pct = unified._rank_summary({"inclusion_approach": "top_pct", "pct": "oops"})
+    assert bad_pct == "top_pct"
+
+    bad_threshold = unified._rank_summary({"inclusion_approach": "threshold", "threshold": "boom"})
+    assert bad_threshold == "threshold"
+
+
+def test_backtest_spec_summary_handles_disabled_regime():
+    spec = SimpleNamespace(
+        rank={},
+        metrics=("Sharpe",),
+        regime={"enabled": False},
+        multi_period={"frequency": "Quarterly"},
+    )
+    summary = dict(unified._backtest_spec_summary(spec))
+    assert summary["Regime analysis"] == "Disabled"
+    assert summary["Multi-period frequency"] == "Quarterly"
+
+
+def test_build_param_summary_exposes_optional_fields():
+    config = SimpleNamespace(
+        sample_split={"in_start": "2020-01", "out_end": "2021-12"},
+        vol_adjust={"floor_vol": 0.02, "warmup_periods": 5},
+        portfolio={"max_turnover": 0.1, "rebalance_calendar": "NYSE"},
+        run={},
+        benchmarks={"SPX": "S&P 500", "NDX": "Nasdaq"},
+        trend_spec=SimpleNamespace(window=63, lag=1, vol_adjust=False, zscore=False),
+        backtest_spec=SimpleNamespace(regime={"enabled": True, "method": "rolling"}, metrics=()),
+    )
+    params = dict(unified._build_param_summary(config))
+    assert params["Out-of-sample window"].endswith("→ 2021-12")
+    assert params["Floor volatility"] == "2.0%"
+    assert params["Warm-up periods"] == "5"
+    assert params["Turnover cap"] == "10.0%"
+    assert params["Benchmarks"] == "2"
+
+
+def test_build_caveats_handles_empty_selection_and_no_backtest():
+    result = SimpleNamespace(
+        details={"selected_funds": []},
+        metrics=pd.DataFrame(),
+        fallback_info={"engine": "bayes", "error": "depleted"},
+    )
+    caveats = unified._build_caveats(result, None)
+    assert any("fallback" in item for item in caveats)
+    assert any("No funds selected" in item for item in caveats)
+    assert any("Backtest result unavailable" in item for item in caveats)
+
+
+class _StubPDFBase:
+    w = 210
+    l_margin = 10
+    r_margin = 10
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
+
+    def set_auto_page_break(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("set_auto_page_break", args, kwargs))
+
+    def add_page(self) -> None:
+        self.calls.append(("add_page", (), {}))
+
+    def set_font(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("set_font", args, kwargs))
+
+    def cell(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("cell", args, kwargs))
+
+    def ln(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("ln", args, kwargs))
+
+    def multi_cell(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("multi_cell", args, kwargs))
+
+    def image(self, *args: Any, **kwargs: Any) -> None:
+        self.calls.append(("image", args, kwargs))
+
+
+def _pdf_context(turnover: str = "", exposure: str = "") -> Mapping[str, Any]:
+    return {
+        "title": "PDF Report",
+        "run_id": "run-1",
+        "exec_summary": ["Point A", "Point B"],
+        "narrative": "Narrative text",
+        "metrics_text": ["Name | Sharpe"],
+        "regime_summary": "Summary",
+        "regime_text": ["Row"],
+        "regime_notes": ["Note"],
+        "parameters": [("Alpha", "1")],
+        "caveats": ["None"],
+        "turnover_chart": turnover,
+        "exposure_chart": exposure,
+        "footer": "Footer text",
+    }
+
+
+def test_render_pdf_with_stub(monkeypatch: pytest.MonkeyPatch):
+    class StubPDF(_StubPDFBase):
+        def output(self, dest: str = "S") -> bytes:
+            assert dest == "S"
+            return b"%PDF-stub"
+
+    fake_image = base64.b64encode(b"fake-image").decode("ascii")
+
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
+    pdf_bytes = unified._render_pdf(_pdf_context(fake_image, fake_image))
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_pdf_handles_bytearray_and_missing_turnover(monkeypatch: pytest.MonkeyPatch):
+    class StubPDF(_StubPDFBase):
+        def output(self, dest: str = "S") -> bytearray:
+            return bytearray(b"%PDF-bytearray")
+
+    fake_image = base64.b64encode(b"alt-image").decode("ascii")
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
+    pdf_bytes = unified._render_pdf(_pdf_context("", fake_image))
+    assert pdf_bytes == b"%PDF-bytearray"
+
+
+def test_render_pdf_logs_when_output_is_str(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    class StubPDF(_StubPDFBase):
+        def output(self, dest: str = "S") -> str:
+            return "%PDF-str"
+
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
+    caplog.set_level(logging.WARNING)
+    pdf_bytes = unified._render_pdf(_pdf_context())
+    assert pdf_bytes == b"%PDF-str"
+    assert any("PDF output fallback" in record.message for record in caplog.records)
+
+
+def test_generate_unified_report_with_pdf(monkeypatch: pytest.MonkeyPatch):
+    class StubPDF(_StubPDFBase):
+        def output(self, dest: str = "S") -> bytes:
+            return b"%PDF-report"
+
+    result, config = _build_result_with_details()
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
+
+    artifacts = unified.generate_unified_report(
+        result, config, run_id="pdf-run", include_pdf=True
+    )
+    assert artifacts.pdf_bytes == b"%PDF-report"
 
 
 def test_rank_summary_and_pdf_helpers():
