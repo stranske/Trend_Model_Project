@@ -1,4 +1,4 @@
-name: Validate GitHub Workflows
+name: Maint 52 Validate Workflows
 
 on:
   pull_request:
