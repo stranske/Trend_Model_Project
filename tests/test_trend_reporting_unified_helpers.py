@@ -73,6 +73,7 @@ def test_series_and_stats_helpers():
     assert unified._format_percent(None) == "—"
     assert unified._format_ratio(1.2345) == "1.23"
     assert unified._format_number(1234.5) == "1,234.50"
+    assert unified._format_number(None) == "—"
 
 
 def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
@@ -216,6 +217,20 @@ def test_stats_to_dict_handles_problematic_inputs():
     assert seq_stats["max_drawdown"] == pytest.approx(-0.5)
 
 
+def test_stats_to_dict_handles_raising_asdict():
+    class RaisingAsDict:
+        def __init__(self) -> None:
+            self.cagr = 0.2
+            self.vol = 0.1
+            self.sharpe = 0.5
+
+        def _asdict(self) -> Mapping[str, Any]:
+            raise RuntimeError("boom")
+
+    stats = unified._stats_to_dict(RaisingAsDict())
+    assert stats["cagr"] == pytest.approx(0.2)
+
+
 def test_periods_per_year_additional_frequencies():
     weekly = pd.date_range("2024-01-07", periods=4, freq="W-SUN")
     assert unified._periods_per_year(weekly) == 52.0
@@ -239,6 +254,27 @@ def test_periods_per_year_additional_frequencies():
     assert unified._periods_per_year(period_daily) == 252.0
 
 
+def test_periods_per_year_yearly_and_business(monkeypatch: pytest.MonkeyPatch):
+    yearly = pd.date_range("2020-01-01", periods=3, freq="A")
+    assert unified._periods_per_year(yearly) == 1.0
+
+    business = pd.date_range("2024-01-01", periods=4, freq="B")
+    assert unified._periods_per_year(business) == 252.0
+
+    irregular = pd.date_range("2024-01-01", periods=4, freq="MS")
+
+    def fake_infer_freq(index: pd.Index) -> str:
+        return "mystery"
+
+    def fake_to_offset(_: str) -> None:
+        raise ValueError("unknown freq")
+
+    monkeypatch.setattr(pd, "infer_freq", fake_infer_freq)
+    monkeypatch.setattr(pd.tseries.frequencies, "to_offset", fake_to_offset)
+
+    assert unified._periods_per_year(irregular) == 12.0
+
+
 def test_build_backtest_handles_fallback_portfolio():
     fallback_series = pd.Series([0.01, -0.02, 0.015], index=[0, 1, 2])
     details = {
@@ -257,6 +293,25 @@ def test_build_backtest_returns_none_for_empty_series():
     details = {"portfolio": []}
     result = SimpleNamespace(details=details, portfolio=None)
     assert unified._build_backtest(result) is None
+
+
+def test_build_backtest_handles_non_mapping_risk_diag():
+    details = {"portfolio": [0.01, 0.02], "risk_diagnostics": "unavailable"}
+    result = SimpleNamespace(details=details, portfolio=None)
+
+    backtest = unified._build_backtest(result)
+    assert backtest is not None
+    assert backtest.turnover.empty
+    assert backtest.weights.empty
+
+
+def test_build_backtest_small_series_skips_rolling():
+    details = {"portfolio": [0.02]}
+    result = SimpleNamespace(details=details, portfolio=None)
+
+    backtest = unified._build_backtest(result)
+    assert backtest is not None
+    assert backtest.rolling_sharpe.empty
 
 
 def test_rank_summary_handles_invalid_inputs():
@@ -284,6 +339,19 @@ def test_backtest_spec_summary_handles_disabled_regime():
     assert summary["Multi-period frequency"] == "Quarterly"
 
 
+def test_backtest_spec_summary_with_method_and_proxy():
+    spec = SimpleNamespace(
+        rank={"inclusion_approach": "top_n", "n": 5, "score_by": "Sharpe"},
+        metrics=("Sharpe", "Sortino"),
+        regime={"enabled": True, "method": "rolling", "proxy": "SPX"},
+        multi_period={"frequency": "Monthly"},
+    )
+
+    summary = dict(unified._backtest_spec_summary(spec))
+    assert summary["Rank inclusion"].startswith("top_n")
+    assert "proxy=SPX" in summary["Regime analysis"]
+
+
 def test_build_param_summary_exposes_optional_fields():
     config = SimpleNamespace(
         sample_split={"in_start": "2020-01", "out_end": "2021-12"},
@@ -302,6 +370,14 @@ def test_build_param_summary_exposes_optional_fields():
     assert params["Warm-up periods"] == "5"
     assert params["Turnover cap"] == "10.0%"
     assert params["Benchmarks"] == "2"
+
+
+def test_build_param_summary_handles_missing_sections():
+    config = SimpleNamespace(
+        sample_split=None, vol_adjust=None, portfolio=None, run=None, benchmarks=None
+    )
+    params = dict(unified._build_param_summary(config))
+    assert params == {}
 
 
 def test_build_caveats_handles_empty_selection_and_no_backtest():
@@ -377,6 +453,20 @@ def test_render_pdf_with_stub(monkeypatch: pytest.MonkeyPatch):
     assert pdf_bytes.startswith(b"%PDF")
 
 
+def test_render_pdf_without_regime_summary(monkeypatch: pytest.MonkeyPatch):
+    class StubPDF(_StubPDFBase):
+        def output(self, dest: str = "S") -> bytes:
+            return b"%PDF-no-summary"
+
+    fake_image = base64.b64encode(b"img").decode("ascii")
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
+
+    pdf_bytes = unified._render_pdf(
+        _pdf_context(fake_image, fake_image) | {"regime_summary": ""}
+    )
+    assert pdf_bytes == b"%PDF-no-summary"
+
+
 def test_render_pdf_handles_bytearray_and_missing_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -438,6 +528,17 @@ def test_rank_summary_and_pdf_helpers():
     assert unified._pdf_safe("text\x00with\rnoise") == "textwith noise"
 
 
+def test_load_fpdf_returns_class(monkeypatch: pytest.MonkeyPatch):
+    class DummyFPDF:
+        pass
+
+    monkeypatch.setattr(
+        unified.importlib, "import_module", lambda name: SimpleNamespace(FPDF=DummyFPDF)
+    )
+
+    assert unified._load_fpdf() is DummyFPDF
+
+
 def test_exec_summary_and_caveats_edge_cases():
     result = SimpleNamespace(
         details={},
@@ -457,3 +558,67 @@ def test_exec_summary_and_caveats_edge_cases():
 
     narrative = unified._narrative(None, "Regime note")
     assert "Regime note" in narrative
+
+
+def test_chart_helpers_handle_empty_inputs():
+    assert unified._turnover_chart(None) is None
+    dummy_backtest = SimpleNamespace(
+        turnover=pd.Series(dtype=float), weights=pd.DataFrame()
+    )
+    assert unified._turnover_chart(dummy_backtest) is None
+    assert unified._exposure_chart(dummy_backtest) is None
+
+
+def test_metrics_and_regime_tables_empty_paths():
+    html_empty, text_empty = unified._metrics_table_html(pd.DataFrame())
+    assert "No metrics" in html_empty
+    assert text_empty == []
+
+    html_regime, text_regime = unified._format_regime_table(pd.DataFrame())
+    assert "Regime analysis unavailable" in html_regime
+    assert text_regime == []
+
+    multi = pd.DataFrame(
+        {("Sharpe", "Q1"): [0.5], ("Sharpe", "Q2"): [0.6]}, index=["Sharpe"]
+    )
+    html_multi, text_multi = unified._format_regime_table(multi)
+    assert "Sharpe" in html_multi
+    assert any("Sharpe" in row for row in text_multi)
+
+
+def test_narrative_handles_empty_weights():
+    backtest = SimpleNamespace(
+        returns=pd.Series([0.0, 0.01], index=pd.Index(["2020-01", "2020-02"])),
+        metrics={
+            "total_return": 0.1,
+            "annual_return": 0.05,
+            "volatility": 0.02,
+            "sharpe_ratio": 1.5,
+            "max_drawdown": -0.1,
+            "turnover_mean": 0.0,
+        },
+        weights=pd.DataFrame(),
+    )
+    text = unified._narrative(backtest)
+    assert "Key allocations" not in text
+
+
+def test_render_pdf_requires_dependency(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(unified, "_load_fpdf", lambda: None)
+    with pytest.raises(RuntimeError):
+        unified._render_pdf(
+            {
+                "title": "PDF",
+                "run_id": "1",
+                "exec_summary": [],
+                "metrics_text": [],
+                "narrative": "",
+                "regime_text": [],
+                "regime_notes": [],
+                "parameters": [],
+                "caveats": [],
+                "turnover_chart": "",
+                "exposure_chart": "",
+                "footer": "",
+            }
+        )

@@ -137,6 +137,32 @@ class TestHierarchicalRiskParity:
         weights = engine.weight(cov)
         assert np.allclose(weights.values, np.array([0.5, 0.5]))
 
+    def test_cluster_allocation_error_falls_back_to_equal_split(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cov = pd.DataFrame(
+            [[0.04, 0.01, 0.0], [0.01, 0.09, 0.0], [0.0, 0.0, 0.16]],
+            index=["a", "b", "c"],
+            columns=["a", "b", "c"],
+        )
+        engine = HierarchicalRiskParity()
+
+        call_counter = {"count": 0}
+        original_diag = np.diag
+
+        def diag_with_failure(values: Any) -> np.ndarray:
+            call_counter["count"] += 1
+            if call_counter["count"] >= 2:
+                raise ZeroDivisionError("simulated failure")
+            return original_diag(values)
+
+        monkeypatch.setattr(np, "diag", diag_with_failure)
+
+        weights = engine.weight(cov)
+        assert np.isclose(weights.loc["a"], weights.loc["b"])
+        assert np.isclose(weights.loc["a"] + weights.loc["b"], 0.5, atol=1e-8)
+        assert np.isclose(weights.sum(), 1.0)
+
 
 class TestRiskParity:
     def test_empty_covariance_returns_empty_series(self) -> None:

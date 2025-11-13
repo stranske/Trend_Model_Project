@@ -4,6 +4,7 @@ import pytest
 
 from trend_portfolio_app.monte_carlo.engine import (
     BlockBootstrapModel,
+    ReturnModel,
     ReturnModelConfig,
 )
 
@@ -17,6 +18,14 @@ def make_panel():
 def test_sample_before_fit_raises():
     model = BlockBootstrapModel(ReturnModelConfig(block=3, seed=0))
     with pytest.raises(RuntimeError):
+        model.sample(5, 1)
+
+
+def test_return_model_base_methods_raise():
+    model = ReturnModel()
+    with pytest.raises(NotImplementedError):
+        model.fit(pd.DataFrame())
+    with pytest.raises(NotImplementedError):
         model.sample(5, 1)
 
 

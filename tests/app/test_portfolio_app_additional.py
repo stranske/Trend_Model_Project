@@ -36,6 +36,32 @@ def test_pipeline_proxy_falls_back_to_package(monkeypatch):
     assert result == "pkg"
 
 
+def test_pipeline_proxy_uses_package_attribute(monkeypatch):
+    module = ModuleType("trend_analysis.pipeline")
+    monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
+    pkg_module = SimpleNamespace(run=lambda cfg: "package")
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda: module)
+    monkeypatch.setattr(gc, "get_objects", lambda: [])
+
+    result = app.pipeline.run(object())
+    assert result == "package"
+
+
+def test_pipeline_proxy_handles_gc_errors(monkeypatch):
+    base_module = SimpleNamespace(run=lambda cfg: "base")
+    monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", base_module)
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=base_module))
+
+    def raising_get_objects() -> list[object]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(gc, "get_objects", raising_get_objects)
+
+    result = app.pipeline.run(object())
+    assert result == "base"
+
+
 def test_columns_normalisation_uses_placeholders(monkeypatch):
     class StubColumns:
         def __call__(self, spec):
@@ -231,3 +257,56 @@ def test_render_run_section_failure_message(monkeypatch):
     app._render_run_section(cfg_dict)
 
     assert stub.warnings and "missing.csv" in stub.warnings[0]
+
+
+def test_render_run_section_uses_dataframe_fallback(monkeypatch):
+    stub = StubStreamlit()
+    stub.line_chart = "not-callable"
+    stub.bar_chart = "not-callable"
+    monkeypatch.setattr(app, "st", stub)
+    monkeypatch.setattr(
+        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
+    )
+    monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
+
+    summary_df = pd.DataFrame({"Sharpe": [0.8]})
+    full_result = {
+        "risk_diagnostics": {
+            "asset_volatility": pd.DataFrame({"FundA": [0.2]}),
+            "portfolio_volatility": pd.Series([0.1], index=pd.Index(["2024-01"])),
+            "turnover": pd.Series([0.05], index=pd.Index(["2024-01"])),
+        }
+    }
+    monkeypatch.setattr(app.pipeline, "run", lambda cfg: summary_df)
+    monkeypatch.setattr(app.pipeline, "run_full", lambda cfg: full_result)
+    monkeypatch.setattr(app, "run_multi", lambda cfg: [])
+
+    cfg_dict = {"data": {}, "portfolio": {}}
+    app._render_run_section(cfg_dict)
+
+    # Fallback should record dataframes for each diagnostic
+    assert len(stub.dataframes) >= 3
+
+
+def test_render_run_section_logs_info_on_partial_results(monkeypatch):
+    stub = StubStreamlit()
+    monkeypatch.setattr(app, "st", stub)
+    monkeypatch.setattr(
+        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
+    )
+    monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
+
+    summary_df = pd.DataFrame({"Sharpe": [0.8]})
+    monkeypatch.setattr(app.pipeline, "run", lambda cfg: summary_df)
+
+    def raise_error(cfg: object) -> None:
+        raise ValueError("failed run_full")
+
+    monkeypatch.setattr(app.pipeline, "run_full", raise_error)
+    monkeypatch.setattr(app, "_summarise_run_df", lambda df: summary_df)
+    monkeypatch.setattr(app, "run_multi", lambda cfg: [])
+
+    cfg_dict = {"data": {}, "portfolio": {}}
+    app._render_run_section(cfg_dict)
+
+    assert any("failed run_full" in message for message in stub.infos)

@@ -6,6 +6,8 @@ import math
 import sys
 import types
 from collections import OrderedDict
+from types import SimpleNamespace
+from typing import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -52,6 +54,9 @@ except ModuleNotFoundError:  # pragma: no cover - handled in test environment
     sys.modules.setdefault("matplotlib.pyplot", pyplot)
 
 from trend_analysis.export import (
+    _format_frequency_policy_line,
+    _OpenpyxlWorkbookAdapter,
+    _OpenpyxlWorksheetProxy,
     export_multi_period_metrics,
     export_phase1_multi_metrics,
     export_phase1_workbook,
@@ -59,6 +64,7 @@ from trend_analysis.export import (
     format_summary_text,
     manager_contrib_table,
     phase1_workbook_data,
+    summary_frame_from_result,
     workbook_frames_from_results,
 )
 from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
@@ -625,3 +631,307 @@ def test_flat_frames_from_results_includes_manager_tables(monkeypatch):
         "changes",
         "execution_metrics",
     }.issubset(frames)
+
+
+def test_openpyxl_proxy_applies_formatting():
+    class DummyFont:
+        def __init__(self) -> None:
+            self.color: str | None = None
+
+        def copy(self, *, color: str) -> "DummyFont":
+            new = DummyFont()
+            new.color = color
+            return new
+
+    class DummyCell:
+        def __init__(self) -> None:
+            self.number_format: str | None = None
+            self.font = DummyFont()
+
+    proxy = _OpenpyxlWorksheetProxy(object())
+    cell = DummyCell()
+
+    proxy._apply_format(cell, {"num_format": "0.0", "font_color": "#ff0000"})
+
+    assert cell.number_format == "0.0"
+    assert cell.font.color == "FFFF0000"
+
+
+def test_openpyxl_workbook_adapter_prunes_default_sheet():
+    class DummySheet:
+        def __init__(self) -> None:
+            self.title = "Sheet"
+
+        def cell(self, *_: object) -> "DummySheet":
+            self.value = ""
+            return self
+
+    class DummyWorkbook:
+        def __init__(self) -> None:
+            self.worksheets = [DummySheet()]
+            self.removed = False
+
+        def remove(self, sheet: DummySheet) -> None:
+            self.removed = True
+            self.worksheets.remove(sheet)
+
+        def create_sheet(self, title: str) -> DummySheet:
+            sheet = DummySheet()
+            sheet.title = title
+            self.worksheets.append(sheet)
+            return sheet
+
+    wb = DummyWorkbook()
+    adapter = _OpenpyxlWorkbookAdapter(wb)
+    assert wb.removed is True
+    ws = adapter.add_worksheet("Report")
+    assert ws.native.title == "Report"
+
+
+def test_maybe_remove_openpyxl_default_sheet_handles_multiple(monkeypatch):
+    class DummySheet:
+        def __init__(self, title: str, value: object | None) -> None:
+            self.title = title
+            self._value = value
+
+        def cell(self, row: int, column: int) -> "DummySheet":  # noqa: ARG002
+            return self
+
+        @property
+        def value(self) -> object | None:  # pragma: no cover - attribute access only
+            return self._value
+
+    class DummyWorkbook:
+        def __init__(self) -> None:
+            self.worksheets = [DummySheet("Summary", None), DummySheet("Sheet", None)]
+
+        def remove(self, _: object) -> None:  # pragma: no cover - should not run
+            raise AssertionError(
+                "remove should not be called when multiple sheets exist"
+            )
+
+    workbook = DummyWorkbook()
+    remover = getattr(export_module, "_maybe_remove_openpyxl_default_sheet")
+
+    removed = remover(workbook)
+    assert removed is None
+
+
+def test_openpyxl_proxy_column_and_autofilter(monkeypatch):
+    class DummyDimensions(dict):
+        def __getitem__(self, key: object) -> "DummyDimension":
+            dim = super().get(key)
+            if dim is None:
+                dim = DummyDimension()
+                super().__setitem__(key, dim)
+            return dim
+
+    class DummyDimension:
+        def __init__(self) -> None:
+            self.width = 0.0
+
+    class DummyAutoFilter:
+        def __init__(self) -> None:
+            self.ref = ""
+
+    class DummyWorksheet:
+        def __init__(self) -> None:
+            self.column_dimensions: DummyDimensions = DummyDimensions()
+            self.auto_filter = DummyAutoFilter()
+
+        def cell(self, row: int, column: int) -> types.SimpleNamespace:
+            return types.SimpleNamespace(
+                value=None,
+                font=types.SimpleNamespace(copy=lambda **_: types.SimpleNamespace()),
+            )
+
+    ws = DummyWorksheet()
+    proxy = _OpenpyxlWorksheetProxy(ws)
+
+    monkeypatch.setattr(
+        export_module, "get_column_letter", lambda idx: {2: "B", 3: "C"}[idx]
+    )
+
+    proxy.set_column(1, 2, 12.5)
+    assert ws.column_dimensions["B"].width == pytest.approx(12.5)
+    assert ws.column_dimensions["C"].width == pytest.approx(12.5)
+
+    proxy.autofilter(0, 1, 4, 2)
+    assert ws.auto_filter.ref == "B1:C5"
+
+
+def test_openpyxl_workbook_adapter_rename_last_sheet():
+    class DummySheet:
+        def __init__(self, title: str, value: object | None = None) -> None:
+            self.title = title
+            self._value = value
+
+        def cell(self, *_: object) -> SimpleNamespace:
+            return SimpleNamespace(value=self._value)
+
+    class DummyWorkbook:
+        def __init__(self) -> None:
+            self.worksheets = [DummySheet("Sheet")]
+
+        def remove(self, sheet: DummySheet) -> None:
+            self.worksheets.remove(sheet)
+
+        def create_sheet(self, title: str) -> DummySheet:
+            new_sheet = DummySheet(title)
+            self.worksheets.append(new_sheet)
+            return new_sheet
+
+    wb = DummyWorkbook()
+    adapter = _OpenpyxlWorkbookAdapter(wb)
+    ws = adapter.add_worksheet("Metrics")
+    assert ws.native.title == "Metrics"
+
+    wb.worksheets.append(DummySheet("Old Name"))
+    adapter.rename_last_sheet("Renamed")
+    assert wb.worksheets[-1].title == "Renamed"
+
+
+def test_format_frequency_policy_line_includes_extras():
+    res = {
+        "input_frequency": {
+            "label": "Monthly",
+            "target_label": "Quarterly",
+            "resampled": True,
+        },
+        "missing_data_policy": {
+            "policy": "ffill",
+            "limit": 2,
+            "total_filled": "3",
+            "dropped_assets": ["A", "B"],
+        },
+    }
+
+    line = _format_frequency_policy_line(res)
+    assert "Monthly" in line and "Quarterly" in line
+    assert "limit=2" in line
+    assert "filled 3 cells" in line
+    assert "dropped 2 assets" in line
+
+
+def test_summary_frame_from_result_includes_diagnostics():
+    stats_template = dict(
+        cagr=0.1,
+        vol=0.2,
+        sharpe=1.1,
+        sortino=0.9,
+        information_ratio=0.4,
+        max_drawdown=-0.3,
+    )
+
+    def _stat(**overrides: float) -> SimpleNamespace:
+        return SimpleNamespace(**{**stats_template, **overrides})
+
+    res: dict[str, object] = {
+        "in_ew_stats": _stat(),
+        "out_ew_stats": _stat(),
+        "in_user_stats": _stat(),
+        "out_user_stats": _stat(),
+        "in_sample_stats": {"FundA": _stat(), "FundB": _stat()},
+        "out_sample_stats": {"FundA": _stat(), "FundB": _stat()},
+        "fund_weights": {"FundA": 0.6, "FundB": 0.4},
+        "benchmark_ir": {
+            "Bench": {"FundA": 0.2, "equal_weight": 0.1, "user_weight": 0.15}
+        },
+        "preprocessing_summary": "Preprocessing ok",
+        "risk_diagnostics": {
+            "asset_volatility": pd.DataFrame({"FundA": [0.12], "FundB": [0.05]}),
+            "portfolio_volatility": pd.Series([0.08]),
+            "turnover_value": 0.03,
+        },
+        "performance_by_regime": pd.DataFrame(
+            {
+                ("Portfolio", "Bull"): {
+                    "CAGR": 0.1,
+                    "Sharpe": 1.2,
+                    "Max Drawdown": -0.2,
+                    "Hit Rate": 0.6,
+                    "Observations": 5,
+                },
+                ("Portfolio", "Bear"): {
+                    "CAGR": math.nan,
+                    "Sharpe": math.nan,
+                    "Max Drawdown": math.nan,
+                    "Hit Rate": math.nan,
+                    "Observations": math.nan,
+                },
+            }
+        ),
+        "regime_summary": "Strong momentum",
+        "regime_notes": [" Note A ", ""],
+        "input_frequency": {"label": "Monthly"},
+        "missing_data_policy": {},
+    }
+
+    frame = summary_frame_from_result(res)
+    assert "OS IR Bench" in frame.columns
+    assert "Equal Weight" in frame["Name"].tolist()
+    fund_row = frame.loc[frame["Name"] == "FundA"].iloc[0]
+    assert fund_row["Weight"] == pytest.approx(60.0)
+    assert fund_row["OS IR Bench"] == pytest.approx(-30.0)
+    assert fund_row["OS MaxDD"] == pytest.approx(0.2)
+
+
+def test_export_phase1_workbook_without_summary(monkeypatch, tmp_path):
+    captured: dict[str, object] = {}
+
+    def fake_export(frames: Mapping[str, pd.DataFrame], path: str) -> None:
+        captured["frames"] = dict(frames)
+        captured["path"] = path
+
+    monkeypatch.setattr(export_module, "export_to_excel", fake_export)
+
+    export_phase1_workbook([], str(tmp_path / "empty.xlsx"))
+
+    # With no results the workbook should still be exported with no summary sheet
+    assert captured["frames"] == {}
+
+
+def test_export_phase1_multi_metrics_skips_empty_metrics(monkeypatch, tmp_path):
+    exported: list[tuple[tuple[str, ...], str, Mapping[str, pd.DataFrame]]] = []
+
+    def fake_export(
+        data: Mapping[str, pd.DataFrame], path: str, *, formats: Iterable[str]
+    ):
+        exported.append((tuple(formats), path, dict(data)))
+
+    monkeypatch.setattr(export_module, "export_data", fake_export)
+
+    export_phase1_multi_metrics(
+        [],
+        str(tmp_path / "phase1"),
+        formats=["csv", "json"],
+        include_metrics=True,
+    )
+
+    assert exported
+    for formats, _, payload in exported:
+        assert payload.get("metrics") is None or payload["metrics"].empty
+
+
+def test_export_multi_period_metrics_handles_other_only(monkeypatch, tmp_path):
+    calls: list[tuple[tuple[str, ...], Mapping[str, pd.DataFrame]]] = []
+
+    def fake_export(
+        data: Mapping[str, pd.DataFrame], _: str, *, formats: Iterable[str]
+    ):
+        calls.append((tuple(formats), dict(data)))
+
+    monkeypatch.setattr(export_module, "export_data", fake_export)
+
+    export_multi_period_metrics(
+        [],
+        str(tmp_path / "multi"),
+        formats=["csv"],
+        include_metrics=True,
+    )
+
+    assert len(calls) == 1
+    formats, payload = calls[0]
+    assert formats == ("csv",)
+    assert "metrics" not in payload
+    assert "metrics_summary" not in payload
