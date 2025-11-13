@@ -1,129 +1,126 @@
-1. Keepalive PR‑meta: Gate replay must always evaluate a real activation; print mandatory one‑line DISPATCH summary for comment and gate lanes
+1. Keepalive PR‑meta: refuse GITHUB_TOKEN, prove Orchestrator dispatch, enforce cap at dispatch edge, Gate activation fallback, and mandatory DISPATCH/GATE summaries
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-On some PRs the activation→dispatch hop doesn’t fire because the Gate lane requires activation_comment to be prefilled and silently skips if it isn’t. Also, when either lane (comment/gate) decides to skip, there’s no standardized, machine‑readable reason in the run summary—making diagnosis and AC verification hard.
+Meta often “succeeds” while Orchestrator never starts. We must (a) use a real PAT for dispatch, (b) prove that an Orchestrator run was created, (c) enforce run‑cap at the dispatch edge, (d) never silently skip Gate replay when the script didn’t provide activation_comment, and (e) always emit one‑line decisions to the job summary.
 
 Scope
+- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
 
-- In .github/workflows/agents-pr-meta.yml:
-
-  - Gate lane: if activation_comment is empty, fetch the most‑recent human @agent activation comment on the PR and pass it to detection (fallback).
-
-  - Both lanes (comment & gate): after the decision, always write a single‑line DISPATCH summary to $GITHUB_STEP_SUMMARY (even on skip).
-
-  - When the instruction segment is missing/empty, fail the job with reason=instruction-empty (no silent success).
-
-- Do not change label policy, reaction‑lock behavior, run‑cap numbers, or connector settings.
+- Edit .github/workflows/agents-pr-meta.yml only. No orchestrator changes in this issue.
 
 Non‑Goals
 
-No edits to orchestrator/worker
+No change to acceptance text, run‑cap default value, connector payload, or moderation.
 
-No change to acceptance criteria content or Gate internals
-
-No changes to moderation workflows
+No branch‑sync changes (that’s Issue 3).
 
 Tasks
 
-- Gate replay fallback (github‑script)
+- Token policy & proof
 
-  - In the Gate lane, before detection, if steps.gate.outputs.activation_comment == '' then:
+  - If github.token (GITHUB_TOKEN) would be used for dispatch, fail with reason=forbidden-token.
 
-    - Resolve pr_number from workflow_run.pull_requests[0].number (fallback to matching by head SHA if needed).
+  - Require a PAT (ACTION_BOT_PAT or SERVICE_BOT_PAT) and call GET /user to print TOKEN_IDENTITY:.
 
-    - List PR comments; pick the most recent comment where:
+  - After workflow_dispatch, poll GET /actions/workflows/<id>/runs?event=workflow_dispatch and assert a new run exists with your correlation (PR number / trace). If not found within N short polls, fail with reason=dispatch-unconfirmed.
 
-      - author type is human (not a bot), and
+- Cap at dispatch edge
 
-      - body contains an allowed agent mention (@codex, @claude, …), and
+  - Compute active = count(orchestrator runs in {queued,in_progress} for this PR); cap = label('agents:max-runs') || 2 (clamp 1..5).
 
-      - body does not contain the keepalive hidden markers.
+  - If active ≥ cap → do not dispatch; set reason=cap-reached.
 
-    - Expose that comment JSON as activation_comment for the existing detection step.
+- Gate activation fallback
 
-  - Reaction lock before dispatch
+  - If steps.gate.outputs.activation_comment == '', list PR comments and choose the most recent human @agent comment (exclude keepalive comments by checking hidden markers). If none → reason=no-activation-found.
 
-    - On the activation_comment.id, add 🚀. If already present (409), skip dispatch (reason lock-held).
+- Reaction lock
 
-  - Instruction guard
+  - Add 🚀 to the activation comment id before dispatch; if present (409) → reason=lock-held.
 
-    - If detection yields an empty instruction segment, do not dispatch; fail with reason instruction-empty.
+- Mandatory summaries (Summary tab only)
 
-  - Mandatory decision summary (both lanes)
+  - Always write one line:
+    DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|forbidden-token|dispatch-unconfirmed|instruction-empty> pr=#<n> activation=<id|none> agent=<alias> head=<sha7> cap=<active>/<cap> trace=<trace|->
 
-    - After the decision (dispatch or skip), write exactly one line to $GITHUB_STEP_SUMMARY:
-      DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<n> activation=<comment_id|none> agent=<alias> head=<sha7> cap=<k>/<c> trace=<trace|->
+  - Where Gate information is available, also write:
+    GATE: ok=<bool> reason=<code> pr=#<n> head=<sha7>
 
 Acceptance criteria
 
-- With a prior human @agent comment and Gate success, a Gate‑triggered PR‑meta run always prints a DISPATCH: line with path=gate and either ok=true (and orchestrator starts) or a precise reason (e.g., cap-reached, lock-held, no-activation-found).
+- A test PR with a prior human @agent and Gate=success shows DISPATCH path=gate ok=true and an Orchestrator run appears; or it shows an explicit skip reason (e.g., cap-reached).
 
-- When a human @agent comment is posted (comment lane), PR‑meta prints a DISPATCH: line with path=comment showing ok=true or a precise reason.
+- Using GITHUB_TOKEN for dispatch fails with reason=forbidden-token; using a PAT prints TOKEN_IDENTITY: and DISPATCH_CONFIRMED:.
 
-- If the instruction segment is missing, the job fails with reason=instruction-empty (no silent success).
+- When the gate script doesn’t supply activation_comment, the fallback is used (or no-activation-found is printed).
+
+- The DISPATCH: line always appears with cap=<active>/<cap>.
 
 Implementation notes
 
-Keep reaction‑lock behavior unchanged; this issue only ensures replay always brings a concrete activation into detection and that decisions are visible.
+Use actions/github-script@v7 for REST calls.
 
-The summary line must be printed even on skip and must include cap/active, head, and activation id.
+Keep all PR‑meta posting muted (no PR comments).
 
-2. Keepalive PR‑meta: enforce run‑cap at dispatch edge using orchestrator runs in {queued,in_progress} for this PR; print cap/active in summary
+2. Keepalive Orchestrator: workflow_run fallback (Gate), PR‑head checkout, secrets preflight → WRITE_TOKEN, author invariant, INSTRUCTION/WORKER/SYNC summaries, and worker_max_parallel = cap
 
 Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-Bursts happen when multiple PR‑meta instances evaluate the cap before any orchestrator run flips to in_progress. The cap must count queued + in_progress orchestrator runs for this PR at the dispatch edge, and the decision must be visible.
+Cross‑workflow dispatch can fail; Orchestrator must also start on Gate completion. Once running, it must prove token/author are correct, emit one‑line summaries, and execute up to the configured cap.
 
 Scope
 
-- In .github/workflows/agents-pr-meta.yml (both lanes, before dispatch):
+- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
 
-  - Compute active = number of Agents 70 Orchestrator runs for this PR with status ∈ {queued, in_progress}.
-
-    - If active ≥ cap (default 2, label override agents:max-runs:X with clamp 1..5) → do not dispatch.
-
-    - Append cap=<cap> active=<active> to the DISPATCH: summary line from Issue 1.
+- Edit .github/workflows/agents-70-orchestrator.yml and any helper scripts used by it.
 
 Non‑Goals
 
-No changes to orchestrator concurrency (already handled by Option A)
+No PR‑meta edits in this issue.
 
-No change to cap default/labels
-
-No edits to worker/branch‑sync
+No branch‑sync algorithm change (that’s Issue 3), only the SYNC: summary line.
 
 Tasks
 
-- Active‑run query (github‑script)
+- Trigger & checkout
 
-  - List runs for the orchestrator workflow twice (status=queued and status=in_progress).
+  - Add:
+    on:
+      workflow_run:
+      workflows: ["Gate", "Dummy (fast-pass) gate"]   # include all Gate variants you use
+      types: [completed]
 
-  - Filter to this PR using a PR‑scoped discriminator you already control (e.g., the orchestrator’s concurrency.group includes the PR number, or the run name/title embeds #<PR>).
+  - On this path, checkout PR head: 
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
 
-  - Compute active and resolved cap.
+- Secrets preflight
 
-- Cap gate
+  - Early job sets WRITE_TOKEN = ACTION_BOT_PAT || SERVICE_BOT_PAT; fail fast if neither exists. Print:
+    PREPOST: token=<ACTION_BOT_PAT|SERVICE_BOT_PAT>
 
-  - If active ≥ cap → set decision ok=false reason=cap-reached and skip dispatch.
+- Author invariant
 
-- Summary
+  - If the pipeline requires the instruction to be authored by stranske and WRITE_TOKEN ≠ ACTION_BOT_PAT, do not post; print:
+    INSTRUCTION: ok=false reason=wrong-author token=<...> head=<sha7> trace=<trace>
 
-  - Ensure the DISPATCH: line includes cap=<cap> active=<active>.
+  and fail the job.
 
-Acceptance criteria
+- One‑line summaries (always)
 
-- On a test PR with agents:max-runs:2, two near‑simultaneous dispatch attempts succeed; a third prints DISPATCH: ok=false reason=cap-reached … cap=2 active=2 and does not dispatch.
+  - After instruction post + ACK:
+    INSTRUCTION: ok=<true|false> author=<stranske|stranske-automation-bot> comment=<id|none> ack=<ok|fail> head=<sha7> trace=<trace>
 
-- The DISPATCH: line always shows accurate cap/active.
+- Worker decision:
+  WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|blocked> pr=#<n> head=<sha7> instr=<id|none> trace=<trace>
 
-Implementation notes
+- Branch‑sync placeholder (final outcome printed in Issue 3):
+  SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<trace>
 
-Filter by workflow id/name to avoid counting PR‑meta/status jobs.
-
-Use the same counting function in both lanes to avoid drift.
 
 3. Keepalive Orchestrator: enforce author invariant (post as stranske or fail) and print mandatory INSTRUCTION, WORKER, SYNC lines in job summary
 
@@ -142,7 +139,7 @@ Scope
 
 Non‑Goals
 
-No change to run‑cap logic in orchestrator (PR‑meta controls cap at dispatch edge)
+  - Set worker_max_parallel = min(cap_from_options_or_label, 5); default 2. Ensure this matches PR‑meta cap.
 
 No change to branch‑sync algorithm
 
@@ -157,82 +154,80 @@ Tasks
   - If ACTIONS_BOT_PAT is not selected, fail the post step and write:
     INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT|github.token> head=<sha7> trace=<trace>
 
-- Instruction summary
+- After Gate completion, an Orchestrator run appears with event=workflow_run and checks out the PR head SHA.
 
-  - After a successful post + ACK, write:
-    INSTRUCTION: ok=true author=stranske comment=<id> ack=<ok|fail> head=<sha7> trace=<trace>
+- The run prints PREPOST: token=…; if only SERVICE_BOT_PAT is available and author invariant requires stranske, the job fails with reason=wrong-author.
 
-- Worker summary
+- On a normal path, the run prints INSTRUCTION ok=true author=stranske, then WORKER action=execute, and a SYNC line.
 
-  - Before executing worker logic, decide execute vs skip using your new guard (new instruction vs head unchanged).
-
-  - Write:
-    WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|...> pr=#<n> head=<sha7> instr=<comment_id> trace=<trace>
-
-- Branch‑sync summary
-
-  - After branch‑sync gate, write:
-    SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<trace>
-
-Acceptance criteria
-
-- Orchestrator fails fast if it would post as the bot (no instruction posted; INSTRUCTION: ok=false reason=wrong-author …).
-
-- On a successful round: INSTRUCTION ok=true author=stranske, followed by WORKER action=execute, and a SYNC line reflecting the action taken.
-
-- On a skipped worker: WORKER action=skip reason=no-new-instruction-and-head-unchanged.
-
-- The three summary lines appear on every orchestrator run.
+- With cap=2, two workers can run concurrently; a third attempt is blocked upstream by PR‑meta.
 
 Implementation notes
 
-Keep your existing ACK logic; just surface the result in INSTRUCTION:.
+Keep PR noise minimal—summaries only.
 
-Do not post any of these summaries as PR comments—summary only.
+If you must keep the dispatch path, leave it in place; this fallback guarantees a token‑free path.
 
-4. CI guardrail: validate GitHub workflow files on PRs to block merges with YAML parse/annotation errors
+3. Keepalive Branch‑Sync: implement update-branch → create-pr+auto-merge → escalate (+ link); emit SYNC: summary with head change result
 
-Labels: ci, automation, enhancement
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
 
 Why
-A single top‑level expression error previously invalidated the orchestrator workflow and blocked keepalive entirely. We want a fast‑failing check that prevents merges when any workflow is invalid.
+External agents often complete work in a sandbox. If we don’t update the PR head, later keepalive rounds repeat work. We need a reliable, two‑path sync and a clear escalation when automation can’t land the code.
 
 Scope
 
-- Add a small CI workflow (e.g., .github/workflows/validate-workflows.yml) that runs on pull_request and push to default branch and:
+- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
 
-  - Lints/parses all files under .github/workflows/*.yml
-
-  - Fails if GitHub’s workflow‑parser annotations indicate an error (or if act/actionlint reports an error)
+- Edit orchestrator post‑work steps and helpers only.
 
 Non‑Goals
 
-No behavior changes to existing workflows
+No changes to PR‑meta or detection logic.
 
-No changes to keepalive logic
+No changes to acceptance content.
 
 Tasks
 
-- Add validator workflow
+- Dry‑run status (optional but helpful)
 
-  - Use rhysd/actionlint (or a pinned container) to parse all workflow YAMLs.
+  - Compute sync status: in_sync | needs_update | conflict. Print:
+    SYNC: status=<...> mode=dry-run head=<sha7> base=<branch>
 
-  - Optionally run a quick dry‑parse with yq to catch schema errors.
+- Path A — Update Branch
 
-  - If any error occurs, fail the job.
+  - If clean and no newer commits, call the GitHub “Update branch” API (or merge base fast‑forward); then re‑poll HEAD. If changed → head_changed=true.
 
-- Status integration
+- Path B — Create PR + Auto‑merge
 
-  - Mark this workflow as a required check for the default branch (repo settings).
+  - If Path A not possible, create a short‑lived internal PR from the agent’s sandbox ref; auto‑enable merge and complete it. Re‑poll HEAD.
+
+- Escalation
+
+  - If neither path works, add agents:sync-required label and post a short PR comment:
+    “Keepalive: manual action needed — click Update Branch or open Create PR at: <action URL>”
+
+  - Include the exact button URL provided by the agent/connector.
+
+- Mandatory SYNC: summary
+
+  - Print a final line:
+    SYNC: action=<update-branch|create-pr|escalate> head_changed=<true|false> link=<url|-> trace=<trace>
 
 Acceptance criteria
 
-- A PR that introduces a parse/annotation error in any workflow is blocked with a red check and a clear error line.
+- After a successful agent round that produces code, the orchestrator either:
 
-- Clean PRs pass without noise.
+  - updates the PR head (SYNC action=update-branch head_changed=true), or
+
+  - creates and merges a helper PR (SYNC action=create-pr head_changed=true), or
+
+  - escalates with a clear PR comment and link (SYNC action=escalate head_changed=false link=<url>).
+
+- The SYNC: line always appears in the job summary.
 
 Implementation notes
 
-Pin action versions; do not grant extra permissions.
+Keep the escalation comment compact; moderation rules should allow it.
 
-Keep the job fast (<30s) so it doesn’t slow inner‑loop iteration.
+Prefer updating the PR head in place (Path A) when safe; use the helper PR only when necessary.
