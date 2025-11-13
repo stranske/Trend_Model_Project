@@ -234,16 +234,24 @@ def test_run_schedule_calls_weight_update() -> None:
     selector = SelectorStub(["FundA"])
     weighting = UpdateWeighting()
 
-    mp_engine.run_schedule({"2020-01-31": frame}, selector, weighting, rank_column="Sharpe")
+    mp_engine.run_schedule(
+        {"2020-01-31": frame}, selector, weighting, rank_column="Sharpe"
+    )
 
     assert weighting.updates and weighting.updates[0][1] == 0
 
 
-def test_run_loads_csv_and_handles_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_loads_csv_and_handles_missing_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = PerPeriodConfig()
 
     raw_df = pd.DataFrame(
-        {"Date": ["2020-01-31", "2020-02-29"], "FundA": [0.01, 0.02], "FundB": [0.02, 0.03]}
+        {
+            "Date": ["2020-01-31", "2020-02-29"],
+            "FundA": [0.01, 0.02],
+            "FundB": [0.02, 0.03],
+        }
     )
 
     monkeypatch.setattr(mp_engine, "load_csv", lambda *a, **k: raw_df.copy())
