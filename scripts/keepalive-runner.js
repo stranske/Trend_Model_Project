@@ -955,7 +955,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
                 github,
                 owner,
                 repo,
-                token: env.ACTIONS_BOT_PAT || env.ACTION_BOT_PAT || env.action_bot_pat || '',
+                token: env.ACTIONS_BOT_PAT || env.actions_bot_pat || '',
                 payload: {
                   issue: prNumber,
                   agent: agentAlias,

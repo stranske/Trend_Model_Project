@@ -594,7 +594,7 @@ jobs:
     timeout-minutes: 25
     env:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || secrets.action_bot_pat || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
     steps:
       - uses: actions/checkout@v4
         with:

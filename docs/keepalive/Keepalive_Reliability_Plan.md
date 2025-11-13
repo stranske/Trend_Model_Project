@@ -28,7 +28,7 @@ This plan closes the remaining reliability gaps in the keepalive pipeline by rem
 ### B) Orchestrator
 - **Token‑free fallback:** also triggers via `workflow_run` of **Gate** (no cross‑dispatch required).  
 - **PR head checkout on `workflow_run`:** use `github.event.workflow_run.pull_requests[0].head.sha`.  
-- **Secrets preflight:** choose a single `WRITE_TOKEN = ACTION_BOT_PAT || SERVICE_BOT_PAT`; fail fast if none.  
+- **Secrets preflight:** choose a single `WRITE_TOKEN = ACTIONS_BOT_PAT || SERVICE_BOT_PAT`; fail fast if none.  
 - **Author invariant:** if the agent requires `stranske`, fail instruction step with `reason=wrong-author` when only the bot token is available.  
 - **Worker fan‑out:** set `worker_max_parallel = min(cap, 5)`; default 2.  
 - **Worker guard:** execute iff **new instruction** exists OR **head changed**; else skip.  
