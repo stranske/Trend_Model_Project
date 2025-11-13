@@ -1150,21 +1150,47 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         label: `${actionKey}-wait`,
         core,
       });
+
+      let branchChanged = Boolean(pollResult?.changed);
+      let resolvedSha = pollResult?.headSha || '';
+
+      if (!branchChanged && actionKey === 'create-pr') {
+        try {
+          const freshHeadInfo = await fetchHead();
+          const candidateSha = freshHeadInfo?.headSha || '';
+          const comparisonSha = baselineHead || initialHead;
+          if (candidateSha && candidateSha !== comparisonSha) {
+            branchChanged = true;
+            resolvedSha = candidateSha;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          core?.info?.(`Post-command head check failed during ${label}: ${message}`);
+        }
+      }
+
       const outcomeUpdate = {
-        result: pollResult.changed ? 'success' : 'timeout',
+        result: branchChanged ? 'success' : 'timeout',
         resolved_at: new Date().toISOString(),
-        resolved_sha: pollResult.headSha || '',
+        resolved_sha: resolvedSha || '',
       };
       await updateCommandState({
         [actionKey]: mergeStateShallow(getCommandActionState(actionKey), outcomeUpdate),
       });
+
+      pollResult = {
+        ...(pollResult || {}),
+        changed: branchChanged,
+        headSha: resolvedSha || pollResult?.headSha || '',
+      };
     }
 
     let message;
     if (pollResult?.changed) {
-      message = `Branch advanced to ${pollResult.headSha || '(unknown)'}`;
+      const resolvedSha = pollResult.headSha || '';
+      message = `Branch advanced to ${resolvedSha || '(unknown)'}`;
       success = true;
-      finalHead = pollResult.headSha;
+      finalHead = resolvedSha || finalHead;
       baselineHead = finalHead;
       mode = `dispatch-${actionKey}`;
       finalAction = actionKey;
