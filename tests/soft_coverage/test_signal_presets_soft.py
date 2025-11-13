@@ -55,8 +55,12 @@ def test_trend_spec_preset_as_signal_config_includes_optional_fields() -> None:
 
 
 def test_trend_spec_preset_methods_handle_missing_optional_fields() -> None:
-    spec = TrendSpec(window=21, min_periods=None, lag=2, vol_adjust=False, vol_target=None)
-    preset = TrendSpecPreset(name="Custom", description="Spec without optional fields", spec=spec)
+    spec = TrendSpec(
+        window=21, min_periods=None, lag=2, vol_adjust=False, vol_target=None
+    )
+    preset = TrendSpecPreset(
+        name="Custom", description="Spec without optional fields", spec=spec
+    )
 
     # ``as_signal_config`` should only contain fields that are explicitly set
     # on the underlying ``TrendSpec`` instance.
