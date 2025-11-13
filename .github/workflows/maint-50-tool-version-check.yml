@@ -34,14 +34,16 @@ jobs:
         id: current
         run: |
           source .github/workflows/autofix-versions.env
-          echo "black_current=${BLACK_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "ruff_current=${RUFF_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "isort_current=${ISORT_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "docformatter_current=${DOCFORMATTER_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "mypy_current=${MYPY_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "pytest_current=${PYTEST_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "pytest_cov_current=${PYTEST_COV_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "coverage_current=${COVERAGE_VERSION}" >> "$GITHUB_OUTPUT"
+          {
+            echo "black_current=${BLACK_VERSION}"
+            echo "ruff_current=${RUFF_VERSION}"
+            echo "isort_current=${ISORT_VERSION}"
+            echo "docformatter_current=${DOCFORMATTER_VERSION}"
+            echo "mypy_current=${MYPY_VERSION}"
+            echo "pytest_current=${PYTEST_VERSION}"
+            echo "pytest_cov_current=${PYTEST_COV_VERSION}"
+            echo "coverage_current=${COVERAGE_VERSION}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check latest PyPI versions
         id: latest

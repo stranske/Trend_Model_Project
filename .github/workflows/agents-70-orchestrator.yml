@@ -2187,6 +2187,17 @@ jobs:
         id: gate
         run: |
           set -euo pipefail
+          : "${POST_WORK_RESULT:=}"
+          : "${POST_WORK_SUCCESS:=}"
+          : "${POST_WORK_CHANGED:=}"
+          : "${DRY_RUN:=}"
+          : "${EXISTING_ROUND:=}"
+          : "${EXISTING_TRACE:=}"
+          : "${EXISTING_REACTION:=}"
+          : "${EXISTING_COMMENT_ID:=}"
+          : "${EXISTING_COMMENT_URL:=}"
+          : "${CURRENT_ROUND:=}"
+          : "${CURRENT_TRACE:=}"
           result="${POST_WORK_RESULT}";
           success="${POST_WORK_SUCCESS}";
           changed="${POST_WORK_CHANGED}";
@@ -2229,12 +2240,17 @@ jobs:
             fi
           fi
 
-          echo "should_post=${should_post}" >>"$GITHUB_OUTPUT"
-          echo "skip_reason=${reason}" >>"$GITHUB_OUTPUT"
-          echo "SHOULD_POST=${should_post}" >>"$GITHUB_ENV"
-          echo "SKIP_REASON=${reason}" >>"$GITHUB_ENV"
-          echo "EXISTING_COMMENT_ID=${existing_comment_id}" >>"$GITHUB_ENV"
-          echo "EXISTING_COMMENT_URL=${existing_comment_url}" >>"$GITHUB_ENV"
+          {
+            echo "should_post=${should_post}"
+            echo "skip_reason=${reason}"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "SHOULD_POST=${should_post}"
+            echo "SKIP_REASON=${reason}"
+            echo "EXISTING_COMMENT_ID=${existing_comment_id}"
+            echo "EXISTING_COMMENT_URL=${existing_comment_url}"
+          } >>"$GITHUB_ENV"
         env:
           POST_WORK_RESULT: ${{ needs.keepalive-post-work.result || '' }}
           POST_WORK_SUCCESS: ${{ needs.keepalive-post-work.outputs.success || '' }}
