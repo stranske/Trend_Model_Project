@@ -2290,6 +2290,18 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce keepalive author invariant
+        id: author_invariant
+        if: steps.gate.outputs.should_post == 'true'
+        env:
+          SELECTED_TOKEN: ${{ steps.author_token.outputs.token || '' }}
+        run: |
+          set -euo pipefail
+          if [ "${SELECTED_TOKEN}" != 'ACTION_BOT_PAT' ]; then
+            echo "::error::Keepalive instruction must post as stranske (ACTION_BOT_PAT). Selected token: ${SELECTED_TOKEN:-none}." >&2
+            exit 1
+          fi
+
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
         if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'ACTION_BOT_PAT'
@@ -2604,52 +2616,76 @@ jobs:
               body,
             });
 
-      - name: Summarise keepalive instruction
-        run: |
-          set -euo pipefail
-          if [ "${SHOULD_POST}" != 'true' ]; then
-            reason="${SKIP_REASON:-unknown}"
-            extra=''
-            if [ "${reason}" = 'existing-instruction' ]; then
-              existing_ref='(unavailable)'
-              if [ -n "${EXISTING_COMMENT_URL}" ]; then
-                existing_ref="${EXISTING_COMMENT_URL}"
-              elif [ -n "${EXISTING_COMMENT_ID}" ]; then
-                existing_ref="#${EXISTING_COMMENT_ID}"
-              fi
-              extra=" existing=${existing_ref}"
-            fi
-            printf 'INSTRUCTION: round=%s trace=%s skipped reason=%s%s\n' \
-              "${ROUND:-?}" "${TRACE:-missing}" "${reason:-unknown}" "${extra}" >>"$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          round="${ROUND:-?}"
-          trace="${TRACE:-missing}"
-          author="${AUTHOR:-unknown}"
-          agent="${AGENT:-codex}"
-          ack="${ACK:-no}"
-          comment_ref="${COMMENT_URL:-}"
-          if [ -n "${COMMENT_URL}" ]; then
-            comment_ref="${COMMENT_URL}"
-          elif [ -n "${COMMENT_ID}" ]; then
-            comment_ref="#${COMMENT_ID}"
-          else
-            comment_ref='(unavailable)'
-          fi
-          printf 'INSTRUCTION: round=%s trace=%s author=%s agent=%s comment=%s ack=%s\n' \
-            "${round}" "${trace}" "${author}" "${agent}" "${comment_ref}" "${ack}" >>"$GITHUB_STEP_SUMMARY"
+      - name: Record instruction observability line
+        if: always()
+        shell: bash
         env:
-          ROUND: ${{ needs.keepalive-prep.outputs.round || '(unknown)' }}
-          TRACE: ${{ needs.keepalive-prep.outputs.trace || '(missing)' }}
-          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '(unknown)' }}
-          AGENT: ${{ needs.keepalive-prep.outputs.agent || 'codex' }}
-          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '' }}
-          COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url || '' }}
-          ACK: ${{ steps.ack.outputs.acknowledged == 'true' && 'yes' || 'no' }}
           SHOULD_POST: ${{ steps.gate.outputs.should_post || 'false' }}
           SKIP_REASON: ${{ steps.gate.outputs.skip_reason || '' }}
-          EXISTING_COMMENT_ID: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_id || '' }}
-          EXISTING_COMMENT_URL: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_url || '' }}
+          TRACE: ${{ needs.keepalive-prep.outputs.trace || '' }}
+          BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
+          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '' }}
+          COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '' }}
+          ACKNOWLEDGED: ${{ steps.ack.outputs.acknowledged || '' }}
+          AUTHOR_TOKEN: ${{ steps.author_token.outputs.token || '' }}
+          AUTHOR_INVARIANT_OUTCOME: ${{ steps.author_invariant.outcome || '' }}
+          POST_PRIMARY_OUTCOME: ${{ steps.post_instruction_primary.outcome || '' }}
+          POST_FALLBACK_OUTCOME: ${{ steps.post_instruction_fallback.outcome || '' }}
+        run: |
+          set -euo pipefail
+          trace="${TRACE:-}"
+          if [ -z "${trace}" ]; then
+            trace='n/a'
+          fi
+          head="${BASELINE_HEAD:-}"
+          if [ -n "${head}" ]; then
+            head="${head:0:7}"
+          else
+            head='unknown'
+          fi
+
+          should_post="${SHOULD_POST:-false}"
+          comment_id="${COMMENT_ID:-}"
+          author="${AUTHOR:-}"
+          if [ -z "${author}" ]; then
+            author='none'
+          fi
+          ack_state="${ACKNOWLEDGED:-}"
+          if [ "${ack_state}" = 'true' ]; then
+            ack='ok'
+          else
+            ack='fail'
+          fi
+
+          if [ "${should_post}" != 'true' ]; then
+            reason="${SKIP_REASON:-unknown}"
+            printf 'INSTRUCTION: ok=false reason=%s comment=none ack=fail head=%s trace=%s\n' \
+              "${reason:-unknown}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "${AUTHOR_INVARIANT_OUTCOME}" = 'failure' ]; then
+            token="${AUTHOR_TOKEN:-}"
+            if [ -z "${token}" ]; then
+              token='github.token'
+            fi
+            printf 'INSTRUCTION: ok=false reason=wrong-author token=%s comment=none ack=fail head=%s trace=%s\n' \
+              "${token}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ -n "${comment_id}" ]; then
+            printf 'INSTRUCTION: ok=true author=%s comment=%s ack=%s head=%s trace=%s\n' \
+              "${author}" "${comment_id}" "${ack}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          reason='unknown'
+          if [ "${POST_PRIMARY_OUTCOME}" = 'failure' ] || [ "${POST_FALLBACK_OUTCOME}" = 'failure' ]; then
+            reason='post-error'
+          fi
+          printf 'INSTRUCTION: ok=false reason=%s comment=none ack=fail head=%s trace=%s\n' \
+            "${reason}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
 
   belt-dispatch-summary:
     name: Summarise Codex dispatch outcomes
@@ -2658,6 +2694,7 @@ jobs:
       - belt-worker
       - belt-check-existing-pr
       - keepalive-guard
+      - keepalive-prep
       - keepalive-instruction
       - keepalive-post-work
       - dry-run-branch-sync
@@ -2665,6 +2702,17 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Emit keepalive sync fallback line
+        if: needs.keepalive-post-work.outputs.action == ''
+        env:
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || '' }}
+        run: |
+          trace="${TRACE:-}"
+          if [ -z "${trace}" ]; then
+            trace='n/a'
+          fi
+          printf 'SYNC: action=skip head_changed=false trace=%s\n' "${trace}" >>"$GITHUB_STEP_SUMMARY"
+
       - name: Record existing PR guard outcome
         if: needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true'
         run: |

@@ -448,6 +448,7 @@ async function countActive({
   headRef,
   currentRunId,
   includeWorker = true,
+  workflows,
 }) {
   const targetPr = Number(prNumber);
   if (!Number.isFinite(targetPr) || targetPr <= 0) {
@@ -455,9 +456,15 @@ async function countActive({
   }
 
   const statuses = ['queued', 'in_progress'];
-  const workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
-  if (includeWorker) {
-    workflowFiles.push(WORKER_WORKFLOW_FILE);
+  let workflowFiles = Array.isArray(workflows)
+    ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
+    : [];
+  if (workflowFiles.length === 0) {
+    const shouldIncludeWorker = Boolean(includeWorker);
+    workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
+    if (shouldIncludeWorker) {
+      workflowFiles.push(WORKER_WORKFLOW_FILE);
+    }
   }
 
   const runIds = new Set();
@@ -631,7 +638,7 @@ async function evaluateRunCapForPr({
   prNumber,
   headSha = '',
   headRef = '',
-  includeWorker = false,
+  includeWorker = true,
   currentRunId,
 } = {}) {
   const number = Number(prNumber);
@@ -841,8 +848,11 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     currentRunId,
-    includeWorker: true,
+    workflows: [ORCHESTRATOR_WORKFLOW_FILE],
   });
+  if (runError) {
+    core.warning(`Run cap evaluation encountered an error while counting runs: ${runError}`);
+  }
   const underRunCap = activeRuns < runCap;
 
   let ok = true;
