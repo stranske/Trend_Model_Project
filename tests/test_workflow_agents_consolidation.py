@@ -384,24 +384,9 @@ def test_run_summary_dedupes_stage_entries():
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
-    concurrency = data.get("concurrency") or {}
-    group = str(concurrency.get("group") or "")
-    assert group.startswith(
-        "agents-70-orchestrator-${{"
-    ), "Orchestrator concurrency must prefix groups with orchestrator identifier"
     assert (
-        "github.event.inputs.options_json" in group
-    ), "Concurrency must scope workflow_dispatch runs by options_json payload"
-    assert (
-        "github.event.client_payload.options_json" in group
-        or "github.event.client_payload.options" in group
-    ), "Concurrency must scope repository_dispatch runs by options overrides"
-    assert (
-        "github.run_id" in group
-    ), "Concurrency fallback must include github.run_id when no override is present"
-    assert (
-        concurrency.get("cancel-in-progress") is False
-    ), "Orchestrator concurrency must keep existing runs alive"
+        data.get("concurrency") is None
+    ), "Top-level orchestrator concurrency should be unset so the job can resolve context first"
 
     jobs = data.get("jobs", {})
     orchestrate = jobs.get("orchestrate", {})
@@ -409,6 +394,24 @@ def test_agents_orchestrator_has_concurrency_defaults():
     assert (
         "timeout-minutes" not in orchestrate
     ), "Timeout must live in reusable workflow because workflow-call jobs reject timeout-minutes"
+
+    job_concurrency = orchestrate.get("concurrency") or {}
+    group = str(job_concurrency.get("group") or "")
+    assert group.startswith(
+        "${{ format('keepalive-orchestrator-pr-"
+    ), "Orchestrator job concurrency must prefix groups with orchestrator identifier"
+    assert (
+        "needs.resolve-orchestrator-context.outputs.pr_number" in group
+    ), "Concurrency must scope runs by the resolved pull request number"
+    assert (
+        "needs.resolve-orchestrator-context.outputs.agent_alias" in group
+    ), "Concurrency must scope runs by the resolved agent alias"
+    assert (
+        "github.run_id" in group
+    ), "Concurrency fallback must include github.run_id when no override is present"
+    assert (
+        job_concurrency.get("cancel-in-progress") is False
+    ), "Orchestrator job concurrency must keep existing runs alive"
 
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (
