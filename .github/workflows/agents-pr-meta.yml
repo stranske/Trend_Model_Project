@@ -101,6 +101,7 @@ jobs:
       activation_comment: ${{ steps.pre_gate.outputs.activation_comment }}
       instruction_body: ${{ steps.detect.outputs.instruction_body }}
       instruction_bytes: ${{ steps.detect.outputs.instruction_bytes }}
+      head_sha: ${{ steps.pre_gate.outputs.head_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -243,7 +244,7 @@ jobs:
             await detectKeepalive({ core, github, context, env: process.env });
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'duplicate-keepalive'
+        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'lock-held'
         run: |
           set -euo pipefail
           comment_id="${{ steps.detect.outputs.comment_id || '?' }}"
@@ -258,6 +259,23 @@ jobs:
         if: steps.detect.outputs.dispatch != 'true'
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
+
+      - name: Write dispatch summary
+        if: ${{ always() }}
+        env:
+          PATH_LABEL: comment
+          DISPATCH: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
+          TRACE: ${{ steps.detect.outputs.trace }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr }}
+          FALLBACK_PR: ${{ steps.pre_gate.outputs.pr_number || github.event.issue.number }}
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id }}
+          ACTIVATION_FALLBACK: ${{ github.event.comment.id }}
+          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '' }}
+          DISPATCH_AGENT: ${{ steps.pre_gate.outputs.agent_alias || 'codex' }}
+          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
+          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
+          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || '?' }}
+        run: bash .github/scripts/write_dispatch_summary.sh
 
   gate_event_context:
     if: >-
@@ -300,7 +318,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       dispatch: ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-      reason: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}
+      reason: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || steps.activation_fallback.outputs.reason }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -308,7 +326,7 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
       author: ${{ steps.detect.outputs.author }}
-      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_id: ${{ steps.detect.outputs.comment_id || steps.activation_fallback.outputs.comment_id }}
       comment_url: ${{ steps.detect.outputs.comment_url }}
       processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
       deduped: ${{ steps.detect.outputs.deduped }}
@@ -324,6 +342,7 @@ jobs:
       active_runs: ${{ steps.gate.outputs.active_runs }}
       run_cap: ${{ steps.gate.outputs.run_cap }}
       require_human_activation: ${{ steps.gate.outputs.require_human_activation }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -381,6 +400,205 @@ jobs:
             } else {
               core.info(`Gate-triggered keepalive evaluation blocked: ${result.reason || 'unspecified'}`);
             }
+
+      - name: Restore activation comment fallback
+        id: activation_fallback
+        if: steps.gate.outputs.activation_comment == ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number || '' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || github.event.workflow_run.head_sha || '' }}
+          AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const workflowRun = context.payload?.workflow_run || {};
+            const pullRequests = Array.isArray(workflowRun.pull_requests) ? workflowRun.pull_requests : [];
+            const firstPull = pullRequests.length > 0 ? pullRequests[0] : null;
+
+            const parseNumber = (value) => {
+              const parsed = Number(value);
+              return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+            };
+
+            let prNumber = parseNumber(process.env.PR_NUMBER);
+            if (!prNumber && firstPull?.number) {
+              prNumber = parseNumber(firstPull.number);
+            }
+
+            const { owner, repo } = context.repo;
+
+            const headSha = (process.env.HEAD_SHA || '').trim();
+            if (!prNumber && headSha) {
+              try {
+                const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  owner,
+                  repo,
+                  commit_sha: headSha,
+                });
+                const associated = Array.isArray(data) ? data : [];
+                const firstMatch =
+                  associated.find((pull) => pull && pull.number && pull.state !== 'closed') ||
+                  associated.find((pull) => pull && pull.number);
+                if (firstMatch?.number) {
+                  prNumber = parseNumber(firstMatch.number);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to resolve PR from head SHA ${headSha}: ${message}`);
+              }
+            }
+
+            if (!prNumber) {
+              core.setOutput('activation_comment', '');
+              core.setOutput('comment_id', '');
+              core.setOutput('reason', 'no-activation-found');
+              core.setOutput('found', 'false');
+              return;
+            }
+
+            const normaliseAlias = (value) => String(value || '').trim().toLowerCase();
+            const agentAlias = normaliseAlias(process.env.AGENT_ALIAS);
+
+            const loadMentionCandidates = () => {
+              const candidates = new Set(['codex', 'claude', 'octavia']);
+              if (agentAlias) {
+                candidates.add(agentAlias);
+              }
+
+              const agentsPath = path.join(process.cwd(), '.github', 'agents.json');
+              try {
+                const buffer = fs.readFileSync(agentsPath, 'utf8');
+                const parsed = JSON.parse(buffer);
+                for (const value of Object.values(parsed || {})) {
+                  if (!value || typeof value !== 'object') {
+                    continue;
+                  }
+                  const mention = normaliseAlias(value.mention || '');
+                  if (mention) {
+                    const mentionValue = mention.replace(/^@/, '');
+                    if (mentionValue) {
+                      candidates.add(mentionValue);
+                    }
+                  }
+                  if (Array.isArray(value.aliases)) {
+                    for (const alias of value.aliases) {
+                      const normalised = normaliseAlias(alias);
+                      if (normalised) {
+                        candidates.add(normalised);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Unable to read agents mention list (${agentsPath}): ${message}`);
+              }
+
+              return candidates;
+            };
+
+            const mentionCandidates = loadMentionCandidates();
+
+            const buildMentionPattern = (alias) => {
+              const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              return new RegExp(`(^|[^A-Za-z0-9_-])@${escaped}(?![A-Za-z0-9_-])`, 'i');
+            };
+
+            const mentionPatterns = Array.from(mentionCandidates).map((alias) => buildMentionPattern(alias));
+            const keepalivePatterns = [
+              /<!--\s*codex-keepalive-marker\s*-->/i,
+              /<!--\s*keepalive-round\s*:/i,
+              /<!--\s*codex-keepalive-trace\s*:/i,
+            ];
+
+            const isHumanUser = (user) => {
+              if (!user) {
+                return false;
+              }
+              const type = String(user.type || '').toLowerCase();
+              if (type === 'bot' || type === 'app') {
+                return false;
+              }
+              const login = String(user.login || '').toLowerCase();
+              if (!login) {
+                return false;
+              }
+              return !login.endsWith('[bot]');
+            };
+
+            let comments = [];
+            try {
+              comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100,
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Failed to read comments for PR #${prNumber}: ${message}`);
+              comments = [];
+            }
+
+            const allowComment = (comment) => {
+              if (!comment) {
+                return false;
+              }
+              if (!isHumanUser(comment.user)) {
+                return false;
+              }
+              const body = String(comment.body || '');
+              if (!body) {
+                return false;
+              }
+              if (!mentionPatterns.some((pattern) => pattern.test(body))) {
+                return false;
+              }
+              if (keepalivePatterns.some((pattern) => pattern.test(body))) {
+                return false;
+              }
+              return true;
+            };
+
+            const sorted = comments
+              .filter((comment) => allowComment(comment))
+              .sort((a, b) => {
+                const aTime = Date.parse(a?.created_at || a?.updated_at || 0) || 0;
+                const bTime = Date.parse(b?.created_at || b?.updated_at || 0) || 0;
+                return bTime - aTime;
+              });
+
+            const activationComment = sorted.length > 0 ? sorted[0] : null;
+
+            if (!activationComment) {
+              core.setOutput('activation_comment', '');
+              core.setOutput('comment_id', '');
+              core.setOutput('reason', 'no-activation-found');
+              core.setOutput('found', 'false');
+              core.info(`No eligible human activation comment found for PR #${prNumber}.`);
+              return;
+            }
+
+            const minimalComment = {
+              id: activationComment.id,
+              body: activationComment.body,
+              user: activationComment.user
+                ? { login: activationComment.user.login, type: activationComment.user.type }
+                : null,
+              html_url: activationComment.html_url,
+              created_at: activationComment.created_at,
+              updated_at: activationComment.updated_at,
+            };
+
+            core.setOutput('activation_comment', JSON.stringify(minimalComment));
+            core.setOutput('comment_id', String(activationComment.id || ''));
+            core.setOutput('found', 'true');
+            core.setOutput('reason', 'ok');
+            core.info(`Recovered activation comment ${activationComment.id} for PR #${prNumber}.`);
 
       - name: Record gate summary
         run: |
@@ -455,13 +673,13 @@ jobs:
 
       - name: Evaluate keepalive request after Gate
         id: detect
-        if: steps.gate.outputs.activation_comment != ''
+        if: steps.gate.outputs.activation_comment != '' || steps.activation_fallback.outputs.activation_comment != ''
         uses: actions/github-script@v7
         env:
           ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
           KEEPALIVE_AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
-          ACTIVATION_COMMENT: ${{ steps.gate.outputs.activation_comment }}
+          ACTIVATION_COMMENT: ${{ steps.activation_fallback.outputs.activation_comment || steps.gate.outputs.activation_comment }}
           PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
           GATE_OK: ${{ steps.gate.outputs.ok || 'false' }}
           GATE_REASON: ${{ steps.gate.outputs.reason || '' }}
@@ -533,7 +751,7 @@ jobs:
             await detectKeepalive({ core, github, context: detectionContext, env: process.env });
 
       - name: Register keepalive detection
-        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'duplicate-keepalive'
+        if: steps.detect.outputs.dispatch == 'true' || steps.detect.outputs.reason == 'lock-held'
         run: |
           set -euo pipefail
           comment_id="${{ steps.detect.outputs.comment_id || '?' }}"
@@ -708,17 +926,20 @@ jobs:
             core.info(`repository_dispatch emitted for PR #${prNumber} (Gate-triggered).`);
 
       - name: Write dispatch summary
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         env:
           PATH_LABEL: gate
           DISPATCH: ${{ steps.detect.outputs.dispatch }}
           TRACE: ${{ steps.detect.outputs.trace }}
           PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
           FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
-          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
-          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.gate.outputs.reason }}
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || steps.activation_fallback.outputs.comment_id }}
+          ACTIVATION_FALLBACK: ${{ steps.activation_fallback.outputs.comment_id }}
+          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.gate.outputs.reason || steps.activation_fallback.outputs.reason || '' }}
           DISPATCH_AGENT: ${{ steps.gate.outputs.agent_alias || 'codex' }}
-          DISPATCH_BYTES: ${{ steps.detect.outputs.instruction_bytes || '0' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
+          ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '0' }}
+          RUN_CAP: ${{ steps.gate.outputs.run_cap || '?' }}
         run: bash .github/scripts/write_dispatch_summary.sh
 
   gate_no_pr_summary:
@@ -731,8 +952,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Write dispatch summary
-        run: |
-          echo "DISPATCH: ok=false reason=no-linked-pr pr=#? comment=<none> agent=? bytes=0" >>"${GITHUB_STEP_SUMMARY}"
+        env:
+          PATH_LABEL: gate
+          DISPATCH: 'false'
+          TRACE: '-'
+          PR_NUMBER: ''
+          FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
+          ACTIVATION_ID: ''
+          DISPATCH_REASON: 'no-linked-pr'
+          DISPATCH_AGENT: 'codex'
+          HEAD_SHA: ''
+          ACTIVE_RUNS: '0'
+          RUN_CAP: '?'
+        run: bash .github/scripts/write_dispatch_summary.sh
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
@@ -919,20 +1151,6 @@ jobs:
 
             core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
 
-      - name: Write dispatch summary
-        if: ${{ !cancelled() }}
-        env:
-          PATH_LABEL: comment
-          DISPATCH: ${{ needs.keepalive_dispatch.outputs.dispatch }}
-          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
-          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr }}
-          FALLBACK_PR: ${{ github.event.issue.number }}
-          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
-          COMMENT_FALLBACK: ${{ github.event.comment.id }}
-          DISPATCH_REASON: ${{ needs.keepalive_dispatch.outputs.dispatch == 'true' && 'ok' || needs.keepalive_dispatch.outputs.reason || '' }}
-          DISPATCH_AGENT: ${{ needs.keepalive_dispatch.outputs.agent_alias || 'codex' }}
-          DISPATCH_BYTES: ${{ needs.keepalive_dispatch.outputs.instruction_bytes || '0' }}
-        run: bash .github/scripts/write_dispatch_summary.sh
 
   update_body:
     if: github.event_name == 'pull_request'
