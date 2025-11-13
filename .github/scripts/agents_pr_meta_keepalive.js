@@ -9,7 +9,7 @@ const {
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const INSTRUCTION_REACTION = 'hooray';
-const LOCK_REACTION = 'rocket';
+const LOCK_REACTION = 'dart';
 
 function normaliseLogin(login) {
   return String(login || '')

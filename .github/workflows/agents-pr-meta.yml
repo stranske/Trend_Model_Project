@@ -396,10 +396,10 @@ jobs:
             core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
 
             if (result.ok) {
-            core.info('Gate-triggered keepalive evaluation passed.');
-          } else {
-            core.info(`Gate-triggered keepalive evaluation blocked: ${result.reason || 'unspecified'}`);
-          }
+              core.info('Gate-triggered keepalive evaluation passed.');
+            } else {
+              core.info(`Gate-triggered keepalive evaluation blocked: ${result.reason || 'unspecified'}`);
+            }
 
       - name: Restore activation comment fallback
         id: activation_fallback
