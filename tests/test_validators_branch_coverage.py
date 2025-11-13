@@ -73,6 +73,18 @@ def test_validation_result_report_includes_metadata() -> None:
     assert "Warn" in report
 
 
+def test_validation_result_report_handles_failure() -> None:
+    result = validators.ValidationResult(
+        False,
+        issues=["Missing returns column"],
+        warnings=["Column Fund_B has gaps"],
+    )
+    report = result.get_report()
+    assert "❌ Schema validation failed" in report
+    assert "Missing returns column" in report
+    assert "Column Fund_B has gaps" in report
+
+
 def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> None:
     def raise_irregular(_index: pd.Index) -> dict[str, object]:
         raise MarketDataValidationError("Irregular cadence", issues=[])
@@ -126,6 +138,23 @@ def test_read_uploaded_file_path_errors(tmp_path: Path) -> None:
         validators._read_uploaded_file(bad_file.with_suffix(".xlsx"))
 
 
+def test_read_uploaded_file_path_excel_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    excel_path = tmp_path / "returns.xlsx"
+    excel_path.write_text("dummy", encoding="utf-8")
+
+    def fake_read_excel(path: Path) -> pd.DataFrame:
+        assert path == excel_path
+        return pd.DataFrame({"Fund_A": [0.01]})
+
+    monkeypatch.setattr(pd, "read_excel", fake_read_excel)
+
+    frame, source = validators._read_uploaded_file(excel_path)
+    assert source == str(excel_path)
+    assert list(frame.columns) == ["Fund_A"]
+
+
 @pytest.mark.parametrize(
     "exception, message",
     [
@@ -169,6 +198,27 @@ def test_read_uploaded_file_generic_exception(monkeypatch: pytest.MonkeyPatch) -
     assert "Failed to read file" in str(excinfo.value)
 
 
+def test_read_uploaded_file_parquet_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Buffer(io.BytesIO):
+        def __init__(self) -> None:
+            super().__init__(b"parquet-bytes")
+            self.name = "upload.parquet"
+
+    called: dict[str, bool] = {}
+
+    def fake_read_parquet(buf: io.BytesIO) -> pd.DataFrame:
+        called["used"] = True
+        return pd.DataFrame({"Fund_A": [0.02]})
+
+    buffer = Buffer()
+    monkeypatch.setattr(pd, "read_parquet", fake_read_parquet)
+
+    frame, source = validators._read_uploaded_file(buffer)
+    assert called["used"] is True
+    assert source == "upload.parquet"
+    assert frame.iloc[0, 0] == pytest.approx(0.02)
+
+
 @pytest.mark.parametrize(
     "exception, message",
     [
@@ -196,3 +246,27 @@ def test_read_uploaded_file_lower_name_errors(
     with pytest.raises(ValueError) as excinfo:
         validators._read_uploaded_file(dummy)
     assert message in str(excinfo.value)
+
+
+def test_read_uploaded_file_lower_name_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Dummy:
+        def __init__(self) -> None:
+            self.name = "named.csv"
+
+    dummy = Dummy()
+
+    def fake_read_csv(obj: object) -> pd.DataFrame:
+        assert obj is dummy
+        return pd.DataFrame({"Fund_A": [0.03]})
+
+    monkeypatch.setattr(pd, "read_csv", fake_read_csv)
+
+    frame, source = validators._read_uploaded_file(dummy)
+    assert source == "named.csv"
+    assert frame.iloc[0, 0] == pytest.approx(0.03)
+
+
+def test_read_uploaded_file_unsupported_source() -> None:
+    with pytest.raises(ValueError) as excinfo:
+        validators._read_uploaded_file(object())
+    assert "Unsupported upload source" in str(excinfo.value)
