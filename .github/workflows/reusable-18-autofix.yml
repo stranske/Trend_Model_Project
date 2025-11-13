@@ -348,6 +348,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          : "${ALLOWED_FILE_GLOBS:=}"
           mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB || true)
           changed_flag=false
           file_list_payload=""
@@ -355,8 +356,7 @@ jobs:
             changed_flag=true
             allowed_patterns=()
             while IFS= read -r raw; do
-              trimmed="${raw#${raw%%[![:space:]]*}}"
-              trimmed="${trimmed%${trimmed##*[![:space:]]}}"
+              trimmed=$(printf '%s' "$raw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
               if [ -n "$trimmed" ]; then
                 allowed_patterns+=("$trimmed")
               fi
@@ -372,10 +372,12 @@ jobs:
               fi
               allowed=false
               for pattern in "${allowed_patterns[@]}"; do
-                if [[ "$path" == $pattern ]]; then
-                  allowed=true
-                  break
-                fi
+                case "$path" in
+                  "$pattern")
+                    allowed=true
+                    break
+                    ;;
+                esac
               done
               if [ "$allowed" = false ]; then
                 disallowed+=("$path")

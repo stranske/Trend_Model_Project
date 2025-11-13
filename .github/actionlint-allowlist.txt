@@ -27,15 +27,3 @@ input\s+"?branch"?\s+is\s+not\s+defined.*
 #
 # Example (uncomment to use):
 # SC2086:Allow unquoted matrix expansion in scripts/ci_*.sh
-SC2153:.github/workflows/agents-70-orchestrator\.yml:2188:9:.*EXISTING_(ROUND|TRACE|REACTION|COMMENT_ID|COMMENT_URL).*
-SC2153:.github/workflows/agents-70-orchestrator\.yml:2188:9:.*CURRENT_(ROUND|TRACE).*
-SC2153:.github/workflows/agents-70-orchestrator\.yml:2188:9:.*DRY_RUN may not be assigned.*
-SC2129:.github/workflows/agents-70-orchestrator\.yml:2188:9:.*Consider using \{ cmd1; cmd2; \} >> file.*
-SC2153:.github/workflows/agents-72-codex-belt-worker\.yml:(411|458):9:.*Possible misspelling: (BRANCH|ISSUE) may not be assigned.*
-SC2086:.github/workflows/agents-72-codex-belt-worker\.yml:(702|1189):9:.*Double quote to prevent globbing and word splitting.*
-SC2086:.github/workflows/autofix\.yml:436:9:.*Double quote to prevent globbing and word splitting.*
-SC2129:.github/workflows/maint-50-tool-version-check\.yml:35:9:.*Consider using \{ cmd1; cmd2; \} >> file.*
-SC2086:.github/workflows/reusable-10-ci-python\.yml:(248|282|329):9:.*Double quote to prevent globbing and word splitting.*
-SC2129:.github/workflows/reusable-10-ci-python\.yml:(282|329):9:.*Consider using \{ cmd1; cmd2; \} >> file.*
-SC2295:.github/workflows/reusable-18-autofix\.yml:349:9:.*Expansions inside \$\{..\} need to be quoted separately.*
-SC2053:.github/workflows/reusable-18-autofix\.yml:349:9:.*Quote the right-hand side of == in \[\[ \]].*
