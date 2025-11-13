@@ -970,6 +970,25 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
 
   if (instructionComment?.id) {
     record('Instruction comment', appendRound(`id=${instructionComment.id}`));
+    
+    // Persist instruction comment metadata for worker skip guard
+    const lastInstruction = state.last_instruction || {};
+    const currentInstructionTuple = {
+      comment_id: instructionComment.id,
+      head_sha: baselineHead || initialHead,
+      processed_at: new Date().toISOString()
+    };
+    
+    // Update state if this is a new instruction or new head combination
+    if (lastInstruction.comment_id !== instructionComment.id || 
+        lastInstruction.head_sha !== (baselineHead || initialHead)) {
+      await applyStateUpdate({ 
+        last_instruction: currentInstructionTuple
+      });
+      record('Instruction tracking', appendRound(`updated: comment=${instructionComment.id} head=${baselineHead || initialHead}`));
+    } else {
+      record('Instruction tracking', appendRound(`reused: comment=${instructionComment.id} head=${baselineHead || initialHead}`));
+    }
   } else {
     record('Instruction comment', appendRound('unavailable; proceeding without comment context.'));
   }

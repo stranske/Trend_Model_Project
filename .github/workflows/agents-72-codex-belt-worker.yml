@@ -43,6 +43,16 @@ on:
         required: false
         default: false
         type: boolean
+      comment_id:
+        description: 'Instruction comment ID for skip guard logic'
+        required: false
+        default: ''
+        type: string
+      comment_url:
+        description: 'Instruction comment URL for reference'
+        required: false
+        default: ''
+        type: string
     secrets:
       action_bot_pat:
         required: true
@@ -230,7 +240,7 @@ jobs:
             core.setOutput('allowed', 'true');
 
       - name: Prune merged step branches
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' }}
         id: prune
         uses: actions/github-script@v7
         with:
@@ -324,8 +334,109 @@ jobs:
             core.setOutput('has_ready', hasReady ? 'true' : 'false');
             core.setOutput('has_in_progress', hasInProgress ? 'true' : 'false');
 
+      - name: Check instruction skip guard
+        if: ${{ steps.parallel.outputs.allowed == 'true' && inputs.keepalive == true }}
+        id: skip_guard
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.ACTION_BOT_PAT }}
+          script: |
+            // For keepalive-triggered runs, check if we should proceed based on instruction metadata
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            
+            // Load keepalive state helper
+            const { createKeepaliveStateManager } = require('./.github/scripts/keepalive_state.js');
+            
+            let shouldSkip = false;
+            let skipReason = '';
+            let instructionStatus = 'no-state';
+            
+            try {
+              const stateManager = await createKeepaliveStateManager({ 
+                github, 
+                context: { repo: { owner, repo } }, 
+                prNumber: issue,
+                trace: process.env.GITHUB_RUN_ID || 'worker',
+                round: '1'
+              });
+              
+              const state = stateManager.state || {};
+              const lastInstruction = state.last_instruction || {};
+              
+              // Get current instruction comment from workflow inputs (passed from orchestrator)
+              const commentIdInput = '${{ inputs.comment_id }}';
+              const currentCommentId = commentIdInput ? Number(commentIdInput) : null;
+              const currentHeadSha = process.env.GITHUB_SHA || '';
+              
+              if (!currentCommentId) {
+                instructionStatus = 'no-comment';
+                skipReason = 'No current instruction comment available';
+              } else if (!lastInstruction.comment_id) {
+                instructionStatus = 'new-instruction';
+                skipReason = 'New instruction (no previous instruction tracked)';
+              } else if (lastInstruction.comment_id !== currentCommentId) {
+                instructionStatus = 'different-instruction';
+                skipReason = `New instruction (${currentCommentId} vs previous ${lastInstruction.comment_id})`;
+              } else if (lastInstruction.head_sha !== currentHeadSha) {
+                instructionStatus = 'head-changed';
+                skipReason = `Head changed (${currentHeadSha} vs previous ${lastInstruction.head_sha})`;
+              } else {
+                instructionStatus = 'same-instruction-same-head';
+                skipReason = `Same instruction ${currentCommentId} with unchanged head ${currentHeadSha}`;
+                shouldSkip = true;
+              }
+              
+              core.setOutput('should_skip', shouldSkip ? 'true' : 'false');
+              core.setOutput('skip_reason', skipReason);
+              core.setOutput('instruction_status', instructionStatus);
+              core.setOutput('current_comment_id', currentCommentId ? String(currentCommentId) : '');
+              core.setOutput('previous_comment_id', lastInstruction.comment_id ? String(lastInstruction.comment_id) : '');
+              core.setOutput('current_head_sha', currentHeadSha);
+              core.setOutput('previous_head_sha', lastInstruction.head_sha || '');
+              
+              core.summary
+                .addHeading('Instruction Skip Guard')
+                .addTable([
+                  [{ data: 'Status', header: true }, { data: 'Value', header: true }],
+                  ['Should Skip', shouldSkip ? '✅ Yes' : '❌ No'],
+                  ['Reason', skipReason],
+                  ['Instruction Status', instructionStatus],
+                  ['Current Comment ID', currentCommentId ? String(currentCommentId) : 'none'],
+                  ['Previous Comment ID', lastInstruction.comment_id ? String(lastInstruction.comment_id) : 'none'],
+                  ['Current Head SHA', currentHeadSha || 'none'],
+                  ['Previous Head SHA', lastInstruction.head_sha || 'none']
+                ])
+                .write();
+                
+            } catch (error) {
+              core.warning(`Skip guard check failed: ${error.message}`);
+              // On error, proceed with worker execution to avoid blocking
+              core.setOutput('should_skip', 'false');
+              core.setOutput('skip_reason', `Skip guard error: ${error.message}`);
+              core.setOutput('instruction_status', 'error');
+            }
+
+      - name: Skip worker execution
+        if: ${{ steps.parallel.outputs.allowed == 'true' && inputs.keepalive == true && steps.skip_guard.outputs.should_skip == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const skipReason = '${{ steps.skip_guard.outputs.skip_reason }}';
+            const instructionStatus = '${{ steps.skip_guard.outputs.instruction_status }}';
+            
+            core.info(`Skipping worker execution: ${skipReason}`);
+            core.summary
+              .addHeading('Worker Execution Skipped')
+              .addTable([
+                [{ data: 'Reason', header: true }, { data: skipReason }],
+                [{ data: 'Instruction Status', header: true }, { data: instructionStatus }]
+              ])
+              .addRaw('Worker execution was skipped due to instruction skip guard.')
+              .write();
+
       - name: Checkout branch
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ctx.outputs.branch }}
@@ -333,7 +444,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate ledger base branch
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') }}
         env:
           DEFAULT_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
@@ -341,7 +452,7 @@ jobs:
           python scripts/ledger_migrate_base.py --check --default "${DEFAULT_BRANCH}"
 
       - name: Preflight branch freshness
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') }}
         id: freshness
         env:
           BRANCH: ${{ steps.ctx.outputs.branch }}
@@ -385,7 +496,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Handle stale branch fallback
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') }}
         id: fallback
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
@@ -450,7 +561,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Prepare ledger task
-        if: ${{ steps.parallel.outputs.allowed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') }}
         id: ledger_start
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
@@ -626,12 +737,12 @@ jobs:
           PY
 
       - name: Validate ledger schema (pre-flight)
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.ledger_start.outputs.ledger_changed == 'true' }}
         run: |
           python scripts/ledger_validate.py .agents/issue-${{ steps.ctx.outputs.issue }}-ledger.yml
 
       - name: Commit ledger in-progress state
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
@@ -649,7 +760,7 @@ jobs:
           git push origin "${BRANCH}"
 
       - name: Ensure branch exists remotely
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           branch="${{ steps.fallback.outputs.branch || steps.ctx.outputs.branch }}"
@@ -661,7 +772,7 @@ jobs:
           fi
 
       - name: Create placeholder commit when branch matches base
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' }}
         env:
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
@@ -681,7 +792,7 @@ jobs:
           fi
 
       - name: Ensure issue labels reflect in-progress state
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -695,7 +806,7 @@ jobs:
             }
 
       - name: Remove residual status:ready label
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -711,7 +822,7 @@ jobs:
             }
 
       - name: Open or refresh Codex PR
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' }}
         id: pr
         uses: actions/github-script@v7
         with:
@@ -765,7 +876,7 @@ jobs:
             core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
 
       - name: Configure auto-merge strategy
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -797,7 +908,7 @@ jobs:
             }
 
       - name: Apply automation labels
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -812,7 +923,7 @@ jobs:
             }
 
       - name: Ensure PR assignees include automation
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -872,7 +983,7 @@ jobs:
             }
 
       - name: Sync issue comment with PR link
-        if: ${{ steps.parallel.outputs.allowed == 'true' && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.skip_guard.outputs.should_skip != 'true') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.ACTION_BOT_PAT }}
@@ -1141,6 +1252,37 @@ jobs:
           if [ -f .agents/.ledger-summary.md ]; then
             cat .agents/.ledger-summary.md >>"$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Expose skip guard results
+        if: ${{ always() }}
+        id: skip_guard_summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const keepalive = '${{ inputs.keepalive }}' === 'true';
+            const shouldSkip = '${{ steps.skip_guard.outputs.should_skip }}' === 'true';
+            const skipReason = '${{ steps.skip_guard.outputs.skip_reason }}' || '';
+            const instructionStatus = '${{ steps.skip_guard.outputs.instruction_status }}' || 'not-checked';
+            
+            // Set outputs for orchestrator to consume
+            core.setOutput('keepalive_mode', keepalive ? 'true' : 'false');
+            core.setOutput('skip_guard_active', keepalive ? 'true' : 'false');
+            core.setOutput('worker_skipped', shouldSkip ? 'true' : 'false');
+            core.setOutput('skip_reason', skipReason);
+            core.setOutput('instruction_status', instructionStatus);
+            
+            if (keepalive) {
+              core.summary
+                .addHeading('Skip Guard Summary')
+                .addTable([
+                  [{ data: 'Property', header: true }, { data: 'Value', header: true }],
+                  ['Keepalive Mode', '✅ Active'],
+                  ['Worker Skipped', shouldSkip ? '✅ Yes' : '❌ No'],
+                  ['Skip Reason', skipReason || 'none'],
+                  ['Instruction Status', instructionStatus]
+                ])
+                .write();
+            }
 
       - name: Summarise worker preview
         if: ${{ steps.parallel.outputs.allowed != 'true' || steps.mode.outputs.dry_run == 'true' }}

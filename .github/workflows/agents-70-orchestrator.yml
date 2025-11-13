@@ -1770,6 +1770,7 @@ jobs:
       - belt-dispatch
       - keepalive-guard
       - belt-check-existing-pr
+      - keepalive-instruction
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.worker_max_parallel != '0' &&
@@ -1787,6 +1788,8 @@ jobs:
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
       max_parallel: ${{ fromJson(needs.resolve-params.outputs.worker_max_parallel || '1') }}
       keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
+      comment_id: ${{ needs.keepalive-instruction.outputs.comment_id || '' }}
+      comment_url: ${{ needs.keepalive-instruction.outputs.comment_url || '' }}
     secrets:
       action_bot_pat: ${{ secrets.ACTION_BOT_PAT }}
 
@@ -2722,6 +2725,12 @@ jobs:
               }
             }
 
+            // Get skip guard information from worker outputs
+            const skipGuardActive = workerResult === 'worker-skipped' || '${{ needs.worker.outputs.skip_guard_active }}' === 'true';
+            const workerSkipped = '${{ needs.worker.outputs.worker_skipped }}' === 'true';
+            const skipReason = '${{ needs.worker.outputs.skip_reason }}' || '';
+            const instructionStatus = '${{ needs.worker.outputs.instruction_status }}' || '';
+            
             const summary = core.summary;
             summary
               .addHeading('Keepalive worker outcome')
@@ -2730,16 +2739,31 @@ jobs:
                   { data: 'Round', header: true },
                   { data: 'Trace', header: true },
                   { data: 'Result', header: true },
-                  { data: 'Head SHA', header: true }
+                  { data: 'Head SHA', header: true },
+                  { data: 'Skip Guard', header: true }
                 ],
                 [
                   round || '—',
                   trace || '—',
                   workerResult,
-                  headSha || '(unavailable)'
+                  headSha || '(unavailable)',
+                  skipGuardActive ? (workerSkipped ? '🛡️ Skipped' : '🛡️ Activated') : '—'
                 ]
-              ])
-              .write();
+              ]);
+            
+            // Add skip guard details if active
+            if (skipGuardActive) {
+              summary
+                .addHeading('Skip Guard Details')
+                .addTable([
+                  [{ data: 'Property', header: true }, { data: 'Value', header: true }],
+                  ['Worker Execution', workerSkipped ? 'Skipped' : 'Proceeded'],
+                  ['Skip Reason', skipReason || 'none'],
+                  ['Instruction Status', instructionStatus || 'not-checked']
+                ]);
+            }
+            
+            summary.write();
 
             if (!trace) {
               core.info('No keepalive trace detected; skipping worker outcome comment.');
