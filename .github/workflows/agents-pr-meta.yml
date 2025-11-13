@@ -73,24 +73,26 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{
-        steps.pre_gate.outputs.ok == 'true'
-        && steps.detect.outputs.dispatch == 'true'
-        && steps.select_token.outputs.allowed != 'false'
-        && steps.activation_lock.outputs.status != 'lock-held'
-        && steps.dispatch_orchestrator.outputs.ok == 'true'
-        && steps.confirm_dispatch.outputs.confirmed == 'true'
-        && 'true'
-        || 'false'
-      }}
-      reason: ${{
-        steps.confirm_dispatch.outputs.reason
-        || steps.dispatch_orchestrator.outputs.reason
-        || steps.activation_lock.outputs.reason
-        || steps.select_token.outputs.reason
-        || steps.detect.outputs.reason
-        || steps.pre_gate.outputs.reason
-      }}
+      dispatch: >-
+        ${{
+          steps.pre_gate.outputs.ok == 'true'
+          && steps.detect.outputs.dispatch == 'true'
+          && steps.select_token.outputs.allowed != 'false'
+          && steps.activation_lock.outputs.status != 'lock-held'
+          && steps.dispatch_orchestrator.outputs.ok == 'true'
+          && steps.confirm_dispatch.outputs.confirmed == 'true'
+          && 'true'
+          || 'false'
+        }}
+      reason: >-
+        ${{
+          steps.confirm_dispatch.outputs.reason
+          || steps.dispatch_orchestrator.outputs.reason
+          || steps.activation_lock.outputs.reason
+          || steps.select_token.outputs.reason
+          || steps.detect.outputs.reason
+          || steps.pre_gate.outputs.reason
+        }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -637,29 +639,31 @@ jobs:
         if: ${{ always() }}
         env:
           PATH_LABEL: gate
-          DISPATCH: ${{
-            steps.gate.outputs.ok == 'true'
-            && steps.detect.outputs.dispatch == 'true'
-            && steps.select_token.outputs.allowed != 'false'
-            && steps.activation_lock.outputs.status != 'lock-held'
-            && steps.dispatch_orchestrator.outputs.ok == 'true'
-            && steps.confirm_dispatch.outputs.confirmed == 'true'
-            && 'true'
-            || 'false'
-          }}
+          DISPATCH: >-
+            ${{
+              steps.gate.outputs.ok == 'true'
+              && steps.detect.outputs.dispatch == 'true'
+              && steps.select_token.outputs.allowed != 'false'
+              && steps.activation_lock.outputs.status != 'lock-held'
+              && steps.dispatch_orchestrator.outputs.ok == 'true'
+              && steps.confirm_dispatch.outputs.confirmed == 'true'
+              && 'true'
+              || 'false'
+            }}
           TRACE: ${{ steps.detect.outputs.trace || '-' }}
           PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || needs.gate_event_context.outputs.pr }}
           ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || steps.activation_fallback.outputs.comment_id || '' }}
-          DISPATCH_REASON: ${{
-            steps.confirm_dispatch.outputs.reason
-            || steps.dispatch_orchestrator.outputs.reason
-            || steps.activation_lock.outputs.reason
-            || steps.select_token.outputs.reason
-            || steps.detect.outputs.reason
-            || steps.activation_fallback.outputs.reason
-            || steps.gate.outputs.reason
-            || ''
-          }}
+          DISPATCH_REASON: >-
+            ${{
+              steps.confirm_dispatch.outputs.reason
+              || steps.dispatch_orchestrator.outputs.reason
+              || steps.activation_lock.outputs.reason
+              || steps.select_token.outputs.reason
+              || steps.detect.outputs.reason
+              || steps.activation_fallback.outputs.reason
+              || steps.gate.outputs.reason
+              || ''
+            }}
           DISPATCH_AGENT: ${{ steps.gate.outputs.agent_alias || 'codex' }}
           HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
           ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '0' }}
@@ -1134,28 +1138,30 @@ jobs:
         if: ${{ always() }}
         env:
           PATH_LABEL: comment
-          DISPATCH: ${{
-            steps.pre_gate.outputs.ok == 'true'
-            && steps.detect.outputs.dispatch == 'true'
-            && steps.select_token.outputs.allowed != 'false'
-            && steps.activation_lock.outputs.status != 'lock-held'
-            && steps.dispatch_orchestrator.outputs.ok == 'true'
-            && steps.confirm_dispatch.outputs.confirmed == 'true'
-            && 'true'
-            || 'false'
-          }}
+          DISPATCH: >-
+            ${{
+              steps.pre_gate.outputs.ok == 'true'
+              && steps.detect.outputs.dispatch == 'true'
+              && steps.select_token.outputs.allowed != 'false'
+              && steps.activation_lock.outputs.status != 'lock-held'
+              && steps.dispatch_orchestrator.outputs.ok == 'true'
+              && steps.confirm_dispatch.outputs.confirmed == 'true'
+              && 'true'
+              || 'false'
+            }}
           TRACE: ${{ steps.detect.outputs.trace || '-' }}
           PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || github.event.issue.number }}
           ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || github.event.comment.id || '' }}
-          DISPATCH_REASON: ${{
-            steps.confirm_dispatch.outputs.reason
-            || steps.dispatch_orchestrator.outputs.reason
-            || steps.activation_lock.outputs.reason
-            || steps.select_token.outputs.reason
-            || steps.detect.outputs.reason
-            || steps.pre_gate.outputs.reason
-            || ''
-          }}
+          DISPATCH_REASON: >-
+            ${{
+              steps.confirm_dispatch.outputs.reason
+              || steps.dispatch_orchestrator.outputs.reason
+              || steps.activation_lock.outputs.reason
+              || steps.select_token.outputs.reason
+              || steps.detect.outputs.reason
+              || steps.pre_gate.outputs.reason
+              || ''
+            }}
           DISPATCH_AGENT: ${{ steps.pre_gate.outputs.agent_alias || 'codex' }}
           HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
           ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
@@ -1302,25 +1308,27 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{
-        steps.gate.outputs.ok == 'true'
-        && steps.detect.outputs.dispatch == 'true'
-        && steps.select_token.outputs.allowed != 'false'
-        && steps.activation_lock.outputs.status != 'lock-held'
-        && steps.dispatch_orchestrator.outputs.ok == 'true'
-        && steps.confirm_dispatch.outputs.confirmed == 'true'
-        && 'true'
-        || 'false'
-      }}
-      reason: ${{
-        steps.confirm_dispatch.outputs.reason
-        || steps.dispatch_orchestrator.outputs.reason
-        || steps.activation_lock.outputs.reason
-        || steps.select_token.outputs.reason
-        || steps.detect.outputs.reason
-        || steps.activation_fallback.outputs.reason
-        || steps.gate.outputs.reason
-      }}
+      dispatch: >-
+        ${{
+          steps.gate.outputs.ok == 'true'
+          && steps.detect.outputs.dispatch == 'true'
+          && steps.select_token.outputs.allowed != 'false'
+          && steps.activation_lock.outputs.status != 'lock-held'
+          && steps.dispatch_orchestrator.outputs.ok == 'true'
+          && steps.confirm_dispatch.outputs.confirmed == 'true'
+          && 'true'
+          || 'false'
+        }}
+      reason: >-
+        ${{
+          steps.confirm_dispatch.outputs.reason
+          || steps.dispatch_orchestrator.outputs.reason
+          || steps.activation_lock.outputs.reason
+          || steps.select_token.outputs.reason
+          || steps.detect.outputs.reason
+          || steps.activation_fallback.outputs.reason
+          || steps.gate.outputs.reason
+        }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
