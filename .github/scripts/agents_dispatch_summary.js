@@ -81,7 +81,7 @@ async function appendDispatchSummary({ core, context, env = process.env }) {
   let workerLabel = workerAllowed === 'false' ? 'blocked' : workerResult;
   if (keepaliveAction === 'skip') {
     workerLabel = 'keepalive-skip';
-  } else if (keepaliveAction && keepaliveAction !== 'execute' && workerLabel === 'success') {
+  } else if (keepaliveAction && keepaliveAction !== 'execute' && keepaliveAction !== 'unknown' && workerLabel === 'success') {
     workerLabel = `keepalive-${keepaliveAction}`;
   }
 
