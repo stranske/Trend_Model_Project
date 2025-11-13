@@ -70,6 +70,11 @@ jobs:
       allowed: ${{ (steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip')) && 'true' || 'false' }}
       keepalive_action: ${{ steps.keepalive_gate.outputs.action || (inputs.keepalive && 'execute' || '') }}
       keepalive_reason: ${{ steps.keepalive_gate.outputs.reason || '' }}
+      keepalive_head_sha: ${{ steps.keepalive_gate.outputs.head_sha || '' }}
+      keepalive_trace: ${{ steps.keepalive_gate.outputs.trace || '' }}
+      keepalive_instruction_id: ${{ steps.keepalive_gate.outputs.instruction_id || '' }}
+      keepalive_last_instruction_id: ${{ steps.keepalive_gate.outputs.last_processed_comment_id || '' }}
+      keepalive_last_instruction_head_sha: ${{ steps.keepalive_gate.outputs.last_processed_head_sha || '' }}
       use_step_branch: ${{ steps.mode.outputs.use_step_branch || 'false' }}
       freshness: ${{ steps.freshness.outputs.status || '' }}
       fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
