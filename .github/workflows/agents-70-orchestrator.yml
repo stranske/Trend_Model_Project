@@ -2716,6 +2716,8 @@ jobs:
           WORKER_PR_NUMBER: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || needs.keepalive-instruction.outputs.pr_number || needs.resolve-params.outputs.keepalive_pr || '' }}"
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          KEEPALIVE_ACTION: ${{ needs.belt-worker.outputs.keepalive_action || '' }}
+          KEEPALIVE_REASON: ${{ needs.belt-worker.outputs.keepalive_reason || '' }}
         with:
           script: |
             // Do not remove checkout; local helper is required.
@@ -2734,6 +2736,11 @@ jobs:
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          KEEPALIVE_ACTION: ${{ needs.belt-worker.outputs.keepalive_action || '' }}
+          KEEPALIVE_REASON: ${{ needs.belt-worker.outputs.keepalive_reason || '' }}
+          KEEPALIVE_HEAD_SHA: ${{ needs.belt-worker.outputs.keepalive_head_sha || '' }}
+          KEEPALIVE_LAST_INSTRUCTION_ID: ${{ needs.belt-worker.outputs.keepalive_last_instruction_id || '' }}
+          KEEPALIVE_LAST_INSTRUCTION_HEAD: ${{ needs.belt-worker.outputs.keepalive_last_instruction_head_sha || '' }}
         with:
           github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -2758,6 +2765,15 @@ jobs:
               }
             }
 
+            if (!headSha) {
+              headSha = normalise(process.env.KEEPALIVE_HEAD_SHA);
+            }
+
+            const keepaliveAction = normalise(process.env.KEEPALIVE_ACTION) || 'unknown';
+            const keepaliveReason = normalise(process.env.KEEPALIVE_REASON);
+            const lastInstructionId = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_ID);
+            const lastInstructionHead = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_HEAD);
+
             const summary = core.summary;
             summary
               .addHeading('Keepalive worker outcome')
@@ -2773,6 +2789,20 @@ jobs:
                   trace || '—',
                   workerResult,
                   headSha || '(unavailable)'
+                ]
+              ])
+              .addTable([
+                [
+                  { data: 'Action', header: true },
+                  { data: 'Reason', header: true },
+                  { data: 'Last Instruction', header: true },
+                  { data: 'Last Head SHA', header: true }
+                ],
+                [
+                  keepaliveAction,
+                  keepaliveReason || '—',
+                  lastInstructionId || '—',
+                  lastInstructionHead ? lastInstructionHead.slice(0, 12) : '—'
                 ]
               ])
               .write();
