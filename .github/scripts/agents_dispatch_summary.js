@@ -16,6 +16,9 @@ async function appendDispatchSummary({ core, context, env = process.env }) {
   const workerDryRun = normalise((env.WORKER_DRY_RUN || '').trim());
   const prNumber = (env.WORKER_PR_NUMBER || '').trim();
   const workerBranch = (env.WORKER_BRANCH || '').trim();
+  const keepaliveActionRaw = (env.KEEPALIVE_ACTION || '').trim();
+  const keepaliveAction = normalise(keepaliveActionRaw);
+  const keepaliveReasonRaw = (env.KEEPALIVE_REASON || '').trim();
 
   let success = 0;
   let skipped = 0;
@@ -75,12 +78,27 @@ async function appendDispatchSummary({ core, context, env = process.env }) {
   };
 
   const branchInfo = workerBranch ? `\`${workerBranch}\`` : '—';
-  const workerLabel = workerAllowed === 'false' ? 'blocked' : workerResult;
+  let workerLabel = workerAllowed === 'false' ? 'blocked' : workerResult;
+  if (keepaliveAction === 'skip') {
+    workerLabel = 'keepalive-skip';
+  } else if (keepaliveAction && keepaliveAction !== 'execute' && keepaliveAction !== 'unknown' && workerLabel === 'success') {
+    workerLabel = `keepalive-${keepaliveAction}`;
+  }
+
+  let reasonDetail = dispatchReason || 'unknown';
+  if (keepaliveActionRaw || keepaliveReasonRaw) {
+    const keepaliveDetail = keepaliveReasonRaw
+      ? `${keepaliveActionRaw || 'keepalive'}:${keepaliveReasonRaw}`
+      : (keepaliveActionRaw || 'keepalive');
+    reasonDetail = dispatchReason && dispatchReason !== 'unknown'
+      ? `${dispatchReason} / ${keepaliveDetail}`
+      : keepaliveDetail;
+  }
 
   rows.push([
     prLink(),
     issueLink(),
-    dispatchReason || 'unknown',
+    reasonDetail,
     workerDryRun === 'true' ? 'preview' : workerLabel,
     branchInfo
   ]);
