@@ -136,7 +136,7 @@ Scope
 
 - In .github/workflows/agents-70-orchestrator.yml:
 
-  - Author invariant: Before posting the instruction, assert the selected token is ACTION_BOT_PAT (post as stranske). If not, fail the step and do not post.
+  - Author invariant: Before posting the instruction, assert the selected token is ACTIONS_BOT_PAT (post as stranske). If not, fail the step and do not post.
 
   - After posting, print an INSTRUCTION: line; before/after worker, print WORKER: and SYNC: lines to $GITHUB_STEP_SUMMARY (always, even when skipping).
 
@@ -152,9 +152,9 @@ Tasks
 
 - Author assertion
 
-  - Resolve the posting token (ACTION_BOT_PAT preferred; SERVICE_BOT_PAT fallback).
+  - Resolve the posting token (ACTIONS_BOT_PAT preferred; SERVICE_BOT_PAT fallback).
 
-  - If ACTION_BOT_PAT is not selected, fail the post step and write:
+  - If ACTIONS_BOT_PAT is not selected, fail the post step and write:
     INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT|github.token> head=<sha7> trace=<trace>
 
 - Instruction summary

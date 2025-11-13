@@ -118,7 +118,7 @@ SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> t
 ## 8) Orchestrator Contract
 
 **Author Invariant (recommended hardening)**  
-If `ACTION_BOT_PAT` is configured but the post would use `SERVICE_BOT_PAT`, **fail** the instruction step with:
+If `ACTIONS_BOT_PAT` is configured but the post would use `SERVICE_BOT_PAT`, **fail** the instruction step with:
 
 INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT> head=<SHA7> trace=<TRACE>
 

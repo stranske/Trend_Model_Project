@@ -132,7 +132,7 @@ Modifying the separate status/checklist updater (it may continue to edit the sta
 #### Acceptance criteria
 - [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers and an @codex instruction.
 
-- [ ] An issue_comment.created run appears in Actions showing author = stranske when ACTION_BOT_PAT is configured (fallback to stranske-automation-bot only when required).
+- [ ] An issue_comment.created run appears in Actions showing author = stranske when ACTIONS_BOT_PAT is configured (fallback to stranske-automation-bot only when required).
 
 - [ ] The posted comment contains the current Scope/Tasks/Acceptance block.
 
@@ -336,7 +336,7 @@ async function runScenario(scenario) {
   };
 
   const originalEnv = {};
-  const envOverrides = { ACTION_BOT_PAT: 'dummy-token', ...(scenario.env || {}) };
+  const envOverrides = { ACTIONS_BOT_PAT: 'dummy-token', ...(scenario.env || {}) };
   for (const [key, value] of Object.entries(envOverrides)) {
     originalEnv[key] = process.env[key];
     process.env[key] = String(value);

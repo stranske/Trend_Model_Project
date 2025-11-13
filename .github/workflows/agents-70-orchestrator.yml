@@ -370,7 +370,7 @@ jobs:
           KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr }}
           KEEPALIVE_MAX_RETRIES: ${{ needs.resolve-params.outputs.keepalive_max_retries || '5' }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             // Do not remove checkout; local helper is required.
             const {
@@ -1116,7 +1116,7 @@ jobs:
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
           ROUND_HINT: ${{ needs.resolve-params.outputs.keepalive_round }}
           OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
-          ACTIONS_AVAILABLE: ${{ secrets.ACTION_BOT_PAT != '' }}
+          ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
           AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
         with:
@@ -1435,7 +1435,7 @@ jobs:
 
             const body = renderInstruction({ round, trace, body: combinedInstruction, agent: agentAlias });
             const tokenSource = normalise(process.env.AUTHOR_TOKEN_SOURCE).toUpperCase();
-            const actionsAvailable = tokenSource === 'ACTION_BOT_PAT';
+            const actionsAvailable = tokenSource === 'ACTIONS_BOT_PAT';
             const serviceAvailable = tokenSource === 'SERVICE_BOT_PAT';
             const dispatchMode = actionsAvailable
               ? 'actions'
@@ -1491,7 +1491,7 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round }}
           HEAD_SHA: ${{ steps.snapshot.outputs.head }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
@@ -1645,7 +1645,7 @@ jobs:
       options_json: ${{ needs.resolve-params.outputs.options_json }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-      action_bot_pat: ${{ secrets.ACTION_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   verify-assignment:
     name: Verify Assignment
@@ -1703,7 +1703,7 @@ jobs:
       force_issue: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
     secrets:
-      action_bot_pat: ${{ secrets.ACTION_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   belt-check-existing-pr:
     name: Guard existing Codex PRs
@@ -1800,7 +1800,7 @@ jobs:
       max_parallel: ${{ fromJson(needs.resolve-params.outputs.worker_max_parallel || '1') }}
       keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
     secrets:
-      action_bot_pat: ${{ secrets.ACTION_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   dry-run-branch-sync:
     name: Validate branch sync (dry-run)
@@ -1834,10 +1834,10 @@ jobs:
     steps:
       - name: Ensure branch-sync token available
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
         run: |
           if [ -z "${ACTIONS_TOKEN}" ]; then
-            echo "::error::Branch-sync validation requires ACTION_BOT_PAT or SERVICE_BOT_PAT." >&2
+            echo "::error::Branch-sync validation requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
             exit 1
           fi
 
@@ -1857,7 +1857,7 @@ jobs:
           COMMENT_ID: ''
           COMMENT_URL: ''
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
@@ -1932,7 +1932,7 @@ jobs:
           TIMEOUT_SECONDS: 600
           POLL_SECONDS: 15
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
@@ -2020,7 +2020,7 @@ jobs:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
@@ -2103,10 +2103,10 @@ jobs:
     steps:
       - name: Ensure keepalive sync token available
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTION_BOT_PAT }}
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
         run: |
           if [ -z "${ACTIONS_TOKEN}" ]; then
-            echo "::error::Keepalive sync requires ACTION_BOT_PAT." >&2
+            echo "::error::Keepalive sync requires ACTIONS_BOT_PAT." >&2
             exit 1
           fi
 
@@ -2147,7 +2147,7 @@ jobs:
           MERGE_METHOD: squash
           DELETE_TEMP_BRANCH: 'true'
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
             const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
             await runKeepalivePostWork({ core, github, context, env: process.env });
@@ -2267,11 +2267,11 @@ jobs:
       - name: Ensure keepalive token available
         if: steps.gate.outputs.should_post == 'true'
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTION_BOT_PAT }}
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
           if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
-            echo "::error::Keepalive instruction comments require ACTION_BOT_PAT or SERVICE_BOT_PAT." >&2
+            echo "::error::Keepalive instruction comments require ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
             exit 1
           fi
 
@@ -2289,12 +2289,12 @@ jobs:
         if: steps.gate.outputs.should_post == 'true'
         shell: bash
         env:
-          HAS_ACTIONS_PAT: ${{ secrets.ACTION_BOT_PAT != '' }}
+          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
         run: |
           set -euo pipefail
           if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
-            echo "token=ACTION_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske" >>"$GITHUB_OUTPUT"
           elif [ "${HAS_SERVICE_PAT}" = "true" ]; then
             echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
@@ -2302,7 +2302,7 @@ jobs:
           else
             echo "token=" >>"$GITHUB_OUTPUT"
             echo "author=" >>"$GITHUB_OUTPUT"
-            echo "::error::Keepalive instruction requires ACTION_BOT_PAT or SERVICE_BOT_PAT." >&2
+            echo "::error::Keepalive instruction requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
             exit 1
           fi
 
@@ -2313,20 +2313,20 @@ jobs:
           SELECTED_TOKEN: ${{ steps.author_token.outputs.token || '' }}
         run: |
           set -euo pipefail
-          if [ "${SELECTED_TOKEN}" != 'ACTION_BOT_PAT' ]; then
-            echo "::error::Keepalive instruction must post as stranske (ACTION_BOT_PAT). Selected token: ${SELECTED_TOKEN:-none}." >&2
+          if [ "${SELECTED_TOKEN}" != 'ACTIONS_BOT_PAT' ]; then
+            echo "::error::Keepalive instruction must post as stranske (ACTIONS_BOT_PAT). Selected token: ${SELECTED_TOKEN:-none}." >&2
             exit 1
           fi
 
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
-        if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'ACTION_BOT_PAT'
+        if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_BODY: ${{ needs.keepalive-prep.outputs.body }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const issueNumber = Number(process.env.PR_NUMBER || 0);
@@ -2384,7 +2384,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ steps.author_token.outputs.token }}" = 'ACTION_BOT_PAT' ]; then
+          if [ "${{ steps.author_token.outputs.token }}" = 'ACTIONS_BOT_PAT' ]; then
             comment_id="${{ steps.post_instruction_primary.outputs.comment-id || '' }}"
             comment_url="${{ steps.post_instruction_primary.outputs.comment-url || '' }}"
           else
@@ -2412,7 +2412,7 @@ jobs:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
         with:
-          github-token: ${{ steps.author_token.outputs.token == 'ACTION_BOT_PAT' && secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {
@@ -2533,7 +2533,7 @@ jobs:
           AGENT_ALIAS: ${{ needs.keepalive-prep.outputs.agent }}
           INSTRUCTION_BODY: ${{ needs.keepalive-prep.outputs.instruction_body }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             const commentId = Number(process.env.COMMENT_ID || 0);
@@ -2615,7 +2615,7 @@ jobs:
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
         with:
-          github-token: ${{ steps.author_token.outputs.token == 'ACTION_BOT_PAT' && secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -2792,7 +2792,7 @@ jobs:
           KEEPALIVE_LAST_INSTRUCTION_ID: ${{ needs.belt-worker.outputs.keepalive_last_instruction_id || '' }}
           KEEPALIVE_LAST_INSTRUCTION_HEAD: ${{ needs.belt-worker.outputs.keepalive_last_instruction_head_sha || '' }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const trace = normalise(process.env.KEEPALIVE_TRACE);
@@ -2979,7 +2979,7 @@ jobs:
       head_sha: ${{ matrix.pr.head_sha }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
     secrets:
-      action_bot_pat: ${{ secrets.ACTION_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   automerge-agent-prs:
     name: Auto-merge labelled agent PRs

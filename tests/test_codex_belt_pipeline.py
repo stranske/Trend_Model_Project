@@ -67,10 +67,10 @@ def test_dispatcher_is_reusable_only_and_exposes_worker_context():
     assert steps, "Dispatcher job must define steps"
 
     guard = steps[0]
-    assert guard.get("name") == "Ensure ACTION_BOT_PAT is configured"
+    assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
     assert _step_runs_command(
-        guard, "ACTION_BOT_PAT secret is required for dispatcher writes."
-    ), "Dispatcher must fail early when ACTION_BOT_PAT is missing"
+        guard, "ACTIONS_BOT_PAT secret is required for dispatcher writes."
+    ), "Dispatcher must fail early when ACTIONS_BOT_PAT is missing"
 
     assert not any(
         _step_runs_command(step, "createDispatchEvent") for step in steps
@@ -101,9 +101,9 @@ def test_worker_keeps_concurrency_and_pat_guard():
     steps = bootstrap.get("steps") or []
     assert steps, "Worker bootstrap job must define steps"
     guard = steps[0]
-    assert guard.get("name") == "Ensure ACTION_BOT_PAT is configured"
+    assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
     assert _step_runs_command(
-        guard, "ACTION_BOT_PAT secret is required for worker actions."
+        guard, "ACTIONS_BOT_PAT secret is required for worker actions."
     )
 
 
@@ -122,9 +122,9 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     assert steps, "Conveyor promote job must define steps"
 
     guard = steps[0]
-    assert guard.get("name") == "Ensure ACTION_BOT_PAT is configured"
+    assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
     assert _step_runs_command(
-        guard, "ACTION_BOT_PAT secret is required for conveyor actions."
+        guard, "ACTIONS_BOT_PAT secret is required for conveyor actions."
     )
 
     gate_steps = [step for step in steps if step.get("name") == "Ensure Gate succeeded"]

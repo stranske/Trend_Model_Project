@@ -45,7 +45,7 @@ _Inline Gate helper_
 - **Gate summary job (`pr-00-gate.yml`)** — Post-CI job that downloads artifacts, computes coverage deltas, runs the label-gated autofix routine, and updates the PR summary comment with a stable marker.
 
 ### Maintenance & Repo Health
-- **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTION_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
+- **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTIONS_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
 - **`health-40-sweep.yml`** — Weekly sweep that fans out to Actionlint and branch-protection verification. Pull requests trigger the Actionlint leg (paths-filter gated) while schedule/manual runs execute both checks to keep the enforcement snapshots fresh.
 - **`health-42-actionlint.yml`** — Underlying Actionlint job invoked by the sweep (and still runnable via manual dispatch when you need a focused lint dry run).
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.

@@ -99,13 +99,13 @@ jobs:
       - name: Ensure moderation token available
         if: steps.evaluate.outputs.delete == 'true'
         run: |
-          if [ -z "${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}" ]; then
-            echo "::error::Moderation requires ACTION_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
+          if [ -z "${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}" ]; then
+            echo "::error::Moderation requires ACTIONS_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
             exit 1
           fi
         shell: bash
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTION_BOT_PAT }}
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Delete connector comment
@@ -114,7 +114,7 @@ jobs:
         env:
           COMMENT_ID: ${{ steps.evaluate.outputs.comment_id }}
         with:
-          github-token: ${{ secrets.ACTION_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {

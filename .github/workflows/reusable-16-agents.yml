@@ -106,7 +106,7 @@ on:
     secrets:
       service_bot_pat:
         required: false
-      action_bot_pat:
+      ACTIONS_BOT_PAT:
         required: false
     outputs:
       readiness_report:
@@ -594,7 +594,7 @@ jobs:
     timeout-minutes: 25
     env:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
-      ACTION_BOT_PAT: ${{ secrets.ACTION_BOT_PAT || secrets.action_bot_pat || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -618,9 +618,9 @@ jobs:
             }
             core.info('Verified keepalive identity: stranske-automation-bot.');
       - name: Ensure dispatch PAT present
-        if: ${{ env.ACTION_BOT_PAT == '' }}
+        if: ${{ env.ACTIONS_BOT_PAT == '' }}
         run: |
-          echo "::error::ACTION_BOT_PAT is required so keepalive dispatches can trigger the connector." >&2
+          echo "::error::ACTIONS_BOT_PAT is required so keepalive dispatches can trigger the connector." >&2
           exit 1
       - name: Generate keepalive trace token
         run: |
@@ -631,7 +631,7 @@ jobs:
         env:
           OPTIONS_JSON: ${{ inputs.options_json }}
           DRY_RUN: ${{ inputs.dry_run }}
-          ACTION_BOT_PAT: ${{ env.ACTION_BOT_PAT }}
+          ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT }}
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
