@@ -773,7 +773,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     if (!finalState.summaryWritten && core?.summary) {
       core.summary
         .addRaw(
-          `SYNC: action=${finalState.action || 'skip'} head_moved=${finalState.headMoved ? 'true' : 'false'} trace=${
+          `SYNC: action=${finalState.action || 'skip'} head_changed=${finalState.headMoved ? 'true' : 'false'} trace=${
             trace || 'n/a'
           }`,
         )
