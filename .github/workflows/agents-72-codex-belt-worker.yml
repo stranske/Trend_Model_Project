@@ -78,7 +78,7 @@ jobs:
       freshness: ${{ steps.freshness.outputs.status || '' }}
       fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
     steps:
       - name: Ensure ACTIONS_BOT_PAT is configured
         run: |
