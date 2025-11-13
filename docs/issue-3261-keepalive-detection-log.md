@@ -12,7 +12,7 @@ _Evidence-first tracker for Issue #3261 (keepalive PR-meta detector and orchestr
 
 1. **Evidence precedes status** – No task or acceptance criterion is marked complete until the associated workflow run, log segment, or PR artifact is linked.
 2. **Regression guard** – When fresh evidence lands, re-confirm all previously satisfied items under the latest production context. Downgrade status immediately if a check regresses.
-3. **Author + marker focus** – Verification requires both an allowed author (`stranske` via ACTION_BOT_PAT or `stranske-automation-bot`) and the hidden keepalive markers before claiming success.
+3. **Author + marker focus** – Verification requires both an allowed author (`stranske` via ACTIONS_BOT_PAT or `stranske-automation-bot`) and the hidden keepalive markers before claiming success.
 4. **Trace continuity** – Every round must yield consistent TRACE propagation across detector, orchestrator, and comment outputs; mismatches force investigation before closure.
 5. **Audit trail** – Evidence Log entries are append-only with timestamps, run IDs, and direct links/quotes. Earlier entries remain for historical comparison.
 6. **Single-agent enforcement** – Only one automation agent works a given keepalive round at any time; additional bots or humans wait for a fresh round.

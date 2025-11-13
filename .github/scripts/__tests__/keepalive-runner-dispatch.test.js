@@ -103,7 +103,7 @@ test('dispatchKeepaliveCommand throws when token is missing', async () => {
       token: '',
       payload: { issue: 1 },
     }),
-    /ACTION_BOT_PAT is required/
+    /ACTIONS_BOT_PAT is required/
   );
 });
 

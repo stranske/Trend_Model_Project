@@ -122,11 +122,37 @@ Tasks
   SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<trace>
 
 
-- Worker fan‑out
+3. Keepalive Orchestrator: enforce author invariant (post as stranske or fail) and print mandatory INSTRUCTION, WORKER, SYNC lines in job summary
+
+Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
+
+Why
+When the round‑start instruction is posted by the automation bot, some external agents ignore it and no code is produced. Also, without invariant one‑line summaries, it’s hard to prove the orchestrator actually posted, executed, and synced.
+
+Scope
+
+- In .github/workflows/agents-70-orchestrator.yml:
+
+  - Author invariant: Before posting the instruction, assert the selected token is ACTIONS_BOT_PAT (post as stranske). If not, fail the step and do not post.
+
+  - After posting, print an INSTRUCTION: line; before/after worker, print WORKER: and SYNC: lines to $GITHUB_STEP_SUMMARY (always, even when skipping).
+
+Non‑Goals
 
   - Set worker_max_parallel = min(cap_from_options_or_label, 5); default 2. Ensure this matches PR‑meta cap.
 
-Acceptance criteria
+No change to branch‑sync algorithm
+
+No change to instruction text or hidden‑marker protocol
+
+Tasks
+
+- Author assertion
+
+  - Resolve the posting token (ACTIONS_BOT_PAT preferred; SERVICE_BOT_PAT fallback).
+
+  - If ACTIONS_BOT_PAT is not selected, fail the post step and write:
+    INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT|github.token> head=<sha7> trace=<trace>
 
 - After Gate completion, an Orchestrator run appears with event=workflow_run and checks out the PR head SHA.
 

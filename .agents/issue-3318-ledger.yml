@@ -108,7 +108,7 @@ tasks:
     commit: ''
     notes: []
   - id: task-15
-    title: Post as stranske using ACTION_BOT_PAT; if unavailable, fallback to SERVICE_BOT_PAT.
+    title: Post as stranske using ACTIONS_BOT_PAT; if unavailable, fallback to SERVICE_BOT_PAT.
     status: todo
     started_at: null
     finished_at: null
