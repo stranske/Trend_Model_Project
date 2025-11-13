@@ -412,6 +412,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const path = require('path');
+
             const workflowRun = context.payload?.workflow_run || {};
             const pullRequests = Array.isArray(workflowRun.pull_requests) ? workflowRun.pull_requests : [];
             const firstPull = pullRequests.length > 0 ? pullRequests[0] : null;
@@ -459,10 +462,46 @@ jobs:
 
             const normaliseAlias = (value) => String(value || '').trim().toLowerCase();
             const agentAlias = normaliseAlias(process.env.AGENT_ALIAS);
-            const mentionCandidates = new Set(['codex', 'claude', 'octavia']);
-            if (agentAlias) {
-              mentionCandidates.add(agentAlias);
-            }
+
+            const loadMentionCandidates = () => {
+              const candidates = new Set(['codex', 'claude', 'octavia']);
+              if (agentAlias) {
+                candidates.add(agentAlias);
+              }
+
+              const agentsPath = path.join(process.cwd(), '.github', 'agents.json');
+              try {
+                const buffer = fs.readFileSync(agentsPath, 'utf8');
+                const parsed = JSON.parse(buffer);
+                for (const value of Object.values(parsed || {})) {
+                  if (!value || typeof value !== 'object') {
+                    continue;
+                  }
+                  const mention = normaliseAlias(value.mention || '');
+                  if (mention) {
+                    const mentionValue = mention.replace(/^@/, '');
+                    if (mentionValue) {
+                      candidates.add(mentionValue);
+                    }
+                  }
+                  if (Array.isArray(value.aliases)) {
+                    for (const alias of value.aliases) {
+                      const normalised = normaliseAlias(alias);
+                      if (normalised) {
+                        candidates.add(normalised);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Unable to read agents mention list (${agentsPath}): ${message}`);
+              }
+
+              return candidates;
+            };
+
+            const mentionCandidates = loadMentionCandidates();
 
             const buildMentionPattern = (alias) => {
               const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
