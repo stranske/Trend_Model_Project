@@ -12,7 +12,7 @@
 
 ## Attempt — Round comment publishing (Oct 2025)
 - ✅ Keepalive now creates discrete `Keepalive Round N` comments that @mention the agent; connector responds to each round (#3191 timeline).
-- ✅ Secrets pass-through confirmed: `action_bot_pat` supplied to dispatcher + worker in Agents 70 run #1860.
+- ✅ Secrets pass-through confirmed: `ACTIONS_BOT_PAT` supplied to dispatcher + worker in Agents 70 run #1860.
 - ❌ Still no agent commits after keepalive. Commit list on #3191 shows only bootstrap + manual test commit; connector posts a summary but branch stays unchanged.
 - 🔍 Root cause: `belt-worker` job skips whenever a PR already exists (`pr_exists == 'true'`). Keepalive rounds run against the active PR, so the worker never re-engages. Step summary logs “Result: skipped: PR exists.”
 
@@ -31,12 +31,12 @@
 
 ## Attempt — Direct belt worker dispatch (Nov 2025)
 - ✅ `agents-pr-meta` recognises keepalive round comments and assembles the worker payload (`issue`, `branch`, `base`).
-- ❌ Workflow runs triggered by keepalive comments end with **startup_failure** because the `keepalive_worker` job requires `secrets.ACTION_BOT_PAT`, and GitHub withholds repository secrets from `issue_comment` dispatches authored by automation accounts. Recent examples: runs 18997968818 and 18997967860 (both cancelled before any jobs executed).
+- ❌ Workflow runs triggered by keepalive comments end with **startup_failure** because the `keepalive_worker` job requires `secrets.ACTIONS_BOT_PAT`, and GitHub withholds repository secrets from `issue_comment` dispatches authored by automation accounts. Recent examples: runs 18997968818 and 18997967860 (both cancelled before any jobs executed).
 - 🔍 Since the reusable worker never starts, no commits or task execution occur—confirming that option 2 remains blocked without a PAT that can be shared with the comment-triggered workflow.
 - 📌 Next step: either move the keepalive path back through Agents 70 (with PAT credentials) or provision an alternative credential scope that the PR-meta workflow can access when reacting to automation-authored comments.
 
 ## Attempt — Orchestrator relay with PAT (Nov 2025)
-- ✅ Updated `agents-pr-meta` to dispatch **Agents 70 Orchestrator** directly whenever a keepalive round comment is detected. The job now uses `secrets.ACTION_BOT_PAT` to call `actions.createWorkflowDispatch`, forwarding `dispatcher_force_issue`, branch/base metadata, and an explicit `keepalive_enabled` flag.
+- ✅ Updated `agents-pr-meta` to dispatch **Agents 70 Orchestrator** directly whenever a keepalive round comment is detected. The job now uses `secrets.ACTIONS_BOT_PAT` to call `actions.createWorkflowDispatch`, forwarding `dispatcher_force_issue`, branch/base metadata, and an explicit `keepalive_enabled` flag.
 - ⏳ Pending verification: need to observe a follow-up run to confirm the orchestrator honours the forced issue, invokes the belt worker, and resumes task execution on the existing PR branch.
 - 📌 If GitHub still blocks the dispatch (e.g. PAT missing or insufficient scope), capture the run ID and revisit credential strategy.
 
@@ -50,7 +50,7 @@
 - Modify `.github/workflows/agents-70-orchestrator.yml` so the belt worker's `if` clause permits execution when `enable_keepalive` is `true`, even if a PR already exists.
 - Retain the guard summary for the non-keepalive path, but switch the message to “keepalive override active” when the worker is allowed to continue.
 - Bubble the same logic into the dispatch summary so round-two runs show the worker result instead of a forced skip.
-- Keep the PAT pass-through unchanged (`action_bot_pat` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
+- Keep the PAT pass-through unchanged (`ACTIONS_BOT_PAT` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
 
 ## Patch — Hidden markers and concurrency (Nov 2025)
 - Keepalive comments now always start with `<!-- keepalive-round: N -->` followed by `<!-- codex-keepalive-marker -->`, matching the sentinel contract used by PR-meta.
