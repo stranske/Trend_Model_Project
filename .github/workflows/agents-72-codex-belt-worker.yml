@@ -72,7 +72,6 @@ jobs:
       keepalive_reason: ${{ steps.keepalive_gate.outputs.reason || '' }}
       keepalive_head_sha: ${{ steps.keepalive_gate.outputs.head_sha || '' }}
       keepalive_trace: ${{ steps.keepalive_gate.outputs.trace || '' }}
-      keepalive_instruction_id: ${{ steps.keepalive_gate.outputs.instruction_id || '' }}
       keepalive_last_instruction_id: ${{ steps.keepalive_gate.outputs.last_processed_comment_id || '' }}
       keepalive_last_instruction_head_sha: ${{ steps.keepalive_gate.outputs.last_processed_head_sha || '' }}
       use_step_branch: ${{ steps.mode.outputs.use_step_branch || 'false' }}
