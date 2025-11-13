@@ -9,7 +9,7 @@ const {
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const INSTRUCTION_REACTION = 'hooray';
-const DEDUPE_REACTION = 'dart';
+const LOCK_REACTION = 'rocket';
 
 function normaliseLogin(login) {
   return String(login || '')
@@ -321,9 +321,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   const instructionBody = extractInstructionSegment(body);
   if (!instructionBody) {
-    outputs.reason = 'no-instruction-segment';
+    outputs.reason = 'instruction-empty';
     outputs.dispatch = 'false';
-    core.info('Keepalive dispatch skipped: unable to extract instruction segment.');
+    core.setFailed('instruction-empty');
+    core.info('Keepalive dispatch blocked: instruction segment missing or empty.');
     return finalise(true);
   }
   outputs.instruction_body = instructionBody;
@@ -363,7 +364,6 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   const hasInstructionReaction = reactions.some(
     (reaction) => (reaction?.content || '').toLowerCase() === INSTRUCTION_REACTION
   );
-  let hasDedupeReaction = reactions.some((reaction) => (reaction?.content || '').toLowerCase() === DEDUPE_REACTION);
 
   let processedReaction = hasInstructionReaction;
   if (!processedReaction) {
@@ -399,78 +399,52 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.processed_reaction = 'true';
 
-  if (hasDedupeReaction) {
-    outputs.reason = 'duplicate-keepalive';
+  const hasLockReaction = reactions.some(
+    (reaction) => (reaction?.content || '').toLowerCase() === LOCK_REACTION
+  );
+
+  if (hasLockReaction) {
+    outputs.reason = 'lock-held';
+    outputs.dispatch = 'false';
     outputs.deduped = 'true';
-    core.info(`Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId}.`);
+    core.info(`Keepalive dispatch skipped: ${LOCK_REACTION} reaction already present on comment ${commentId}.`);
     return finalise(true);
+  }
+
+  try {
+    const response = await github.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: commentId,
+      content: LOCK_REACTION,
+    });
+    const status = Number(response?.status || 0);
+    const content = String(response?.data?.content || '').toLowerCase();
+    if (status === 200 || status === 201 || content === LOCK_REACTION) {
+      outputs.processed_reaction = 'true';
+    }
+  } catch (error) {
+    if (error && error.status === 409) {
+      outputs.reason = 'lock-held';
+      outputs.dispatch = 'false';
+      outputs.deduped = 'true';
+      core.info(
+        `Keepalive dispatch skipped: ${LOCK_REACTION} reaction already present on comment ${commentId} (detected via conflict).`
+      );
+      return finalise(true);
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    outputs.reason = 'lock-held';
+    outputs.dispatch = 'false';
+    core.warning(`Failed to add ${LOCK_REACTION} reaction for keepalive comment ${commentId}: ${message}`);
+    return finalise();
   }
 
   if (!issueNumber) {
     outputs.reason = 'missing-issue-reference';
     core.info('Keepalive dispatch skipped: unable to determine linked issue number.');
     return finalise();
-  }
-
-  let reactionStatus = 0;
-  let reactionContent = '';
-  try {
-    const response = await github.rest.reactions.createForIssueComment({
-      owner,
-      repo,
-      comment_id: commentId,
-      content: DEDUPE_REACTION,
-    });
-    reactionStatus = Number(response?.status || 0);
-    reactionContent = String(response?.data?.content || '').toLowerCase();
-    outputs.deduped = 'true';
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (error && error.status === 409) {
-      outputs.dispatch = 'false';
-      outputs.reason = 'duplicate-keepalive';
-      outputs.deduped = 'true';
-      core.info(
-        `Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId} (detected via conflict).`
-      );
-      return finalise(true);
-    }
-
-    let hasDedupeReactionRetry = false;
-    try {
-      const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
-        owner,
-        repo,
-        comment_id: commentId,
-        per_page: 100,
-      });
-      hasDedupeReactionRetry = reactions.some(
-        (reaction) => (reaction?.content || '').toLowerCase() === DEDUPE_REACTION
-      );
-    } catch (readError) {
-      const readMessage = readError instanceof Error ? readError.message : String(readError);
-      core.warning(`Failed to read keepalive reactions for comment ${commentId}: ${readMessage}`);
-    }
-
-    if (hasDedupeReactionRetry) {
-      outputs.dispatch = 'false';
-      outputs.reason = 'duplicate-keepalive';
-      outputs.deduped = 'true';
-      core.info(`Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId}.`);
-      return finalise(true);
-    }
-
-    core.warning(`Failed to add ${DEDUPE_REACTION} reaction for dedupe on comment ${commentId}: ${message}`);
-  }
-
-  if (reactionStatus === 200 && reactionContent === DEDUPE_REACTION) {
-    outputs.dispatch = 'false';
-    outputs.reason = 'duplicate-keepalive';
-    outputs.deduped = 'true';
-    core.info(
-      `Keepalive dispatch skipped: ${DEDUPE_REACTION} reaction already present on comment ${commentId} (detected via status ${reactionStatus}).`
-    );
-    return finalise(true);
   }
 
   outputs.dispatch = 'true';

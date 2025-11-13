@@ -7,11 +7,13 @@ dispatch_value=${DISPATCH:-}
 trace_value=${TRACE:-}
 pr_value_raw=${PR_NUMBER:-}
 fallback_pr=${FALLBACK_PR:-}
-comment_id_raw=${COMMENT_ID:-}
-comment_fallback=${COMMENT_FALLBACK:-}
+activation_raw=${ACTIVATION_ID:-}
+activation_fallback=${ACTIVATION_FALLBACK:-}
 reason_value=${DISPATCH_REASON:-}
 agent_value=${DISPATCH_AGENT:-}
-bytes_value=${DISPATCH_BYTES:-}
+head_raw=${HEAD_SHA:-}
+active_raw=${ACTIVE_RUNS:-}
+cap_raw=${RUN_CAP:-}
 
 if [[ -z "${trace_value}" ]]; then
   trace_value='-'
@@ -21,8 +23,8 @@ if [[ -z "${pr_value_raw}" || "${pr_value_raw}" == '0' || "${pr_value_raw}" == '
   pr_value_raw="${fallback_pr:-}"
 fi
 
-if [[ -z "${comment_id_raw}" || "${comment_id_raw}" == '0' || "${comment_id_raw}" == 'unknown' ]]; then
-  comment_id_raw="${comment_fallback:-}"
+if [[ -z "${activation_raw}" || "${activation_raw}" == '0' || "${activation_raw}" == 'unknown' ]]; then
+  activation_raw="${activation_fallback:-}"
 fi
 
 format_pr() {
@@ -34,22 +36,60 @@ format_pr() {
   fi
 }
 
+normalise_path() {
+  local raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+  case "${raw}" in
+    gate|comment) printf '%s' "${raw}" ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+normalise_reason() {
+  local raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+  case "${raw}" in
+    ''|unspecified) printf 'gate-failed' ;;
+    ok|success|keepalive-detected) printf 'ok' ;;
+    missing-label|keepalive-label-missing|missing-keepalive-label) printf 'missing-label' ;;
+    gate-pending|gate-not-concluded) printf 'gate-pending' ;;
+    gate-not-success|gate-run-missing|gate-failed|gate-error|gate-missing|sync-required) printf 'gate-failed' ;;
+    run-cap-reached|cap-reached) printf 'cap-reached' ;;
+    no-linked-pr|missing-pr|missing-pr-number) printf 'no-linked-pr' ;;
+    no-activation-found|missing-activation-comment|invalid-activation-comment|missing-pr-number|activation-comment-missing|no-human-comment) printf 'no-activation-found' ;;
+    lock-held|duplicate-keepalive|lock-failed|lock-error) printf 'lock-held' ;;
+    instruction-empty|no-instruction-segment|instruction-missing|instruction-parse-failed) printf 'instruction-empty' ;;
+    no-human-activation|unauthorised-author|unauthorized-author|missing-sentinel|missing-round|invalid-round|missing-comment-id|missing-trace|pull-fetch-failed|fork-pr|missing-issue-reference|instruction-reaction-failed|missing-instruction-reaction|not-keepalive) printf 'no-human-activation' ;;
+    *) printf 'gate-failed' ;;
+  esac
+}
+
 pr_value=$(format_pr "${pr_value_raw}")
 
-comment_value=${comment_id_raw:-}
-if [[ -z "${comment_value}" ]]; then
-  comment_value='<none>'
+if [[ -z "${activation_raw}" ]]; then
+  activation_value='none'
+else
+  activation_value=${activation_raw}
 fi
 
-if [[ -z "${reason_value}" ]]; then
-  reason_value='unspecified'
-fi
 if [[ -z "${agent_value}" ]]; then
   agent_value='?'
 fi
-if [[ -z "${bytes_value}" ]]; then
-  bytes_value='0'
+
+head_value='unknown'
+if [[ -n "${head_raw}" && "${head_raw}" != 'unknown' ]]; then
+  head_value=$(printf '%.7s' "${head_raw}")
 fi
+
+active_value=${active_raw:-}
+if [[ -z "${active_value}" || "${active_value}" == 'unknown' ]]; then
+  active_value='0'
+fi
+
+cap_value=${cap_raw:-}
+if [[ -z "${cap_value}" || "${cap_value}" == 'unknown' ]]; then
+  cap_value='?'
+fi
+
+cap_formatted="${active_value}/${cap_value}"
 
 dispatch_normalised=$(printf '%s' "${dispatch_value}" | tr '[:upper:]' '[:lower:]')
 if [[ "${dispatch_normalised}" == 'true' ]]; then
@@ -58,7 +98,14 @@ else
   ok_value='false'
 fi
 
-summary_line="DISPATCH: ok=${ok_value} reason=${reason_value} pr=${pr_value} comment=${comment_value} agent=${agent_value} bytes=${bytes_value}"
+reason_value=$(normalise_reason "${reason_value}")
+if [[ "${ok_value}" == 'true' ]]; then
+  reason_value='ok'
+fi
+
+path_value=$(normalise_path "${path_label}")
+
+summary_line="DISPATCH: ok=${ok_value} path=${path_value} reason=${reason_value} pr=${pr_value} activation=${activation_value} agent=${agent_value} head=${head_value} cap=${cap_formatted} trace=${trace_value}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
