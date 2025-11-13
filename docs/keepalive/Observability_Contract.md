@@ -77,7 +77,7 @@ If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 
 **PR‑meta (both lanes) — exactly one line per run**
 
-DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<ACTIVE>/<CAP> trace=<TRACE|->
+DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<CAP> active=<ACTIVE> trace=<TRACE|->
 
 
 **Orchestrator — three lines per run**
@@ -204,7 +204,7 @@ echo "…SUMMARY LINE…" >> "$GITHUB_STEP_SUMMARY"
 
 ## 12) Example Summary Lines
 
-DISPATCH: ok=true path=gate reason=ok pr=#3541 activation=2012345678 agent=codex head=abc1234 cap=1/2 trace=ka-3541-r3
+DISPATCH: ok=true path=gate reason=ok pr=#3541 activation=2012345678 agent=codex head=abc1234 cap=2 active=1 trace=ka-3541-r3
 INSTRUCTION: ok=true author=stranske comment=2012348901 ack=ok head=def5678 trace=ka-3541-r3
 WORKER: action=execute reason=new-instruction pr=#3541 head=def5678 instr=2012348901 trace=ka-3541-r3
 SYNC: action=update-branch head_changed=true trace=ka-3541-r3

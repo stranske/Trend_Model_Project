@@ -89,8 +89,6 @@ if [[ -z "${cap_value}" || "${cap_value}" == 'unknown' ]]; then
   cap_value='?'
 fi
 
-cap_formatted="${active_value}/${cap_value}"
-
 dispatch_normalised=$(printf '%s' "${dispatch_value}" | tr '[:upper:]' '[:lower:]')
 if [[ "${dispatch_normalised}" == 'true' ]]; then
   ok_value='true'
@@ -105,7 +103,7 @@ fi
 
 path_value=$(normalise_path "${path_label}")
 
-summary_line="DISPATCH: ok=${ok_value} path=${path_value} reason=${reason_value} pr=${pr_value} activation=${activation_value} agent=${agent_value} head=${head_value} cap=${cap_formatted} trace=${trace_value}"
+summary_line="DISPATCH: ok=${ok_value} path=${path_value} reason=${reason_value} pr=${pr_value} activation=${activation_value} agent=${agent_value} head=${head_value} cap=${cap_value} active=${active_value} trace=${trace_value}"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
