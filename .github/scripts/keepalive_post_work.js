@@ -1471,6 +1471,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   let success = false;
   let finalHead = initialHead;
   let mode = 'none';
+  let apiResult = null;
 
   const shortPoll = await pollForHeadChange({
     fetchHead,
@@ -1514,7 +1515,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   if (!success) {
-    const apiResult = await attemptUpdateBranchViaApi({
+    apiResult = await attemptUpdateBranchViaApi({
       github,
       owner,
       repo,
