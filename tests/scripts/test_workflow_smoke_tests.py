@@ -9,7 +9,9 @@ import pytest
 from scripts import workflow_smoke_tests as smoke
 
 
-def test_quarantine_smoke_success(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_quarantine_smoke_success(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     records_path_holder: dict[str, str] = {}
 
     def fake_load_records(path):
@@ -26,8 +28,12 @@ def test_quarantine_smoke_success(monkeypatch: pytest.MonkeyPatch, capsys: pytes
         assert report.ok is True
         return "summary-output"
 
-    monkeypatch.setattr(smoke.validate_quarantine_ttl, "load_records", fake_load_records)
-    monkeypatch.setattr(smoke.validate_quarantine_ttl, "evaluate_records", fake_evaluate)
+    monkeypatch.setattr(
+        smoke.validate_quarantine_ttl, "load_records", fake_load_records
+    )
+    monkeypatch.setattr(
+        smoke.validate_quarantine_ttl, "evaluate_records", fake_evaluate
+    )
     monkeypatch.setattr(smoke.validate_quarantine_ttl, "build_summary", fake_summary)
 
     smoke._quarantine_smoke()

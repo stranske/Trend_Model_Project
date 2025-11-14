@@ -158,7 +158,9 @@ def test_download_artifact_writes_chunks(tmp_path: Path) -> None:
         [DummyResponse(chunks=[b"chunk1", b"", b"chunk2"], json_data={}, text="")]
     )
 
-    rbs._download_artifact(session, "repo", "token", artifact_id=99, destination=destination)
+    rbs._download_artifact(
+        session, "repo", "token", artifact_id=99, destination=destination
+    )
 
     assert destination.read_bytes() == b"chunk1chunk2"
     url = session.calls[0][0]
@@ -259,7 +261,9 @@ def test_restore_previous_snapshots_happy_path(
     assert (previous_dir / "snapshot.json").exists()
 
 
-def test_restore_previous_snapshots_no_candidate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_restore_previous_snapshots_no_candidate(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     snapshot_dir = tmp_path / "gate"
     snapshot_dir.mkdir()
 
@@ -275,7 +279,9 @@ def test_restore_previous_snapshots_no_candidate(monkeypatch: pytest.MonkeyPatch
     assert restored is False
 
 
-def test_restore_previous_snapshots_missing_source(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_restore_previous_snapshots_missing_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     snapshot_dir = tmp_path / "gate"
     snapshot_dir.mkdir()
 
@@ -287,7 +293,9 @@ def test_restore_previous_snapshots_missing_source(monkeypatch: pytest.MonkeyPat
         workflow_run_id=None,
     )
 
-    monkeypatch.setattr(rbs, "_collect_artifacts", lambda session, repo, token: [artifact])
+    monkeypatch.setattr(
+        rbs, "_collect_artifacts", lambda session, repo, token: [artifact]
+    )
     monkeypatch.setattr(rbs, "_download_artifact", lambda *args, **kwargs: None)
 
     def fake_extract(archive, target_dir):
@@ -305,12 +313,20 @@ def test_restore_previous_snapshots_missing_source(monkeypatch: pytest.MonkeyPat
         )
 
 
-@pytest.mark.parametrize("exc_type", [rbs.RestoreError("failed"), rbs.requests.RequestException("boom")])
-def test_main_handles_restore_errors(exc_type, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    "exc_type", [rbs.RestoreError("failed"), rbs.requests.RequestException("boom")]
+)
+def test_main_handles_restore_errors(
+    exc_type, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", "snapshots")
-    monkeypatch.setattr(rbs, "restore_previous_snapshots", lambda **kwargs: (_ for _ in ()).throw(exc_type))
+    monkeypatch.setattr(
+        rbs,
+        "restore_previous_snapshots",
+        lambda **kwargs: (_ for _ in ()).throw(exc_type),
+    )
 
     result = rbs.main()
 
@@ -319,7 +335,9 @@ def test_main_handles_restore_errors(exc_type, monkeypatch: pytest.MonkeyPatch, 
     assert "snapshot" in captured.out.lower()
 
 
-def test_main_skips_when_missing_repo_or_token(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_skips_when_missing_repo_or_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.delenv("TARGET_REPO", raising=False)
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
@@ -332,7 +350,9 @@ def test_main_skips_when_missing_repo_or_token(monkeypatch: pytest.MonkeyPatch, 
     assert "missing repository or token" in captured.out.lower()
 
 
-def test_main_reports_success(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+def test_main_reports_success(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snapshots"))
@@ -345,7 +365,9 @@ def test_main_reports_success(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
     assert "restored previous snapshots" in captured.out.lower()
 
 
-def test_main_reports_no_artifact(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+def test_main_reports_no_artifact(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snapshots"))

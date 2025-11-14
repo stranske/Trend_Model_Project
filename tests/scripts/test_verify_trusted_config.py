@@ -14,7 +14,9 @@ def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TARGET_RUN_ID", raising=False)
 
 
-def test_main_requires_allowed_paths(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_requires_allowed_paths(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     result = vtc.main()
 
     captured = capsys.readouterr()
@@ -22,7 +24,9 @@ def test_main_requires_allowed_paths(monkeypatch: pytest.MonkeyPatch, capsys: py
     assert "No trusted config paths" in captured.err
 
 
-def test_main_reports_missing_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_missing_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setenv("TRUSTED_CONFIG_PATHS", "config.yml")
     monkeypatch.chdir(tmp_path)
 
@@ -33,7 +37,9 @@ def test_main_reports_missing_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert "checkout missing" in captured.err
 
 
-def test_main_reports_missing_and_extra(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_missing_and_extra(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "trusted-config"
     root.mkdir()
@@ -54,7 +60,9 @@ def test_main_reports_missing_and_extra(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert "Unexpected file" in captured.err
 
 
-def test_main_handles_missing_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_handles_missing_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "trusted-config"
     root.mkdir()
@@ -69,7 +77,9 @@ def test_main_handles_missing_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert "missing.yml" in captured.err
 
 
-def test_main_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "trusted-config"
     (root / "nested").mkdir(parents=True)
@@ -91,7 +101,9 @@ def test_main_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: p
     assert captured.err == ""
 
 
-def test_main_ignores_non_relative_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_ignores_non_relative_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "trusted-config"
     root.mkdir()
