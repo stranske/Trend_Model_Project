@@ -244,13 +244,55 @@ jobs:
           fi
           echo '::error::Keepalive orchestrator requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
           exit 1
+      - name: Probe keepalive token identity
+        if: steps.select.outcome == 'success'
+        id: probe_token_identity
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { data } = await github.rest.users.getAuthenticated();
+            const login = (data?.login || '').trim();
+            if (!login) {
+              core.setFailed('Unable to determine identity for keepalive write token.');
+              return;
+            }
+            core.setOutput('login', login);
 
-      - name: Record PREPOST summary line
+      - name: Enforce keepalive token identity
         if: steps.select.outcome == 'success'
         env:
           TOKEN_SOURCE: ${{ steps.select.outputs.token || 'none' }}
+          TOKEN_LOGIN: ${{ steps.probe_token_identity.outputs.login || '' }}
         run: |
-          printf 'PREPOST: token=%s\n' "${TOKEN_SOURCE}" >>"$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          token="${TOKEN_SOURCE:-none}"
+          login="${TOKEN_LOGIN:-}"
+          if [ -z "${login}" ]; then
+            echo "::error::Keepalive write token identity is unknown." >&2
+            exit 1
+          fi
+
+          case "${token}" in
+            'ACTIONS_BOT_PAT')
+              if [ "${login}" != 'stranske' ]; then
+                echo "::error::ACTIONS_BOT_PAT must authenticate as stranske; detected ${login}." >&2
+                exit 1
+              fi
+              ;;
+            'SERVICE_BOT_PAT')
+              if [ "${login}" != 'stranske-automation-bot' ]; then
+                echo "::error::SERVICE_BOT_PAT must authenticate as stranske-automation-bot; detected ${login}." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unknown keepalive token source: ${token}." >&2
+              exit 1
+              ;;
+          esac
+
+          printf 'PREPOST: token=%s login=%s\n' "${token}" "${login}" >>"$GITHUB_STEP_SUMMARY"
 
   resolve-params:
     name: Resolve Parameters
@@ -2165,7 +2207,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
+      contents: write
       pull-requests: write
     outputs:
       action: ${{ steps.reconcile.outputs.action || '' }}
@@ -2173,6 +2215,11 @@ jobs:
       mode: ${{ steps.reconcile.outputs.mode || '' }}
       merged_sha: ${{ steps.reconcile.outputs.merged_sha || '' }}
       success: ${{ steps.reconcile.outputs.success || '' }}
+      status: ${{ steps.reconcile.outputs.status || '' }}
+      status_head: ${{ steps.reconcile.outputs.status_head || '' }}
+      status_base: ${{ steps.reconcile.outputs.status_base || '' }}
+      status_mode: ${{ steps.reconcile.outputs.status_mode || '' }}
+      link: ${{ steps.reconcile.outputs.link || '-' }}
     steps:
       - name: Ensure keepalive sync token available
         env:
@@ -2216,7 +2263,8 @@ jobs:
           SYNC_LABEL: agents:sync-required
           DEBUG_LABEL: agents:debug
           DISPATCH_EVENT_TYPE: codex-pr-comment-command
-          AUTOMATION_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
+          AUTOMATION_LOGINS: chatgpt-codex-connector,stranske-automation-bot
+
           MERGE_METHOD: squash
           DELETE_TEMP_BRANCH: 'true'
         with:
@@ -2413,6 +2461,7 @@ jobs:
             });
             core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
             core.setOutput('comment-url', comment?.html_url || '');
+            core.setOutput('comment-author', comment?.user?.login || '');
 
       - name: Post keepalive instruction (fallback)
         id: post_instruction_fallback
@@ -2443,6 +2492,7 @@ jobs:
             });
             core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
             core.setOutput('comment-url', comment?.html_url || '');
+            core.setOutput('comment-author', comment?.user?.login || '');
 
       - name: Capture instruction comment metadata
         id: capture_comment
@@ -2453,9 +2503,11 @@ jobs:
           if [ "${{ steps.author_token.outputs.token }}" = 'ACTIONS_BOT_PAT' ]; then
             comment_id="${{ steps.post_instruction_primary.outputs.comment-id || '' }}"
             comment_url="${{ steps.post_instruction_primary.outputs.comment-url || '' }}"
+            comment_author="${{ steps.post_instruction_primary.outputs.comment-author || '' }}"
           else
             comment_id="${{ steps.post_instruction_fallback.outputs.comment-id || '' }}"
             comment_url="${{ steps.post_instruction_fallback.outputs.comment-url || '' }}"
+            comment_author="${{ steps.post_instruction_fallback.outputs.comment-author || '' }}"
           fi
 
           if [ -z "${comment_id}" ]; then
@@ -2463,12 +2515,20 @@ jobs:
             exit 1
           fi
 
+          expected_author='${{ steps.author_token.outputs.author || '' }}'
+          if [ -n "${comment_author}" ] && [ -n "${expected_author}" ] && [ "${comment_author}" != "${expected_author}" ]; then
+            echo "::error::Keepalive instruction posted as ${comment_author}, expected ${expected_author}." >&2
+            exit 1
+          fi
+
+          resolved_author="${comment_author:-${expected_author}}"
+
           echo "comment_id=${comment_id}" >>"$GITHUB_OUTPUT"
           echo "comment_url=${comment_url}" >>"$GITHUB_OUTPUT"
           echo "COMMENT_ID=${comment_id}" >>"$GITHUB_ENV"
           echo "COMMENT_URL=${comment_url}" >>"$GITHUB_ENV"
-          echo "author=${{ steps.author_token.outputs.author }}" >>"$GITHUB_OUTPUT"
-          echo "AUTHOR=${{ steps.author_token.outputs.author }}" >>"$GITHUB_ENV"
+          echo "author=${resolved_author}" >>"$GITHUB_OUTPUT"
+          echo "AUTHOR=${resolved_author}" >>"$GITHUB_ENV"
 
       - name: Ack keepalive instruction
         id: ack
@@ -2477,9 +2537,11 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
+          EXPECTED_AUTHOR: ${{ steps.author_token.outputs.author || '' }}
         with:
           github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
+            const normalise = (value) => String(value || '').trim();
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {
               core.setFailed('Keepalive instruction comment id missing.');
@@ -2487,6 +2549,7 @@ jobs:
             }
 
             const { owner, repo } = context.repo;
+            const expectedAuthor = normalise(process.env.EXPECTED_AUTHOR).toLowerCase();
 
             try {
               await github.rest.reactions.createForIssueComment({
@@ -2513,12 +2576,24 @@ jobs:
             }
 
             let commentTimestamp = 0;
+            let commentAuthor = '';
             try {
               const { data: commentDetails } = await github.rest.issues.getComment({ owner, repo, comment_id: commentId });
               commentTimestamp = Date.parse(commentDetails?.updated_at || commentDetails?.created_at || '') || 0;
+              commentAuthor = normalise(commentDetails?.user?.login);
+              if (expectedAuthor && commentAuthor && commentAuthor.toLowerCase() !== expectedAuthor) {
+                core.setFailed(
+                  `Keepalive instruction author mismatch: expected ${expectedAuthor}, received ${commentAuthor}.`
+                );
+                return;
+              }
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to fetch keepalive comment ${commentId} metadata: ${message}`);
+            }
+
+            if (commentAuthor) {
+              core.setOutput('author_login', commentAuthor);
             }
 
             const deadline = Date.now() + 180_000;
@@ -2706,7 +2781,7 @@ jobs:
           SKIP_REASON: ${{ steps.gate.outputs.skip_reason || '' }}
           TRACE: ${{ needs.keepalive-prep.outputs.trace || '' }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
-          AUTHOR: ${{ steps.capture_comment.outputs.author || steps.author_token.outputs.author || '' }}
+          AUTHOR: ${{ steps.ack.outputs.author_login || steps.capture_comment.outputs.author || steps.author_token.outputs.author || '' }}
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id || '' }}
           ACKNOWLEDGED: ${{ steps.ack.outputs.acknowledged || '' }}
           AUTHOR_TOKEN: ${{ steps.author_token.outputs.token || '' }}
@@ -2853,6 +2928,7 @@ jobs:
           TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || needs.resolve-params.outputs.keepalive_trace || '' }}
           ACTION: ${{ needs.keepalive-post-work.outputs.action || '' }}
           CHANGED: ${{ needs.keepalive-post-work.outputs.changed || 'false' }}
+          LINK: ${{ needs.keepalive-post-work.outputs.link || '-' }}
         run: |
           set -euo pipefail
           trace="${TRACE:-}"
@@ -2867,7 +2943,11 @@ jobs:
           if [ "${CHANGED}" = 'true' ]; then
             head_changed='true'
           fi
-          printf 'SYNC: action=%s head_changed=%s trace=%s\n' "${action}" "${head_changed}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            link="${LINK:-}"
+            if [ -z "${link}" ]; then
+              link='-'
+            fi
+            printf 'SYNC: action=%s head_changed=%s link=%s trace=%s\n' "${action}" "${head_changed}" "${link}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Record existing PR guard outcome
         if: needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true'

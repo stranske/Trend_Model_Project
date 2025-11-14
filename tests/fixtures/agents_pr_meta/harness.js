@@ -38,7 +38,7 @@ async function main() {
       comment: {
         id: comment.id || undefined,
         body: comment.body || '',
-        user: { login: comment.user?.login || 'stranske-automation-bot' },
+        user: { login: comment.user?.login || 'stranske' },
         html_url: comment.html_url || undefined,
       },
       issue: { number: issueNumber },
@@ -144,8 +144,7 @@ async function main() {
   };
 
   const env = {
-    ALLOWED_LOGINS:
-      scenario.env?.ALLOWED_LOGINS || 'chatgpt-codex-connector,stranske-automation-bot',
+    ALLOWED_LOGINS: scenario.env?.ALLOWED_LOGINS || 'stranske',
     KEEPALIVE_MARKER: scenario.env?.KEEPALIVE_MARKER || '<!-- codex-keepalive-marker -->',
   };
 

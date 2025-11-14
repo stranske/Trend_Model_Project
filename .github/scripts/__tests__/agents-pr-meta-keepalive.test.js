@@ -82,7 +82,7 @@ test('automation summary comment is upgraded to next keepalive round', async () 
   };
 
   const env = {
-    ALLOWED_LOGINS: 'chatgpt-codex-connector,stranske-automation-bot,stranske',
+    ALLOWED_LOGINS: 'stranske',
     KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
     KEEPALIVE_AGENT_ALIAS: 'codex',
     GATE_OK: 'true',
@@ -182,7 +182,7 @@ test('manual restated instructions are autopatched to the next round', async () 
   };
 
   const env = {
-    ALLOWED_LOGINS: 'chatgpt-codex-connector,stranske-automation-bot,stranske',
+    ALLOWED_LOGINS: 'stranske',
     KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
     KEEPALIVE_AGENT_ALIAS: 'codex',
     GATE_OK: 'true',
