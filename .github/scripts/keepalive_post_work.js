@@ -1716,7 +1716,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     updateSyncLink(escalationRecord.comment_url, { prefer: true });
     record('Escalation comment', appendRound('Reusing previous escalation comment.'));
   } else {
-    const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR at: ${manualActionLink}`;
+    const escalationMessage = `Keepalive: manual action needed — use update-branch/create-pr controls (click Update Branch or open Create PR) at: ${manualActionLink}`;
     try {
       const { data: escalationComment } = await github.rest.issues.createComment({
         owner,
