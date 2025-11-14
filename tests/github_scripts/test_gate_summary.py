@@ -319,7 +319,9 @@ def test_summarize_handles_docker_failures(tmp_path: Path) -> None:
     assert any("docker-smoke" in line for line in result.lines)
 
 
-def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_build_context_reads_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("DOC_ONLY", "TRUE")
     monkeypatch.setenv("RUN_CORE", "False")
     monkeypatch.setenv("REASON", "workflow_only")
@@ -350,7 +352,9 @@ def test_resolve_path_handles_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gate_summary._resolve_path("NOT_SET") is None
 
 
-def test_main_writes_summary_and_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_writes_summary_and_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     summary_path = tmp_path / "summary" / "summary.md"
     output_path = tmp_path / "output" / "output.txt"
 
