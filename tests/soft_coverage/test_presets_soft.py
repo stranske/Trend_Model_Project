@@ -137,7 +137,7 @@ def test_trend_preset_form_defaults_and_metrics_pipeline(
 
 
 def test_trend_preset_form_defaults_handles_missing_portfolio(
-    sample_preset_config: dict[str, Any]
+    sample_preset_config: dict[str, Any],
 ) -> None:
     sample_preset_config.pop("portfolio", None)
     spec = TrendSpec(window=30, min_periods=None, lag=1)
@@ -154,13 +154,17 @@ def test_trend_preset_form_defaults_handles_missing_portfolio(
     assert defaults["cooldown_months"] == 3
 
 
-def test_vol_adjust_defaults_merge_sources(sample_preset_config: dict[str, Any]) -> None:
+def test_vol_adjust_defaults_merge_sources(
+    sample_preset_config: dict[str, Any],
+) -> None:
     sample_preset_config["vol_adjust"] = {
         "enabled": None,
         "target_vol": None,
         "window": {"length": None},
     }
-    spec = TrendSpec(window=55, min_periods=None, lag=1, vol_adjust=True, vol_target=0.6)
+    spec = TrendSpec(
+        window=55, min_periods=None, lag=1, vol_adjust=True, vol_target=0.6
+    )
     preset = presets.TrendPreset(
         slug="vol",
         label="Vol",
@@ -178,11 +182,13 @@ def test_vol_adjust_defaults_merge_sources(sample_preset_config: dict[str, Any])
 
 
 def test_vol_adjust_defaults_falls_back_to_signals_and_defaults(
-    sample_preset_config: dict[str, Any]
+    sample_preset_config: dict[str, Any],
 ) -> None:
     sample_preset_config.pop("vol_adjust", None)
     sample_preset_config.pop("signals", None)
-    spec = TrendSpec(window=63, min_periods=None, lag=1, vol_adjust=False, vol_target=None)
+    spec = TrendSpec(
+        window=63, min_periods=None, lag=1, vol_adjust=False, vol_target=None
+    )
     preset = presets.TrendPreset(
         slug="fallback",
         label="Fallback",
@@ -199,10 +205,14 @@ def test_vol_adjust_defaults_falls_back_to_signals_and_defaults(
     }
 
 
-def test_vol_adjust_defaults_uses_signal_override(sample_preset_config: dict[str, Any]) -> None:
+def test_vol_adjust_defaults_uses_signal_override(
+    sample_preset_config: dict[str, Any],
+) -> None:
     sample_preset_config["signals"] = {"vol_adjust": True}
     sample_preset_config.pop("vol_adjust", None)
-    spec = TrendSpec(window=63, min_periods=None, lag=1, vol_adjust=False, vol_target=None)
+    spec = TrendSpec(
+        window=63, min_periods=None, lag=1, vol_adjust=False, vol_target=None
+    )
     preset = presets.TrendPreset(
         slug="signal-override",
         label="Signal override",
@@ -215,10 +225,14 @@ def test_vol_adjust_defaults_uses_signal_override(sample_preset_config: dict[str
     assert defaults["enabled"] is True
 
 
-def test_vol_adjust_defaults_uses_spec_when_different(sample_preset_config: dict[str, Any]) -> None:
+def test_vol_adjust_defaults_uses_spec_when_different(
+    sample_preset_config: dict[str, Any],
+) -> None:
     sample_preset_config.pop("vol_adjust", None)
     sample_preset_config.pop("signals", None)
-    spec = TrendSpec(window=70, min_periods=None, lag=1, vol_adjust=True, vol_target=None)
+    spec = TrendSpec(
+        window=70, min_periods=None, lag=1, vol_adjust=True, vol_target=None
+    )
     preset = presets.TrendPreset(
         slug="spec-override",
         label="Spec override",
@@ -313,7 +327,9 @@ signals:
     presets._preset_registry.cache_clear()
 
 
-def test_preset_registry_warns_on_duplicate(preset_registry_paths, caplog: pytest.LogCaptureFixture) -> None:
+def test_preset_registry_warns_on_duplicate(
+    preset_registry_paths, caplog: pytest.LogCaptureFixture
+) -> None:
     caplog.set_level("WARNING", logger=presets.LOGGER.name)
     registry = presets._preset_registry()
 
@@ -391,4 +407,3 @@ def test_apply_trend_preset_wraps_mapping_proxies(preset_registry_paths) -> None
     assert config.signals["lag"] == preset.trend_spec.lag
     assert isinstance(config.vol_adjust, dict)
     assert isinstance(config.run, dict)
-
