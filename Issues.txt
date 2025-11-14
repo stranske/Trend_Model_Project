@@ -239,7 +239,7 @@ Why
 Pinned base + multi-stage cuts surprises and image bloat; running as non-root is basic hygiene.
 
 Scope
-- Pin the base image (e.g., python:3.12.x-slim).
+- Pin the base image (e.g., python:3.12.2-slim).
 - Multi-stage: builder for wheels, runtime for app.
 - Create a non-root user in the runtime stage.
 
