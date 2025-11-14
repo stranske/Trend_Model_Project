@@ -692,6 +692,80 @@ async function postCommandComment({
   }
 }
 
+async function attemptUpdateBranchViaApi({
+  github,
+  owner,
+  repo,
+  prNumber,
+  baselineHead,
+  fetchHead,
+  pollTimeoutMs,
+  pollIntervalMs,
+  core,
+  record,
+  appendRound,
+}) {
+  if (!Number.isFinite(prNumber) || prNumber <= 0 || !baselineHead) {
+    record('Update-branch API', appendRound('skipped: missing PR context or baseline head.'));
+    return { attempted: false };
+  }
+  if (!github?.rest?.pulls?.updateBranch) {
+    record('Update-branch API', appendRound('skipped: Octokit client lacks updateBranch support.'));
+    return { attempted: false };
+  }
+
+  const requestPayload = {
+    owner,
+    repo,
+    pull_number: prNumber,
+    expected_head_sha: baselineHead,
+  };
+
+  record('Update-branch API', appendRound('invoking GitHub updateBranch.'));
+  try {
+    const response = await github.rest.pulls.updateBranch(requestPayload);
+    const status = Number(response?.status || 0);
+    record('Update-branch API', appendRound(`requested merge (status=${status || 'unknown'}).`));
+  } catch (error) {
+    const status = Number(error?.status || 0);
+    const message = error instanceof Error ? error.message : String(error);
+    if (status === 422) {
+      record('Update-branch API', appendRound(`blocked: ${message}`));
+    } else {
+      record('Update-branch API', appendRound(`failed: ${message}`));
+    }
+    return { attempted: true, changed: false, error: message, blocked: status === 422 };
+  }
+
+  let pollResult;
+  try {
+    pollResult = await pollForHeadChange({
+      fetchHead,
+      initialSha: baselineHead,
+      timeoutMs: pollTimeoutMs,
+      intervalMs: pollIntervalMs,
+      label: 'api-update-branch',
+      core,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Update-branch API', appendRound(`polling failed: ${message}`));
+    return { attempted: true, changed: false, error: message };
+  }
+
+  if (pollResult?.changed) {
+    record('Update-branch API result', appendRound(`Branch advanced to ${pollResult.headSha || '(unknown)'}.`));
+  } else {
+    record('Update-branch API result', appendRound('Branch unchanged after updateBranch wait.'));
+  }
+
+  return {
+    attempted: true,
+    changed: Boolean(pollResult?.changed),
+    headSha: pollResult?.headSha || '',
+  };
+}
+
 async function runKeepalivePostWork({ core, github, context, env = process.env }) {
   const summaryHelper = buildSummaryRecorder(core?.summary);
   const record = summaryHelper.record;
@@ -902,6 +976,10 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     return;
   }
 
+  const prConversationUrl = Number.isFinite(prNumber) && prNumber > 0
+    ? `https://github.com/${owner}/${repo}/pull/${prNumber}`
+    : '';
+
   const idempotencyKey = computeIdempotencyKey(prNumber, round, trace);
   record('Idempotency', idempotencyKey);
   core?.setOutput?.('idempotency_key', idempotencyKey);
@@ -912,6 +990,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const stateManager = await createKeepaliveStateManager({ github, context, prNumber, trace, round });
   let state = stateManager.state || {};
   let commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+  let escalationRecord = state.escalation_comment && typeof state.escalation_comment === 'object' ? state.escalation_comment : {};
   let stateCommentId = stateManager.commentId ? Number(stateManager.commentId) : 0;
   let stateCommentUrl = stateManager.commentUrl || '';
 
@@ -919,12 +998,14 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     if (!forcePersist && !stateCommentId) {
       state = mergeStateShallow(state, updates);
       commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+      escalationRecord = state.escalation_comment && typeof state.escalation_comment === 'object' ? state.escalation_comment : {};
       return { state: { ...state }, commentId: stateCommentId, commentUrl: stateCommentUrl };
     }
 
     const saved = await stateManager.save(updates);
     state = saved.state || {};
     commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+    escalationRecord = state.escalation_comment && typeof state.escalation_comment === 'object' ? state.escalation_comment : {};
     stateCommentId = saved.commentId || stateCommentId;
     stateCommentUrl = saved.commentUrl || stateCommentUrl;
     return saved;
@@ -944,6 +1025,16 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     await applyStateUpdate({ command_dispatch: merged });
     commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
     return commandState;
+  };
+
+  const updateEscalationRecord = async (updates) => {
+    const merged = mergeStateShallow(
+      escalationRecord && typeof escalationRecord === 'object' ? escalationRecord : {},
+      updates,
+    );
+    await applyStateUpdate({ escalation_comment: merged });
+    escalationRecord = state.escalation_comment && typeof state.escalation_comment === 'object' ? state.escalation_comment : {};
+    return escalationRecord;
   };
 
   const getCommandActionState = (action) => {
@@ -991,7 +1082,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
   const labelNames = extractLabelNames(currentLabels);
   const hasSyncLabel = labelNames.includes(syncLabel);
-  const hasDebugLabel = labelNames.includes(debugLabel);
   const agentAlias = extractAgentAliasFromLabels(currentLabels, agentAliasEnv);
 
   record('Labels', hasSyncLabel ? `${syncLabel} present` : `${syncLabel} absent`);
@@ -1150,6 +1240,92 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     await applyStateUpdate({ last_instruction: filtered });
   };
 
+  const attemptCommand = async (action, label) => {
+    const commandName = normalise(action);
+    if (!commandName) {
+      record(label || 'Command dispatch', appendRound('skipped: action missing.'));
+      return { attempted: false };
+    }
+    noteActionAttempt(commandName);
+    const displayLabel = label || `${commandName} command`;
+    const history = buildHistoryWith(commandName);
+    const existingEntry = getCommandActionState(commandName);
+    const attemptTimestamp = new Date().toISOString();
+
+    const persistEntry = async (updates = {}) => {
+      const payload = mergeStateShallow(existingEntry, {
+        attempts: Number(existingEntry?.attempts || 0) + 1,
+        last_attempt_at: attemptTimestamp,
+        last_result: updates.last_result || existingEntry?.last_result || '',
+        idempotency_key: idempotencyKey,
+        last_round: round || '',
+        last_trace: trace || '',
+        last_mode: statusMode,
+        ...updates,
+      });
+      await updateCommandState({ history, [commandName]: payload });
+      return payload;
+    };
+
+    if (statusMode === 'dry-run') {
+      record(displayLabel, appendRound('skipped: dry-run mode.'));
+      await persistEntry({ last_result: 'dry-run', status: 'skipped' });
+      return { attempted: false, dryRun: true };
+    }
+
+    const dispatched = await dispatchCommand({
+      github,
+      owner,
+      repo,
+      eventType: dispatchEventType,
+      action: commandName,
+      prNumber,
+      agentAlias,
+      baseRef,
+      headRef: headBranch,
+      headSha: baselineHead || initialHead,
+      trace,
+      round,
+      commentInfo,
+      idempotencyKey,
+      roundTag,
+      record,
+    });
+
+    if (dispatched) {
+      await persistEntry({ last_result: 'dispatched', status: 'pending', dispatched: true, dispatched_at: attemptTimestamp });
+      return { attempted: true, dispatched: true };
+    }
+
+    const commentResult = await postCommandComment({
+      github,
+      owner,
+      repo,
+      prNumber,
+      action: commandName,
+      trace,
+      round,
+      record,
+      appendRound,
+    });
+
+    if (commentResult.posted) {
+      await persistEntry({
+        last_result: 'comment',
+        status: 'pending',
+        comment_id: commentResult.commentId || '',
+        comment_url: commentResult.commentUrl || '',
+        commented_at: attemptTimestamp,
+      });
+      updateSyncLink(commentResult.commentUrl);
+      return { attempted: true, commented: true };
+    }
+
+    await persistEntry({ last_result: 'failed', status: 'error' });
+    record(displayLabel, appendRound('command attempt failed.'));
+    return { attempted: true, failed: true };
+  };
+
   let finalAction = 'skip';
 
   const attemptUpdateBranchApi = async () => {
@@ -1177,7 +1353,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       initialSha: baselineHead,
       timeoutMs: ttlLong,
       intervalMs: pollLong,
-      label: 'update-branch-api',
+      label: 'api-update-branch',
       core,
     });
 
@@ -1338,8 +1514,37 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   if (!success) {
-    noteActionAttempt('update-branch-api');
-    await attemptUpdateBranchApi();
+    const apiResult = await attemptUpdateBranchViaApi({
+      github,
+      owner,
+      repo,
+      prNumber,
+      baselineHead,
+      fetchHead,
+      pollTimeoutMs: ttlShort,
+      pollIntervalMs: pollShort,
+      core,
+      record,
+      appendRound,
+    });
+    if (apiResult?.changed) {
+      success = true;
+      finalHead = apiResult.headSha || finalHead;
+      baselineHead = finalHead;
+      mode = 'api-update-branch';
+      finalAction = 'update-branch';
+      setStatus('in_sync');
+      setStatusHead(finalHead);
+      if (prConversationUrl) {
+        updateSyncLink(prConversationUrl, { prefer: syncLink === '-' });
+      }
+    } else if (apiResult?.attempted && prConversationUrl) {
+      updateSyncLink(prConversationUrl, { prefer: syncLink === '-' });
+    }
+  }
+
+  if (!success) {
+    await attemptCommand('update-branch', 'Update-branch');
   }
 
   if (!success) {
@@ -1415,29 +1620,49 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     record('Sync label', appendRound(`${syncLabel} already present.`));
   }
 
-  const manualActionUrl = commentInfo?.url || `https://github.com/${owner}/${repo}/pull/${prNumber}`;
-  if (manualActionUrl) {
-    updateSyncLink(manualActionUrl, { prefer: true });
-  }
-  const attemptedSummary = actionsAttempted.length ? actionsAttempted.join('/') : 'none';
-  const escalationLines = [
-    `Keepalive: manual action needed — click Update Branch or open Create PR at: ${manualActionUrl}`,
-    `Attempted automatically: ${attemptedSummary}. Trace: ${trace || 'n/a'}.`,
-  ];
-  try {
-    const { data: escalationComment } = await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber,
-      body: escalationLines.join('\n\n'),
-    });
-    record('Escalation comment', appendRound('Posted manual action escalation.'));
-    if (escalationComment?.html_url) {
-      record('Escalation comment link', appendRound(escalationComment.html_url));
+  const normaliseLink = (value) => {
+    const trimmed = normalise(value);
+    if (trimmed && /^https?:\/\//i.test(trimmed)) {
+      return trimmed;
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+    return '';
+  };
+
+  const manualActionLink = normaliseLink(syncLink) || normaliseLink(prConversationUrl) || '';
+  if (manualActionLink && (syncLink === '-' || syncLink === '' || syncLink === manualActionLink)) {
+    updateSyncLink(manualActionLink, { prefer: syncLink === '-' });
+  }
+
+  const previousEscalationKey = normalise(escalationRecord?.idempotency_key);
+  const reusePriorEscalation = previousEscalationKey && previousEscalationKey === normalise(idempotencyKey);
+  const havePriorComment = reusePriorEscalation && escalationRecord?.comment_url;
+  if (!manualActionLink) {
+    record('Escalation comment', appendRound('Skipped: manual action link unavailable.'));
+  } else if (havePriorComment) {
+    updateSyncLink(escalationRecord.comment_url, { prefer: true });
+    record('Escalation comment', appendRound('Reusing previous escalation comment.'));
+  } else {
+    const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR: ${manualActionLink}`;
+    try {
+      const { data: escalationComment } = await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: escalationMessage,
+      });
+      updateSyncLink(escalationComment?.html_url || manualActionLink, { prefer: true });
+      await updateEscalationRecord({
+        comment_id: escalationComment?.id || '',
+        comment_url: escalationComment?.html_url || '',
+        idempotency_key: idempotencyKey,
+        recorded_at: new Date().toISOString(),
+        body: escalationMessage,
+      });
+      record('Escalation comment', appendRound('Posted escalation notice.'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+    }
   }
 
   const timeoutMessage = appendRound(
