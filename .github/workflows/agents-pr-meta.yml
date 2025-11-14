@@ -684,6 +684,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Ensure shellcheck observes explicit assignments for env-scoped gate vars.
+          GATE_OK="${GATE_OK:-}"
+          GATE_REASON="${GATE_REASON:-}"
+
           normalise_bool() {
             local raw="${1:-false}"
             raw=$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]')
@@ -1693,6 +1697,10 @@ jobs:
           GATE_REASON: ${{ steps.gate.outputs.reason || '' }}
         run: |
           set -euo pipefail
+
+          # Ensure shellcheck observes explicit assignments for env-scoped gate vars.
+          GATE_OK="${GATE_OK:-}"
+          GATE_REASON="${GATE_REASON:-}"
 
           normalise_bool() {
             local raw="${1:-false}"
