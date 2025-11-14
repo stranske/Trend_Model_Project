@@ -737,14 +737,21 @@ async function attemptUpdateBranchViaApi({
     return { attempted: true, changed: false, error: message, blocked: status === 422 };
   }
 
-  const pollResult = await pollForHeadChange({
-    fetchHead,
-    initialSha: baselineHead,
-    timeoutMs: pollTimeoutMs,
-    intervalMs: pollIntervalMs,
-    label: 'update-branch-api',
-    core,
-  });
+  let pollResult;
+  try {
+    pollResult = await pollForHeadChange({
+      fetchHead,
+      initialSha: baselineHead,
+      timeoutMs: pollTimeoutMs,
+      intervalMs: pollIntervalMs,
+      label: 'update-branch-api',
+      core,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    record('Update-branch API', appendRound(`polling failed: ${message}`));
+    return { attempted: true, changed: false, error: message };
+  }
 
   if (pollResult?.changed) {
     record('Update-branch API', appendRound(`head advanced to ${pollResult.headSha || '(unknown)'}.`));
@@ -969,7 +976,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     return;
   }
 
-  const prConversationUrl = owner && repo && Number.isFinite(prNumber) && prNumber > 0
+  const prConversationUrl = Number.isFinite(prNumber) && prNumber > 0
     ? `https://github.com/${owner}/${repo}/pull/${prNumber}`
     : '';
 
@@ -1695,17 +1702,21 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     return '';
   };
 
-  const manualActionLink = normaliseLink(syncLink) || normaliseLink(prConversationUrl) || prConversationUrl || '';
+  const manualActionLink = normaliseLink(syncLink) || normaliseLink(prConversationUrl) || '';
   if (manualActionLink && (syncLink === '-' || syncLink === '' || syncLink === manualActionLink)) {
     updateSyncLink(manualActionLink, { prefer: syncLink === '-' });
   }
 
-  const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR at: ${manualActionLink || prConversationUrl || 'https://github.com'}`;
   const previousEscalationKey = normalise(escalationRecord?.idempotency_key);
-  if (previousEscalationKey && previousEscalationKey === normalise(idempotencyKey) && escalationRecord?.comment_url) {
+  const reusePriorEscalation = previousEscalationKey && previousEscalationKey === normalise(idempotencyKey);
+  const havePriorComment = reusePriorEscalation && escalationRecord?.comment_url;
+  if (!manualActionLink) {
+    record('Escalation comment', appendRound('Skipped: manual action link unavailable.'));
+  } else if (havePriorComment) {
     updateSyncLink(escalationRecord.comment_url, { prefer: true });
     record('Escalation comment', appendRound('Reusing previous escalation comment.'));
   } else {
+    const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR at: ${manualActionLink}`;
     try {
       const { data: escalationComment } = await github.rest.issues.createComment({
         owner,
@@ -1713,7 +1724,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         issue_number: prNumber,
         body: escalationMessage,
       });
-      updateSyncLink(escalationComment?.html_url || manualActionLink || prConversationUrl, { prefer: true });
+      updateSyncLink(escalationComment?.html_url || manualActionLink, { prefer: true });
       await updateEscalationRecord({
         comment_id: escalationComment?.id || '',
         comment_url: escalationComment?.html_url || '',

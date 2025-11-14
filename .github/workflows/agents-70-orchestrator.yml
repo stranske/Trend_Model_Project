@@ -925,7 +925,7 @@ jobs:
       ok: ${{ steps.cap.outputs.ok || 'false' }}
       reason: ${{ steps.cap.outputs.reason || '' }}
       active: ${{ steps.cap.outputs.active || '' }}
-      limit: ${{ steps.cap.outputs.cap || '' }}
+      cap: ${{ steps.cap.outputs.cap || '' }}
     steps:
       - name: Checkout run cap helpers
         uses: actions/checkout@v4
@@ -990,12 +990,8 @@ jobs:
             let capValue = Number(result.runCap);
             if (!Number.isFinite(capValue) || capValue <= 0) {
               capValue = 2;
-            }
-            if (capValue > 5) {
-              capValue = 5;
-            }
-            if (capValue < 1) {
-              capValue = 1;
+            } else {
+              capValue = Math.max(1, Math.min(capValue, 5));
             }
             core.setOutput('ok', bool(result.ok));
             core.setOutput('reason', result.reason || '');
@@ -1861,7 +1857,7 @@ jobs:
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.keepalive-cap.outputs.ok == 'true' &&
-      needs.keepalive-cap.outputs.limit != '0' &&
+      needs.keepalive-cap.outputs.cap != '0' &&
       needs.belt-dispatch.outputs.issue != ''
       && (
         needs.belt-check-existing-pr.outputs.pr_exists != 'true' ||
@@ -1874,7 +1870,7 @@ jobs:
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
-      max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.limit || '1') }}
+      max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.cap || '1') }}
       keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
