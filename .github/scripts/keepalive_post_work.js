@@ -594,9 +594,10 @@ async function mergeConnectorPullRequest({
   }
 
   const prNumber = Number(pr.number);
+  const prUrl = normalise(pr?.html_url);
   if (!Number.isFinite(prNumber) || prNumber <= 0) {
     record('Create-pr auto-merge', appendRound('skipped: invalid PR identifier.'));
-    return { attempted: true, merged: false };
+    return { attempted: true, merged: false, prUrl };
   }
 
   try {
@@ -611,7 +612,7 @@ async function mergeConnectorPullRequest({
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     record('Create-pr auto-merge', appendRound(`failed: ${message}`));
-    return { attempted: true, merged: false, prNumber, error: message };
+    return { attempted: true, merged: false, prNumber, error: message, prUrl };
   }
 
   let branchDeleted = false;
@@ -630,7 +631,7 @@ async function mergeConnectorPullRequest({
     }
   }
 
-  return { attempted: true, merged: true, prNumber, branchDeleted };
+  return { attempted: true, merged: true, prNumber, branchDeleted, prUrl };
 }
 
 function formatCommandBody(action, trace, round) {
@@ -724,6 +725,44 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const roundTag = `round=${round || '?'}`;
   const appendRound = (message) => `${message} ${roundTag}`;
 
+  const statusMode = parseBoolean(env.DRY_RUN, false) ? 'dry-run' : 'active';
+  let syncStatus = 'needs_update';
+  let statusHead = baselineHead || '';
+  let statusBase = baseBranch || '';
+  let syncLink = normalise(commentUrlEnv) || '-';
+
+  const updateSyncLink = (candidate, { prefer = false } = {}) => {
+    const value = normalise(candidate);
+    if (!value) {
+      return;
+    }
+    if (syncLink === '-' || prefer) {
+      syncLink = value;
+    }
+  };
+
+  const setStatus = (value) => {
+    const allowed = new Set(['in_sync', 'needs_update', 'conflict']);
+    const candidate = normaliseLower(value);
+    if (allowed.has(candidate)) {
+      syncStatus = candidate;
+    }
+  };
+
+  const setStatusHead = (value) => {
+    const candidate = normalise(value);
+    if (candidate) {
+      statusHead = candidate;
+    }
+  };
+
+  const setStatusBase = (value) => {
+    const candidate = normalise(value);
+    if (candidate) {
+      statusBase = candidate;
+    }
+  };
+
   const finalState = {
     action: 'skip',
     headMoved: false,
@@ -731,6 +770,11 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     finalHead: '',
     success: false,
     summaryWritten: false,
+    status: syncStatus,
+    statusHead,
+    statusBase,
+    statusMode,
+    link: syncLink,
   };
 
   const applyFinalState = (updates = {}) => {
@@ -751,6 +795,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     if (Object.prototype.hasOwnProperty.call(updates, 'finalHead')) {
       const raw = updates.finalHead;
       finalState.finalHead = raw ? String(raw) : '';
+      if (finalState.finalHead) {
+        setStatusHead(finalState.finalHead);
+      }
     }
     if (Object.prototype.hasOwnProperty.call(updates, 'success')) {
       finalState.success = Boolean(updates.success);
@@ -758,6 +805,29 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     if (Object.prototype.hasOwnProperty.call(updates, 'summaryWritten')) {
       finalState.summaryWritten = Boolean(updates.summaryWritten);
     }
+    if (Object.prototype.hasOwnProperty.call(updates, 'status')) {
+      setStatus(updates.status);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'statusHead')) {
+      setStatusHead(updates.statusHead);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'statusBase')) {
+      setStatusBase(updates.statusBase);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'statusMode')) {
+      const modeValue = normaliseLower(updates.statusMode);
+      finalState.statusMode = modeValue || finalState.statusMode;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'link')) {
+      const linkValue = normalise(updates.link);
+      if (linkValue) {
+        syncLink = linkValue;
+      }
+    }
+    finalState.status = syncStatus;
+    finalState.statusHead = statusHead;
+    finalState.statusBase = statusBase;
+    finalState.link = syncLink || '-';
     return finalState;
   };
 
@@ -767,15 +837,27 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     core?.setOutput?.('mode', finalState.mode || '');
     core?.setOutput?.('success', finalState.success ? 'true' : 'false');
     core?.setOutput?.('merged_sha', finalState.finalHead || '');
+    core?.setOutput?.('status', finalState.status || syncStatus || 'needs_update');
+    core?.setOutput?.('status_head', finalState.statusHead || statusHead || '');
+    core?.setOutput?.('status_base', finalState.statusBase || statusBase || '');
+    core?.setOutput?.('status_mode', finalState.statusMode || statusMode);
+    core?.setOutput?.('link', finalState.link || syncLink || '-');
   };
 
   const flushSummary = async () => {
     if (!finalState.summaryWritten && core?.summary) {
+      const shortHead = (finalState.statusHead || statusHead || '').slice(0, 7) || 'unknown';
+      const baseLabel = finalState.statusBase || statusBase || '(unknown)';
+      const statusLabel = finalState.status || syncStatus || 'needs_update';
+      const modeLabel = finalState.statusMode || statusMode;
+      const linkLabel = finalState.link || syncLink || '-';
       core.summary
+        .addRaw(`SYNC: status=${statusLabel} mode=${modeLabel} head=${shortHead} base=${baseLabel || '(unknown)'}`)
+        .addEOL()
         .addRaw(
-          `SYNC: action=${finalState.action || 'skip'} head_changed=${finalState.headMoved ? 'true' : 'false'} trace=${
-            trace || 'n/a'
-          }`,
+          `SYNC: action=${finalState.action || 'skip'} head_changed=${
+            finalState.headMoved ? 'true' : 'false'
+          } link=${linkLabel || '-'} trace=${trace || 'n/a'}`,
         )
         .addEOL();
     }
@@ -791,13 +873,31 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const { owner, repo } = context.repo || {};
   if (!owner || !repo) {
     record('Initialisation', 'Repository context missing; aborting.');
-    applyFinalState({ action: 'skip', success: false, mode: 'initialisation-missing-repo' });
+    setStatus('conflict');
+    applyFinalState({
+      action: 'skip',
+      success: false,
+      mode: 'initialisation-missing-repo',
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
   if (!Number.isFinite(prNumber)) {
     record('Initialisation', 'PR number missing; aborting.');
-    applyFinalState({ action: 'skip', success: false, mode: 'initialisation-missing-pr' });
+    setStatus('conflict');
+    applyFinalState({
+      action: 'skip',
+      success: false,
+      mode: 'initialisation-missing-pr',
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
@@ -903,7 +1003,17 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       'Preconditions',
       `Agent state ${agentState.value || '(unknown)'} does not indicate completion; skipping sync gate.`,
     );
-    applyFinalState({ action: 'skip', success: false, mode: 'skipped-agent-state', headMoved: false });
+    setStatus('needs_update');
+    applyFinalState({
+      action: 'skip',
+      success: false,
+      mode: 'skipped-agent-state',
+      headMoved: false,
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
@@ -915,14 +1025,34 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     record('Initial head fetch', `Failed: ${message}`);
-    applyFinalState({ action: 'skip', success: false, mode: 'head-fetch-failed', headMoved: false });
+    setStatus('conflict');
+    applyFinalState({
+      action: 'skip',
+      success: false,
+      mode: 'head-fetch-failed',
+      headMoved: false,
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
 
   if (isForkPull(initialHeadInfo)) {
     record('Initialisation', 'PR originates from a fork; skipping sync operations.');
-    applyFinalState({ action: 'skip', success: false, mode: 'skipped-fork', headMoved: false });
+    setStatus('conflict');
+    applyFinalState({
+      action: 'skip',
+      success: false,
+      mode: 'skipped-fork',
+      headMoved: false,
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
@@ -930,6 +1060,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const initialHead = initialHeadInfo.headSha || '';
   const headBranch = headBranchEnv || initialHeadInfo.headRef || '';
   const baseRef = baseBranch || initialHeadInfo.baseRef || '';
+  setStatusHead(initialHead);
+  setStatusBase(baseRef);
   if (!baselineHead) {
     baselineHead = normalise(state.head_sha) || initialHead;
   }
@@ -963,7 +1095,19 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     });
     await persistLastInstruction(finalHead);
     record('Result', appendRound(`mode=already-synced sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
-    applyFinalState({ action: 'skip', success: true, headMoved: true, finalHead, mode: 'already-synced' });
+    setStatus('in_sync');
+    setStatusHead(finalHead);
+    applyFinalState({
+      action: 'skip',
+      success: true,
+      headMoved: true,
+      finalHead,
+      mode: 'already-synced',
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
@@ -978,6 +1122,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   const commentInfo = instructionComment;
+  updateSyncLink(commentInfo?.url);
 
   const persistLastInstruction = async (finalHeadValue) => {
     const payload = {
@@ -1081,6 +1226,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     });
 
     if (commentPosted && commentResult) {
+      updateSyncLink(commentResult.commentUrl, { prefer: true });
       mergedEntry = mergeStateShallow(mergedEntry, {
         comment: {
           id: commentResult.commentId || existingComment.id || 0,
@@ -1091,6 +1237,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         },
       });
     } else if (alreadyCommentForTrace && existingComment) {
+      updateSyncLink(existingComment.url);
       mergedEntry = mergeStateShallow(mergedEntry, {
         comment: existingComment,
       });
@@ -1127,6 +1274,9 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
             appendRound,
           });
           if (mergeResult.attempted) {
+            if (mergeResult.prUrl) {
+              updateSyncLink(mergeResult.prUrl, { prefer: true });
+            }
             await updateCommandState({
               [actionKey]: mergeStateShallow(getCommandActionState(actionKey), {
                 auto_merge: {
@@ -1194,6 +1344,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       baselineHead = finalHead;
       mode = `dispatch-${actionKey}`;
       finalAction = actionKey;
+      setStatus('in_sync');
+      setStatusHead(finalHead);
     } else if (shouldPoll) {
       message = commentPosted && !dispatched ? 'Command comment posted; awaiting connector response.' : 'Branch unchanged after command wait.';
     } else if (!alreadyForTrace && !dispatched && !commentPosted && !alreadyCommentForTrace) {
@@ -1229,9 +1381,11 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     finalHead = shortPoll.headSha;
     baselineHead = finalHead;
     mode = 'already-synced';
+    setStatus('in_sync');
+    setStatusHead(finalHead);
     record('Initial poll', `Branch advanced to ${shortPoll.headSha}`);
   } else {
-  record('Comment wait', appendRound('Head unchanged after comment TTL.'));
+    record('Comment wait', appendRound('Head unchanged after comment TTL.'));
   }
 
   if (!success) {
@@ -1245,6 +1399,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         finalHead = freshHead.headSha;
         baselineHead = finalHead;
         mode = 'already-synced';
+        setStatus('in_sync');
+        setStatusHead(finalHead);
         record('Pre-dispatch check', appendRound(`Head advanced to ${freshHead.headSha}`));
       }
     } catch (error) {
@@ -1308,6 +1464,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         'Fallback run',
         appendRound(runInfo.html_url ? `run=${runInfo.html_url}` : `run_id=${runInfo.id}`),
       );
+      updateSyncLink(runInfo.html_url, { prefer: true });
       if (!existingRunId || Number(existingRunId) !== Number(runInfo.id)) {
         await applyStateUpdate({
           fallback_dispatch: {
@@ -1340,6 +1497,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
         baselineHead = finalHead;
         mode = 'action-sync-pr';
         finalAction = 'create-pr';
+        setStatus('in_sync');
+        setStatusHead(finalHead);
         record('Fallback wait', appendRound(`Branch advanced to ${longPoll.headSha}`));
       } else {
         record('Fallback wait', appendRound('Branch unchanged after fallback TTL.'));
@@ -1377,7 +1536,19 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     }
     const elapsed = Date.now() - startTime;
     record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
-    applyFinalState({ action: finalAction || 'skip', success: true, headMoved: true, finalHead, mode });
+    setStatus('in_sync');
+    setStatusHead(finalHead);
+    applyFinalState({
+      action: finalAction || 'skip',
+      success: true,
+      headMoved: true,
+      finalHead,
+      mode,
+      status: syncStatus,
+      statusBase,
+      statusHead,
+      link: syncLink,
+    });
     await complete();
     return;
   }
@@ -1408,12 +1579,13 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     const attemptedSummary = actionsAttempted.length ? actionsAttempted.join('/') : 'none';
     const escalationMessage = `Keepalive ${round || '?'} ${traceToken} escalation: agent "done" but branch unchanged after comment + commands=${attemptedSummary} + fallback.`;
     try {
-      await github.rest.issues.createComment({
+      const { data: escalationComment } = await github.rest.issues.createComment({
         owner,
         repo,
         issue_number: Number.isFinite(issueNumber) ? Number(issueNumber) : prNumber,
         body: escalationMessage,
       });
+      updateSyncLink(escalationComment?.html_url, { prefer: true });
       record('Escalation comment', appendRound('Posted debug escalation comment.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1427,7 +1599,19 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     `mode=${mode || 'sync-timeout'} trace:${trace || 'missing'} elapsed=${Date.now() - startTime}ms`,
   );
   record('Result', timeoutMessage);
-  applyFinalState({ action: 'escalate', success: false, headMoved: false, mode, finalHead });
+  setStatus('needs_update');
+  setStatusHead(baselineHead || finalHead || initialHead || statusHead);
+  applyFinalState({
+    action: 'escalate',
+    success: false,
+    headMoved: false,
+    mode,
+    finalHead,
+    status: syncStatus,
+    statusBase,
+    statusHead,
+    link: syncLink,
+  });
   await complete();
 }
 
