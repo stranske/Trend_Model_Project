@@ -242,7 +242,7 @@ jobs:
         id: detect
         uses: actions/github-script@v7
         env:
-          ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
+          ALLOWED_LOGINS: stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
           KEEPALIVE_AGENT_ALIAS: ${{ steps.pre_gate.outputs.agent_alias }}
           GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
@@ -1207,7 +1207,7 @@ jobs:
         if: steps.gate.outputs.activation_comment != '' || steps.activation_fallback_gate.outputs.activation_comment != ''
         uses: actions/github-script@v7
         env:
-          ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
+          ALLOWED_LOGINS: stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
           KEEPALIVE_AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
           ACTIVATION_COMMENT: ${{ steps.activation_fallback_gate.outputs.activation_comment || steps.gate.outputs.activation_comment }}

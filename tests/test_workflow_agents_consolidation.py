@@ -234,7 +234,8 @@ def test_agents_pr_meta_keepalive_configuration():
     )
     env = detect_step.get("env", {})
     logins = env.get("ALLOWED_LOGINS", "")
-    assert "stranske-automation-bot" in logins
+    assert "stranske" in logins
+    assert "stranske-automation-bot" not in logins
 
     keepalive_orchestrator = jobs.get("keepalive_orchestrator", {})
     assert (

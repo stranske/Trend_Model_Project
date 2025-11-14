@@ -13,6 +13,6 @@
     "base": { "ref": "phase-2-dev" }
   },
   "env": {
-    "ALLOWED_LOGINS": "chatgpt-codex-connector,stranske-automation-bot,stranske"
+    "ALLOWED_LOGINS": "stranske"
   }
 }

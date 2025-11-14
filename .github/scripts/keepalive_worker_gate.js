@@ -106,8 +106,7 @@ async function detectInstructionComment({ github, context, comment, prNumber, en
   }
 
   const detectionEnv = {
-    ALLOWED_LOGINS:
-      normalise(env.ALLOWED_LOGINS) || 'chatgpt-codex-connector,stranske-automation-bot,stranske',
+    ALLOWED_LOGINS: normalise(env.ALLOWED_LOGINS) || 'stranske',
     KEEPALIVE_MARKER: normalise(env.KEEPALIVE_MARKER) || '<!-- codex-keepalive-marker -->',
     GATE_OK: 'true',
     GATE_REASON: '',
