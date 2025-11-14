@@ -481,13 +481,16 @@ def test_main_handles_empty_inputs(tmp_path: Path) -> None:
     assert json.loads(rows_json.read_text(encoding="utf-8")) == []
     assert not (tmp_path / "summary.md").exists()
 
+
 def test_main_skips_outputs_when_not_requested(tmp_path: Path) -> None:
     code = summarize.main([])
     assert code == 0
     assert list(tmp_path.iterdir()) == []
 
 
-def test_entrypoint_invokes_main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_entrypoint_invokes_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     json_path = tmp_path / "rows.json"
     summary_path = tmp_path / "summary.md"
     monkeypatch.setattr(

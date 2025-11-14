@@ -289,7 +289,9 @@ def _branch_row(
     snapshot_dir: Path,
     *,
     has_token: bool,
-    pairs: Iterable[tuple[str, Mapping[str, Any] | None, Mapping[str, Any] | None]] | None = None,
+    pairs: (
+        Iterable[tuple[str, Mapping[str, Any] | None, Mapping[str, Any] | None]] | None
+    ) = None,
 ) -> Mapping[str, str]:
     enforcement = _load_json(snapshot_dir / "enforcement.json")
     verification = _load_json(snapshot_dir / "verification.json")
