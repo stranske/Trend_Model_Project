@@ -73,8 +73,18 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-      reason: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
+      dispatch: >-
+        ${{
+          steps.pre_gate.outputs.ok == 'true'
+          && steps.detect.outputs.dispatch == 'true'
+          && 'true'
+          || 'false'
+        }}
+      reason: >-
+        ${{
+          steps.detect.outputs.reason
+          || steps.pre_gate.outputs.reason
+        }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -87,6 +97,7 @@ jobs:
       processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
       deduped: ${{ steps.detect.outputs.deduped }}
       gate_reason: ${{ steps.pre_gate.outputs.reason }}
+      gate_ok: ${{ steps.pre_gate.outputs.ok }}
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       has_human_activation: ${{ steps.pre_gate.outputs.has_human_activation }}
       has_keepalive_label: ${{ steps.pre_gate.outputs.has_keepalive_label }}
@@ -260,22 +271,520 @@ jobs:
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
 
+  keepalive_orchestrator:
+    needs:
+      - keepalive_dispatch
+    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+    name: Dispatch keepalive orchestrator
+    concurrency:
+      group: >-
+        ${{ format('pr-meta-keepalive-orchestrator-{0}', needs.keepalive_dispatch.outputs.pr || github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select keepalive dispatch token
+        id: select_token
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${ACTIONS_TOKEN}" ]]; then
+            {
+              printf 'allowed=true\n'
+              printf 'token_source=ACTIONS_BOT_PAT\n'
+              printf 'reason=ok\n'
+            } >>"${GITHUB_OUTPUT}"
+          elif [[ -n "${SERVICE_TOKEN}" ]]; then
+            {
+              printf 'allowed=true\n'
+              printf 'token_source=SERVICE_BOT_PAT\n'
+              printf 'reason=ok\n'
+            } >>"${GITHUB_OUTPUT}"
+          else
+            echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            {
+              printf 'allowed=false\n'
+              printf 'token_source=\n'
+              printf 'reason=forbidden-token\n'
+            } >>"${GITHUB_OUTPUT}"
+          fi
+
+      - name: Identify dispatch token
+        id: identify_token
+        if: steps.select_token.outputs.allowed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const response = await github.rest.users.getAuthenticated();
+            const login = response.data?.login || 'unknown';
+            const id = response.data?.id ? String(response.data.id) : '';
+            const identity = id ? `${login} (${id})` : login;
+            core.info(`TOKEN_IDENTITY: ${identity}`);
+            core.setOutput('login', login);
+            core.setOutput('user_id', id);
+
+      - name: Acquire activation lock
+        id: activation_lock
+        if: steps.select_token.outputs.allowed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const rawCommentId = '${{ needs.keepalive_dispatch.outputs.comment_id || github.event.comment.id || '' }}';
+            const commentId = Number(rawCommentId);
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.setOutput('status', 'missing');
+              core.setOutput('reason', 'no-activation-found');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner,
+                repo,
+                comment_id: commentId,
+                content: 'rocket',
+              });
+              core.info(`Activation lock applied to comment ${commentId}.`);
+              core.setOutput('status', 'ok');
+              core.setOutput('reason', 'ok');
+            } catch (error) {
+              const status = Number(error?.status || 0);
+              const message = error instanceof Error ? error.message : String(error);
+              if (status === 409) {
+                core.info(`Activation lock already present on comment ${commentId}.`);
+              } else {
+                core.warning(`Failed to add activation lock to comment ${commentId}: ${message}`);
+              }
+              core.setOutput('status', 'lock-held');
+              core.setOutput('reason', 'lock-held');
+            }
+
+      - name: Snapshot orchestrator runs
+        id: snapshot_runs
+        if: steps.select_token.outputs.allowed == 'true' && steps.activation_lock.outputs.status != 'lock-held'
+        env:
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace || '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const trace = (process.env.TRACE || '').trim();
+            const { owner, repo } = context.repo;
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: 'agents-70-orchestrator.yml',
+              event: 'workflow_dispatch',
+              per_page: 50,
+            });
+            const runs = Array.isArray(response.data?.workflow_runs) ? response.data.workflow_runs : [];
+            const ids = runs.map((run) => Number(run?.id)).filter((value) => Number.isFinite(value));
+            core.info(`Snapshot captured ${ids.length} workflow_dispatch runs for agents-70-orchestrator.yml.`);
+            core.setOutput('ids', JSON.stringify(ids));
+            core.setOutput('timestamp', new Date().toISOString());
+            core.setOutput('pr', prNumber > 0 ? String(prNumber) : '');
+            core.setOutput('trace', trace);
+
+      - name: Dispatch Agents 70 run for keepalive
+        id: dispatch_orchestrator
+        if: steps.select_token.outputs.allowed == 'true' && steps.activation_lock.outputs.status != 'lock-held'
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ needs.keepalive_dispatch.outputs.issue }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          BRANCH: ${{ needs.keepalive_dispatch.outputs.branch }}
+          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const issueNumber = Number(process.env.ISSUE || 0);
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const branch = process.env.BRANCH || '';
+            const base = process.env.BASE || '';
+            const roundRaw = Number(process.env.ROUND || 0);
+            const trace = process.env.TRACE || '';
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+
+            const { owner, repo } = context.repo;
+            const workflowId = 'agents-70-orchestrator.yml';
+            const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+
+            const params = { enable_keepalive: true };
+            if (Number.isFinite(issueNumber) && issueNumber > 0) {
+              params.dispatcher_force_issue = String(issueNumber);
+            }
+            if (branch) {
+              params.keepalive_branch = branch;
+            }
+            if (base) {
+              params.keepalive_base = base;
+            }
+
+            const round = Number.isFinite(roundRaw) && roundRaw > 0 ? String(roundRaw) : '';
+            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? String(prNumber) : '';
+
+            const options = {
+              keepalive_trace: trace,
+              round,
+              pr: prValue,
+            };
+            if (instructionBody) {
+              options.keepalive_instruction = instructionBody;
+            }
+
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: workflowId,
+                ref,
+                inputs: {
+                  keepalive_enabled: 'true',
+                  params_json: JSON.stringify(params),
+                  options_json: JSON.stringify(options),
+                  dry_run: 'false',
+                  pr_number: prValue,
+                },
+              });
+              core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-' }).`);
+              core.setOutput('ok', 'true');
+              core.setOutput('reason', 'ok');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.error(`Failed to dispatch ${workflowId}: ${message}`);
+              core.setOutput('ok', 'false');
+              core.setOutput('reason', 'dispatch-error');
+              throw error;
+            }
+
+      - name: Confirm orchestrator dispatch
+        id: confirm_dispatch
+        if: steps.dispatch_orchestrator.outputs.ok == 'true'
+        env:
+          BASELINE_IDS: ${{ steps.snapshot_runs.outputs.ids }}
+          PR_NUMBER: ${{ steps.snapshot_runs.outputs.pr || needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          TRACE: ${{ steps.snapshot_runs.outputs.trace || needs.keepalive_dispatch.outputs.trace || '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const parseIds = (value) => {
+              if (!value) {
+                return new Set();
+              }
+              try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) {
+                  return new Set(parsed.map((entry) => Number(entry)).filter((entry) => Number.isFinite(entry)));
+                }
+              } catch (error) {
+                core.warning(`Unable to parse baseline ids: ${error.message || error}`);
+              }
+              return new Set();
+            };
+
+            const baseline = parseIds(process.env.BASELINE_IDS || '[]');
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const trace = (process.env.TRACE || '').trim();
+            const { owner, repo } = context.repo;
+
+            const matches = (run) => {
+              if (!run) {
+                return false;
+              }
+              const runId = Number(run.id);
+              if (baseline.has(runId)) {
+                return false;
+              }
+              if (prNumber > 0) {
+                const concurrency = String(run.concurrency || '');
+                if (concurrency.includes(`pr-${prNumber}-`)) {
+                  return true;
+                }
+                const pulls = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+                if (pulls.some((pull) => Number(pull?.number) === prNumber)) {
+                  return true;
+                }
+              }
+              if (trace) {
+                const candidates = [run.name, run.display_title, run.head_branch, run.head_sha];
+                if (candidates.some((value) => typeof value === 'string' && value.includes(trace))) {
+                  return true;
+                }
+              }
+              return false;
+            };
+
+            const poll = async () => {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: 'agents-70-orchestrator.yml',
+                event: 'workflow_dispatch',
+                per_page: 50,
+              });
+              const runs = Array.isArray(response.data?.workflow_runs) ? response.data.workflow_runs : [];
+              return runs.find((run) => matches(run)) || null;
+            };
+
+            const attempts = 6;
+            const delayMs = 5000;
+            let matched = null;
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              matched = await poll();
+              if (matched) {
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+
+            if (!matched) {
+              core.setOutput('confirmed', 'false');
+              core.setOutput('reason', 'dispatch-unconfirmed');
+              core.setFailed('dispatch-unconfirmed');
+              return;
+            }
+
+            const runId = String(matched.id);
+            const runUrl = matched.html_url || '';
+            core.info(`DISPATCH_CONFIRMED: run ${runId}${runUrl ? ` (${runUrl})` : ''}`);
+            core.setOutput('confirmed', 'true');
+            core.setOutput('reason', 'ok');
+            core.setOutput('run_id', runId);
+            core.setOutput('run_url', runUrl);
+
+      - name: Dispatch codex keepalive command
+        if: steps.confirm_dispatch.outputs.confirmed == 'true'
+        uses: actions/github-script@v7
+        env:
+          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
+          HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
+          AGENT_ALIAS: ${{ needs.keepalive_dispatch.outputs.agent_alias }}
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
+        with:
+          github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+
+            const prNumber = Number('${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}');
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setFailed('Unable to determine pull request number for keepalive dispatch.');
+              return;
+            }
+
+            const base = process.env.BASE || '';
+            const head = process.env.HEAD || '';
+            const round = process.env.ROUND || '';
+            const trace = process.env.TRACE || '';
+            const agentAlias = (process.env.AGENT_ALIAS || '').trim() || 'codex';
+
+            let resolvedBase = base;
+            let resolvedHead = head;
+
+            if (!resolvedBase || !resolvedHead) {
+              const pull = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber,
+              });
+
+              resolvedBase = resolvedBase || pull.data.base?.ref || '';
+              resolvedHead = resolvedHead || pull.data.head?.ref || '';
+            }
+
+            if (!resolvedBase || !resolvedHead) {
+              core.setFailed('Unable to determine pull request base/head branches.');
+              return;
+            }
+
+            const commentId = process.env.COMMENT_ID || '';
+            const commentUrl = process.env.COMMENT_URL || '';
+
+            if (!commentId || !commentUrl) {
+              core.setFailed('Comment metadata missing id or url.');
+              return;
+            }
+
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
+            if (!instructionBody) {
+              core.setFailed('Instruction body unavailable for keepalive dispatch.');
+              return;
+            }
+
+            const clientPayload = {
+              issue: prNumber,
+              base: resolvedBase,
+              head: resolvedHead,
+              agent: agentAlias,
+              comment_id: commentId,
+              comment_url: commentUrl,
+              round,
+              trace,
+              instruction_body: instructionBody,
+              quiet: true,
+              reply: 'none',
+            };
+
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'codex-pr-comment-command',
+              client_payload: clientPayload,
+            });
+
+            core.info(`repository_dispatch emitted for PR #${prNumber} (comment ${commentId}).`);
+
       - name: Write dispatch summary
         if: ${{ always() }}
         env:
           PATH_LABEL: comment
-          DISPATCH: ${{ steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-          TRACE: ${{ steps.detect.outputs.trace }}
-          PR_NUMBER: ${{ steps.detect.outputs.pr }}
-          FALLBACK_PR: ${{ steps.pre_gate.outputs.pr_number || github.event.issue.number }}
-          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id }}
-          ACTIVATION_FALLBACK: ${{ github.event.comment.id }}
-          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '' }}
-          DISPATCH_AGENT: ${{ steps.pre_gate.outputs.agent_alias || 'codex' }}
-          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
-          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
-          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || '?' }}
-        run: bash .github/scripts/write_dispatch_summary.sh
+          DISPATCH: >-
+            ${{
+              steps.select_token.outputs.allowed != 'false'
+              && steps.activation_lock.outputs.status != 'lock-held'
+              && steps.dispatch_orchestrator.outputs.ok == 'true'
+              && steps.confirm_dispatch.outputs.confirmed == 'true'
+              && 'true'
+              || 'false'
+            }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace || '-' }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number }}
+          ACTIVATION_ID: ${{ needs.keepalive_dispatch.outputs.comment_id || github.event.comment.id || '' }}
+          DISPATCH_REASON: >-
+            ${{
+              steps.confirm_dispatch.outputs.reason
+              || steps.dispatch_orchestrator.outputs.reason
+              || steps.activation_lock.outputs.reason
+              || steps.select_token.outputs.reason
+              || needs.keepalive_dispatch.outputs.reason
+              || ''
+            }}
+          DISPATCH_AGENT: ${{ needs.keepalive_dispatch.outputs.agent_alias || 'codex' }}
+          HEAD_SHA: ${{ needs.keepalive_dispatch.outputs.head_sha || '' }}
+          ACTIVE_RUNS: ${{ needs.keepalive_dispatch.outputs.active_runs || '0' }}
+          RUN_CAP: ${{ needs.keepalive_dispatch.outputs.run_cap || '' }}
+          GATE_OK: ${{ needs.keepalive_dispatch.outputs.gate_ok || 'false' }}
+          GATE_REASON: ${{ needs.keepalive_dispatch.outputs.gate_reason || '' }}
+        run: |
+          set -euo pipefail
+
+          GATE_OK="${GATE_OK:-}"
+          GATE_REASON="${GATE_REASON:-}"
+
+          normalise_bool() {
+            local raw="${1:-false}"
+            raw=$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              true|1|yes) printf 'true' ;;
+              *) printf 'false' ;;
+            esac
+          }
+
+          normalise_path() {
+            local raw
+            raw=$(printf '%s' "${1:-unknown}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              gate|comment) printf '%s' "${raw}" ;;
+              *) printf 'unknown' ;;
+            esac
+          }
+
+          normalise_reason() {
+            local raw
+            raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              ok|success) printf 'ok' ;;
+              forbidden-token) printf 'forbidden-token' ;;
+              lock-held) printf 'lock-held' ;;
+              dispatch-unconfirmed|dispatch-error) printf 'dispatch-unconfirmed' ;;
+              cap-reached|run-cap-reached) printf 'cap-reached' ;;
+              no-activation-found|missing-activation-comment|invalid-activation-comment) printf 'no-activation-found' ;;
+              instruction-empty|instruction-missing|instruction-parse-failed|missing-trace|missing-sentinel|missing-round|invalid-round|missing-comment-id|instruction-reaction-failed|missing-instruction-reaction|automation-comment) printf 'instruction-empty' ;;
+              gate-pending|gate-not-concluded|gate-blocked:gate-pending|gate-blocked:pending|gate-blocked:gate-not-concluded) printf 'gate-pending' ;;
+              gate-failed|gate-not-success|gate-run-missing|sync-required|gate-error|ignored-comment-action|unsupported-event|pull-fetch-failed|fork-pr|gate-blocked|gate-blocked:gate-run-missing|gate-blocked:gate-not-success|gate-blocked:sync-required|gate-blocked:gate-error|gate-blocked:gate-failed) printf 'gate-failed' ;;
+              no-human-activation|unauthorised-author) printf 'no-human-activation' ;;
+              missing-keepalive-label|keepalive-label-missing|missing-label) printf 'missing-label' ;;
+              no-linked-pr|missing-pr-number|missing-pr|missing-issue-reference) printf 'no-linked-pr' ;;
+              gate-blocked:*) printf 'gate-failed' ;;
+              *) printf '%s' "${raw:-gate-failed}" ;;
+            esac
+          }
+
+          pr_value() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '#%s' "${raw}"
+            else
+              printf '#?'
+            fi
+          }
+
+          activation_value() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '%s' "${raw}"
+            else
+              printf 'none'
+            fi
+          }
+
+          head_value='unknown'
+          if [[ -n "${HEAD_SHA}" && "${HEAD_SHA}" != 'unknown' ]]; then
+            head_value=$(printf '%.7s' "${HEAD_SHA}")
+          fi
+
+          active_value=${ACTIVE_RUNS:-0}
+          if [[ -z "${active_value}" || "${active_value}" == 'unknown' ]]; then
+            active_value='0'
+          fi
+
+          cap_value=${RUN_CAP:-}
+          if [[ -z "${cap_value}" || "${cap_value}" == 'unknown' ]]; then
+            cap_value='?'
+          fi
+
+          dispatch_ok=$(normalise_bool "${DISPATCH}")
+          reason_value=$(normalise_reason "${DISPATCH_REASON}")
+          if [[ "${dispatch_ok}" == 'true' ]]; then
+            reason_value='ok'
+          fi
+
+          path_value=$(normalise_path "${PATH_LABEL}")
+          pr_text=$(pr_value "${PR_NUMBER}")
+          activation_text=$(activation_value "${ACTIVATION_ID}")
+          trace_value=${TRACE:--}
+          agent_value=${DISPATCH_AGENT:-?}
+
+          summary_line="DISPATCH: ok=${dispatch_ok} path=${path_value} reason=${reason_value} pr=${pr_text} activation=${activation_text} agent=${agent_value:-?} head=${head_value} cap=${active_value}/${cap_value} trace=${trace_value}"
+
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          printf '%s\n' "${summary_line}"
+
+          gate_ok=$(normalise_bool "${GATE_OK}")
+          gate_reason=$(normalise_reason "${GATE_REASON}")
+          pr_gate=$(pr_value "${PR_NUMBER}")
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf 'GATE: ok=%s reason=%s pr=%s head=%s\n' "${gate_ok}" "${gate_reason}" "${pr_gate}" "${head_value}" >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          printf 'GATE: ok=%s reason=%s pr=%s head=%s\n' "${gate_ok}" "${gate_reason}" "${pr_gate}" "${head_value}"
 
   gate_event_context:
     if: >-
@@ -317,8 +826,27 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     outputs:
-      dispatch: ${{ steps.detect.outputs.dispatch == 'true' && 'true' || 'false' }}
-      reason: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || steps.activation_fallback.outputs.reason }}
+      dispatch: >-
+        ${{
+          steps.gate.outputs.ok == 'true'
+          && steps.detect.outputs.dispatch == 'true'
+          && steps.select_token_gate.outputs.allowed != 'false'
+          && steps.activation_lock_gate.outputs.status != 'lock-held'
+          && steps.dispatch_orchestrator_gate.outputs.ok == 'true'
+          && steps.confirm_dispatch_gate.outputs.confirmed == 'true'
+          && 'true'
+          || 'false'
+        }}
+      reason: >-
+        ${{
+          steps.confirm_dispatch_gate.outputs.reason
+          || steps.dispatch_orchestrator_gate.outputs.reason
+          || steps.activation_lock_gate.outputs.reason
+          || steps.select_token_gate.outputs.reason
+          || steps.detect.outputs.reason
+          || steps.activation_fallback_gate.outputs.reason
+          || steps.gate.outputs.reason
+        }}
       issue: ${{ steps.detect.outputs.issue }}
       round: ${{ steps.detect.outputs.round }}
       branch: ${{ steps.detect.outputs.branch }}
@@ -326,7 +854,7 @@ jobs:
       trace: ${{ steps.detect.outputs.trace }}
       pr: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
       author: ${{ steps.detect.outputs.author }}
-      comment_id: ${{ steps.detect.outputs.comment_id || steps.activation_fallback.outputs.comment_id }}
+      comment_id: ${{ steps.detect.outputs.comment_id || steps.activation_fallback_gate.outputs.comment_id }}
       comment_url: ${{ steps.detect.outputs.comment_url }}
       processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
       deduped: ${{ steps.detect.outputs.deduped }}
@@ -343,6 +871,9 @@ jobs:
       run_cap: ${{ steps.gate.outputs.run_cap }}
       require_human_activation: ${{ steps.gate.outputs.require_human_activation }}
       head_sha: ${{ steps.gate.outputs.head_sha }}
+      token_source: ${{ steps.select_token_gate.outputs.token_source }}
+      token_login: ${{ steps.identify_token_gate.outputs.login }}
+      dispatch_run_id: ${{ steps.confirm_dispatch_gate.outputs.run_id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -402,7 +933,7 @@ jobs:
             }
 
       - name: Restore activation comment fallback
-        id: activation_fallback
+        id: activation_fallback_gate
         if: steps.gate.outputs.activation_comment == ''
         uses: actions/github-script@v7
         env:
@@ -673,13 +1204,13 @@ jobs:
 
       - name: Evaluate keepalive request after Gate
         id: detect
-        if: steps.gate.outputs.activation_comment != '' || steps.activation_fallback.outputs.activation_comment != ''
+        if: steps.gate.outputs.activation_comment != '' || steps.activation_fallback_gate.outputs.activation_comment != ''
         uses: actions/github-script@v7
         env:
           ALLOWED_LOGINS: chatgpt-codex-connector,stranske-automation-bot,stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
           KEEPALIVE_AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
-          ACTIVATION_COMMENT: ${{ steps.activation_fallback.outputs.activation_comment || steps.gate.outputs.activation_comment }}
+          ACTIVATION_COMMENT: ${{ steps.activation_fallback_gate.outputs.activation_comment || steps.gate.outputs.activation_comment }}
           PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
           GATE_OK: ${{ steps.gate.outputs.ok || 'false' }}
           GATE_REASON: ${{ steps.gate.outputs.reason || '' }}
@@ -762,104 +1293,307 @@ jobs:
           printf 'INSTRUCTION: comment_id=%s trace=%s source=%s seen=%s deduped=%s\n' \
             "${comment_id}" "${trace}" "${source}" "${seen}" "${deduped}"
 
-      - name: Report keepalive dispatch outcome
-        if: steps.detect.outputs.reason != '' && steps.detect.outputs.dispatch != 'true'
-        run: |
-          echo "Gate-triggered keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason }}"
-
-      - name: Ensure keepalive dispatch token available
-        if: steps.detect.outputs.dispatch == 'true'
+      - name: Select keepalive dispatch token (Gate)
+        id: select_token_gate
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
-          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+          set -euo pipefail
+          if [[ -n "${ACTIONS_TOKEN}" ]]; then
+            {
+              printf 'allowed=true\n'
+              printf 'token_source=ACTIONS_BOT_PAT\n'
+              printf 'reason=ok\n'
+            } >>"${GITHUB_OUTPUT}"
+          elif [[ -n "${SERVICE_TOKEN}" ]]; then
+            {
+              printf 'allowed=true\n'
+              printf 'token_source=SERVICE_BOT_PAT\n'
+              printf 'reason=ok\n'
+            } >>"${GITHUB_OUTPUT}"
+          else
             echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-            exit 1
+            {
+              printf 'allowed=false\n'
+              printf 'token_source=\n'
+              printf 'reason=forbidden-token\n'
+            } >>"${GITHUB_OUTPUT}"
           fi
 
-      - name: Dispatch Agents 70 run for keepalive
-        if: steps.detect.outputs.dispatch == 'true'
+      - name: Identify dispatch token (Gate)
+        id: identify_token_gate
+        if: steps.select_token_gate.outputs.allowed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const response = await github.rest.users.getAuthenticated();
+            const login = response.data?.login || 'unknown';
+            const id = response.data?.id ? String(response.data.id) : '';
+            const identity = id ? `${login} (${id})` : login;
+            core.info(`TOKEN_IDENTITY: ${identity}`);
+            core.setOutput('login', login);
+            core.setOutput('user_id', id);
+
+      - name: Acquire activation lock (Gate)
+        id: activation_lock_gate
+        if: steps.select_token_gate.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const rawCommentId = '${{ steps.detect.outputs.comment_id || steps.activation_fallback_gate.outputs.comment_id || '' }}';
+            const commentId = Number(rawCommentId);
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.setOutput('status', 'missing');
+              core.setOutput('reason', 'no-activation-found');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner,
+                repo,
+                comment_id: commentId,
+                content: 'rocket',
+              });
+              core.info(`Activation lock applied to comment ${commentId}.`);
+              core.setOutput('status', 'ok');
+              core.setOutput('reason', 'ok');
+            } catch (error) {
+              const status = Number(error?.status || 0);
+              const message = error instanceof Error ? error.message : String(error);
+              if (status === 409) {
+                core.info(`Activation lock already present on comment ${commentId}.`);
+              } else {
+                core.warning(`Failed to add activation lock to comment ${commentId}: ${message}`);
+              }
+              core.setOutput('status', 'lock-held');
+              core.setOutput('reason', 'lock-held');
+            }
+
+      - name: Snapshot orchestrator runs (Gate)
+        id: snapshot_runs_gate
+        if: steps.select_token_gate.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true' && steps.activation_lock_gate.outputs.status != 'lock-held'
+        env:
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          TRACE: ${{ steps.detect.outputs.trace || '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const trace = (process.env.TRACE || '').trim();
+            const { owner, repo } = context.repo;
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: 'agents-70-orchestrator.yml',
+              event: 'workflow_dispatch',
+              per_page: 50,
+            });
+            const runs = Array.isArray(response.data?.workflow_runs) ? response.data.workflow_runs : [];
+            const ids = runs.map((run) => Number(run?.id)).filter((value) => Number.isFinite(value));
+            core.info(`Snapshot captured ${ids.length} workflow_dispatch runs for agents-70-orchestrator.yml.`);
+            core.setOutput('ids', JSON.stringify(ids));
+            core.setOutput('timestamp', new Date().toISOString());
+            core.setOutput('pr', prNumber > 0 ? String(prNumber) : '');
+            core.setOutput('trace', trace);
+
+      - name: Dispatch Agents 70 run for keepalive (Gate)
+        id: dispatch_orchestrator_gate
+        if: steps.select_token_gate.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true' && steps.activation_lock_gate.outputs.status != 'lock-held'
         uses: actions/github-script@v7
         env:
+          ISSUE: ${{ steps.detect.outputs.issue }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          BRANCH: ${{ steps.detect.outputs.branch }}
+          BASE: ${{ steps.detect.outputs.base }}
+          ROUND: ${{ steps.detect.outputs.round }}
+          TRACE: ${{ steps.detect.outputs.trace }}
           INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
-            const issue = Number('${{ steps.detect.outputs.issue }}');
-            const prNumber = Number('${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}');
-            const branch = '${{ steps.detect.outputs.branch }}';
-            const base = '${{ steps.detect.outputs.base }}';
-            const round = Number('${{ steps.detect.outputs.round }}');
-            const trace = '${{ steps.detect.outputs.trace }}';
+            const issueNumber = Number(process.env.ISSUE || 0);
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const branch = process.env.BRANCH || '';
+            const base = process.env.BASE || '';
+            const roundRaw = Number(process.env.ROUND || 0);
+            const trace = process.env.TRACE || '';
+            const instructionBody = process.env.INSTRUCTION_BODY || '';
 
             const { owner, repo } = context.repo;
             const workflowId = 'agents-70-orchestrator.yml';
             const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
 
-            const params = {
-              enable_keepalive: true,
-              dispatcher_force_issue: issue ? String(issue) : '',
-            };
+            const params = { enable_keepalive: true };
+            if (Number.isFinite(issueNumber) && issueNumber > 0) {
+              params.dispatcher_force_issue = String(issueNumber);
+            }
+            if (branch) {
+              params.keepalive_branch = branch;
+            }
+            if (base) {
+              params.keepalive_base = base;
+            }
 
-            const roundValue = Number.isFinite(round) && round > 0 ? String(round) : '';
-            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? prNumber : '';
+            const round = Number.isFinite(roundRaw) && roundRaw > 0 ? String(roundRaw) : '';
+            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? String(prNumber) : '';
 
             const options = {
               keepalive_trace: trace,
-              round: roundValue,
+              round,
               pr: prValue,
             };
-
-            const instructionBody = process.env.INSTRUCTION_BODY || '';
             if (instructionBody) {
               options.keepalive_instruction = instructionBody;
             }
 
-            await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: workflowId,
-              ref,
-              inputs: {
-                keepalive_enabled: 'true',
-                params_json: JSON.stringify(params),
-                options_json: JSON.stringify(options),
-                dry_run: 'false',
-              },
-            });
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: workflowId,
+                ref,
+                inputs: {
+                  keepalive_enabled: 'true',
+                  params_json: JSON.stringify(params),
+                  options_json: JSON.stringify(options),
+                  dry_run: 'false',
+                  pr_number: prValue,
+                },
+              });
+              core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-' }).`);
+              core.setOutput('ok', 'true');
+              core.setOutput('reason', 'ok');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.error(`Failed to dispatch ${workflowId}: ${message}`);
+              core.setOutput('ok', 'false');
+              core.setOutput('reason', 'dispatch-error');
+              throw error;
+            }
 
-      - name: Ensure connector dispatch token available
-        if: steps.detect.outputs.dispatch == 'true'
+      - name: Confirm orchestrator dispatch (Gate)
+        id: confirm_dispatch_gate
+        if: steps.dispatch_orchestrator_gate.outputs.ok == 'true'
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
-        run: |
-          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
-            echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-            exit 1
-          fi
+          BASELINE_IDS: ${{ steps.snapshot_runs_gate.outputs.ids }}
+          PR_NUMBER: ${{ steps.snapshot_runs_gate.outputs.pr || steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          TRACE: ${{ steps.snapshot_runs_gate.outputs.trace || steps.detect.outputs.trace || '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const parseIds = (value) => {
+              if (!value) {
+                return new Set();
+              }
+              try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) {
+                  return new Set(parsed.map((entry) => Number(entry)).filter((entry) => Number.isFinite(entry)));
+                }
+              } catch (error) {
+                core.warning(`Unable to parse baseline ids: ${error.message || error}`);
+              }
+              return new Set();
+            };
 
-      - name: Dispatch codex keepalive command
-        if: steps.detect.outputs.dispatch == 'true'
+            const baseline = parseIds(process.env.BASELINE_IDS || '[]');
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            const trace = (process.env.TRACE || '').trim();
+            const { owner, repo } = context.repo;
+
+            const matches = (run) => {
+              if (!run) {
+                return false;
+              }
+              const runId = Number(run.id);
+              if (baseline.has(runId)) {
+                return false;
+              }
+              if (prNumber > 0) {
+                const concurrency = String(run.concurrency || '');
+                if (concurrency.includes(`pr-${prNumber}-`)) {
+                  return true;
+                }
+                const pulls = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+                if (pulls.some((pull) => Number(pull?.number) === prNumber)) {
+                  return true;
+                }
+              }
+              if (trace) {
+                const candidates = [run.name, run.display_title, run.head_branch, run.head_sha];
+                if (candidates.some((value) => typeof value === 'string' && value.includes(trace))) {
+                  return true;
+                }
+              }
+              return false;
+            };
+
+            const poll = async () => {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: 'agents-70-orchestrator.yml',
+                event: 'workflow_dispatch',
+                per_page: 50,
+              });
+              const runs = Array.isArray(response.data?.workflow_runs) ? response.data.workflow_runs : [];
+              return runs.find((run) => matches(run)) || null;
+            };
+
+            const attempts = 6;
+            const delayMs = 5000;
+            let matched = null;
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              matched = await poll();
+              if (matched) {
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+
+            if (!matched) {
+              core.setOutput('confirmed', 'false');
+              core.setOutput('reason', 'dispatch-unconfirmed');
+              core.setFailed('dispatch-unconfirmed');
+              return;
+            }
+
+            const runId = String(matched.id);
+            const runUrl = matched.html_url || '';
+            core.info(`DISPATCH_CONFIRMED: run ${runId}${runUrl ? ` (${runUrl})` : ''}`);
+            core.setOutput('confirmed', 'true');
+            core.setOutput('reason', 'ok');
+            core.setOutput('run_id', runId);
+            core.setOutput('run_url', runUrl);
+
+      - name: Dispatch codex keepalive command (Gate)
+        if: steps.confirm_dispatch_gate.outputs.confirmed == 'true'
         uses: actions/github-script@v7
         env:
           BASE: ${{ steps.detect.outputs.base }}
           HEAD: ${{ steps.detect.outputs.branch }}
           ROUND: ${{ steps.detect.outputs.round }}
           TRACE: ${{ steps.detect.outputs.trace }}
-          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
+          COMMENT_ID: ${{ steps.detect.outputs.comment_id || steps.activation_fallback_gate.outputs.comment_id }}
           COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
           AGENT_ALIAS: ${{ steps.gate.outputs.agent_alias }}
           INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.select_token_gate.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
 
             const prNumber = Number('${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}');
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              core.setFailed('Unable to determine pull request number from Gate-triggered context.');
+              core.setFailed('Unable to determine pull request number for keepalive dispatch.');
               return;
             }
 
@@ -923,24 +1657,149 @@ jobs:
               client_payload: clientPayload,
             });
 
-            core.info(`repository_dispatch emitted for PR #${prNumber} (Gate-triggered).`);
+            core.info(`repository_dispatch emitted for PR #${prNumber} (comment ${commentId}).`);
 
-      - name: Write dispatch summary
+      - name: Write dispatch summary (Gate)
         if: ${{ always() }}
         env:
           PATH_LABEL: gate
-          DISPATCH: ${{ steps.detect.outputs.dispatch }}
-          TRACE: ${{ steps.detect.outputs.trace }}
-          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}
-          FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
-          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || steps.activation_fallback.outputs.comment_id }}
-          ACTIVATION_FALLBACK: ${{ steps.activation_fallback.outputs.comment_id }}
-          DISPATCH_REASON: ${{ steps.detect.outputs.dispatch == 'true' && 'ok' || steps.detect.outputs.reason || steps.gate.outputs.reason || steps.activation_fallback.outputs.reason || '' }}
+          DISPATCH: >-
+            ${{
+              steps.gate.outputs.ok == 'true'
+              && steps.detect.outputs.dispatch == 'true'
+              && steps.select_token_gate.outputs.allowed != 'false'
+              && steps.activation_lock_gate.outputs.status != 'lock-held'
+              && steps.dispatch_orchestrator_gate.outputs.ok == 'true'
+              && steps.confirm_dispatch_gate.outputs.confirmed == 'true'
+              && 'true'
+              || 'false'
+            }}
+          TRACE: ${{ steps.detect.outputs.trace || '-' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || github.event.workflow_run.pull_requests[0].number || '' }}
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || steps.activation_fallback_gate.outputs.comment_id || '' }}
+          DISPATCH_REASON: >-
+            ${{
+              steps.confirm_dispatch_gate.outputs.reason
+              || steps.dispatch_orchestrator_gate.outputs.reason
+              || steps.activation_lock_gate.outputs.reason
+              || steps.select_token_gate.outputs.reason
+              || steps.detect.outputs.reason
+              || steps.activation_fallback_gate.outputs.reason
+              || steps.gate.outputs.reason
+              || ''
+            }}
           DISPATCH_AGENT: ${{ steps.gate.outputs.agent_alias || 'codex' }}
-          HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || github.event.workflow_run.head_sha || '' }}
           ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '0' }}
-          RUN_CAP: ${{ steps.gate.outputs.run_cap || '?' }}
-        run: bash .github/scripts/write_dispatch_summary.sh
+          RUN_CAP: ${{ steps.gate.outputs.run_cap || '0' }}
+          GATE_OK: ${{ steps.gate.outputs.ok || 'false' }}
+          GATE_REASON: ${{ steps.gate.outputs.reason || '' }}
+        run: |
+          set -euo pipefail
+
+          # Ensure shellcheck observes explicit assignments for env-scoped gate vars.
+          GATE_OK="${GATE_OK:-}"
+          GATE_REASON="${GATE_REASON:-}"
+
+          normalise_bool() {
+            local raw="${1:-false}"
+            raw=$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              true|1|yes) printf 'true' ;;
+              *) printf 'false' ;;
+            esac
+          }
+
+          normalise_path() {
+            local raw
+            raw=$(printf '%s' "${1:-unknown}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              gate|comment) printf '%s' "${raw}" ;;
+              *) printf 'unknown' ;;
+            esac
+          }
+
+            normalise_reason() {
+              local raw
+              raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              ok|success) printf 'ok' ;;
+              forbidden-token) printf 'forbidden-token' ;;
+              lock-held) printf 'lock-held' ;;
+              dispatch-unconfirmed|dispatch-error) printf 'dispatch-unconfirmed' ;;
+              cap-reached|run-cap-reached) printf 'cap-reached' ;;
+              no-activation-found|missing-activation-comment|invalid-activation-comment) printf 'no-activation-found' ;;
+              instruction-empty|instruction-missing|instruction-parse-failed|missing-trace|missing-sentinel|missing-round|invalid-round|missing-comment-id|instruction-reaction-failed|missing-instruction-reaction|automation-comment) printf 'instruction-empty' ;;
+              gate-pending|gate-not-concluded|gate-blocked:gate-pending|gate-blocked:pending|gate-blocked:gate-not-concluded) printf 'gate-pending' ;;
+              gate-failed|gate-not-success|gate-run-missing|sync-required|gate-error|ignored-comment-action|unsupported-event|pull-fetch-failed|fork-pr|gate-blocked|gate-blocked:gate-run-missing|gate-blocked:gate-not-success|gate-blocked:sync-required|gate-blocked:gate-error|gate-blocked:gate-failed) printf 'gate-failed' ;;
+              no-human-activation|unauthorised-author) printf 'no-human-activation' ;;
+              missing-keepalive-label|keepalive-label-missing|missing-label) printf 'missing-label' ;;
+              no-linked-pr|missing-pr-number|missing-pr|missing-issue-reference) printf 'no-linked-pr' ;;
+              gate-blocked:*) printf 'gate-failed' ;;
+              *) printf '%s' "${raw:-gate-failed}" ;;
+            esac
+          }
+
+          pr_value() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '#%s' "${raw}"
+            else
+              printf '#?'
+            fi
+          }
+
+          activation_value() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '%s' "${raw}"
+            else
+              printf 'none'
+            fi
+          }
+
+          head_value='unknown'
+          if [[ -n "${HEAD_SHA}" && "${HEAD_SHA}" != 'unknown' ]]; then
+            head_value=$(printf '%.7s' "${HEAD_SHA}")
+          fi
+
+          active_value=${ACTIVE_RUNS:-0}
+          if [[ -z "${active_value}" || "${active_value}" == 'unknown' ]]; then
+            active_value='0'
+          fi
+
+          cap_value=${RUN_CAP:-}
+          if [[ -z "${cap_value}" || "${cap_value}" == 'unknown' ]]; then
+            cap_value='?'
+          fi
+
+          dispatch_ok=$(normalise_bool "${DISPATCH}")
+          reason_value=$(normalise_reason "${DISPATCH_REASON}")
+          if [[ "${dispatch_ok}" == 'true' ]]; then
+            reason_value='ok'
+          fi
+
+          path_value=$(normalise_path "${PATH_LABEL}")
+          pr_text=$(pr_value "${PR_NUMBER}")
+          activation_text=$(activation_value "${ACTIVATION_ID}")
+          trace_value=${TRACE:--}
+          agent_value=${DISPATCH_AGENT:-?}
+
+          summary_line="DISPATCH: ok=${dispatch_ok} path=${path_value} reason=${reason_value} pr=${pr_text} activation=${activation_text} agent=${agent_value:-?} head=${head_value} cap=${active_value}/${cap_value} trace=${trace_value}"
+
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '%s\n' "${summary_line}" >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          printf '%s\n' "${summary_line}"
+
+          gate_ok=$(normalise_bool "${GATE_OK}")
+          gate_reason=$(normalise_reason "${GATE_REASON}")
+          pr_gate=$(pr_value "${PR_NUMBER}")
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf 'GATE: ok=%s reason=%s pr=%s head=%s\n' "${gate_ok}" "${gate_reason}" "${pr_gate}" "${head_value}" >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          printf 'GATE: ok=%s reason=%s pr=%s head=%s\n' "${gate_ok}" "${gate_reason}" "${pr_gate}" "${head_value}"
+
 
   gate_no_pr_summary:
     needs: gate_event_context
@@ -953,204 +1812,29 @@ jobs:
     steps:
       - name: Write dispatch summary
         env:
-          PATH_LABEL: gate
-          DISPATCH: 'false'
           TRACE: '-'
-          PR_NUMBER: ''
-          FALLBACK_PR: ${{ needs.gate_event_context.outputs.pr }}
-          ACTIVATION_ID: ''
-          DISPATCH_REASON: 'no-linked-pr'
-          DISPATCH_AGENT: 'codex'
-          HEAD_SHA: ''
-          ACTIVE_RUNS: '0'
-          RUN_CAP: '?'
-        run: bash .github/scripts/write_dispatch_summary.sh
-
-  keepalive_orchestrator:
-    needs: keepalive_dispatch
-    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
-    name: Dispatch keepalive orchestrator
-    runs-on: ubuntu-latest
-    concurrency:
-      group: >-
-        ${{ format('pr-meta-dispatch-{0}', needs.keepalive_dispatch.outputs.pr || github.event.issue.number || 'unknown') }}
-      cancel-in-progress: false
-    steps:
-      - name: Ensure keepalive dispatch token available
-        env:
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+          PR_NUMBER: ${{ needs.gate_event_context.outputs.pr }}
         run: |
-          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
-            echo "::error::Keepalive orchestrator dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-            exit 1
+          set -euo pipefail
+
+          pr_value() {
+            local raw="${1:-}"
+            if [[ -n "${raw}" && "${raw}" != 'unknown' && "${raw}" != '0' ]]; then
+              printf '#%s' "${raw}"
+            else
+              printf '#?'
+            fi
+          }
+
+          dispatch_line="DISPATCH: ok=false path=gate reason=no-linked-pr pr=$(pr_value "${PR_NUMBER}") activation=none agent=codex head=unknown cap=0/? trace=${TRACE}"
+
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '%s\n' "${dispatch_line}" >>"${GITHUB_STEP_SUMMARY}"
+            printf 'GATE: ok=false reason=no-linked-pr pr=%s head=unknown\n' "$(pr_value "${PR_NUMBER}")" >>"${GITHUB_STEP_SUMMARY}"
           fi
 
-      - name: Dispatch Agents 70 run for keepalive
-        id: orchestrator
-        uses: actions/github-script@v7
-        env:
-          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
-        with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-          script: |
-            const issue = Number('${{ needs.keepalive_dispatch.outputs.issue }}');
-            const prNumber = Number('${{ needs.keepalive_dispatch.outputs.pr }}');
-            const branch = '${{ needs.keepalive_dispatch.outputs.branch }}';
-            const base = '${{ needs.keepalive_dispatch.outputs.base }}';
-            const round = Number('${{ needs.keepalive_dispatch.outputs.round }}');
-            const trace = '${{ needs.keepalive_dispatch.outputs.trace }}';
-
-            const { owner, repo } = context.repo;
-            const workflowId = 'agents-70-orchestrator.yml';
-            const ref = context.payload?.repository?.default_branch || 'phase-2-dev';
-
-            const params = {
-              enable_keepalive: true,
-              dispatcher_force_issue: issue ? String(issue) : '',
-            };
-
-            const roundValue = Number.isFinite(round) && round > 0 ? String(round) : '';
-            const fallbackPr = Number(context.payload?.issue?.number || 0);
-            const prValue = Number.isFinite(prNumber) && prNumber > 0 ? prNumber : fallbackPr;
-
-            const options = {
-              keepalive_trace: trace,
-              round: roundValue,
-              pr: prValue,
-            };
-
-            const instructionBody = process.env.INSTRUCTION_BODY || '';
-            if (instructionBody) {
-              options.keepalive_instruction = instructionBody;
-            }
-
-            await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: workflowId,
-              ref,
-              inputs: {
-                keepalive_enabled: 'true',
-                params_json: JSON.stringify(params),
-                options_json: JSON.stringify(options),
-                dry_run: 'false',
-              },
-            });
-
-  listen_commands:
-    needs: keepalive_dispatch
-    if: >-
-      ${{ github.event_name == 'issue_comment'
-          && github.event.issue.pull_request
-          && needs.keepalive_dispatch.outputs.dispatch == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ensure connector dispatch token available
-        env:
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
-        run: |
-          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
-            echo "::error::Codex keepalive command dispatch requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
-            exit 1
-          fi
-
-      - name: Dispatch codex keepalive command
-        id: dispatch
-        uses: actions/github-script@v7
-        env:
-          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
-          HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
-          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
-          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
-          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
-          COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
-          AGENT_ALIAS: ${{ needs.keepalive_dispatch.outputs.agent_alias }}
-          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
-        with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-          script: |
-            const { payload } = context;
-            const { owner, repo } = context.repo;
-
-            const pullNumber = payload.issue?.number;
-            if (!pullNumber) {
-              core.setFailed('Unable to determine pull request number from issue_comment payload.');
-              return;
-            }
-
-            const base = process.env.BASE || '';
-            const head = process.env.HEAD || '';
-            const round = process.env.ROUND || '';
-            const trace = process.env.TRACE || '';
-            const agentAlias = (process.env.AGENT_ALIAS || '').trim() || 'codex';
-
-            if (!base || !head) {
-              core.warning('Keepalive metadata missing base/head from detection; fetching pull request details.');
-            }
-
-            let resolvedBase = base;
-            let resolvedHead = head;
-
-            if (!resolvedBase || !resolvedHead) {
-              const pull = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: pullNumber,
-              });
-
-              resolvedBase = resolvedBase || pull.data.base?.ref || '';
-              resolvedHead = resolvedHead || pull.data.head?.ref || '';
-            }
-
-            if (!resolvedBase || !resolvedHead) {
-              core.setFailed('Unable to determine pull request base/head branches.');
-              return;
-            }
-
-            const commentId = payload.comment?.id;
-            const commentUrl = payload.comment?.html_url;
-
-            const fallbackCommentId = process.env.COMMENT_ID || '';
-            const fallbackCommentUrl = process.env.COMMENT_URL || '';
-
-            if (!commentId || !commentUrl) {
-              if (!fallbackCommentId || !fallbackCommentUrl) {
-                core.setFailed('Comment metadata missing id or url.');
-                return;
-              }
-            }
-
-            const instructionBody = process.env.INSTRUCTION_BODY || '';
-            if (!instructionBody) {
-              core.setFailed('Instruction body unavailable for keepalive dispatch.');
-              return;
-            }
-
-            const clientPayload = {
-              issue: pullNumber,
-              base: resolvedBase,
-              head: resolvedHead,
-              agent: agentAlias,
-              comment_id: commentId || fallbackCommentId,
-              comment_url: commentUrl || fallbackCommentUrl,
-              round,
-              trace,
-              instruction_body: instructionBody,
-              quiet: true,
-              reply: 'none',
-            };
-
-            await github.rest.repos.createDispatchEvent({
-              owner,
-              repo,
-              event_type: 'codex-pr-comment-command',
-              client_payload: clientPayload,
-            });
-
-            core.info(`repository_dispatch emitted for PR #${pullNumber} (comment ${commentId}).`);
-
+          printf '%s\n' "${dispatch_line}"
+          printf 'GATE: ok=false reason=no-linked-pr pr=%s head=unknown\n' "$(pr_value "${PR_NUMBER}")"
 
   update_body:
     if: github.event_name == 'pull_request'
