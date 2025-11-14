@@ -233,7 +233,9 @@ def test_dry_run_writes_summary(tmp_path: Path) -> None:
     assert summary.get("instructions")
 
 
-def test_run_pytest_invokes_python(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_pytest_invokes_python(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     captured: dict[str, object] = {}
 
     def fake_run(cmd, *, text, capture_output):
@@ -271,7 +273,9 @@ def test_run_raises_when_command_fails(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_returns_completed_process(monkeypatch: pytest.MonkeyPatch) -> None:
     expected = subprocess.CompletedProcess(["git", "status"], 0, stdout="ok", stderr="")
 
-    monkeypatch.setattr(ci_cosmetic_repair.subprocess, "run", lambda *args, **kwargs: expected)
+    monkeypatch.setattr(
+        ci_cosmetic_repair.subprocess, "run", lambda *args, **kwargs: expected
+    )
 
     result = ci_cosmetic_repair._run(["git", "status"], cwd=Path("/tmp"))
 
@@ -295,7 +299,9 @@ def test_run_returns_completed_process(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
     ],
 )
-def test_build_instruction_validation(kind: str, payload: dict[str, object], message: str) -> None:
+def test_build_instruction_validation(
+    kind: str, payload: dict[str, object], message: str
+) -> None:
     with pytest.raises(ci_cosmetic_repair.CosmeticRepairError) as exc:
         ci_cosmetic_repair.build_instruction(kind, payload, source="case")
 
@@ -343,7 +349,9 @@ def test_apply_tolerance_update_validates_guard(tmp_path: Path) -> None:
     target.write_text("value = 1.0\n", encoding="utf-8")
 
     with pytest.raises(ci_cosmetic_repair.CosmeticRepairError):
-        ci_cosmetic_repair.apply_tolerance_update(target, guard="float", key=None, value="2.0")
+        ci_cosmetic_repair.apply_tolerance_update(
+            target, guard="float", key=None, value="2.0"
+        )
 
 
 def test_apply_tolerance_update_requires_numeric_literal(tmp_path: Path) -> None:
@@ -351,7 +359,9 @@ def test_apply_tolerance_update_requires_numeric_literal(tmp_path: Path) -> None
     target.write_text("value = 'text'  # cosmetic-repair: float\n", encoding="utf-8")
 
     with pytest.raises(ci_cosmetic_repair.CosmeticRepairError):
-        ci_cosmetic_repair.apply_tolerance_update(target, guard="float", key=None, value="2.0")
+        ci_cosmetic_repair.apply_tolerance_update(
+            target, guard="float", key=None, value="2.0"
+        )
 
 
 def test_apply_snapshot_update_validates_guard(tmp_path: Path) -> None:
@@ -359,7 +369,9 @@ def test_apply_snapshot_update_validates_guard(tmp_path: Path) -> None:
     target.write_text("no guard here", encoding="utf-8")
 
     with pytest.raises(ci_cosmetic_repair.CosmeticRepairError):
-        ci_cosmetic_repair.apply_snapshot_update(target, guard="snapshot", key=None, replacement="new")
+        ci_cosmetic_repair.apply_snapshot_update(
+            target, guard="snapshot", key=None, replacement="new"
+        )
 
 
 def test_apply_snapshot_update_with_key(tmp_path: Path) -> None:
@@ -379,7 +391,9 @@ def test_apply_snapshot_update_with_key(tmp_path: Path) -> None:
 
 def test_working_tree_changes_parses_output(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(cmd, *, cwd, text, capture_output, check):
-        return subprocess.CompletedProcess(cmd, 0, stdout=" M file1\n?? file2\n", stderr="")
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout=" M file1\n?? file2\n", stderr=""
+        )
 
     monkeypatch.setattr(ci_cosmetic_repair.subprocess, "run", fake_run)
 
@@ -388,7 +402,9 @@ def test_working_tree_changes_parses_output(monkeypatch: pytest.MonkeyPatch) -> 
     assert changes == ["M file1", "?? file2"]
 
 
-def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stage_and_commit_uses_git(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     calls: list[tuple[tuple[str, ...], Path | None]] = []
 
     def fake_run(cmd, *, cwd=None):
@@ -404,7 +420,9 @@ def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     monkeypatch.setattr(ci_cosmetic_repair, "datetime", FakeDateTime)
 
     file_path = tmp_path / "tests" / "example.py"
-    branch = ci_cosmetic_repair.stage_and_commit([file_path], root=tmp_path, summary="summary", branch_suffix=None)
+    branch = ci_cosmetic_repair.stage_and_commit(
+        [file_path], root=tmp_path, summary="summary", branch_suffix=None
+    )
 
     assert branch == f"{ci_cosmetic_repair.BRANCH_PREFIX}-20240102030405"
     assert calls[0][0] == ("git", "checkout", "-B", branch)
@@ -412,13 +430,17 @@ def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert calls[2][0] == ("git", "commit", "-m", "Cosmetic repair: summary")
 
 
-def test_push_and_open_pr_returns_last_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_push_and_open_pr_returns_last_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     calls: list[tuple[str, ...]] = []
 
     def fake_run(cmd, *, cwd=None):
         calls.append(tuple(cmd))
         if cmd[0] == "gh":
-            return subprocess.CompletedProcess(cmd, 0, stdout="first\n\nfinal\n", stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="first\n\nfinal\n", stderr=""
+            )
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr(ci_cosmetic_repair, "_run", fake_run)
@@ -453,7 +475,9 @@ def test_push_and_open_pr_returns_last_line(monkeypatch: pytest.MonkeyPatch, tmp
     assert pr_url == "final"
 
 
-def test_push_and_open_pr_handles_empty_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_push_and_open_pr_handles_empty_stdout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     def fake_run(cmd, *, cwd=None):
         if cmd[0] == "gh":
             return subprocess.CompletedProcess(cmd, 0, stdout="\n\n", stderr="")
@@ -498,7 +522,9 @@ def test_serialise_instructions(tmp_path: Path) -> None:
     ]
 
 
-def test_write_summary_appends_timestamp(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_write_summary_appends_timestamp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     class FakeDateTime:
         @staticmethod
         def now(tz):
@@ -508,7 +534,9 @@ def test_write_summary_appends_timestamp(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     ci_cosmetic_repair.write_summary(tmp_path, {"status": "ok"})
 
-    data = json.loads((tmp_path / ci_cosmetic_repair.SUMMARY_FILE).read_text(encoding="utf-8"))
+    data = json.loads(
+        (tmp_path / ci_cosmetic_repair.SUMMARY_FILE).read_text(encoding="utf-8")
+    )
     assert data["status"] == "ok"
     assert data["timestamp"] == "2024-05-06T07:08:09+00:00"
 
@@ -531,14 +559,18 @@ def test_build_pr_body_lists_changes(tmp_path: Path) -> None:
     assert "case: tolerance" in body
 
 
-def test_main_exits_clean_when_pytest_succeeds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_exits_clean_when_pytest_succeeds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     report = tmp_path / ci_cosmetic_repair.DEFAULT_REPORT
     report.write_text("<testsuite/>", encoding="utf-8")
 
     monkeypatch.setattr(
         ci_cosmetic_repair,
         "run_pytest",
-        lambda path, args: subprocess.CompletedProcess(["pytest"], 0, stdout="", stderr=""),
+        lambda path, args: subprocess.CompletedProcess(
+            ["pytest"], 0, stdout="", stderr=""
+        ),
     )
     recorded: list[dict[str, object]] = []
 
@@ -553,11 +585,15 @@ def test_main_exits_clean_when_pytest_succeeds(monkeypatch: pytest.MonkeyPatch, 
     assert recorded[-1]["status"] == "clean"
 
 
-def test_main_requires_report_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_requires_report_when_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         ci_cosmetic_repair,
         "run_pytest",
-        lambda path, args: subprocess.CompletedProcess(["pytest"], 1, stdout="", stderr=""),
+        lambda path, args: subprocess.CompletedProcess(
+            ["pytest"], 1, stdout="", stderr=""
+        ),
     )
 
     with pytest.raises(ci_cosmetic_repair.CosmeticRepairError):
@@ -573,7 +609,9 @@ def test_main_errors_when_pytest_failed_without_instructions(
     monkeypatch.setattr(
         ci_cosmetic_repair,
         "run_pytest",
-        lambda path, args: subprocess.CompletedProcess(["pytest"], 1, stdout="", stderr=""),
+        lambda path, args: subprocess.CompletedProcess(
+            ["pytest"], 1, stdout="", stderr=""
+        ),
     )
     monkeypatch.setattr(ci_cosmetic_repair, "load_failure_records", lambda path: [])
     monkeypatch.setattr(ci_cosmetic_repair, "collect_instructions", lambda records: [])
@@ -591,7 +629,9 @@ def test_main_errors_when_pytest_failed_without_instructions(
     assert recorded[-1]["status"] == "error"
 
 
-def test_main_handles_missing_instructions_without_pytest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_handles_missing_instructions_without_pytest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     report = tmp_path / "custom.xml"
     report.write_text("<testsuite/>", encoding="utf-8")
 
@@ -613,7 +653,9 @@ def test_main_handles_missing_instructions_without_pytest(monkeypatch: pytest.Mo
     assert recorded[-1]["status"] == "clean"
 
 
-def test_main_creates_pr_when_requested(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_creates_pr_when_requested(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     report = tmp_path / ci_cosmetic_repair.DEFAULT_REPORT
     report.write_text("<testsuite/>", encoding="utf-8")
 
@@ -630,7 +672,9 @@ def test_main_creates_pr_when_requested(monkeypatch: pytest.MonkeyPatch, tmp_pat
     monkeypatch.setattr(
         ci_cosmetic_repair,
         "run_pytest",
-        lambda path, args: subprocess.CompletedProcess(["pytest"], 1, stdout="", stderr=""),
+        lambda path, args: subprocess.CompletedProcess(
+            ["pytest"], 1, stdout="", stderr=""
+        ),
     )
     monkeypatch.setattr(
         ci_cosmetic_repair,
