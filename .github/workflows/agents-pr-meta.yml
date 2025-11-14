@@ -77,20 +77,12 @@ jobs:
         ${{
           steps.pre_gate.outputs.ok == 'true'
           && steps.detect.outputs.dispatch == 'true'
-          && steps.select_token.outputs.allowed != 'false'
-          && steps.activation_lock.outputs.status != 'lock-held'
-          && steps.dispatch_orchestrator.outputs.ok == 'true'
-          && steps.confirm_dispatch.outputs.confirmed == 'true'
           && 'true'
           || 'false'
         }}
       reason: >-
         ${{
-          steps.confirm_dispatch.outputs.reason
-          || steps.dispatch_orchestrator.outputs.reason
-          || steps.activation_lock.outputs.reason
-          || steps.select_token.outputs.reason
-          || steps.detect.outputs.reason
+          steps.detect.outputs.reason
           || steps.pre_gate.outputs.reason
         }}
       issue: ${{ steps.detect.outputs.issue }}
@@ -105,6 +97,7 @@ jobs:
       processed_reaction: ${{ steps.detect.outputs.processed_reaction }}
       deduped: ${{ steps.detect.outputs.deduped }}
       gate_reason: ${{ steps.pre_gate.outputs.reason }}
+      gate_ok: ${{ steps.pre_gate.outputs.ok }}
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       has_human_activation: ${{ steps.pre_gate.outputs.has_human_activation }}
       has_keepalive_label: ${{ steps.pre_gate.outputs.has_keepalive_label }}
@@ -120,9 +113,6 @@ jobs:
       instruction_body: ${{ steps.detect.outputs.instruction_body }}
       instruction_bytes: ${{ steps.detect.outputs.instruction_bytes }}
       head_sha: ${{ steps.pre_gate.outputs.head_sha }}
-      token_source: ${{ steps.select_token.outputs.token_source }}
-      token_login: ${{ steps.identify_token.outputs.login }}
-      dispatch_run_id: ${{ steps.confirm_dispatch.outputs.run_id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -281,9 +271,22 @@ jobs:
         run: |
           echo "Keepalive dispatch skipped: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}"
 
+  keepalive_orchestrator:
+    needs:
+      - keepalive_dispatch
+    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+    name: Dispatch keepalive orchestrator
+    concurrency:
+      group: >-
+        ${{ format('pr-meta-keepalive-orchestrator-{0}', needs.keepalive_dispatch.outputs.pr || github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Select keepalive dispatch token
         id: select_token
-        if: steps.pre_gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
         env:
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
@@ -327,12 +330,12 @@ jobs:
 
       - name: Acquire activation lock
         id: activation_lock
-        if: steps.select_token.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true'
+        if: steps.select_token.outputs.allowed == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
-            const rawCommentId = '${{ steps.detect.outputs.comment_id || github.event.comment.id || '' }}';
+            const rawCommentId = '${{ needs.keepalive_dispatch.outputs.comment_id || github.event.comment.id || '' }}';
             const commentId = Number(rawCommentId);
             if (!Number.isFinite(commentId) || commentId <= 0) {
               core.setOutput('status', 'missing');
@@ -365,10 +368,10 @@ jobs:
 
       - name: Snapshot orchestrator runs
         id: snapshot_runs
-        if: steps.select_token.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true' && steps.activation_lock.outputs.status != 'lock-held'
+        if: steps.select_token.outputs.allowed == 'true' && steps.activation_lock.outputs.status != 'lock-held'
         env:
-          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || github.event.issue.number || '' }}
-          TRACE: ${{ steps.detect.outputs.trace || '' }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace || '' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
@@ -393,16 +396,16 @@ jobs:
 
       - name: Dispatch Agents 70 run for keepalive
         id: dispatch_orchestrator
-        if: steps.select_token.outputs.allowed == 'true' && steps.detect.outputs.dispatch == 'true' && steps.activation_lock.outputs.status != 'lock-held'
+        if: steps.select_token.outputs.allowed == 'true' && steps.activation_lock.outputs.status != 'lock-held'
         uses: actions/github-script@v7
         env:
-          ISSUE: ${{ steps.detect.outputs.issue }}
-          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || github.event.issue.number || '' }}
-          BRANCH: ${{ steps.detect.outputs.branch }}
-          BASE: ${{ steps.detect.outputs.base }}
-          ROUND: ${{ steps.detect.outputs.round }}
-          TRACE: ${{ steps.detect.outputs.trace }}
-          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
+          ISSUE: ${{ needs.keepalive_dispatch.outputs.issue }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          BRANCH: ${{ needs.keepalive_dispatch.outputs.branch }}
+          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
           github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -471,8 +474,8 @@ jobs:
         if: steps.dispatch_orchestrator.outputs.ok == 'true'
         env:
           BASELINE_IDS: ${{ steps.snapshot_runs.outputs.ids }}
-          PR_NUMBER: ${{ steps.snapshot_runs.outputs.pr || steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || github.event.issue.number || '' }}
-          TRACE: ${{ steps.snapshot_runs.outputs.trace || steps.detect.outputs.trace || '' }}
+          PR_NUMBER: ${{ steps.snapshot_runs.outputs.pr || needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}
+          TRACE: ${{ steps.snapshot_runs.outputs.trace || needs.keepalive_dispatch.outputs.trace || '' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
@@ -566,20 +569,20 @@ jobs:
         if: steps.confirm_dispatch.outputs.confirmed == 'true'
         uses: actions/github-script@v7
         env:
-          BASE: ${{ steps.detect.outputs.base }}
-          HEAD: ${{ steps.detect.outputs.branch }}
-          ROUND: ${{ steps.detect.outputs.round }}
-          TRACE: ${{ steps.detect.outputs.trace }}
-          COMMENT_ID: ${{ steps.detect.outputs.comment_id }}
-          COMMENT_URL: ${{ steps.detect.outputs.comment_url }}
-          AGENT_ALIAS: ${{ steps.pre_gate.outputs.agent_alias }}
-          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
+          BASE: ${{ needs.keepalive_dispatch.outputs.base }}
+          HEAD: ${{ needs.keepalive_dispatch.outputs.branch }}
+          ROUND: ${{ needs.keepalive_dispatch.outputs.round }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace }}
+          COMMENT_ID: ${{ needs.keepalive_dispatch.outputs.comment_id }}
+          COMMENT_URL: ${{ needs.keepalive_dispatch.outputs.comment_url }}
+          AGENT_ALIAS: ${{ needs.keepalive_dispatch.outputs.agent_alias }}
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
           github-token: ${{ steps.select_token.outputs.token_source == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
 
-            const prNumber = Number('${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number }}');
+            const prNumber = Number('${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number || '' }}');
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.setFailed('Unable to determine pull request number for keepalive dispatch.');
               return;
@@ -653,38 +656,34 @@ jobs:
           PATH_LABEL: comment
           DISPATCH: >-
             ${{
-              steps.pre_gate.outputs.ok == 'true'
-              && steps.detect.outputs.dispatch == 'true'
-              && steps.select_token.outputs.allowed != 'false'
+              steps.select_token.outputs.allowed != 'false'
               && steps.activation_lock.outputs.status != 'lock-held'
               && steps.dispatch_orchestrator.outputs.ok == 'true'
               && steps.confirm_dispatch.outputs.confirmed == 'true'
               && 'true'
               || 'false'
             }}
-          TRACE: ${{ steps.detect.outputs.trace || '-' }}
-          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.pre_gate.outputs.pr_number || github.event.issue.number }}
-          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || github.event.comment.id || '' }}
+          TRACE: ${{ needs.keepalive_dispatch.outputs.trace || '-' }}
+          PR_NUMBER: ${{ needs.keepalive_dispatch.outputs.pr || github.event.issue.number }}
+          ACTIVATION_ID: ${{ needs.keepalive_dispatch.outputs.comment_id || github.event.comment.id || '' }}
           DISPATCH_REASON: >-
             ${{
               steps.confirm_dispatch.outputs.reason
               || steps.dispatch_orchestrator.outputs.reason
               || steps.activation_lock.outputs.reason
               || steps.select_token.outputs.reason
-              || steps.detect.outputs.reason
-              || steps.pre_gate.outputs.reason
+              || needs.keepalive_dispatch.outputs.reason
               || ''
             }}
-          DISPATCH_AGENT: ${{ steps.pre_gate.outputs.agent_alias || 'codex' }}
-          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
-          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '0' }}
-          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || steps.pre_gate.outputs.cap || '' }}
-          GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
-          GATE_REASON: ${{ steps.pre_gate.outputs.reason || '' }}
+          DISPATCH_AGENT: ${{ needs.keepalive_dispatch.outputs.agent_alias || 'codex' }}
+          HEAD_SHA: ${{ needs.keepalive_dispatch.outputs.head_sha || '' }}
+          ACTIVE_RUNS: ${{ needs.keepalive_dispatch.outputs.active_runs || '0' }}
+          RUN_CAP: ${{ needs.keepalive_dispatch.outputs.run_cap || '' }}
+          GATE_OK: ${{ needs.keepalive_dispatch.outputs.gate_ok || 'false' }}
+          GATE_REASON: ${{ needs.keepalive_dispatch.outputs.gate_reason || '' }}
         run: |
           set -euo pipefail
 
-          # Ensure shellcheck observes explicit assignments for env-scoped gate vars.
           GATE_OK="${GATE_OK:-}"
           GATE_REASON="${GATE_REASON:-}"
 
@@ -706,26 +705,26 @@ jobs:
             esac
           }
 
-            normalise_reason() {
-              local raw
-              raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
-              case "${raw}" in
-                ok|success) printf 'ok' ;;
-                forbidden-token) printf 'forbidden-token' ;;
-                lock-held) printf 'lock-held' ;;
-                dispatch-unconfirmed|dispatch-error) printf 'dispatch-unconfirmed' ;;
-                cap-reached|run-cap-reached) printf 'cap-reached' ;;
-                no-activation-found|missing-activation-comment|invalid-activation-comment) printf 'no-activation-found' ;;
-                instruction-empty|instruction-missing|instruction-parse-failed|missing-trace|missing-sentinel|missing-round|invalid-round|missing-comment-id|instruction-reaction-failed|missing-instruction-reaction|automation-comment) printf 'instruction-empty' ;;
-                gate-pending|gate-not-concluded|gate-blocked:gate-pending|gate-blocked:pending|gate-blocked:gate-not-concluded) printf 'gate-pending' ;;
-                gate-failed|gate-not-success|gate-run-missing|sync-required|gate-error|ignored-comment-action|unsupported-event|pull-fetch-failed|fork-pr|gate-blocked|gate-blocked:gate-run-missing|gate-blocked:gate-not-success|gate-blocked:sync-required|gate-blocked:gate-error|gate-blocked:gate-failed) printf 'gate-failed' ;;
-                no-human-activation|unauthorised-author) printf 'no-human-activation' ;;
-                missing-keepalive-label|keepalive-label-missing|missing-label) printf 'missing-label' ;;
-                no-linked-pr|missing-pr-number|missing-pr|missing-issue-reference) printf 'no-linked-pr' ;;
-                gate-blocked:*) printf 'gate-failed' ;;
-                *) printf '%s' "${raw:-gate-failed}" ;;
-              esac
-            }
+          normalise_reason() {
+            local raw
+            raw=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+            case "${raw}" in
+              ok|success) printf 'ok' ;;
+              forbidden-token) printf 'forbidden-token' ;;
+              lock-held) printf 'lock-held' ;;
+              dispatch-unconfirmed|dispatch-error) printf 'dispatch-unconfirmed' ;;
+              cap-reached|run-cap-reached) printf 'cap-reached' ;;
+              no-activation-found|missing-activation-comment|invalid-activation-comment) printf 'no-activation-found' ;;
+              instruction-empty|instruction-missing|instruction-parse-failed|missing-trace|missing-sentinel|missing-round|invalid-round|missing-comment-id|instruction-reaction-failed|missing-instruction-reaction|automation-comment) printf 'instruction-empty' ;;
+              gate-pending|gate-not-concluded|gate-blocked:gate-pending|gate-blocked:pending|gate-blocked:gate-not-concluded) printf 'gate-pending' ;;
+              gate-failed|gate-not-success|gate-run-missing|sync-required|gate-error|ignored-comment-action|unsupported-event|pull-fetch-failed|fork-pr|gate-blocked|gate-blocked:gate-run-missing|gate-blocked:gate-not-success|gate-blocked:sync-required|gate-blocked:gate-error|gate-blocked:gate-failed) printf 'gate-failed' ;;
+              no-human-activation|unauthorised-author) printf 'no-human-activation' ;;
+              missing-keepalive-label|keepalive-label-missing|missing-label) printf 'missing-label' ;;
+              no-linked-pr|missing-pr-number|missing-pr|missing-issue-reference) printf 'no-linked-pr' ;;
+              gate-blocked:*) printf 'gate-failed' ;;
+              *) printf '%s' "${raw:-gate-failed}" ;;
+            esac
+          }
 
           pr_value() {
             local raw="${1:-}"
