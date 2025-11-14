@@ -90,29 +90,23 @@ def test_keepalive_sync_update_branch_success() -> None:
     data = _run_scenario("update_branch")
     events = data["events"]
     outputs = data["outputs"]
-    actions = [
-        dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
-    ]
-    assert actions == ["update-branch"]
-    for dispatch in events["dispatches"]:
-        payload = dispatch["client_payload"]
-        assert payload.get("quiet") is True
-        assert payload.get("reply") == "none"
+    assert events["dispatches"] == []
+    assert events["updateBranch"] == [{"pull_number": 402, "expected_head_sha": "sha0"}]
     assert events["labelsRemoved"] == ["agents:sync-required"]
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
     assert other_comments == []
     table = _summary_table(data)
     assert any(
-        row[0] == "Update-branch result" and "Branch advanced" in row[1]
+        row[0] == "Update-branch API result" and "Branch advanced" in row[1]
         for row in table
     )
     assert any(
-        row[0] == "Result" and "mode=dispatch-update-branch" in row[1] for row in table
+        row[0] == "Result" and "mode=api-update-branch" in row[1] for row in table
     )
     assert outputs["action"] == "update-branch"
     assert outputs["changed"] == "true"
-    assert outputs["mode"] == "dispatch-update-branch"
+    assert outputs["mode"] == "api-update-branch"
     assert outputs["success"] == "true"
     assert outputs["status"] == "in_sync"
     assert outputs["link"] == "https://example.test/comment"
@@ -132,27 +126,22 @@ def test_keepalive_sync_create_pr_flow() -> None:
     data = _run_scenario("create_pr")
     events = data["events"]
     outputs = data["outputs"]
-    actions = [
-        dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
-    ]
-    assert actions == ["update-branch", "create-pr"]
-    for dispatch in events["dispatches"]:
-        payload = dispatch["client_payload"]
-        assert payload.get("quiet") is True
-        assert payload.get("reply") == "none"
+    assert len(events["updateBranch"]) == 1
+    assert events["updateBranch"][0]["expected_head_sha"] == "sha0"
+    assert len(events["workflowDispatches"]) == 1
+    dispatch = events["workflowDispatches"][0]
+    assert dispatch["workflow_id"] == "agents-keepalive-branch-sync.yml"
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
     assert other_comments == []
     table = _summary_table(data)
     assert any(
-        row[0] == "Create-pr result" and "Branch advanced" in row[1] for row in table
+        row[0] == "Helper sync result" and "Branch advanced" in row[1] for row in table
     )
-    assert any(
-        row[0] == "Result" and "mode=dispatch-create-pr" in row[1] for row in table
-    )
+    assert any(row[0] == "Result" and "mode=helper-sync" in row[1] for row in table)
     assert outputs["action"] == "create-pr"
     assert outputs["changed"] == "true"
-    assert outputs["mode"] == "dispatch-create-pr"
+    assert outputs["mode"] == "helper-sync"
     assert outputs["success"] == "true"
     assert outputs["status"] == "in_sync"
     assert outputs["link"] == "https://example.test/comment"
@@ -172,19 +161,15 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     data = _run_scenario("escalation")
     events = data["events"]
     outputs = data["outputs"]
-    actions = [
-        dispatch["client_payload"].get("action") for dispatch in events["dispatches"]
-    ]
-    assert actions == ["update-branch", "create-pr"]
-    for dispatch in events["dispatches"]:
-        payload = dispatch["client_payload"]
-        assert payload.get("quiet") is True
-        assert payload.get("reply") == "none"
+    assert len(events["updateBranch"]) == 1
+    assert len(events["workflowDispatches"]) == 1
     assert events["labelsAdded"] == [["agents:sync-required"]]
     state_comments, other_comments = _partition_comments(events)
     assert len(state_comments) == 1
     assert len(other_comments) == 1
-    assert "update-branch/create-pr" in other_comments[0]["body"]
+    assert other_comments[0]["body"].startswith(
+        "Keepalive: manual action needed — click Update Branch"
+    )
     table = _summary_table(data)
     assert any(row[0] == "Result" and "mode=sync-timeout" in row[1] for row in table)
     assert outputs["action"] == "escalate"

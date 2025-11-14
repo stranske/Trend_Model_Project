@@ -2207,7 +2207,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
+      contents: write
       pull-requests: write
     outputs:
       action: ${{ steps.reconcile.outputs.action || '' }}
@@ -2215,6 +2215,11 @@ jobs:
       mode: ${{ steps.reconcile.outputs.mode || '' }}
       merged_sha: ${{ steps.reconcile.outputs.merged_sha || '' }}
       success: ${{ steps.reconcile.outputs.success || '' }}
+      status: ${{ steps.reconcile.outputs.status || '' }}
+      status_head: ${{ steps.reconcile.outputs.status_head || '' }}
+      status_base: ${{ steps.reconcile.outputs.status_base || '' }}
+      status_mode: ${{ steps.reconcile.outputs.status_mode || '' }}
+      link: ${{ steps.reconcile.outputs.link || '-' }}
     steps:
       - name: Ensure keepalive sync token available
         env:
@@ -2923,6 +2928,7 @@ jobs:
           TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || needs.resolve-params.outputs.keepalive_trace || '' }}
           ACTION: ${{ needs.keepalive-post-work.outputs.action || '' }}
           CHANGED: ${{ needs.keepalive-post-work.outputs.changed || 'false' }}
+          LINK: ${{ needs.keepalive-post-work.outputs.link || '-' }}
         run: |
           set -euo pipefail
           trace="${TRACE:-}"
@@ -2937,7 +2943,11 @@ jobs:
           if [ "${CHANGED}" = 'true' ]; then
             head_changed='true'
           fi
-          printf 'SYNC: action=%s head_changed=%s trace=%s\n' "${action}" "${head_changed}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            link="${LINK:-}"
+            if [ -z "${link}" ]; then
+              link='-'
+            fi
+            printf 'SYNC: action=%s head_changed=%s link=%s trace=%s\n' "${action}" "${head_changed}" "${link}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Record existing PR guard outcome
         if: needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true'
