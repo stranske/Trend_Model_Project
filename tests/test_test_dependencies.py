@@ -11,6 +11,7 @@ import importlib
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -140,17 +141,37 @@ class TestDependencies:
                 "Install uv: https://github.com/astral-sh/uv"
             )
 
-    def test_requirements_file_exists(self) -> None:
-        """Verify requirements.txt exists and is readable."""
+    def test_dev_extra_contains_test_tools(self) -> None:
+        """Ensure the dev extra declares core testing dependencies."""
         repo_root = Path(__file__).resolve().parents[1]
-        req_file = repo_root / "requirements.txt"
-        assert req_file.exists(), "requirements.txt not found"
-        assert req_file.is_file(), "requirements.txt is not a file"
+        pyproject = tomllib.loads(
+            (repo_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        operators = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
+        dev_deps = set()
 
-        # Ensure it's not empty
-        content = req_file.read_text()
-        assert content.strip(), "requirements.txt is empty"
-        assert "pytest" in content.lower(), "requirements.txt should include pytest"
+        for entry in pyproject["project"].get("dependencies", []):
+            package = entry.split(";")[0].strip()
+            for operator in operators:
+                if operator in package:
+                    package = package.split(operator, 1)[0].strip()
+                    break
+            dev_deps.add(package.split("[")[0].lower())
+
+        for entry in pyproject["project"]["optional-dependencies"].get("dev", []):
+            package = entry.split(";")[0].strip()
+            for operator in operators:
+                if operator in package:
+                    package = package.split(operator, 1)[0].strip()
+                    break
+            dev_deps.add(package.split("[")[0].lower())
+
+        required = {"pytest", "coverage", "hypothesis"}
+        missing = [dep for dep in required if dep not in dev_deps]
+        assert not missing, (
+            "pyproject.toml missing test tools in [project.optional-dependencies.dev]: "
+            + ", ".join(missing)
+        )
 
     def test_pytest_plugins_available(self) -> None:
         """Verify pytest plugins are installed."""
@@ -226,28 +247,6 @@ class TestDependencies:
         assert not missing, f"Missing Streamlit dependencies: {', '.join(missing)}"
 
 
-def test_requirements_includes_test_tools() -> None:
-    """Verify requirements.txt includes all necessary test tools."""
-    repo_root = Path(__file__).resolve().parents[1]
-    req_file = repo_root / "requirements.txt"
-
-    if not req_file.exists():
-        pytest.skip("requirements.txt not found")
-
-    content = req_file.read_text().lower()
-
-    required_in_file = [
-        "pytest",
-        "coverage",  # or pytest-cov
-        "hypothesis",
-    ]
-
-    missing = []
-    for tool in required_in_file:
-        if tool not in content:
-            missing.append(tool)
-
-    assert not missing, f"requirements.txt missing test tools: {', '.join(missing)}"
 
 
 def test_ci_environment_check() -> None:

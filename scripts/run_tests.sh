@@ -11,7 +11,9 @@ if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
   export TREND_MODEL_SITE_CUSTOMIZE=1
 fi
 
-pip install -r requirements.txt pytest coverage
+pip install uv
+uv pip sync requirements.lock
+pip install --no-deps -e ".[dev]"
 
 # Select coverage profile (defaults to "core" if not provided)
 PROFILE="${COVERAGE_PROFILE:-core}"

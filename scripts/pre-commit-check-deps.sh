@@ -14,9 +14,9 @@ if python scripts/sync_test_dependencies.py --verify 2>&1 | grep -q "undeclared"
     echo "Auto-fixing with: python scripts/sync_test_dependencies.py --fix"
     python scripts/sync_test_dependencies.py --fix
     echo ""
-    echo "✅ Fixed! Please review and stage the changes to requirements.txt"
+    echo "✅ Fixed! Please review and stage the changes to pyproject.toml and requirements.lock"
     echo ""
-    echo "Run: git add requirements.txt"
+    echo "Run: git add pyproject.toml requirements.lock"
     exit 1
 fi
 

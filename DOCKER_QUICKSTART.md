@@ -95,6 +95,7 @@ python -m trend_analysis.run_analysis -c config/demo.yml
    ```bash
    git clone https://github.com/stranske/Trend_Model_Project.git
    cd Trend_Model_Project
+   make lock  # ensure requirements.lock reflects pyproject.toml
    docker build -t trend-model-dev .
    ```
 
@@ -120,6 +121,10 @@ docker run --rm ghcr.io/stranske/trend-model:latest trend-analysis --help
 # Comprehensive test suite
 ./test_docker.sh
 ```
+
+The Dockerfile installs dependencies via `uv pip sync requirements.lock`
+followed by `pip install --no-deps -e .[app]`, so keeping the lock file current
+is essential for reproducible builds.
 
 ## Troubleshooting
 
