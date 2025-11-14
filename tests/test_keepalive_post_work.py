@@ -73,6 +73,11 @@ def test_keepalive_sync_detects_head_change_without_actions() -> None:
     assert outputs["changed"] == "true"
     assert outputs["mode"] == "already-synced"
     assert outputs["success"] == "true"
+    assert outputs["status"] == "in_sync"
+    assert outputs["link"] == "https://example.test/comment"
+    raw_entries = [entry.get("text", "") for entry in data.get("summary", []) if entry.get("type") == "raw"]
+    assert any(text.startswith("SYNC: status=in_sync") for text in raw_entries)
+    assert any(text.startswith("SYNC: action=skip") and "link=" in text for text in raw_entries)
 
 
 def test_keepalive_sync_update_branch_success() -> None:
@@ -103,6 +108,11 @@ def test_keepalive_sync_update_branch_success() -> None:
     assert outputs["changed"] == "true"
     assert outputs["mode"] == "dispatch-update-branch"
     assert outputs["success"] == "true"
+    assert outputs["status"] == "in_sync"
+    assert outputs["link"] == "https://example.test/comment"
+    raw_entries = [entry.get("text", "") for entry in data.get("summary", []) if entry.get("type") == "raw"]
+    assert any(text.startswith("SYNC: status=in_sync") for text in raw_entries)
+    assert any(text.startswith("SYNC: action=update-branch") and "link=" in text for text in raw_entries)
 
 
 def test_keepalive_sync_create_pr_flow() -> None:
@@ -131,6 +141,11 @@ def test_keepalive_sync_create_pr_flow() -> None:
     assert outputs["changed"] == "true"
     assert outputs["mode"] == "dispatch-create-pr"
     assert outputs["success"] == "true"
+    assert outputs["status"] == "in_sync"
+    assert outputs["link"] == "https://example.test/comment"
+    raw_entries = [entry.get("text", "") for entry in data.get("summary", []) if entry.get("type") == "raw"]
+    assert any(text.startswith("SYNC: status=in_sync") for text in raw_entries)
+    assert any(text.startswith("SYNC: action=create-pr") and "link=" in text for text in raw_entries)
 
 
 def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
@@ -156,3 +171,8 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     assert outputs["changed"] == "false"
     assert outputs["mode"] == "sync-timeout"
     assert outputs["success"] == "false"
+    assert outputs["status"] == "needs_update"
+    assert outputs["link"] == "https://example.test/comment"
+    raw_entries = [entry.get("text", "") for entry in data.get("summary", []) if entry.get("type") == "raw"]
+    assert any(text.startswith("SYNC: status=needs_update") for text in raw_entries)
+    assert any(text.startswith("SYNC: action=escalate") and "link=" in text for text in raw_entries)
