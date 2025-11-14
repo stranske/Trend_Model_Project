@@ -955,7 +955,7 @@ jobs:
               if (!Number.isFinite(parsed) || parsed <= 0) {
                 return 1;
               }
-              return Math.max(1, Math.min(parsed, 5));
+              return Math.min(parsed, 5);
             })();
 
             if (!enableKeepalive) {
