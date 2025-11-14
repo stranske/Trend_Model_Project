@@ -1,5 +1,9 @@
 name: Agents 70 Orchestrator
 
+env:
+  ORCHESTRATOR_HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].head.sha || '' }}
+  ORCHESTRATOR_CHECKOUT_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].head.sha || github.sha }}
+
 on:
   schedule:
     - cron: '*/20 * * * *'
@@ -25,7 +29,7 @@ on:
         description: 'Optional pull request number when targeting a specific branch.'
         required: false
   workflow_run:
-    workflows: [Gate]
+    workflows: [Gate, 'Dummy (fast-pass) gate']
     types: [completed]
   repository_dispatch:
     types:
@@ -267,6 +271,7 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -356,6 +361,7 @@ jobs:
       - name: Checkout guard helpers
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -885,6 +891,7 @@ jobs:
       - name: Checkout run cap helpers
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -942,6 +949,57 @@ jobs:
           PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
           CAP: ${{ steps.cap.outputs.cap || '' }}
           ACTIVE: ${{ steps.cap.outputs.active || '' }}
+
+
+  keepalive-secrets:
+    name: Keepalive secrets preflight
+    needs:
+      - resolve-params
+      - keepalive-guard
+    if: needs.keepalive-guard.outputs.proceed != 'false' && needs.resolve-params.outputs.enable_keepalive == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      write_token_source: ${{ steps.choose.outputs.source || '' }}
+      write_token_login: ${{ steps.choose.outputs.login || '' }}
+    steps:
+      - name: Select write token
+        id: choose
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          actions_token="${ACTIONS_TOKEN:-}"
+          service_token="${SERVICE_TOKEN:-}"
+
+          if [ -n "${actions_token}" ]; then
+            echo "::add-mask::${actions_token}"
+            echo "WRITE_TOKEN=${actions_token}" >>"$GITHUB_ENV"
+            echo "WRITE_TOKEN_SOURCE=ACTIONS_BOT_PAT" >>"$GITHUB_ENV"
+            echo "source=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "login=stranske" >>"$GITHUB_OUTPUT"
+          elif [ -n "${service_token}" ]; then
+            echo "::add-mask::${service_token}"
+            echo "WRITE_TOKEN=${service_token}" >>"$GITHUB_ENV"
+            echo "WRITE_TOKEN_SOURCE=SERVICE_BOT_PAT" >>"$GITHUB_ENV"
+            echo "source=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
+            echo "login=stranske-automation-bot" >>"$GITHUB_OUTPUT"
+          else
+            echo '::error::Keepalive requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
+            exit 1
+          fi
+
+      - name: Record secrets preflight summary
+        if: always()
+        env:
+          TOKEN_SOURCE: ${{ steps.choose.outputs.source || '' }}
+        run: |
+          set -euo pipefail
+          source="${TOKEN_SOURCE:-}"
+          if [ -z "${source}" ]; then
+            source='none'
+          fi
+          printf 'PREPOST: token=%s\n' "${source}" >>"$GITHUB_STEP_SUMMARY"
 
 
   resolve-orchestrator-context:
@@ -1072,6 +1130,7 @@ jobs:
       - resolve-params
       - keepalive-guard
       - keepalive-cap
+      - keepalive-secrets
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.resolve-params.outputs.enable_keepalive == 'true' &&
@@ -1103,6 +1162,7 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
             scripts/keepalive_instruction_segment.js
@@ -1119,6 +1179,8 @@ jobs:
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
           AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
+          AUTHOR_TOKEN_SOURCE: ${{ needs.keepalive-secrets.outputs.write_token_source }}
+          AUTHOR_LOGIN: ${{ needs.keepalive-secrets.outputs.write_token_login }}
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
@@ -1781,9 +1843,11 @@ jobs:
       - resolve-params
       - belt-dispatch
       - keepalive-guard
+      - keepalive-cap
       - belt-check-existing-pr
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
+      (needs.resolve-params.outputs.enable_keepalive != 'true' || needs.keepalive-cap.outputs.ok == 'true') &&
       needs.resolve-params.outputs.worker_max_parallel != '0' &&
       needs.belt-dispatch.outputs.issue != ''
       && (
@@ -1797,7 +1861,7 @@ jobs:
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
-      max_parallel: ${{ fromJson(needs.resolve-params.outputs.worker_max_parallel || '1') }}
+      max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.limit || needs.resolve-params.outputs.worker_max_parallel || '2') }}
       keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
@@ -2113,6 +2177,7 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -2152,12 +2217,34 @@ jobs:
             const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
             await runKeepalivePostWork({ core, github, context, env: process.env });
 
+      - name: Record branch-sync observability line
+        if: always()
+        env:
+          ACTION: ${{ steps.reconcile.outputs.action || '' }}
+          CHANGED: ${{ steps.reconcile.outputs.changed || '' }}
+          TRACE: ${{ needs.keepalive-prep.outputs.trace || '' }}
+        run: |
+          set -euo pipefail
+          action="${ACTION:-skip}"
+          changed="${CHANGED:-false}"
+          trace="${TRACE:-}"
+          if [ -z "${trace}" ]; then
+            trace='n/a'
+          fi
+          head_changed='false'
+          if [ "${changed}" = 'true' ]; then
+            head_changed='true'
+          fi
+          printf 'SYNC: action=%s head_changed=%s trace=%s\n' \
+            "${action}" "${head_changed}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+
   keepalive-instruction:
     name: Post keepalive instruction
     needs:
       - resolve-params
       - keepalive-guard
       - keepalive-cap
+      - keepalive-secrets
       - keepalive-prep
       - keepalive-post-work
     if: |
@@ -2267,10 +2354,9 @@ jobs:
       - name: Ensure keepalive token available
         if: steps.gate.outputs.should_post == 'true'
         env:
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+          TOKEN_SOURCE: ${{ needs.keepalive-secrets.outputs.write_token_source }}
         run: |
-          if [ -z "${ACTIONS_TOKEN}" ] && [ -z "${SERVICE_TOKEN}" ]; then
+          if [ -z "${TOKEN_SOURCE:-}" ]; then
             echo "::error::Keepalive instruction comments require ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
             exit 1
           fi
@@ -2289,14 +2375,13 @@ jobs:
         if: steps.gate.outputs.should_post == 'true'
         shell: bash
         env:
-          HAS_ACTIONS_PAT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-          HAS_SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          TOKEN_SOURCE: ${{ needs.keepalive-secrets.outputs.write_token_source }}
         run: |
           set -euo pipefail
-          if [ "${HAS_ACTIONS_PAT}" = "true" ]; then
+          if [ "${TOKEN_SOURCE}" = 'ACTIONS_BOT_PAT' ]; then
             echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske" >>"$GITHUB_OUTPUT"
-          elif [ "${HAS_SERVICE_PAT}" = "true" ]; then
+          elif [ "${TOKEN_SOURCE}" = 'SERVICE_BOT_PAT' ]; then
             echo "token=SERVICE_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske-automation-bot" >>"$GITHUB_OUTPUT"
           else
@@ -2719,7 +2804,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Emit keepalive sync fallback line
-        if: needs.keepalive-post-work.outputs.action == ''
+        if: needs.keepalive-post-work.result != 'success' && needs.keepalive-post-work.outputs.action == ''
         env:
           TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || '' }}
         run: |
@@ -2750,6 +2835,7 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -2824,8 +2910,21 @@ jobs:
             const lastInstructionId = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_ID);
             const lastInstructionHead = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_HEAD);
 
+            const workerAction = keepaliveAction || (workerResult.toLowerCase() === 'skipped' ? 'skip' : 'execute');
+            const workerReason = keepaliveReason || (workerAction === 'skip'
+              ? 'no-new-instruction-and-head-unchanged'
+              : 'new-instruction');
+            const prLabel = Number.isFinite(prNumber) && prNumber > 0 ? `#${prNumber}` : '#?';
+            const headLabel = headSha
+              ? headSha.slice(0, 7)
+              : (lastInstructionHead ? lastInstructionHead.slice(0, 7) : 'unknown');
+            const instrLabel = lastInstructionId || 'none';
+            const traceLabel = trace || 'n/a';
+
             const summary = core.summary;
             summary
+              .addRaw(`WORKER: action=${workerAction} reason=${workerReason} pr=${prLabel} head=${headLabel} instr=${instrLabel} trace=${traceLabel}`)
+              .addEOL()
               .addHeading('Keepalive worker outcome')
               .addTable([
                 [
@@ -2944,6 +3043,7 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.ORCHESTRATOR_CHECKOUT_REF }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
