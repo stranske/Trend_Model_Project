@@ -301,17 +301,10 @@ jobs:
             if (context.eventName === 'schedule' && ref && ref !== expectedRef) {
               core.setFailed(`Scheduled orchestrator runs must execute from ${expectedRef}, but received ${ref}.`);
             }
-      - name: Checkout workflow_run PR head snapshot
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.sha || github.event.workflow_run.head_sha }}
-          path: pr-head
-          fetch-depth: 2
-      # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.sha || github.event.workflow_run.head_sha) || github.sha }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -925,7 +918,7 @@ jobs:
       ok: ${{ steps.cap.outputs.ok || 'false' }}
       reason: ${{ steps.cap.outputs.reason || '' }}
       active: ${{ steps.cap.outputs.active || '' }}
-      limit: ${{ steps.cap.outputs.cap || '' }}
+      cap: ${{ steps.cap.outputs.cap || '' }}
     steps:
       - name: Checkout run cap helpers
         uses: actions/checkout@v4
@@ -1858,7 +1851,7 @@ jobs:
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.keepalive-cap.outputs.ok == 'true' &&
-      needs.keepalive-cap.outputs.limit != '0' &&
+      needs.keepalive-cap.outputs.cap != '0' &&
       needs.belt-dispatch.outputs.issue != ''
       && (
         needs.belt-check-existing-pr.outputs.pr_exists != 'true' ||
@@ -1871,7 +1864,7 @@ jobs:
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
       dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
-      max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.limit || '1') }}
+      max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.cap || '1') }}
       keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
@@ -2357,6 +2350,12 @@ jobs:
         run: |
           set -euo pipefail
           token="${PREFLIGHT_TOKEN}"
+          if [ -z "${token}" ]; then
+            echo "token=" >>"$GITHUB_OUTPUT"
+            echo "author=" >>"$GITHUB_OUTPUT"
+            echo "::error::Token preflight did not provide a keepalive author token." >&2
+            exit 1
+          fi
           if [ "${token}" = 'ACTIONS_BOT_PAT' ]; then
             echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske" >>"$GITHUB_OUTPUT"
