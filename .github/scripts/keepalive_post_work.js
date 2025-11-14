@@ -744,7 +744,7 @@ async function attemptUpdateBranchViaApi({
       initialSha: baselineHead,
       timeoutMs: pollTimeoutMs,
       intervalMs: pollIntervalMs,
-      label: 'api-update-branch',
+      label: 'update-branch-api',
       core,
     });
   } catch (error) {
@@ -754,9 +754,9 @@ async function attemptUpdateBranchViaApi({
   }
 
   if (pollResult?.changed) {
-    record('Update-branch API result', appendRound(`Branch advanced to ${pollResult.headSha || '(unknown)'}.`));
+    record('Update-branch API', appendRound(`head advanced to ${pollResult.headSha || '(unknown)'}.`));
   } else {
-    record('Update-branch API result', appendRound('Branch unchanged after updateBranch wait.'));
+    record('Update-branch API', appendRound('head unchanged after updateBranch wait.'));
   }
 
   return {
@@ -1471,6 +1471,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   let success = false;
   let finalHead = initialHead;
   let mode = 'none';
+  let apiResult = null;
 
   const shortPoll = await pollForHeadChange({
     fetchHead,
@@ -1514,7 +1515,78 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   if (!success) {
-    const apiResult = await attemptUpdateBranchViaApi({
+    apiResult = await attemptUpdateBranchViaApi({
+      github,
+      owner,
+      repo,
+      prNumber,
+      baselineHead,
+      fetchHead,
+      pollTimeoutMs: ttlShort,
+      pollIntervalMs: pollShort,
+      core,
+      record,
+      appendRound,
+    });
+    if (apiResult?.changed) {
+      success = true;
+      finalHead = apiResult.headSha || finalHead;
+      baselineHead = finalHead;
+      mode = 'update-branch-api';
+      finalAction = 'update-branch';
+      setStatus('in_sync');
+      setStatusHead(finalHead);
+      if (prConversationUrl) {
+        updateSyncLink(prConversationUrl, { prefer: syncLink === '-' });
+      }
+    } else if (apiResult?.attempted && prConversationUrl) {
+      updateSyncLink(prConversationUrl, { prefer: syncLink === '-' });
+    }
+  }
+
+  if (!success) {
+    await attemptCommand('update-branch', 'Update-branch');
+  }
+
+  if (!success) {
+    await attemptCommand('create-pr', 'Create-pr');
+  }
+
+  if (!success) {
+    const dispatchInfo = state.fallback_dispatch?.dispatched
+      ? { dispatched: true, status: state.fallback_dispatch.status, dispatchedAt: state.fallback_dispatch.dispatched_at }
+      : await dispatchFallbackWorkflow({
+          github,
+          owner,
+          repo,
+          baseRef,
+          dispatchRef: baseRef || context.payload?.repository?.default_branch,
+          prNumber,
+          headRef: headBranch,
+          headSha: baselineHead || initialHead,
+          trace,
+          round,
+          agentAlias,
+          commentInfo,
+          idempotencyKey,
+          record,
+        });
+
+    if (dispatchInfo.dispatched && !state.fallback_dispatch?.dispatched) {
+      await applyStateUpdate({
+        fallback_dispatch: {
+          dispatched: true,
+          status: dispatchInfo.status ?? 0,
+          dispatched_at: dispatchInfo.dispatchedAt,
+          workflow: 'agents-keepalive-branch-sync.yml',
+        },
+      });
+    } else if (dispatchInfo.dispatched) {
+      record('Fallback dispatch', appendRound('reuse previous dispatch record.'));
+    }
+
+    const existingRunId = state.fallback_dispatch?.run_id;
+    const runInfo = await findFallbackRun({
       github,
       owner,
       repo,
@@ -1642,7 +1714,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     updateSyncLink(escalationRecord.comment_url, { prefer: true });
     record('Escalation comment', appendRound('Reusing previous escalation comment.'));
   } else {
-    const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR: ${manualActionLink}`;
+    const escalationMessage = `Keepalive: manual action needed — use update-branch/create-pr controls (click Update Branch or open Create PR) at: ${manualActionLink}`;
     try {
       const { data: escalationComment } = await github.rest.issues.createComment({
         owner,

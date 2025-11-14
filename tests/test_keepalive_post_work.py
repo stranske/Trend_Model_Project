@@ -98,15 +98,14 @@ def test_keepalive_sync_update_branch_success() -> None:
     assert other_comments == []
     table = _summary_table(data)
     assert any(
-        row[0] == "Update-branch API result" and "Branch advanced" in row[1]
-        for row in table
+        row[0] == "Update-branch API" and "advanced to" in row[1] for row in table
     )
     assert any(
-        row[0] == "Result" and "mode=api-update-branch" in row[1] for row in table
+        row[0] == "Result" and "mode=update-branch-api" in row[1] for row in table
     )
     assert outputs["action"] == "update-branch"
     assert outputs["changed"] == "true"
-    assert outputs["mode"] == "api-update-branch"
+    assert outputs["mode"] == "update-branch-api"
     assert outputs["success"] == "true"
     assert outputs["status"] == "in_sync"
     assert outputs["link"] == "https://example.test/comment"
@@ -168,7 +167,7 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
     assert len(state_comments) == 1
     assert len(other_comments) == 1
     assert other_comments[0]["body"].startswith(
-        "Keepalive: manual action needed — click Update Branch"
+        "Keepalive: manual action needed — use update-branch/create-pr controls"
     )
     table = _summary_table(data)
     assert any(row[0] == "Result" and "mode=sync-timeout" in row[1] for row in table)
