@@ -1,233 +1,349 @@
-1. Keepalive PR‑meta: refuse GITHUB_TOKEN, prove Orchestrator dispatch, enforce cap at dispatch edge, Gate activation fallback, and mandatory DISPATCH/GATE summaries
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
+1. Consolidate dependency management: make pyproject.toml the single source of truth and generate one lock
+Labels: from:codex, agent:codex, dependencies, config, docs, devops, enhancement
 
 Why
-Meta often “succeeds” while Orchestrator never starts. We must (a) use a real PAT for dispatch, (b) prove that an Orchestrator run was created, (c) enforce run‑cap at the dispatch edge, (d) never silently skip Gate replay when the script didn’t provide activation_comment, and (e) always emit one‑line decisions to the job summary.
+Multiple dependency files (pyproject.toml, requirements.txt, requirements.lock) create drift and reproducibility risk. A single authoritative source plus a generated lock keeps environments consistent without ceremony.
 
 Scope
-- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
+- Keep pyproject.toml as the authoritative dependency list.
+- Generate a single, pinned lock file via either pip-compile or uv pip compile (pick one).
+- Remove duplicate inputs (keep only pyproject.toml + one lock).
+- Update DEPENDENCY_QUICKSTART.md and DOCKER_QUICKSTART.md to the new flow.
 
-- Edit .github/workflows/agents-pr-meta.yml only. No orchestrator changes in this issue.
-
-Non‑Goals
-
-No change to acceptance text, run‑cap default value, connector payload, or moderation.
-
-No branch‑sync changes (that’s Issue 3).
+Non-Goals
+- Switching to Poetry/PDM.
+- Refactoring import paths.
 
 Tasks
-
-- Token policy & proof
-
-  - If github.token (GITHUB_TOKEN) would be used for dispatch, fail with reason=forbidden-token.
-
-  - Require a PAT (ACTION_BOT_PAT or SERVICE_BOT_PAT) and call GET /user to print TOKEN_IDENTITY:.
-
-  - After workflow_dispatch, poll GET /actions/workflows/<id>/runs?event=workflow_dispatch and assert a new run exists with your correlation (PR number / trace). If not found within N short polls, fail with reason=dispatch-unconfirmed.
-
-- Cap at dispatch edge
-
-  - Compute active = count(orchestrator runs in {queued,in_progress} for this PR); cap = label('agents:max-runs') || 2 (clamp 1..5).
-
-  - If active ≥ cap → do not dispatch; set reason=cap-reached.
-
-- Gate activation fallback
-
-  - If steps.gate.outputs.activation_comment == '', list PR comments and choose the most recent human @agent comment (exclude keepalive comments by checking hidden markers). If none → reason=no-activation-found.
-
-- Reaction lock
-
-  - Add 🚀 to the activation comment id before dispatch; if present (409) → reason=lock-held.
-
-- Mandatory summaries (Summary tab only)
-
-  - Always write one line:
-    DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|forbidden-token|dispatch-unconfirmed|instruction-empty> pr=#<n> activation=<id|none> agent=<alias> head=<sha7> cap=<active>/<cap> trace=<trace|->
-
-  - Where Gate information is available, also write:
-    GATE: ok=<bool> reason=<code> pr=#<n> head=<sha7>
+- Move any version pins from requirements*.txt into pyproject.toml if missing.
+- Add a `make lock` target that builds the lock with the chosen tool.
+- Delete redundant requirements.txt or requirements.lock after migration; keep the generated lock only.
+- Update Dockerfile to install from pyproject.toml + the lock.
+- Document install flows for: local dev, Docker build, CI.
 
 Acceptance criteria
-
-- A test PR with a prior human @agent and Gate=success shows DISPATCH path=gate ok=true and an Orchestrator run appears; or it shows an explicit skip reason (e.g., cap-reached).
-
-- Using GITHUB_TOKEN for dispatch fails with reason=forbidden-token; using a PAT prints TOKEN_IDENTITY: and DISPATCH_CONFIRMED:.
-
-- When the gate script doesn’t supply activation_comment, the fallback is used (or no-activation-found is printed).
-
-- The DISPATCH: line always appears with cap=<active>/<cap>.
+- Fresh venv: `pip install -e .` resolves only to versions specified in the generated lock.
+- Docker build uses the lock and produces identical `pip freeze` across runs.
+- DEPENDENCY_QUICKSTART.md shows a single install path and it works end-to-end.
 
 Implementation notes
+- Prefer uv if available for speed and deterministic resolution; pip-compile is fine if it’s already in use.
 
-Use actions/github-script@v7 for REST calls.
 
-Keep all PR‑meta posting muted (no PR comments).
-
-2. Keepalive Orchestrator: workflow_run fallback (Gate), PR‑head checkout, secrets preflight → WRITE_TOKEN, author invariant, INSTRUCTION/WORKER/SYNC summaries, and worker_max_parallel = cap
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
+2. Remove sitecustomize.py; rely on an installable package + a thin CLI entry point
+Labels: from:codex, agent:codex, backend, config, enhancement, docs
 
 Why
-Cross‑workflow dispatch can fail; Orchestrator must also start on Gate completion. Once running, it must prove token/author are correct, emit one‑line summaries, and execute up to the configured cap.
+sitecustomize.py can quietly manipulate sys.path and create “works here, breaks there” imports. Installing the package in editable mode is simpler and safer.
 
 Scope
+- Remove sitecustomize.py.
+- Ensure code imports work with `pip install -e .`.
+- Add a lightweight console script for common tasks.
 
-- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
-
-- Edit .github/workflows/agents-70-orchestrator.yml and any helper scripts used by it.
-
-Non‑Goals
-
-No PR‑meta edits in this issue.
-
-No branch‑sync algorithm change (that’s Issue 3), only the SYNC: summary line.
+Non-Goals
+- Full CLI framework or subcommand zoo.
 
 Tasks
-
-- Trigger & checkout
-
-  - Add:
-    on:
-      workflow_run:
-      workflows: ["Gate", "Dummy (fast-pass) gate"]   # include all Gate variants you use
-      types: [completed]
-
-  - On this path, checkout PR head: 
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-
-- Secrets preflight
-
-  - Early job sets WRITE_TOKEN = ACTION_BOT_PAT || SERVICE_BOT_PAT; fail fast if neither exists. Print:
-    PREPOST: token=<ACTION_BOT_PAT|SERVICE_BOT_PAT>
-
-- Author invariant
-
-  - If the pipeline requires the instruction to be authored by stranske and WRITE_TOKEN ≠ ACTION_BOT_PAT, do not post; print:
-    INSTRUCTION: ok=false reason=wrong-author token=<...> head=<sha7> trace=<trace>
-
-  and fail the job.
-
-- One‑line summaries (always)
-
-  - After instruction post + ACK:
-    INSTRUCTION: ok=<true|false> author=<stranske|stranske-automation-bot> comment=<id|none> ack=<ok|fail> head=<sha7> trace=<trace>
-
-- Worker decision:
-  WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|blocked> pr=#<n> head=<sha7> instr=<id|none> trace=<trace>
-
-- Branch‑sync placeholder (final outcome printed in Issue 3):
-  SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<trace>
-
-
-3. Keepalive Orchestrator: enforce author invariant (post as stranske or fail) and print mandatory INSTRUCTION, WORKER, SYNC lines in job summary
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
-
-Why
-When the round‑start instruction is posted by the automation bot, some external agents ignore it and no code is produced. Also, without invariant one‑line summaries, it’s hard to prove the orchestrator actually posted, executed, and synced.
-
-Scope
-
-- In .github/workflows/agents-70-orchestrator.yml:
-
-  - Author invariant: Before posting the instruction, assert the selected token is ACTIONS_BOT_PAT (post as stranske). If not, fail the step and do not post.
-
-  - After posting, print an INSTRUCTION: line; before/after worker, print WORKER: and SYNC: lines to $GITHUB_STEP_SUMMARY (always, even when skipping).
-
-Non‑Goals
-
-  - Set worker_max_parallel = min(cap_from_options_or_label, 5); default 2. Ensure this matches PR‑meta cap.
-
-No change to branch‑sync algorithm
-
-No change to instruction text or hidden‑marker protocol
-
-Tasks
-
-- Author assertion
-
-  - Resolve the posting token (ACTIONS_BOT_PAT preferred; SERVICE_BOT_PAT fallback).
-
-  - If ACTIONS_BOT_PAT is not selected, fail the post step and write:
-    INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT|github.token> head=<sha7> trace=<trace>
-
-- After Gate completion, an Orchestrator run appears with event=workflow_run and checks out the PR head SHA.
-
-- The run prints PREPOST: token=…; if only SERVICE_BOT_PAT is available and author invariant requires stranske, the job fails with reason=wrong-author.
-
-- On a normal path, the run prints INSTRUCTION ok=true author=stranske, then WORKER action=execute, and a SYNC line.
-
-- With cap=2, two workers can run concurrently; a third attempt is blocked upstream by PR‑meta.
-
-Implementation notes
-
-Keep PR noise minimal—summaries only.
-
-If you must keep the dispatch path, leave it in place; this fallback guarantees a token‑free path.
-
-3. Keepalive Branch‑Sync: implement update-branch → create-pr+auto-merge → escalate (+ link); emit SYNC: summary with head change result
-
-Labels: agents, agents:keepalive, agent:codex, ci, automation, enhancement, bug
-
-Why
-External agents often complete work in a sandbox. If we don’t update the PR head, later keepalive rounds repeat work. We need a reliable, two‑path sync and a clear escalation when automation can’t land the code.
-
-Scope
-
-- Make sure that you have consulted GoalsAndPlumbing.md and Keepalive_Reliability_Plan.md and Observability_Contract.md as you make updates to ensure that updates fit with the design of this project
-
-- Edit orchestrator post‑work steps and helpers only.
-
-Non‑Goals
-
-No changes to PR‑meta or detection logic.
-
-No changes to acceptance content.
-
-Tasks
-
-- Dry‑run status (optional but helpful)
-
-  - Compute sync status: in_sync | needs_update | conflict. Print:
-    SYNC: status=<...> mode=dry-run head=<sha7> base=<branch>
-
-- Path A — Update Branch
-
-  - If clean and no newer commits, call the GitHub “Update branch” API (or merge base fast‑forward); then re‑poll HEAD. If changed → head_changed=true.
-
-- Path B — Create PR + Auto‑merge
-
-  - If Path A not possible, create a short‑lived internal PR from the agent’s sandbox ref; auto‑enable merge and complete it. Re‑poll HEAD.
-
-- Escalation
-
-  - If neither path works, add agents:sync-required label and post a short PR comment:
-    “Keepalive: manual action needed — click Update Branch or open Create PR at: <action URL>”
-
-  - Include the exact button URL provided by the agent/connector.
-
-- Mandatory SYNC: summary
-
-  - Print a final line:
-    SYNC: action=<update-branch|create-pr|escalate> head_changed=<true|false> link=<url|-> trace=<trace>
+- Delete sitecustomize.py.
+- In pyproject.toml, add a console script, e.g. `trend = package.module:main`.
+- Create a minimal main() that calls the current orchestrator/run function.
+- Update README.md and README_APP.md with the new invocation.
 
 Acceptance criteria
+- All tests pass without sitecustomize.py.
+- Running `trend --help` prints usage.
+- Backtests and demos run via the installed package, not path hacks.
 
-- After a successful agent round that produces code, the orchestrator either:
 
-  - updates the PR head (SYNC action=update-branch head_changed=true), or
+3. Add strict input validation at ingestion boundaries (schema, dates, NaN policy)
+Labels: from:codex, agent:codex, backend, data, testing, enhancement
 
-  - creates and merges a helper PR (SYNC action=create-pr head_changed=true), or
+Why
+CSV inputs and uploads are brittle. Early, loud validation prevents silent garbage leaking into signals and weights.
 
-  - escalates with a clear PR comment and link (SYNC action=escalate head_changed=false link=<url>).
+Scope
+- Centralize a `validate_input(df)` function used by scripts, the Streamlit app, and tests.
+- Enforce: required columns (configurable; propose: date, ticker, ret), strict datetime parsing with UTC, sorted index, no duplicate timestamps, no NaN in required fields.
+- Provide friendly error messages with the first offending row.
 
-- The SYNC: line always appears in the job summary.
+Non-Goals
+- Changing the downstream feature engine.
 
-Implementation notes
+Tasks
+- New module under src/ with `validate_input(df)` and a small schema definition.
+- Call validator in app upload path and any CSV/Parquet loaders.
+- Add tests/test_input_validation.py with good and bad fixtures (create tests/data/).
 
-Keep the escalation comment compact; moderation rules should allow it.
+Acceptance criteria
+- Bad inputs fail with specific messages and exit non-zero in scripts.
+- App rejects malformed uploads and shows a readable error.
+- Tests cover: missing column, bad date, unsorted dates, duplicate index, NaN in required fields.
 
-Prefer updating the PR head in place (Path A) when safe; use the helper PR only when necessary.
+
+4. Enforce no-look-ahead and core backtest invariants via tests
+Labels: from:codex, agent:codex, testing, engine, backend
+
+Why
+Off-by-one errors and unguarded rolling windows are the fastest way to hallucinate alpha.
+
+Scope
+- Property tests to ensure decisions at t never use data from t or later.
+- Invariants: weights finite and (optionally) sum to 1, turnover bounded, PnL(cost=0) ≥ PnL(cost>0), no trades on weekends/holidays.
+
+Non-Goals
+- Rewriting the backtester.
+
+Tasks
+- Add tests/test_no_lookahead.py with randomized series and an intentional leak to prove the guard works.
+- Add tests/test_invariants.py for weights validity, turnover bound, and cost monotonicity.
+- Wire holiday/weekend calendar into tests.
+
+Acceptance criteria
+- Failing the shift/lag guard causes tests to fail deterministically.
+- Increasing cost strictly decreases or leaves PnL unchanged in tests.
+- No weekend/holiday trades appear in test runs.
+
+
+5. Make transaction costs and turnover policy mandatory; persist realized turnover
+Labels: from:codex, agent:codex, engine, backend, testing, enhancement
+
+Why
+Optional cost models and ad-hoc turnover caps hide fragility and inflate performance.
+
+Scope
+- Require a cost parameter in any backtest entry point.
+- Persist turnover per period alongside returns.
+- Add a minimum-trade band or notional threshold to clamp micro-churn.
+
+Non-Goals
+- Detailed broker/exchange fee simulation.
+
+Tasks
+- Update the backtest API to require cost_bps (or cost_model) and turnover_band/min_trade.
+- Emit turnover.csv per run into a run folder under perf/.
+- Tests: cost monotone, turnover ≤ cap, band behavior verified.
+
+Acceptance criteria
+- Running the backtest without cost config errors out.
+- perf/<run-id>/turnover.csv exists and sums match printed turnover.
+- Tests for cost/turnover pass and prevent regressions.
+
+
+6. Walk-forward evaluation harness with simple parameter grid
+Labels: from:codex, agent:codex, engine, backend, enhancement, exports
+
+Why
+Single-pass backtests overfit. A tiny time-blocked harness reveals stability (or lack thereof).
+
+Scope
+- Rolling windows with train/test splits by date.
+- Small grid across 1–2 core parameters (e.g., lookback, band).
+- Persist per-fold metrics and a summary CSV/JSONL.
+
+Non-Goals
+- Hyper-opt or Bayesian tuning.
+
+Tasks
+- Add walk_forward.py (script or module) that accepts a config and emits perf/wf/ artifacts.
+- Minimal metrics: CAGR, Sharpe, max DD, turnover, hit rate per fold.
+- Optional: single 2D heatmap over two parameters saved to perf/wf/.
+
+Acceptance criteria
+- One command produces per-fold metrics and a consolidated summary file.
+- Changing parameters shifts the grid outcomes; seeds make it reproducible.
+- Docs show one example invocation and outputs.
+
+
+7. Pick one app surface; unify Streamlit code paths and harden uploads/cache
+Labels: from:codex, agent:codex, backend, data, docs, enhancement
+
+Why
+Two app paths (app/ and streamlit_app/) increase drift. Uploads without size/type guardrails and stale cache keys lead to confusing results.
+
+Scope
+- Choose a primary app directory and mark the other deprecated or move to examples/.
+- Route the app through the same library functions as the backtester.
+- Enforce file extension whitelist, size limit, safe temp directory, and cache keyed on both params and data hash.
+
+Non-Goals
+- Visual redesign.
+
+Tasks
+- Consolidate app code under the chosen directory.
+- Add an upload_guard.py helper used by the app.
+- Compute a content hash of uploaded data; include it in cache keys.
+- Update README_APP.md.
+
+Acceptance criteria
+- Only one app path remains; the other is moved/retired.
+- Uploads > size limit or wrong type are rejected with a clear message.
+- Re-running with identical data and params hits cache; any change misses.
+
+
+8. Centralize logging and stop committing logs
+Labels: from:codex, agent:codex, devops, config, docs
+
+Why
+Committed logs (tmp_logs/, test_output.log) bloat history and confuse workflows.
+
+Scope
+- Single logging initializer that writes to perf/runs/<timestamp>/.
+- Add log patterns to .gitignore.
+- Remove existing logs from the repo if present.
+
+Non-Goals
+- Structured logging overhaul.
+
+Tasks
+- Create logging_setup.py; default level INFO with timestamped file handler and console handler.
+- Replace ad-hoc logging init in scripts/apps with the centralized helper.
+- Update .gitignore; delete tracked logs.
+- Document where to find logs.
+
+Acceptance criteria
+- New runs write to perf/runs/<timestamp>/app.log.
+- `git status` never shows new logs.
+- All scripts use the central logging helper.
+
+
+9. Move top-level demos and ad-hoc scripts into examples/ with a single runner
+Labels: from:codex, agent:codex, docs, backend, enhancement
+
+Why
+Top-level files like demo_robust_weighting.py, demo_turnover_cap.py, debug_fund_selection.py, integration_example.py, portfolio_analysis_report.py clutter the root and duplicate logic.
+
+Scope
+- Relocate demo scripts into examples/ (or scripts/ if preferred).
+- Prefer calling library functions over in-file logic.
+- Provide one runner or README explaining each example.
+
+Non-Goals
+- Refactoring the analytical content.
+
+Tasks
+- Create examples/ directory and move the above demos.
+- Replace any private imports with public API calls.
+- Add examples/README.md listing each demo and how to run it.
+
+Acceptance criteria
+- Root is decluttered; examples run via the package install.
+- No demo manipulates sys.path.
+- A newcomer can run one example end-to-end using documented commands.
+
+
+10. Pin Docker base, use multi-stage build, run as non-root
+Labels: from:codex, agent:codex, devops, ci, dependencies, enhancement
+
+Why
+Pinned base + multi-stage cuts surprises and image bloat; running as non-root is basic hygiene.
+
+Scope
+- Pin the base image (e.g., python:3.12.x-slim).
+- Multi-stage: builder for wheels, runtime for app.
+- Create a non-root user in the runtime stage.
+
+Non-Goals
+- Container orchestration or deployment setup.
+
+Tasks
+- Rewrite Dockerfile accordingly; copy only needed artifacts into the final stage.
+- Ensure `pip install -e .` happens in the builder stage.
+- Verify docker-compose.yml still works.
+
+Acceptance criteria
+- `docker build` succeeds from a clean checkout.
+- Final image shows a non-root default user.
+- `pip freeze` in the container matches the lock file.
+
+
+11. Time-aware universe membership (effective dates) and loader guardrails
+Labels: from:codex, agent:codex, data, engine, testing, enhancement
+
+Why
+A static Trend Universe Data.csv risks survivorship bias. Add effective dating or at least enforce a column that can be used for time filtering.
+
+Scope
+- Introduce effective_date (and optional end_date) columns to the universe CSV, or keep a second CSV with dated membership.
+- Update the loader to filter universe as-of each date.
+- Add tests for adds/drops mid-sample.
+
+Non-Goals
+- Sourcing a full historical CRSP-style membership feed.
+
+Tasks
+- Modify the CSV and the loader accordingly.
+- Add tests/test_universe_membership.py covering add/drop behavior.
+- Document the convention next to the CSV.
+
+Acceptance criteria
+- Backtests respect membership changes over time.
+- Tests confirm positions are dropped when a name exits the universe.
+- Loader errors if effective_date is missing when required.
+
+
+12. Calendar alignment utilities and policy (timezone, frequency, holidays)
+Labels: from:codex, agent:codex, data, engine, testing, enhancement
+
+Why
+Mixed calendars and non-synchronous closes cause fake trades and phantoms in PnL.
+
+Scope
+- One utility that standardizes to a declared frequency and timezone (UTC) and applies a holiday calendar.
+- Apply in ingestion or just before feature creation.
+
+Non-Goals
+- High-fidelity exchange calendars per asset; keep it simple.
+
+Tasks
+- Add a time_utils.py with align_calendar(df) and a simple holiday set.
+- Use it in the pipeline.
+- Tests that verify no weekend/holiday timestamps and consistent frequency.
+
+Acceptance criteria
+- After alignment, all series share the same set of timestamps.
+- No weekend/holiday stamps remain.
+- Tests fail if alignment is bypassed.
+
+
+13. Parameter-stability plots and one-page HTML report
+Labels: from:codex, agent:codex, exports, engine, enhancement, docs
+
+Why
+A simple 2-D heatmap over two core parameters plus a compact report is the fastest sanity check for fragility.
+
+Scope
+- Generate a single HTML (or Markdown) report with config, key metrics, equity + drawdown, turnover, and a heatmap of performance across a small grid.
+
+Non-Goals
+- A full reporting framework.
+
+Tasks
+- Implement a small reporting module that reads run artifacts and writes perf/reports/<run-id>.html.
+- Add a parameter-grid helper producing a 2-D heatmap image saved under perf/.
+
+Acceptance criteria
+- One command creates the summary report for a given run.
+- The heatmap file exists and is referenced in the report.
+- Report includes the config used to produce the run.
+
+
+14. Clarify data status for committed CSVs (synthetic/public) with a short README next to them
+Labels: from:codex, agent:codex, docs, data
+
+Why
+Committed CSVs like hedge_fund_returns_with_indexes.csv can be mistaken for proprietary data. A local README removes doubt.
+
+Scope
+- A short README_DATA.md placed beside the CSVs stating the data’s provenance (synthetic/public), intended use (demo/tests), and any limitations.
+
+Non-Goals
+- Data cleaning beyond the existing demos.
+
+Tasks
+- Write README_DATA.md with clear provenance and disclaimers.
+- Link this README from README.md so users don’t miss it.
+
+Acceptance criteria
+- The README is present and visible from the main README.
+- Language clearly states whether the data is public/synthetic and any restrictions.
