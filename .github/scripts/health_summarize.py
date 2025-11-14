@@ -285,7 +285,12 @@ def _snapshot_detail(
     return _escape_table(detail), severity
 
 
-def _branch_row(snapshot_dir: Path, *, has_token: bool) -> Mapping[str, str]:
+def _branch_row(
+    snapshot_dir: Path,
+    *,
+    has_token: bool,
+    pairs: Iterable[tuple[str, Mapping[str, Any] | None, Mapping[str, Any] | None]] | None = None,
+) -> Mapping[str, str]:
     enforcement = _load_json(snapshot_dir / "enforcement.json")
     verification = _load_json(snapshot_dir / "verification.json")
 
@@ -296,10 +301,15 @@ def _branch_row(snapshot_dir: Path, *, has_token: bool) -> Mapping[str, str]:
     details: list[str] = []
     severities: list[str] = []
 
-    for label, snapshot, previous in (
-        ("Enforcement", enforcement, previous_enforcement),
-        ("Verification", verification, previous_verification),
-    ):
+    if pairs is None:
+        scenario_pairs = [
+            ("Enforcement", enforcement, previous_enforcement),
+            ("Verification", verification, previous_verification),
+        ]
+    else:
+        scenario_pairs = list(pairs)
+
+    for label, snapshot, previous in scenario_pairs:
         detail, severity = _snapshot_detail(
             label, snapshot, previous, has_token=has_token
         )
