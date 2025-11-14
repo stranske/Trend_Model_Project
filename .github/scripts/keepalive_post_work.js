@@ -744,7 +744,7 @@ async function attemptUpdateBranchViaApi({
       initialSha: baselineHead,
       timeoutMs: pollTimeoutMs,
       intervalMs: pollIntervalMs,
-      label: 'update-branch-api',
+      label: 'api-update-branch',
       core,
     });
   } catch (error) {
@@ -754,9 +754,9 @@ async function attemptUpdateBranchViaApi({
   }
 
   if (pollResult?.changed) {
-    record('Update-branch API', appendRound(`head advanced to ${pollResult.headSha || '(unknown)'}.`));
+    record('Update-branch API result', appendRound(`Branch advanced to ${pollResult.headSha || '(unknown)'}.`));
   } else {
-    record('Update-branch API', appendRound('head unchanged after updateBranch wait.'));
+    record('Update-branch API result', appendRound('Branch unchanged after updateBranch wait.'));
   }
 
   return {
@@ -1240,6 +1240,92 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     await applyStateUpdate({ last_instruction: filtered });
   };
 
+  const attemptCommand = async (action, label) => {
+    const commandName = normalise(action);
+    if (!commandName) {
+      record(label || 'Command dispatch', appendRound('skipped: action missing.'));
+      return { attempted: false };
+    }
+    noteActionAttempt(commandName);
+    const displayLabel = label || `${commandName} command`;
+    const history = buildHistoryWith(commandName);
+    const existingEntry = getCommandActionState(commandName);
+    const attemptTimestamp = new Date().toISOString();
+
+    const persistEntry = async (updates = {}) => {
+      const payload = mergeStateShallow(existingEntry, {
+        attempts: Number(existingEntry?.attempts || 0) + 1,
+        last_attempt_at: attemptTimestamp,
+        last_result: updates.last_result || existingEntry?.last_result || '',
+        idempotency_key: idempotencyKey,
+        last_round: round || '',
+        last_trace: trace || '',
+        last_mode: statusMode,
+        ...updates,
+      });
+      await updateCommandState({ history, [commandName]: payload });
+      return payload;
+    };
+
+    if (statusMode === 'dry-run') {
+      record(displayLabel, appendRound('skipped: dry-run mode.'));
+      await persistEntry({ last_result: 'dry-run', status: 'skipped' });
+      return { attempted: false, dryRun: true };
+    }
+
+    const dispatched = await dispatchCommand({
+      github,
+      owner,
+      repo,
+      eventType: dispatchEventType,
+      action: commandName,
+      prNumber,
+      agentAlias,
+      baseRef,
+      headRef: headBranch,
+      headSha: baselineHead || initialHead,
+      trace,
+      round,
+      commentInfo,
+      idempotencyKey,
+      roundTag,
+      record,
+    });
+
+    if (dispatched) {
+      await persistEntry({ last_result: 'dispatched', status: 'pending', dispatched: true, dispatched_at: attemptTimestamp });
+      return { attempted: true, dispatched: true };
+    }
+
+    const commentResult = await postCommandComment({
+      github,
+      owner,
+      repo,
+      prNumber,
+      action: commandName,
+      trace,
+      round,
+      record,
+      appendRound,
+    });
+
+    if (commentResult.posted) {
+      await persistEntry({
+        last_result: 'comment',
+        status: 'pending',
+        comment_id: commentResult.commentId || '',
+        comment_url: commentResult.commentUrl || '',
+        commented_at: attemptTimestamp,
+      });
+      updateSyncLink(commentResult.commentUrl);
+      return { attempted: true, commented: true };
+    }
+
+    await persistEntry({ last_result: 'failed', status: 'error' });
+    record(displayLabel, appendRound('command attempt failed.'));
+    return { attempted: true, failed: true };
+  };
+
   let finalAction = 'skip';
 
   const attemptUpdateBranchApi = async () => {
@@ -1267,7 +1353,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       initialSha: baselineHead,
       timeoutMs: ttlLong,
       intervalMs: pollLong,
-      label: 'update-branch-api',
+      label: 'api-update-branch',
       core,
     });
 
@@ -1445,7 +1531,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       success = true;
       finalHead = apiResult.headSha || finalHead;
       baselineHead = finalHead;
-      mode = 'update-branch-api';
+      mode = 'api-update-branch';
       finalAction = 'update-branch';
       setStatus('in_sync');
       setStatusHead(finalHead);
@@ -1556,7 +1642,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     updateSyncLink(escalationRecord.comment_url, { prefer: true });
     record('Escalation comment', appendRound('Reusing previous escalation comment.'));
   } else {
-    const escalationMessage = `Keepalive: manual action needed — use update-branch/create-pr controls (click Update Branch or open Create PR) at: ${manualActionLink}`;
+    const escalationMessage = `Keepalive: manual action needed — click Update Branch or open Create PR: ${manualActionLink}`;
     try {
       const { data: escalationComment } = await github.rest.issues.createComment({
         owner,
