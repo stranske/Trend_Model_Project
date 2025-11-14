@@ -347,16 +347,18 @@ jobs:
       - name: Checkout orchestrator scripts
         uses: actions/checkout@v4
         with:
+          # workflow_run events need the PR head so validation executes the code under test
+          ref: >-
+            ${{
+              github.event_name == 'workflow_run' && (
+                github.event.workflow_run.pull_requests &&
+                github.event.workflow_run.pull_requests[0].head.sha ||
+                github.event.workflow_run.head_sha
+              ) || github.sha
+            }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
-          fetch-depth: 1
-      - name: Checkout workflow_run PR head snapshot
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0].head.sha || github.event.workflow_run.head_sha }}
-          path: pr-head
           fetch-depth: 2
       - name: Resolve dispatch parameters
         id: resolve
