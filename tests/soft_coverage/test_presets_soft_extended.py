@@ -200,7 +200,10 @@ def test_vol_adjust_defaults_cover_branches(sample_config: dict[str, Any]):
     )
     empty_defaults = empty_config.vol_adjust_defaults()
     assert empty_defaults["enabled"] is True
-    assert empty_defaults["window"]["length"] == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    assert (
+        empty_defaults["window"]["length"]
+        == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    )
 
     none_target = presets.TrendPreset(
         slug="none-target",
@@ -226,7 +229,10 @@ def test_vol_adjust_defaults_cover_branches(sample_config: dict[str, Any]):
         ),
     )
     proxy_defaults = proxy_window.vol_adjust_defaults()
-    assert proxy_defaults["window"]["length"] == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    assert (
+        proxy_defaults["window"]["length"]
+        == presets._DEFAULT_VOL_ADJUST["window"]["length"]
+    )
 
 
 def test_apply_trend_preset_merges_sections(sample_config: dict[str, Any]):
@@ -352,9 +358,7 @@ signals:
         presets.get_trend_preset("missing")
 
 
-def test_load_yaml_handles_non_mapping(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_load_yaml_handles_non_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     base = tmp_path / "yaml"
     base.mkdir()
     path = base / "invalid.yml"
