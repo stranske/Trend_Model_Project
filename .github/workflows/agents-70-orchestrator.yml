@@ -994,9 +994,6 @@ jobs:
             if (capValue > 5) {
               capValue = 5;
             }
-            if (capValue < 1) {
-              capValue = 1;
-            }
             core.setOutput('ok', bool(result.ok));
             core.setOutput('reason', result.reason || '');
             core.setOutput('cap', String(capValue));
