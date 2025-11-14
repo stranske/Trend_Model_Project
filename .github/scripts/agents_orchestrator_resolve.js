@@ -35,7 +35,7 @@ const DEFAULTS = {
   options_json: DEFAULT_OPTIONS_JSON,
   dry_run: 'false',
   dispatcher_force_issue: '',
-  worker_max_parallel: '1',
+  worker_max_parallel: '2',
   conveyor_max_merges: '2',
   keepalive_max_retries: '5',
 };
@@ -408,7 +408,11 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
   );
 
   const workerMaxParallel = toBoundedIntegerString(
-    workerOptions.max_parallel ?? workerOptions.parallel ?? merged.worker_max_parallel,
+    keepalive.max_parallel ??
+      keepalive.cap ??
+      workerOptions.max_parallel ??
+      workerOptions.parallel ??
+      merged.worker_max_parallel,
     DEFAULTS.worker_max_parallel,
     { min: 0, max: 5 }
   );
