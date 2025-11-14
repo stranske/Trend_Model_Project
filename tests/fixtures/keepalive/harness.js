@@ -117,15 +117,14 @@ Modifying the separate status/checklist updater (it may continue to edit the sta
 
 - [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:
 
-<!-- keepalive-round: {N} -->
-<!-- keepalive-attempt: {N} -->
-<!-- codex-keepalive-marker -->
-<!-- keepalive-trace: {TRACE} -->
-@codex Use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied. During each comment implementation, check off tasks and acceptance criteria that have been satisfied and re-post the current version of the initial scope, task list, and acceptance criteria whenever any new items are completed.
+  <!-- keepalive-round: {N} -->
+  <!-- keepalive-attempt: {N} -->
+  <!-- codex-keepalive-marker -->
+  <!-- keepalive-trace: {TRACE} -->
+  @codex Use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied. During each comment implementation, check off tasks and acceptance criteria that have been satisfied and re-post the current version of the initial scope, task list, and acceptance criteria whenever any new items are completed.
 
-<Scope/Tasks/Acceptance…>
-
-- [ ] Authenticate with the PAT that posts as stranske (fallback: stranske-automation-bot).
+  <Scope/Tasks/Acceptance…>
+- [ ] Authenticate with the PAT that posts as stranske (ACTIONS_BOT_PAT).
 
 - [ ] Write Round = N and TRACE = … into the step summary for correlation.
 
@@ -323,6 +322,15 @@ async function runScenario(scenario) {
           repos: {
             createDispatchEvent: dispatchEvent,
           },
+          issues: {
+            createComment,
+          },
+          reactions: {
+            createForIssueComment: async ({ comment_id, content }) => {
+              instructionReactions.push({ comment_id, content });
+              return { data: { content } };
+            },
+          },
         },
       };
     },
@@ -336,7 +344,11 @@ async function runScenario(scenario) {
   };
 
   const originalEnv = {};
-  const envOverrides = { ACTIONS_BOT_PAT: 'dummy-token', ...(scenario.env || {}) };
+  const envOverrides = {
+    ACTIONS_BOT_PAT: 'dummy-token',
+    SERVICE_BOT_PAT: 'service-token',
+    ...(scenario.env || {}),
+  };
   for (const [key, value] of Object.entries(envOverrides)) {
     originalEnv[key] = process.env[key];
     process.env[key] = String(value);

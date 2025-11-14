@@ -135,6 +135,7 @@ async function main() {
     reactions: [],
     headFetches: [],
     commentListings: [],
+    updateBranch: [],
   };
 
   const github = {
@@ -178,6 +179,14 @@ async function main() {
           const merged = scenario.createPr?.mergeResult !== false;
           return { data: { merged, sha: scenario.createPr?.mergedSha || 'merged-sha' } };
         },
+        updateBranch: async ({ pull_number, expected_head_sha }) => {
+          events.updateBranch.push({ pull_number, expected_head_sha });
+          const plan = scenario.updateBranch || {};
+          if (plan.error) {
+            throw new Error(plan.error);
+          }
+          return { status: plan.status ?? 202, data: {} };
+        },
       },
       repos: {
         createDispatchEvent: async ({ event_type, client_payload }) => {
@@ -194,6 +203,9 @@ async function main() {
             throw new Error(scenario.workflowDispatchError);
           }
         },
+        listWorkflowRuns: async () => ({
+          data: { workflow_runs: Array.isArray(scenario.workflowRuns) ? scenario.workflowRuns : [] },
+        }),
       },
       issues: {
         listLabelsOnIssue: async () => {

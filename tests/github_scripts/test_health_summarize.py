@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import runpy
 import sys
 from pathlib import Path
 
@@ -137,6 +138,27 @@ def test_format_require_up_to_date_handles_transition() -> None:
     assert summarize._format_require_up_to_date(snapshot) == "✅ True → ❌ False"
 
 
+def test_format_require_up_to_date_handles_non_mapping_current() -> None:
+    snapshot = {"current": "invalid"}
+    assert summarize._format_require_up_to_date(snapshot) == "⚠️ Unknown"
+
+
+def test_format_require_up_to_date_handles_unknown_target() -> None:
+    snapshot = {
+        "current": {"strict": None},
+        "desired": {"strict": None},
+    }
+    assert summarize._format_require_up_to_date(snapshot) == "⚠️ Unknown"
+
+
+def test_format_require_up_to_date_handles_arbitrary_value() -> None:
+    snapshot = {
+        "current": {"strict": "maybe"},
+        "desired": {"strict": "later"},
+    }
+    assert summarize._format_require_up_to_date(snapshot) == "maybe → later"
+
+
 def test_select_previous_section_prefers_after() -> None:
     snapshot = {
         "after": {"value": 1},
@@ -151,8 +173,28 @@ def test_select_previous_section_falls_back_to_current() -> None:
     assert summarize._select_previous_section(snapshot) == {"value": 2}
 
 
+def test_select_previous_section_handles_missing() -> None:
+    assert summarize._select_previous_section({}) is None
+
+
 def test_format_delta_handles_missing_previous() -> None:
     assert summarize._format_delta({}, None) == "No previous snapshot"
+
+
+def test_format_delta_handles_non_mapping_current() -> None:
+    assert summarize._format_delta("invalid", {}) == "–"
+
+
+def test_format_delta_handles_missing_previous_section() -> None:
+    current = {"current": {"contexts": []}}
+    previous = {"current": "invalid"}
+    assert summarize._format_delta(current, previous) == "–"
+
+
+def test_format_delta_handles_non_mapping_current_section() -> None:
+    current = {"current": "invalid"}
+    previous = {"current": {"contexts": []}}
+    assert summarize._format_delta(current, previous) == "–"
 
 
 def test_format_delta_reports_changes() -> None:
@@ -165,6 +207,22 @@ def test_format_delta_reports_changes() -> None:
     delta = summarize._format_delta(current, previous)
     assert "+docs" in delta
     assert "Require up to date" in delta
+
+
+def test_format_delta_reports_unknown_transition() -> None:
+    current = {"current": {"contexts": [], "strict": None}}
+    previous = {"current": {"contexts": [], "strict": True}}
+    delta = summarize._format_delta(current, previous)
+    assert "⚠️ Unknown" in delta
+    assert "✅ True" in delta
+
+
+def test_format_delta_reports_custom_values() -> None:
+    current = {"current": {"contexts": [], "strict": "maybe"}}
+    previous = {"current": {"contexts": [], "strict": "later"}}
+    delta = summarize._format_delta(current, previous)
+    assert "maybe" in delta
+    assert "later" in delta
 
 
 def test_snapshot_detail_missing_with_token() -> None:
@@ -198,6 +256,23 @@ def test_snapshot_detail_with_error() -> None:
     )
     assert "❌" in detail
     assert severity == "failure"
+
+
+def test_snapshot_detail_marks_cleanup_disabled() -> None:
+    snapshot = {
+        "changes_required": False,
+        "current": {"contexts": []},
+        "after": {"contexts": []},
+        "no_clean": True,
+    }
+    detail, severity = summarize._snapshot_detail(
+        "Verification",
+        snapshot,
+        None,
+        has_token=True,
+    )
+    assert "Cleanup disabled" in detail
+    assert severity == "success"
 
 
 def test_snapshot_detail_reports_status(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -272,6 +347,58 @@ def test_branch_row_without_snapshots(tmp_path: Path) -> None:
     row = summarize._branch_row(snap_dir, has_token=False)
     assert "Observer mode" in row["details"]
     assert row["conclusion"] == "warning"
+
+
+def test_branch_row_success_status(tmp_path: Path) -> None:
+    snap_dir = tmp_path / "snapshots"
+    snap_dir.mkdir()
+    _write_snapshot(
+        snap_dir,
+        "enforcement.json",
+        {
+            "changes_required": False,
+            "current": {"contexts": ["lint"], "strict": True},
+        },
+    )
+    _write_snapshot(
+        snap_dir,
+        "verification.json",
+        {
+            "changes_required": False,
+            "current": {"contexts": ["lint"], "strict": True},
+        },
+    )
+
+    row = summarize._branch_row(snap_dir, has_token=True)
+    assert row["conclusion"] == "success"
+    assert "in sync" in row["status"].lower()
+
+
+def test_branch_row_handles_empty_pairs(tmp_path: Path) -> None:
+    snap_dir = tmp_path / "snapshots"
+    snap_dir.mkdir()
+    row = summarize._branch_row(snap_dir, has_token=True, pairs=[])
+    assert row["conclusion"] == "warning"
+    assert "No branch protection snapshots" in row["details"]
+
+
+def test_branch_row_with_failure(tmp_path: Path) -> None:
+    snap_dir = tmp_path / "snapshots"
+    snap_dir.mkdir()
+    _write_snapshot(snap_dir, "enforcement.json", {"error": "failure"})
+    _write_snapshot(
+        snap_dir,
+        "verification.json",
+        {
+            "changes_required": True,
+            "current": {"contexts": ["lint"], "strict": True},
+            "after": {"contexts": ["lint"], "strict": True},
+        },
+    )
+
+    row = summarize._branch_row(snap_dir, has_token=True)
+    assert row["conclusion"] == "failure"
+    assert "error" in row["status"].lower()
 
 
 def test_write_json_creates_file(tmp_path: Path) -> None:
@@ -353,3 +480,33 @@ def test_main_handles_empty_inputs(tmp_path: Path) -> None:
     assert rows_json.exists()
     assert json.loads(rows_json.read_text(encoding="utf-8")) == []
     assert not (tmp_path / "summary.md").exists()
+
+
+def test_main_skips_outputs_when_not_requested(tmp_path: Path) -> None:
+    code = summarize.main([])
+    assert code == 0
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_entrypoint_invokes_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    json_path = tmp_path / "rows.json"
+    summary_path = tmp_path / "summary.md"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "health_summarize.py",
+            "--write-json",
+            str(json_path),
+            "--write-summary",
+            str(summary_path),
+        ],
+    )
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("health_summarize", run_name="__main__", alter_sys=True)
+    assert excinfo.value.code == 0
+    assert json_path.exists()
+    assert not summary_path.exists()
