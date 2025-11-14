@@ -61,4 +61,3 @@ def test_apply_constraints_detects_infeasible_long_only() -> None:
     weights = pd.Series({"A": -1.0, "B": -0.5})
     with pytest.raises(ConstraintViolation):
         apply_constraints(weights, ConstraintSet())
-

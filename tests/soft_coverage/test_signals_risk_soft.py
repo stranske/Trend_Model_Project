@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.engine import optimizer as optimizer_mod
 from trend_analysis.risk import (
     RiskDiagnostics,
     RiskWindow,
@@ -17,7 +16,12 @@ from trend_analysis.risk import (
     periods_per_year_from_code,
     realised_volatility,
 )
-from trend_analysis.signals import TrendSpec, _as_float_frame, _zscore_rows, compute_trend_signals
+from trend_analysis.signals import (
+    TrendSpec,
+    _as_float_frame,
+    _zscore_rows,
+    compute_trend_signals,
+)
 
 
 def test_trend_spec_validation_guards_inputs() -> None:
@@ -49,7 +53,9 @@ def test_compute_trend_signals_supports_vol_adjust_and_zscore() -> None:
         },
         index=pd.date_range("2024-01-31", periods=6, freq="M"),
     )
-    spec = TrendSpec(window=3, min_periods=2, vol_adjust=True, vol_target=0.5, zscore=True)
+    spec = TrendSpec(
+        window=3, min_periods=2, vol_adjust=True, vol_target=0.5, zscore=True
+    )
     signal = compute_trend_signals(returns, spec)
 
     spec_payload = signal.attrs["spec"]
@@ -81,7 +87,9 @@ def test_realised_volatility_supports_simple_and_ewma() -> None:
     simple = realised_volatility(returns, window)
     assert simple.shape == returns.shape
 
-    ewma = realised_volatility(returns, RiskWindow(length=3, decay="ewma", ewma_lambda=0.8))
+    ewma = realised_volatility(
+        returns, RiskWindow(length=3, decay="ewma", ewma_lambda=0.8)
+    )
     assert not ewma.iloc[-1].isna().any()
 
 
@@ -92,7 +100,8 @@ def test_realised_volatility_validates_inputs() -> None:
         realised_volatility(pd.DataFrame({"A": [0.0]}), RiskWindow(length=0))
     with pytest.raises(ValueError):
         realised_volatility(
-            pd.DataFrame({"A": [0.0]}), RiskWindow(length=2, decay="ewma", ewma_lambda=1.5)
+            pd.DataFrame({"A": [0.0]}),
+            RiskWindow(length=2, decay="ewma", ewma_lambda=1.5),
         )
 
 
@@ -143,4 +152,3 @@ def test_compute_constrained_weights_integration() -> None:
     assert np.isclose(final_weights.sum(), 1.0)
     assert diagnostics.asset_volatility.shape[1] == 2
     assert diagnostics.turnover_value <= 0.5 + 1e-9
-

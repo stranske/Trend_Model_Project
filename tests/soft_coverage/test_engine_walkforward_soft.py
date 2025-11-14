@@ -90,4 +90,3 @@ def test_walk_forward_runs_with_regimes_and_mapping() -> None:
 
     assert result.oos_windows.shape[0] == len(result.splits)
     assert result.periods_per_year >= 12
-

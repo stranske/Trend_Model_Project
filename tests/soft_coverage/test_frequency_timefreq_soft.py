@@ -11,7 +11,6 @@ import pytest
 from trend_analysis.timefreq import (
     MONTHLY_DATE_FREQ,
     MONTHLY_PERIOD_FREQ,
-    QUARTERLY_DATE_FREQ,
     QUARTERLY_PERIOD_FREQ,
     _validate_no_invalid_period_alias,
     assert_no_invalid_period_aliases_in_source,
@@ -111,7 +110,8 @@ def test_assert_no_invalid_period_aliases_in_source(tmp_path: Path) -> None:
 
     bad = tmp_path / "bad.py"
     bad.write_text(
-        'import pandas as pd\n' 'pd.period_range(start="2024-01", periods=2, freq="ME")\n'
+        "import pandas as pd\n"
+        'pd.period_range(start="2024-01", periods=2, freq="ME")\n'
     )
 
     with pytest.raises(AssertionError) as excinfo:
@@ -124,4 +124,3 @@ def test_frequency_summary_attributes_round_trip() -> None:
     summary = freq_mod.FrequencySummary("D", "Daily", False, "D", "Daily")
     assert summary.label == "Daily"
     assert summary.target_label == "Daily"
-

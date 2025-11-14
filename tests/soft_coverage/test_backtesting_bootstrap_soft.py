@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
-
-from dataclasses import replace
 
 from trend_analysis.backtesting.bootstrap import (
     BacktestResult,
@@ -84,4 +84,3 @@ def test_bootstrap_equity_generates_bands(monkeypatch: pytest.MonkeyPatch) -> No
     band = bootstrap_equity(result, n=5, block=2, random_state=0)
     assert list(band.columns) == ["p05", "median", "p95"]
     assert band.index.equals(result.equity_curve.index)
-
