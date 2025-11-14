@@ -20,14 +20,18 @@ def test_truthy(value: str | None, expected: bool) -> None:
     assert ci_history._truthy(value) is expected
 
 
-def test_load_metrics_prefers_existing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_metrics_prefers_existing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     junit_path = tmp_path / "report.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "metrics.json"
     metrics_data = {"summary": {"passed": 10}, "slow_tests": ["a"]}
     metrics_path.write_text(json.dumps(metrics_data), encoding="utf-8")
 
-    monkeypatch.setattr(ci_history.ci_metrics, "build_metrics", lambda _: {"summary": {}})
+    monkeypatch.setattr(
+        ci_history.ci_metrics, "build_metrics", lambda _: {"summary": {}}
+    )
 
     data, from_file = ci_history._load_metrics(junit_path, metrics_path)
 
@@ -35,7 +39,9 @@ def test_load_metrics_prefers_existing_file(tmp_path: Path, monkeypatch: pytest.
     assert from_file is True
 
 
-def test_load_metrics_regenerates_when_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_metrics_regenerates_when_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     junit_path = tmp_path / "junit.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "metrics.json"
@@ -50,7 +56,9 @@ def test_load_metrics_regenerates_when_invalid(tmp_path: Path, monkeypatch: pyte
     assert from_file is False
 
 
-def test_load_metrics_when_file_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_metrics_when_file_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     junit_path = tmp_path / "report.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "missing.json"
@@ -65,7 +73,9 @@ def test_load_metrics_when_file_missing(tmp_path: Path, monkeypatch: pytest.Monk
     assert from_file is False
 
 
-def test_load_metrics_regenerates_when_summary_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_metrics_regenerates_when_summary_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     junit_path = tmp_path / "report.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "metrics.json"
@@ -80,15 +90,13 @@ def test_load_metrics_regenerates_when_summary_missing(tmp_path: Path, monkeypat
     assert from_file is False
 
 
-def test_build_history_record_includes_optional_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_history_record_includes_optional_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     metrics = {
         "summary": {"passed": 5},
-        "failures": [
-            {"status": "failed", "nodeid": "tests/test_demo.py::test_fail"}
-        ],
-        "slow_tests": [
-            {"nodeid": "tests/test_demo.py::test_slow", "time": 12.3}
-        ],
+        "failures": [{"status": "failed", "nodeid": "tests/test_demo.py::test_fail"}],
+        "slow_tests": [{"nodeid": "tests/test_demo.py::test_slow", "time": 12.3}],
     }
     junit_path = Path("/tmp/junit.xml")
     metrics_path = Path("/tmp/metrics.json")
@@ -117,12 +125,32 @@ def test_build_history_record_includes_optional_fields(monkeypatch: pytest.Monke
     }
 
 
-def test_build_classification_payload_counts_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_classification_payload_counts_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     metrics = {
         "failures": [
-            {"status": "failed", "nodeid": "t::a", "message": "boom", "type": "AssertionError", "time": 1.0},
-            {"status": "error", "nodeid": "t::b", "message": "zap", "type": "RuntimeError", "time": 2.0},
-            {"status": "failed", "nodeid": "t::c", "message": "kapow", "type": "AssertionError", "time": 3.0},
+            {
+                "status": "failed",
+                "nodeid": "t::a",
+                "message": "boom",
+                "type": "AssertionError",
+                "time": 1.0,
+            },
+            {
+                "status": "error",
+                "nodeid": "t::b",
+                "message": "zap",
+                "type": "RuntimeError",
+                "time": 2.0,
+            },
+            {
+                "status": "failed",
+                "nodeid": "t::c",
+                "message": "kapow",
+                "type": "AssertionError",
+                "time": 3.0,
+            },
         ]
     }
 
@@ -144,7 +172,12 @@ def test_main_appends_history_and_classification(
     metrics_data = {
         "summary": {"passed": 12, "failed": 1},
         "failures": [
-            {"status": "failed", "nodeid": "tests::test_fail", "message": "boom", "type": "AssertionError"}
+            {
+                "status": "failed",
+                "nodeid": "tests::test_fail",
+                "message": "boom",
+                "type": "AssertionError",
+            }
         ],
         "slow_tests": [{"nodeid": "tests::test_slow", "time": 4.2}],
     }
@@ -242,7 +275,9 @@ def test_main_skips_classification_cleanup_when_absent(
     assert classification_path.exists() is False
 
 
-def test_main_missing_junit_reports_error(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_missing_junit_reports_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setenv("JUNIT_PATH", "nonexistent.xml")
     monkeypatch.delenv("METRICS_PATH", raising=False)
     monkeypatch.delenv("HISTORY_PATH", raising=False)
@@ -256,7 +291,9 @@ def test_main_missing_junit_reports_error(monkeypatch: pytest.MonkeyPatch, capsy
     assert "JUnit report not found" in err
 
 
-def test_main_reports_missing_metrics(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_missing_metrics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     junit_path = tmp_path / "report.xml"
     junit_path.write_text("<testsuite/>", encoding="utf-8")
     metrics_path = tmp_path / "metrics.json"
