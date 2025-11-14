@@ -509,6 +509,24 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     return;
   }
 
+  const instructionAuthorToken = String(env.ACTIONS_BOT_PAT || env.actions_bot_pat || '').trim();
+  if (!instructionAuthorToken) {
+    throw new Error('ACTIONS_BOT_PAT is required to author keepalive instructions as stranske.');
+  }
+
+  const instructionAuthorOctokit = buildOctokitInstance({
+    core,
+    github,
+    token: instructionAuthorToken,
+  });
+
+  if (
+    !instructionAuthorOctokit?.rest?.issues?.createComment ||
+    !instructionAuthorOctokit?.rest?.reactions?.createForIssueComment
+  ) {
+    throw new Error('Unable to initialise Octokit client for keepalive instruction author.');
+  }
+
   const idleMinutes = coerceNumber(options.keepalive_idle_minutes, 10, { min: 0 });
   const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
 
@@ -884,7 +902,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           `#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
         );
       } else {
-        const response = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+        const response = await instructionAuthorOctokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: prNumber,
+          body,
+        });
         triggered.push(
           `#${prNumber} – keepalive posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken})`
         );
@@ -912,7 +935,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         } else {
           if (commentId) {
             try {
-              await github.rest.reactions.createForIssueComment({
+              await instructionAuthorOctokit.rest.reactions.createForIssueComment({
                 owner,
                 repo,
                 comment_id: commentId,
