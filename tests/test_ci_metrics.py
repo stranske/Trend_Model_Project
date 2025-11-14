@@ -55,10 +55,7 @@ def test_collect_slow_tests_empty_inputs() -> None:
         error_type=None,
         details=None,
     )
-    assert (
-        ci_metrics._collect_slow_tests([sample_case], top_n=0, min_seconds=0.1)
-        == []
-    )
+    assert ci_metrics._collect_slow_tests([sample_case], top_n=0, min_seconds=0.1) == []
 
 
 def test_extract_testcases_handles_namespaces_and_invalid_time(tmp_path: Path) -> None:

@@ -110,7 +110,9 @@ def test_load_metrics_falls_back_on_invalid_json(tmp_path: Path) -> None:
     assert data["summary"]["tests"] == 3
 
 
-def test_build_history_record_enriches_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_history_record_enriches_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     metrics = {
         "summary": {"tests": 10},
         "failures": [
