@@ -43,7 +43,7 @@ def _write_repo_files(tmp_path: Path, version: str = "23.0") -> None:
         encoding="utf-8",
     )
     (tmp_path / "pyproject.toml").write_text(
-        "[tool.example]\nrequires = [\n    \"black==22.0\",\n]\n",
+        '[tool.example]\nrequires = [\n    "black==22.0",\n]\n',
         encoding="utf-8",
     )
     (tmp_path / "requirements.txt").write_text(
@@ -52,7 +52,9 @@ def _write_repo_files(tmp_path: Path, version: str = "23.0") -> None:
     )
 
 
-def test_parse_env_file_validates_presence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_env_file_validates_presence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _configure_repo(tmp_path, monkeypatch)
     _write_repo_files(tmp_path)
 
@@ -67,17 +69,23 @@ def test_parse_env_file_validates_presence(tmp_path: Path, monkeypatch: pytest.M
         sync.parse_env_file(sync.PIN_FILE.parent / "missing.env")
 
 
-def test_ensure_pyproject_reports_and_applies_mismatches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ensure_pyproject_reports_and_applies_mismatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _configure_repo(tmp_path, monkeypatch)
     _write_repo_files(tmp_path)
     env = {"BLACK_VERSION": "23.0"}
 
     content = sync.PYPROJECT_FILE.read_text(encoding="utf-8")
-    updated, mismatches = sync.ensure_pyproject(content, sync.TOOL_CONFIGS, env, apply=False)
+    updated, mismatches = sync.ensure_pyproject(
+        content, sync.TOOL_CONFIGS, env, apply=False
+    )
     assert updated == content
     assert mismatches == {"black": "pyproject has 22.0, pin file requires 23.0"}
 
-    updated, mismatches = sync.ensure_pyproject(content, sync.TOOL_CONFIGS, env, apply=True)
+    updated, mismatches = sync.ensure_pyproject(
+        content, sync.TOOL_CONFIGS, env, apply=True
+    )
     assert "black==23.0" in updated
     assert mismatches == {"black": "pyproject has 22.0, pin file requires 23.0"}
 
@@ -85,17 +93,23 @@ def test_ensure_pyproject_reports_and_applies_mismatches(tmp_path: Path, monkeyp
         sync.ensure_pyproject("[tool]\n", sync.TOOL_CONFIGS, env, apply=False)
 
 
-def test_ensure_requirements_handles_updates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ensure_requirements_handles_updates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _configure_repo(tmp_path, monkeypatch)
     _write_repo_files(tmp_path)
     env = {"BLACK_VERSION": "23.0"}
 
     lines = sync.REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
-    updated, mismatches = sync.ensure_requirements(lines, sync.TOOL_CONFIGS, env, apply=False)
+    updated, mismatches = sync.ensure_requirements(
+        lines, sync.TOOL_CONFIGS, env, apply=False
+    )
     assert mismatches == {"black": "requirements.txt has 22.0, pin file requires 23.0"}
     assert "black==22.0" in updated
 
-    updated, mismatches = sync.ensure_requirements(lines, sync.TOOL_CONFIGS, env, apply=True)
+    updated, mismatches = sync.ensure_requirements(
+        lines, sync.TOOL_CONFIGS, env, apply=True
+    )
     assert mismatches == {"black": "requirements.txt has 22.0, pin file requires 23.0"}
     assert "black==23.0" in updated
 
@@ -103,7 +117,9 @@ def test_ensure_requirements_handles_updates(tmp_path: Path, monkeypatch: pytest
         sync.ensure_requirements([], sync.TOOL_CONFIGS, env, apply=False)
 
 
-def test_main_check_and_apply_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_check_and_apply_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     _configure_repo(tmp_path, monkeypatch)
     _write_repo_files(tmp_path)
 
@@ -134,7 +150,9 @@ def test_main_check_and_apply_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         sync.main(["--check", "--apply"])
 
 
-def test_module_entrypoint_reports_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_module_entrypoint_reports_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["sync_tool_versions"])
 

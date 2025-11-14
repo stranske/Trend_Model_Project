@@ -18,7 +18,9 @@ def temp_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(sync, "STDLIB_MODULES", {"os", "sys"})
     monkeypatch.setattr(sync, "TEST_FRAMEWORK_MODULES", {"pytest"})
     monkeypatch.setattr(sync, "PROJECT_MODULES", {"tests", "scripts"})
-    monkeypatch.setattr(sync, "MODULE_TO_PACKAGE", {"yaml": "PyYAML", "cv2": "opencv-python"})
+    monkeypatch.setattr(
+        sync, "MODULE_TO_PACKAGE", {"yaml": "PyYAML", "cv2": "opencv-python"}
+    )
     return tmp_path
 
 
@@ -34,7 +36,9 @@ def _create_test_files(base: Path) -> None:
     )
     cache_dir = tests_dir / "__pycache__"
     cache_dir.mkdir()
-    cache_dir.joinpath("ignored.py").write_text("import should_not_count\n", encoding="utf-8")
+    cache_dir.joinpath("ignored.py").write_text(
+        "import should_not_count\n", encoding="utf-8"
+    )
 
 
 def _write_requirements(base: Path, lines: list[str]) -> None:
@@ -57,14 +61,18 @@ def test_get_declared_dependencies_handles_missing_file(temp_repo: Path) -> None
     assert raw == []
 
 
-def test_get_all_test_imports_handles_missing_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_all_test_imports_handles_missing_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     assert sync.get_all_test_imports() == set()
 
 
 def test_find_missing_dependencies_filters_known_sets(temp_repo: Path) -> None:
     _create_test_files(temp_repo)
-    _write_requirements(temp_repo, ["PyYAML==6.0", "# Test dependencies", "opencv-python==4.0"])
+    _write_requirements(
+        temp_repo, ["PyYAML==6.0", "# Test dependencies", "opencv-python==4.0"]
+    )
 
     missing = sync.find_missing_dependencies()
     # pandas and requests should be missing; yaml and cv2 covered via requirements/mapping.
@@ -73,12 +81,16 @@ def test_find_missing_dependencies_filters_known_sets(temp_repo: Path) -> None:
 
 def test_add_dependencies_updates_test_section(temp_repo: Path) -> None:
     _create_test_files(temp_repo)
-    _write_requirements(temp_repo, ["# Base", "", "# Test dependencies", "opencv-python==4.0"])
+    _write_requirements(
+        temp_repo, ["# Base", "", "# Test dependencies", "opencv-python==4.0"]
+    )
 
     added = sync.add_dependencies_to_requirements({"requests", "pandas"}, fix=False)
     assert added is False
 
-    assert sync.add_dependencies_to_requirements({"requests", "pandas"}, fix=True) is True
+    assert (
+        sync.add_dependencies_to_requirements({"requests", "pandas"}, fix=True) is True
+    )
     new_requirements = (temp_repo / "requirements.txt").read_text(encoding="utf-8")
     assert "pandas" in new_requirements.splitlines()
     assert "requests" in new_requirements.splitlines()
@@ -97,7 +109,9 @@ def test_add_dependencies_creates_section_when_missing(temp_repo: Path) -> None:
     assert content.strip().endswith("requests")
 
 
-def test_main_cli_modes(temp_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_cli_modes(
+    temp_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     _create_test_files(temp_repo)
     _write_requirements(temp_repo, ["# Test dependencies", "opencv-python==4.0"])
 
@@ -132,7 +146,9 @@ def test_main_cli_modes(temp_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys
     assert "All test dependencies" in captured.out
 
 
-def test_module_entrypoint_executes_main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_module_entrypoint_executes_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "tests").mkdir()
     (tmp_path / "requirements.txt").write_text("# none\n", encoding="utf-8")
