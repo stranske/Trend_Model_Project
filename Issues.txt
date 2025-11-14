@@ -310,7 +310,7 @@ Acceptance criteria
 Labels: from:codex, agent:codex, exports, engine, enhancement, docs
 
 Why
-A simple 2-D heatmap over two core parameters plus a compact report is the fastest sanity check for fragility.
+A simple 2D heatmap over two core parameters plus a compact report is the fastest sanity check for fragility.
 
 Scope
 - Generate a single HTML (or Markdown) report with config, key metrics, equity + drawdown, turnover, and a heatmap of performance across a small grid.
