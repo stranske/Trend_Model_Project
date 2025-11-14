@@ -2104,6 +2104,38 @@ jobs:
             core.setOutput('updated', newHead && baseline && newHead !== baseline ? 'true' : 'false');
             core.setOutput('pr_url', pr?.html_url || `https://github.com/${owner}/${repo}/pull/${prNumber}`);
 
+      - name: Record dry-run sync status
+        env:
+          BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
+          BASE_REF: ${{ needs.keepalive-prep.outputs.base_ref || needs.belt-dispatch.outputs.base || '' }}
+          NEW_HEAD: ${{ steps.head_check.outputs.new_head || '' }}
+        run: |
+          set -euo pipefail
+          baseline="${BASELINE_HEAD:-}"
+          base="${BASE_REF:-}"
+          new_head="${NEW_HEAD:-}"
+          status='needs_update'
+          head_label=''
+          if [ -n "${baseline}" ]; then
+            head_label="${baseline}"
+          fi
+          if [ -n "${baseline}" ] && [ -n "${new_head}" ] && [ "${new_head}" != "${baseline}" ]; then
+            status='in_sync'
+            head_label="${new_head}"
+          elif [ -z "${baseline}" ] && [ -n "${new_head}" ]; then
+            head_label="${new_head}"
+          fi
+          if [ -z "${head_label}" ]; then
+            head_label='unknown'
+          else
+            head_label="${head_label:0:7}"
+          fi
+          if [ -z "${base}" ]; then
+            base='(unknown)'
+          fi
+          printf 'SYNC: status=%s mode=dry-run head=%s base=%s\n' \
+            "${status}" "${head_label}" "${base}" >>"$GITHUB_STEP_SUMMARY"
+
       - name: Summarise branch-sync validation
         env:
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
@@ -2164,6 +2196,11 @@ jobs:
       mode: ${{ steps.reconcile.outputs.mode || '' }}
       merged_sha: ${{ steps.reconcile.outputs.merged_sha || '' }}
       success: ${{ steps.reconcile.outputs.success || '' }}
+      status: ${{ steps.reconcile.outputs.status || '' }}
+      status_head: ${{ steps.reconcile.outputs.status_head || '' }}
+      status_base: ${{ steps.reconcile.outputs.status_base || '' }}
+      status_mode: ${{ steps.reconcile.outputs.status_mode || '' }}
+      link: ${{ steps.reconcile.outputs.link || '' }}
     steps:
       - name: Ensure keepalive sync token available
         env:
@@ -2223,11 +2260,13 @@ jobs:
           ACTION: ${{ steps.reconcile.outputs.action || '' }}
           CHANGED: ${{ steps.reconcile.outputs.changed || '' }}
           TRACE: ${{ needs.keepalive-prep.outputs.trace || '' }}
+          LINK: ${{ steps.reconcile.outputs.link || '' }}
         run: |
           set -euo pipefail
           action="${ACTION:-skip}"
           changed="${CHANGED:-false}"
           trace="${TRACE:-}"
+          link="${LINK:--}"
           if [ -z "${trace}" ]; then
             trace='n/a'
           fi
@@ -2235,8 +2274,11 @@ jobs:
           if [ "${changed}" = 'true' ]; then
             head_changed='true'
           fi
-          printf 'SYNC: action=%s head_changed=%s trace=%s\n' \
-            "${action}" "${head_changed}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+          if [ -z "${link}" ]; then
+            link='-'
+          fi
+          printf 'SYNC: action=%s head_changed=%s link=%s trace=%s\n' \
+            "${action}" "${head_changed}" "${link}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
 
   keepalive-instruction:
     name: Post keepalive instruction
