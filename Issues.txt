@@ -1,187 +1,4 @@
-1. Consolidate dependency management: make pyproject.toml the single source of truth and generate one lock
-Labels: from:codex, agent:codex, dependencies, config, docs, devops, enhancement
-
-Why
-Multiple dependency files (pyproject.toml, requirements.txt, requirements.lock) create drift and reproducibility risk. A single authoritative source plus a generated lock keeps environments consistent without ceremony.
-
-Scope
-- Keep pyproject.toml as the authoritative dependency list.
-- Generate a single, pinned lock file via either pip-compile or uv pip compile (pick one).
-- Remove duplicate inputs (keep only pyproject.toml + one lock).
-- Update DEPENDENCY_QUICKSTART.md and DOCKER_QUICKSTART.md to the new flow.
-
-Non-Goals
-- Switching to Poetry/PDM.
-- Refactoring import paths.
-
-Tasks
-- Move any version pins from requirements*.txt into pyproject.toml if missing.
-- Add a `make lock` target that builds the lock with the chosen tool.
-- Delete redundant requirements.txt or requirements.lock after migration; keep the generated lock only.
-- Update Dockerfile to install from pyproject.toml + the lock.
-- Document install flows for: local dev, Docker build, CI.
-
-Acceptance criteria
-- Fresh venv: `pip install -e .` resolves only to versions specified in the generated lock.
-- Docker build uses the lock and produces identical `pip freeze` across runs.
-- DEPENDENCY_QUICKSTART.md shows a single install path and it works end-to-end.
-
-Implementation notes
-- Prefer uv if available for speed and deterministic resolution; pip-compile is fine if it’s already in use.
-
-
-2. Remove sitecustomize.py; rely on an installable package + a thin CLI entry point
-Labels: from:codex, agent:codex, backend, config, enhancement, docs
-
-Why
-sitecustomize.py can quietly manipulate sys.path and create “works here, breaks there” imports. Installing the package in editable mode is simpler and safer.
-
-Scope
-- Remove sitecustomize.py.
-- Ensure code imports work with `pip install -e .`.
-- Add a lightweight console script for common tasks.
-
-Non-Goals
-- Full CLI framework or subcommand zoo.
-
-Tasks
-- Delete sitecustomize.py.
-- In pyproject.toml, add a console script, e.g. `trend = package.module:main`.
-- Create a minimal main() that calls the current orchestrator/run function.
-- Update README.md and README_APP.md with the new invocation.
-
-Acceptance criteria
-- All tests pass without sitecustomize.py.
-- Running `trend --help` prints usage.
-- Backtests and demos run via the installed package, not path hacks.
-
-
-3. Add strict input validation at ingestion boundaries (schema, dates, NaN policy)
-Labels: from:codex, agent:codex, backend, data, testing, enhancement
-
-Why
-CSV inputs and uploads are brittle. Early, loud validation prevents silent garbage leaking into signals and weights.
-
-Scope
-- Centralize a `validate_input(df)` function used by scripts, the Streamlit app, and tests.
-- Enforce: required columns (configurable; propose: date, ticker, ret), strict datetime parsing with UTC, sorted index, no duplicate timestamps, no NaN in required fields.
-- Provide friendly error messages with the first offending row.
-
-Non-Goals
-- Changing the downstream feature engine.
-
-Tasks
-- New module under src/ with `validate_input(df)` and a small schema definition.
-- Call validator in app upload path and any CSV/Parquet loaders.
-- Add tests/test_input_validation.py with good and bad fixtures (create tests/data/).
-
-Acceptance criteria
-- Bad inputs fail with specific messages and exit non-zero in scripts.
-- App rejects malformed uploads and shows a readable error.
-- Tests cover: missing column, bad date, unsorted dates, duplicate index, NaN in required fields.
-
-
-4. Enforce no-look-ahead and core backtest invariants via tests
-Labels: from:codex, agent:codex, testing, engine, backend
-
-Why
-Off-by-one errors and unguarded rolling windows are the fastest way to hallucinate alpha.
-
-Scope
-- Property tests to ensure decisions at t never use data from t or later.
-- Invariants: weights finite and (optionally) sum to 1, turnover bounded, PnL(cost=0) ≥ PnL(cost>0), no trades on weekends/holidays.
-
-Non-Goals
-- Rewriting the backtester.
-
-Tasks
-- Add tests/test_no_lookahead.py with randomized series and an intentional leak to prove the guard works.
-- Add tests/test_invariants.py for weights validity, turnover bound, and cost monotonicity.
-- Wire holiday/weekend calendar into tests.
-
-Acceptance criteria
-- Failing the shift/lag guard causes tests to fail deterministically.
-- Increasing cost strictly decreases or leaves PnL unchanged in tests.
-- No weekend/holiday trades appear in test runs.
-
-
-5. Make transaction costs and turnover policy mandatory; persist realized turnover
-Labels: from:codex, agent:codex, engine, backend, testing, enhancement
-
-Why
-Optional cost models and ad-hoc turnover caps hide fragility and inflate performance.
-
-Scope
-- Require a cost parameter in any backtest entry point.
-- Persist turnover per period alongside returns.
-- Add a minimum-trade band or notional threshold to clamp micro-churn.
-
-Non-Goals
-- Detailed broker/exchange fee simulation.
-
-Tasks
-- Update the backtest API to require cost_bps (or cost_model) and turnover_band/min_trade.
-- Emit turnover.csv per run into a run folder under perf/.
-- Tests: cost monotone, turnover ≤ cap, band behavior verified.
-
-Acceptance criteria
-- Running the backtest without cost config errors out.
-- perf/<run-id>/turnover.csv exists and sums match printed turnover.
-- Tests for cost/turnover pass and prevent regressions.
-
-
-6. Walk-forward evaluation harness with simple parameter grid
-Labels: from:codex, agent:codex, engine, backend, enhancement, exports
-
-Why
-Single-pass backtests overfit. A tiny time-blocked harness reveals stability (or lack thereof).
-
-Scope
-- Rolling windows with train/test splits by date.
-- Small grid across 1–2 core parameters (e.g., lookback, band).
-- Persist per-fold metrics and a summary CSV/JSONL.
-
-Non-Goals
-- Hyper-opt or Bayesian tuning.
-
-Tasks
-- Add walk_forward.py (script or module) that accepts a config and emits perf/wf/ artifacts.
-- Minimal metrics: CAGR, Sharpe, max DD, turnover, hit rate per fold.
-- Optional: single 2D heatmap over two parameters saved to perf/wf/.
-
-Acceptance criteria
-- One command produces per-fold metrics and a consolidated summary file.
-- Changing parameters shifts the grid outcomes; seeds make it reproducible.
-- Docs show one example invocation and outputs.
-
-
-7. Pick one app surface; unify Streamlit code paths and harden uploads/cache
-Labels: from:codex, agent:codex, backend, data, docs, enhancement
-
-Why
-Two app paths (app/ and streamlit_app/) increase drift. Uploads without size/type guardrails and stale cache keys lead to confusing results.
-
-Scope
-- Choose a primary app directory and mark the other deprecated or move to examples/.
-- Route the app through the same library functions as the backtester.
-- Enforce file extension whitelist, size limit, safe temp directory, and cache keyed on both params and data hash.
-
-Non-Goals
-- Visual redesign.
-
-Tasks
-- Consolidate app code under the chosen directory.
-- Add an upload_guard.py helper used by the app.
-- Compute a content hash of uploaded data; include it in cache keys.
-- Update README_APP.md.
-
-Acceptance criteria
-- Only one app path remains; the other is moved/retired.
-- Uploads > size limit or wrong type are rejected with a clear message.
-- Re-running with identical data and params hits cache; any change misses.
-
-
-8. Centralize logging and stop committing logs
+1. Centralize logging and stop committing logs
 Labels: from:codex, agent:codex, devops, config, docs
 
 Why
@@ -207,7 +24,7 @@ Acceptance criteria
 - All scripts use the central logging helper.
 
 
-9. Move top-level demos and ad-hoc scripts into examples/ with a single runner
+2. Move top-level demos and ad-hoc scripts into examples/ with a single runner
 Labels: from:codex, agent:codex, docs, backend, enhancement
 
 Why
@@ -232,7 +49,7 @@ Acceptance criteria
 - A newcomer can run one example end-to-end using documented commands.
 
 
-10. Pin Docker base, use multi-stage build, run as non-root
+3. Pin Docker base, use multi-stage build, run as non-root
 Labels: from:codex, agent:codex, devops, ci, dependencies, enhancement
 
 Why
@@ -257,7 +74,7 @@ Acceptance criteria
 - `pip freeze` in the container matches the lock file.
 
 
-11. Time-aware universe membership (effective dates) and loader guardrails
+4. Time-aware universe membership (effective dates) and loader guardrails
 Labels: from:codex, agent:codex, data, engine, testing, enhancement
 
 Why
@@ -282,7 +99,7 @@ Acceptance criteria
 - Loader errors if effective_date is missing when required.
 
 
-12. Calendar alignment utilities and policy (timezone, frequency, holidays)
+5. Calendar alignment utilities and policy (timezone, frequency, holidays)
 Labels: from:codex, agent:codex, data, engine, testing, enhancement
 
 Why
@@ -306,7 +123,7 @@ Acceptance criteria
 - Tests fail if alignment is bypassed.
 
 
-13. Parameter-stability plots and one-page HTML report
+6. Parameter-stability plots and one-page HTML report
 Labels: from:codex, agent:codex, exports, engine, enhancement, docs
 
 Why
@@ -328,7 +145,7 @@ Acceptance criteria
 - Report includes the config used to produce the run.
 
 
-14. Clarify data status for committed CSVs (synthetic/public) with a short README next to them
+7. Clarify data status for committed CSVs (synthetic/public) with a short README next to them
 Labels: from:codex, agent:codex, docs, data
 
 Why
