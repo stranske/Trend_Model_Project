@@ -50,7 +50,7 @@
 - Modify `.github/workflows/agents-70-orchestrator.yml` so the belt worker's `if` clause permits execution when `enable_keepalive` is `true`, even if a PR already exists.
 - Retain the guard summary for the non-keepalive path, but switch the message to “keepalive override active” when the worker is allowed to continue.
 - Bubble the same logic into the dispatch summary so round-two runs show the worker result instead of a forced skip.
-- Keep the PAT pass-through unchanged (`ACTIONS_BOT_PAT` for dispatcher/worker, `service_bot_pat` for keepalive) to avoid regressing authentication.
+- Keep the PAT pass-through aligned with the new authoring model (`ACTIONS_BOT_PAT` now covers both keepalive instruction posts and dispatcher/worker calls, with `service_bot_pat` reserved for legacy helpers) to avoid regressing authentication.
 
 ## Patch — Hidden markers and concurrency (Nov 2025)
 - Keepalive comments now always start with `<!-- keepalive-round: N -->` followed by `<!-- codex-keepalive-marker -->`, matching the sentinel contract used by PR-meta.
