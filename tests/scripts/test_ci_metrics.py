@@ -26,12 +26,18 @@ def junit_report(tmp_path: Path) -> Path:
     ET.SubElement(root, "testcase", name="test_ok", classname="suite.case", time="0.35")
 
     # Failure case with namespaced tag and text payload
-    failing = ET.SubElement(root, "testcase", name="test_fail", classname="suite.case", time="1.25")
-    failure = ET.SubElement(failing, "{http://pytest}failure", message="boom", type="AssertionError")
+    failing = ET.SubElement(
+        root, "testcase", name="test_fail", classname="suite.case", time="1.25"
+    )
+    failure = ET.SubElement(
+        failing, "{http://pytest}failure", message="boom", type="AssertionError"
+    )
     failure.text = "  detailed explanation  "
 
     # Error case with malformed time to exercise fallback handling
-    errored = ET.SubElement(root, "testcase", name="test_error", classname="suite.case", time="not-a-number")
+    errored = ET.SubElement(
+        root, "testcase", name="test_error", classname="suite.case", time="not-a-number"
+    )
     ET.SubElement(errored, "error", message="err", type="RuntimeError").text = "stack"
 
     # Skipped case without classname to trigger fallback nodeid logic
@@ -39,8 +45,12 @@ def junit_report(tmp_path: Path) -> Path:
     ET.SubElement(skipped, "skipped", message="not relevant")
 
     # Ensure sorted slow-test tie-breaking uses nodeid ordering
-    slow_tie_a = ET.SubElement(root, "testcase", name="test_slow_a", classname="mod.A", time="2.0")
-    slow_tie_b = ET.SubElement(root, "testcase", name="test_slow_b", classname="mod.B", time="2.0")
+    slow_tie_a = ET.SubElement(
+        root, "testcase", name="test_slow_a", classname="mod.A", time="2.0"
+    )
+    slow_tie_b = ET.SubElement(
+        root, "testcase", name="test_slow_b", classname="mod.B", time="2.0"
+    )
     ET.SubElement(slow_tie_b, "{http://pytest}skipped")
 
     path = tmp_path / "report.xml"
@@ -59,7 +69,9 @@ def test_tag_name_strips_namespace() -> None:
     ("value", "default", "expected"),
     [(None, 7, 7), ("", 4, 4), ("12", 0, 12)],
 )
-def test_parse_int_accepts_defaults_and_values(value: str | None, default: int, expected: int) -> None:
+def test_parse_int_accepts_defaults_and_values(
+    value: str | None, default: int, expected: int
+) -> None:
     assert cm._parse_int(value, "TOP_N", default) == expected
 
 
@@ -73,7 +85,9 @@ def test_parse_int_rejects_negative_values(bad: str) -> None:
     ("value", "default", "expected"),
     [(None, 1.5, 1.5), ("", 0.5, 0.5), ("2.75", 1.0, 2.75)],
 )
-def test_parse_float_accepts_defaults_and_values(value: str | None, default: float, expected: float) -> None:
+def test_parse_float_accepts_defaults_and_values(
+    value: str | None, default: float, expected: float
+) -> None:
     assert cm._parse_float(value, "MIN_SECONDS", default) == expected
 
 
@@ -194,7 +208,10 @@ def test_build_metrics_requires_existing_report(tmp_path: Path) -> None:
 
 
 def test_main_writes_metrics_file(
-    junit_report: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    junit_report: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(cm._dt, "datetime", _FrozenDatetime)
     output_path = tmp_path / "metrics.json"
@@ -218,7 +235,9 @@ def test_main_writes_metrics_file(
     assert f"Metrics written to {output_path}" in captured.out
 
 
-def test_main_reports_missing_junit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_missing_junit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     missing = tmp_path / "missing.xml"
     output = tmp_path / "unused.json"
     monkeypatch.setenv("JUNIT_PATH", str(missing))
