@@ -3,6 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
   "postCreateCommand": "./scripts/setup_env.sh && python -c 'import numpy, pandas'",
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   }
 }
