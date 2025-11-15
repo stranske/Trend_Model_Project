@@ -11,7 +11,9 @@ pip install --upgrade pip
 pip install -e .[app]
 ```
 The editable install exposes the `trend` console entry points and pulls in the
-Streamlit extras.
+Streamlit extras.  The historical `sitecustomize.py` bootstrapper has been
+fully removed, so the console scripts are now the *only* supported way to run
+the CLI, Streamlit app, demos, and automated tests.
 
 ## Layout
 - `streamlit_app/` multipage Streamlit UI
@@ -27,7 +29,8 @@ trend app
 ```
 
 The legacy launcher (`scripts/run_streamlit.sh`) still works, but the packaged
-command keeps the environment consistent across machines.
+command keeps the environment consistent across machines and enforces the
+installed-package workflow.
 
 ### Unified report downloads
 
