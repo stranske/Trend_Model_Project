@@ -123,20 +123,20 @@ The app includes demo datasets to get started:
 For users comfortable with the command line:
 
 ```bash
-# Activate environment
+# Create and activate a virtual environment
+python3 -m venv .venv
 source .venv/bin/activate
 
-# Run analysis with config
-PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
+# Install the project in editable mode (includes CLI + app extras)
+pip install --upgrade pip
+pip install -e .[app]
+
+# Run analysis with config via the packaged CLI
+trend run -c config/demo.yml --returns demo/demo_returns.csv
 
 # Generate demo data
 python scripts/generate_demo.py
 ```
-
-> 💡 **Opt-in bootstrap (development):** Set `TREND_MODEL_SITE_CUSTOMIZE=1`
-> before launching Python if you want the interpreter to validate that
-> third-party `joblib` is being used and to add `src/` to `sys.path`
-> automatically. The wrapper scripts in `scripts/` export this flag for you.
 
 ---
 

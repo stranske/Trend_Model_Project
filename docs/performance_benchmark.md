@@ -22,7 +22,7 @@ Stored at `perf/perf_baseline.json` (generated with rows=1200, cols=35, runs=4).
 To regenerate after intentional optimisation:
 
 ```bash
-PYTHONPATH=./src python scripts/benchmark_performance.py \
+python scripts/benchmark_performance.py \
   --rows 1200 --cols 35 --runs 4 --output perf_new.json
 mv perf_new.json perf/perf_baseline.json
 # Commit with message: chore(perf): update baseline after optimisation (#1158)
@@ -30,7 +30,7 @@ mv perf_new.json perf/perf_baseline.json
 
 ## Local Comparison
 ```bash
-PYTHONPATH=./src python scripts/benchmark_performance.py --rows 1200 --cols 35 --runs 4 --output perf_current.json
+python scripts/benchmark_performance.py --rows 1200 --cols 35 --runs 4 --output perf_current.json
 python scripts/compare_perf.py --current perf_current.json --baseline perf/perf_baseline.json --threshold-pct 15
 ```
 
