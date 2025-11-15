@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 import uuid
 from collections.abc import Mapping
 from typing import Any, Callable, Dict
@@ -41,6 +42,68 @@ def _resolve_run_simulation() -> RunSimulationFn:
 
 def _make_config(config_data: Dict[str, object]) -> StreamlitConfig:
     return Config(**config_data)
+
+
+def format_error_message(error: Exception) -> str:
+    """Return a user-friendly description for common analysis errors."""
+
+    error_type = type(error).__name__
+    error_msg = str(error)
+
+    error_mappings = {
+        "KeyError": "Missing required data field",
+        "ValueError": "Invalid data or configuration value",
+        "FileNotFoundError": "Required file not found",
+        "PermissionError": "Access denied to file or directory",
+        "IsADirectoryError": "Expected a file but found a directory",
+        "ImportError": "Missing required dependency",
+        "MemoryError": "Insufficient memory for analysis",
+        "TimeoutError": "Analysis took too long to complete",
+    }
+
+    lowered = error_msg.lower()
+    if "date" in lowered:
+        return (
+            "Data validation error: Your dataset must include a Date column with "
+            "properly formatted dates."
+        )
+    if "sample_split" in lowered:
+        return (
+            "Configuration error: Invalid date ranges specified. Please check "
+            "your in-sample and out-of-sample periods."
+        )
+    if "returns" in lowered:
+        return (
+            "Data error: Invalid returns data format. Please ensure your data "
+            "contains numeric return values."
+        )
+    if "config" in lowered:
+        return (
+            "Configuration error: Invalid configuration settings. Please review "
+            "your analysis parameters."
+        )
+
+    if error_type in error_mappings:
+        return f"{error_mappings[error_type]}: {error_msg}"
+
+    return f"Analysis error ({error_type}): {error_msg}"
+
+
+def _render_error_details(error: Exception) -> None:
+    """Display a collapsible traceback to aid debugging."""
+
+    import streamlit as st  # Local import to honor patched modules in tests
+
+    details = (
+        f"Exception Type: {type(error).__name__}\n\n"
+        f"Exception Message:\n{error}\n\n"
+        f"Full Traceback:\n{traceback.format_exc()}"
+    )
+    expander = st.expander("🔍 Show Technical Details", expanded=False)
+    try:
+        expander.code(details)
+    except Exception:  # pragma: no cover - Mock fallback
+        st.code(details)
 
 
 def main() -> None:
@@ -175,7 +238,8 @@ def main() -> None:
         try:
             plan = prepare_dry_run_plan(df, lookback or 0)
         except ValueError as exc:
-            st.error(f"Dry run unavailable: {exc}")
+            st.error(format_error_message(exc))
+            _render_error_details(exc)
             return
         dry_returns = plan.frame.reset_index().rename(
             columns={plan.frame.index.name or "index": "Date"}
@@ -212,7 +276,13 @@ def main() -> None:
     run_logger.info("Run ID: %s", run_id)
 
     progress = st.progress(0)
-    result = run_sim(config, returns)
+    try:
+        result = run_sim(config, returns)
+    except Exception as exc:
+        progress.progress(0)
+        st.error(format_error_message(exc))
+        _render_error_details(exc)
+        return
     progress.progress(100)
     log_step(run_id, "ui_end", "Run completed")
     st.session_state["sim_results"] = result

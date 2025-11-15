@@ -157,7 +157,12 @@ def test_results_page_recomputes_when_benchmark_changes(
 
     run_calls: list[str | None] = []
 
-    def fake_run(df: pd.DataFrame, model_state: dict, benchmark: str | None):
+    def fake_run(
+        df: pd.DataFrame,
+        model_state: dict,
+        benchmark: str | None,
+        **_kwargs,
+    ):
         run_calls.append(benchmark)
         return SimpleNamespace(
             metrics=pd.DataFrame({"Sharpe": [1.23]}),

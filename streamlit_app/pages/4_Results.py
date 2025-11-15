@@ -13,6 +13,16 @@ from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, charts
 
 
+def _should_auto_render() -> bool:
+    """Return True when running inside an active Streamlit session."""
+
+    try:  # pragma: no cover - runtime detection only
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except Exception:
+        return False
+    return get_script_run_ctx() is not None
+
+
 def _analysis_error_messages(error: Exception) -> tuple[str, str | None]:
     """Return a user-friendly summary and optional detail for analysis failures."""
 
@@ -177,4 +187,5 @@ def render_results_page() -> None:
     _render_charts(result)
 
 
-render_results_page()
+if _should_auto_render():  # pragma: no cover - Streamlit runtime only
+    render_results_page()
