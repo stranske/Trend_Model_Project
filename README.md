@@ -1,4 +1,38 @@
 actionlint
+## Trend Model quickstart
+
+Install the packages in editable mode to expose the CLI entry points without
+relying on `sitecustomize` or manual `PYTHONPATH` tweaks:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[app]
+```
+
+Verify the installation and explore the available commands:
+
+```bash
+trend --help
+trend run -c config/demo.yml --returns demo/demo_returns.csv
+```
+
+The `trend` command is the unified launcher for day-to-day workflows:
+
+- `trend run` executes the single-period pipeline
+- `trend report` produces summary artefacts
+- `trend stress` replays canned stress windows
+- `trend app` starts the Streamlit interface
+
+Run the demo pipeline end-to-end using the helper script:
+
+```bash
+python scripts/run_multi_demo.py
+```
+
+---
+
 ==========
 [![CI Badge][]][CI]
 [![API Document][api-badge]][apidoc]

@@ -147,7 +147,7 @@ Run the complete demonstration:
 ```bash
 cd /path/to/Trend_Model_Project
 source .venv/bin/activate  # if using virtual environment
-PYTHONPATH=./src python demo_turnover_cap.py
+python demo_turnover_cap.py
 ```
 
 ## Performance Characteristics

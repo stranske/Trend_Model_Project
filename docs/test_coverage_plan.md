@@ -29,7 +29,7 @@
 3. **Iterative Execution and Tracking**
    - [x] Run `pytest` with coverage locally to confirm incremental gains; adjust thresholds as needed.
    - [x] Update coverage tracking spreadsheet or issue checklist to reflect improvements per module.
-   - [x] Re-run local coverage profile (`PYTHONPATH=./src pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`) to validate the uplift ahead of CI.
+   - [x] Re-run local coverage profile (`pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`) to validate the uplift ahead of CI.
 
 4. **Documentation and Handover**
    - [x] Summarise coverage deltas, remaining gaps, and follow-up actions in `TESTING_SUMMARY.md` or the associated issue (#1630).

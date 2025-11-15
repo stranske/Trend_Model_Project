@@ -26,54 +26,45 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, TypedDict, cast
 
-# Add src to path before any project imports (acceptable for lint since it's
-# still above third-party imports). This keeps environment manipulation minimal.
 ROOT = Path(__file__).resolve().parent.parent
-SRC_PATH = ROOT / "src"
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
-
-
-# Opt into the guarded interpreter bootstrap unless explicitly disabled.
-def setup_trend_model_env():
-    os.environ.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
-
-
-setup_trend_model_env()
 # Standard library done; third-party imports
 import numpy as np
 import openpyxl
 import pandas as pd
-
-# Project imports (kept together; E402 no longer triggered)
-import trend_analysis as ta
 import yaml
-from trend_analysis import (
-    cli,
-    export,
-    gui,
-    metrics,
-    pipeline,
-    run_analysis,
-    run_multi_analysis,
-)
-from trend_analysis.config import Config, load
-from trend_analysis.config.models import ConfigProtocol as _ConfigProto
-from trend_analysis.core import rank_selection as rs
-from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
-from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
-from trend_analysis.multi_period import run as run_mp
-from trend_analysis.multi_period import run_schedule, scheduler
-from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
-from trend_analysis.multi_period.replacer import Rebalancer
-from trend_analysis.selector import RankSelector, ZScoreSelector
-from trend_analysis.weighting import (
-    AdaptiveBayesWeighting,
-    BaseWeighting,
-    EqualWeight,
-    ScorePropBayesian,
-    ScorePropSimple,
-)
+
+try:
+    import trend_analysis as ta
+    from trend_analysis import (
+        cli,
+        export,
+        gui,
+        metrics,
+        pipeline,
+        run_analysis,
+        run_multi_analysis,
+    )
+    from trend_analysis.config import Config, load
+    from trend_analysis.config.models import ConfigProtocol as _ConfigProto
+    from trend_analysis.core import rank_selection as rs
+    from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
+    from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
+    from trend_analysis.multi_period import run as run_mp
+    from trend_analysis.multi_period import run_schedule, scheduler
+    from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
+    from trend_analysis.multi_period.replacer import Rebalancer
+    from trend_analysis.selector import RankSelector, ZScoreSelector
+    from trend_analysis.weighting import (
+        AdaptiveBayesWeighting,
+        BaseWeighting,
+        EqualWeight,
+        ScorePropBayesian,
+        ScorePropSimple,
+    )
+except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing install
+    raise SystemExit(
+        "Trend Model packages are not installed. Run 'pip install -e .[app]' before executing the demo."
+    ) from exc
 
 FAST_SENTINEL = ROOT / "demo/.fast_demo_mode"
 if FAST_SENTINEL.exists():  # pragma: no cover - short-circuit path
@@ -370,8 +361,6 @@ def _check_cli_env(cfg_path: str) -> None:
     """Invoke the CLI using the TREND_CFG environment variable."""
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
-    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
-    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--detailed"],
         check=True,
@@ -389,8 +378,6 @@ def _check_cli_env_multi(cfg_path: str) -> None:
     """Invoke the multi-period CLI using the TREND_CFG variable."""
     env = os.environ.copy()
     env["TREND_CFG"] = cfg_path
-    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
-    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--detailed"],
         check=True,
@@ -2191,16 +2178,12 @@ _check_module_exports()
 
 def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
-    env = os.environ.copy()
-    env["PYTHONPATH"] = f"{ROOT / 'src'}:{env.get('PYTHONPATH', '')}"
-    env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_analysis", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
-        env=env,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.run_multi_analysis", "--help"],
@@ -2208,7 +2191,6 @@ def _check_cli_help() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
-        env=env,
     )
     subprocess.run(
         [sys.executable, "-m", "trend_analysis.cli", "--help"],
@@ -2216,7 +2198,6 @@ def _check_cli_help() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
-        env=env,
     )
 
 
@@ -2299,9 +2280,6 @@ cli_cfg.unlink()
 print("Multi-period demo checks passed")
 
 # Run the CLI entry point in both modes to verify it behaves correctly
-_env = os.environ.copy()
-_env["PYTHONPATH"] = f"{ROOT / 'src'}:{_env.get('PYTHONPATH', '')}"
-_env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
 subprocess.run(
     [
         sys.executable,
@@ -2312,7 +2290,6 @@ subprocess.run(
     ],
     check=True,
     shell=False,
-    env=_env,
 )
 subprocess.run(
     [
@@ -2325,7 +2302,6 @@ subprocess.run(
     ],
     check=True,
     shell=False,
-    env=_env,
 )
 subprocess.run(
     [
@@ -2338,7 +2314,6 @@ subprocess.run(
     ],
     check=True,
     shell=False,
-    env=_env,
 )
 
 subprocess.run(
@@ -2349,7 +2324,6 @@ subprocess.run(
 
 env = os.environ.copy()
 env["TREND_CFG"] = "config/demo.yml"
-env.setdefault("TREND_MODEL_SITE_CUSTOMIZE", "1")
 subprocess.run(
     ["scripts/trend-model", "--check", "run"],
     check=True,
