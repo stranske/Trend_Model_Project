@@ -24,9 +24,9 @@ fonttools==4.60.1
     #   matplotlib
 fpdf2==2.8.5
     # via trend-model (pyproject.toml)
-hypothesis==6.145.1
+hypothesis==6.147.0
     # via trend-model (pyproject.toml)
-ipython==9.6.0
+ipython==9.7.0
     # via ipywidgets
 ipython-pygments-lexers==1.1.1
     # via ipython
@@ -82,11 +82,11 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
-pydantic==2.12.3
+pydantic==2.12.4
     # via
     #   trend-model (pyproject.toml)
     #   pandera
-pydantic-core==2.41.4
+pydantic-core==2.41.5
     # via pydantic
 pygments==2.19.2
     # via
@@ -135,7 +135,7 @@ wcwidth==0.2.14
     # via prompt-toolkit
 widgetsnbextension==4.0.15
     # via ipywidgets
-wrapt==2.0.0
+wrapt==2.0.1
     # via pandera
 xlsxwriter==3.2.9
     # via trend-model (pyproject.toml)
