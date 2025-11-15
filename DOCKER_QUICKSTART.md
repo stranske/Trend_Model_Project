@@ -53,7 +53,7 @@ Get a shell inside the container for development:
 docker run -it --rm trend-model:local bash
 ```
 
-### Option 4: Docker Compose (App + API)
+### Option 5: Docker Compose (App + API)
 
 Bring up the Streamlit app and a minimal API server with one command:
 
