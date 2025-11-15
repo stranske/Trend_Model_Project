@@ -19,7 +19,7 @@ in sync. Updates are limited to packages monitored by the Tool Version Check in
 - Ensure the base project environment is provisioned following
   [`scripts/setup_env.sh`](../scripts/setup_env.sh).
 - Use `python scripts/sync_tool_versions.py --apply` to propagate version bumps
-  from the pin file into `pyproject.toml` and `requirements.txt`.
+  from the pin file into `pyproject.toml` and `requirements.lock`.
 - Validate the synchronization with `python scripts/sync_tool_versions.py --check`
   before marking the tasks below complete.
 
@@ -34,19 +34,19 @@ in sync. Updates are limited to packages monitored by the Tool Version Check in
 
 ## Scope & Key Constraints
 - Refresh the CI autofix/tooling pins to the latest released versions highlighted by the Tool Version Check (currently scoped to formatters, type checking, and test runners in `.github/workflows/autofix-versions.env`).
-- Keep the pin file, `pyproject.toml`, and `requirements.txt` in lock-step by relying on the existing `scripts/sync_tool_versions.py` helper.
+- Keep the pin file, `pyproject.toml`, and `requirements.lock` in lock-step by relying on the existing `scripts/sync_tool_versions.py` helper.
 - Avoid unrelated dependency bumps or workflow edits; only update packages that actually have newer upstream releases.
 - Validate the updated pins locally where feasible without introducing new tooling beyond the standard scripts in this repo.
 
 ## Acceptance Criteria / Definition of Done
 - [x] `.github/workflows/autofix-versions.env` records the latest available versions for each out-of-date tool identified by Issue #3225 (e.g., `ruff==0.14.3`).
-- [x] Running `python scripts/sync_tool_versions.py --check` succeeds, confirming that `pyproject.toml` and `requirements.txt` mirror the pin file.
+- [x] Running `python scripts/sync_tool_versions.py --check` succeeds, confirming that `pyproject.toml` and `requirements.lock` mirror the pin file.
 - [x] The plan below is updated to mark completed work, including final task status reflecting the delivered pin updates.
 
 ## Task Checklist & Status
 - [x] Verify latest PyPI releases for the pinned tools (black, ruff, isort, docformatter, mypy, pytest, pytest-cov, coverage).
 - [x] Update `.github/workflows/autofix-versions.env` with any new versions (expected: bump `RUFF_VERSION` to 0.14.3).
-- [x] Run `python scripts/sync_tool_versions.py --apply` to propagate the pin changes to `pyproject.toml` and `requirements.txt`.
+- [x] Run `python scripts/sync_tool_versions.py --apply` to propagate the pin changes to `pyproject.toml` and `requirements.lock`.
 - [x] Run `python scripts/sync_tool_versions.py --check` to ensure all tracked files are in sync.
 - [x] Capture verification notes in the Progress Log and mark completed tasks/acceptance criteria.
 

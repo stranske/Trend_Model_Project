@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 import math
 from typing import TYPE_CHECKING, Any, Mapping, cast
@@ -83,8 +84,8 @@ class _Stats:
             and _equal(self.sortino, other.sortino)
             and _equal(self.max_drawdown, other.max_drawdown)
             and _equal(self.information_ratio, other.information_ratio)
-            and self.is_avg_corr == other.is_avg_corr
-            and self.os_avg_corr == other.os_avg_corr
+            and _equal(self.is_avg_corr, other.is_avg_corr)
+            and _equal(self.os_avg_corr, other.os_avg_corr)
         )
 
 

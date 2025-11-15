@@ -19,6 +19,9 @@ fi
 export PYTHONHASHSEED=0
 
 pip install --upgrade pip
+if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
+  export TREND_MODEL_SITE_CUSTOMIZE=1
+fi
 pip install uv
 uv pip sync requirements.lock
 pip install --no-deps -e ".[dev]"

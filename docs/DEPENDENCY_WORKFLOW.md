@@ -25,13 +25,13 @@ Please run: uv pip compile pyproject.toml -o requirements.lock
 
 ✅ Fixed! Please review and stage the changes to requirements.txt
 
-Run: git add requirements.txt
+Run: git add pyproject.toml
 ```
 
 ### 3️⃣ Developer reviews and commits the fix
 
 ```bash
-$ git add requirements.txt requirements.lock
+$ git add pyproject.toml requirements.lock
 $ git commit -m "Add new_package dependency"
 ✅ All test dependencies are declared
 [codex/feature 1234567] Add new_package dependency
@@ -70,7 +70,7 @@ Pull the CI's generated changes (shown in job summary), commit, and push:
 $ # Copy the missing line from CI output to requirements.txt
 $ echo "new_package" >> requirements.txt
 $ uv pip compile pyproject.toml -o requirements.lock
-$ git add requirements.txt requirements.lock
+$ git add pyproject.toml requirements.lock
 $ git commit -m "Add missing new_package dependency"
 $ git push
 ```
@@ -100,7 +100,7 @@ python scripts/sync_test_dependencies.py
 ```bash
 python scripts/sync_test_dependencies.py --fix
 uv pip compile pyproject.toml -o requirements.lock
-git add requirements.txt requirements.lock
+git add pyproject.toml requirements.lock
 ```
 
 ### Verify in CI mode

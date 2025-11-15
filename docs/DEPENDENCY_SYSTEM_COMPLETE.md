@@ -165,7 +165,7 @@ python scripts/sync_test_dependencies.py --fix
 uv pip compile pyproject.toml -o requirements.lock
 
 # Commit the changes
-git add requirements.txt requirements.lock
+git add pyproject.toml requirements.lock
 git commit -m "Add missing test dependencies"
 ```
 
