@@ -1,10 +1,11 @@
 """Tests for Streamlit state management."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
-from app.streamlit import state as state_module
+from streamlit_app import state as state_module
 
 
 class TestSessionState:
@@ -23,6 +24,8 @@ class TestSessionState:
             assert "validation_report" in mock_state
             assert "upload_status" in mock_state
             assert mock_state["upload_status"] == "pending"
+            assert mock_state["data_hash"] is None
+            assert mock_state["data_saved_path"] is None
 
     def test_clear_upload_data(self):
         """Test clearing upload data."""
@@ -32,6 +35,8 @@ class TestSessionState:
             "benchmark_candidates": ["SPX"],
             "validation_report": "test",
             "upload_status": "success",
+            "data_hash": "old",
+            "data_saved_path": "old",
         }
 
         with patch.object(state_module.st, "session_state", mock_state, create=True):
@@ -43,6 +48,8 @@ class TestSessionState:
             assert "benchmark_candidates" not in mock_state
             assert "validation_report" not in mock_state
             assert mock_state["upload_status"] == "pending"
+            assert mock_state.get("data_hash") is None
+            assert mock_state.get("data_saved_path") is None
 
     def test_store_validated_data(self):
         """Test storing validated data."""
@@ -51,11 +58,15 @@ class TestSessionState:
         mock_state = {}
 
         with patch.object(state_module.st, "session_state", mock_state, create=True):
-            state_module.store_validated_data(df, meta)
+            state_module.store_validated_data(
+                df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv")
+            )
 
             assert mock_state["returns_df"].equals(df)  # type: ignore[attr-defined]
             assert mock_state["schema_meta"] == meta
             assert mock_state["upload_status"] == "success"
+            assert mock_state["data_hash"] == "hash"
+            assert mock_state["data_saved_path"] == str(Path("/tmp/data.csv"))
 
     def test_get_uploaded_data(self):
         """Test retrieving uploaded data."""

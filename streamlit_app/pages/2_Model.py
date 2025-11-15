@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 import streamlit as st
 
-from app.streamlit import state as app_state
+from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
 from trend_analysis.signal_presets import (
     TrendSpecPreset,

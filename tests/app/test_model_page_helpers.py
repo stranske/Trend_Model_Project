@@ -49,7 +49,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         mark_clear,
     )
 
-    from app.streamlit import state as app_state
+    from streamlit_app import state as app_state
 
     monkeypatch.setattr(app_state, "initialize_session_state", lambda: None)
     monkeypatch.setattr(app_state, "st", stub)

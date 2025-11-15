@@ -1,6 +1,4 @@
-"""Run page for the legacy Streamlit Trend Analysis application."""
-
-from __future__ import annotations
+"""Run page for Streamlit trend analysis app with unified execution and progress."""
 
 import logging
 import sys
@@ -12,8 +10,9 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-_SRC_PATH = Path(__file__).resolve().parents[3] / "src"
-if str(_SRC_PATH) not in sys.path:  # pragma: no cover - import side effect
+# Prepare src path before lazy import
+_SRC_PATH = Path(__file__).parent.parent.parent / "src"
+if str(_SRC_PATH) not in sys.path:
     sys.path.append(str(_SRC_PATH))
 
 
@@ -23,18 +22,19 @@ def _api() -> tuple[object, object]:
     return RunResult, run_simulation
 
 
+# Configure logging for the app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class StreamlitLogHandler(logging.Handler):
-    """Custom log handler that records log lines for display in Streamlit."""
+    """Custom log handler to capture logs for display in Streamlit."""
 
     def __init__(self):
         super().__init__()
         self.log_messages = []
 
-    def emit(self, record):  # pragma: no cover - trivial passthrough
+    def emit(self, record):
         log_message = self.format(record)
         self.log_messages.append(
             {
@@ -47,16 +47,16 @@ class StreamlitLogHandler(logging.Handler):
     def get_logs(self):
         return self.log_messages
 
-    def clear_logs(self):  # pragma: no cover - unused helper
+    def clear_logs(self):
         self.log_messages = []
 
 
 def format_error_message(error: Exception) -> str:
     """Convert an exception into a human-readable error message."""
-
     error_type = type(error).__name__
     error_msg = str(error)
 
+    # Common error patterns and user-friendly messages
     error_mappings = {
         "KeyError": "Missing required data field",
         "ValueError": "Invalid data or configuration value",
@@ -68,44 +68,44 @@ def format_error_message(error: Exception) -> str:
         "TimeoutError": "Analysis took too long to complete",
     }
 
+    # Try to provide more specific guidance
     if "Date" in error_msg:
+        # Keep wording aligned with tests (no quotes around Date)
         return (
             "Data validation error: Your dataset must include a Date column with "
             "properly formatted dates."
         )
-    if "sample_split" in error_msg:
+    elif "sample_split" in error_msg:
         return (
             "Configuration error: Invalid date ranges specified. Please check "
             "your in-sample and out-of-sample periods."
         )
-    if "returns" in error_msg.lower():
-        return (
-            "Data error: Invalid returns data format. Please ensure your data "
-            "contains numeric return values."
-        )
-    if "config" in error_msg.lower():
-        return (
-            "Configuration error: Invalid configuration settings. Please review "
-            "your analysis parameters."
-        )
+    elif "returns" in error_msg.lower():
+        return "Data error: Invalid returns data format. Please ensure your data contains numeric return values."
+    elif "config" in error_msg.lower():
+        return "Configuration error: Invalid configuration settings. Please review your analysis parameters."
 
+    # Use generic mapping if available
     if error_type in error_mappings:
         return f"{error_mappings[error_type]}: {error_msg}"
 
+    # Fallback to a generic but helpful message
     return f"Analysis error ({error_type}): {error_msg}"
 
 
 def create_config_from_session_state() -> Optional[object]:
-    """Create a Config object from the current Streamlit session state."""
-
+    """Create a Config object from session state data."""
     try:
+        # Get configuration from session state
         sim_config = st.session_state.get("sim_config", {})
+
         if not sim_config:
             st.error(
                 "No configuration found. Please set up your analysis configuration first."
             )
             return None
 
+        # Extract required parameters with defaults
         lookback = sim_config.get("lookback_months", 0)
         start = sim_config.get("start")
         end = sim_config.get("end")
@@ -114,8 +114,10 @@ def create_config_from_session_state() -> Optional[object]:
             st.error("Start and end dates are required in configuration.")
             return None
 
+        # Import Config at runtime to avoid stale class identity across reloads
         from trend_analysis.config import Config as _Config  # local import
 
+        # Create Config object
         config = _Config(
             version="1",
             data={},
@@ -138,20 +140,21 @@ def create_config_from_session_state() -> Optional[object]:
         )
         return config
 
-    except Exception as exc:  # pragma: no cover - defensive
-        st.error(f"Failed to create configuration: {format_error_message(exc)}")
+    except Exception as e:
+        st.error(f"Failed to create configuration: {format_error_message(e)}")
         return None
 
 
 def prepare_returns_data() -> Optional[pd.DataFrame]:
-    """Prepare the returns data stored in session state."""
-
+    """Prepare returns data from session state."""
     try:
         df = st.session_state.get("returns_df")
+
         if df is None:
             st.error("No data found. Please upload your returns data first.")
             return None
 
+        # Ensure 'Date' column exists for the pipeline
         if "Date" not in df.columns:
             df = df.reset_index()
             if df.index.name:
@@ -159,6 +162,7 @@ def prepare_returns_data() -> Optional[pd.DataFrame]:
             elif "index" in df.columns:
                 df = df.rename(columns={"index": "Date"})
             else:
+                # Try to find a date-like column
                 date_cols = [col for col in df.columns if "date" in col.lower()]
                 if date_cols:
                     df = df.rename(columns={date_cols[0]: "Date"})
@@ -170,30 +174,33 @@ def prepare_returns_data() -> Optional[pd.DataFrame]:
 
         return df
 
-    except Exception as exc:  # pragma: no cover - defensive
-        st.error(f"Failed to prepare data: {format_error_message(exc)}")
+    except Exception as e:
+        st.error(f"Failed to prepare data: {format_error_message(e)}")
         return None
 
 
 def run_analysis_with_progress() -> Optional[object]:
-    """Run the analysis while streaming progress and log output to Streamlit."""
+    """Run the analysis with progress reporting and error handling."""
 
+    # Initialize log handler
     log_handler = StreamlitLogHandler()
     log_handler.setLevel(logging.INFO)
-    log_handler.setFormatter(
-        logging.Formatter("%(name)s - %(levelname)s - %(message)s")
-    )
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    log_handler.setFormatter(formatter)
 
+    # Add handler to relevant loggers
     trend_logger = logging.getLogger("trend_analysis")
     trend_logger.addHandler(log_handler)
     trend_logger.setLevel(logging.INFO)
 
+    # Create UI primitives directly (avoid context manager requirements for tests)
     progress_bar = st.progress(0, "Initializing analysis...")
     status_text = st.empty()
     log_expander = st.expander("📋 Analysis Log", expanded=True)
     log_display = log_expander.empty()
 
     try:
+        # Phase 1: Prepare data and configuration
         status_text.text("🔧 Preparing data and configuration...")
         progress_bar.progress(10, "Preparing data and configuration...")
 
@@ -206,70 +213,92 @@ def run_analysis_with_progress() -> Optional[object]:
             return None
 
         progress_bar.progress(25, "Data preparation complete...")
+
+        # Phase 2: Validate inputs
         status_text.text("✅ Validating inputs...")
         progress_bar.progress(40, "Validating inputs...")
 
+        # Basic validation
         if len(returns_df) == 0:
             raise ValueError("Returns data is empty")
+
         if "Date" not in returns_df.columns:
             raise ValueError("Date column is missing from returns data")
 
         progress_bar.progress(50, "Input validation complete...")
+
+        # Phase 3: Run analysis
         status_text.text("🚀 Running trend analysis...")
         progress_bar.progress(60, "Running trend analysis...")
 
+        # Lazy import API only after validation succeeds
         RunResult, run_simulation = _api()
         result = run_simulation(config, returns_df)
 
         progress_bar.progress(90, "Analysis complete, finalizing results...")
+
+        # Phase 4: Finalize
         status_text.text("✨ Finalizing results...")
         progress_bar.progress(100, "Analysis completed successfully!")
 
+        # Display final logs
         logs = log_handler.get_logs()
         if logs:
             log_text = "\n".join(
-                f"[{log['timestamp']}] {log['level']}: {log['message']}"
-                for log in logs[-10:]
-            )
+                [
+                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
+                    for log in logs[-10:]
+                ]
+            )  # Show last 10 logs
             log_display.code(log_text)
 
         status_text.text("🎉 Analysis completed successfully!")
         return result
 
-    except Exception as exc:
+    except Exception as e:
         progress_bar.progress(0, "Analysis failed")
         status_text.text("❌ Analysis failed")
 
+        # Display logs up to failure
         logs = log_handler.get_logs()
         if logs:
             log_text = "\n".join(
-                f"[{log['timestamp']}] {log['level']}: {log['message']}" for log in logs
+                [
+                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
+                    for log in logs
+                ]
             )
             log_display.code(log_text)
 
-        error_msg = format_error_message(exc)
+        # Show user-friendly error message
+        error_msg = format_error_message(e)
         st.error(f"**Analysis Failed**: {error_msg}")
+
+        # Show detailed error (avoid context manager for test mocks)
         details = (
-            f"Exception Type: {type(exc).__name__}\n\n"
-            f"Exception Message:\n{str(exc)}\n\n"
+            f"Exception Type: {type(e).__name__}\n\n"
+            f"Exception Message:\n{str(e)}\n\n"
             f"Full Traceback:\n{traceback.format_exc()}"
         )
         expander = st.expander("🔍 Show Technical Details", expanded=False)
         try:
             expander.code(details)
-        except Exception:  # pragma: no cover - fallback for mocks
+        except Exception:
+            # If expander isn't a real widget (e.g., Mock), fall back
             st.code(details)
+
         return None
 
     finally:
+        # Clean up log handler
         trend_logger.removeHandler(log_handler)
 
 
-def main() -> None:
-    """Render the legacy Streamlit Run page."""
-
+def main():
+    """Main function for the Run page."""
     st.title("🚀 Run Analysis")
 
+    # Check prerequisites
     if "returns_df" not in st.session_state or st.session_state["returns_df"] is None:
         st.warning("⚠️ **Upload Required**: Please upload your returns data first.")
         st.info("👈 Go to the **Upload** page to load your data.")
@@ -282,6 +311,7 @@ def main() -> None:
         st.info("👈 Go to the **Configure** page to set up your analysis.")
         return
 
+    # Display current setup
     col1, col2 = st.columns(2)
 
     with col1:
@@ -296,20 +326,26 @@ def main() -> None:
         st.write(f"- **Start Date**: {config_info.get('start', 'Not set')}")
         st.write(f"- **End Date**: {config_info.get('end', 'Not set')}")
 
+    # Main run button
     st.markdown("---")
+
     run_col, clear_col = st.columns([3, 1])
 
     with run_col:
         if st.button("🚀 **Run Analysis**", type="primary", use_container_width=True):
             with st.spinner("Running analysis..."):
                 result = run_analysis_with_progress()
+
                 if result is not None:
+                    # Store results in session state
                     st.session_state["sim_results"] = result
                     st.session_state["last_run_timestamp"] = datetime.now()
+
+                    # Display summary
                     st.success("✅ **Analysis completed successfully!**")
 
                     with st.expander("📈 Quick Results Summary", expanded=True):
-                        if hasattr(result, "metrics") and not result.metrics.empty:
+                        if not result.metrics.empty:
                             st.dataframe(result.metrics.head())
                         else:
                             st.info("No metrics to display.")
@@ -320,24 +356,32 @@ def main() -> None:
 
     with clear_col:
         if st.button("🗑️ Clear", help="Clear previous results"):
-            st.session_state.pop("sim_results", None)
-            st.session_state.pop("last_run_timestamp", None)
+            if "sim_results" in st.session_state:
+                del st.session_state["sim_results"]
+            if "last_run_timestamp" in st.session_state:
+                del st.session_state["last_run_timestamp"]
             st.success("Results cleared!")
             st.rerun()
 
-    if st.session_state.get("sim_results") is not None:
+    # Show previous results if available
+    if (
+        "sim_results" in st.session_state
+        and st.session_state["sim_results"] is not None
+    ):
         st.markdown("---")
         st.markdown("### 📋 Previous Results")
+
         last_run = st.session_state.get("last_run_timestamp")
         if last_run:
             st.caption(f"Last run: {last_run.strftime('%Y-%m-%d %H:%M:%S')}")
 
         result = st.session_state["sim_results"]
-        if hasattr(result, "metrics") and not result.metrics.empty:
+
+        if not result.metrics.empty:
             st.dataframe(result.metrics)
         else:
             st.info("No previous results available.")
 
 
-if __name__ == "__main__":  # pragma: no cover - Streamlit entry-point
+if __name__ == "__main__":
     main()

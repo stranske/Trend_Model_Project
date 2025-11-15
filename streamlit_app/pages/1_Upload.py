@@ -2,35 +2,49 @@
 
 from __future__ import annotations
 
-import tempfile
-import uuid
+import io
 from functools import lru_cache
 from pathlib import Path
 
 import streamlit as st
 
-from app.streamlit import state as app_state
+from streamlit_app import state as app_state
+from streamlit_app.components import analysis_runner
+from streamlit_app.components.upload_guard import (
+    UploadViolation,
+    guard_and_buffer_upload,
+    hash_path,
+)
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import infer_benchmarks, load_and_validate_file
 
 
-def _persist_uploaded_copy(df) -> Path:
-    tmp_dir = Path(tempfile.gettempdir()) / "trend_app_uploads"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    tmp_path = tmp_dir / f"upload_{uuid.uuid4().hex}.csv"
-    reset = df.reset_index().rename(columns={df.index.name or "index": "Date"})
-    reset.to_csv(tmp_path, index=False)
-    return tmp_path
-
-
-def _handle_success(st_module, df, meta, source_path: Path | str) -> None:
-    app_state.store_validated_data(df, meta)
-    st_module.session_state["uploaded_file_path"] = str(source_path)
+def _dataset_summary(df) -> str:
     start = df.index.min().date() if hasattr(df.index.min(), "date") else df.index.min()
     end = df.index.max().date() if hasattr(df.index.max(), "date") else df.index.max()
-    st_module.success(
-        f"Loaded {df.shape[0]} rows × {df.shape[1]} columns. Range: {start} to {end}."
+    return f"{df.shape[0]} rows × {df.shape[1]} columns. Range: {start} to {end}."
+
+
+def _handle_success(
+    st_module,
+    df,
+    meta,
+    *,
+    source_path: Path,
+    data_hash: str,
+    data_key: str,
+) -> None:
+    app_state.store_validated_data(
+        df, meta, data_hash=data_hash, saved_path=source_path
     )
+    st_module.session_state["uploaded_file_path"] = str(source_path)
+    st_module.session_state["data_fingerprint"] = data_hash
+    st_module.session_state["data_loaded_key"] = data_key
+    st_module.session_state["data_summary"] = _dataset_summary(df)
+
+    analysis_runner.clear_cached_analysis()
+
+    st_module.success(_dataset_summary(df))
     meta_info = meta.get("metadata") if isinstance(meta, dict) else None
     if meta_info:
         st_module.info(
@@ -49,6 +63,8 @@ _GENERIC_FAILURE_MESSAGE = (
 
 
 def _extract_validation_details(error: Exception) -> tuple[str, list[str], str | None]:
+    if isinstance(error, UploadViolation):
+        return str(error), [], None
     if isinstance(error, MarketDataValidationError):
         return error.user_message, list(error.issues), None
     cause = getattr(error, "__cause__", None)
@@ -89,23 +105,41 @@ def render_upload_page(st_module=st) -> None:
             path = demo_path_csv if demo_path_csv.exists() else demo_path_xlsx
             try:
                 df, meta = _load_demo(str(path))
+                data_hash = hash_path(path.resolve())
             except Exception as exc:  # pragma: no cover - defensive guard
                 _handle_failure(st_module, exc)
             else:
-                _handle_success(st_module, df, meta, path.resolve())
+                resolved = path.resolve()
+                data_key = f"sample::{resolved}"
+                _handle_success(
+                    st_module,
+                    df,
+                    meta,
+                    source_path=resolved,
+                    data_hash=data_hash,
+                    data_key=data_key,
+                )
 
     if uploaded is not None:
         try:
-            df, meta = load_and_validate_file(uploaded)
-        except MarketDataValidationError as exc:
-            _handle_failure(st_module, exc)
-        except ValueError as exc:
+            guarded = guard_and_buffer_upload(uploaded)
+            buffer = io.BytesIO(guarded.data)
+            buffer.name = guarded.original_name
+            df, meta = load_and_validate_file(buffer)
+        except (UploadViolation, MarketDataValidationError, ValueError) as exc:
             _handle_failure(st_module, exc)
         except Exception as exc:  # pragma: no cover - unexpected parsing error
             _handle_failure(st_module, exc)
         else:
-            tmp_path = _persist_uploaded_copy(df)
-            _handle_success(st_module, df, meta, tmp_path)
+            data_key = f"upload::{guarded.original_name}::{guarded.content_hash}"
+            _handle_success(
+                st_module,
+                df,
+                meta,
+                source_path=guarded.stored_path,
+                data_hash=guarded.content_hash,
+                data_key=data_key,
+            )
     elif not app_state.has_valid_upload():
         st_module.warning("No file uploaded yet.")
 

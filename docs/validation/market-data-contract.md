@@ -62,7 +62,7 @@ acceptance criteria.
 - `load_market_data_csv` / `load_market_data_parquet` power the CLI and the
   `trend_portfolio_app` upload helpers, returning validated frames and
   metadata.
-- The Streamlit upload flow funnels everything through `app.streamlit.state` so
+- The Streamlit upload flow funnels everything through `streamlit_app.state` so
   a single error banner is shown when validation fails and successful uploads
   persist metadata/validation reports in `st.session_state` for later pages.
 - CLI runs exit with status code `1` and echo the same message to `stderr` so

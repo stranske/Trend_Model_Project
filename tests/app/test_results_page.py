@@ -116,7 +116,7 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
 
     monkeypatch.setitem(sys.modules, "streamlit", module)
 
-    from app.streamlit import state as app_state
+    from streamlit_app import state as app_state
 
     monkeypatch.setattr(app_state, "st", module)
     monkeypatch.setattr(app_state, "initialize_session_state", lambda: None)
@@ -157,7 +157,12 @@ def test_results_page_recomputes_when_benchmark_changes(
 
     run_calls: list[str | None] = []
 
-    def fake_run(df: pd.DataFrame, model_state: dict, benchmark: str | None):
+    def fake_run(
+        df: pd.DataFrame,
+        model_state: dict,
+        benchmark: str | None,
+        **_kwargs,
+    ):
         run_calls.append(benchmark)
         return SimpleNamespace(
             metrics=pd.DataFrame({"Sharpe": [1.23]}),

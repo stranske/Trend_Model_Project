@@ -9,6 +9,7 @@ from typing import Any, Callable
 import pandas as pd
 import pytest
 
+from streamlit_app.components.upload_guard import GuardedUpload, hash_bytes
 from trend_analysis.io.market_data import MarketDataValidationError
 
 
@@ -19,6 +20,12 @@ class DummyUpload:
 
     def getvalue(self) -> bytes:
         return self._data
+
+    def read(self) -> bytes:
+        return self._data
+
+    def seek(self, _pos: int) -> None:
+        return None
 
 
 class DummyStreamlit:
@@ -131,11 +138,24 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
         mark_clear,
     )
 
-    from app.streamlit import state as app_state
+    from streamlit_app import state as app_state
 
     monkeypatch.setattr(app_state, "st", module)
 
+    def fake_guard(uploaded: DummyUpload) -> GuardedUpload:
+        data = uploaded.getvalue()
+        return GuardedUpload(
+            original_name=uploaded.name,
+            stored_path=Path("/tmp") / uploaded.name,
+            data=data,
+            content_hash=hash_bytes(data),
+            size=len(data),
+        )
+
     page = importlib.reload(importlib.import_module("streamlit_app.pages.1_Data"))
+
+    monkeypatch.setattr(page, "guard_and_buffer_upload", fake_guard)
+    monkeypatch.setattr(page, "hash_path", lambda _p: "samplehash")
 
     return page, stub
 

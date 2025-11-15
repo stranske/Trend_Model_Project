@@ -9,8 +9,18 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from app.streamlit import state as app_state
+from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, charts
+
+
+def _should_auto_render() -> bool:
+    """Return True when running inside an active Streamlit session."""
+
+    try:  # pragma: no cover - runtime detection only
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except Exception:
+        return False
+    return get_script_run_ctx() is not None
 
 
 def _analysis_error_messages(error: Exception) -> tuple[str, str | None]:
@@ -142,7 +152,10 @@ def render_results_page() -> None:
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):
             try:
-                result = analysis_runner.run_analysis(df, model_state, benchmark)
+                data_hash = st.session_state.get("data_fingerprint")
+                result = analysis_runner.run_analysis(
+                    df, model_state, benchmark, data_hash=data_hash
+                )
             except Exception as exc:  # pragma: no cover - defensive guard
                 summary, detail = _analysis_error_messages(exc)
                 st.error(summary)
@@ -174,4 +187,5 @@ def render_results_page() -> None:
     _render_charts(result)
 
 
-render_results_page()
+if _should_auto_render():  # pragma: no cover - Streamlit runtime only
+    render_results_page()
