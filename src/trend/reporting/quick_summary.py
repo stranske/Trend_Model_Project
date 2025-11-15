@@ -17,7 +17,10 @@ import os
 from datetime import UTC, datetime
 from html import escape as html_escape
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 import pandas as pd
 
@@ -89,8 +92,10 @@ def _extract_parameter_grid(
         values = payload.get("values")
         rows = payload.get("rows") or payload.get("index")
         cols = payload.get("cols") or payload.get("columns")
+        row_labels: list[Any] | None = list(rows) if rows is not None else None
+        col_labels: list[Any] | None = list(cols) if cols is not None else None
         try:
-            grid = pd.DataFrame(values, index=list(rows), columns=list(cols))
+            grid = pd.DataFrame(values, index=row_labels, columns=col_labels)
         except Exception:
             grid = pd.DataFrame(values)
         if not grid.empty:
@@ -127,7 +132,7 @@ def _compute_equity_and_drawdown(returns: pd.Series) -> tuple[pd.Series, pd.Seri
     return equity, drawdown
 
 
-def _encode_plot(fig) -> str:
+def _encode_plot(fig: "Figure") -> str:
     buffer = io.BytesIO()
     fig.savefig(buffer, format="png")
     plt.close(fig)
