@@ -102,6 +102,38 @@ def test_main_exits_when_button_not_clicked() -> None:
     mock_st.error.assert_not_called()
 
 
+def test_main_uses_model_state_when_sim_config_missing() -> None:
+    mock_st = _make_streamlit(button_response=[False, True])
+    module = _load_run_module(mock_st)
+
+    mock_returns = pd.DataFrame(
+        {"A": [0.02] * 18},
+        index=pd.date_range("2022-01-31", periods=18, freq="ME"),
+    )
+    mock_model_state = {
+        "lookback_months": 12,
+        "evaluation_months": 6,
+        "risk_target": 0.4,
+        "weighting_scheme": "equal",
+        "trend_spec": {"window": 63, "lag": 1},
+    }
+    mock_st.session_state.update(
+        {
+            "returns_df": mock_returns,
+            "model_state": mock_model_state,
+        }
+    )
+
+    module.show_disclaimer = lambda: True
+    module.run_simulation = MagicMock()
+
+    with patch.dict("sys.modules", {"streamlit": mock_st}):
+        module.main()
+
+    module.run_simulation.assert_called_once()
+    mock_st.error.assert_not_called()
+
+
 def test_main_supports_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_st = _make_streamlit(button_response=[True, False])
     module = _load_run_module(mock_st)
