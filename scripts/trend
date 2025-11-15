@@ -8,19 +8,29 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-export PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH}"
-
 if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
+    # shellcheck disable=SC1090
     source "${PROJECT_ROOT}/.venv/bin/activate"
-fi
-
-if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
-    export TREND_MODEL_SITE_CUSTOMIZE=1
 fi
 
 PYTHON_EXEC="python"
 if [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
     PYTHON_EXEC="${PROJECT_ROOT}/.venv/bin/python"
+fi
+
+if ! "$PYTHON_EXEC" - <<'PY' >/dev/null 2>&1; then
+import importlib
+import sys
+
+try:
+    importlib.import_module("trend")
+except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
+    sys.exit(1)
+sys.exit(0)
+PY
+then
+    echo "trend package not installed. Run 'pip install -e .' first." >&2
+    exit 1
 fi
 
 exec "$PYTHON_EXEC" -m trend.cli "$@"

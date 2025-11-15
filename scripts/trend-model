@@ -7,27 +7,32 @@ if [[ -z "${PYTHONHASHSEED:-}" ]]; then
     export PYTHONHASHSEED=0
 fi
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Set PYTHONPATH to include the src directory
-export PYTHONPATH="${PROJECT_ROOT}/src:${PYTHONPATH}"
-
-# Activate virtual environment if it exists
 if [ -f "${PROJECT_ROOT}/.venv/bin/activate" ]; then
+    # shellcheck disable=SC1090
     source "${PROJECT_ROOT}/.venv/bin/activate"
 fi
 
-# Opt into the guarded bootstrap unless explicitly disabled.
-if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
-    export TREND_MODEL_SITE_CUSTOMIZE=1
-fi
-
-# Run the CLI module with all arguments passed through
 PYTHON_EXEC="python"
 if [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
     PYTHON_EXEC="${PROJECT_ROOT}/.venv/bin/python"
+fi
+
+if ! "$PYTHON_EXEC" - <<'PY' >/dev/null 2>&1; then
+import importlib
+import sys
+
+try:
+    importlib.import_module("trend_analysis.cli")
+except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
+    sys.exit(1)
+sys.exit(0)
+PY
+then
+    echo "trend_analysis package not installed. Run 'pip install -e .' first." >&2
+    exit 1
 fi
 
 exec "$PYTHON_EXEC" -m trend_analysis.cli "$@"
