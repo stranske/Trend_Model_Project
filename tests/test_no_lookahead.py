@@ -13,7 +13,9 @@ from hypothesis import strategies as st
 from trend_analysis.pipeline import compute_signal, position_from_signal
 
 
-def _random_returns(min_size: int = 6, max_size: int = 40) -> st.SearchStrategy[list[float]]:
+def _random_returns(
+    min_size: int = 6, max_size: int = 40
+) -> st.SearchStrategy[list[float]]:
     return st.lists(
         st.floats(min_value=-0.5, max_value=0.5, allow_nan=False, allow_infinity=False),
         min_size=min_size,
@@ -78,7 +80,9 @@ def test_future_modification_does_not_change_history() -> None:
     tweaked_signal = compute_signal(tweaked, window=3)
     tweaked_positions = position_from_signal(tweaked_signal)
 
-    tm.assert_series_equal(signal.iloc[:-1], tweaked_signal.iloc[:-1], check_names=False)
+    tm.assert_series_equal(
+        signal.iloc[:-1], tweaked_signal.iloc[:-1], check_names=False
+    )
     tm.assert_series_equal(
         positions.iloc[:-1],
         tweaked_positions.iloc[:-1],
