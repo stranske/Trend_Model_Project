@@ -56,6 +56,7 @@ trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
 trend-model = "trend_analysis.cli:main"
 trend-app = "trend_model.app:main"
 trend-run = "trend_model.cli:run"
+trend-quick-report = "trend.reporting.quick_summary:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

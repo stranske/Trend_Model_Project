@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterable, Protocol, cast
 import pandas as pd
 
 from trend.reporting import generate_unified_report
+from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -155,6 +156,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser("app", help="Launch the Streamlit application")
+
+    quick_p = sub.add_parser(
+        "quick-report", help="Build a compact HTML report from run artefacts"
+    )
+    quick_p.add_argument(
+        "--run-id", help="Run identifier (defaults to artefact inference)"
+    )
+    quick_p.add_argument(
+        "--artifacts",
+        type=Path,
+        help="Directory containing metrics_<run-id>.csv and details_<run-id>.json",
+    )
+    quick_p.add_argument(
+        "--base-dir",
+        type=Path,
+        help="Base directory for derived artefacts (default: ./perf)",
+    )
+    quick_p.add_argument(
+        "--config",
+        type=Path,
+        help="Configuration file to embed in the report",
+    )
+    quick_p.add_argument(
+        "--output",
+        type=Path,
+        help="Explicit HTML output path (default: <base-dir>/reports/<run-id>.html)",
+    )
 
     return parser
 
@@ -452,7 +480,24 @@ def main(argv: list[str] | None = None) -> int:
             proc = subprocess.run(["streamlit", "run", str(APP_PATH)])
             return proc.returncode
 
-        if command in {"run", "report", "stress"} and not args.config:
+        if command == "quick-report":
+            quick_args: list[str] = []
+            if args.run_id:
+                quick_args.extend(["--run-id", args.run_id])
+            if args.artifacts:
+                quick_args.extend(["--artifacts", os.fspath(args.artifacts)])
+            if args.base_dir:
+                quick_args.extend(["--base-dir", os.fspath(args.base_dir)])
+            if args.config:
+                quick_args.extend(["--config", os.fspath(args.config)])
+            if args.output:
+                quick_args.extend(["--output", os.fspath(args.output)])
+            return quick_summary_main(quick_args)
+
+        if command not in {"run", "report", "stress"}:
+            raise TrendCLIError(f"Unknown command: {command}")
+
+        if not args.config:
             raise TrendCLIError(
                 f"The --config option is required for the '{command}' command"
             )
