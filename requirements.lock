@@ -75,9 +75,6 @@ fonttools==4.60.1
     #   matplotlib
 fpdf2==2.8.5
     # via trend-model (pyproject.toml)
-hypothesis==6.147.0
-    # via trend-model (pyproject.toml)
-ipython==9.7.0
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.45
@@ -92,6 +89,8 @@ httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
     # via trend-model (pyproject.toml)
+hypothesis==6.147.0
+    # via trend-model (pyproject.toml)
 identify==2.6.15
     # via pre-commit
 idna==3.11
@@ -103,6 +102,8 @@ iniconfig==2.3.0
     # via pytest
 ipyfilechooser==0.6.0
     # via trend-model (pyproject.toml)
+ipython==9.7.0
+    # via ipywidgets
 ipython-pygments-lexers==1.1.1
     # via ipython
 ipywidgets==8.1.8
@@ -216,11 +217,15 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
-pydantic==2.12.4
 pyarrow==21.0.0
     # via streamlit
 pycodestyle==2.14.0
     # via flake8
+pydantic==2.12.4
+    # via
+    #   trend-model (pyproject.toml)
+    #   fastapi
+    #   pandera
 pydantic-core==2.41.5
     # via pydantic
 pydeck==0.9.1
