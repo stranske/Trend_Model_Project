@@ -1,0 +1,3 @@
+# Convenience shim for tooling that still expects requirements.txt.
+# All pinned dependencies live in requirements.lock generated from pyproject.toml.
+-r requirements.lock
