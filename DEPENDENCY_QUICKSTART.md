@@ -49,19 +49,25 @@ python scripts/sync_tool_versions.py --apply   # rewrite pyproject.toml when pin
 
 All installs consume `pyproject.toml` plus the generated lock file:
 
-* **Local development**
+* **Local development** (inside `.venv`)
   ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install --upgrade pip uv
   uv pip sync requirements.lock
   pip install --no-deps -e .[dev]
   ```
 
-* **CI**
+* **CI** (non-root runners)
   ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install --upgrade pip uv
   uv pip sync requirements.lock
   pip install --no-deps -e .[dev]
   ```
 
-* **Docker** – the Dockerfile installs build tools, runs `uv pip sync
+* **Docker** – the Dockerfile installs build tools, runs `uv pip sync --system
   requirements.lock`, and finishes with `pip install --no-deps -e .[app]`.
 
 `pip install -e .` on a fresh virtualenv should not resolve any new versions

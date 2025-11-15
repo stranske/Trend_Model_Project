@@ -42,8 +42,10 @@ streamlit run test_upload_app.py --server.headless true
 # Validation workflow test
 python -c "from src.trend_analysis.io.validators import load_and_validate_upload; ..."
 
-# Install dependencies before running tests
-pip install uv
+# Install dependencies before running tests (inside .venv)
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip uv
 uv pip sync requirements.lock
 pip install --no-deps -e .[dev]
 

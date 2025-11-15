@@ -42,8 +42,8 @@ if (return 0 2>/dev/null); then
 		# shellcheck source=/dev/null
 		source "$ENV_DIR/bin/activate"
                 pip install --upgrade pip
-                pip install uv
-                uv pip sync requirements.lock
+				pip install uv
+				uv pip sync requirements.lock
                 pip install --no-deps -e ".[dev]"
 
                 # Install pre-commit hooks

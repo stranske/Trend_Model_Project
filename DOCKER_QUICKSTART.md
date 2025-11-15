@@ -122,7 +122,7 @@ docker run --rm ghcr.io/stranske/trend-model:latest trend-analysis --help
 ./test_docker.sh
 ```
 
-The Dockerfile installs dependencies via `uv pip sync requirements.lock`
+The Dockerfile installs dependencies via `uv pip sync --system requirements.lock`
 followed by `pip install --no-deps -e .[app]`, so keeping the lock file current
 is essential for reproducible builds.
 
