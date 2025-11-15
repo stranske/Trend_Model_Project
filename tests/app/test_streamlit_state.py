@@ -101,7 +101,9 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
         }
     )
 
-    state.store_validated_data(df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv"))
+    state.store_validated_data(
+        df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv")
+    )
 
     stored_df, stored_meta = state.get_uploaded_data()
     assert stored_df is df

@@ -58,7 +58,9 @@ class TestSessionState:
         mock_state = {}
 
         with patch.object(state_module.st, "session_state", mock_state, create=True):
-            state_module.store_validated_data(df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv"))
+            state_module.store_validated_data(
+                df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv")
+            )
 
             assert mock_state["returns_df"].equals(df)  # type: ignore[attr-defined]
             assert mock_state["schema_meta"] == meta

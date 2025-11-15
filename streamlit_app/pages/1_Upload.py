@@ -34,7 +34,9 @@ def _handle_success(
     data_hash: str,
     data_key: str,
 ) -> None:
-    app_state.store_validated_data(df, meta, data_hash=data_hash, saved_path=source_path)
+    app_state.store_validated_data(
+        df, meta, data_hash=data_hash, saved_path=source_path
+    )
     st_module.session_state["uploaded_file_path"] = str(source_path)
     st_module.session_state["data_fingerprint"] = data_hash
     st_module.session_state["data_loaded_key"] = data_key
