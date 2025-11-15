@@ -169,7 +169,6 @@ def get_declared_dependencies() -> Set[str]:
     project = data.get("project", {})
 
     dependencies: Set[str] = set()
-
     for entry in project.get("dependencies", []):
         name = _extract_requirement_name(entry)
         if name:

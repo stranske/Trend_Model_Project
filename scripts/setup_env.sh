@@ -41,10 +41,10 @@ if (return 0 2>/dev/null); then
 		python3 -m venv "$ENV_DIR"
 		# shellcheck source=/dev/null
 		source "$ENV_DIR/bin/activate"
-                pip install --upgrade pip
-				pip install uv
-				uv pip sync requirements.lock
-                pip install --no-deps -e ".[dev]"
+		pip install --upgrade pip
+		pip install uv
+		uv pip sync requirements.lock
+		pip install --no-deps -e ".[dev]"
 
                 # Install pre-commit hooks
 		if ! pre-commit install --install-hooks; then

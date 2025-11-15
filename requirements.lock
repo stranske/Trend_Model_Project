@@ -170,7 +170,6 @@ openpyxl==3.1.5
     # via trend-model (pyproject.toml)
 packaging==25.0
     # via
-    #   trend-model (pyproject.toml)
     #   altair
     #   black
     #   matplotlib
@@ -323,7 +322,6 @@ typing-extensions==4.15.0
     #   altair
     #   anyio
     #   fastapi
-    #   ipython
     #   mypy
     #   pydantic
     #   pydantic-core
