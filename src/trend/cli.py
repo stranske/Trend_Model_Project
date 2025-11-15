@@ -166,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     quick_p.add_argument(
         "--artifacts",
         type=Path,
-        help="Directory holding metrics_<run-id>.csv and details_<run-id>.json",
+        help="Directory containing metrics_<run-id>.csv and details_<run-id>.json",
     )
     quick_p.add_argument(
         "--base-dir",
