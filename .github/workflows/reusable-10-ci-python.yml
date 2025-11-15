@@ -258,7 +258,7 @@ jobs:
           fi
           python -m pip install --upgrade pip
           if [ -f requirements.lock ]; then
-            uv pip sync requirements.lock
+            uv pip sync --system requirements.lock
           fi
           if [ -f pyproject.toml ]; then
             pip install -e '.[app,dev]' || pip install -e . || pip install .
