@@ -631,7 +631,7 @@ When debugging multi-period portfolio analysis where the same managers are selec
 
 1. **Environment Setup**
    - Ensure virtual environment is activated: `source venv/bin/activate`
-   - Verify all dependencies installed: `pip install -r requirements.txt && pip install -e .`
+   - Verify all dependencies installed: `uv pip sync requirements.lock && pip install --no-deps -e .[dev]`
    - Confirm working on correct branch (use `chore/demo-pipeline` for debugging)
 
 2. **Data Completeness Analysis**

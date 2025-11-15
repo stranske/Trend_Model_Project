@@ -2,7 +2,7 @@
 Enforce that all test dependencies are declared and installable.
 
 This test ensures that:
-1. All Python imports in test files are declared in requirements.txt or pyproject.toml
+1. All Python imports in test files are declared in pyproject.toml
 2. All external CLI tools used in tests are documented
 3. The CI environment has all necessary dependencies installed
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import sys
+import tomllib
 from pathlib import Path
 from typing import Set
 
@@ -138,35 +139,34 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
 
 
 def get_declared_dependencies() -> Set[str]:
-    """Get all dependencies declared in requirements.txt."""
-    requirements_file = Path("requirements.txt")
-    if not requirements_file.exists():
+    """Get all dependencies declared in pyproject.toml."""
+    pyproject_file = Path("pyproject.toml")
+    if not pyproject_file.exists():
         return set()
 
-    dependencies = set()
-    with open(requirements_file, "r") as f:
-        for line in f:
-            line = line.strip()
-            # Skip comments and empty lines
-            if not line or line.startswith("#"):
-                continue
-            # Extract package name (before any version specifiers)
-            pkg = (
-                line.split("==")[0]
-                .split(">=")[0]
-                .split("<=")[0]
-                .split("~=")[0]
-                .split("[")[0]
-                .strip()
-            )
-            if pkg:
-                # Normalize package name to module name
-                # Some packages use hyphens but import with underscores
-                module_name = pkg.replace("-", "_").lower()
-                dependencies.add(module_name)
-                # Also add the hyphenated version for packages like 'pytest-cov'
-                if "-" in pkg:
-                    dependencies.add(pkg.lower())
+    data = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
+    project = data.get("project", {})
+
+    dependencies: Set[str] = set()
+
+    operators = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
+
+    for entry in project.get("dependencies", []):
+        package = entry.split(";")[0].strip()
+        for operator in operators:
+            if operator in package:
+                package = package.split(operator, 1)[0].strip()
+                break
+        dependencies.add(package.split("[")[0].replace("-", "_").lower())
+
+    for group in project.get("optional-dependencies", {}).values():
+        for entry in group:
+            package = entry.split(";")[0].strip()
+            for operator in operators:
+                if operator in package:
+                    package = package.split(operator, 1)[0].strip()
+                    break
+            dependencies.add(package.split("[")[0].replace("-", "_").lower())
 
     return dependencies
 
@@ -220,42 +220,27 @@ def test_all_test_imports_are_declared() -> None:
 
     if undeclared:
         error_msg = (
-            f"The following imports in test files are not declared in requirements.txt:\n"
+            f"The following imports in test files are not declared in pyproject.toml:\n"
             f"{', '.join(sorted(undeclared))}\n\n"
-            f"Add these packages to requirements.txt to ensure tests can run.\n"
+            f"Add these packages to [project.optional-dependencies.dev] so tests can run.\n"
             f"Scanned {test_files_checked} test files.\n\n"
             f"🔧 To automatically fix this, run:\n"
             f"   python scripts/sync_test_dependencies.py --fix\n"
-            f"   uv pip compile pyproject.toml -o requirements.lock"
+            f"   make lock"
         )
         pytest.fail(error_msg)
 
 
-def test_requirements_txt_is_installable() -> None:
-    """Verify requirements.txt contains valid package specifications."""
-    requirements_file = Path("requirements.txt")
-    assert requirements_file.exists(), "requirements.txt not found"
+def test_lockfile_is_present() -> None:
+    """Verify requirements.lock exists and appears to be uv-generated."""
+    lock_file = Path("requirements.lock")
+    assert lock_file.exists(), "requirements.lock not found"
 
-    invalid_lines = []
-    with open(requirements_file, "r") as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            # Skip comments and empty lines
-            if not line or line.startswith("#"):
-                continue
-
-            # Check for basic validity (package name)
-            if not any(
-                c.isalnum() or c in "-_."
-                for c in line.split("==")[0].split(">=")[0].split("[")[0]
-            ):
-                invalid_lines.append((line_num, line))
-
-    if invalid_lines:
-        error_msg = "Invalid package specifications in requirements.txt:\n"
-        for line_num, line in invalid_lines:
-            error_msg += f"  Line {line_num}: {line}\n"
-        pytest.fail(error_msg)
+    lines = lock_file.read_text(encoding="utf-8").splitlines()
+    assert lines, "requirements.lock is empty"
+    assert lines[0].startswith(
+        "# This file was autogenerated by uv"
+    ), "requirements.lock should be generated via 'make lock'"
 
 
 def test_external_tools_are_documented() -> None:
