@@ -14,27 +14,21 @@ RUN useradd -m -u 1001 appuser
 
 WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
-COPY requirements.txt pyproject.toml ./
+# Copy project metadata and lock file first for better Docker layer caching
+COPY pyproject.toml requirements.lock ./
 
 # Ensure build tools are available and pinned for reproducibility
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0
+    && pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0 uv
 
-# Install Python dependencies with retry logic for network issues
-RUN pip install --no-cache-dir --timeout=300 --retries=3 -r requirements.txt \
-    && pip install --no-cache-dir pytest
+# Install Python dependencies from the pinned lock file
+RUN uv pip sync --system requirements.lock
 
 # Copy the rest of the project including tests and docs
 COPY . .
 
-# Install build dependencies and the package in development mode for CLI access
-# Ensure build dependencies are available and handle editable install gracefully
-RUN pip install --no-cache-dir setuptools>=61 wheel build && \
-    (pip install --no-cache-dir -v -e .[app] && echo "Package installed successfully with [app] extra") || \
-    (echo "Warning: Editable install with [app] extra failed. Falling back to individual package install." && \
-     pip install --no-cache-dir streamlit>=1.30 streamlit-sortables && \
-     pip install --no-cache-dir -e . && echo "Package installed in editable mode without [app] extra")
+# Install the package in editable mode without re-resolving dependencies
+RUN pip install --no-cache-dir --no-deps -e .[app]
 
 # Create demo data directory and ensure proper permissions
 RUN mkdir -p demo && \

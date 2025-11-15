@@ -1,7 +1,10 @@
-"""Tests for :mod:`scripts.sync_test_dependencies`."""
+"""Unit tests for the pyproject-based test dependency synchroniser."""
 
 from __future__ import annotations
 
+import runpy
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -9,18 +12,42 @@ import pytest
 from scripts import sync_test_dependencies as sync
 
 
+def _write_pyproject(base: Path, dev: list[str] | None = None) -> None:
+    dev = dev or []
+    content = textwrap.dedent(
+        """
+        [project]
+        name = "demo"
+        version = "0.0.0"
+        dependencies = [
+            "PyYAML",
+            "opencv-python",
+        ]
+
+        [project.optional-dependencies]
+        dev = [
+        {dev_entries}
+        ]
+        """
+    ).strip()
+    dev_block = "\n".join(f'    "{item}",' for item in dev)
+    content = content.format(dev_entries=dev_block)
+    base.joinpath("pyproject.toml").write_text(content + "\n", encoding="utf-8")
+
+
 @pytest.fixture
 def temp_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create an isolated repository layout for dependency syncing tests."""
 
     monkeypatch.chdir(tmp_path)
-    # Narrow global configuration to keep the fixture deterministic.
     monkeypatch.setattr(sync, "STDLIB_MODULES", {"os", "sys"})
     monkeypatch.setattr(sync, "TEST_FRAMEWORK_MODULES", {"pytest"})
     monkeypatch.setattr(sync, "PROJECT_MODULES", {"tests", "scripts"})
     monkeypatch.setattr(
         sync, "MODULE_TO_PACKAGE", {"yaml": "PyYAML", "cv2": "opencv-python"}
     )
+
+    _write_pyproject(tmp_path, dev=["pytest", "tomlkit"])
     return tmp_path
 
 
@@ -41,10 +68,6 @@ def _create_test_files(base: Path) -> None:
     )
 
 
-def _write_requirements(base: Path, lines: list[str]) -> None:
-    (base / "requirements.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
 def test_extract_imports_handles_syntax_errors(temp_repo: Path) -> None:
     good = temp_repo / "file_good.py"
     bad = temp_repo / "file_bad.py"
@@ -55,65 +78,42 @@ def test_extract_imports_handles_syntax_errors(temp_repo: Path) -> None:
     assert sync.extract_imports_from_file(bad) == set()
 
 
-def test_get_declared_dependencies_handles_missing_file(temp_repo: Path) -> None:
-    deps, raw = sync.get_declared_dependencies()
-    assert deps == set()
-    assert raw == []
-
-
-def test_get_all_test_imports_handles_missing_directory(
+def test_get_declared_dependencies_handles_missing_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    assert sync.get_all_test_imports() == set()
+    deps, groups = sync.get_declared_dependencies()
+    assert deps == set()
+    assert groups == {}
 
 
 def test_find_missing_dependencies_filters_known_sets(temp_repo: Path) -> None:
     _create_test_files(temp_repo)
-    _write_requirements(
-        temp_repo, ["PyYAML==6.0", "# Test dependencies", "opencv-python==4.0"]
-    )
-
     missing = sync.find_missing_dependencies()
-    # pandas and requests should be missing; yaml and cv2 covered via requirements/mapping.
+    # pandas and requests should be missing; yaml and cv2 are covered.
     assert missing == {"pandas", "requests"}
 
 
-def test_add_dependencies_updates_test_section(temp_repo: Path) -> None:
+def test_add_dependencies_updates_dev_extra(temp_repo: Path) -> None:
     _create_test_files(temp_repo)
-    _write_requirements(
-        temp_repo, ["# Base", "", "# Test dependencies", "opencv-python==4.0"]
-    )
+    missing = {"pandas", "requests"}
 
-    added = sync.add_dependencies_to_requirements({"requests", "pandas"}, fix=False)
-    assert added is False
+    # Dry run returns False
+    assert sync.add_dependencies_to_pyproject(missing, fix=False) is False
 
-    assert (
-        sync.add_dependencies_to_requirements({"requests", "pandas"}, fix=True) is True
-    )
-    new_requirements = (temp_repo / "requirements.txt").read_text(encoding="utf-8")
-    assert "pandas" in new_requirements.splitlines()
-    assert "requests" in new_requirements.splitlines()
+    assert sync.add_dependencies_to_pyproject(missing, fix=True) is True
+    content = (temp_repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "pandas" in content
+    assert "requests" in content
 
     # Calling with an empty set returns immediately.
-    assert sync.add_dependencies_to_requirements(set(), fix=True) is False
-
-
-def test_add_dependencies_creates_section_when_missing(temp_repo: Path) -> None:
-    _create_test_files(temp_repo)
-    _write_requirements(temp_repo, ["dependency-one==1.0", "", "   "])
-
-    assert sync.add_dependencies_to_requirements({"requests"}, fix=True) is True
-    content = (temp_repo / "requirements.txt").read_text(encoding="utf-8")
-    assert "# Test dependencies (auto-discovered)" in content
-    assert content.strip().endswith("requests")
+    assert sync.add_dependencies_to_pyproject(set(), fix=True) is False
 
 
 def test_main_cli_modes(
     temp_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _create_test_files(temp_repo)
-    _write_requirements(temp_repo, ["# Test dependencies", "opencv-python==4.0"])
 
     monkeypatch.setattr("sys.argv", ["sync"])
     exit_code = sync.main()
@@ -131,12 +131,12 @@ def test_main_cli_modes(
     exit_code = sync.main()
     assert exit_code == 0
     captured = capsys.readouterr()
-    assert "Added" in captured.out
+    assert "Added dependencies" in captured.out
 
     monkeypatch.setattr("sys.argv", ["sync", "--verify"])
     exit_code = sync.main()
-    assert exit_code == 0
     captured = capsys.readouterr()
+    assert exit_code == 0
     assert "All test dependencies" in captured.out
 
     monkeypatch.setattr("sys.argv", ["sync"])
@@ -150,15 +150,11 @@ def test_module_entrypoint_executes_main(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    _write_pyproject(tmp_path, dev=["pytest", "tomlkit"])
     (tmp_path / "tests").mkdir()
-    (tmp_path / "requirements.txt").write_text("# none\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["sync_deps"])
 
-    import sys
-
     sys.modules.pop("scripts.sync_test_dependencies", None)
-
-    import runpy
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("scripts.sync_test_dependencies", run_name="__main__")

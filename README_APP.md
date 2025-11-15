@@ -5,9 +5,15 @@ It avoids notebooks, uses your pipeline where possible, and isolates policy deci
 
 ## Install (inside your repo's virtualenv)
 ```bash
-pip install streamlit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[app]
 ```
-Pydantic is optional; not required for this starter.
+The editable install exposes the `trend` console entry points and pulls in the
+Streamlit extras.  The historical `sitecustomize.py` bootstrapper has been
+fully removed, so the console scripts are now the *only* supported way to run
+the CLI, Streamlit app, demos, and automated tests.
 
 ## Layout
 - `streamlit_app/` multipage Streamlit UI
@@ -19,14 +25,12 @@ Place the `src/` and `streamlit_app/` folders at the root of your repo (next to 
 
 ## Run the app
 ```bash
-streamlit run streamlit_app/app.py
+trend app
 ```
 
-Or use the repo launcher which ensures the venv and extras are present:
-
-```bash
-scripts/run_streamlit.sh
-```
+The legacy launcher (`scripts/run_streamlit.sh`) still works, but the packaged
+command keeps the environment consistent across machines and enforces the
+installed-package workflow.
 
 ### Unified report downloads
 

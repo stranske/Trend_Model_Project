@@ -1,4 +1,46 @@
 actionlint
+## Trend Model quickstart
+
+Install the packages in editable mode to expose the CLI entry points.  The
+legacy `sitecustomize.py` shim has been removed, so editable installs (or a
+wheel install) are now the only supported way to run code—`PYTHONPATH`
+modifications are intentionally ignored:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[app]
+```
+
+Verify the installation and explore the available commands (this also proves
+`trend --help` works as required by Issue #3582):
+
+```bash
+trend --help
+trend run -c config/demo.yml --returns demo/demo_returns.csv
+```
+
+The `trend` command is the unified launcher for day-to-day workflows:
+
+- `trend run` executes the single-period pipeline
+- `trend report` produces summary artefacts
+- `trend stress` replays canned stress windows
+- `trend app` starts the Streamlit interface
+
+Every demo/backtest script (for example `scripts/run_multi_demo.py`) shells out
+to these console entry points instead of adjusting `sys.path`.  If you skip the
+editable install, the scripts will raise a friendly error explaining how to fix
+your environment.
+
+Run the demo pipeline end-to-end using the helper script:
+
+```bash
+python scripts/run_multi_demo.py
+```
+
+---
+
 ==========
 [![CI Badge][]][CI]
 [![API Document][api-badge]][apidoc]

@@ -18,11 +18,22 @@ else
     echo "⚠️  No virtual environment found. Falling back to system Python."
 fi
 
-if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
-    export TREND_MODEL_SITE_CUSTOMIZE=1
+if ! python - <<'PY' >/dev/null 2>&1; then
+import importlib
+import sys
+
+try:
+    importlib.import_module("trend_portfolio_app.health_wrapper")
+except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
+    sys.exit(1)
+sys.exit(0)
+PY
+then
+    echo "trend-portfolio-app package not installed. Run 'pip install -e .[app]' first." >&2
+    exit 1
 fi
 
-PYTHONPATH="./src" python -m trend_portfolio_app.health_wrapper &
+python -m trend_portfolio_app.health_wrapper &
 HEALTH_PID=$!
 
 # Function to cleanup on exit

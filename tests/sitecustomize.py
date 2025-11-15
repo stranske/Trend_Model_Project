@@ -1,20 +1,20 @@
-"""Ensure src/ is on sys.path for subprocesses spawned by tests.
-
-Pytest spawns a subprocess for the Streamlit health wrapper smoke test using
-`python -m trend_portfolio_app.health_wrapper`. That new interpreter will
-search its working directory first; adding this ``sitecustomize`` inside the
-``tests`` directory guarantees that when the test's CWD is the repo root (or
-tests path is on PYTHONPATH) the ``src`` directory is still discoverable.
-"""
+"""Provide early feedback when tests run without installing the package."""
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+import importlib
 
-root = Path(__file__).resolve().parents[1]
-src = root / "src"
-if src.exists():
-    s = str(src)
-    if s not in sys.path:
-        sys.path.insert(0, s)
+
+def _assert_package_installed() -> None:
+    for module in ("trend_analysis", "trend_model", "trend_portfolio_app"):
+        try:
+            importlib.import_module(module)
+        except ModuleNotFoundError as exc:  # pragma: no cover - configuration guard
+            message = (
+                "The Trend Model packages are not installed. "
+                "Run 'pip install -e .[app]' before executing the test suite."
+            )
+            raise RuntimeError(message) from exc
+
+
+_assert_package_installed()

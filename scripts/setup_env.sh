@@ -41,14 +41,12 @@ if (return 0 2>/dev/null); then
 		python3 -m venv "$ENV_DIR"
 		# shellcheck source=/dev/null
 		source "$ENV_DIR/bin/activate"
-		pip install --upgrade pip
-		pip install -r requirements.txt
-		pip install -e ".[dev]"
-		
-		# Try to install the package in editable mode for CLI access
-                pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend"
-		
-		# Install pre-commit hooks
+                pip install --upgrade pip
+				pip install uv
+				uv pip sync requirements.lock
+                pip install --no-deps -e ".[dev]"
+
+                # Install pre-commit hooks
 		if ! pre-commit install --install-hooks; then
 			echo "::warning::pre-commit install --install-hooks failed, but continuing. Git hooks may not be available."
 		fi
@@ -83,11 +81,9 @@ python3 -m venv "$ENV_DIR"
 source "$ENV_DIR/bin/activate"
 
 pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e ".[dev]"
-
-# Try to install the package in editable mode for CLI access
-pip install -e . || echo "Warning: Package installation failed, CLI available via scripts/trend"
+pip install uv
+uv pip sync requirements.lock
+pip install --no-deps -e ".[dev]"
 
 # Install pre-commit hooks so formatting runs locally before commits
 if ! pre-commit install --install-hooks; then

@@ -27,19 +27,20 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "pandas",
-    "numpy",
     "PyYAML",
-    "xlsxwriter",
-    "openpyxl",
-    "pydantic>=2",
-    "hypothesis",
-    "matplotlib",
     "fpdf2",
+    "hypothesis",
     "ipywidgets",
     "joblib>=1.4",
-    "scipy",
+    "matplotlib",
+    "numpy",
+    "openpyxl",
+    "pandas",
     "pandera==0.20.4",
+    "pydantic>=2",
+    "requests",
+    "scipy",
+    "xlsxwriter",
 ]
 
 [project.urls]
@@ -83,9 +84,12 @@ dev = [
     "pytest-cov==7.0.0",
     "coverage==7.11.0",
     "pytest-rerunfailures>=13.0",
+    "packaging>=25.0",
     "types-PyYAML",
+    "types-requests",
     "jsonschema",
     "httpx>=0.25",
+    "tomlkit",
 ]
 
 [tool.black]
