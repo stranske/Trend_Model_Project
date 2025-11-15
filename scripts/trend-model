@@ -30,7 +30,6 @@ except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
     sys.exit(1)
 sys.exit(0)
 PY
-then
     echo "trend_analysis package not installed. Run 'pip install -e .' first." >&2
     exit 1
 fi
