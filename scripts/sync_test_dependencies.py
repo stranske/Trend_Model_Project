@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Set
+from typing import Any, Set, cast
 
-from packaging.requirements import InvalidRequirement, Requirement
 
 TOMLKIT_ERROR: ImportError | None
 try:
@@ -144,6 +144,9 @@ def _normalise_package_name(package: str) -> str:
     return _normalize_module_name(package)
 
 
+_SPECIFIER_PATTERN = re.compile(r"[!=<>~]")
+
+
 def _extract_requirement_name(entry: str) -> str | None:
     """Return the canonical package name for a requirement entry."""
 
@@ -151,13 +154,14 @@ def _extract_requirement_name(entry: str) -> str | None:
     if not cleaned:
         return None
 
-    try:
-        requirement = Requirement(cleaned)
-    except InvalidRequirement:
-        base = cleaned.split()[0]
-        return base.split("[")[0] if base else None
+    token = cleaned.split()[0]
+    if not token:
+        return None
 
-    return requirement.name
+    token = token.split("[", maxsplit=1)[0]
+    token = _SPECIFIER_PATTERN.split(token, maxsplit=1)[0]
+
+    return token or None
 
 
 def extract_imports_from_file(file_path: Path) -> Set[str]:
@@ -257,7 +261,7 @@ def add_dependencies_to_pyproject(missing: Set[str], fix: bool = False) -> bool:
 
     document = tomlkit.parse(PYPROJECT_FILE.read_text(encoding="utf-8"))
 
-    project = document["project"]
+    project = cast(Any, document["project"])
     optional = project.setdefault("optional-dependencies", tomlkit.table())
     dev_group = optional.get(DEV_EXTRA)
     if dev_group is None:
