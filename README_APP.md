@@ -21,6 +21,8 @@ the CLI, Streamlit app, demos, and automated tests.
 - `tests/` unit tests for schema and policy logic
 - `scripts/` convenience launcher
 - `examples/legacy_streamlit_app/` archived prototype kept for reference
+  (this directory now holds everything that previously lived under
+  `app/streamlit/`, so the root-level `app/` package can be safely removed.)
 
 Place the `src/` and `streamlit_app/` folders at the root of your repo (next to your existing `src/trend_analysis`).
 
