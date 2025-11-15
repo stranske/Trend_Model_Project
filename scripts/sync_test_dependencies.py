@@ -130,8 +130,8 @@ MODULE_TO_PACKAGE = {
 }
 
 
-def _normalise_package_name(package: str) -> str:
-    return package.replace("-", "_").lower()
+def _normalize_module_name(module: str) -> str:
+    return module.replace("-", "_").lower()
 
 
 def extract_imports_from_file(file_path: Path) -> Set[str]:
