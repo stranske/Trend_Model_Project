@@ -20,12 +20,18 @@ if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
     source "$ROOT_DIR/.venv/bin/activate"
 fi
 
-# Set PYTHONPATH to include the src directory
-export PYTHONPATH="${PYTHONPATH:-}:$ROOT_DIR/src"
+if ! python - <<'PY' >/dev/null 2>&1; then
+import importlib
+import sys
 
-# Ensure the guarded bootstrap runs for reproducible sessions.
-if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
-    export TREND_MODEL_SITE_CUSTOMIZE=1
+try:
+    importlib.import_module("trend_analysis.run_analysis")
+except ModuleNotFoundError:  # pragma: no cover - shell wrapper guard
+    sys.exit(1)
+sys.exit(0)
+PY
+    echo "trend-model package not installed. Run 'pip install -e .' first." >&2
+    exit 1
 fi
 
 # Default to trend analysis if no module specified
