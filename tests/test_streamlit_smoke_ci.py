@@ -241,7 +241,7 @@ def test_streamlit_app_run_page_exists():
 def test_error_handling_components():
     """Test that error handling components exist in the Run page."""
     run_page_path = (
-        Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
     )
 
     if not run_page_path.exists():
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     print("✅ Demo data generation test passed")
 
     # Test 2: Check Run page exists
-    run_page_path = Path("app/streamlit/pages/03_Run.py")
+    run_page_path = Path("streamlit_app/pages/3_Run.py")
     if run_page_path.exists():
         print("✅ Run page exists")
     else:

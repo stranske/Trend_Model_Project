@@ -8,8 +8,13 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from app.streamlit import state as app_state
+from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, data_cache
+from streamlit_app.components.upload_guard import (
+    UploadViolation,
+    guard_and_buffer_upload,
+    hash_path,
+)
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import SchemaMeta, infer_benchmarks
 
@@ -44,15 +49,19 @@ def _render_validation(meta: SchemaMeta | dict[str, Any]) -> None:
 
 
 def _store_dataset(
-    df: pd.DataFrame, meta: SchemaMeta | dict[str, Any], key: str
+    df: pd.DataFrame,
+    meta: SchemaMeta | dict[str, Any],
+    key: str,
+    *,
+    data_hash: str,
+    saved_path: Path | None = None,
 ) -> None:
-    app_state.store_validated_data(df, meta)
+    app_state.store_validated_data(df, meta, data_hash=data_hash, saved_path=saved_path)
     st.session_state["data_loaded_key"] = key
-    st.session_state["data_fingerprint"] = data_cache.cache_key_for_frame(df)
+    st.session_state["data_fingerprint"] = data_hash
     st.session_state["data_summary"] = _dataset_summary(df, meta)
 
     analysis_runner.clear_cached_analysis()
-    app_state.clear_analysis_results()
 
     candidates = infer_benchmarks(list(df.columns))
     st.session_state["benchmark_candidates"] = candidates
@@ -68,7 +77,9 @@ def _handle_failure(error: Exception) -> None:
     issues: list[str] | None = None
     detail: str | None = None
     message = "We couldn't process the file. Please confirm the format and try again."
-    if isinstance(error, MarketDataValidationError):
+    if isinstance(error, UploadViolation):
+        message = str(error)
+    elif isinstance(error, MarketDataValidationError):
         message = error.user_message
         issues = list(error.issues)
     else:
@@ -90,8 +101,16 @@ def _load_sample_dataset(label: str, path: Path) -> None:
         _handle_failure(exc)
         return
 
-    key = f"sample::{path.resolve()}"
-    _store_dataset(df, meta, key)
+    resolved = path.resolve()
+    try:
+        data_hash = hash_path(resolved)
+    except Exception as exc:  # pragma: no cover - defensive
+        _handle_failure(exc)
+        return
+
+    key = f"sample::{resolved}"
+    _store_dataset(df, meta, key, data_hash=data_hash, saved_path=resolved)
+    st.session_state["uploaded_file_path"] = str(resolved)
     st.success(f"Loaded sample dataset “{label}”.")
     st.caption(_dataset_summary(df, meta))
     _render_validation(meta)
@@ -99,16 +118,32 @@ def _load_sample_dataset(label: str, path: Path) -> None:
 
 
 def _load_uploaded_dataset(uploaded) -> None:
-    data = uploaded.getvalue()
     try:
-        df, meta = data_cache.load_dataset_from_bytes(data, uploaded.name)
+        guarded = guard_and_buffer_upload(uploaded)
+    except UploadViolation as exc:
+        _handle_failure(exc)
+        return
+    except Exception as exc:  # pragma: no cover - defensive guard
+        _handle_failure(exc)
+        return
+
+    data = guarded.data
+    try:
+        df, meta = data_cache.load_dataset_from_bytes(data, guarded.original_name)
     except Exception as exc:
         _handle_failure(exc)
         return
 
-    key = f"upload::{uploaded.name}::{data_cache.cache_key_for_frame(df)}"
-    _store_dataset(df, meta, key)
-    st.success(f"Loaded {uploaded.name}.")
+    key = f"upload::{guarded.original_name}::{guarded.content_hash}"
+    _store_dataset(
+        df,
+        meta,
+        key,
+        data_hash=guarded.content_hash,
+        saved_path=guarded.stored_path,
+    )
+    st.session_state["uploaded_file_path"] = str(guarded.stored_path)
+    st.success(f"Loaded {guarded.original_name}.")
     st.caption(_dataset_summary(df, meta))
     _render_validation(meta)
     st.dataframe(df.head(20))

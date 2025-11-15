@@ -116,7 +116,7 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
 
     monkeypatch.setitem(sys.modules, "streamlit", module)
 
-    from app.streamlit import state as app_state
+    from streamlit_app import state as app_state
 
     monkeypatch.setattr(app_state, "st", module)
     monkeypatch.setattr(app_state, "initialize_session_state", lambda: None)

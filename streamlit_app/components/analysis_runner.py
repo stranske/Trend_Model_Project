@@ -255,7 +255,10 @@ def _hashable_model_state(state: Mapping[str, Any]) -> str:
     show_spinner="Running analysis…", hash_funcs={pd.DataFrame: cache_key_for_frame}
 )
 def run_cached_analysis(
-    returns: pd.DataFrame, model_state_blob: str, benchmark: str | None
+    returns: pd.DataFrame,
+    model_state_blob: str,
+    benchmark: str | None,
+    data_hash: str,
 ):
     """
     Run the analysis pipeline with caching.
@@ -284,12 +287,17 @@ def run_cached_analysis(
 
 
 def run_analysis(
-    df: pd.DataFrame, model_state: Mapping[str, Any], benchmark: str | None
+    df: pd.DataFrame,
+    model_state: Mapping[str, Any],
+    benchmark: str | None,
+    *,
+    data_hash: str | None = None,
 ):
     """Execute the cached analysis pipeline."""
 
     blob = _hashable_model_state(model_state)
-    return run_cached_analysis(df, blob, benchmark)
+    effective_hash = data_hash or cache_key_for_frame(df)
+    return run_cached_analysis(df, blob, benchmark, effective_hash)
 
 
 def clear_cached_analysis() -> None:

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from app.streamlit import state as app_state
+from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, charts
 
 
@@ -142,7 +142,10 @@ def render_results_page() -> None:
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):
             try:
-                result = analysis_runner.run_analysis(df, model_state, benchmark)
+                data_hash = st.session_state.get("data_fingerprint")
+                result = analysis_runner.run_analysis(
+                    df, model_state, benchmark, data_hash=data_hash
+                )
             except Exception as exc:  # pragma: no cover - defensive guard
                 summary, detail = _analysis_error_messages(exc)
                 st.error(summary)

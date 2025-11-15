@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
-from app.streamlit import state
+from streamlit_app import state
 
 
 @pytest.fixture
@@ -27,6 +29,8 @@ def test_initialize_session_state_preserves_existing_values(
     assert session_state["benchmark_candidates"] == []
     assert session_state["validation_report"] is None
     assert session_state["upload_status"] == "pending"
+    assert session_state["data_hash"] is None
+    assert session_state["data_saved_path"] is None
 
 
 def test_clear_upload_data_removes_payload_but_resets_status(
@@ -43,6 +47,12 @@ def test_clear_upload_data_removes_payload_but_resets_status(
             "analysis_result_key": "key",
             "analysis_error": {"message": "boom"},
             "other": "keep-me",
+            "data_hash": "abc",
+            "data_saved_path": "/tmp/data.csv",
+            "data_loaded_key": "sample::foo",
+            "data_fingerprint": "abc",
+            "data_summary": "summary",
+            "uploaded_file_path": "foo",
         }
     )
 
@@ -53,6 +63,12 @@ def test_clear_upload_data_removes_payload_but_resets_status(
         "schema_meta",
         "benchmark_candidates",
         "validation_report",
+        "data_hash",
+        "data_saved_path",
+        "data_loaded_key",
+        "data_fingerprint",
+        "data_summary",
+        "uploaded_file_path",
     ]:
         assert key not in session_state
     assert session_state["upload_status"] == "pending"
@@ -80,16 +96,20 @@ def test_store_and_read_validated_data_updates_state(session_state: dict) -> Non
             "analysis_result": "stale",
             "analysis_result_key": "old",
             "analysis_error": {"message": "old"},
+            "data_hash": "old",
+            "data_saved_path": "old",
         }
     )
 
-    state.store_validated_data(df, meta)
+    state.store_validated_data(df, meta, data_hash="hash", saved_path=Path("/tmp/data.csv"))
 
     stored_df, stored_meta = state.get_uploaded_data()
     assert stored_df is df
     assert stored_meta is meta
     assert state.has_valid_upload()
     assert session_state["validation_report"] == meta["validation"]
+    assert session_state["data_hash"] == "hash"
+    assert session_state["data_saved_path"] == str(Path("/tmp/data.csv"))
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in session_state
 
@@ -140,6 +160,8 @@ def test_record_upload_error_sets_error_state(session_state: dict) -> None:
         "issues": [],
     }
     assert session_state["upload_status"] == "error"
+    assert session_state["data_hash"] is None
+    assert session_state["data_saved_path"] is None
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in session_state
 

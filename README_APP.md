@@ -10,10 +10,11 @@ pip install streamlit
 Pydantic is optional; not required for this starter.
 
 ## Layout
-- `streamlit_app/` multipage Streamlit UI
+- `streamlit_app/` multipage Streamlit UI (primary app)
 - `src/trend_portfolio_app/` simulation + glue layer
 - `tests/` unit tests for schema and policy logic
 - `scripts/` convenience launcher
+- `examples/legacy_streamlit_app/` archived prototype kept for reference
 
 Place the `src/` and `streamlit_app/` folders at the root of your repo (next to your existing `src/trend_analysis`).
 
@@ -56,6 +57,17 @@ trend-model run --preset conservative -c my_config.yml -i returns.csv
 
 Both surfaces share the underlying `TrendSpec` parameters, keeping the Streamlit
 app and CLI in sync.
+
+## Upload safety and caching
+
+- Uploads are restricted to CSV or Excel files up to 10&nbsp;MB. Oversized or
+  disallowed uploads are rejected with a descriptive error before validation
+  runs.
+- Files are written to a dedicated `tmp/uploads/` directory under the repo to
+  avoid leaking arbitrary paths.
+- The analysis cache is keyed on both the model configuration and the SHA-256
+  hash of the uploaded data, ensuring stale results are not reused when either
+  inputs or parameters change.
 
 ## Monte Carlo
 Skeletons for multi-path generation and feature sweeps live under `src/trend_portfolio_app/monte_carlo/`.
