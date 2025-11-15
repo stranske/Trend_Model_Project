@@ -19,7 +19,7 @@ Trend Analysis Project is a Python financial analysis application that provides 
 ```bash
 ./scripts/setup_env.sh
 ```
-This creates `.venv/` virtual environment and installs all dependencies from `requirements.txt`. The script is safe to source or execute.
+This creates `.venv/` virtual environment and installs all dependencies from `requirements.lock` via `uv pip sync`. The script is safe to source or execute.
 
 **Network Timeout Issues**: The setup may fail due to PyPI connectivity timeouts. If this happens:
 - Environment setup: fails with `ReadTimeoutError` from PyPI
@@ -234,7 +234,7 @@ PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/demo.yml
 - `demo/` - Generated demo datasets
 
 ### Configuration Files
-- `requirements.txt` - Python dependencies  
+- `requirements.lock` - Generated pinned dependencies  
 - `pyproject.toml` - Build system and tool configuration
 - `config/defaults.yml` - Default analysis configuration
 - `config/demo.yml` - Demo analysis configuration
@@ -298,7 +298,7 @@ For VS Code, add to `tasks.json`:
 ├── config/                       # Configuration files
 ├── demo/                         # Generated datasets
 ├── docs/                         # Documentation
-├── requirements.txt              # Dependencies
+├── requirements.lock             # Generated dependency lock
 ├── pyproject.toml               # Build configuration
 └── .github/                     # GitHub workflows
 ```

@@ -15,7 +15,7 @@ The initial bootstrap request added this documentation file so that future follo
 
 ## Setup Instructions
 1. Create or activate the project virtual environment using `./scripts/setup_env.sh`.
-2. Install any additional tooling required for coverage analysis (e.g., `pip install -r requirements.txt`).
+2. Install any additional tooling required for coverage analysis (e.g., `uv pip sync requirements.lock`).
 3. Run the coverage helper script (`./scripts/run_tests.sh --cov`) to capture the latest coverage report before starting new work.
 
 ## Workflow Guidance
