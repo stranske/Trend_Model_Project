@@ -1,38 +1,77 @@
-FROM python:3.11-slim@sha256:316d89b74c4d467565864be703299878ca7a97893ed44ae45f6acba5af09d154
+ARG PYTHON_IMAGE=python:3.12.2-slim
 
-# Deterministic hash seed (can be overridden at build time)
+FROM ${PYTHON_IMAGE} AS builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Reusable deterministic hash seed (runtime stage reuses the same ARG)
 ARG PY_HASH_SEED=0
 ENV PYTHONHASHSEED=${PY_HASH_SEED}
 
-# Install system dependencies
+# Tooling needed to build wheels and assets
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl nodejs npm && \
+    apt-get install -y --no-install-recommends build-essential curl git nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -m -u 1001 appuser
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv ${VIRTUAL_ENV}
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-WORKDIR /app
+WORKDIR /build
 
-# Copy project metadata and lock file first for better Docker layer caching
+# Copy project metadata first for caching
 COPY pyproject.toml requirements.lock ./
 
-# Ensure build tools are available and pinned for reproducibility
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0 uv
+# Install deterministic build tooling plus uv for lock-friendly syncs
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0 uv
 
-# Install Python dependencies from the pinned lock file
-RUN uv pip sync --system requirements.lock
+# Install locked dependencies inside the virtual environment
+RUN uv pip sync requirements.lock
 
-# Copy the rest of the project including tests and docs
+# Copy the remainder of the repo
 COPY . .
 
 # Install the package in editable mode without re-resolving dependencies
 RUN pip install --no-cache-dir --no-deps -e .[app]
 
-# Create demo data directory and ensure proper permissions
+FROM ${PYTHON_IMAGE} AS runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PY_HASH_SEED=0
+ENV PYTHONHASHSEED=${PY_HASH_SEED}
+
+# Runtime deps only (builder already handled compilation)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl nodejs npm && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the virtual environment from the builder image
+ENV VIRTUAL_ENV=/opt/venv
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy project sources (already filtered by .dockerignore)
+COPY --from=builder /build /app
+
+# Create non-root user after sources exist so chown can include everything
+RUN useradd -m -u 1001 appuser
+
+# Verify the runtime environment matches the lock file exactly
+RUN set -eux && \
+    pip freeze --exclude-editable | \
+        grep -v '^trend-model @' | \
+        grep -vE '^(pip|setuptools|wheel|uv)==' | \
+        sort -f > /tmp/runtime-freeze.txt && \
+    awk '/^[[:alnum:]._+-]+==/ {print tolower($0)}' requirements.lock | \
+        sort -f > /tmp/lock.txt && \
+    diff -u /tmp/lock.txt /tmp/runtime-freeze.txt
+
+# Ensure demo outputs can be written at runtime and drop permissions
 RUN mkdir -p demo && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app /opt/venv
 
 # Switch to non-root user
 USER appuser
