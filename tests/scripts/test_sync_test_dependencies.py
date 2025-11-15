@@ -30,7 +30,7 @@ def _write_pyproject(base: Path, dev: list[str] | None = None) -> None:
         ]
         """
     ).strip()
-    dev_block = "\n".join(f"    \"{item}\"," for item in dev)
+    dev_block = "\n".join(f'    "{item}",' for item in dev)
     content = content.format(dev_entries=dev_block)
     base.joinpath("pyproject.toml").write_text(content + "\n", encoding="utf-8")
 

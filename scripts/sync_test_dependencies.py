@@ -5,6 +5,7 @@ project now using pyproject.toml as the single source of truth we ensure that an
 third-party imports used by the test suite are captured inside the ``dev`` extra
 and regenerate the lock file afterwards.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +15,7 @@ import tomllib
 from pathlib import Path
 from typing import Set
 
+TOMLKIT_ERROR: ImportError | None
 try:
     import tomlkit
 except ImportError as exc:  # pragma: no cover - exercised via CLI messaging.
@@ -134,6 +136,12 @@ def _normalize_module_name(module: str) -> str:
     return module.replace("-", "_").lower()
 
 
+def _normalise_package_name(package: str) -> str:
+    """Normalise package identifiers for set comparisons."""
+
+    return _normalize_module_name(package)
+
+
 def extract_imports_from_file(file_path: Path) -> Set[str]:
     """Extract all top-level import names from a Python file."""
     try:
@@ -204,12 +212,7 @@ def find_missing_dependencies() -> Set[str]:
     declared, _ = get_declared_dependencies()
     all_imports = get_all_test_imports()
 
-    potential = (
-        all_imports
-        - STDLIB_MODULES
-        - TEST_FRAMEWORK_MODULES
-        - PROJECT_MODULES
-    )
+    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES
 
     missing: Set[str] = set()
     for import_name in potential:

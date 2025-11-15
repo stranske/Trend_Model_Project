@@ -247,8 +247,6 @@ class TestDependencies:
         assert not missing, f"Missing Streamlit dependencies: {', '.join(missing)}"
 
 
-
-
 def test_ci_environment_check() -> None:
     """Document the current test environment configuration."""
     import platform

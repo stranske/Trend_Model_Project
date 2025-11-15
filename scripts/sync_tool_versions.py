@@ -169,7 +169,10 @@ def main(argv: Iterable[str]) -> int:
     if project_mismatches and not apply_changes:
         for package, message in project_mismatches.items():
             print(f"✗ {package}: {message}", file=sys.stderr)
-        print("Use --apply to rewrite pyproject.toml with the pinned versions.", file=sys.stderr)
+        print(
+            "Use --apply to rewrite pyproject.toml with the pinned versions.",
+            file=sys.stderr,
+        )
         return 1
 
     if apply_changes and pyproject_updated != pyproject_content:

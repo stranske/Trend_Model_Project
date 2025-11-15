@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0 uv
 
 # Install Python dependencies from the pinned lock file
-RUN uv pip sync requirements.lock
+RUN uv pip sync --system requirements.lock
 
 # Copy the rest of the project including tests and docs
 COPY . .
