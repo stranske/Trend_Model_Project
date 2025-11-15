@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Set
 
 import pytest
+from packaging.requirements import InvalidRequirement, Requirement
 
 # Stdlib modules that don't need to be installed
 STDLIB_MODULES = {
@@ -114,6 +115,22 @@ PROJECT_MODULES = {
 }
 
 
+def _extract_requirement_name(entry: str) -> str | None:
+    """Return the canonical package name for a pyproject requirement."""
+
+    cleaned = entry.split(";")[0].strip().strip(",")
+    if not cleaned:
+        return None
+
+    try:
+        requirement = Requirement(cleaned)
+    except InvalidRequirement:
+        base = cleaned.split()[0]
+        return base.split("[")[0] if base else None
+
+    return requirement.name
+
+
 def extract_imports_from_file(file_path: Path) -> Set[str]:
     """Extract all top-level import names from a Python file."""
     try:
@@ -149,24 +166,16 @@ def get_declared_dependencies() -> Set[str]:
 
     dependencies: Set[str] = set()
 
-    operators = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
-
     for entry in project.get("dependencies", []):
-        package = entry.split(";")[0].strip()
-        for operator in operators:
-            if operator in package:
-                package = package.split(operator, 1)[0].strip()
-                break
-        dependencies.add(package.split("[")[0].replace("-", "_").lower())
+        name = _extract_requirement_name(entry)
+        if name:
+            dependencies.add(name.replace("-", "_").lower())
 
     for group in project.get("optional-dependencies", {}).values():
         for entry in group:
-            package = entry.split(";")[0].strip()
-            for operator in operators:
-                if operator in package:
-                    package = package.split(operator, 1)[0].strip()
-                    break
-            dependencies.add(package.split("[")[0].replace("-", "_").lower())
+            name = _extract_requirement_name(entry)
+            if name:
+                dependencies.add(name.replace("-", "_").lower())
 
     return dependencies
 

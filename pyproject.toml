@@ -84,6 +84,7 @@ dev = [
     "pytest-cov==7.0.0",
     "coverage==7.11.0",
     "pytest-rerunfailures>=13.0",
+    "packaging>=25.0",
     "types-PyYAML",
     "types-requests",
     "jsonschema",
