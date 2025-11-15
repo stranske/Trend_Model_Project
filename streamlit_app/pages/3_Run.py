@@ -106,6 +106,58 @@ def _render_error_details(error: Exception) -> None:
         st.code(details)
 
 
+def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError):
+        return max(default, minimum)
+    return max(coerced, minimum)
+
+
+def _infer_date_bounds(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
+    try:
+        raw_index = pd.to_datetime(df.index, errors="coerce")
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(
+            "Unable to derive analysis period from dataset index."
+        ) from exc
+    valid = raw_index[~pd.isna(raw_index)]
+    if len(valid) == 0:
+        raise ValueError("Unable to derive analysis period from dataset index.")
+    ordered = pd.DatetimeIndex(valid).sort_values()
+    return pd.Timestamp(ordered.min()), pd.Timestamp(ordered.max())
+
+
+def _config_from_model_state(
+    model_state: Mapping[str, Any], df: pd.DataFrame
+) -> dict[str, Any]:
+    start_bounds, end_bounds = _infer_date_bounds(df)
+    evaluation_months = _coerce_positive_int(
+        model_state.get("evaluation_months"), default=12, minimum=1
+    )
+    lookback_months = _coerce_positive_int(
+        model_state.get("lookback_months"), default=36, minimum=1
+    )
+    out_start = end_bounds - pd.DateOffset(months=evaluation_months - 1)
+    if out_start < start_bounds:
+        out_start = start_bounds
+    portfolio_cfg = {
+        "weighting_scheme": model_state.get("weighting_scheme", "equal"),
+    }
+    trend_spec = dict(model_state.get("trend_spec", {}))
+    return {
+        "lookback_months": lookback_months,
+        "evaluation_months": evaluation_months,
+        "start": out_start.normalize(),
+        "end": end_bounds.normalize(),
+        "risk_target": model_state.get("risk_target", 0.1),
+        "portfolio": portfolio_cfg,
+        "trend_spec": trend_spec,
+        "signals": trend_spec,
+        "trend_preset": model_state.get("trend_spec_preset"),
+    }
+
+
 def main() -> None:
     # Re-import streamlit within the function to ensure any test-time monkeypatches
     # (e.g. replacing ``st.button``) are respected even if the module was previously
@@ -124,14 +176,15 @@ def main() -> None:
             "returns_df" in st.session_state
             and st.session_state.get("returns_df") is not None
         )
-        has_config = (
-            "sim_config" in st.session_state
-            and st.session_state.get("sim_config") is not None
-        )
+        legacy_cfg = st.session_state.get("sim_config")
+        model_state = st.session_state.get("model_state")
     except TypeError:
         # Fallback when session_state doesn't support membership tests
         has_returns = getattr(st.session_state, "returns_df", None) is not None
-        has_config = getattr(st.session_state, "sim_config", None) is not None
+        legacy_cfg = getattr(st.session_state, "sim_config", None)
+        model_state = getattr(st.session_state, "model_state", None)
+    has_model_state = isinstance(model_state, Mapping) and bool(model_state)
+    has_config = legacy_cfg is not None or has_model_state
 
     if not (has_returns and has_config):
         st.error("Upload data and set configuration first.")
@@ -142,13 +195,22 @@ def main() -> None:
     try:
         df = st.session_state.get("returns_df")  # type: ignore[attr-defined]
         cfg = st.session_state.get("sim_config")  # type: ignore[attr-defined]
+        model_state = st.session_state.get("model_state")  # type: ignore[attr-defined]
     except TypeError:
         # In bare-mode tests, session_state may be a Mock
         df = getattr(st.session_state, "returns_df", None)
         cfg = getattr(st.session_state, "sim_config", None)
+        model_state = getattr(st.session_state, "model_state", None)
     if df is None or cfg is None:
-        st.error("Upload data and set configuration first.")
-        return
+        if isinstance(model_state, Mapping) and model_state and df is not None:
+            try:
+                cfg = _config_from_model_state(model_state, df)
+            except ValueError as exc:
+                st.error(str(exc))
+                return
+        else:
+            st.error("Upload data and set configuration first.")
+            return
 
     try:
         config_state = st.session_state.get("config_state", {})

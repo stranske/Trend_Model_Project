@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import sys
 import traceback
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 import pandas as pd
 import streamlit as st
@@ -17,8 +18,11 @@ if str(_SRC_PATH) not in sys.path:  # pragma: no cover - import side effect
     sys.path.append(str(_SRC_PATH))
 
 
-def _api() -> tuple[object, object]:
-    from trend_analysis.api import RunResult, run_simulation  # type: ignore
+RunSimulationFn = Callable[[Any, pd.DataFrame], object]
+
+
+def _api() -> tuple[type[Any], RunSimulationFn]:
+    from trend_analysis.api import RunResult, run_simulation
 
     return RunResult, run_simulation
 
@@ -30,11 +34,11 @@ logger = logging.getLogger(__name__)
 class StreamlitLogHandler(logging.Handler):
     """Custom log handler that records log lines for display in Streamlit."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.log_messages = []
+        self.log_messages: list[dict[str, str]] = []
 
-    def emit(self, record):  # pragma: no cover - trivial passthrough
+    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - trivial
         log_message = self.format(record)
         self.log_messages.append(
             {
@@ -44,10 +48,10 @@ class StreamlitLogHandler(logging.Handler):
             }
         )
 
-    def get_logs(self):
+    def get_logs(self) -> list[dict[str, str]]:
         return self.log_messages
 
-    def clear_logs(self):  # pragma: no cover - unused helper
+    def clear_logs(self) -> None:  # pragma: no cover - unused helper
         self.log_messages = []
 
 
@@ -116,25 +120,31 @@ def create_config_from_session_state() -> Optional[object]:
 
         from trend_analysis.config import Config as _Config  # local import
 
-        config = _Config(
-            version="1",
-            data={},
-            preprocessing=sim_config.get("preprocessing", {}),
-            vol_adjust={
-                "target_vol": sim_config.get("risk_target", 1.0),
-                "window": sim_config.get("vol_window", {}),
-            },
-            sample_split={
-                "in_start": (start - pd.DateOffset(months=lookback)).strftime("%Y-%m"),
-                "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
-                "out_start": start.strftime("%Y-%m"),
-                "out_end": end.strftime("%Y-%m"),
-            },
-            portfolio=sim_config.get("portfolio", {}),
-            benchmarks=sim_config.get("benchmarks", {}),
-            metrics=sim_config.get("metrics", {}),
-            export=sim_config.get("export", {}),
-            run=sim_config.get("run", {}),
+        ConfigModel = cast(Any, _Config)
+        config = cast(
+            object,
+            ConfigModel(
+                version="1",
+                data={},
+                preprocessing=sim_config.get("preprocessing", {}),
+                vol_adjust={
+                    "target_vol": sim_config.get("risk_target", 1.0),
+                    "window": sim_config.get("vol_window", {}),
+                },
+                sample_split={
+                    "in_start": (start - pd.DateOffset(months=lookback)).strftime(
+                        "%Y-%m"
+                    ),
+                    "in_end": (start - pd.DateOffset(months=1)).strftime("%Y-%m"),
+                    "out_start": start.strftime("%Y-%m"),
+                    "out_end": end.strftime("%Y-%m"),
+                },
+                portfolio=sim_config.get("portfolio", {}),
+                benchmarks=sim_config.get("benchmarks", {}),
+                metrics=sim_config.get("metrics", {}),
+                export=sim_config.get("export", {}),
+                run=sim_config.get("run", {}),
+            ),
         )
         return config
 
