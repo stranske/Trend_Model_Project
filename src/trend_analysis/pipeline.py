@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Mapping, cast
 
@@ -63,6 +64,28 @@ class _Stats:
     information_ratio: float
     is_avg_corr: float | None = None
     os_avg_corr: float | None = None
+
+    def __eq__(self, other: object) -> bool:  # pragma: no cover - exercised via tests
+        if not isinstance(other, _Stats):
+            return NotImplemented
+
+        def _equal(a: float | None, b: float | None) -> bool:
+            if a is None or b is None:
+                return a is b
+            if a == b:
+                return True
+            return math.isnan(a) and math.isnan(b)
+
+        return (
+            _equal(self.cagr, other.cagr)
+            and _equal(self.vol, other.vol)
+            and _equal(self.sharpe, other.sharpe)
+            and _equal(self.sortino, other.sortino)
+            and _equal(self.max_drawdown, other.max_drawdown)
+            and _equal(self.information_ratio, other.information_ratio)
+            and _equal(self.is_avg_corr, other.is_avg_corr)
+            and _equal(self.os_avg_corr, other.os_avg_corr)
+        )
 
 
 def _frequency_label(code: str) -> str:
