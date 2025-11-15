@@ -134,6 +134,9 @@ pip install -e .[app]
 # Run analysis with config via the packaged CLI
 trend run -c config/demo.yml --returns demo/demo_returns.csv
 
+# Generate a quick HTML report (heatmap included) for a completed run
+trend quick-report --run-id demo_run --artifacts perf/demo_run --config config/demo.yml
+
 # Generate demo data
 python scripts/generate_demo.py
 ```
