@@ -10,13 +10,13 @@ This test ensures that:
 from __future__ import annotations
 
 import ast
+import re
 import sys
 import tomllib
 from pathlib import Path
 from typing import Set
 
 import pytest
-from packaging.requirements import InvalidRequirement, Requirement
 
 # Stdlib modules that don't need to be installed
 STDLIB_MODULES = {
@@ -115,6 +115,9 @@ PROJECT_MODULES = {
 }
 
 
+_SPECIFIER_PATTERN = re.compile(r"[!=<>~]")
+
+
 def _extract_requirement_name(entry: str) -> str | None:
     """Return the canonical package name for a pyproject requirement."""
 
@@ -122,13 +125,14 @@ def _extract_requirement_name(entry: str) -> str | None:
     if not cleaned:
         return None
 
-    try:
-        requirement = Requirement(cleaned)
-    except InvalidRequirement:
-        base = cleaned.split()[0]
-        return base.split("[")[0] if base else None
+    token = cleaned.split()[0]
+    if not token:
+        return None
 
-    return requirement.name
+    token = token.split("[", maxsplit=1)[0]
+    token = _SPECIFIER_PATTERN.split(token, maxsplit=1)[0]
+
+    return token or None
 
 
 def extract_imports_from_file(file_path: Path) -> Set[str]:
