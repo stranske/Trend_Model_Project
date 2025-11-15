@@ -50,11 +50,11 @@ pytest tests/test_test_dependencies.py -v
 ### Install Missing Dependencies
 
 ```bash
-# Install Python dependencies
-pip install -r requirements.txt
+# Install Python dependencies from the lock file
+uv pip sync requirements.lock
 
-# Or install with dev dependencies
-pip install -e '.[dev]'
+# Then install the package (no dependency resolution needed)
+pip install --no-deps -e '.[dev]'
 
 # External tools (must be installed separately)
 # - Node.js v20+: https://nodejs.org/

@@ -424,11 +424,11 @@ jobs:
           echo "Checking for undeclared test dependencies..."
           python scripts/sync_test_dependencies.py --fix
           echo "✓ Test dependencies synchronized"
-          if git diff --quiet requirements.txt; then
+          if git diff --quiet pyproject.toml; then
             echo "✓ No dependency changes needed"
           else
-            echo "✓ Updated requirements.txt with missing test dependencies"
-            git add requirements.txt
+            echo "✓ Updated pyproject.toml with missing test dependencies"
+            git add pyproject.toml
           fi
 
       - name: Install uv for lockfile management

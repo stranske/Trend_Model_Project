@@ -27,20 +27,20 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "PyYAML",
-    "fpdf2",
-    "hypothesis",
-    "ipywidgets",
-    "joblib>=1.4",
-    "matplotlib",
-    "numpy",
-    "openpyxl",
-    "pandas",
+    "PyYAML==6.0.3",
+    "fpdf2==2.8.5",
+    "hypothesis==6.145.1",
+    "ipywidgets==8.1.8",
+    "joblib==1.5.2",
+    "matplotlib==3.10.7",
+    "numpy==2.3.4",
+    "openpyxl==3.1.5",
+    "pandas==2.3.3",
     "pandera==0.20.4",
-    "pydantic>=2",
-    "requests",
-    "scipy",
-    "xlsxwriter",
+    "pydantic==2.12.3",
+    "requests==2.32.5",
+    "scipy==1.16.3",
+    "xlsxwriter==3.2.9",
 ]
 
 [project.urls]
@@ -63,33 +63,33 @@ include = ["trend_analysis*", "trend_portfolio_app*", "trend_model*"]
 
 [project.optional-dependencies]
 app = [
-    "streamlit>=1.30",
-    "streamlit-sortables",
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.20.0",
+    "streamlit==1.51.0",
+    "streamlit-sortables==0.3.1",
+    "fastapi==0.121.2",
+    "uvicorn[standard]==0.38.0",
 ]
 notebooks = [
-    "ipyfilechooser",
-    "nbformat",
+    "ipyfilechooser==0.6.0",
+    "nbformat==5.10.4",
 ]
 dev = [
-    "pre-commit>=3.2.0",
+    "pre-commit==4.4.0",
     "black==25.9.0",
     "ruff==0.14.3",
     "isort==7.0.0",
     "docformatter==1.7.7",
     "mypy==1.18.2",
-    "flake8",
+    "flake8==7.3.0",
     "pytest==8.4.2",
     "pytest-cov==7.0.0",
     "coverage==7.11.0",
-    "pytest-rerunfailures>=13.0",
-    "packaging>=25.0",
-    "types-PyYAML",
-    "types-requests",
-    "jsonschema",
-    "httpx>=0.25",
-    "tomlkit",
+    "pytest-rerunfailures==16.1",
+    "packaging==25.0",
+    "types-PyYAML==6.0.12.20250915",
+    "types-requests==2.32.4.20250913",
+    "jsonschema==4.25.1",
+    "httpx==0.28.1",
+    "tomlkit==0.13.3",
 ]
 
 [tool.black]

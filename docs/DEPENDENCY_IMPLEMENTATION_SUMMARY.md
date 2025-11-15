@@ -252,7 +252,7 @@ Developer adds import to test file
 1. Add import to test
 2. git commit -m "Add new test"
 3. Hook auto-fixes and prompts to stage
-4. git add requirements.txt requirements.lock
+4. git add pyproject.toml requirements.lock
 5. git commit --amend --no-edit
 6. Done! ✅
 ```
