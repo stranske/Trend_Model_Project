@@ -81,7 +81,6 @@ jobs:
               - 'setup.py'
               - '.ruff.toml'
               - 'ruff.toml'
-              - 'requirements.txt'
               - 'requirements.lock'
               - 'requirements/**/*.txt'
             format_check:
@@ -102,7 +101,6 @@ jobs:
               - '**/*.py'
               - 'tests/**'
               - 'pyproject.toml'
-              - 'requirements.txt'
               - 'requirements.lock'
               - 'requirements/**/*.txt'
               - 'config/coverage-baseline.json'

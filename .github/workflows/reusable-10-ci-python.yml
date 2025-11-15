@@ -235,7 +235,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: ${{ inputs.cache && 'pip' || '' }}
           cache-dependency-path: |
-            requirements.txt
             requirements.lock
             pyproject.toml
 
@@ -259,9 +258,7 @@ jobs:
           fi
           python -m pip install --upgrade pip
           if [ -f requirements.lock ]; then
-            pip install -r requirements.lock
-          elif [ -f requirements.txt ]; then
-            pip install -r requirements.txt
+            uv pip sync requirements.lock
           fi
           if [ -f pyproject.toml ]; then
             pip install -e '.[app,dev]' || pip install -e . || pip install .
@@ -361,8 +358,8 @@ jobs:
             python scripts/sync_test_dependencies.py --fix
           fi
           append_summary ""
-          append_summary "📝 Updated requirements.txt with missing dependencies."
-          append_summary "⚠️ Build will fail - commit the updated requirements.txt"
+          append_summary "📝 Updated pyproject.toml with missing dependencies."
+          append_summary "⚠️ Build will fail - commit the updated pyproject.toml and regenerate requirements.lock"
           exit 1
 
       - name: Resolve mypy python pin
@@ -411,7 +408,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .pytest_cache
-          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements.lock') }}
+          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}
           restore-keys: |
             pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
