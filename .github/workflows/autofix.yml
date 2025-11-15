@@ -454,8 +454,8 @@ jobs:
             exit 0
           }
           
-          # Normalize and compare (using same logic as test)
-          LOCKFILE_STATUS=$(python .github/scripts/lockfile_status.py \
+            # Normalize and compare (using same logic as test)
+            LOCKFILE_STATUS=$(python .github/scripts/lockfile_status.py \
             --compiled /tmp/requirements.compiled \
             --lockfile requirements.lock)
           
