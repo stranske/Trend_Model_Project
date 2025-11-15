@@ -117,8 +117,10 @@ def ensure_pyproject(
         match = cfg.pyproject_pattern.search(updated_content)
         if not match:
             raise SyncError(
-                "pyproject.toml is missing an entry for "
-                f"{cfg.package_name}; expected pattern '{cfg.pyproject_pattern.pattern}'"
+                (
+                    f"pyproject.toml is missing an entry for {cfg.package_name}; "
+                    f"expected pattern '{cfg.pyproject_pattern.pattern}'"
+                )
             )
         current = match.group("version")
         if current != expected:
