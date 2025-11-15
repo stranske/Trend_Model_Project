@@ -15,6 +15,8 @@ import tomllib
 from pathlib import Path
 from typing import Set
 
+from packaging.requirements import InvalidRequirement, Requirement
+
 TOMLKIT_ERROR: ImportError | None
 try:
     import tomlkit
@@ -142,6 +144,22 @@ def _normalise_package_name(package: str) -> str:
     return _normalize_module_name(package)
 
 
+def _extract_requirement_name(entry: str) -> str | None:
+    """Return the canonical package name for a requirement entry."""
+
+    cleaned = entry.split(";")[0].strip().strip(",")
+    if not cleaned:
+        return None
+
+    try:
+        requirement = Requirement(cleaned)
+    except InvalidRequirement:
+        base = cleaned.split()[0]
+        return base.split("[")[0] if base else None
+
+    return requirement.name
+
+
 def extract_imports_from_file(file_path: Path) -> Set[str]:
     """Extract all top-level import names from a Python file."""
     try:
@@ -195,14 +213,16 @@ def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
         package = entry.split(";")[0].strip().strip(",")
         if package:
             groups.setdefault("dependencies", []).append(package)
-            declared.add(_normalise_package_name(package.split("[")[0]))
+            name = _extract_requirement_name(package)
+            if name:
+                declared.add(_normalise_package_name(name))
 
     for group, entries in project.get("optional-dependencies", {}).items():
         groups[group] = list(entries)
         for entry in entries:
-            package = entry.split(";")[0].strip().strip(",")
-            if package:
-                declared.add(_normalise_package_name(package.split("[")[0]))
+            name = _extract_requirement_name(entry)
+            if name:
+                declared.add(_normalise_package_name(name))
 
     return declared, groups
 
