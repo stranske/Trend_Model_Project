@@ -78,7 +78,9 @@ def test_cli_infers_run_id_and_handles_missing_sections(tmp_path: Path) -> None:
     metrics = pd.DataFrame({"Sharpe": [0.5]}, index=["FundA"])
     metrics.to_csv(run_dir / f"metrics_{run_id}.csv")
     details = {"portfolio_equal_weight_combined": {"2022-01-31": 0.01}}
-    (run_dir / f"details_{run_id}.json").write_text(json.dumps(details), encoding="utf-8")
+    (run_dir / f"details_{run_id}.json").write_text(
+        json.dumps(details), encoding="utf-8"
+    )
 
     exit_code = main(["--artifacts", str(run_dir), "--base-dir", str(base_dir)])
     assert exit_code == 0

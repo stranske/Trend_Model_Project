@@ -243,20 +243,20 @@ def _render_html(
     summary_block = ""
     if summary_text:
         safe = html_escape(summary_text.strip())
-        summary_block = f"<pre class=\"summary\">{safe}</pre>"
+        summary_block = f'<pre class="summary">{safe}</pre>'
     config_block = ""
     if config_text:
         safe_cfg = html_escape(config_text.strip())
-        config_block = f"<pre class=\"config\">{safe_cfg}</pre>"
+        config_block = f'<pre class="config">{safe_cfg}</pre>'
     equity_block = (
-        f"<img alt=\"Equity and drawdown\" src=\"data:image/png;base64,{equity_chart}\">"
+        f'<img alt="Equity and drawdown" src="data:image/png;base64,{equity_chart}">'
         if equity_chart
-        else "<p class=\"placeholder\">No equity data available.</p>"
+        else '<p class="placeholder">No equity data available.</p>'
     )
     turnover_block = (
-        f"<img alt=\"Turnover\" src=\"data:image/png;base64,{turnover_chart}\">"
+        f'<img alt="Turnover" src="data:image/png;base64,{turnover_chart}">'
         if turnover_chart
-        else "<p class=\"placeholder\">No turnover data available.</p>"
+        else '<p class="placeholder">No turnover data available.</p>'
     )
     summary_section = (
         f"<section><h2>Summary</h2>{summary_block}</section>" if summary_block else ""
@@ -371,7 +371,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="trend-quick-report",
         description="Generate a compact HTML report from trend run artefacts.",
     )
-    parser.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
+    parser.add_argument(
+        "--run-id", help="Run identifier (defaults to artefact inference)"
+    )
     parser.add_argument(
         "--artifacts",
         type=Path,
