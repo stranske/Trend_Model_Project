@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 import sys
 import traceback
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any, Optional, cast
 
 import pandas as pd
