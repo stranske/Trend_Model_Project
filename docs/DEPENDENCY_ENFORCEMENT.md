@@ -4,6 +4,12 @@
 
 This project implements a comprehensive dependency enforcement system to ensure that all tests can run without skipping due to missing dependencies. The system automatically validates, documents, and enforces dependency requirements across the test suite.
 
+> **Update (2025-10):** The authoritative dependency list now lives in
+> `pyproject.toml` (base + optional extras) with a generated
+> `requirements.lock`. Any legacy references to `requirements.txt` in this
+> document should be read as updates to the dev extra in `pyproject.toml`
+> followed by `make lock`.
+
 ## System Components
 
 ### 1. Dependency Installation (CI)
@@ -39,13 +45,13 @@ Validates that all required dependencies are present and accessible:
 
 **File**: `tests/test_dependency_enforcement.py`
 
-**Critical Feature**: These tests FAIL if a new dependency is added to test code without being declared in `requirements.txt`.
+**Critical Feature**: These tests FAIL if a new dependency is added to test code without being declared in `pyproject.toml`.
 
 #### What It Does
 
 1. **Scans all test files** for import statements
 2. **Extracts top-level module names** from imports
-3. **Compares against declared dependencies** in `requirements.txt`
+3. **Compares against declared dependencies** in `pyproject.toml`
 4. **Fails the build** if undeclared dependencies are found
 
 #### Example Failure
@@ -56,13 +62,13 @@ If you add this to a test file:
 import some_new_package
 ```
 
-Without adding `some_new_package` to `requirements.txt`, the test will fail with:
+Without adding `some_new_package` to `[project.optional-dependencies].dev`, the test will fail with:
 
 ```
-Failed: The following imports in test files are not declared in requirements.txt:
+Failed: The following imports in test files are not declared in pyproject.toml:
 some_new_package
 
-Add these packages to requirements.txt to ensure tests can run.
+Add these packages to `[project.optional-dependencies].dev` to ensure tests can run.
 
 🔧 To automatically fix this, run:
    python scripts/sync_test_dependencies.py --fix
@@ -81,7 +87,7 @@ Add these packages to requirements.txt to ensure tests can run.
 # Dry run - show what would change
 python scripts/sync_test_dependencies.py
 
-# Fix requirements.txt automatically
+# Fix pyproject.toml automatically
 python scripts/sync_test_dependencies.py --fix
 
 # Verify mode - exit 1 if changes needed (for CI)
@@ -94,16 +100,16 @@ python scripts/sync_tool_versions.py --check
 #### What It Does
 
 1. Scans all test files for imports
-2. Identifies which imports are not in requirements.txt
-3. Automatically adds missing packages to the test dependencies section
-4. Outputs instructions to regenerate the lockfile
+2. Identifies which imports are not in `pyproject.toml`
+3. Automatically adds missing packages to the dev extra
+4. Outputs instructions to regenerate `requirements.lock`
 
 #### CI Integration
 
 When the enforcement test fails in CI:
 1. `check-deps` step runs the sync script in verify mode
 2. If it fails, the `auto-fix` step runs `--fix` mode
-3. The updated requirements.txt is shown in the job summary
+3. The updated `pyproject.toml` is shown in the job summary
 4. **The build still fails** to force the developer to commit the changes
 
 This ensures:

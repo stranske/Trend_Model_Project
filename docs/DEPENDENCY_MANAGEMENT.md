@@ -2,6 +2,11 @@
 
 This document describes the comprehensive dependency validation system for the Trend Analysis Project test suite.
 
+> **Update (2025-10):** Dependency declarations are now maintained in
+> `pyproject.toml` (including the dev extra) with pins captured in
+> `requirements.lock`. Historical references to `requirements.txt` in this
+> document refer to the legacy workflow.
+
 # Test Dependency Management
 
 ## System Status: ENFORCED ✅

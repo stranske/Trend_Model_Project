@@ -1,8 +1,4 @@
-"""Ensure dependency version specifications align across manifests.
-
-This guards against drift between pyproject.toml and requirements.txt so
-installation paths cannot resolve conflicting versions.
-"""
+"""Ensure the lock file captures every dependency declared in pyproject.toml."""
 
 from __future__ import annotations
 
@@ -13,57 +9,50 @@ from typing import Dict
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
 
 
-def _split_spec(raw: str) -> tuple[str, str]:
+def _split_spec(raw: str) -> str:
     entry = raw.strip().strip(",").strip('"')
     for operator in _OPERATORS:
         if operator in entry:
-            name, version = entry.split(operator, 1)
-            return name.strip(), f"{operator}{version.strip()}"
-    return entry.strip(), ""
+            name, _ = entry.split(operator, 1)
+            return name.strip().split("[")[0]
+    return entry.strip().split("[")[0]
 
 
-def _load_requirements_specs(path: Path) -> Dict[str, str]:
-    specs: Dict[str, str] = {}
+def _load_lock_versions(path: Path) -> Dict[str, str]:
+    versions: Dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        name, spec = _split_spec(stripped)
-        specs[name] = spec
-    return specs
+        if stripped.startswith("--"):
+            continue
+        if "==" not in stripped:
+            continue
+        name, version = stripped.split("==", 1)
+        versions[name.lower()] = version
+    return versions
 
 
-def _load_pyproject_specs(path: Path) -> Dict[str, str]:
-    specs: Dict[str, str] = {}
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
-    project = data.get("project", {})
+def test_all_pyproject_dependencies_are_in_lock() -> None:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    project = pyproject.get("project", {})
 
-    for dependency in project.get("dependencies", []):
-        name, spec = _split_spec(dependency)
-        specs[name] = spec
+    declared = set()
+    for entry in project.get("dependencies", []):
+        declared.add(_split_spec(entry).lower())
 
-    optional = project.get("optional-dependencies", {})
-    for group in optional.values():
-        for dependency in group:
-            name, spec = _split_spec(dependency)
-            specs[name] = spec
+    for group in project.get("optional-dependencies", {}).values():
+        for entry in group:
+            declared.add(_split_spec(entry).lower())
 
-    return specs
+    lock_versions = _load_lock_versions(Path("requirements.lock"))
 
+    missing = []
+    for dependency in sorted(declared):
+        normalised = dependency.replace("-", "_")
+        if dependency not in lock_versions and normalised not in lock_versions:
+            missing.append(dependency)
 
-def test_dependency_specifications_are_aligned() -> None:
-    requirements_specs = _load_requirements_specs(Path("requirements.txt"))
-    pyproject_specs = _load_pyproject_specs(Path("pyproject.toml"))
-
-    mismatches: Dict[str, tuple[str, str]] = {}
-    for name in sorted(set(requirements_specs) & set(pyproject_specs)):
-        if requirements_specs[name] != pyproject_specs[name]:
-            mismatches[name] = (requirements_specs[name], pyproject_specs[name])
-
-    assert not mismatches, (
-        "Dependency specifications differ between requirements.txt and pyproject.toml: "
-        + ", ".join(
-            f"{name} (requirements: '{req}' vs pyproject: '{proj}')"
-            for name, (req, proj) in mismatches.items()
-        )
-    )
+    assert (
+        not missing
+    ), "requirements.lock is missing pinned versions for: " + ", ".join(missing)

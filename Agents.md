@@ -630,9 +630,9 @@ When debugging multi-period portfolio analysis where the same managers are selec
 ### Debugging Workflow
 
 1. **Environment Setup**
-   - Ensure virtual environment is activated: `source venv/bin/activate`
-   - Verify all dependencies installed: `pip install -r requirements.txt && pip install -e .`
-   - Confirm working on correct branch (use `chore/demo-pipeline` for debugging)
+    - Ensure virtual environment is activated: `source venv/bin/activate`
+    - Verify all dependencies installed: `python -m venv .venv && source .venv/bin/activate && pip install --upgrade pip uv && uv pip sync requirements.lock && pip install --no-deps -e .[dev]`
+    - Confirm working on correct branch (use `chore/demo-pipeline` for debugging)
 
 2. **Data Completeness Analysis**
    ```python

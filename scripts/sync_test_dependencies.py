@@ -1,27 +1,35 @@
-#!/usr/bin/env python3
-"""
-Automatically sync test dependencies to requirements.txt.
+"""Synchronise test imports with the dependency declarations in pyproject.toml.
 
-This script scans test files for imports and ensures all discovered
-dependencies are declared in requirements.txt. It can be run manually
-or triggered by CI when test_dependency_enforcement.py fails.
-
-Usage:
-    python scripts/sync_test_dependencies.py           # Dry run (shows what would change)
-    python scripts/sync_test_dependencies.py --fix     # Update requirements.txt
-    python scripts/sync_test_dependencies.py --verify  # Exit 1 if changes needed
+The previous workflow stored test-only dependencies in requirements.txt. With the
+project now using pyproject.toml as the single source of truth we ensure that any
+third-party imports used by the test suite are captured inside the ``dev`` extra
+and regenerate the lock file afterwards.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
+import tomllib
 from pathlib import Path
-from typing import Set
+from typing import Any, Set, cast
 
 
-# Stdlib modules that don't need to be installed (keep in sync with test_dependency_enforcement.py)
+TOMLKIT_ERROR: ImportError | None
+try:
+    import tomlkit
+except ImportError as exc:  # pragma: no cover - exercised via CLI messaging.
+    TOMLKIT_ERROR = exc
+else:
+    TOMLKIT_ERROR = None
+
+PYPROJECT_FILE = Path("pyproject.toml")
+DEV_EXTRA = "dev"
+
+# Stdlib modules that don't need to be installed (keep in sync with
+# tests/test_dependency_enforcement.py)
 STDLIB_MODULES = {
     "abc",
     "argparse",
@@ -87,6 +95,7 @@ STDLIB_MODULES = {
     "pprint",
 }
 
+# Known test framework modules
 TEST_FRAMEWORK_MODULES = {
     "pytest",
     "hypothesis",
@@ -94,6 +103,7 @@ TEST_FRAMEWORK_MODULES = {
     "pluggy",
 }
 
+# Project modules (installed via ``pip install -e .``)
 PROJECT_MODULES = {
     "trend_analysis",
     "trend_portfolio_app",
@@ -111,7 +121,7 @@ PROJECT_MODULES = {
     "decode_raw_input",
     "fallback_split",
     "parse_chatgpt_topics",
-    "health_summarize",  # .github/scripts/health_summarize.py
+    "health_summarize",
 }
 
 # Module name to package name mappings for known exceptions
@@ -122,6 +132,36 @@ MODULE_TO_PACKAGE = {
     "cv2": "opencv-python",
     "pre_commit": "pre-commit",
 }
+
+
+def _normalize_module_name(module: str) -> str:
+    return module.replace("-", "_").lower()
+
+
+def _normalise_package_name(package: str) -> str:
+    """Normalise package identifiers for set comparisons."""
+
+    return _normalize_module_name(package)
+
+
+_SPECIFIER_PATTERN = re.compile(r"[!=<>~]")
+
+
+def _extract_requirement_name(entry: str) -> str | None:
+    """Return the canonical package name for a requirement entry."""
+
+    cleaned = entry.split(";")[0].strip().strip(",")
+    if not cleaned:
+        return None
+
+    token = cleaned.split()[0]
+    if not token:
+        return None
+
+    token = token.split("[", maxsplit=1)[0]
+    token = _SPECIFIER_PATTERN.split(token, maxsplit=1)[0]
+
+    return token or None
 
 
 def extract_imports_from_file(file_path: Path) -> Set[str]:
@@ -162,127 +202,113 @@ def get_all_test_imports() -> Set[str]:
     return all_imports
 
 
-def get_declared_dependencies() -> tuple[Set[str], list[str]]:
-    """Get declared dependencies and the raw requirements lines."""
-    requirements_file = Path("requirements.txt")
-    if not requirements_file.exists():
-        return set(), []
+def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
+    """Return declared dependency module names and raw dependency groups."""
+    if not PYPROJECT_FILE.exists():
+        return set(), {}
 
-    dependencies = set()
-    raw_lines = []
+    data = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
+    project = data.get("project", {})
 
-    with open(requirements_file, "r") as f:
-        for line in f:
-            raw_lines.append(line.rstrip("\n"))
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
+    declared: Set[str] = set()
+    groups: dict[str, list[str]] = {}
 
-            pkg = (
-                line.split("==")[0]
-                .split(">=")[0]
-                .split("<=")[0]
-                .split("~=")[0]
-                .split("[")[0]
-                .strip()
-            )
-            if pkg:
-                module_name = pkg.replace("-", "_").lower()
-                dependencies.add(module_name)
-                if "-" in pkg:
-                    dependencies.add(pkg.lower())
+    for entry in project.get("dependencies", []):
+        package = entry.split(";")[0].strip().strip(",")
+        if package:
+            groups.setdefault("dependencies", []).append(package)
+            name = _extract_requirement_name(package)
+            if name:
+                declared.add(_normalise_package_name(name))
 
-    return dependencies, raw_lines
+    for group, entries in project.get("optional-dependencies", {}).items():
+        groups[group] = list(entries)
+        for entry in entries:
+            name = _extract_requirement_name(entry)
+            if name:
+                declared.add(_normalise_package_name(name))
+
+    return declared, groups
 
 
 def find_missing_dependencies() -> Set[str]:
     """Find imports that are not declared as dependencies."""
-    all_imports = get_all_test_imports()
     declared, _ = get_declared_dependencies()
+    all_imports = get_all_test_imports()
 
-    # Filter out modules that don't need to be declared
-    potential_deps = (
-        all_imports
-        - STDLIB_MODULES
-        - TEST_FRAMEWORK_MODULES
-        - PROJECT_MODULES
-        - declared
-    )
+    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES
 
-    # Handle known module-to-package mappings
-    missing = set()
-    for import_name in potential_deps:
-        # Check if it has a known package mapping and that package is declared
-        package_name = MODULE_TO_PACKAGE.get(import_name)
-        if package_name:
-            package_normalized = package_name.replace("-", "_").lower()
-            if package_normalized not in declared:
-                missing.add(package_name)
-        else:
-            # Use the import name as the package name
-            missing.add(import_name)
+    missing: Set[str] = set()
+    for import_name in potential:
+        package_name = MODULE_TO_PACKAGE.get(import_name, import_name)
+        normalised = _normalise_package_name(package_name)
+        if normalised not in declared:
+            missing.add(package_name)
 
     return missing
 
 
-def add_dependencies_to_requirements(missing: Set[str], fix: bool = False) -> bool:
-    """Add missing dependencies to requirements.txt."""
-    if not missing:
+def add_dependencies_to_pyproject(missing: Set[str], fix: bool = False) -> bool:
+    """Add missing dependencies to the dev extra inside pyproject.toml."""
+    if not missing or not fix:
         return False
 
-    requirements_file = Path("requirements.txt")
-    _, raw_lines = get_declared_dependencies()
+    if TOMLKIT_ERROR is not None:
+        raise SystemExit(
+            "tomlkit is required to update pyproject.toml automatically. "
+            "Install the dev dependencies (pip install -e .[dev]) and retry."
+        ) from TOMLKIT_ERROR
 
-    # Find the test section in requirements.txt
-    test_section_start = -1
-    for i, line in enumerate(raw_lines):
-        if "# Test dependencies" in line or "# Testing" in line:
-            test_section_start = i
-            break
+    document = tomlkit.parse(PYPROJECT_FILE.read_text(encoding="utf-8"))
 
-    if test_section_start == -1:
-        # No test section found, add one at the end
-        if raw_lines and not raw_lines[-1].strip():
-            raw_lines = raw_lines[:-1]  # Remove trailing blank line
-        raw_lines.append("")
-        raw_lines.append("# Test dependencies (auto-discovered)")
-        test_section_start = len(raw_lines) - 1
+    project = cast(Any, document["project"])
+    optional = project.setdefault("optional-dependencies", tomlkit.table())
+    dev_group = optional.get(DEV_EXTRA)
+    if dev_group is None:
+        dev_group = tomlkit.array()
+        dev_group.multiline(True)
+        optional[DEV_EXTRA] = dev_group
 
-    # Insert missing dependencies after the test section header
-    insert_position = test_section_start + 1
-    for dep in sorted(missing):
-        raw_lines.insert(insert_position, dep)
-        insert_position += 1
+    existing_normalised = {
+        _normalise_package_name(str(item).split("[")[0]) for item in dev_group
+    }
 
-    if fix:
-        with open(requirements_file, "w") as f:
-            f.write("\n".join(raw_lines) + "\n")
-        return True
+    added = False
+    for package in sorted(missing):
+        normalised = _normalise_package_name(package)
+        if normalised in existing_normalised:
+            continue
+        dev_group.append(package)
+        existing_normalised.add(normalised)
+        added = True
 
-    return False
+    if added:
+        PYPROJECT_FILE.write_text(tomlkit.dumps(document), encoding="utf-8")
+
+    return added
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Sync test dependencies to requirements.txt"
+        description="Sync test dependencies to pyproject.toml"
     )
     parser.add_argument(
         "--fix",
         action="store_true",
-        help="Update requirements.txt with missing dependencies",
+        help="Update the dev extra in pyproject.toml with missing dependencies",
     )
     parser.add_argument(
         "--verify",
         action="store_true",
         help="Exit with code 1 if changes are needed (for CI)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     missing = find_missing_dependencies()
 
     if not missing:
-        print("✅ All test dependencies are declared in requirements.txt")
+        print("✅ All test dependencies are declared in pyproject.toml")
         return 0
 
     print(f"⚠️  Found {len(missing)} undeclared dependencies:")
@@ -290,16 +316,20 @@ def main() -> int:
         print(f"  - {dep}")
 
     if args.fix:
-        add_dependencies_to_requirements(missing, fix=True)
-        print(f"\n✅ Added {len(missing)} dependencies to requirements.txt")
-        print("Please run: uv pip compile pyproject.toml -o requirements.lock")
+        added = add_dependencies_to_pyproject(missing, fix=True)
+        if added:
+            print("\n✅ Added dependencies to [project.optional-dependencies.dev]")
+            print("Please run: make lock")
+        else:
+            print("\nℹ️  Dependencies already declared in dev extra")
         return 0
-    elif args.verify:
+
+    if args.verify:
         print("\n❌ Run: python scripts/sync_test_dependencies.py --fix")
         return 1
-    else:
-        print("\nTo fix, run: python scripts/sync_test_dependencies.py --fix")
-        return 0
+
+    print("\nTo fix, run: python scripts/sync_test_dependencies.py --fix")
+    return 0
 
 
 if __name__ == "__main__":

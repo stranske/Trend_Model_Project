@@ -137,9 +137,8 @@ else
     echo -e "${RED}Some required dependencies are missing!${NC}"
     echo ""
     echo "Install missing Python packages:"
-    echo "  pip install -r requirements.txt"
-    echo ""
-    echo "Or install with development dependencies:"
-    echo "  pip install -e '.[dev]'"
+    echo "  pip install uv"
+    echo "  uv pip sync requirements.lock"
+    echo "  pip install --no-deps -e '.[dev]'"
     exit 1
 fi
