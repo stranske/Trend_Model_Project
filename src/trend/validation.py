@@ -7,7 +7,6 @@ from typing import Any
 
 import pandas as pd
 
-
 PRICE_SCHEMA: Mapping[str, str] = {
     "symbol": "string",
     "date": "datetime64[ns]",
@@ -31,9 +30,7 @@ def enforce_required_columns(
         expected = pd.api.types.pandas_dtype(dtype)
         actual = df[column].dtype
         if not pd.api.types.is_dtype_equal(actual, expected):
-            mismatched.append(
-                f"{column} (expected {expected}, found {actual})"
-            )
+            mismatched.append(f"{column} (expected {expected}, found {actual})")
 
     if mismatched:
         raise ValueError(

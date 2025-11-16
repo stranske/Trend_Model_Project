@@ -15,13 +15,14 @@ if TYPE_CHECKING:  # pragma: no cover - for static type checking only
 else:  # Runtime: avoid importing typing-only names
     from typing import Any as ConfigType
 
-from .logging import log_step as _log_step  # lightweight import
-from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
 from trend.validation import (
     assert_execution_lag,
     build_validation_frame,
     validate_prices_frame,
 )
+
+from .logging import log_step as _log_step  # lightweight import
+from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
 
 logger = logging.getLogger(__name__)
 
