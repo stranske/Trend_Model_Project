@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import importlib
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -61,6 +62,7 @@ try:
         ScorePropBayesian,
         ScorePropSimple,
     )
+    from trend_analysis.logging_setup import setup_logging
 except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing install
     raise SystemExit(
         "Trend Model packages are not installed. Run 'pip install -e .[app]' before executing the demo."
@@ -74,6 +76,10 @@ if FAST_SENTINEL.exists():  # pragma: no cover - short-circuit path
         pass
     (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
+
+
+LOG_PATH = setup_logging(app_name="run_multi_demo")
+logging.getLogger(__name__).info("Log file initialised at %s", LOG_PATH)
 
 # ---------------------------------------------------------------------------
 # Type aliases / structural protocols
