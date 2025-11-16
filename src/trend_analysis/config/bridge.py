@@ -23,6 +23,7 @@ __all__ = ["build_config_payload", "validate_payload"]
 def build_config_payload(
     *,
     csv_path: str | None,
+    universe_membership_path: str | None,
     managers_glob: str | None,
     date_column: str,
     frequency: str,
@@ -43,6 +44,8 @@ def build_config_payload(
     }
     if csv_path:
         data["csv_path"] = csv_path
+    if universe_membership_path:
+        data["universe_membership_path"] = universe_membership_path
     if managers_glob:
         data["managers_glob"] = managers_glob
 
@@ -77,5 +80,7 @@ def validate_payload(
     data = model.get("data", {})
     if isinstance(data.get("csv_path"), Path):
         data["csv_path"] = str(data["csv_path"])  # normalise for JSON
+    if isinstance(data.get("universe_membership_path"), Path):
+        data["universe_membership_path"] = str(data["universe_membership_path"])
     model["data"] = data
     return model, None

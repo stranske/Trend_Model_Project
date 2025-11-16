@@ -44,6 +44,8 @@ results/
 *_tmp*.xlsx
 *.xlsx
 *.csv
+!Trend Universe Data.csv
+!Trend Universe Membership.csv
 !data/raw/managers/*.csv
 !data/raw/indices/*.csv
 *.json
