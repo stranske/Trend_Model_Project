@@ -52,3 +52,20 @@ def test_validate_uploaded_csv_accepts_file_like_object() -> None:
     buffer = io.BytesIO(_csv(["2020-01-31,0.01,0.02"]))
     buffer.name = "custom.csv"
     validate_uploaded_csv(buffer, ("Date",), max_rows=10)
+
+
+def test_validate_uploaded_csv_reports_empty_dataset() -> None:
+    content = "Date".encode("utf-8")
+    with pytest.raises(CSVValidationError) as excinfo:
+        validate_uploaded_csv(content, ("Date",), max_rows=10)
+    assert "Detected 0 rows" in " ".join(excinfo.value.issues)
+    assert excinfo.value.sample_preview is not None
+
+
+def test_validate_uploaded_csv_reports_missing_date_column() -> None:
+    rows = ["2020-01-31,0.01,0.02"]
+    payload = "\n".join(["Mgr_A,Mgr_B"] + rows)
+    with pytest.raises(CSVValidationError) as excinfo:
+        validate_uploaded_csv(payload.encode("utf-8"), ("Date",), max_rows=10)
+    assert "Missing columns" in excinfo.value.issues[0]
+    assert excinfo.value.sample_preview is not None

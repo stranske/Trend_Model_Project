@@ -85,6 +85,7 @@ def validate_uploaded_csv(
         if df.empty:
             raise CSVValidationError(
                 "The uploaded dataset is empty. Provide at least one row of returns.",
+                issues=["Detected 0 rows of data."],
                 sample_preview=_SAMPLE_PREVIEW,
             )
 
@@ -109,8 +110,10 @@ def validate_uploaded_csv(
         date_key = _normalise(required_columns[0]) if required_columns else None
         date_column = lookup.get(date_key) if date_key is not None else None
         if date_column is None:
+            required = required_columns[0] if required_columns else "Date"
             raise CSVValidationError(
                 "Unable to locate the date column. Ensure the first column is named 'Date'.",
+                issues=[f"Missing required column: {required}"],
                 sample_preview=_SAMPLE_PREVIEW,
             )
 
