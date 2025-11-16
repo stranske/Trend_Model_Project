@@ -29,6 +29,10 @@ The `trend` command is the unified launcher for day-to-day workflows:
 - `trend stress` replays canned stress windows
 - `trend app` starts the Streamlit interface
 
+Need to know where the sample CSV inputs come from?  See
+[README_DATA.md](README_DATA.md) for provenance, intended use, and limitations
+before wiring them into demos or documentation.
+
 Every demo/backtest script (for example `scripts/run_multi_demo.py`) shells out
 to these console entry points instead of adjusting `sys.path`.  If you skip the
 editable install, the scripts will raise a friendly error explaining how to fix
@@ -40,6 +44,13 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Demo data provenance
+
+The repository ships a handful of CSV fixtures so demos and automated tests
+run without external downloads. Before using those files, review
+[README_DATA.md](README_DATA.md) for provenance, permitted use, and
+limitations—every bundled dataset is synthetic or derived from public
+benchmarks and must not be treated as production-quality market data.
 ### Run logs
 
 All user-facing scripts now call ``trend_analysis.logging_setup.setup_logging`` to

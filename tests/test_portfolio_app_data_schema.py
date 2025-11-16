@@ -54,13 +54,14 @@ def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
 def test_build_meta_and_validate_df(
     monkeypatch: pytest.MonkeyPatch, schema_module: Any
 ) -> None:
-    frame = pd.DataFrame({"A": [1.0], "B": [2.0]})
-    validated = _dummy_validated(frame)
+    raw = pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
+    processed = raw.set_index("Date")
+    validated = _dummy_validated(processed)
     monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
 
-    result_frame, meta = schema_module._validate_df(frame)
-    assert result_frame.equals(frame)
-    assert meta["n_rows"] == len(frame)
+    result_frame, meta = schema_module._validate_df(raw)
+    assert result_frame.equals(processed)
+    assert meta["n_rows"] == len(raw)
     assert meta["frequency"] == "Monthly"
 
 
@@ -85,7 +86,7 @@ def test_load_and_validate_excel(
 
     def fake_read_excel(buf: io.BytesIO) -> pd.DataFrame:
         buf.seek(0)
-        return validated.frame
+        return pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
     monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)

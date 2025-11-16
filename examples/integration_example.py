@@ -9,10 +9,23 @@ import asyncio
 import signal
 import subprocess
 import sys
+from importlib import util
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _discover_streamlit_app() -> Path | None:
+    """Return the Streamlit app path bundled with the install."""
+
+    spec = util.find_spec("trend_portfolio_app.app")
+    if spec and spec.origin:
+        return Path(spec.origin)
+
+    fallback = REPO_ROOT / "streamlit_app" / "app.py"
+    if fallback.exists():
+        return fallback
+    return None
 
 
 class StreamlitProxyIntegration:
@@ -26,12 +39,9 @@ class StreamlitProxyIntegration:
         """Start a Streamlit application."""
         print(f"Starting Streamlit on port {port}...")
 
-        # Use the existing Streamlit app
-        app_path = Path(__file__).parent / "src" / "trend_portfolio_app" / "app.py"
-        if not app_path.exists():
-            app_path = Path(__file__).parent / "streamlit_app" / "app.py"
+        app_path = _discover_streamlit_app()
 
-        if not app_path.exists():
+        if not app_path:
             print("❌ No Streamlit app found to run")
             return False
 

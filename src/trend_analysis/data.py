@@ -4,7 +4,13 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype
+from pandas.api.types import is_datetime64_any_dtype, is_datetime64tz_dtype
+
+from trend.input_validation import (
+    InputSchema,
+    InputValidationError,
+    validate_input,
+)
 
 from .io.market_data import (
     MarketDataValidationError,
@@ -13,6 +19,11 @@ from .io.market_data import (
 )
 
 DEFAULT_POLICY_FALLBACK = "drop"
+RETURNS_SCHEMA = InputSchema(
+    date_column="Date",
+    required_columns=("Date",),
+    non_nullable=("Date",),
+)
 
 
 def _normalise_policy_alias(value: str | None) -> str:
@@ -141,6 +152,33 @@ def _validate_payload(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> Optional[pd.DataFrame]:
+    try:
+        payload = validate_input(
+            payload,
+            RETURNS_SCHEMA,
+            set_index=False,
+            drop_date_column=False,
+        )
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise MarketDataValidationError(exc.user_message, exc.issues) from exc
+        message = exc.user_message
+        msg_lower = message.lower()
+        if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
+            message = f"{message}\nUnable to parse Date values in {origin}"
+        logger.error("Validation failed (%s): %s", origin, message)
+        return None
+    except (ValueError, TypeError) as exc:
+        message = f"Unable to parse Date values in {origin}"
+        if errors == "raise":
+            raise MarketDataValidationError(message) from exc
+        logger.error("Validation failed (%s): %s", origin, message)
+        return None
+
+    if "Date" in payload.columns and is_datetime64tz_dtype(payload["Date"]):
+        payload = payload.copy()
+        payload["Date"] = payload["Date"].dt.tz_localize(None)
+
     payload = _normalise_numeric_strings(payload)
     policy_param: str | dict[str, str] | None
     if isinstance(missing_policy, Mapping):
@@ -268,6 +306,10 @@ def load_csv(
         if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
             message = f"{exc.user_message}\nUnable to parse Date values in {path}"
         logger.error("Validation failed (%s): %s", path, message)
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
     except Exception as exc:  # pragma: no cover - defensive guard
         if errors == "raise":
             raise
@@ -331,6 +373,10 @@ def load_parquet(
         if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
             message = f"{exc.user_message}\nUnable to parse Date values in {path}"
         logger.error("Validation failed (%s): %s", path, message)
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
     except Exception as exc:  # pragma: no cover - defensive guard
         if errors == "raise":
             raise
