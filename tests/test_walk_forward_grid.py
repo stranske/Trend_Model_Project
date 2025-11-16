@@ -53,7 +53,7 @@ def test_evaluate_parameter_grid_produces_fold_metrics() -> None:
         }
     )
     assert summary["folds"].iloc[0] == 2
-    assert summary["mean_cagr"].iloc[0] == summary["mean_cagr"].iloc[0]
+    assert not np.isnan(summary["mean_cagr"].iloc[0])
 
 
 def test_seed_changes_tie_breaking_between_identical_scores() -> None:
