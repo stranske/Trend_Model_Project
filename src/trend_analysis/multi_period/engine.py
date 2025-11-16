@@ -30,6 +30,7 @@ from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
+from ..universe import apply_membership_windows, load_universe_membership
 from ..util.missing import apply_missing_policy
 from ..weighting import (
     AdaptiveBayesWeighting,
@@ -537,6 +538,24 @@ def run(
     cleaned = cleaned.dropna(how="all")
     if cleaned.empty:
         raise ValueError("Missing-data policy removed all assets for analysis")
+
+    membership_path = data_settings.get("universe_membership_path")
+    if membership_path:
+        membership_windows = load_universe_membership(str(membership_path))
+        missing_entries = sorted(
+            asset for asset in cleaned.columns if asset not in membership_windows
+        )
+        if missing_entries:
+            preview = ", ".join(missing_entries[:5])
+            raise ValueError(
+                "Universe membership is missing effective_date entries for: "
+                f"{preview}" + ("…" if len(missing_entries) > 5 else "")
+            )
+        cleaned = apply_membership_windows(cleaned, membership_windows)
+        cleaned = cleaned.dropna(how="all")
+        if cleaned.empty:
+            raise ValueError("Universe membership removed all rows for analysis")
+
     # Restore Date column for downstream consumers
     df = cleaned.reset_index()
 

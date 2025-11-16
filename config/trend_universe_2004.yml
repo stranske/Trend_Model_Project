@@ -3,6 +3,7 @@ version: "1"
 
 data:
   csv_path: Trend Universe Data.csv  # path to Trend Universe dataset in repo root
+  universe_membership_path: Trend Universe Membership.csv
   date_column: Date
   frequency: ME  # monthly data (month-end)
   na_as_zero:
