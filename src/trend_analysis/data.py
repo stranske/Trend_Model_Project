@@ -6,6 +6,11 @@ from typing import Any, Literal, Mapping, Optional
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
 
+from trend.input_validation import (
+    InputSchema,
+    InputValidationError,
+    validate_input,
+)
 from .io.market_data import (
     MarketDataValidationError,
     ValidatedMarketData,
@@ -13,6 +18,11 @@ from .io.market_data import (
 )
 
 DEFAULT_POLICY_FALLBACK = "drop"
+RETURNS_SCHEMA = InputSchema(
+    date_column="Date",
+    required_columns=("Date",),
+    non_nullable=("Date",),
+)
 
 
 def _normalise_policy_alias(value: str | None) -> str:
@@ -242,6 +252,7 @@ def load_csv(
             return None
 
         raw = pd.read_csv(str(p))
+        raw = validate_input(raw, RETURNS_SCHEMA)
         return _validate_payload(
             raw,
             origin=str(p),
@@ -268,6 +279,10 @@ def load_csv(
         if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
             message = f"{exc.user_message}\nUnable to parse Date values in {path}"
         logger.error("Validation failed (%s): %s", path, message)
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
     except Exception as exc:  # pragma: no cover - defensive guard
         if errors == "raise":
             raise
@@ -306,6 +321,7 @@ def load_parquet(
             raise PermissionError(f"Permission denied accessing file: {path}")
 
         raw = pd.read_parquet(str(p))
+        raw = validate_input(raw, RETURNS_SCHEMA)
         return _validate_payload(
             raw,
             origin=str(p),
@@ -331,6 +347,10 @@ def load_parquet(
         if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
             message = f"{exc.user_message}\nUnable to parse Date values in {path}"
         logger.error("Validation failed (%s): %s", path, message)
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", path, exc.user_message)
     except Exception as exc:  # pragma: no cover - defensive guard
         if errors == "raise":
             raise
