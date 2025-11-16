@@ -11,6 +11,7 @@ from trend.input_validation import (
     InputValidationError,
     validate_input,
 )
+
 from .io.market_data import (
     MarketDataValidationError,
     ValidatedMarketData,

@@ -213,4 +213,3 @@ def validate_input(
         working.index.name = date_column
 
     return working
-

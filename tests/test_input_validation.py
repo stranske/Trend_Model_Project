@@ -48,13 +48,17 @@ def test_validate_input_rejects_duplicate_dates() -> None:
 
 def test_validate_input_flags_nan_required_values() -> None:
     df = _load_csv("missing_ret.csv")
-    with pytest.raises(InputValidationError, match="Column 'ret' contains missing values"):
+    with pytest.raises(
+        InputValidationError, match="Column 'ret' contains missing values"
+    ):
         validate_input(df)
 
 
 def test_validate_input_supports_custom_schema() -> None:
     df = _load_csv("valid_input.csv").rename(columns=str.upper)
-    schema = InputSchema(date_column="DATE", required_columns=("DATE", "RET"), non_nullable=("RET",))
+    schema = InputSchema(
+        date_column="DATE", required_columns=("DATE", "RET"), non_nullable=("RET",)
+    )
     result = validate_input(df, schema)
     assert "RET" in result.columns
     assert result.index.name == "DATE"
