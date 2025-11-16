@@ -44,6 +44,14 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Demo data provenance
+
+The repository ships a handful of CSV fixtures so demos and automated tests
+run without external downloads. Before using those files, review
+[README_DATA.md](README_DATA.md) for provenance, permitted use, and
+limitations—every bundled dataset is synthetic or derived from public
+benchmarks and must not be treated as production-quality market data.
+
 ### Run logs
 
 All user-facing scripts now call ``trend_analysis.logging_setup.setup_logging`` to
