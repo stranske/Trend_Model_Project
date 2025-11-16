@@ -205,10 +205,14 @@ def test_min_trade_threshold_clamps_micro_churn() -> None:
     assert baseline.turnover.loc[second_rebalance] > 0
     assert banded.turnover.loc[second_rebalance] == pytest.approx(0.0)
     first_rebalance = baseline.turnover.index[0]
-    assert banded.weights.loc[second_rebalance].equals(banded.weights.loc[first_rebalance])
+    assert banded.weights.loc[second_rebalance].equals(
+        banded.weights.loc[first_rebalance]
+    )
     non_zero_periods = banded.per_period_turnover[banded.per_period_turnover > 0]
     assert not non_zero_periods.empty
-    assert non_zero_periods.iloc[0] == pytest.approx(banded.turnover.loc[first_rebalance])
+    assert non_zero_periods.iloc[0] == pytest.approx(
+        banded.turnover.loc[first_rebalance]
+    )
 
 
 def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
