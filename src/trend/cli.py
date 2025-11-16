@@ -440,7 +440,9 @@ def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
     if isinstance(obj, pd.Series):
         data: dict[str, Any] = {}
         for key, value in obj.items():
-            if isinstance(key, (str, int, float)):
+            # JSON objects require string keys, so coerce anything non-string
+            coerced_key: str
+            if isinstance(key, str):
                 coerced_key = key
             else:
                 coerced_key = str(key)
