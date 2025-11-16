@@ -569,14 +569,41 @@ def _run_analysis(
     if df is None:
         return None
 
-    calendar_settings = getattr(df, "attrs", {}).get("calendar_settings", {})
-    df = align_calendar(
-        df,
-        date_col="Date",
-        frequency=calendar_settings.get("frequency"),
-        timezone=calendar_settings.get("timezone", "UTC"),
-        holiday_calendar=calendar_settings.get("holiday_calendar"),
-    )
+    date_col = "Date"
+    if date_col not in df.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    calendar_settings = attrs_copy.get("calendar_settings", {})
+
+    # Fast-fail when no usable timestamps exist so tests that simulate
+    # pathological DataFrame subclasses continue to short-circuit.
+    date_probe = pd.to_datetime(df[date_col], errors="coerce")
+    if not date_probe.notna().any():
+        return None
+
+    # Normalise potentially exotic DataFrame subclasses into a vanilla
+    # ``pd.DataFrame`` so pandas internals do not trip over overridden
+    # properties (Issue #3633 regression).
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    df.attrs = attrs_copy
+    try:
+        df = align_calendar(
+            df,
+            date_col=date_col,
+            frequency=calendar_settings.get("frequency"),
+            timezone=calendar_settings.get("timezone", "UTC"),
+            holiday_calendar=calendar_settings.get("holiday_calendar"),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if (
+            "contains no valid timestamps" in message
+            or "All rows were removed" in message
+        ):
+            return None
+        raise
     alignment_info = df.attrs.get("calendar_alignment", {})
 
     # Guard against negative configuration inputs.  ``floor_vol`` enforces the
@@ -594,10 +621,6 @@ def _run_analysis(
         warmup = 0
     if warmup < 0:
         warmup = 0
-
-    date_col = "Date"
-    if date_col not in df.columns:
-        raise ValueError("DataFrame must contain a 'Date' column")
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
