@@ -1,0 +1,30 @@
+data:
+  csv_path: ../demo/demo_returns.csv
+  date_column: Date
+  columns:
+    - Mgr_01
+    - Mgr_02
+    - Mgr_03
+    - Mgr_04
+    - Mgr_05
+    - Mgr_06
+    - Mgr_07
+    - Mgr_08
+
+walk_forward:
+  train: 36
+  test: 12
+  step: 6
+
+strategy:
+  top_n: 4
+  defaults:
+    band: 0.0
+  grid:
+    lookback: [6, 9, 12]
+    band: [0.0, 0.0015]
+
+run:
+  name: demo-grid
+  output_dir: perf/wf
+  seed: 42
