@@ -5,7 +5,7 @@ import random
 import sys
 from collections.abc import Mapping, Sized
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, SupportsInt, cast
 
 import numpy as np
 import pandas as pd
@@ -97,7 +97,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):
         try:
-            lag_limit = int(max_lag_days)
+            as_int_like = cast(SupportsInt | str, max_lag_days)
+            lag_limit = int(as_int_like)
         except (TypeError, ValueError) as exc:
             raise ValueError("data.max_lag_days must be an integer") from exc
 
