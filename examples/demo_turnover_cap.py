@@ -15,10 +15,11 @@ Removal Timeline:
 
 from __future__ import annotations
 
-import sys
-import warnings
 from pathlib import Path
 from typing import List
+
+import sys
+import warnings
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "demo.yml"
 
