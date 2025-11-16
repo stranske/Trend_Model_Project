@@ -418,9 +418,7 @@ print(f"• Positive Return Periods: {positive_returns}/15 ({pct_positive_return
 print("• Best 5-Year Stretch: 2013-2017 (consistent positive performance)")
 # Keep the code lines short and readable
 vol_mean = df["Out_Sample_Vol"].mean()
-print(
-    f"• Volatility Control: Average realized vol {vol_mean:.1f}% vs 12% target"
-)
+print(f"• Volatility Control: Average realized vol {vol_mean:.1f}% vs 12% target")
 print(f"• Information Ratio: Positive in {sum(df['Out_Sample_IR_SPX'] > 0)}/15 periods")
 
 print("\n" + "=" * 80)
