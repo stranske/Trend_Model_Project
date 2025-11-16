@@ -15,8 +15,6 @@ services:
   api:
     image: *trend-image
     command: python -m trend_analysis.api_server
-    depends_on:
-      - app
     ports:
       - "8000:8000"
     volumes:

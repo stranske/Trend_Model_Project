@@ -61,6 +61,8 @@ RUN useradd -m -u 1001 appuser
 
 # Verify the runtime environment matches the lock file exactly
 RUN set -eux && \
+    # Remove editable reference plus builder-only helpers (pip/setuptools/wheel/uv)
+    # before diffing so the comparison only covers runtime dependencies.
     pip freeze --exclude-editable | \
         grep -v '^trend-model @' | \
         grep -vE '^(pip|setuptools|wheel|uv)==' | \
