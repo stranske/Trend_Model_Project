@@ -19,6 +19,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if SRC_ROOT.exists():  # ensure local package import works before editable install
+    sys.path.insert(0, str(SRC_ROOT))
+
 
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
