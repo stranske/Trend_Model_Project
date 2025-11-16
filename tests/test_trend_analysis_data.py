@@ -349,7 +349,8 @@ def test_load_parquet_uses_validator(
 
     probe = ValidationProbe()
     monkeypatch.setattr(data, "validate_market_data", probe)
-    monkeypatch.setattr(pd, "read_parquet", lambda *_: pd.DataFrame({"A": [1, 2]}))
+    mock_frame = pd.DataFrame({"Date": ["2020-01-01", "2020-01-02"], "A": [1, 2]})
+    monkeypatch.setattr(pd, "read_parquet", lambda *_: mock_frame)
 
     result = load_parquet(str(parquet_path), include_date_column=False)
 
@@ -536,7 +537,9 @@ def test_load_parquet_permission_and_validation(
     parquet_path.write_bytes(b"")
 
     monkeypatch.setattr(
-        pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]})
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Date": ["2020-01-01"], "Value": [1]}),
     )
 
     monkeypatch.setattr(data, "_is_readable", lambda _mode: False)
@@ -557,7 +560,9 @@ def test_load_parquet_permission_and_validation(
         raise MarketDataValidationError("No parse")
 
     monkeypatch.setattr(
-        pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]})
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Date": ["2020-01-01"], "Value": [1]}),
     )
     monkeypatch.setattr(data, "validate_market_data", raise_validation)
     assert load_parquet(str(parquet_path)) is None
@@ -572,10 +577,11 @@ def test_load_parquet_logs_validation_errors_with_unable_hint(
     def raiser(*_args: object, **_kwargs: object) -> ValidatedMarketData:
         raise MarketDataValidationError("Unable to parse parquet payload")
 
+    raw = pd.DataFrame({"Date": ["2020-01-01"], "Value": [1]})
     monkeypatch.setattr(
         pd,
         "read_parquet",
-        lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]}),
+        lambda *_args, **_kwargs: raw,
     )
     monkeypatch.setattr(data, "validate_market_data", raiser)
     monkeypatch.setattr(data, "_is_readable", lambda _mode: True)
@@ -638,7 +644,9 @@ def test_load_parquet_logs_validation_errors_with_parse_hint(
 
     monkeypatch.setattr(data, "_is_readable", lambda _mode: True)
     monkeypatch.setattr(
-        pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]})
+        pd,
+        "read_parquet",
+        lambda *_args, **_kwargs: pd.DataFrame({"Date": ["2020-01-01"], "Value": [1]}),
     )
     monkeypatch.setattr(data, "validate_market_data", raise_validation)
     caplog.set_level("ERROR", "trend_analysis.data")

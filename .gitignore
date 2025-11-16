@@ -59,6 +59,7 @@ results/
 !tests/fixtures/keepalive_post_work/*.json
 !tests/fixtures/agents_pr_meta/*.json
 !tests/fixtures/orchestrator/*.json
+!tests/data/*.csv
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 ci/autofix/diagnostics.json

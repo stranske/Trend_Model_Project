@@ -238,7 +238,7 @@ def test_validate_payload_handles_custom_policy_mapping(
 def test_validate_payload_logs_non_parse_failure(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    payload = pd.DataFrame({"Date": ["bad"], "Value": [1]})
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "Value": [1]})
 
     def fake_validate(payload: pd.DataFrame, **_: Any) -> ValidatedMarketData:
         raise MarketDataValidationError("Upstream failure")
@@ -257,7 +257,7 @@ def test_validate_payload_logs_non_parse_failure(
 def test_validate_payload_logs_parse_failures(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    payload = pd.DataFrame({"Date": ["bad"], "Value": [1]})
+    payload = pd.DataFrame({"Date": ["2024-01-01"], "Value": [1]})
 
     def fake_validate(payload: pd.DataFrame, **_: Any) -> ValidatedMarketData:
         raise MarketDataValidationError("Could not be parsed")
