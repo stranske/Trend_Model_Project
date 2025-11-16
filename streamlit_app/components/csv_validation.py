@@ -10,7 +10,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_SAMPLE_PREVIEW = """Date,Firm_A,Firm_B\n2020-01-31,0.012,-0.004\n2020-02-29,-0.003,0.011\n"""
+_SAMPLE_PREVIEW = (
+    """Date,Firm_A,Firm_B\n2020-01-31,0.012,-0.004\n2020-02-29,-0.003,0.011\n"""
+)
 
 
 class CSVValidationError(ValueError):
@@ -136,7 +138,9 @@ def validate_uploaded_csv(
         if duplicates.any():
             idx = int(duplicates[duplicates].index[0])
             stamp = parsed.iloc[idx]
-            formatted = stamp.strftime("%Y-%m-%d") if not pd.isna(stamp) else "(invalid)"
+            formatted = (
+                stamp.strftime("%Y-%m-%d") if not pd.isna(stamp) else "(invalid)"
+            )
             raise CSVValidationError(
                 "Dates must be unique.",
                 issues=[f"Row {idx + 1} repeats the date {formatted}."],
@@ -149,4 +153,3 @@ def validate_uploaded_csv(
     except CSVValidationError as err:
         logger.exception("CSV upload failed validation: %s", err)
         raise
-
