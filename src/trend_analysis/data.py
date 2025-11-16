@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype
+from pandas.api.types import is_datetime64_any_dtype, is_datetime64tz_dtype
 
 from trend.input_validation import (
     InputSchema,
@@ -153,7 +153,12 @@ def _validate_payload(
     missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> Optional[pd.DataFrame]:
     try:
-        payload = validate_input(payload, RETURNS_SCHEMA)
+        payload = validate_input(
+            payload,
+            RETURNS_SCHEMA,
+            set_index=False,
+            drop_date_column=False,
+        )
     except InputValidationError as exc:
         if errors == "raise":
             raise MarketDataValidationError(exc.user_message, exc.issues) from exc
@@ -163,6 +168,16 @@ def _validate_payload(
             message = f"{message}\nUnable to parse Date values in {origin}"
         logger.error("Validation failed (%s): %s", origin, message)
         return None
+    except (ValueError, TypeError) as exc:
+        message = f"Unable to parse Date values in {origin}"
+        if errors == "raise":
+            raise MarketDataValidationError(message) from exc
+        logger.error("Validation failed (%s): %s", origin, message)
+        return None
+
+    if "Date" in payload.columns and is_datetime64tz_dtype(payload["Date"]):
+        payload = payload.copy()
+        payload["Date"] = payload["Date"].dt.tz_localize(None)
 
     payload = _normalise_numeric_strings(payload)
     policy_param: str | dict[str, str] | None
