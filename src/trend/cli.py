@@ -256,6 +256,7 @@ def _run_pipeline(
     structured_log: bool,
     bundle: Path | None,
 ) -> tuple[RunResult, str, Path | None]:
+    _require_transaction_cost_controls(cfg)
     run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
     try:
         setattr(cfg, "run_id", run_id)
@@ -296,6 +297,7 @@ def _run_pipeline(
     )
 
     _handle_exports(cfg, result, structured_log, run_id)
+    _persist_turnover_ledger(run_id, getattr(result, "details", {}))
 
     if bundle:
         _write_bundle(cfg, result, source_path, Path(bundle), structured_log, run_id)
@@ -438,7 +440,10 @@ def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
     if isinstance(obj, pd.Series):
         data: dict[str, Any] = {}
         for key, value in obj.items():
-            coerced_key = str(key)
+            if isinstance(key, (str, int, float)):
+                coerced_key = key
+            else:
+                coerced_key = str(key)
             if isinstance(value, (np.floating, np.integer)):
                 data[coerced_key] = float(value)
             else:
@@ -477,6 +482,58 @@ def _maybe_write_turnover_csv(directory: Path, details: Any) -> Path | None:
     frame.index.name = "Date"
     path = directory / "turnover.csv"
     frame.to_csv(path)
+    return path
+
+
+def _portfolio_settings(cfg: Any) -> Mapping[str, Any]:
+    portfolio = getattr(cfg, "portfolio", None)
+    if isinstance(portfolio, Mapping):
+        return portfolio
+    attrs = getattr(portfolio, "__dict__", None)
+    if isinstance(attrs, Mapping):
+        return cast(Mapping[str, Any], attrs)
+    return {}
+
+
+def _require_transaction_cost_controls(cfg: Any) -> None:
+    portfolio = _portfolio_settings(cfg)
+    if "transaction_cost_bps" not in portfolio:
+        raise TrendCLIError(
+            "Configuration must define portfolio.transaction_cost_bps for honest costs."
+        )
+    try:
+        cost = float(portfolio["transaction_cost_bps"])
+    except (TypeError, ValueError) as exc:
+        raise TrendCLIError("portfolio.transaction_cost_bps must be numeric") from exc
+    if cost < 0:
+        raise TrendCLIError("portfolio.transaction_cost_bps cannot be negative")
+
+
+def _persist_turnover_ledger(run_id: str, details: Any) -> Path | None:
+    if not isinstance(details, Mapping):
+        return None
+    diag = details.get("risk_diagnostics")
+    if not isinstance(diag, Mapping):
+        return None
+    turnover_obj = diag.get("turnover")
+    if turnover_obj is None:
+        return None
+    if isinstance(turnover_obj, pd.Series):
+        if turnover_obj.empty:
+            return None
+    elif isinstance(turnover_obj, Mapping):
+        if not turnover_obj:
+            return None
+    elif isinstance(turnover_obj, (list, tuple)):
+        if not turnover_obj:
+            return None
+    else:
+        return None
+    target_dir = Path("perf") / run_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    path = _maybe_write_turnover_csv(target_dir, details)
+    if path is not None:
+        print(f"Turnover ledger written to {path}")
     return path
 
 
