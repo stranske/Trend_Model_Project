@@ -20,6 +20,11 @@ class DummyResult:
             "benchmarks": {"ref": [0.1, 0.2]},
             "weights_user_weight": [0.5, 0.5],
         }
+        turnover_idx = pd.date_range("2020-01-31", periods=2, freq="ME")
+        self.details["risk_diagnostics"] = {
+            "turnover": pd.Series([0.1, 0.2], index=turnover_idx),
+            "turnover_value": 0.3,
+        }
         self.metrics = pd.DataFrame({"metric": [1]})
 
 
@@ -33,7 +38,7 @@ def _make_config(**kwargs: object) -> types.SimpleNamespace:
             "out_start": "2021-01",
             "out_end": "2021-12",
         },
-        "portfolio": {},
+        "portfolio": {"transaction_cost_bps": 10.0},
     }
     base.update(kwargs)
     return types.SimpleNamespace(**base)
@@ -186,6 +191,7 @@ def test_run_pipeline_sets_metadata_and_bundle(
     cfg = _make_config()
     returns = pd.DataFrame({"x": [1, 2, 3]})
     result = DummyResult()
+    monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: result)
     monkeypatch.setattr(
@@ -218,6 +224,33 @@ def test_run_pipeline_sets_metadata_and_bundle(
     assert log_path == tmp_path / f"{run_id}.log"
     assert handled and written
     assert result_obj is result
+    ledger = Path("perf") / run_id / "turnover.csv"
+    assert ledger.exists()
+    df = pd.read_csv(ledger)
+    assert df["turnover"].sum() == pytest.approx(0.3)
+
+
+def test_run_pipeline_requires_transaction_cost(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cfg = _make_config()
+    cfg.portfolio = {}
+    returns = pd.DataFrame({"x": [1, 2, 3]})
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: DummyResult())
+    monkeypatch.setattr(
+        trend_cli, "_legacy_maybe_log_step", lambda *args, **kwargs: None
+    )
+
+    with pytest.raises(trend_cli.TrendCLIError, match="transaction_cost_bps"):
+        trend_cli._run_pipeline(
+            cfg,
+            returns,
+            source_path=None,
+            log_file=None,
+            structured_log=False,
+            bundle=None,
+        )
 
 
 def test_write_bundle_normalises_directory(
@@ -277,9 +310,13 @@ def test_write_report_files_creates_expected_outputs(
     metrics_path = tmp_path / "metrics_xyz.csv"
     summary_path = tmp_path / "summary_xyz.txt"
     details_path = tmp_path / "details_xyz.json"
+    turnover_path = tmp_path / "turnover.csv"
     assert metrics_path.exists() and summary_path.exists() and details_path.exists()
+    assert turnover_path.exists()
     data = json.loads(details_path.read_text())
     assert "benchmarks" in data
+    turnover_df = pd.read_csv(turnover_path)
+    assert turnover_df["turnover"].sum() == pytest.approx(0.3)
 
 
 def test_adjust_for_scenario_updates_config() -> None:

@@ -8,8 +8,9 @@ import sys
 import uuid
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterable, Protocol, cast
+from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
+import numpy as np
 import pandas as pd
 
 from trend.reporting import generate_unified_report
@@ -255,6 +256,7 @@ def _run_pipeline(
     structured_log: bool,
     bundle: Path | None,
 ) -> tuple[RunResult, str, Path | None]:
+    _require_transaction_cost_controls(cfg)
     run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
     try:
         setattr(cfg, "run_id", run_id)
@@ -295,6 +297,7 @@ def _run_pipeline(
     )
 
     _handle_exports(cfg, result, structured_log, run_id)
+    _persist_turnover_ledger(run_id, getattr(result, "details", {}))
 
     if bundle:
         _write_bundle(cfg, result, source_path, Path(bundle), structured_log, run_id)
@@ -413,6 +416,7 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
+    _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     print(f"Report artefacts written to {out_dir}")
 
 
@@ -433,11 +437,105 @@ def _resolve_report_output_path(
 
 
 def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
-    if isinstance(obj, (pd.Series, pd.DataFrame)):
+    if isinstance(obj, pd.Series):
+        data: dict[str | int | float, Any] = {}
+        for key, value in obj.items():
+            coerced_key: str | int | float
+            if isinstance(key, (str, int, float)):
+                coerced_key = key
+            else:
+                coerced_key = str(key)
+            if isinstance(value, (np.floating, np.integer)):
+                data[coerced_key] = float(value)
+            else:
+                data[coerced_key] = value
+        return data
+    if isinstance(obj, pd.DataFrame):
         return obj.to_dict()
     if isinstance(obj, Path):
         return str(obj)
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serialisable")
+
+
+def _maybe_write_turnover_csv(directory: Path, details: Any) -> Path | None:
+    if not isinstance(details, Mapping):
+        return None
+    diag = details.get("risk_diagnostics")
+    if not isinstance(diag, Mapping):
+        return None
+    turnover_obj = diag.get("turnover")
+    if isinstance(turnover_obj, pd.Series):
+        series = turnover_obj.copy()
+    elif isinstance(turnover_obj, Mapping):
+        series = pd.Series(turnover_obj)
+    elif isinstance(turnover_obj, (list, tuple)):
+        series = pd.Series(turnover_obj)
+    else:
+        return None
+    try:
+        series = series.astype(float)
+    except (TypeError, ValueError):
+        return None
+    if series.empty:
+        return None
+    series = series.sort_index()
+    frame = series.rename("turnover").to_frame()
+    frame.index.name = "Date"
+    path = directory / "turnover.csv"
+    frame.to_csv(path)
+    return path
+
+
+def _portfolio_settings(cfg: Any) -> Mapping[str, Any]:
+    portfolio = getattr(cfg, "portfolio", None)
+    if isinstance(portfolio, Mapping):
+        return portfolio
+    attrs = getattr(portfolio, "__dict__", None)
+    if isinstance(attrs, Mapping):
+        return cast(Mapping[str, Any], attrs)
+    return {}
+
+
+def _require_transaction_cost_controls(cfg: Any) -> None:
+    portfolio = _portfolio_settings(cfg)
+    if "transaction_cost_bps" not in portfolio:
+        raise TrendCLIError(
+            "Configuration must define portfolio.transaction_cost_bps for honest costs."
+        )
+    try:
+        cost = float(portfolio["transaction_cost_bps"])
+    except (TypeError, ValueError) as exc:
+        raise TrendCLIError("portfolio.transaction_cost_bps must be numeric") from exc
+    if cost < 0:
+        raise TrendCLIError("portfolio.transaction_cost_bps cannot be negative")
+
+
+def _persist_turnover_ledger(run_id: str, details: Any) -> Path | None:
+    if not isinstance(details, Mapping):
+        return None
+    diag = details.get("risk_diagnostics")
+    if not isinstance(diag, Mapping):
+        return None
+    turnover_obj = diag.get("turnover")
+    if turnover_obj is None:
+        return None
+    if isinstance(turnover_obj, pd.Series):
+        if turnover_obj.empty:
+            return None
+    elif isinstance(turnover_obj, Mapping):
+        if not turnover_obj:
+            return None
+    elif isinstance(turnover_obj, (list, tuple)):
+        if not turnover_obj:
+            return None
+    else:
+        return None
+    target_dir = Path("perf") / run_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    path = _maybe_write_turnover_csv(target_dir, details)
+    if path is not None:
+        print(f"Turnover ledger written to {path}")
+    return path
 
 
 def _adjust_for_scenario(cfg: Any, scenario: str) -> None:

@@ -11,8 +11,12 @@ walk-forward portfolio evaluation with:
   the `window_mode` flag without changing your strategy code.
 * **Basis-point transaction costs** – supply `transaction_cost_bps` to apply
   fees on the absolute change in target weights at each rebalance.
+* **Minimum-trade bands** – use `min_trade` to skip rebalance instructions
+  whose total absolute weight change falls below the specified threshold,
+  preventing micro-churn from leaking into the turnover ledger.
 * **Rich performance analytics** – the returned `BacktestResult` exposes the
-  equity curve, turnover, transaction-cost ledger, rolling Sharpe ratios, and
+  equity curve, turnover, per-period turnover series, transaction-cost ledger,
+  rolling Sharpe ratios, and
   drawdown time series alongside summary statistics (CAGR, volatility, Sortino,
   Calmar, max drawdown, Sharpe).
 

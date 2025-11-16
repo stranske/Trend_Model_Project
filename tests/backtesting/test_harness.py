@@ -85,6 +85,8 @@ def test_rolling_and_expanding_windows_diverge() -> None:
         rebalance_freq="M",
         window_size=60,
         window_mode="expanding",
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
     rolling = run_backtest(
         returns,
@@ -92,6 +94,8 @@ def test_rolling_and_expanding_windows_diverge() -> None:
         rebalance_freq="M",
         window_size=60,
         window_mode="rolling",
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
 
     assert expanding.equity_curve.iloc[-1] != rolling.equity_curve.iloc[-1]
@@ -154,6 +158,7 @@ def test_transaction_costs_applied_to_turnover() -> None:
         rebalance_freq="W",
         window_size=5,
         transaction_cost_bps=50,
+        min_trade=0.0,
     )
 
     assert not result.transaction_costs.empty
@@ -170,6 +175,46 @@ def test_transaction_costs_applied_to_turnover() -> None:
     assert result.turnover.iloc[1] == 2.0
 
 
+def test_min_trade_threshold_clamps_micro_churn() -> None:
+    returns = _synthetic_returns("2020-01-01", 80)
+
+    def nudging_strategy(window: pd.DataFrame) -> Mapping[str, float]:
+        if window.index[-1].day % 2:
+            return {"A": 0.55, "B": 0.45}
+        return {"A": 0.6, "B": 0.4}
+
+    baseline = run_backtest(
+        returns,
+        nudging_strategy,
+        rebalance_freq="B",
+        window_size=5,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+    banded = run_backtest(
+        returns,
+        nudging_strategy,
+        rebalance_freq="B",
+        window_size=5,
+        transaction_cost_bps=0.0,
+        min_trade=0.15,
+    )
+
+    assert len(baseline.turnover) >= 2
+    second_rebalance = baseline.turnover.index[1]
+    assert baseline.turnover.loc[second_rebalance] > 0
+    assert banded.turnover.loc[second_rebalance] == pytest.approx(0.0)
+    first_rebalance = baseline.turnover.index[0]
+    assert banded.weights.loc[second_rebalance].equals(
+        banded.weights.loc[first_rebalance]
+    )
+    non_zero_periods = banded.per_period_turnover[banded.per_period_turnover > 0]
+    assert not non_zero_periods.empty
+    assert non_zero_periods.iloc[0] == pytest.approx(
+        banded.turnover.loc[first_rebalance]
+    )
+
+
 def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     base_returns = _synthetic_returns("2020-01-01", 40)
     strategy = MeanWinnerStrategy()
@@ -180,6 +225,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             strategy,
             rebalance_freq="M",
             window_size=0,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
     with pytest.raises(ValueError, match="window_mode"):
@@ -189,6 +236,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             rebalance_freq="M",
             window_size=5,
             window_mode="diagonal",  # type: ignore[arg-type]
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
     with pytest.raises(ValueError, match="non-negative"):
@@ -198,6 +247,7 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             rebalance_freq="M",
             window_size=5,
             transaction_cost_bps=-1,
+            min_trade=0.0,
         )
 
     empty_returns = pd.DataFrame(columns=["A", "B"], index=pd.DatetimeIndex([]))
@@ -207,6 +257,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             strategy,
             rebalance_freq="M",
             window_size=5,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
     with monkeypatch.context() as mp:
@@ -222,6 +274,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
                 strategy,
                 rebalance_freq="B",
                 window_size=2,
+                transaction_cost_bps=0.0,
+                min_trade=0.0,
             )
 
     sparse_index = pd.to_datetime(["2020-01-02", "2020-02-02", "2020-03-02"])
@@ -237,6 +291,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
                 strategy,
                 rebalance_freq="M",
                 window_size=2,
+                transaction_cost_bps=0.0,
+                min_trade=0.0,
             )
 
     with pytest.raises(ValueError, match="window_size too large"):
@@ -245,6 +301,8 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             strategy,
             rebalance_freq="B",
             window_size=10,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -269,6 +327,7 @@ def test_run_backtest_handles_duplicate_index_slices() -> None:
         rebalance_freq="D",
         window_size=2,
         transaction_cost_bps=10,
+        min_trade=0.0,
     )
 
     # Duplicate index values exercise the slice-handling logic and ensure
@@ -449,6 +508,7 @@ def test_backtest_result_summary_filters_weights() -> None:
         equity_curve=pd.Series([1.0, 1.2], index=idx),
         weights=pd.DataFrame({"A": [0.0, 0.5], "B": [np.nan, 0.0]}, index=idx),
         turnover=pd.Series([0.0, 1.0], index=idx),
+        per_period_turnover=pd.Series([0.0, 1.0], index=idx),
         transaction_costs=pd.Series([0.0, 0.001], index=idx),
         rolling_sharpe=pd.Series([np.nan, 1.0], index=idx),
         drawdown=pd.Series([0.0, -0.1], index=idx),
@@ -493,6 +553,8 @@ def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) 
             window_size=5,
             rolling_sharpe_window=3,
             initial_weights={"A": 1.0},
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
     # The custom rolling window should be forwarded to the helper exactly once.

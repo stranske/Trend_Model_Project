@@ -36,6 +36,7 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
         },
         metrics=pd.DataFrame({"Sharpe": [0.7]}),
     )
+    monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: result)
 
@@ -71,7 +72,9 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
         ),
     )
 
-    cfg = SimpleNamespace(export={}, sample_split={})
+    cfg = SimpleNamespace(
+        export={}, sample_split={}, portfolio={"transaction_cost_bps": 12.0}
+    )
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
 
