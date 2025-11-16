@@ -73,6 +73,7 @@ def test_backtest_calendar_respects_business_days() -> None:
         rebalance_freq="M",
         window_size=15,
         transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
 
     holidays = set(
@@ -95,6 +96,7 @@ def test_transaction_costs_are_monotonic() -> None:
         rebalance_freq="M",
         window_size=15,
         transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
     high_cost = run_backtest(
         returns,
@@ -102,6 +104,7 @@ def test_transaction_costs_are_monotonic() -> None:
         rebalance_freq="M",
         window_size=15,
         transaction_cost_bps=120.0,
+        min_trade=0.0,
     )
 
     combined = pd.concat(

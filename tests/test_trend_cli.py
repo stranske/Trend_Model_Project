@@ -667,8 +667,11 @@ def test_handle_exports_only_excel_format(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
-    cfg = SimpleNamespace(export={}, sample_split={}, run_id=None)
+    cfg = SimpleNamespace(
+        export={}, sample_split={}, run_id=None, portfolio={"transaction_cost_bps": 5.0}
+    )
     returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
+    monkeypatch.chdir(tmp_path)
 
     metrics = pd.DataFrame({"value": [1.0]})
     details = {
@@ -737,6 +740,7 @@ def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> N
         def __init__(self) -> None:
             object.__setattr__(self, "export", {})
             object.__setattr__(self, "sample_split", {})
+            object.__setattr__(self, "portfolio", {"transaction_cost_bps": 1.0})
 
         def __setattr__(self, name: str, value: object) -> None:
             if name == "run_id":
@@ -746,6 +750,7 @@ def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> N
     cfg = FussyCfg()
     returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
     run_result = RunResult(pd.DataFrame(), "summary", 5, {})
+    monkeypatch.chdir(tmp_path)
 
     events: list[str] = []
 

@@ -27,6 +27,7 @@ def test_backtest_result_summary_and_json_round_trip():
             [[0.6, 0.4], [0.5, 0.5], [0.0, 1.0]], index=index, columns=["AAA", "BBB"]
         ),
         turnover=pd.Series([0.1, 0.2, 0.0], index=index),
+        per_period_turnover=pd.Series([0.1, 0.2, 0.0], index=index),
         transaction_costs=pd.Series([0.0005, 0.0010, 0.0], index=index),
         rolling_sharpe=pd.Series([np.nan, 0.3, 0.4], index=index),
         drawdown=pd.Series([0.0, -0.01, -0.02], index=index),
@@ -86,6 +87,7 @@ def test_run_backtest_with_dynamic_strategy_and_transaction_costs():
         window_size=4,
         transaction_cost_bps=25,
         initial_weights={"AAA": 0.2, "CCC": 0.8},
+        min_trade=0.0,
     )
 
     assert isinstance(result, BacktestResult)
@@ -130,6 +132,8 @@ def test_run_backtest_handles_duplicate_rebalance_dates():
         lambda window: pd.Series({"AAA": 0.5, "BBB": 0.5}),
         rebalance_freq="M",
         window_size=2,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
 
     realised = result.returns.dropna()
@@ -147,6 +151,8 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
         window_size=2,
         window_mode="expanding",
         rolling_sharpe_window=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
     )
     assert expanding.window_mode == "expanding"
     assert expanding.training_windows
@@ -154,7 +160,12 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
     # Validation failures
     with pytest.raises(ValueError, match="window_size"):
         run_backtest(
-            returns, lambda df: {"AAA": 1.0}, rebalance_freq="M", window_size=0
+            returns,
+            lambda df: {"AAA": 1.0},
+            rebalance_freq="M",
+            window_size=0,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
     with pytest.raises(ValueError, match="window_mode"):
         run_backtest(
@@ -163,6 +174,8 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
             rebalance_freq="M",
             window_size=2,
             window_mode="invalid",
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
     with pytest.raises(ValueError, match="transaction_cost_bps"):
         run_backtest(
@@ -171,12 +184,18 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
             rebalance_freq="M",
             window_size=2,
             transaction_cost_bps=-1,
+            min_trade=0.0,
         )
 
     empty_df = returns.iloc[0:0]
     with pytest.raises(ValueError, match="numeric columns"):
         run_backtest(
-            empty_df, lambda df: {"AAA": 1.0}, rebalance_freq="M", window_size=2
+            empty_df,
+            lambda df: {"AAA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
     original_prepare = harness._prepare_returns
@@ -187,7 +206,12 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
     monkeypatch.setattr(harness, "_prepare_returns", empty_prepare)
     with pytest.raises(ValueError, match="at least one row"):
         run_backtest(
-            returns, lambda df: {"AAA": 1.0}, rebalance_freq="M", window_size=2
+            returns,
+            lambda df: {"AAA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
     harness._prepare_returns = original_prepare
 
@@ -198,12 +222,22 @@ def test_run_backtest_expanding_mode_and_error_conditions(monkeypatch):
     monkeypatch.setattr(harness, "_rebalance_calendar", empty_calendar)
     with pytest.raises(ValueError, match="rebalance calendar"):
         run_backtest(
-            returns, lambda df: {"AAA": 1.0}, rebalance_freq="M", window_size=2
+            returns,
+            lambda df: {"AAA": 1.0},
+            rebalance_freq="M",
+            window_size=2,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
     harness._rebalance_calendar = original_calendar
     with pytest.raises(ValueError, match="window_size too large"):
         run_backtest(
-            returns, lambda df: {"AAA": 1.0}, rebalance_freq="M", window_size=50
+            returns,
+            lambda df: {"AAA": 1.0},
+            rebalance_freq="M",
+            window_size=50,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
