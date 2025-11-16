@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from trend_analysis import script_logging as logging_utils
 
 
