@@ -15,6 +15,7 @@ from trend_analysis.config import validate_trend_config
 def build_config_payload(
     *,
     csv_path: str | None,
+    universe_membership_path: str | None,
     managers_glob: str | None,
     date_column: str,
     frequency: str,
@@ -27,6 +28,7 @@ def build_config_payload(
         "version": "1",
         "data": {
             "csv_path": csv_path,
+            "universe_membership_path": universe_membership_path,
             "managers_glob": managers_glob,
             "date_column": date_column,
             "frequency": frequency,

@@ -151,6 +151,7 @@ class DataSettings(BaseModel):
     """Data input configuration validated at startup."""
 
     csv_path: Path | None = Field(default=None)
+    universe_membership_path: Path | None = Field(default=None)
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
     frequency: Literal["D", "W", "M", "ME"] = Field()
@@ -188,6 +189,16 @@ class DataSettings(BaseModel):
             return pattern
         resolved = _resolve_path(pattern, base_dir=base_dir)
         return str(resolved)
+
+    @field_validator("universe_membership_path", mode="before")
+    @classmethod
+    def _validate_membership_path(cls, value: Any, info: Any) -> Path | None:
+        if value in (None, ""):
+            return None
+        base_dir = None
+        if info.context:
+            base_dir = info.context.get("base_path")
+        return _resolve_path(value, base_dir=base_dir)
 
     @field_validator("date_column")
     @classmethod
