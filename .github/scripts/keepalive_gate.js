@@ -11,6 +11,7 @@ const MAX_RUN_CAP = 5;
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
+const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 
 function toInteger(value) {
   const parsed = Number.parseInt(value, 10);
@@ -482,13 +483,16 @@ async function countActive({
   currentRunId,
   includeWorker = true,
   workflows,
+  completedLookbackSeconds = 0,
 }) {
   const targetPr = Number(prNumber);
   if (!Number.isFinite(targetPr) || targetPr <= 0) {
     return { active: 0, breakdown: new Map(), runIds: new Set(), error: null };
   }
 
-  const statuses = ['queued', 'in_progress'];
+  const includeRecentCompleted = Number.isFinite(completedLookbackSeconds) && completedLookbackSeconds > 0;
+  const lookbackMillis = includeRecentCompleted ? Math.max(0, completedLookbackSeconds) * 1000 : 0;
+  const statuses = includeRecentCompleted ? ['queued', 'in_progress', 'completed'] : ['queued', 'in_progress'];
   let workflowFiles = Array.isArray(workflows)
     ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
     : [];
@@ -507,6 +511,7 @@ async function countActive({
   const normalisedHeadRef = normaliseBranch(headRef);
   const normalisedHeadSha = String(headSha || '').trim();
   const currentRunNumeric = Number(currentRunId);
+  const recentCutoff = includeRecentCompleted ? Date.now() - lookbackMillis : 0;
 
   const fetchRunDetails = async (runId, attempt) => {
     if (!github?.rest?.actions?.getWorkflowRun) {
@@ -525,6 +530,13 @@ async function countActive({
     } catch (fetchError) {
       return null;
     }
+  };
+
+  const resolveCompletionTimestamp = (run) => {
+    if (!run) {
+      return 0;
+    }
+    return normaliseTimestamp(run.updated_at || run.run_started_at || run.created_at);
   };
 
   const runMatchesPr = async (run) => {
@@ -642,10 +654,29 @@ async function countActive({
           if (runIds.has(runId)) {
             continue;
           }
-          if (await runMatchesPr(run)) {
-            runIds.add(runId);
-            breakdown.set(label, (breakdown.get(label) || 0) + 1);
+          if (!(await runMatchesPr(run))) {
+            continue;
           }
+
+          if (status === 'completed') {
+            if (!includeRecentCompleted) {
+              continue;
+            }
+            let completedAt = resolveCompletionTimestamp(run);
+            if (completedAt < recentCutoff) {
+              const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
+              if (details) {
+                completedAt = resolveCompletionTimestamp(details);
+              }
+            }
+            if (completedAt < recentCutoff) {
+              continue;
+            }
+          }
+
+          runIds.add(runId);
+          const bucket = status === 'completed' ? `${label}_recent` : label;
+          breakdown.set(bucket, (breakdown.get(bucket) || 0) + 1);
         }
       } catch (err) {
         if (!error) {
@@ -722,6 +753,7 @@ async function evaluateRunCapForPr({
     headRef: resolvedHeadRef,
     includeWorker,
     currentRunId,
+    completedLookbackSeconds: RECENT_COMPLETED_LOOKBACK_SECONDS,
   });
 
   if (error && core?.warning) {
@@ -887,6 +919,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headRef,
     currentRunId,
     workflows: [ORCHESTRATOR_WORKFLOW_FILE],
+    completedLookbackSeconds: RECENT_COMPLETED_LOOKBACK_SECONDS,
   });
   if (runError) {
     core.warning(`Run cap evaluation encountered an error while counting runs: ${runError}`);
