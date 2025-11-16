@@ -14,6 +14,7 @@ from streamlit_app.components.guardrails import (
 )
 from trend_analysis.logging import get_default_log_path, init_run_logger, log_step
 from trend_analysis.signals import TrendSpec
+from trend_analysis.regimes import _coerce_positive_int
 
 
 class StreamlitConfig:
@@ -106,14 +107,6 @@ def _render_error_details(error: Exception) -> None:
         st.code(details)
 
 
-def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
-    try:
-        coerced = int(value)
-    except (TypeError, ValueError):
-        return max(default, minimum)
-    return max(coerced, minimum)
-
-
 def _infer_date_bounds(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
     try:
         raw_index = pd.to_datetime(df.index, errors="coerce")
@@ -126,6 +119,32 @@ def _infer_date_bounds(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
         raise ValueError("Unable to derive analysis period from dataset index.")
     ordered = pd.DatetimeIndex(valid).sort_values()
     return pd.Timestamp(ordered.min()), pd.Timestamp(ordered.max())
+
+
+def _build_portfolio_config(
+    source: Any,
+    *,
+    fallback_weighting: Any = "equal",
+) -> dict[str, Any]:
+    """Return a sanitized portfolio payload preserving custom parameters."""
+
+    if isinstance(source, Mapping):
+        payload = dict(source)
+    else:
+        payload = {}
+
+    weighting = payload.get("weighting_scheme")
+    if not isinstance(weighting, str) or not weighting.strip():
+        fallback = fallback_weighting
+        if isinstance(fallback, str):
+            fallback_value = fallback.strip() or "equal"
+        elif fallback is None:
+            fallback_value = "equal"
+        else:
+            fallback_value = str(fallback).strip() or "equal"
+        payload["weighting_scheme"] = fallback_value
+
+    return payload
 
 
 def _config_from_model_state(
@@ -141,9 +160,10 @@ def _config_from_model_state(
     out_start = end_bounds - pd.DateOffset(months=evaluation_months - 1)
     if out_start < start_bounds:
         out_start = start_bounds
-    portfolio_cfg = {
-        "weighting_scheme": model_state.get("weighting_scheme", "equal"),
-    }
+    portfolio_cfg = _build_portfolio_config(
+        model_state.get("portfolio", {}),
+        fallback_weighting=model_state.get("weighting_scheme", "equal"),
+    )
     trend_spec = dict(model_state.get("trend_spec", {}))
     return {
         "lookback_months": lookback_months,
@@ -264,11 +284,10 @@ def main() -> None:
         st.error("Missing start/end dates in configuration.")
         return
 
-    portfolio_cfg = {
-        "weighting_scheme": cfg_get(cfg, "portfolio", {}).get(
-            "weighting_scheme", "equal"
-        )
-    }
+    portfolio_cfg = _build_portfolio_config(
+        cfg_get(cfg, "portfolio", {}),
+        fallback_weighting=cfg_get(cfg, "weighting_scheme", "equal"),
+    )
 
     signals_input = cfg_get(cfg, "signals", {})
     if not isinstance(signals_input, Mapping) or not signals_input:

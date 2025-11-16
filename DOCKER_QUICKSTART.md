@@ -53,9 +53,9 @@ Get a shell inside the container for development:
 docker run -it --rm trend-model:local bash
 ```
 
-### Option 5: Docker Compose (App + API)
+### Option 5: Docker Compose (App + API stack)
 
-Bring up the Streamlit app and a minimal API server with one command:
+Bring up the Streamlit app and a minimal API server together with one command:
 
 ```bash
 docker compose up --build api

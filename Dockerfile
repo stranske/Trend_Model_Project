@@ -27,7 +27,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir setuptools==69.5.1 wheel==0.43.0 uv
 
 # Install locked dependencies inside the virtual environment
-RUN uv pip sync requirements.lock
+RUN uv pip sync requirements.lock && \
+    pip uninstall -y uv
 
 # Copy the remainder of the repo
 COPY . .
@@ -63,7 +64,7 @@ RUN useradd -m -u 1001 appuser
 RUN set -eux && \
     pip freeze --exclude-editable | \
         grep -v '^trend-model @' | \
-        grep -vE '^(pip|setuptools|wheel|uv)==' | \
+        grep -vE '^(pip|setuptools|wheel)==' | \
         sort -f > /tmp/runtime-freeze.txt && \
     awk '/^[[:alnum:]._+-]+==/ {print tolower($0)}' requirements.lock | \
         sort -f > /tmp/lock.txt && \

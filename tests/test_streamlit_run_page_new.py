@@ -236,6 +236,49 @@ def test_main_runs_and_surfaces_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
     mock_st.write.assert_called_with("Summary:", result.metrics)
 
 
+def test_main_preserves_full_portfolio_config() -> None:
+    mock_st = _make_streamlit(button_response=[False, True])
+    module = _load_run_module(mock_st)
+
+    mock_returns = pd.DataFrame(
+        {"A": [0.1, -0.1]}, index=pd.to_datetime(["2021-01-31", "2021-02-28"])
+    )
+    custom_portfolio = {
+        "weighting_scheme": "risk_parity",
+        "selection_mode": "random",
+        "random_n": 5,
+        "constraints": {"max_weight": 0.3},
+    }
+    mock_cfg = {
+        "start": pd.Timestamp("2021-01-31"),
+        "end": pd.Timestamp("2021-02-28"),
+        "lookback_months": 3,
+        "risk_target": 0.6,
+        "portfolio": custom_portfolio,
+    }
+    mock_st.session_state.update({"returns_df": mock_returns, "sim_config": mock_cfg})
+
+    module.show_disclaimer = lambda: True
+    captured_configs: list[dict[str, Any]] = []
+
+    def _capture_config(**kwargs: Any) -> dict[str, Any]:
+        captured_configs.append(kwargs)
+        return kwargs
+
+    module.Config = MagicMock(side_effect=_capture_config)
+    result = SimpleNamespace(metrics={}, fallback_info=None)
+    module.run_simulation = MagicMock(return_value=result)
+
+    with patch.dict("sys.modules", {"streamlit": mock_st}):
+        module.main()
+
+    assert captured_configs, "Config should be constructed"
+    portfolio_cfg = captured_configs[-1]["portfolio"]
+    assert portfolio_cfg == custom_portfolio
+    assert portfolio_cfg is not custom_portfolio
+    module.run_simulation.assert_called_once_with(captured_configs[-1], ANY)
+
+
 def test_main_handles_non_iterable_session_state() -> None:
     """The page should fall back to attribute access when session_state
     misbehaves."""
