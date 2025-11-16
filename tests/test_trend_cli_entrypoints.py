@@ -20,6 +20,11 @@ class DummyResult:
             "benchmarks": {"ref": [0.1, 0.2]},
             "weights_user_weight": [0.5, 0.5],
         }
+        turnover_idx = pd.date_range("2020-01-31", periods=2, freq="ME")
+        self.details["risk_diagnostics"] = {
+            "turnover": pd.Series([0.1, 0.2], index=turnover_idx),
+            "turnover_value": 0.3,
+        }
         self.metrics = pd.DataFrame({"metric": [1]})
 
 
@@ -277,9 +282,13 @@ def test_write_report_files_creates_expected_outputs(
     metrics_path = tmp_path / "metrics_xyz.csv"
     summary_path = tmp_path / "summary_xyz.txt"
     details_path = tmp_path / "details_xyz.json"
+    turnover_path = tmp_path / "turnover.csv"
     assert metrics_path.exists() and summary_path.exists() and details_path.exists()
+    assert turnover_path.exists()
     data = json.loads(details_path.read_text())
     assert "benchmarks" in data
+    turnover_df = pd.read_csv(turnover_path)
+    assert turnover_df["turnover"].sum() == pytest.approx(0.3)
 
 
 def test_adjust_for_scenario_updates_config() -> None:

@@ -258,6 +258,7 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         equity_curve=equity_curve,
         weights=weights_df,
         turnover=turnover_series.sort_index(),
+        per_period_turnover=pd.Series(dtype=float),
         transaction_costs=pd.Series(dtype=float),
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,

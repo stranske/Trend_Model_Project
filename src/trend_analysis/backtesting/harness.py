@@ -21,6 +21,7 @@ class BacktestResult:
     equity_curve: pd.Series
     weights: pd.DataFrame
     turnover: pd.Series
+    per_period_turnover: pd.Series
     transaction_costs: pd.Series
     rolling_sharpe: pd.Series
     drawdown: pd.Series
@@ -43,6 +44,7 @@ class BacktestResult:
             "drawdown": _series_to_dict(self.drawdown),
             "equity_curve": _series_to_dict(self.equity_curve),
             "turnover": _series_to_dict(self.turnover),
+            "per_period_turnover": _series_to_dict(self.per_period_turnover),
             "transaction_costs": _series_to_dict(self.transaction_costs),
             "weights": _weights_to_dict(self.weights),
             "training_windows": {
@@ -67,11 +69,17 @@ def run_backtest(
     rebalance_freq: str,
     window_size: int,
     window_mode: WindowMode = "rolling",
-    transaction_cost_bps: float = 0.0,
+    transaction_cost_bps: float,
+    min_trade: float,
     rolling_sharpe_window: int | None = None,
     initial_weights: Mapping[str, float] | None = None,
 ) -> BacktestResult:
-    """Run a walk-forward backtest with a fixed rebalance calendar."""
+    """Run a walk-forward backtest with a fixed rebalance calendar.
+
+    Args:
+        min_trade: Minimum total absolute weight change required to execute a
+            rebalance. Smaller proposals are ignored to suppress micro-churn.
+    """
 
     if window_size <= 0:
         raise ValueError("window_size must be a positive integer")
@@ -79,6 +87,8 @@ def run_backtest(
         raise ValueError("window_mode must be 'rolling' or 'expanding'")
     if transaction_cost_bps < 0:
         raise ValueError("transaction_cost_bps must be non-negative")
+    if min_trade < 0:
+        raise ValueError("min_trade must be non-negative")
 
     data = _prepare_returns(returns)
     if data.empty:
@@ -97,6 +107,7 @@ def run_backtest(
     portfolio_returns = pd.Series(index=data.index, dtype=float)
     weights_history: Dict[pd.Timestamp, pd.Series] = {}
     turnover = pd.Series(dtype=float)
+    per_period_turnover = pd.Series(0.0, index=data.index, dtype=float)
     tx_costs = pd.Series(dtype=float)
     training_windows: Dict[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]] = {}
 
@@ -116,13 +127,16 @@ def run_backtest(
         training_windows[date] = (train_window.index[0], train_window.index[-1])
 
         raw_weights = strategy(train_window)
-        new_weights = _normalise_weights(raw_weights, asset_columns)
+        proposed = _normalise_weights(raw_weights, asset_columns)
 
-        delta = (new_weights - prev_weights).abs().sum()
-        cost = (transaction_cost_bps / 10000.0) * delta
+        delta = float((proposed - prev_weights).abs().sum())
+        execute = delta >= float(min_trade)
+        new_weights = proposed if execute else prev_weights
+        applied_turnover = delta if execute else 0.0
+        cost = (transaction_cost_bps / 10000.0) * applied_turnover
 
         weights_history[date] = new_weights
-        turnover.loc[date] = float(delta)
+        turnover.loc[date] = applied_turnover
         tx_costs.loc[date] = float(cost)
 
         prev_weights = new_weights
@@ -147,6 +161,8 @@ def run_backtest(
             continue
 
         pending_cost = float(cost)
+        if 0 <= apply_slice.start < len(per_period_turnover):
+            per_period_turnover.iloc[apply_slice.start] = applied_turnover
         for idx in range(apply_slice.start, apply_slice.stop):
             ret = float(np.dot(data_values[idx], prev_weights.values))
             if pending_cost:
@@ -180,6 +196,7 @@ def run_backtest(
         equity_curve=equity_curve,
         weights=weights_df,
         turnover=turnover.sort_index(),
+        per_period_turnover=per_period_turnover,
         transaction_costs=tx_costs.sort_index(),
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
