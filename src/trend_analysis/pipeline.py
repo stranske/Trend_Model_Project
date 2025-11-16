@@ -657,11 +657,29 @@ def _run_analysis(
     )
     preprocess_info["calendar_alignment"] = alignment_info
 
-    def _parse_month(s: str) -> pd.Timestamp:
-        return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
+    def _is_month_label(label: str) -> bool:
+        text = str(label).strip()
+        return len(text) == 7 and text.count("-") == 1
 
-    in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
-    out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
+    def _resolve_bound(label: str, *, bound: str) -> pd.Timestamp:
+        text = str(label).strip()
+        if not text:
+            raise ValueError("Period label must be non-empty")
+        try:
+            if _is_month_label(text):
+                period = pd.Period(text, freq="M")
+                ts = period.start_time if bound == "start" else period.end_time
+            else:
+                ts = pd.to_datetime(text)
+        except Exception as exc:  # pragma: no cover - defensive
+            msg = f"Failed to parse period label '{label}': {exc}"
+            raise ValueError(msg) from exc
+        return pd.Timestamp(ts).normalize()
+
+    in_sdate = _resolve_bound(in_start, bound="start")
+    in_edate = _resolve_bound(in_end, bound="end")
+    out_sdate = _resolve_bound(out_start, bound="start")
+    out_edate = _resolve_bound(out_end, bound="end")
 
     in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
         date_col

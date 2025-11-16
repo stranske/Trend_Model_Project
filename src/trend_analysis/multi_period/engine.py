@@ -559,8 +559,14 @@ def run(
     # Restore Date column for downstream consumers
     df = cleaned.reset_index()
     preprocessing_cfg = getattr(cfg, "preprocessing", {}) or {}
+    observed_freq: str | None = None
+    if not df.empty and "Date" in df.columns:
+        try:
+            observed_freq = pd.infer_freq(pd.DatetimeIndex(df["Date"]))
+        except Exception:  # pragma: no cover - inference best effort
+            observed_freq = None
     df.attrs["calendar_settings"] = {
-        "frequency": data_settings.get("frequency"),
+        "frequency": observed_freq or data_settings.get("frequency"),
         "timezone": data_settings.get("timezone", "UTC"),
         "holiday_calendar": preprocessing_cfg.get("holiday_calendar"),
     }
