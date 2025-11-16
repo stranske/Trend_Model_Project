@@ -438,11 +438,10 @@ def _resolve_report_output_path(
 
 def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
     if isinstance(obj, pd.Series):
-        data: dict[str, Any] = {}
+        data: dict[str | int | float, Any] = {}
         for key, value in obj.items():
-            # JSON objects require string keys, so coerce anything non-string
-            coerced_key: str
-            if isinstance(key, str):
+            coerced_key: str | int | float
+            if isinstance(key, (str, int, float)):
                 coerced_key = key
             else:
                 coerced_key = str(key)
