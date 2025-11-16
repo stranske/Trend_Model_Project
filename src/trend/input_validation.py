@@ -21,9 +21,10 @@ that includes the first offending row when an issue is detected.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 
 __all__ = [
@@ -75,7 +76,7 @@ def _column_lookup(columns: Iterable[str]) -> dict[str, str]:
     return lookup
 
 
-def _first_true_position(mask: np.ndarray) -> int:
+def _first_true_position(mask: NDArray[Any]) -> int:
     hits = np.flatnonzero(mask)
     if hits.size == 0:  # pragma: no cover - defensive guard
         return -1

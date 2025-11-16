@@ -152,6 +152,18 @@ def _validate_payload(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> Optional[pd.DataFrame]:
+    try:
+        payload = validate_input(payload, RETURNS_SCHEMA)
+    except InputValidationError as exc:
+        if errors == "raise":
+            raise MarketDataValidationError(exc.user_message, exc.issues) from exc
+        message = exc.user_message
+        msg_lower = message.lower()
+        if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
+            message = f"{message}\nUnable to parse Date values in {origin}"
+        logger.error("Validation failed (%s): %s", origin, message)
+        return None
+
     payload = _normalise_numeric_strings(payload)
     policy_param: str | dict[str, str] | None
     if isinstance(missing_policy, Mapping):
@@ -253,7 +265,6 @@ def load_csv(
             return None
 
         raw = pd.read_csv(str(p))
-        raw = validate_input(raw, RETURNS_SCHEMA)
         return _validate_payload(
             raw,
             origin=str(p),
@@ -322,7 +333,6 @@ def load_parquet(
             raise PermissionError(f"Permission denied accessing file: {path}")
 
         raw = pd.read_parquet(str(p))
-        raw = validate_input(raw, RETURNS_SCHEMA)
         return _validate_payload(
             raw,
             origin=str(p),
