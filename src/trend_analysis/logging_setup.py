@@ -41,6 +41,7 @@ def setup_logging(
     timestamp: Optional[str] = None,
     app_name: str = "app",
     stream: Optional[TextIO] = None,
+    enable_console: bool = True,
 ) -> Path:
     """Configure root logging and return the log file path.
 
@@ -58,6 +59,9 @@ def setup_logging(
         Filename (without extension) to use for the log file.
     stream:
         Optional text stream for the console handler. Defaults to ``sys.stderr``.
+    enable_console:
+        When ``False`` the console handler is skipped entirely and log output is
+        written only to the file handler.
     """
 
     RUNS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -78,16 +82,17 @@ def setup_logging(
     setattr(file_handler, _HANDLER_FLAG, True)
     logger.addHandler(file_handler)
 
-    stream_handler = logging.StreamHandler(stream or sys.stderr)
-    stream_handler.setFormatter(formatter)
-    stream_level = (
-        _resolve_level(console_level)
-        if console_level is not None
-        else _resolve_level(level)
-    )
-    stream_handler.setLevel(stream_level)
-    setattr(stream_handler, _HANDLER_FLAG, True)
-    logger.addHandler(stream_handler)
+    if enable_console:
+        stream_handler = logging.StreamHandler(stream or sys.stderr)
+        stream_handler.setFormatter(formatter)
+        stream_level = (
+            _resolve_level(console_level)
+            if console_level is not None
+            else _resolve_level(level)
+        )
+        stream_handler.setLevel(stream_level)
+        setattr(stream_handler, _HANDLER_FLAG, True)
+        logger.addHandler(stream_handler)
 
     logger.info("Logging initialised", extra={"log_path": str(log_path)})
     return log_path
