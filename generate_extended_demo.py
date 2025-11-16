@@ -6,16 +6,9 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import os
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-REPO_ROOT = Path(__file__).resolve().parent
-SRC_PATH = REPO_ROOT / "src"
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
 
 from trend_analysis.logging_setup import setup_logging
 
