@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 from typing import cast
 
 from . import export
 from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
+from .logging_setup import setup_logging
 from .multi_period import run as run_mp
 
 
@@ -20,6 +22,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Print per-period summary tables",
     )
     args = parser.parse_args(argv)
+
+    log_path = setup_logging(app_name="run_multi_analysis")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     cfg = load(args.config)
     results = run_mp(cfg)

@@ -1,4 +1,5 @@
 import argparse
+import logging
 import numbers
 import os
 import platform
@@ -19,6 +20,7 @@ from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
+from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
 from .signal_presets import (
@@ -237,6 +239,10 @@ def main(argv: list[str] | None = None) -> int:
             return check_environment()
 
     args = parser.parse_args(argv)
+
+    log_suffix = getattr(args, "command", None) or "root"
+    log_path = setup_logging(app_name=f"trend_cli_{log_suffix}")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     if args.check:
         return check_environment()

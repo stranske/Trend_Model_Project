@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import time
 from statistics import mean
 
@@ -29,6 +30,7 @@ from trend_analysis.core.rank_selection import (
 from trend_analysis.multi_period.engine import _compute_turnover_state
 from trend_analysis.perf.cache import CovCache
 from trend_analysis.rebalancing.strategies import TURNOVER_EPSILON, TurnoverCapStrategy
+from trend_analysis.logging_setup import setup_logging
 
 
 def _make_df(rows: int, cols: int, seed: int = 0) -> pd.DataFrame:
@@ -285,6 +287,9 @@ def main() -> None:
     p.add_argument("--runs", type=int, default=5)
     p.add_argument("--output", type=str, default="benchmark_perf.json")
     args = p.parse_args()
+
+    log_path = setup_logging(app_name="benchmark_performance")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     result = run_benchmark(args.rows, args.cols, args.runs)
     with open(args.output, "w", encoding="utf-8") as f:

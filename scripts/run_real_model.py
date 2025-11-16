@@ -8,6 +8,7 @@ stitched out-of-sample portfolio return series.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, cast
 
@@ -16,6 +17,7 @@ import pandas as pd
 from trend_analysis.config import load
 from trend_analysis.config.models import ConfigProtocol
 from trend_analysis.data import load_csv
+from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
