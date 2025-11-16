@@ -1195,6 +1195,19 @@ def run_analysis(
     )
 
 
+def _attach_calendar_settings(df: pd.DataFrame, cfg: Config) -> None:
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    data_settings = _cfg_section(cfg, "data")
+    data_frequency = _section_get(data_settings, "frequency")
+    data_timezone = _section_get(data_settings, "timezone", "UTC")
+    holiday_calendar = _section_get(preprocessing_section, "holiday_calendar")
+    df.attrs["calendar_settings"] = {
+        "frequency": data_frequency,
+        "timezone": data_timezone,
+        "holiday_calendar": holiday_calendar,
+    }
+
+
 def run(cfg: Config) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
@@ -1218,15 +1231,7 @@ def run(cfg: Config) -> pd.DataFrame:
     )
     df = cast(pd.DataFrame, df)
 
-    preprocessing_section = _cfg_section(cfg, "preprocessing")
-    data_frequency = _section_get(data_settings, "frequency")
-    data_timezone = _section_get(data_settings, "timezone", "UTC")
-    holiday_calendar = _section_get(preprocessing_section, "holiday_calendar")
-    df.attrs["calendar_settings"] = {
-        "frequency": data_frequency,
-        "timezone": data_timezone,
-        "holiday_calendar": holiday_calendar,
-    }
+    _attach_calendar_settings(df, cfg)
 
     split_cfg = _cfg_section(cfg, "sample_split")
     resolved_split = _resolve_sample_split(df, split_cfg)
@@ -1322,15 +1327,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     )
     df = cast(pd.DataFrame, df)
 
-    preprocessing_section = _cfg_section(cfg, "preprocessing")
-    data_frequency = _section_get(data_settings, "frequency")
-    data_timezone = _section_get(data_settings, "timezone", "UTC")
-    holiday_calendar = _section_get(preprocessing_section, "holiday_calendar")
-    df.attrs["calendar_settings"] = {
-        "frequency": data_frequency,
-        "timezone": data_timezone,
-        "holiday_calendar": holiday_calendar,
-    }
+    _attach_calendar_settings(df, cfg)
 
     split_cfg = _cfg_section(cfg, "sample_split")
     resolved_split = _resolve_sample_split(df, split_cfg)

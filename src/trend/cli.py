@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Iterable, Mapping, Protocol, cast
@@ -46,7 +47,14 @@ _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
 logger = logging.getLogger(__name__)
-_LAST_PERF_LOG_PATH: Path | None = None
+
+
+@dataclass
+class _PerfLoggerState:
+    last_path: Path | None = None
+
+
+_PERF_LOG_STATE = _PerfLoggerState()
 
 
 def _init_perf_logger(app_name: str = "app") -> Path | None:
@@ -64,9 +72,14 @@ def _init_perf_logger(app_name: str = "app") -> Path | None:
         logger.warning("Failed to initialise perf log handler: %s", exc)
         return None
     print(f"Run log: {log_path}")
-    global _LAST_PERF_LOG_PATH
-    _LAST_PERF_LOG_PATH = log_path
+    _PERF_LOG_STATE.last_path = log_path
     return log_path
+
+
+def get_last_perf_log_path() -> Path | None:
+    """Return the most recent CLI perf log path, if any."""
+
+    return _PERF_LOG_STATE.last_path
 
 
 def _refresh_legacy_cli_module() -> ModuleType | None:

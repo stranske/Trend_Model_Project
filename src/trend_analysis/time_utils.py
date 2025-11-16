@@ -5,11 +5,18 @@ import datetime as dt
 from typing import Iterable
 
 import pandas as pd
-from pandas.tseries.offsets import CustomBusinessDay
+from pandas.tseries.offsets import BusinessMonthEnd, CustomBusinessDay
 
 DEFAULT_TIMEZONE = "UTC"
 DEFAULT_FREQUENCY = "B"
 DEFAULT_CALENDAR = "simple"
+
+
+def _normalise_calendar_name(calendar_name: str | None) -> str:
+    cal = (calendar_name or DEFAULT_CALENDAR).lower()
+    if cal not in {"simple", "nyse", "us"}:
+        return DEFAULT_CALENDAR
+    return cal
 
 
 def _observed(day: dt.date) -> dt.date:
@@ -83,9 +90,7 @@ def _resolve_holidays(
         holidays = pd.to_datetime(list(overrides))
         return pd.DatetimeIndex(sorted(h for h in holidays if start <= h.date() <= end))
 
-    cal = (calendar_name or DEFAULT_CALENDAR).lower()
-    if cal not in {"simple", "nyse", "us"}:
-        cal = DEFAULT_CALENDAR
+    cal = _normalise_calendar_name(calendar_name)
     year_start = start.year - 1
     year_end = end.year + 1
     collected: list[pd.Timestamp] = []
@@ -137,10 +142,14 @@ def align_calendar(
     series = series.tz_convert(DEFAULT_TIMEZONE).tz_localize(None)
     work[date_col] = series
 
+    freq_tag = _resolve_frequency_tag(frequency, work[date_col])
+    if freq_tag == "M":
+        month_start = work[date_col].dt.to_period("M").dt.to_timestamp()
+        work[date_col] = month_start + BusinessMonthEnd()
+        freq_tag = _resolve_frequency_tag(freq_tag, work[date_col])
+
     work.sort_values(date_col, inplace=True)
     work.drop_duplicates(subset=[date_col], inplace=True)
-
-    freq_tag = _resolve_frequency_tag(frequency, work[date_col])
     weekend_dropped = 0
     holiday_dropped = 0
 
@@ -174,6 +183,12 @@ def align_calendar(
         holidays_list = holiday_idx.to_pydatetime().tolist()
         business_offset = CustomBusinessDay(holidays=holidays_list)
         target_index = pd.date_range(start=start_ts, end=end_ts, freq=business_offset)
+    elif freq_tag == "M":
+        target_index = pd.date_range(
+            start=start_ts,
+            end=end_ts,
+            freq=BusinessMonthEnd(),
+        )
     else:
         target_index = pd.date_range(start=start_ts, end=end_ts, freq=freq_tag)
 
@@ -182,12 +197,12 @@ def align_calendar(
 
     aligned = work.set_index(date_col).reindex(target_index)
     aligned.index.name = date_col
-    aligned = aligned.reset_index().rename(columns={"index": date_col})
+    aligned = aligned.reset_index()
 
     info = {
         "target_frequency": freq_tag,
         "timezone": DEFAULT_TIMEZONE,
-        "calendar": (holiday_calendar or DEFAULT_CALENDAR).lower(),
+        "calendar": _normalise_calendar_name(holiday_calendar),
         "weekend_rows_dropped": weekend_dropped,
         "holiday_rows_dropped": holiday_dropped,
         "timestamp_count": len(target_index),
