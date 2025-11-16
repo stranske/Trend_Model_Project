@@ -29,6 +29,10 @@ The `trend` command is the unified launcher for day-to-day workflows:
 - `trend stress` replays canned stress windows
 - `trend app` starts the Streamlit interface
 
+Need to know where the sample CSV inputs come from?  See
+[README_DATA.md](README_DATA.md) for provenance, intended use, and limitations
+before wiring them into demos or documentation.
+
 Every demo/backtest script (for example `scripts/run_multi_demo.py`) shells out
 to these console entry points instead of adjusting `sys.path`.  If you skip the
 editable install, the scripts will raise a friendly error explaining how to fix
