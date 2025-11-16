@@ -44,6 +44,18 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Walk-forward stability harness
+
+Use the lightweight walk-forward sweep when you need deterministic train/test
+splits across a small parameter grid:
+
+```bash
+python scripts/walk_forward.py --config config/walk_forward.yml
+```
+
+The helper emits per-fold metrics, a consolidated summary CSV/JSONL, and an
+optional heatmap under `perf/wf/`. See [docs/walk_forward.md](docs/walk_forward.md)
+for the configuration layout and sample output.
 ### Demo data provenance
 
 The repository ships a handful of CSV fixtures so demos and automated tests
