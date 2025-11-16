@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     log_suffix = getattr(args, "command", None) or "root"
-    log_path = setup_logging(app_name=f"trend_cli_{log_suffix}", enable_console=False)
+    log_path = setup_logging(app_name=f"trend_cli_{log_suffix}")
     logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     if args.check:
