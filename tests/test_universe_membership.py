@@ -36,9 +36,7 @@ def test_apply_membership_masks_adds_and_drops() -> None:
         "FundB": (MembershipWindow(pd.Timestamp("2020-02-29"), None),),
         # FundC exits after February
         "FundC": (
-            MembershipWindow(
-                pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")
-            ),
+            MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),
         ),
     }
 

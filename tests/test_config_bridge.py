@@ -113,6 +113,8 @@ def test_validate_payload_invalid_frequency(tmp_path: Path):
     assert validated is None
     assert error is not None
     assert "frequency" in error.lower()
+
+
 def test_build_config_payload_includes_membership_path(tmp_path: Path) -> None:
     membership = tmp_path / "membership.csv"
     membership.write_text("fund,effective_date\nA,2020-01-31\n", encoding="utf-8")

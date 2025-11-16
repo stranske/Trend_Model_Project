@@ -29,8 +29,8 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
-from ..universe import apply_membership_windows, load_universe_membership
 from ..rebalancing import apply_rebalancing_strategies
+from ..universe import apply_membership_windows, load_universe_membership
 from ..util.missing import apply_missing_policy
 from ..weighting import (
     AdaptiveBayesWeighting,
@@ -549,8 +549,7 @@ def run(
             preview = ", ".join(missing_entries[:5])
             raise ValueError(
                 "Universe membership is missing effective_date entries for: "
-                f"{preview}"
-                + ("…" if len(missing_entries) > 5 else "")
+                f"{preview}" + ("…" if len(missing_entries) > 5 else "")
             )
         cleaned = apply_membership_windows(cleaned, membership_windows)
         cleaned = cleaned.dropna(how="all")

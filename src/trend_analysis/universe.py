@@ -67,7 +67,11 @@ def load_universe_membership(path: str | Path) -> MembershipTable:
             getattr(row, "effective_date", None), column="effective_date", fund=fund
         )
         raw_end = getattr(row, "end_date", None)
-        end = pd.to_datetime(raw_end, errors="coerce") if raw_end not in (None, "") else None
+        end = (
+            pd.to_datetime(raw_end, errors="coerce")
+            if raw_end not in (None, "")
+            else None
+        )
         grouped.setdefault(fund, []).append(MembershipWindow(effective, end))
 
     ordered: dict[str, tuple[MembershipWindow, ...]] = {}
@@ -104,4 +108,9 @@ def apply_membership_windows(
     return masked
 
 
-__all__ = ["MembershipWindow", "MembershipTable", "load_universe_membership", "apply_membership_windows"]
+__all__ = [
+    "MembershipWindow",
+    "MembershipTable",
+    "load_universe_membership",
+    "apply_membership_windows",
+]
