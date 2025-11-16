@@ -79,6 +79,18 @@ ls -1 perf/runs | tail -n 1
 tail -f perf/runs/<timestamp>/app.log
 ```
 
+Ad-hoc helpers that live under `scripts/` now share a tiny utility
+(`trend_analysis.script_logging.setup_script_logging`) so every run initialises the same
+perf logger before doing real work.  Custom scripts can reuse the helper to get
+consistent logs without re-implementing any wiring:
+
+```python
+from trend_analysis.script_logging import setup_script_logging
+
+if __name__ == "__main__":
+    setup_script_logging(app_name="rebalance-helper")
+```
+
 ---
 
 ==========

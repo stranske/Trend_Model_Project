@@ -134,6 +134,9 @@ def show_before_after_comparison() -> List[str]:
 
 
 if __name__ == "__main__":
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     bundles = show_before_after_comparison()
 
     # Optional: Manual cleanup demo

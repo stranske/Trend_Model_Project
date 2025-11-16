@@ -89,4 +89,7 @@ def demonstrate_malformed_date_handling():
 
 
 if __name__ == "__main__":
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     demonstrate_malformed_date_handling()

@@ -51,6 +51,9 @@ def main(argv: List[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     raise SystemExit(main())
 
 # Legacy plotting/reporting block kept for archival comparison. Not executed

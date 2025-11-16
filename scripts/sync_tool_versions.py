@@ -183,6 +183,9 @@ def main(argv: Iterable[str]) -> int:
 
 
 if __name__ == "__main__":
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     try:
         sys.exit(main(sys.argv[1:]))
     except SyncError as exc:

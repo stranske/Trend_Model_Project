@@ -34,6 +34,7 @@ from .risk import (
     realised_volatility,
 )
 from .signals import TrendSpec, compute_trend_signals
+from .time_utils import align_calendar
 from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
@@ -568,6 +569,43 @@ def _run_analysis(
     if df is None:
         return None
 
+    date_col = "Date"
+    if date_col not in df.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    calendar_settings = attrs_copy.get("calendar_settings", {})
+
+    # Fast-fail when no usable timestamps exist so tests that simulate
+    # pathological DataFrame subclasses continue to short-circuit.
+    date_probe = pd.to_datetime(df[date_col], errors="coerce")
+    if not date_probe.notna().any():
+        return None
+
+    # Normalise potentially exotic DataFrame subclasses into a vanilla
+    # ``pd.DataFrame`` so pandas internals do not trip over overridden
+    # properties (Issue #3633 regression).
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    df.attrs = attrs_copy
+    try:
+        df = align_calendar(
+            df,
+            date_col=date_col,
+            frequency=calendar_settings.get("frequency"),
+            timezone=calendar_settings.get("timezone", "UTC"),
+            holiday_calendar=calendar_settings.get("holiday_calendar"),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if (
+            "contains no valid timestamps" in message
+            or "All rows were removed" in message
+        ):
+            return None
+        raise
+    alignment_info = df.attrs.get("calendar_alignment", {})
+
     # Guard against negative configuration inputs.  ``floor_vol`` enforces the
     # minimum realised volatility used for scaling so we never divide by zero,
     # while ``warmup_periods`` zeroes the initial rows (Issue #1439).
@@ -583,10 +621,6 @@ def _run_analysis(
         warmup = 0
     if warmup < 0:
         warmup = 0
-
-    date_col = "Date"
-    if date_col not in df.columns:
-        raise ValueError("DataFrame must contain a 'Date' column")
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
@@ -644,12 +678,31 @@ def _run_analysis(
         normalised=normalised,
         missing_summary=missing_meta.summary,
     )
+    preprocess_info["calendar_alignment"] = alignment_info
 
-    def _parse_month(s: str) -> pd.Timestamp:
-        return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
+    def _is_month_label(label: str) -> bool:
+        text = str(label).strip()
+        return len(text) == 7 and text.count("-") == 1
 
-    in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
-    out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
+    def _resolve_bound(label: str, *, bound: str) -> pd.Timestamp:
+        text = str(label).strip()
+        if not text:
+            raise ValueError("Period label must be non-empty")
+        try:
+            if _is_month_label(text):
+                period = pd.Period(text, freq="M")
+                ts = period.start_time if bound == "start" else period.end_time
+            else:
+                ts = pd.to_datetime(text)
+        except Exception as exc:  # pragma: no cover - defensive
+            msg = f"Failed to parse period label '{label}': {exc}"
+            raise ValueError(msg) from exc
+        return pd.Timestamp(ts).normalize()
+
+    in_sdate = _resolve_bound(in_start, bound="start")
+    in_edate = _resolve_bound(in_end, bound="end")
+    out_sdate = _resolve_bound(out_start, bound="start")
+    out_edate = _resolve_bound(out_end, bound="end")
 
     in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
         date_col
@@ -1133,8 +1186,24 @@ def run_analysis(
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
+    calendar_frequency: str | None = None,
+    calendar_timezone: str | None = None,
+    holiday_calendar: str | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
+    if any(
+        value is not None
+        for value in (calendar_frequency, calendar_timezone, holiday_calendar)
+    ):
+        df = df.copy()
+        calendar_settings = dict(getattr(df, "attrs", {}).get("calendar_settings", {}))
+        if calendar_frequency is not None:
+            calendar_settings["frequency"] = calendar_frequency
+        if calendar_timezone is not None:
+            calendar_settings["timezone"] = calendar_timezone
+        if holiday_calendar is not None:
+            calendar_settings["holiday_calendar"] = holiday_calendar
+        df.attrs["calendar_settings"] = calendar_settings
     return _run_analysis(
         df,
         in_start,
@@ -1167,9 +1236,23 @@ def run_analysis(
     )
 
 
+def _attach_calendar_settings(df: pd.DataFrame, cfg: Config) -> None:
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
+    data_settings = _cfg_section(cfg, "data")
+    data_frequency = _section_get(data_settings, "frequency")
+    data_timezone = _section_get(data_settings, "timezone", "UTC")
+    holiday_calendar = _section_get(preprocessing_section, "holiday_calendar")
+    df.attrs["calendar_settings"] = {
+        "frequency": data_frequency,
+        "timezone": data_timezone,
+        "holiday_calendar": holiday_calendar,
+    }
+
+
 def run(cfg: Config) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
     csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
@@ -1190,6 +1273,8 @@ def run(cfg: Config) -> pd.DataFrame:
     )
     df = cast(pd.DataFrame, df)
 
+    _attach_calendar_settings(df, cfg)
+
     split_cfg = _cfg_section(cfg, "sample_split")
     resolved_split = _resolve_sample_split(df, split_cfg)
     metrics_section = _cfg_section(cfg, "metrics")
@@ -1203,7 +1288,6 @@ def run(cfg: Config) -> pd.DataFrame:
             risk_free=0.0,
         )
 
-    preprocessing_section = _cfg_section(cfg, "preprocessing")
     missing_section = _section_get(preprocessing_section, "missing_data")
     if not isinstance(missing_section, Mapping):
         missing_section = None
@@ -1265,6 +1349,7 @@ def run(cfg: Config) -> pd.DataFrame:
 def run_full(cfg: Config) -> dict[str, object]:
     """Return the full analysis results based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
     csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
@@ -1285,6 +1370,8 @@ def run_full(cfg: Config) -> dict[str, object]:
     )
     df = cast(pd.DataFrame, df)
 
+    _attach_calendar_settings(df, cfg)
+
     split_cfg = _cfg_section(cfg, "sample_split")
     resolved_split = _resolve_sample_split(df, split_cfg)
     metrics_section = _cfg_section(cfg, "metrics")
@@ -1298,7 +1385,6 @@ def run_full(cfg: Config) -> dict[str, object]:
             risk_free=0.0,
         )
 
-    preprocessing_section = _cfg_section(cfg, "preprocessing")
     missing_section = _section_get(preprocessing_section, "missing_data")
     if not isinstance(missing_section, Mapping):
         missing_section = None
