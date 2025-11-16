@@ -172,6 +172,7 @@ def validate_startup_payload(
 
     payload = build_config_payload(
         csv_path=str(csv_real) if csv_real is not None else None,
+        universe_membership_path=None,
         managers_glob=None,
         date_column=date_column,
         frequency=frequency,
