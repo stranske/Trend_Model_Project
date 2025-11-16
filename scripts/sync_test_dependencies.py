@@ -17,6 +17,12 @@ from pathlib import Path
 from typing import Any, Set, cast
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = REPO_ROOT / "src"
+if SRC_PATH.exists():
+    sys.path.insert(0, str(SRC_PATH))
+
+
 TOMLKIT_ERROR: ImportError | None
 try:
     import tomlkit
