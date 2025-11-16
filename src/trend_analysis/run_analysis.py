@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    log_path = setup_logging(app_name="run_analysis")
+    log_path = setup_logging(app_name="run_analysis", enable_console=False)
     logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     cfg = load(args.config)
