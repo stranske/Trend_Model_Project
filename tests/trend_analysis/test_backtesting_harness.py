@@ -51,6 +51,7 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
         equity_curve=equity,
         weights=weights,
         turnover=turnover,
+        per_period_turnover=turnover,
         transaction_costs=tx_costs,
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
@@ -104,6 +105,7 @@ def test_run_backtest_covers_transaction_costs_and_calendar() -> None:
         transaction_cost_bps=15,
         rolling_sharpe_window=2,
         initial_weights={"FundB": 1.0},
+        min_trade=0.0,
     )
 
     assert isinstance(result, h.BacktestResult)
@@ -135,6 +137,7 @@ def test_run_backtest_expanding_mode_handles_date_column_only() -> None:
         window_size=2,
         window_mode="expanding",
         transaction_cost_bps=0,
+        min_trade=0.0,
     )
 
     assert set(result.metrics) >= {"cagr", "sharpe"}
@@ -157,7 +160,13 @@ def test_run_backtest_input_validation(
         {"Date": pd.date_range("2021-01-01", periods=3), "FundA": [0.0, 0.1, -0.1]}
     )
 
-    call_kwargs = {"rebalance_freq": "ME", "window_size": 2, "window_mode": "rolling"}
+    call_kwargs = {
+        "rebalance_freq": "ME",
+        "window_size": 2,
+        "window_mode": "rolling",
+        "transaction_cost_bps": 0.0,
+        "min_trade": 0.0,
+    }
     call_kwargs.update(kwargs)
 
     with pytest.raises(expected_exception) as excinfo:
@@ -184,6 +193,8 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
             rebalance_freq="M",
             window_size=10,
             window_mode="rolling",
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -203,6 +214,8 @@ def test_run_backtest_errors_on_empty_prepared_data(
             rebalance_freq="M",
             window_size=2,
             window_mode="rolling",
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -222,6 +235,8 @@ def test_run_backtest_errors_when_calendar_empty(
             rebalance_freq="M",
             window_size=2,
             window_mode="rolling",
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -253,6 +268,7 @@ def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
         window_size=2,
         window_mode="rolling",
         transaction_cost_bps=50,
+        min_trade=0.0,
     )
 
     prepared = returns.set_index("Date").astype(float)
@@ -340,6 +356,8 @@ def test_run_backtest_rejects_empty_prepared_returns(
             lambda _: {"FundA": 1.0},
             rebalance_freq="M",
             window_size=1,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -366,6 +384,8 @@ def test_run_backtest_rejects_empty_rebalance_calendar(
             lambda _: {"FundA": 1.0},
             rebalance_freq="MS",
             window_size=2,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
         )
 
 
@@ -400,6 +420,7 @@ def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
         rebalance_freq="D",
         window_size=1,
         transaction_cost_bps=10,
+        min_trade=0.0,
     )
 
     assert result.turnover.loc[pd.Timestamp("2021-01-01")] == pytest.approx(1.0)
