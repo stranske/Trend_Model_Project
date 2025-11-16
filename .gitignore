@@ -18,6 +18,9 @@ __pycache__/
 outputs/
 .venv/
 .hypothesis/
+perf/runs/
+tmp_logs/
+test_output.log
 
 # auto-generated virtual environments
 .autofix-venv/

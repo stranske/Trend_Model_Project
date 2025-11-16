@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import runpy
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -28,7 +29,7 @@ def test_proxy_cli_invokes_run_proxy_with_parsed_arguments(
         captured.kwargs = kwargs
 
     monkeypatch.setattr(cli, "run_proxy", fake_run_proxy)
-    monkeypatch.setattr(cli.logging, "basicConfig", lambda **_: None)
+    monkeypatch.setattr(cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
 
     exit_code = _run_with_argv(
         monkeypatch,
@@ -64,7 +65,7 @@ def test_proxy_cli_handles_keyboard_interrupt(
         raise KeyboardInterrupt
 
     monkeypatch.setattr(cli, "run_proxy", fake_run_proxy)
-    monkeypatch.setattr(cli.logging, "basicConfig", lambda **_: None)
+    monkeypatch.setattr(cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
 
     exit_code = _run_with_argv(monkeypatch, ["proxy-cli"])
 
@@ -80,7 +81,7 @@ def test_proxy_cli_reports_generic_exception(
         raise RuntimeError("boom")
 
     monkeypatch.setattr(cli, "run_proxy", fake_run_proxy)
-    monkeypatch.setattr(cli.logging, "basicConfig", lambda **_: None)
+    monkeypatch.setattr(cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
 
     exit_code = _run_with_argv(monkeypatch, ["proxy-cli"])
 
@@ -106,7 +107,7 @@ def test_proxy_cli_module_entrypoint_invokes_sys_exit(
     monkeypatch.setattr(sys, "argv", ["proxy-cli"])
     sys.modules.pop("trend_analysis.proxy.cli", None)
     monkeypatch.setattr("trend_analysis.proxy.server.run_proxy", fake_run_proxy)
-    monkeypatch.setattr(cli.logging, "basicConfig", lambda **_: None)
+    monkeypatch.setattr(cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
 
     with pytest.raises(SystemExit) as excinfo:
         runpy.run_module("trend_analysis.proxy.cli", run_name="__main__")

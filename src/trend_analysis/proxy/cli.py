@@ -5,6 +5,7 @@ import logging
 import sys
 
 from .server import run_proxy
+from ..logging_setup import setup_logging
 
 
 def main() -> int:
@@ -44,11 +45,8 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Configure logging
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    log_path = setup_logging(level=args.log_level, app_name="proxy")
+    logging.getLogger(__name__).info("Proxy CLI logs stored at %s", log_path)
 
     try:
         run_proxy(
