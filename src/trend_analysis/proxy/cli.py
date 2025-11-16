@@ -4,8 +4,8 @@ import argparse
 import logging
 import sys
 
-from .server import run_proxy
 from ..logging_setup import setup_logging
+from .server import run_proxy
 
 
 def main() -> int:
