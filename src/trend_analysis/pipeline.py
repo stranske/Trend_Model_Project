@@ -1211,6 +1211,7 @@ def _attach_calendar_settings(df: pd.DataFrame, cfg: Config) -> None:
 def run(cfg: Config) -> pd.DataFrame:
     """Execute the analysis pipeline based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
     csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:
@@ -1307,6 +1308,7 @@ def run(cfg: Config) -> pd.DataFrame:
 def run_full(cfg: Config) -> dict[str, object]:
     """Return the full analysis results based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
+    preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
     csv_path = _section_get(data_settings, "csv_path")
     if csv_path is None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import calendar
 import datetime as dt
-from typing import Iterable
+from typing import Callable, Iterable
 
 import pandas as pd
 from pandas.tseries.offsets import BusinessMonthEnd, CustomBusinessDay
@@ -53,6 +53,13 @@ def _simple_us_holidays(year: int) -> set[dt.date]:
     return holidays
 
 
+_HOLIDAY_FACTORIES: dict[str, Callable[[int], set[dt.date]]] = {
+    "simple": _simple_us_holidays,
+    "nyse": _simple_us_holidays,
+    "us": _simple_us_holidays,
+}
+
+
 def _resolve_frequency_tag(
     freq: str | None,
     observed: pd.Series | None = None,
@@ -91,11 +98,12 @@ def _resolve_holidays(
         return pd.DatetimeIndex(sorted(h for h in holidays if start <= h.date() <= end))
 
     cal = _normalise_calendar_name(calendar_name)
+    holiday_factory = _HOLIDAY_FACTORIES.get(cal, _simple_us_holidays)
     year_start = start.year - 1
     year_end = end.year + 1
     collected: list[pd.Timestamp] = []
     for year in range(year_start, year_end + 1):
-        for day in _simple_us_holidays(year):
+        for day in holiday_factory(year):
             collected.append(pd.Timestamp(day))
     idx = pd.DatetimeIndex(collected)
     mask = (idx >= pd.Timestamp(start)) & (idx <= pd.Timestamp(end))
