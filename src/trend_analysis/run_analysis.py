@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,6 +12,7 @@ from . import api, export
 from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
+from .logging_setup import setup_logging
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,6 +25,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Print comprehensive result dictionary",
     )
     args = parser.parse_args(argv)
+
+    log_path = setup_logging(app_name="run_analysis")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     cfg = load(args.config)
 

@@ -24,6 +24,7 @@ Assumptions:
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ from typing import Dict, List, Set
 import pandas as pd
 
 from trend_analysis.config import Config, load
+from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run as run_mp
 
 
@@ -57,6 +59,9 @@ def _z_scores(series: pd.Series) -> pd.Series:
 
 
 def main() -> int:
+    log_path = setup_logging(app_name="run_threshold_churn_demo")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
+
     # Load base demo config and tweak multi-period start for ~8 years OS
     cfg = load("config/demo.yml")
     cfg_dict = cfg.model_dump()

@@ -8,9 +8,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+from pathlib import Path
 
 import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = REPO_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 from trend.input_validation import (
     InputSchema,
@@ -18,6 +25,7 @@ from trend.input_validation import (
     validate_input,
 )
 from trend_analysis.engine.walkforward import walk_forward
+from trend_analysis.logging_setup import setup_logging
 
 
 INPUT_SCHEMA = InputSchema(
@@ -88,6 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = p.parse_args(argv)
+
+    log_path = setup_logging(app_name="walkforward_cli")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
 
     df = pd.read_csv(args.csv)
     if "Date" not in df.columns:

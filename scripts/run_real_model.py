@@ -8,6 +8,7 @@ stitched out-of-sample portfolio return series.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, cast
 
@@ -16,6 +17,7 @@ import pandas as pd
 from trend_analysis.config import load
 from trend_analysis.config.models import ConfigProtocol
 from trend_analysis.data import load_csv
+from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
@@ -27,6 +29,9 @@ def _ensure_dir(path: str | Path) -> None:
 
 
 def main(cfg_path: str = "config/long_backtest.yml") -> int:
+    log_path = setup_logging(app_name="run_real_model")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
+
     cfg: ConfigProtocol = load(cfg_path)
     csv_path_obj = cfg.data.get("csv_path")
     if not isinstance(csv_path_obj, str):

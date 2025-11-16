@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
+from trend_analysis.logging_setup import setup_logging
 from trend_analysis.walk_forward import run_from_config
 
 
@@ -20,6 +22,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    log_path = setup_logging(app_name="walk_forward")
+    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
     run_dir = run_from_config(Path(args.config))
     print(f"Wrote walk-forward artifacts to {run_dir}")
     return 0
