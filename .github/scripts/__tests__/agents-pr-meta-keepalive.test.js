@@ -116,6 +116,80 @@ test('automation summary comment is upgraded to next keepalive round', async () 
   assert.deepEqual(reactionCalls, []);
 });
 
+test('automation summary with round but no marker is ignored', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              head: { ref: 'codex/issue-3419', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'phase-2-dev', repo: { owner: { login: 'stranske' } } },
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          return { status: 201, data: { content } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'stranske',
+    KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+    KEEPALIVE_AGENT_ALIAS: 'codex',
+    GATE_OK: 'true',
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    payload: {
+      comment: {
+        id: 789,
+        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3419#issuecomment-789',
+        body: '<!-- keepalive-round: 4 -->\nAutofix attempt 1/1 complete.',
+        user: { login: 'chatgpt-codex-connector[bot]' },
+      },
+      issue: { number: 3419 },
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(outputs.dispatch, 'false');
+  assert.equal(outputs.reason, 'automation-comment');
+  assert.deepEqual(reactionCalls, []);
+});
+
 test('manual restated instructions are autopatched to the next round', async () => {
   const outputs = {};
   const updatedBodies = [];
