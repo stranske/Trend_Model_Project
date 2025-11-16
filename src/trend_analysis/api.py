@@ -17,6 +17,11 @@ else:  # Runtime: avoid importing typing-only names
 
 from .logging import log_step as _log_step  # lightweight import
 from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
+from trend.validation import (
+    assert_execution_lag,
+    build_validation_frame,
+    validate_prices_frame,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +89,17 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         "pandas": pd.__version__,
     }
 
+    validation_frame = validate_prices_frame(build_validation_frame(returns))
+
+    data_settings = getattr(config, "data", {}) or {}
+    max_lag_days = data_settings.get("max_lag_days")
+    lag_limit: int | None = None
+    if max_lag_days not in (None, ""):
+        try:
+            lag_limit = int(max_lag_days)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("data.max_lag_days must be an integer") from exc
+
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
     stats_cfg = None
@@ -106,6 +122,19 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     policy_spec, limit_spec = _policy_from_config(
         missing_section if isinstance(missing_section, Mapping) else None
     )
+
+    if lag_limit is not None:
+        as_of_candidate = (
+            data_settings.get("as_of")
+            or data_settings.get("as_of_date")
+            or split.get("out_end")
+            or split.get("in_end")
+        )
+        assert_execution_lag(
+            validation_frame,
+            as_of=as_of_candidate,
+            max_lag_days=lag_limit,
+        )
 
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
