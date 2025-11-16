@@ -14,6 +14,8 @@ from trend_analysis.script_logging import setup_script_logging
 
 from trend_analysis.logging_setup import setup_logging
 
+from trend_analysis.logging_setup import setup_logging
+
 OUT_DIR = "demo"
 os.makedirs(OUT_DIR, exist_ok=True)
 

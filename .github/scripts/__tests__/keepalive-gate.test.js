@@ -176,6 +176,64 @@ test('countActive matches runs tagged via concurrency group', async () => {
   assert.equal(result.breakdown.get('orchestrator'), 1);
 });
 
+test('countActive treats recently completed runs as active within lookback window', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|completed': [
+      {
+        id: 9100,
+        pull_requests: [{ number: 77 }],
+        updated_at: '2025-11-16T20:59:30Z',
+      },
+    ],
+  };
+  const github = makeGithubStub(registry);
+  const originalNow = Date.now;
+  Date.now = () => Date.parse('2025-11-16T21:00:00Z');
+  try {
+    const result = await countActive({
+      github,
+      owner: 'stranske',
+      repo: 'Trend_Model_Project',
+      prNumber: 77,
+      completedLookbackSeconds: 300,
+    });
+
+    assert.equal(result.active, 1);
+    assert.equal(result.breakdown.get('orchestrator_recent'), 1);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('countActive ignores completed runs outside the lookback window', async () => {
+  const registry = {
+    'agents-70-orchestrator.yml|completed': [
+      {
+        id: 9200,
+        pull_requests: [{ number: 78 }],
+        updated_at: '2025-11-16T20:40:00Z',
+      },
+    ],
+  };
+  const github = makeGithubStub(registry);
+  const originalNow = Date.now;
+  Date.now = () => Date.parse('2025-11-16T21:00:00Z');
+  try {
+    const result = await countActive({
+      github,
+      owner: 'stranske',
+      repo: 'Trend_Model_Project',
+      prNumber: 78,
+      completedLookbackSeconds: 300,
+    });
+
+    assert.equal(result.active, 0);
+    assert.equal(result.breakdown.size, 0);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('evaluateRunCapForPr returns ok when active runs are below cap', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
