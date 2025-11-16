@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TextIO
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNS_ROOT = _REPO_ROOT / "perf" / "runs"
@@ -39,6 +40,7 @@ def setup_logging(
     console_level: Optional[int | str] = None,
     timestamp: Optional[str] = None,
     app_name: str = "app",
+    stream: Optional[TextIO] = None,
 ) -> Path:
     """Configure root logging and return the log file path.
 
@@ -54,6 +56,8 @@ def setup_logging(
         ``YYYYMMDD-HHMMSS`` value.
     app_name:
         Filename (without extension) to use for the log file.
+    stream:
+        Optional text stream for the console handler. Defaults to ``sys.stderr``.
     """
 
     RUNS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -74,7 +78,7 @@ def setup_logging(
     setattr(file_handler, _HANDLER_FLAG, True)
     logger.addHandler(file_handler)
 
-    stream_handler = logging.StreamHandler()
+    stream_handler = logging.StreamHandler(stream or sys.stderr)
     stream_handler.setFormatter(formatter)
     stream_level = (
         _resolve_level(console_level)
