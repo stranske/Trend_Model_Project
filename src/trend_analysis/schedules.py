@@ -104,7 +104,9 @@ def _coerce_datetime_index(index: pd.Index, *, name: str) -> pd.DatetimeIndex:
     return pd.DatetimeIndex(dt_index.sort_values().unique())
 
 
-def _match_timezone(idx: pd.DatetimeIndex, template: pd.DatetimeIndex) -> pd.DatetimeIndex:
+def _match_timezone(
+    idx: pd.DatetimeIndex, template: pd.DatetimeIndex
+) -> pd.DatetimeIndex:
     if template.tz is None:
         if idx.tz is None:
             return idx
