@@ -3,7 +3,9 @@
 Use this directory to store JSON snapshots, screenshots, and supporting notes that
 prove the Gate status check is enforced as a required context on the default branch.
 All artifacts should map directly to the validation runbook so auditors can replay
-the configuration history.
+the configuration history. Raw workflow logs are intentionally left out of git now
+that all `.log` files are ignored; reference the linked workflow run instead of
+committing the entire console transcript.
 
 ## Required Artifacts
 - `pre-enforcement.json` – output from `tools/enforce_gate_branch_protection.py --snapshot`

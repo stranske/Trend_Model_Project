@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
+from trend_analysis.logging_setup import RUNS_ROOT
 
 
 class DummyResult:
@@ -228,6 +229,11 @@ def test_run_pipeline_sets_metadata_and_bundle(
     assert ledger.exists()
     df = pd.read_csv(ledger)
     assert df["turnover"].sum() == pytest.approx(0.3)
+    log_path = trend_cli.get_last_perf_log_path()
+    assert log_path is not None
+    assert log_path.name == "app.log"
+    assert log_path.exists()
+    assert RUNS_ROOT in log_path.parents
 
 
 def test_run_pipeline_requires_transaction_cost(

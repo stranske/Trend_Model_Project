@@ -10,6 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from trend_analysis.script_logging import setup_script_logging
+
+from trend_analysis.logging_setup import setup_logging
 
 from trend_analysis.logging_setup import setup_logging
 
@@ -40,8 +43,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    log_path = setup_logging(app_name="generate_demo")
-    logging.getLogger(__name__).info("Log file initialised at %s", log_path)
+    setup_script_logging(app_name="generate-demo", module_file=__file__)
 
     # Keep sentinel handling close to argument parsing so repeated invocations
     # behave predictably regardless of test ordering.

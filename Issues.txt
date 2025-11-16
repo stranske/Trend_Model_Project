@@ -1,166 +1,146 @@
-1. Centralize logging and stop committing logs
-Labels: from:codex, agent:codex, devops, config, docs
+1) Config schema validation with minimal friction
+Labels: agents, agent:codex, config, enhancement, testing
+GUID: TMP-2025-11-16-CONFIG-SCHEMA
 
-Why
-Committed logs (tmp_logs/, test_output.log) bloat history and confuse workflows.
+Why:
+Typos in config keys or wrong types cascade into runtime explosions.
 
-Scope
-- Single logging initializer that writes to perf/runs/<timestamp>/.
-- Add log patterns to .gitignore.
-- Remove existing logs from the repo if present.
+Tasks:
+- Define a lightweight config schema for core knobs: data paths, universe file, frequency, costs.
+- Validate on startup; include defaults and helpful error texts.
+- Add tests covering missing required fields and wrong types.
 
-Non-Goals
-- Structured logging overhaul.
+Acceptance criteria:
+- Invalid configs fail fast with a single, clear error.
+- Valid configs round-trip through load/validate.
 
-Tasks
-- Create logging_setup.py; default level INFO with timestamped file handler and console handler.
-- Replace ad-hoc logging init in scripts/apps with the centralized helper.
-- Update .gitignore; delete tracked logs.
-- Document where to find logs.
+Implementation notes:
+- Prefer stdlib/dataclasses + manual checks to avoid adding heavy deps.
+- Keep schema in a single file used by CLI/app.
 
-Acceptance criteria
-- New runs write to perf/runs/<timestamp>/app.log.
-- `git status` never shows new logs.
-- All scripts use the central logging helper.
+------------------------------------------------------------
 
+2) Positions contract: single canonical structure between signals and portfolio
+Labels: agents, agent:codex, engine, enhancement, testing
+GUID: TMP-2025-11-16-POSITIONS-CONTRACT
 
-2. Move top-level demos and ad-hoc scripts into examples/ with a single runner
-Labels: from:codex, agent:codex, docs, backend, enhancement
+Why:
+Mismatched expectations about shapes/units of positions lead to mis-weights and odd fills.
 
-Why
-Top-level files like demo_robust_weighting.py, demo_turnover_cap.py, debug_fund_selection.py, integration_example.py, portfolio_analysis_report.py clutter the root and duplicate logic.
+Tasks:
+- Define the positions contract: index is Date; columns are symbols; values are target weights in [-1, 1] or NaN for not held.
+- Provide `normalize_positions(df)` to enforce bounds, fill NaN with 0, and mask non-eligible assets.
+- Add tests for overweight, underweight, and NaN handling.
 
-Scope
-- Relocate demo scripts into examples/ (or scripts/ if preferred).
-- Prefer calling library functions over in-file logic.
-- Provide one runner or README explaining each example.
+Acceptance criteria:
+- Portfolio layer accepts only normalized positions; rejects invalid shapes with helpful errors.
+- Tests show reproducible final weights for a simple two-asset toy case.
 
-Non-Goals
-- Refactoring the analytical content.
+Implementation notes:
+- Document the contract beside the function and reference it in errors.
 
-Tasks
-- Create examples/ directory and move the above demos.
-- Replace any private imports with public API calls.
-- Add examples/README.md listing each demo and how to run it.
+------------------------------------------------------------
 
-Acceptance criteria
-- Root is decluttered; examples run via the package install.
-- No demo manipulates sys.path.
-- A newcomer can run one example end-to-end using documented commands.
+3) Run manifest + quick HTML report for reproducibility
+Labels: agents, agent:codex, exports, enhancement, docs
+GUID: TMP-2025-11-16-RUN-MANIFEST
 
+Why:
+You need a durable breadcrumb of “what ran, with what, and when,” plus a one-pager to eyeball results.
 
-3. Pin Docker base, use multi-stage build, run as non-root
-Labels: from:codex, agent:codex, devops, ci, dependencies, enhancement
+Tasks:
+- Emit a small JSON “manifest” per run: config hash, code commit (if available), data date range, instrument count, basic metrics.
+- Generate a minimalist HTML report with key charts/metrics and links to artifacts.
+- Save both alongside outputs in a timestamped directory.
 
-Why
-Pinned base + multi-stage cuts surprises and image bloat; running as non-root is basic hygiene.
+Acceptance criteria:
+- Each run leaves a manifest and HTML that can be opened standalone.
+- Manifests include enough metadata to rerun the job.
 
-Scope
-- Pin the base image (e.g., python:3.12.2-slim).
-- Multi-stage: builder for wheels, runtime for app.
-- Create a non-root user in the runtime stage.
+Implementation notes:
+- Keep HTML extremely simple; avoid heavy templating. Inline CSS is fine.
 
-Non-Goals
-- Container orchestration or deployment setup.
+------------------------------------------------------------
 
-Tasks
-- Rewrite Dockerfile accordingly; copy only needed artifacts into the final stage.
-- Ensure `pip install -e .` happens in the builder stage.
-- Verify docker-compose.yml still works.
+4) Critical invariant tests: data, universe, rebalance, no-lookahead, costs
+Labels: agents, agent:codex, testing, engine, data
+GUID: TMP-2025-11-16-INVARIANT-TESTS
 
-Acceptance criteria
-- `docker build` succeeds from a clean checkout.
-- Final image shows a non-root default user.
-- `pip freeze` in the container matches the lock file.
+Why:
+A small battery of invariants catches 90% of regressions.
 
+Tasks:
+- Test that missing/extra columns raise validation errors.
+- Test that non-members are excluded at rebalance.
+- Test that rolling helper never uses future data.
+- Test that costs reduce returns by the analytical amount on a toy turnover sequence.
+- Test that rebalance dates occur only on the calendar utility’s dates.
 
-4. Time-aware universe membership (effective dates) and loader guardrails
-Labels: from:codex, agent:codex, data, engine, testing, enhancement
+Acceptance criteria:
+- Five named tests pass; failures point to the exact invariant that broke.
 
-Why
-A static Trend Universe Data.csv risks survivorship bias. Add effective dating or at least enforce a column that can be used for time filtering.
+Implementation notes:
+- Keep fixtures tiny and inline to ensure legibility.
 
-Scope
-- Introduce effective_date (and optional end_date) columns to the universe CSV, or keep a second CSV with dated membership.
-- Update the loader to filter universe as-of each date.
-- Add tests for adds/drops mid-sample.
+------------------------------------------------------------
 
-Non-Goals
-- Sourcing a full historical CRSP-style membership feed.
+5) Performance quick win: avoid duplicate groupby/apply and cache intermediate features
+Labels: agents, agent:codex, engine, enhancement
+GUID: TMP-2025-11-16-PERF-CACHE
 
-Tasks
-- Modify the CSV and the loader accordingly.
-- Add tests/test_universe_membership.py covering add/drop behavior.
-- Document the convention next to the CSV.
+Why:
+Recomputing identical features inflates runtime. Small caching plus vectorization trims cycles.
 
-Acceptance criteria
-- Backtests respect membership changes over time.
-- Tests confirm positions are dropped when a name exits the universe.
-- Loader errors if effective_date is missing when required.
+Tasks:
+- Identify top 2–3 repeated computations in signals and wrap them with a simple memo (`lru_cache` or dict keyed by params).
+- Replace slow `groupby.apply` with vectorized ops where feasible.
+- Add a one-line timing logger around key stages to verify improvement.
 
+Acceptance criteria:
+- On a medium sample dataset, end-to-end runtime improves meaningfully without altering results.
+- Timing logs show cached stages shrinking materially on successive runs.
 
-5. Calendar alignment utilities and policy (timezone, frequency, holidays)
-Labels: from:codex, agent:codex, data, engine, testing, enhancement
+Implementation notes:
+- Keep caching in-process and ephemeral; no disk persistence required.
 
-Why
-Mixed calendars and non-synchronous closes cause fake trades and phantoms in PnL.
+------------------------------------------------------------
 
-Scope
-- One utility that standardizes to a declared frequency and timezone (UTC) and applies a holiday calendar.
-- Apply in ingestion or just before feature creation.
+6) Packaging hygiene: exclude `Old/` and `retired/` from imports and builds
+Labels: agents, agent:codex, backend, config
+GUID: TMP-2025-11-16-PKG-EXCLUDES
 
-Non-Goals
-- High-fidelity exchange calendars per asset; keep it simple.
+Why:
+Legacy directories bleeding into imports is a haunted-house problem.
 
-Tasks
-- Add a time_utils.py with align_calendar(df) and a simple holiday set.
-- Use it in the pipeline.
-- Tests that verify no weekend/holiday timestamps and consistent frequency.
+Tasks:
+- Ensure `pyproject.toml` or equivalent excludes `Old/` and `retired/` from the package.
+- Add a sanity test that importing the package does not expose modules from those paths.
 
-Acceptance criteria
-- After alignment, all series share the same set of timestamps.
-- No weekend/holiday stamps remain.
-- Tests fail if alignment is bypassed.
+Acceptance criteria:
+- Editable install shows no imports resolved from excluded folders.
+- CI import sanity check passes.
 
+Implementation notes:
+- If needed, add `MANIFEST.in` excludes for sdist.
 
-6. Parameter-stability plots and one-page HTML report
-Labels: from:codex, agent:codex, exports, engine, enhancement, docs
+------------------------------------------------------------
 
-Why
-A simple 2D heatmap over two core parameters plus a compact report is the fastest sanity check for fragility.
+7) Minimal CI: install, import, and run invariant tests
+Labels: agents, agent:codex, ci, devops, testing
+GUID: TMP-2025-11-16-CI-SMOKE
 
-Scope
-- Generate a single HTML (or Markdown) report with config, key metrics, equity + drawdown, turnover, and a heatmap of performance across a small grid.
+Why:
+A tiny CI sweep prevents “it runs on my laptop” surprises.
 
-Non-Goals
-- A full reporting framework.
+Tasks:
+- Add a workflow that sets up Python, installs the project, and runs the invariant tests from issue 11.
+- Run an import sanity check for the package.
+- Cache dependencies between runs to keep it fast.
 
-Tasks
-- Implement a small reporting module that reads run artifacts and writes perf/reports/<run-id>.html.
-- Add a parameter-grid helper producing a 2-D heatmap image saved under perf/.
+Acceptance criteria:
+- Workflow is green on default branch and PRs.
+- Failures surface with actionable logs.
 
-Acceptance criteria
-- One command creates the summary report for a given run.
-- The heatmap file exists and is referenced in the report.
-- Report includes the config used to produce the run.
-
-
-7. Clarify data status for committed CSVs (synthetic/public) with a short README next to them
-Labels: from:codex, agent:codex, docs, data
-
-Why
-Committed CSVs like hedge_fund_returns_with_indexes.csv can be mistaken for proprietary data. A local README removes doubt.
-
-Scope
-- A short README_DATA.md placed beside the CSVs stating the data’s provenance (synthetic/public), intended use (demo/tests), and any limitations.
-
-Non-Goals
-- Data cleaning beyond the existing demos.
-
-Tasks
-- Write README_DATA.md with clear provenance and disclaimers.
-- Link this README from README.md so users don’t miss it.
-
-Acceptance criteria
-- The README is present and visible from the main README.
-- Language clearly states whether the data is public/synthetic and any restrictions.
+Implementation notes:
+- Keep matrix minimal (one Python version).
+- Don’t enforce coverage thresholds; keep it lightweight.

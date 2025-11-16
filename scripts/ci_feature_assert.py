@@ -17,6 +17,10 @@ import os
 import sys
 from pathlib import Path
 
+from trend_analysis.script_logging import setup_script_logging
+
+setup_script_logging(module_file=__file__, announce=False)
+
 
 def expect(flag: str) -> bool:
     return str(os.environ.get(flag, "false")).lower() == "true"

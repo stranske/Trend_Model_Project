@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import json
+import os
 import sys
 import types
 from collections.abc import Mapping, Sequence
@@ -16,7 +17,26 @@ import yaml
 import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
+from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run as run_multi
+
+_STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
+_STREAMLIT_LOG_PATH: Path | None = None
+
+
+def _ensure_streamlit_logging() -> Path | None:
+    disable = os.environ.get("TREND_DISABLE_PERF_LOGS", "").strip().lower()
+    if disable in {"1", "true", "yes"}:
+        return None
+    existing = os.environ.get(_STREAMLIT_LOG_ENV)
+    if existing:
+        return Path(existing)
+    log_path = setup_logging(app_name="app")
+    os.environ[_STREAMLIT_LOG_ENV] = str(log_path)
+    return log_path
+
+
+_STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 
 _PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
 
