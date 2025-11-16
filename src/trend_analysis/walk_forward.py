@@ -144,8 +144,6 @@ def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     if len(index) < 2:
         return 1
     diffs = np.diff(index.view("int64"))
-    if len(diffs) == 0:
-        return 1
     median_ns = np.median(diffs)
     if median_ns <= 0:
         return 1
