@@ -1,19 +1,12 @@
 """Run page for Streamlit trend analysis app with unified execution and progress."""
 
 import logging
-import sys
 import traceback
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 import streamlit as st
-
-# Prepare src path before lazy import
-_SRC_PATH = Path(__file__).parent.parent.parent / "src"
-if str(_SRC_PATH) not in sys.path:
-    sys.path.append(str(_SRC_PATH))
 
 
 def _api() -> tuple[object, object]:

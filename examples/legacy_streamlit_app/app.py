@@ -1,13 +1,8 @@
 """Main Streamlit app for trend analysis."""
 
-import sys
 import textwrap
-from pathlib import Path
 
 import streamlit as st
-
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
 st.set_page_config(
     page_title="Trend Analysis App",

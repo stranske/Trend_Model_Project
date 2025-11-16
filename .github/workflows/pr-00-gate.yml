@@ -20,7 +20,7 @@ jobs:
       doc_only: ${{ steps.diff.outputs.doc_only }}
       run_core: ${{ steps.diff.outputs.run_core }}
       reason: ${{ steps.diff.outputs.reason }}
-      docker_changed: ${{ steps.docker_paths.outputs.docker == 'true' || steps.diff.outputs.docker_changed == 'true' }}
+      docker_changed: ${{ steps.diff.outputs.docker_changed == 'true' }}
       lint: ${{ steps.python_ci_toggles.outputs.lint || 'true' }}
       format_check: ${{ steps.python_ci_toggles.outputs.format_check || 'true' }}
       typecheck: ${{ steps.python_ci_toggles.outputs.typecheck || 'true' }}
@@ -43,104 +43,20 @@ jobs:
             const { detectChanges } = require('./.github/scripts/detect-changes.js');
             await detectChanges({ github, context, core });
 
-      - name: Detect Docker-related changes via paths filter
-        if: github.event_name == 'pull_request'
-        id: docker_paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ github.event.pull_request.base.sha }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          filters: |
-            docker:
-              - 'Dockerfile'
-              - 'Dockerfile.*'
-              - '**/[Dd]ockerfile'
-              - '**/[Dd]ockerfile.*'
-              - '.dockerignore'
-              - '**/.dockerignore'
-              - 'docker/**'
-              - '**/docker/**'
-              - '.docker/**'
-              - '**/.docker/**'
-
-      - name: Detect Python CI changes via paths filter
-        if: github.event_name == 'pull_request'
-        id: python_paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: ${{ github.event.pull_request.base.sha }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          filters: |
-            lint:
-              - '**/*.py'
-              - '**/*.pyi'
-              - 'pyproject.toml'
-              - 'setup.cfg'
-              - 'setup.py'
-              - '.ruff.toml'
-              - 'ruff.toml'
-              - 'requirements.lock'
-              - 'requirements/**/*.txt'
-            format_check:
-              - '**/*.py'
-              - 'pyproject.toml'
-              - '.pre-commit-config.yaml'
-              - '.ruff.toml'
-              - 'ruff.toml'
-            typecheck:
-              - '**/*.py'
-              - '**/*.pyi'
-              - 'pyproject.toml'
-              - 'mypy.ini'
-              - 'mypy*.ini'
-              - 'mypy.toml'
-              - 'mypyconfig.toml'
-            coverage:
-              - '**/*.py'
-              - 'tests/**'
-              - 'pyproject.toml'
-              - 'requirements.lock'
-              - 'requirements/**/*.txt'
-              - 'config/coverage-baseline.json'
-            slow:
-              - 'tests/slow/**'
-              - 'tests/**/*slow*/**'
-              - 'tests/integration/**'
-              - 'tests/**/integration/**'
-
       - name: Compute Python CI toggles
         id: python_ci_toggles
         run: |
           python - <<'PY'
           import os
 
-          def as_bool(value: str | None) -> bool:
-              if value is None:
-                  return False
-              return value.strip().lower() == 'true'
+          RUN_CORE = (os.environ.get('RUN_CORE') or 'false').strip().lower() == 'true'
 
-          run_core = as_bool(os.environ.get('RUN_CORE'))
-          lint_changed = as_bool(os.environ.get('LINT_CHANGED'))
-          format_changed = as_bool(os.environ.get('FORMAT_CHANGED'))
-          type_changed = as_bool(os.environ.get('TYPE_CHANGED'))
-          coverage_changed = as_bool(os.environ.get('COVERAGE_CHANGED'))
-          slow_changed = as_bool(os.environ.get('SLOW_CHANGED'))
-
-          lint = format_check = typecheck = coverage = cache = run_core
-          pytest_markers = 'not quarantine and not slow'
-
-          if run_core:
-              lint = lint_changed or format_changed or type_changed or coverage_changed
-              format_check = format_changed or lint_changed
-              typecheck = type_changed or lint_changed
-              coverage = coverage_changed or lint_changed or type_changed
-              cache = True
-              if slow_changed:
-                  pytest_markers = 'not quarantine'
+          if RUN_CORE:
+              lint = format_check = typecheck = coverage = cache = True
+              pytest_markers = 'not quarantine and not slow'
           else:
               lint = format_check = typecheck = coverage = cache = False
+              pytest_markers = 'not quarantine and not slow'
 
           def to_str(flag: bool) -> str:
               return 'true' if flag else 'false'
@@ -162,11 +78,6 @@ jobs:
           PY
         env:
           RUN_CORE: ${{ steps.diff.outputs.run_core || 'false' }}
-          LINT_CHANGED: ${{ steps.python_paths.outputs.lint || 'false' }}
-          FORMAT_CHANGED: ${{ steps.python_paths.outputs.format_check || 'false' }}
-          TYPE_CHANGED: ${{ steps.python_paths.outputs.typecheck || 'false' }}
-          COVERAGE_CHANGED: ${{ steps.python_paths.outputs.coverage || 'false' }}
-          SLOW_CHANGED: ${{ steps.python_paths.outputs.slow || 'false' }}
 
   python-ci:
     name: python ci
