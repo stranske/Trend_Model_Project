@@ -1,7 +1,0 @@
-{"ts":1758166004.6085749,"run_id":"debugsteps","step":"init","level":"INFO","msg":"logger_initialised","extra":{}}
-{"ts":1758166004.6089284,"run_id":"api_run","step":"api_start","level":"INFO","msg":"run_simulation invoked","extra":{}}
-{"ts":1758166004.609086,"run_id":"api_run","step":"analysis_start","level":"INFO","msg":"_run_analysis dispatch","extra":{}}
-{"ts":1758166005.0138156,"run_id":"api_run","step":"metrics_build","level":"INFO","msg":"Building metrics dataframe","extra":{}}
-{"ts":1758166005.015034,"run_id":"api_run","step":"selection","level":"INFO","msg":"Funds selected","extra":{"count":3}}
-{"ts":1758166005.0152214,"run_id":"api_run","step":"benchmarks","level":"INFO","msg":"Benchmark IR computed","extra":{"n":1}}
-{"ts":1758166005.0154119,"run_id":"api_run","step":"api_end","level":"INFO","msg":"run_simulation complete","extra":{"fallback":false}}

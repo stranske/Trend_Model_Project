@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""
-Integration example demonstrating robust weighting methods.
+"""Integration example demonstrating robust weighting methods."""
 
-This script shows how the new robust weighting engines handle pathological
-covariance matrices and automatically switch to safe modes when needed.
-"""
+from __future__ import annotations
 
 import logging
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# Configure logging to see robustness decisions
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+try:
+    from trend_analysis.logging_setup import setup_logging
+except ModuleNotFoundError:  # pragma: no cover - fallback for demo script usage
+    _SRC_PATH = Path(__file__).resolve().parent / "src"
+    if str(_SRC_PATH) not in sys.path:
+        sys.path.insert(0, str(_SRC_PATH))
+    from trend_analysis.logging_setup import setup_logging
 
 
 def create_test_scenarios():
@@ -64,9 +68,6 @@ def demonstrate_robust_weighting():
 
     # Import after setting up logging to capture initialization messages
     try:
-        import sys
-
-        sys.path.insert(0, "src")
         from trend_analysis.plugins import create_weight_engine
     except ImportError as e:
         print(f"Cannot import trend_analysis modules: {e}")
@@ -160,7 +161,12 @@ def demonstrate_config_usage():
     print("4. Log all robustness decisions for transparency")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    log_path = setup_logging()
+    logging.getLogger(__name__).info(
+        "Robust weighting demo logs stored at %s", log_path
+    )
+
     demonstrate_robust_weighting()
     demonstrate_config_usage()
 
@@ -174,3 +180,7 @@ if __name__ == "__main__":
     print("• Comprehensive logging of all robustness decisions")
     print("• Backwards compatibility with existing configurations")
     print("• Enhanced numerical stability for pathological inputs")
+
+
+if __name__ == "__main__":
+    main()

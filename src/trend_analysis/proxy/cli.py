@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 
+from ..logging_setup import setup_logging
 from .server import run_proxy
 
 
@@ -44,11 +45,16 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Configure logging
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    announce_logs = __name__ == "__main__"
+    log_path = setup_logging(
+        level=args.log_level,
+        app_name="proxy",
+        enable_console=announce_logs,
     )
+    logger = logging.getLogger(__name__)
+    logger.info("Proxy CLI logs stored at %s", log_path)
+    if announce_logs:
+        print(f"Proxy CLI logs stored at {log_path}", file=sys.stderr)
 
     try:
         run_proxy(

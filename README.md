@@ -40,6 +40,22 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Run logs
+
+All user-facing scripts now call ``trend_analysis.logging_setup.setup_logging`` to
+initialize logging in a single place. Each invocation writes a timestamped log
+such as ``perf/runs/20250205-131500/app.log`` and mirrors the same output to the
+console. The ``perf/runs`` directory is git-ignored, so ad-hoc investigations no
+longer pollute ``git status``.
+
+Need to inspect a run later?  Point your favourite log viewer at the newest
+folder:
+
+```bash
+ls -1 perf/runs | tail -n 1
+tail -f perf/runs/<timestamp>/app.log
+```
+
 ---
 
 ==========
