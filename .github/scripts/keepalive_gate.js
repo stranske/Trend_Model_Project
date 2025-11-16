@@ -8,6 +8,7 @@ const ACTIVATED_LABEL = 'agents:activated';
 const DEFAULT_RUN_CAP = 2;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
+const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 
@@ -116,6 +117,38 @@ function extractLabelNames(labels) {
       return '';
     })
     .filter(Boolean);
+}
+
+function normaliseLogin(login) {
+  return String(login || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\[bot\]$/i, '');
+}
+
+function isAutomationStatusComment(comment) {
+  if (!comment) {
+    return false;
+  }
+  const body = String(comment.body || '').replace(/\r\n/g, '\n').trim();
+  if (!body) {
+    return false;
+  }
+  const login = normaliseLogin(comment?.user?.login);
+  const lower = body.toLowerCase();
+  if (lower.includes('<!-- autofix-loop:')) {
+    return true;
+  }
+  if (lower.startsWith('autofix attempt')) {
+    return true;
+  }
+  if (AUTOMATION_LOGINS.has(login)) {
+    const looksLikeInstruction = lower.startsWith('@codex') || lower.includes('<!-- codex-keepalive-marker');
+    if (!looksLikeInstruction) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function extractAgentAliases(labels) {
@@ -721,6 +754,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha: inputHeadSha,
     requireHumanActivation = false,
     allowPendingGate = false,
+    allowPendingGateForAutomation = true,
     requireGateSuccess = false,
     comments,
     pullRequest,
@@ -840,6 +874,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const gateSucceeded = gateConcluded && gateStatus.success === true;
 
   const runCap = parseRunCap(labels);
+  const automationCommentDetected = Array.isArray(comments)
+    ? comments.some((comment) => isAutomationStatusComment(comment))
+    : false;
+  const allowPendingGateResolved = allowPendingGate || (automationCommentDetected && allowPendingGateForAutomation);
   const { active: activeRuns, breakdown: activeBreakdown, error: runError } = await countActive({
     github,
     owner,
@@ -872,7 +910,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
   if (ok) {
     if (!gateFound) {
-      if (allowPendingGate) {
+      if (allowPendingGateResolved) {
         pendingGate = true;
         if (reason === 'ok') {
           reason = 'gate-pending';
@@ -882,7 +920,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
         reason = 'gate-run-missing';
       }
     } else if (!gateConcluded) {
-      if (allowPendingGate) {
+      if (allowPendingGateResolved) {
         pendingGate = true;
         if (reason === 'ok') {
           reason = 'gate-pending';
@@ -900,6 +938,12 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   if (ok && !underRunCap) {
     ok = false;
     reason = 'run-cap-reached';
+  }
+
+  if (!ok && core?.info) {
+    const gateSummary = `Gate status: found=${gateFound} concluded=${gateConcluded} success=${gateSucceeded}`;
+    const capSummary = `Run cap snapshot: active=${activeRuns} cap=${runCap}`;
+    core.info(`${gateSummary}; ${capSummary}; reason=${reason}`);
   }
 
   return {

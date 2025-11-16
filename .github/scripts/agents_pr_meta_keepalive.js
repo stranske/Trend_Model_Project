@@ -235,7 +235,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return false;
   };
 
-  if (!roundMatch && !hasKeepaliveMarker && isAutomationStatusComment()) {
+  if (!hasKeepaliveMarker && isAutomationStatusComment()) {
     outputs.reason = 'automation-comment';
     core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
     return finalise(false);
