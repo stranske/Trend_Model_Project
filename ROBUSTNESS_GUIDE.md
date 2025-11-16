@@ -194,5 +194,5 @@ The robust engines integrate seamlessly with the existing portfolio construction
 
 For issues or questions:
 1. Check test cases in `tests/test_robust_weighting.py` for examples
-2. Run `demo_robust_weighting.py` for demonstration
+2. Run `python examples/demo_robust_weighting.py` for a full demonstration
 3. Review logging output for robustness decisions

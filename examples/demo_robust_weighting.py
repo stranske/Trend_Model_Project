@@ -4,19 +4,11 @@
 from __future__ import annotations
 
 import logging
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-try:
-    from trend_analysis.logging_setup import setup_logging
-except ModuleNotFoundError:  # pragma: no cover - fallback for demo script usage
-    _SRC_PATH = Path(__file__).resolve().parent / "src"
-    if str(_SRC_PATH) not in sys.path:
-        sys.path.insert(0, str(_SRC_PATH))
-    from trend_analysis.logging_setup import setup_logging
+from trend_analysis.logging_setup import setup_logging
 
 
 def create_test_scenarios():
