@@ -34,8 +34,8 @@ from .risk import (
     realised_volatility,
 )
 from .signals import TrendSpec, compute_trend_signals
-from .timefreq import MONTHLY_DATE_FREQ
 from .time_utils import align_calendar
+from .timefreq import MONTHLY_DATE_FREQ
 from .util.frequency import FrequencySummary, detect_frequency
 from .util.missing import MissingPolicyResult, apply_missing_policy
 
