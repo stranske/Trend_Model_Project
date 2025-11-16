@@ -15,6 +15,7 @@ from streamlit_app.components.upload_guard import (
     guard_and_buffer_upload,
     hash_path,
 )
+from trend.input_validation import InputValidationError
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import SchemaMeta, infer_benchmarks
 
@@ -80,6 +81,9 @@ def _handle_failure(error: Exception) -> None:
     if isinstance(error, UploadViolation):
         message = str(error)
     elif isinstance(error, MarketDataValidationError):
+        message = error.user_message
+        issues = list(error.issues)
+    elif isinstance(error, InputValidationError):
         message = error.user_message
         issues = list(error.issues)
     else:

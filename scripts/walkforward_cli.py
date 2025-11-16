@@ -12,7 +12,19 @@ import sys
 
 import pandas as pd
 
+from trend.input_validation import (
+    InputSchema,
+    InputValidationError,
+    validate_input,
+)
 from trend_analysis.engine.walkforward import walk_forward
+
+
+INPUT_SCHEMA = InputSchema(
+    date_column="Date",
+    required_columns=("Date",),
+    non_nullable=("Date",),
+)
 
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -84,6 +96,16 @@ def main(argv: list[str] | None = None) -> int:
             if c.lower().startswith("date"):
                 df = df.rename(columns={c: "Date"})
                 break
+    try:
+        df = validate_input(
+            df,
+            INPUT_SCHEMA,
+            set_index=False,
+            drop_date_column=False,
+        )
+    except InputValidationError as exc:
+        print(f"Input validation failed: {exc.user_message}", file=sys.stderr)
+        return 2
     cols = [c for c in df.columns if c != "Date"]
     if not cols:
         print("No metric columns found.", file=sys.stderr)
