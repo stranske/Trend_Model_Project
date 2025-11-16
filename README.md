@@ -25,6 +25,7 @@ The `trend` command is the unified launcher for day-to-day workflows:
 
 - `trend run` executes the single-period pipeline
 - `trend report` produces summary artefacts
+- `trend quick-report` turns existing run artefacts into a compact HTML + heatmap bundle
 - `trend stress` replays canned stress windows
 - `trend app` starts the Streamlit interface
 
