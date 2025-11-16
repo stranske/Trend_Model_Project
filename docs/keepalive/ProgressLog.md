@@ -32,4 +32,11 @@ Add test coverage for any program functionality with test coverage under 95% or 
 3. Break down `run_multi_demo.py` into testable helper functions (or leverage dependency injection) so coverage can reach 95% without executing the full demo pipeline during tests.
 4. After each batch of tests, re-run the soft coverage command above, update this progress log, and tick the corresponding checklist items.
 
-_Last updated: 2025-11-14 18:46 UTC._
+_Last updated: 2025-11-16 21:20 UTC._
+
+## 2025-11-16 — Run-Cap Regression (PR #3656)
+
+- **Symptom:** Keepalive posted five instruction rounds within 61 seconds on PR #3656 despite the documented “max two concurrent runs” throttle. Guard summaries showed `cap=2 active=0` even while the orchestrator was still cycling, so the No-Noise policy was violated.
+- **Root cause:** `.github/scripts/keepalive_gate.js#countActive` only considered runs whose status was `queued` or `in_progress`. Completed runs were treated as inactive immediately, so the 5-minute cooling window defined in `docs/keepalive/GoalsAndPlumbing.md` Section 3 never engaged.
+- **Fix:** Re-introduce the documented five-minute lookback by counting `completed` orchestrator runs whose `updated_at` timestamp is within 300 seconds. These runs populate a new `*_recent` breakdown bucket so operators can see when the cap is held due to recently-finished work.
+- **Next validation:** Once merged, replay the PR-meta workflow on a test PR, trigger one keepalive round, and confirm that the next scheduled sweep logs `CAP: ok=false reason=run-cap-reached cap=2 active=2` until five minutes elapse.
