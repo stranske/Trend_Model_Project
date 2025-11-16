@@ -20,6 +20,7 @@ from trend_analysis.multi_period import run as run_mp
 from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import ScorePropBayesian
+from trend_analysis.script_logging import setup_script_logging
 
 
 def _ensure_dir(path: str | Path) -> None:
@@ -27,6 +28,7 @@ def _ensure_dir(path: str | Path) -> None:
 
 
 def main(cfg_path: str = "config/long_backtest.yml") -> int:
+    setup_script_logging(app_name="real-model", module_file=__file__)
     cfg: ConfigProtocol = load(cfg_path)
     csv_path_obj = cfg.data.get("csv_path")
     if not isinstance(csv_path_obj, str):

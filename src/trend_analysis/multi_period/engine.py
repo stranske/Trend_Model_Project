@@ -558,6 +558,12 @@ def run(
 
     # Restore Date column for downstream consumers
     df = cleaned.reset_index()
+    preprocessing_cfg = getattr(cfg, "preprocessing", {}) or {}
+    df.attrs["calendar_settings"] = {
+        "frequency": data_settings.get("frequency"),
+        "timezone": data_settings.get("timezone", "UTC"),
+        "holiday_calendar": preprocessing_cfg.get("holiday_calendar"),
+    }
 
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":

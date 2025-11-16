@@ -33,6 +33,7 @@ import pandas as pd
 
 from trend_analysis.config import Config, load
 from trend_analysis.multi_period import run as run_mp
+from trend_analysis.script_logging import setup_script_logging
 
 
 @dataclass
@@ -57,6 +58,7 @@ def _z_scores(series: pd.Series) -> pd.Series:
 
 
 def main() -> int:
+    setup_script_logging(app_name="threshold-demo", module_file=__file__)
     # Load base demo config and tweak multi-period start for ~8 years OS
     cfg = load("config/demo.yml")
     cfg_dict = cfg.model_dump()

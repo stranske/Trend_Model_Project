@@ -8,6 +8,10 @@ import datetime
 import json
 import pathlib
 
+from trend_analysis.script_logging import setup_script_logging
+
+setup_script_logging(module_file=__file__, announce=False)
+
 root = pathlib.Path("ci/autofix")
 root.mkdir(parents=True, exist_ok=True)
 cls = {}

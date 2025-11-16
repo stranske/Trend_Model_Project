@@ -238,4 +238,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised via tests importing main
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     sys.exit(main())

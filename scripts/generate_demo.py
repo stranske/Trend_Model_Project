@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from trend_analysis.script_logging import setup_script_logging
 
 OUT_DIR = "demo"
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -37,6 +38,8 @@ def main() -> None:
         help="Skip writing the Excel copy",
     )
     args = parser.parse_args()
+
+    setup_script_logging(app_name="generate-demo", module_file=__file__)
 
     # Keep sentinel handling close to argument parsing so repeated invocations
     # behave predictably regardless of test ordering.

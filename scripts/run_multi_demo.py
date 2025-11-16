@@ -61,6 +61,7 @@ try:
         ScorePropBayesian,
         ScorePropSimple,
     )
+    from trend_analysis.script_logging import setup_script_logging
 except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing install
     raise SystemExit(
         "Trend Model packages are not installed. Run 'pip install -e .[app]' before executing the demo."
@@ -74,6 +75,8 @@ if FAST_SENTINEL.exists():  # pragma: no cover - short-circuit path
         pass
     (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
+
+setup_script_logging(app_name="multi-demo", module_file=__file__)
 
 # ---------------------------------------------------------------------------
 # Type aliases / structural protocols
@@ -180,6 +183,12 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:  # use concrete Config for mo
     df_xlsx = pd.read_excel(xlsx_path)
     if df_xlsx.shape != df.shape:
         raise SystemExit("Demo Excel shape mismatch")
+    preprocessing_cfg = getattr(cfg, "preprocessing", {}) or {}
+    df.attrs["calendar_settings"] = {
+        "frequency": cfg.data.get("frequency"),
+        "timezone": cfg.data.get("timezone", "UTC"),
+        "holiday_calendar": preprocessing_cfg.get("holiday_calendar"),
+    }
     return df
 
 

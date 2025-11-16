@@ -180,4 +180,7 @@ def debug_fund_selection():
 
 
 if __name__ == "__main__":
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     debug_fund_selection()

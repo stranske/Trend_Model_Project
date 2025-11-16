@@ -18,6 +18,7 @@ from trend.input_validation import (
     validate_input,
 )
 from trend_analysis.engine.walkforward import walk_forward
+from trend_analysis.script_logging import setup_script_logging
 
 
 INPUT_SCHEMA = InputSchema(
@@ -64,6 +65,7 @@ def _load_regimes(path: str, column: str | None) -> pd.Series:
 
 
 def main(argv: list[str] | None = None) -> int:
+    setup_script_logging(app_name="walkforward", module_file=__file__)
     p = argparse.ArgumentParser(description="Walk-forward aggregation")
     p.add_argument(
         "--csv", required=True, help="Input CSV with Date column and metrics"

@@ -37,6 +37,9 @@ def main(argv: List[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
+    from trend_analysis.script_logging import setup_script_logging
+
+    setup_script_logging(module_file=__file__)
     raise SystemExit(main())
 
 # The analytical plotting section below is retained for reference only and is

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -21,6 +22,7 @@ from trend_analysis.api import RunResult, run_simulation
 from trend_analysis.config import load as load_config
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
@@ -43,6 +45,28 @@ def _noop_maybe_log_step(
 _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
+logger = logging.getLogger(__name__)
+_LAST_PERF_LOG_PATH: Path | None = None
+
+
+def _init_perf_logger(app_name: str = "app") -> Path | None:
+    """Initialise central logging for CLI invocations.
+
+    Returns the file path when logging is enabled, otherwise ``None``.
+    """
+
+    disable = os.environ.get("TREND_DISABLE_PERF_LOGS", "").strip().lower()
+    if disable in {"1", "true", "yes"}:
+        return None
+    try:
+        log_path = setup_logging(app_name=app_name)
+    except Exception as exc:  # pragma: no cover - fail-safe path
+        logger.warning("Failed to initialise perf log handler: %s", exc)
+        return None
+    print(f"Run log: {log_path}")
+    global _LAST_PERF_LOG_PATH
+    _LAST_PERF_LOG_PATH = log_path
+    return log_path
 
 
 def _refresh_legacy_cli_module() -> ModuleType | None:
@@ -257,6 +281,7 @@ def _run_pipeline(
     bundle: Path | None,
 ) -> tuple[RunResult, str, Path | None]:
     _require_transaction_cost_controls(cfg)
+    _init_perf_logger()
     run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
     try:
         setattr(cfg, "run_id", run_id)
