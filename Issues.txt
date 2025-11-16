@@ -1,162 +1,4 @@
-1) Add data contract checks and execution-lag guardrail at pipeline entry
-Labels: agents, agent:codex, data, backend, enhancement, testing
-GUID: TMP-2025-11-16-DATA-CONTRACT
-
-Why:
-Avoid silent pipeline corruption when columns/dtypes drift or when the latest data lags the requested as-of date.
-
-Tasks:
-- Define a `validate_prices_frame(df)` that checks required columns, dtypes, sorted Date index, no dupes, and monotonic dates.
-- Add `enforce_required_columns(df, {"symbol": "string", "date": "datetime64[ns]", "close": "float64"})`.
-- Implement `assert_execution_lag(df, as_of, max_lag_days)` to raise if `as_of - df.index.max() > max_lag_days`.
-- Wire these checks at the first ingest point before any signal/portfolio code runs.
-- Add unit tests for missing column, wrong dtype, unsorted index, duplicate dates, and lag breach.
-
-Acceptance criteria:
-- Running tests shows failures for malformed frames and passes for well-formed frames.
-- Pipeline aborts with a clear error if as-of exceeds `max_lag_days`.
-- No existing valid runs regress.
-
-Implementation notes:
-- Keep pure pandas; no new deps required here.
-- Place validators in a new small module (e.g., `validation.py`) and import at pipeline entry.
-- Use informative `ValueError` messages that cite the offending columns/dtypes.
-
-------------------------------------------------------------
-
-2) Gate portfolio universe by as-of membership (“UniverseGater”)
-Labels: agents, agent:codex, data, engine, enhancement, testing
-GUID: TMP-2025-11-16-UNIVERSE-GATER
-
-Why:
-Prevent look-ahead bias by ensuring constituents are eligible only if they’re members as-of the rebalance date.
-
-Tasks:
-- Create a `gate_universe(prices, membership, as_of)` that inner-joins on [date, symbol] and filters non-members.
-- Support both daily and rebalance-date gating (boolean `rebalance_only`).
-- Add tests with a tiny fixture where a symbol enters/exits and confirm holdings follow membership.
-
-Acceptance criteria:
-- For any rebalance date, symbols not in membership are excluded from positions.
-- Tests prove correct behavior for enter/exit and for `rebalance_only=True/False`.
-
-Implementation notes:
-- Accept membership from a DataFrame or CSV path; do not tie to a single I/O path.
-- Ensure the function is deterministic given inputs.
-
-------------------------------------------------------------
-
-3) Centralize rolling window math and remove accidental look-ahead
-Labels: agents, agent:codex, engine, backend, enhancement, testing
-GUID: TMP-2025-11-16-ROLLING-NOLOOKAHEAD
-
-Why:
-Scattered `.shift` and rolling logic is error-prone. One canonical helper avoids future-leak bugs.
-
-Tasks:
-- Implement `rolling_shifted(series, window, agg, min_periods=None)` which applies `series.shift(1)` before rolling.
-- Support aggregations: mean, std, sum, max, min; add a hook to pass a callable.
-- Replace ad-hoc rolling code with the helper across signals.
-- Add tests verifying that today’s value never uses same-day input.
-
-Acceptance criteria:
-- All signal calculations that rely on history call the helper.
-- Tests show identical results to the previous correct implementations and no look-ahead.
-
-Implementation notes:
-- Use vectorized pandas operations; keep it dependency-free.
-
-------------------------------------------------------------
-
-4) Canonical rebalance calendar utility
-Labels: agents, agent:codex, engine, backend, enhancement, testing
-GUID: TMP-2025-11-16-REBALANCE-CALENDAR
-
-Why:
-Rebalance timing inconsistencies create off-by-one fills and inconsistent comparison runs.
-
-Tasks:
-- Implement `get_rebalance_dates(prices.index, freq)` supporting month-end, week, and custom date lists.
-- Ensure rebalance dates align to trading days in `prices.index` and skip missing dates.
-- Provide `apply_rebalance_schedule(positions, dates)` helper.
-- Add tests for month-end and weekly schedules with holidays/gaps.
-
-Acceptance criteria:
-- Any run using the same inputs and `freq` picks identical rebalance dates.
-- Positions only change on specified dates.
-
-Implementation notes:
-- Use pandas offsets (`MonthEnd`, `Week`) then intersect with the index.
-
-------------------------------------------------------------
-
-5) Simple, configurable cost model (commissions + slippage)
-Labels: agents, agent:codex, engine, enhancement, config, testing
-GUID: TMP-2025-11-16-COST-MODEL
-
-Why:
-Zero-cost backtests exaggerate results. A small, explicit cost model increases realism.
-
-Tasks:
-- Add `CostModel(bps_per_trade, slippage_bps)` applied to turnover events.
-- Integrate cost deduction at order fill or end-of-day position transition.
-- Surface parameters via config (YAML/JSON) with sensible defaults.
-- Add tests: zero-cost equals baseline; non-zero costs reduce returns by expected amount on a toy dataset.
-
-Acceptance criteria:
-- Cost settings are visible in outputs and reproducible.
-- Turning costs on reproduces analytically expected drawdown in the test case.
-
-Implementation notes:
-- Keep it linear; no fancy market impact.
-- Emit turnover and cost totals into the final results dict.
-
-------------------------------------------------------------
-
-6) Consolidate data I/O at the edge and keep core pure
-Labels: agents, agent:codex, backend, data, enhancement
-GUID: TMP-2025-11-16-IO-EDGE
-
-Why:
-Interleaving file reads with transforms makes testing and reuse harder.
-
-Tasks:
-- Introduce `load_prices`, `load_membership`, and `load_benchmarks` functions that return DataFrames with validated schemas.
-- Refactor the pipeline so downstream steps accept DataFrames, not file paths.
-- Add a single orchestration function that wires I/O to compute steps.
-
-Acceptance criteria:
-- Core compute functions have no file I/O side effects.
-- Swapping in-memory fixtures for CSVs in tests is trivial.
-
-Implementation notes:
-- Keep paths and options in the config; orchestration reads config once.
-
-------------------------------------------------------------
-
-7) Streamlit upload preflight: schema, date parsing, shape limits
-Labels: agents, agent:codex, docs, enhancement, data
-GUID: TMP-2025-11-16-STREAMLIT-PREFLIGHT
-
-Why:
-Bad uploads produce cryptic errors. Quick checks and friendly messages save time.
-
-Tasks:
-- Add a `validate_uploaded_csv(file, required_columns, max_rows)` for Streamlit.
-- Validate date parse, required columns, duplicate dates, and row cap with clear user errors.
-- Show a short “what this file should look like” sample on failure.
-- Log a concise server-side error with traceback for debugging.
-
-Acceptance criteria:
-- Invalid uploads show an actionable message and do not crash the app.
-- Valid uploads proceed without additional prompts.
-
-Implementation notes:
-- Keep Streamlit error messages succinct; use `st.error` with bullet points.
-
-------------------------------------------------------------
-
-8) Config schema validation with minimal friction
+1) Config schema validation with minimal friction
 Labels: agents, agent:codex, config, enhancement, testing
 GUID: TMP-2025-11-16-CONFIG-SCHEMA
 
@@ -178,7 +20,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-9) Positions contract: single canonical structure between signals and portfolio
+2) Positions contract: single canonical structure between signals and portfolio
 Labels: agents, agent:codex, engine, enhancement, testing
 GUID: TMP-2025-11-16-POSITIONS-CONTRACT
 
@@ -199,7 +41,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-10) Run manifest + quick HTML report for reproducibility
+3) Run manifest + quick HTML report for reproducibility
 Labels: agents, agent:codex, exports, enhancement, docs
 GUID: TMP-2025-11-16-RUN-MANIFEST
 
@@ -220,7 +62,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-11) Critical invariant tests: data, universe, rebalance, no-lookahead, costs
+4) Critical invariant tests: data, universe, rebalance, no-lookahead, costs
 Labels: agents, agent:codex, testing, engine, data
 GUID: TMP-2025-11-16-INVARIANT-TESTS
 
@@ -242,7 +84,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-12) Performance quick win: avoid duplicate groupby/apply and cache intermediate features
+5) Performance quick win: avoid duplicate groupby/apply and cache intermediate features
 Labels: agents, agent:codex, engine, enhancement
 GUID: TMP-2025-11-16-PERF-CACHE
 
@@ -263,7 +105,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-13) Packaging hygiene: exclude `Old/` and `retired/` from imports and builds
+6) Packaging hygiene: exclude `Old/` and `retired/` from imports and builds
 Labels: agents, agent:codex, backend, config
 GUID: TMP-2025-11-16-PKG-EXCLUDES
 
@@ -283,7 +125,7 @@ Implementation notes:
 
 ------------------------------------------------------------
 
-14) Minimal CI: install, import, and run invariant tests
+7) Minimal CI: install, import, and run invariant tests
 Labels: agents, agent:codex, ci, devops, testing
 GUID: TMP-2025-11-16-CI-SMOKE
 
