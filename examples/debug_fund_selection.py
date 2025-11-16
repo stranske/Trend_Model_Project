@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""
-Debug the fund selection process - why are only Mgr_01-08 being considered?
-"""
+"""Debug the fund selection process - why are only Mgr_01-08 considered?"""
+
+from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,6 +11,9 @@ import pandas as pd
 from trend_analysis.config import load
 from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
 from trend_analysis.data import identify_risk_free_fund, load_csv
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CFG = REPO_ROOT / "config" / "portfolio_test.yml"
 
 
 def debug_fund_selection():
@@ -19,7 +24,7 @@ def debug_fund_selection():
     print("=" * 70)
 
     # Load data
-    cfg = load("config/portfolio_test.yml")
+    cfg = load(str(DEFAULT_CFG))
     df = load_csv(cfg.data["csv_path"])
 
     print(f"Original data shape: {df.shape}")

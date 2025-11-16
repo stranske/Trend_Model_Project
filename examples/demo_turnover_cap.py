@@ -15,9 +15,13 @@ Removal Timeline:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 import warnings
 from typing import List
+
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "demo.yml"
 
 
 def _warn() -> None:
@@ -37,7 +41,7 @@ def main(argv: List[str] | None = None) -> int:
         return 1
     # Delegate to generic run; specialized turnover demos should migrate
     # into documented examples or `trend stress` scenarios later.
-    return trend_main(argv or ["run", "--config", "config/demo.yml"])  # default
+    return trend_main(argv or ["run", "--config", str(CONFIG_PATH)])  # default
 
 
 if __name__ == "__main__":  # pragma: no cover
