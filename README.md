@@ -80,7 +80,7 @@ tail -f perf/runs/<timestamp>/app.log
 ```
 
 Ad-hoc helpers that live under `scripts/` now share a tiny utility
-(`scripts/logging_utils.setup_script_logging`) so every run initialises the same
+(`trend_analysis.script_logging.setup_script_logging`) so every run initialises the same
 perf logger before doing real work.  Custom scripts can reuse the helper to get
 consistent logs without re-implementing any wiring.
 
