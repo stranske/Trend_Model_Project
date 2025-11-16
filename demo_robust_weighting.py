@@ -10,11 +10,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-_SRC_PATH = Path(__file__).resolve().parent / "src"
-if str(_SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(_SRC_PATH))
-
-from trend_analysis.logging_setup import setup_logging
+try:
+    from trend_analysis.logging_setup import setup_logging
+except ModuleNotFoundError:  # pragma: no cover - fallback for demo script usage
+    _SRC_PATH = Path(__file__).resolve().parent / "src"
+    if str(_SRC_PATH) not in sys.path:
+        sys.path.insert(0, str(_SRC_PATH))
+    from trend_analysis.logging_setup import setup_logging
 
 
 def create_test_scenarios():
@@ -161,7 +163,9 @@ def demonstrate_config_usage():
 
 def main() -> None:
     log_path = setup_logging()
-    logging.getLogger(__name__).info("Robust weighting demo logs stored at %s", log_path)
+    logging.getLogger(__name__).info(
+        "Robust weighting demo logs stored at %s", log_path
+    )
 
     demonstrate_robust_weighting()
     demonstrate_config_usage()
