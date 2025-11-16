@@ -28,7 +28,6 @@ from .signal_presets import (
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
-from .logging_setup import setup_logging
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
