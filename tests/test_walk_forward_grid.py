@@ -44,12 +44,14 @@ def test_evaluate_parameter_grid_produces_fold_metrics() -> None:
     folds, summary = evaluate_parameter_grid(returns, windows, strategy)
 
     assert len(folds) == 2
-    assert set(summary.columns).issuperset({
-        "param_lookback",
-        "param_band",
-        "mean_cagr",
-        "folds",
-    })
+    assert set(summary.columns).issuperset(
+        {
+            "param_lookback",
+            "param_band",
+            "mean_cagr",
+            "folds",
+        }
+    )
     assert summary["folds"].iloc[0] == 2
     assert summary["mean_cagr"].iloc[0] == summary["mean_cagr"].iloc[0]
 

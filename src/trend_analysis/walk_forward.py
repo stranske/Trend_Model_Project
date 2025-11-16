@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
 import itertools
 import json
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -102,7 +102,9 @@ def load_settings(path: Path | str) -> WalkForwardSettings:
         else:
             raise ValueError("strategy.grid values must be sequences")
         if not seq:
-            raise ValueError(f"strategy.grid entry '{key}' must contain at least one value")
+            raise ValueError(
+                f"strategy.grid entry '{key}' must contain at least one value"
+            )
         prepared_grid[key] = seq
 
     run_name = str(run_section.get("name", "wf"))
@@ -164,7 +166,9 @@ def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     return approx
 
 
-def _window_splits(index: pd.DatetimeIndex, cfg: WindowConfig) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
+def _window_splits(
+    index: pd.DatetimeIndex, cfg: WindowConfig
+) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
     splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]] = []
     start = 0
     total = len(index)
@@ -343,9 +347,11 @@ def _maybe_render_heatmap(summary: pd.DataFrame, output: Path) -> None:
     except ImportError:  # pragma: no cover - optional dependency
         return
 
-    pivot = summary.pivot(
-        index=varying[0], columns=varying[1], values="mean_cagr"
-    ).sort_index(axis=0).sort_index(axis=1)
+    pivot = (
+        summary.pivot(index=varying[0], columns=varying[1], values="mean_cagr")
+        .sort_index(axis=0)
+        .sort_index(axis=1)
+    )
     fig, ax = plt.subplots(figsize=(6, 4))
     im = ax.imshow(pivot.values, aspect="auto", origin="lower", cmap="viridis")
     ax.set_xticks(range(len(pivot.columns)))
@@ -384,7 +390,9 @@ def persist_artifacts(
     _maybe_render_heatmap(summary, heatmap_path)
 
     target_cfg = run_dir / "config_used.yml"
-    target_cfg.write_text(Path(config_path).read_text(encoding="utf-8"), encoding="utf-8")
+    target_cfg.write_text(
+        Path(config_path).read_text(encoding="utf-8"), encoding="utf-8"
+    )
     return run_dir
 
 
