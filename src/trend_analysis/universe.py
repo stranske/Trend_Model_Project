@@ -8,6 +8,7 @@ from typing import Mapping, MutableMapping, Sequence
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_datetime64_any_dtype
 
 
 @dataclass(frozen=True)
@@ -108,9 +109,124 @@ def apply_membership_windows(
     return masked
 
 
+def _normalise_price_frame(prices: pd.DataFrame) -> pd.DataFrame:
+    if not isinstance(prices, pd.DataFrame):
+        raise TypeError("prices must be a pandas DataFrame")
+    frame = prices.copy()
+    lookup = {str(col).strip().lower(): col for col in frame.columns}
+    try:
+        date_col = lookup["date"]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise ValueError("prices must contain a 'date' column") from exc
+    try:
+        symbol_col = lookup["symbol"]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise ValueError("prices must contain a 'symbol' column") from exc
+    rename = {}
+    if date_col != "date":
+        rename[date_col] = "date"
+    if symbol_col != "symbol":
+        rename[symbol_col] = "symbol"
+    if rename:
+        frame = frame.rename(columns=rename)
+    if not is_datetime64_any_dtype(frame["date"]):
+        frame["date"] = pd.to_datetime(frame["date"])
+    frame["symbol"] = frame["symbol"].astype(str)
+    return frame
+
+
+def _normalise_membership_frame(
+    membership: pd.DataFrame | str | Path,
+) -> pd.DataFrame:
+    if isinstance(membership, (str, Path)):
+        table = pd.read_csv(membership)
+    elif isinstance(membership, pd.DataFrame):
+        table = membership.copy()
+    else:  # pragma: no cover - defensive guard
+        raise TypeError("membership must be a DataFrame or path to a CSV file")
+    if table.empty:
+        return pd.DataFrame(columns=["symbol", "effective_date", "end_date"])
+    lookup = {str(col).strip().lower(): col for col in table.columns}
+    name_col = lookup.get("symbol") or lookup.get("fund")
+    if name_col is None:
+        raise ValueError("membership must include a 'symbol' or 'fund' column")
+    eff_col = lookup.get("effective_date")
+    if eff_col is None:
+        raise ValueError("membership must include an 'effective_date' column")
+    end_col = lookup.get("end_date")
+    rename = {name_col: "symbol", eff_col: "effective_date"}
+    if end_col:
+        rename[end_col] = "end_date"
+    table = table.rename(columns=rename)
+    if "end_date" not in table.columns:
+        table["end_date"] = pd.NaT
+    table["effective_date"] = pd.to_datetime(table["effective_date"])
+    table["end_date"] = pd.to_datetime(table["end_date"])
+    if table["effective_date"].isna().any():
+        raise ValueError("membership entries must include valid effective dates")
+    table["symbol"] = table["symbol"].astype(str)
+    return table[["symbol", "effective_date", "end_date"]]
+
+
+def gate_universe(
+    prices: pd.DataFrame,
+    membership: pd.DataFrame | str | Path,
+    as_of: pd.Timestamp | str,
+    *,
+    rebalance_only: bool = False,
+) -> pd.DataFrame:
+    """Filter ``prices`` so only active members remain as-of ``as_of``.
+
+    Parameters
+    ----------
+    prices:
+        Long-form price or return table containing ``date`` and ``symbol`` columns.
+    membership:
+        Either a DataFrame or a CSV path containing ``symbol``/``fund``,
+        ``effective_date`` and optional ``end_date`` columns.
+    as_of:
+        The rebalance date – rows beyond this timestamp are dropped to avoid
+        look-ahead bias.
+    rebalance_only:
+        When ``True`` the function only returns rows exactly matching ``as_of``.
+        Otherwise all rows up to and including ``as_of`` are kept.
+    """
+
+    frame = _normalise_price_frame(prices)
+    if frame.empty:
+        return frame.copy()
+    as_of_ts = pd.Timestamp(as_of)
+    if pd.isna(as_of_ts):
+        raise ValueError("as_of must be a valid timestamp")
+    membership_frame = _normalise_membership_frame(membership)
+    if membership_frame.empty:
+        return frame.iloc[0:0]
+    membership_frame = membership_frame[membership_frame["effective_date"] <= as_of_ts]
+    if membership_frame.empty:
+        return frame.iloc[0:0]
+    if rebalance_only:
+        window = frame[frame["date"] == as_of_ts]
+    else:
+        window = frame[frame["date"] <= as_of_ts]
+    if window.empty:
+        return window.copy()
+    merged = window.merge(membership_frame, on="symbol", how="inner")
+    if merged.empty:
+        return window.iloc[0:0]
+    mask = (merged["date"] >= merged["effective_date"]) & (
+        merged["end_date"].isna() | (merged["date"] <= merged["end_date"])
+    )
+    if not mask.any():
+        return window.iloc[0:0]
+    columns = [col for col in frame.columns if col in merged.columns]
+    gated = merged.loc[mask, columns]
+    return gated.sort_values(["date", "symbol"]).reset_index(drop=True)
+
+
 __all__ = [
     "MembershipWindow",
     "MembershipTable",
     "load_universe_membership",
     "apply_membership_windows",
+    "gate_universe",
 ]
