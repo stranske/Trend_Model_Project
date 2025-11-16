@@ -93,7 +93,10 @@ def test_multi_cli_detailed_output(monkeypatch, capsys, tmp_path):
     assert "summary-2" in captured.out
     assert "Combined Summary" in captured.out
     assert "summary-99" in captured.out
-    assert captured.err == ""
+    err_lines = captured.err.strip().splitlines()
+    assert err_lines, "expected logging output from setup_logging"
+    assert any("Logging initialised" in line for line in err_lines)
+    assert any("Log file initialised" in line for line in err_lines)
 
     assert formatted[0][0] == results[0]
     assert formatted[-1][0] == summary
