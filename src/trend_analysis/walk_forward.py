@@ -161,8 +161,6 @@ def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
         return 12
     if 3 <= approx <= 5:
         return 4
-    if approx <= 0:
-        return 1
     return approx
 
 
