@@ -59,17 +59,42 @@ COPY --from=builder /build /app
 # Create non-root user after sources exist so chown can include everything
 RUN useradd -m -u 1001 appuser
 
-# Verify the runtime environment matches the lock file exactly
+# Verify the runtime environment matches the lock file exactly (after normalizing
+# package name casing and hyphen/underscore differences).
 RUN set -eux && \
-    # Remove editable reference plus builder-only helpers (pip/setuptools/wheel/uv)
-    # before diffing so the comparison only covers runtime dependencies.
     pip freeze --exclude-editable | \
         grep -v '^trend-model @' | \
-        grep -vE '^(pip|setuptools|wheel|uv)==' | \
-        sort -f > /tmp/runtime-freeze.txt && \
-    awk '/^[[:alnum:]._+-]+==/ {print tolower($0)}' requirements.lock | \
-        sort -f > /tmp/lock.txt && \
-    diff -u /tmp/lock.txt /tmp/runtime-freeze.txt
+        grep -vE '^(pip|setuptools|wheel|uv)==' \
+        > /tmp/runtime-freeze.raw && \
+    cp requirements.lock /tmp/lock.raw && \
+    python - <<'PY'
+import difflib
+from pathlib import Path
+
+def canonicalize(path: str) -> list[str]:
+    rows: list[str] = []
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "==" not in line:
+            continue
+        name, version = line.split("==", 1)
+        norm_name = name.lower().replace("_", "-")
+        rows.append(f"{norm_name}=={version.strip()}\n")
+    return sorted(rows)
+
+lock_rows = canonicalize("/tmp/lock.raw")
+runtime_rows = canonicalize("/tmp/runtime-freeze.raw")
+diff = list(
+    difflib.unified_diff(
+        lock_rows,
+        runtime_rows,
+        fromfile="requirements.lock",
+        tofile="pip-freeze",
+    )
+)
+if diff:
+    raise SystemExit("".join(diff))
+PY
 
 # Ensure demo outputs can be written at runtime and drop permissions
 RUN mkdir -p demo && \
