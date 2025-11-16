@@ -1,14 +1,9 @@
 """Configure page for Streamlit trend analysis app."""
 
-import sys
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
 
 def initialize_config_state():

@@ -1,6 +1,5 @@
 """Simplified, lint-compliant Upload page (reset after corruption)."""
 
-import sys
 from pathlib import Path
 from typing import Any, Tuple
 
@@ -8,9 +7,6 @@ import streamlit as st
 
 
 def _lazy_imports() -> Tuple[Any, Any, Any]:
-    src = Path(__file__).resolve().parents[3] / "src"
-    if str(src) not in sys.path:
-        sys.path.append(str(src))
     from trend_analysis.io.validators import (  # type: ignore
         create_sample_template,
         load_and_validate_upload,

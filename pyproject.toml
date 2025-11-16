@@ -113,8 +113,8 @@ extend-exclude = [
   "*.ipynb",
   "scripts",
   "manager_attribution_analysis.py",
-  "portfolio_analysis_report.py",
-  "debug_fund_selection.py",
+  "examples/portfolio_analysis_report.py",
+  "examples/debug_fund_selection.py",
   "test_multi_period_selection.py",
     ".autofix-venv",
 ]
@@ -140,8 +140,8 @@ ignore_errors = true
 module = [
     "demo_malformed_date_fix",
     "demo_proxy",
-    "demo_robust_weighting",
-    "demo_turnover_cap",
+    "examples.demo_robust_weighting",
+    "examples.demo_turnover_cap",
 ]
 ignore_errors = true
 
@@ -164,8 +164,8 @@ module = [
     "scripts.run_real_model",
     "scripts.run_threshold_churn_demo",
     "scripts.benchmark_performance",
-    "integration_example",
-    "debug_fund_selection",
+    "examples.integration_example",
+    "examples.debug_fund_selection",
     "test_multi_period_selection",
 ]
 ignore_errors = true
