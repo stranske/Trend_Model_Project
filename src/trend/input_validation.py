@@ -24,8 +24,8 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
+from numpy.typing import NDArray
 
 __all__ = [
     "InputSchema",
