@@ -41,6 +41,7 @@ class DummyStreamlit:
         self.error_messages: list[str] = []
         self.warning_messages: list[str] = []
         self.captions: list[str] = []
+        self.code_blocks: list[tuple[str, str | None]] = []
         self.dataframes: list[pd.DataFrame] = []
         self.selectbox_map: dict[str, Any] = {}
 
@@ -83,6 +84,9 @@ class DummyStreamlit:
     def caption(self, text: str) -> None:
         self.captions.append(text)
 
+    def code(self, text: str, *, language: str | None = None) -> None:
+        self.code_blocks.append((str(text), language))
+
     def dataframe(self, df: pd.DataFrame) -> None:
         self.dataframes.append(df)
 
@@ -119,6 +123,7 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
         "error",
         "warning",
         "caption",
+        "code",
         "dataframe",
         "markdown",
         "cache_data",
@@ -156,6 +161,7 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
 
     monkeypatch.setattr(page, "guard_and_buffer_upload", fake_guard)
     monkeypatch.setattr(page, "hash_path", lambda _p: "samplehash")
+    monkeypatch.setattr(page, "validate_uploaded_csv", lambda *args, **kwargs: None)
 
     return page, stub
 
