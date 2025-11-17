@@ -5,6 +5,7 @@ import pytest
 
 from trend.reporting import generate_unified_report
 from trend_analysis.api import RunResult
+from trend_analysis.backtesting import CostModel
 from trend_analysis.signals import TrendSpec
 from trend_model.spec import BacktestSpec, SampleWindow, TrendRunSpec
 
@@ -107,6 +108,7 @@ def test_generate_unified_report_includes_spec_summary() -> None:
         random_n=5,
         rebalance_calendar="NYSE",
         transaction_cost_bps=10.0,
+        cost_model=CostModel(bps_per_trade=10.0, slippage_bps=0.25),
         max_turnover=None,
         rank={"inclusion_approach": "top_n", "n": 5, "score_by": "Sharpe"},
         selector={},

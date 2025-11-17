@@ -226,7 +226,9 @@ def test_cost_model_slippage_costs_returns() -> None:
     )
 
     assert taxed.transaction_costs.notna().any()
-    expected_costs = taxed.turnover * ((model.bps_per_trade + model.slippage_bps) / 10000.0)
+    expected_costs = taxed.turnover * (
+        (model.bps_per_trade + model.slippage_bps) / 10000.0
+    )
     expected_costs = expected_costs.reindex(taxed.transaction_costs.index).fillna(0.0)
     assert np.allclose(taxed.transaction_costs.values, expected_costs.values)
 
@@ -280,7 +282,11 @@ def test_transaction_costs_drive_expected_drawdown() -> None:
         expected_drawdown.round(12),
         check_names=False,
     )
-    assert taxed.drawdown.loc[first_active] == pytest.approx(expected_returns.loc[first_active])
+    assert taxed.drawdown.loc[first_active] == pytest.approx(
+        expected_returns.loc[first_active]
+    )
+
+
 def test_min_trade_threshold_clamps_micro_churn() -> None:
     returns = _synthetic_returns("2020-01-01", 80)
 
