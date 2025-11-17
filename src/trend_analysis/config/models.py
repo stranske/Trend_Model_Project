@@ -359,13 +359,9 @@ if _HAS_PYDANTIC:
                     try:
                         parsed = float(cost_cfg[key])
                     except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError(
-                            f"cost_model.{key} must be numeric"
-                        ) from exc
+                        raise ValueError(f"cost_model.{key} must be numeric") from exc
                     if parsed < 0:
-                        raise ValueError(
-                            f"cost_model.{key} must be >= 0"
-                        )
+                        raise ValueError(f"cost_model.{key} must be >= 0")
                     cost_cfg[key] = parsed
             return v
 
@@ -531,9 +527,7 @@ else:  # Fallback mode for tests without pydantic
                                 f"cost_model.{key} must be numeric"
                             ) from exc
                         if parsed < 0:
-                            raise ValueError(
-                                f"cost_model.{key} must be >= 0"
-                            )
+                            raise ValueError(f"cost_model.{key} must be >= 0")
                         cost_cfg[key] = parsed
 
         # Provide a similar API surface to pydantic for callers
