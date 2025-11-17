@@ -168,6 +168,41 @@ def _normalise_membership_frame(
     return table[["symbol", "effective_date", "end_date"]]
 
 
+def _expand_active_pairs(
+    membership: pd.DataFrame, dates: pd.Series | pd.Index
+) -> pd.DataFrame:
+    """Return the per-date membership pairs required for an inner join."""
+
+    if membership.empty:
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    unique_dates = pd.Index(pd.to_datetime(dates)).unique().sort_values()
+    if unique_dates.empty:
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    max_date = unique_dates[-1].to_datetime64()
+    date_values = unique_dates.to_numpy(dtype="datetime64[ns]")
+    effective = membership["effective_date"].to_numpy(dtype="datetime64[ns]")
+    end = membership["end_date"].to_numpy(dtype="datetime64[ns]")
+    end = np.where(np.isnat(end), max_date, np.minimum(end, max_date))
+
+    # Broadcast per-date activity mask: rows = dates, cols = membership windows.
+    active = (date_values[:, None] >= effective) & (date_values[:, None] <= end)
+    if not np.any(active):
+        return pd.DataFrame(columns=["date", "symbol"])
+
+    date_idx, membership_idx = np.nonzero(active)
+    pairs = pd.DataFrame(
+        {
+            "date": pd.to_datetime(date_values[date_idx]),
+            "symbol": membership["symbol"].to_numpy()[membership_idx],
+        }
+    )
+    return pairs.sort_values(["date", "symbol"], kind="mergesort").reset_index(
+        drop=True
+    )
+
+
 def gate_universe(
     prices: pd.DataFrame,
     membership: pd.DataFrame | str | Path,
@@ -210,16 +245,10 @@ def gate_universe(
         window = frame[frame["date"] <= as_of_ts]
     if window.empty:
         return window.copy()
-    merged = window.merge(membership_frame, on="symbol", how="inner")
-    if merged.empty:
+    active_pairs = _expand_active_pairs(membership_frame, window["date"])
+    if active_pairs.empty:
         return window.iloc[0:0]
-    mask = (merged["date"] >= merged["effective_date"]) & (
-        merged["end_date"].isna() | (merged["date"] <= merged["end_date"])
-    )
-    if not mask.any():
-        return window.iloc[0:0]
-    columns = [col for col in frame.columns if col in merged.columns]
-    gated = merged.loc[mask, columns]
+    gated = window.merge(active_pairs, on=["date", "symbol"], how="inner")
     return gated.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
