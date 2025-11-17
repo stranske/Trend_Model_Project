@@ -30,6 +30,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fallback =
+              context.payload?.repository?.default_branch
+              || 'phase-2-dev';
+
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -74,14 +78,29 @@ jobs:
               return;
             }
 
-            const response = await withApiRetry(
-              () => github.rest.repos.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              }),
-              { label: 'determine default branch' },
-            );
-            core.setOutput('name', response.data.default_branch || 'main');
+            const fallback = directDefault || payload.repository?.default_branch || 'phase-2-dev';
+
+            try {
+              const response = await withApiRetry(
+                () => github.rest.repos.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                }),
+                { label: 'determine default branch' },
+              );
+              core.setOutput('name', response.data.default_branch || fallback);
+            } catch (error) {
+              const detail = error?.message || '';
+              const status = error?.status || error?.response?.status;
+              const rateLimited = status === 429 || (status === 403 && /rate limit/i.test(detail));
+
+              if (rateLimited) {
+                core.warning(`Rate limit while resolving default branch; using fallback "${fallback}".`);
+                core.setOutput('name', fallback);
+              } else {
+                throw error;
+              }
+            }
 
       - name: Export default branch variable
         run: |
