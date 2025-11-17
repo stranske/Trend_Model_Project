@@ -10,6 +10,10 @@ import streamlit as st
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, data_cache
+from streamlit_app.components.csv_validation import (
+    CSVValidationError,
+    validate_uploaded_csv,
+)
 from streamlit_app.components.upload_guard import (
     UploadViolation,
     guard_and_buffer_upload,
@@ -18,6 +22,10 @@ from streamlit_app.components.upload_guard import (
 from trend.input_validation import InputValidationError
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_portfolio_app.data_schema import SchemaMeta, infer_benchmarks
+
+DATE_COLUMN = "Date"
+REQUIRED_UPLOAD_COLUMNS = (DATE_COLUMN,)
+MAX_UPLOAD_ROWS = 50_000
 
 
 def _dataset_summary(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any]) -> str:
@@ -77,9 +85,14 @@ def _store_dataset(
 def _handle_failure(error: Exception) -> None:
     issues: list[str] | None = None
     detail: str | None = None
+    sample_preview: str | None = None
     message = "We couldn't process the file. Please confirm the format and try again."
     if isinstance(error, UploadViolation):
         message = str(error)
+    elif isinstance(error, CSVValidationError):
+        message = error.user_message
+        issues = list(error.issues)
+        sample_preview = error.sample_preview
     elif isinstance(error, MarketDataValidationError):
         message = error.user_message
         issues = list(error.issues)
@@ -96,6 +109,9 @@ def _handle_failure(error: Exception) -> None:
             st.write(f"• {issue}")
     if detail and not issues:
         st.caption(detail)
+    if sample_preview:
+        st.caption("Example format:")
+        st.code(sample_preview, language="text")
 
 
 def _load_sample_dataset(label: str, path: Path) -> None:
@@ -132,6 +148,15 @@ def _load_uploaded_dataset(uploaded) -> None:
         return
 
     data = guarded.data
+    try:
+        validate_uploaded_csv(
+            data,
+            required_columns=REQUIRED_UPLOAD_COLUMNS,
+            max_rows=MAX_UPLOAD_ROWS,
+        )
+    except CSVValidationError as exc:
+        _handle_failure(exc)
+        return
     try:
         df, meta = data_cache.load_dataset_from_bytes(data, guarded.original_name)
     except Exception as exc:
