@@ -483,22 +483,34 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = Number(process.env.PR_NUMBER || '0');
+            const payloadBody = context.payload.pull_request?.body || '';
             
-            if (!prNumber) {
-              console.log('No PR number available, skipping keepalive checklist');
+            if (!prNumber && !payloadBody) {
+              console.log('No PR number or body available, skipping keepalive checklist');
               return;
             }
 
-            // Fetch PR body to extract scope/tasks/acceptance from auto-status-summary
-            const { owner, repo } = context.repo;
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-            const prBody = pr.data.body || '';
+            let prBody = payloadBody;
+            if (!prBody && prNumber) {
+              const { owner, repo } = context.repo;
+              try {
+                const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                prBody = pr.data.body || '';
+              } catch (error) {
+                const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+                if (hitRateLimit) {
+                  core.warning(`Rate limit while fetching PR #${prNumber}; appending fallback keepalive checklist.`);
+                } else {
+                  throw error;
+                }
+              }
+            }
 
             // Extract content from <!-- auto-status-summary:start --> to <!-- auto-status-summary:end -->
-            const summaryMatch = prBody.match(/<!-- auto-status-summary:start -->([\s\S]*?)<!-- auto-status-summary:end -->/);
+            const summaryMatch = (prBody || '').match(/<!-- auto-status-summary:start -->([\s\S]*?)<!-- auto-status-summary:end -->/);
             
             let keepaliveContent = '\n\n---\n### Keepalive checklist\n\n';
-            
+
             if (summaryMatch && summaryMatch[1]) {
               const summarySection = summaryMatch[1].trim();
               
@@ -642,15 +654,24 @@ jobs:
             const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
-            await github.rest.repos.createCommitStatus({
-              owner,
-              repo,
-              sha,
-              state,
-              context: 'Gate / gate',
-              description,
-              target_url: targetUrl,
-            });
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'Gate / gate',
+                description,
+                target_url: targetUrl,
+              });
+            } catch (error) {
+              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+              if (hitRateLimit) {
+                core.warning('Rate limit prevented Gate from updating the commit status; leaving existing status untouched.');
+              } else {
+                throw error;
+              }
+            }
 
       - name: Enforce Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
