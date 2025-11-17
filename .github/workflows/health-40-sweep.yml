@@ -25,6 +25,7 @@ jobs:
       - name: Detect workflow file changes
         id: filter
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: dorny/paths-filter@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -33,9 +34,25 @@ jobs:
               - '.github/workflows/**/*.yml'
       - name: Publish change decision
         id: result
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FILTER_OUTCOME: ${{ steps.filter.outcome }}
+          FILTER_WORKFLOWS: ${{ steps.filter.outputs.workflows }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ steps.filter.outputs.workflows }}" = "true" ]; then
+          set -euo pipefail
+          note() {
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              printf '%s\n' "$1" >>"$GITHUB_STEP_SUMMARY"
+            else
+              printf '%s\n' "$1"
+            fi
+          }
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            if [ "${FILTER_OUTCOME}" = "failure" ]; then
+              note 'WARNING: paths-filter failed (likely rate limited); defaulting workflows=true'
+              echo "workflows=true" >> "$GITHUB_OUTPUT"
+            elif [ "${FILTER_WORKFLOWS}" = "true" ]; then
               echo "workflows=true" >> "$GITHUB_OUTPUT"
             else
               echo "workflows=false" >> "$GITHUB_OUTPUT"
