@@ -871,7 +871,7 @@ jobs:
               core.warning(message);
               await core.summary
                 .addHeading('Workflow job summary', 3)
-                .addParagraph(message)
+                .addRaw(`${message}\n\n`)
                 .write();
               return;
             }
