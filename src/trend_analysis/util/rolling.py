@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, cast
 
 import pandas as pd
 
@@ -11,14 +11,15 @@ import pandas as pd
 class _SupportsRolling(Protocol):
     """Protocol modelling pandas objects that expose ``rolling``."""
 
-    def shift(self, periods: int) -> "_SupportsRolling": ...  # pragma: no cover - Protocol
+    def shift(
+        self, periods: int
+    ) -> "_SupportsRolling": ...  # pragma: no cover - Protocol
 
     def rolling(
         self,
         window: int,
         min_periods: int | None = None,
-    ) -> pd.core.window.rolling.Rolling:
-        ...  # pragma: no cover - Protocol
+    ) -> pd.core.window.rolling.Rolling: ...  # pragma: no cover - Protocol
 
 
 RollingAggregation = Callable[[pd.Series], float | int]
@@ -51,15 +52,15 @@ def rolling_shifted(
     if isinstance(agg, str):
         key = agg.strip().lower()
         if key == "mean":
-            return rolling_obj.mean()  # type: ignore[return-value]
+            return cast(RollingLike, rolling_obj.mean())
         if key == "std":
-            return rolling_obj.std(ddof=0)  # type: ignore[return-value]
+            return cast(RollingLike, rolling_obj.std(ddof=0))
         if key == "sum":
-            return rolling_obj.sum()  # type: ignore[return-value]
+            return cast(RollingLike, rolling_obj.sum())
         if key == "max":
-            return rolling_obj.max()  # type: ignore[return-value]
+            return cast(RollingLike, rolling_obj.max())
         if key == "min":
-            return rolling_obj.min()  # type: ignore[return-value]
+            return cast(RollingLike, rolling_obj.min())
         raise ValueError(
             "agg must be one of {'mean', 'std', 'sum', 'max', 'min'} when provided as a string"
         )
@@ -67,7 +68,7 @@ def rolling_shifted(
     if not callable(agg):  # pragma: no cover - defensive programming
         raise TypeError("agg must be a recognised string or callable")
 
-    return rolling_obj.apply(agg, raw=False)  # type: ignore[return-value]
+    return cast(RollingLike, rolling_obj.apply(agg, raw=False))
 
 
 __all__ = ["rolling_shifted"]
