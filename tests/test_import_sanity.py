@@ -1,6 +1,7 @@
 """Sanity checks for isolating the installed package from legacy modules."""
 from __future__ import annotations
 
+import importlib
 import os
 import pkgutil
 import subprocess
@@ -8,19 +9,28 @@ import sys
 import textwrap
 from pathlib import Path
 
-import trend_analysis
+import pytest
 
 LEGACY_MODULE_ROOTS = ("Old", "retired")
+PACKAGE_NAMES = ("trend_analysis", "trend_model", "trend_portfolio_app")
 
 
-def test_trend_analysis_package_does_not_expose_legacy_modules() -> None:
-    """Ensure internal package discovery never resolves legacy modules."""
-    package_modules = [
+def _collect_package_modules(package_name: str) -> list[str]:
+    """Return the fully-qualified module names for a package tree."""
+
+    package = importlib.import_module(package_name)
+    return [
         module.name
         for module in pkgutil.walk_packages(
-            trend_analysis.__path__, prefix=f"{trend_analysis.__name__}."
+            package.__path__, prefix=f"{package.__name__}."
         )
     ]
+
+
+@pytest.mark.parametrize("package_name", PACKAGE_NAMES)
+def test_packages_do_not_expose_legacy_modules(package_name: str) -> None:
+    """Ensure internal package discovery never resolves legacy modules."""
+    package_modules = _collect_package_modules(package_name)
 
     for legacy in LEGACY_MODULE_ROOTS:
         forbidden_fragment = f".{legacy}."
@@ -46,7 +56,8 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
         f"""
         import importlib
 
-        import trend_analysis
+        for package_name in {PACKAGE_NAMES!r}:
+            importlib.import_module(package_name)
 
         failures = []
         for module_name in {LEGACY_MODULE_ROOTS!r}:
