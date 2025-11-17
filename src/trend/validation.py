@@ -59,15 +59,14 @@ def validate_prices_frame(df: pd.DataFrame) -> pd.DataFrame:
     work = _coerce_price_schema(df)
     enforce_required_columns(work, PRICE_SCHEMA)
 
-    monotonic_violations = [
-        symbol
-        for symbol, group in work.groupby("symbol", sort=False)
-        if not group["date"].is_monotonic_increasing
-    ]
-    if monotonic_violations:
+    date_diffs = work.groupby("symbol", sort=False)["date"].diff()
+    backwards = date_diffs.lt(pd.Timedelta(0))
+    if backwards.any():
+        monotonic_violations = work.loc[backwards.fillna(False), "symbol"].astype(str)
+        offenders = sorted(monotonic_violations.unique())
         raise ValueError(
             "Price frame must be sorted by date within each symbol: "
-            + ", ".join(str(sym) for sym in monotonic_violations)
+            + ", ".join(offenders)
         )
 
     work = work.sort_values(["date", "symbol"]).reset_index(drop=True)
