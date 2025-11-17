@@ -536,12 +536,30 @@ def _portfolio_settings(cfg: Any) -> Mapping[str, Any]:
 
 def _require_transaction_cost_controls(cfg: Any) -> None:
     portfolio = _portfolio_settings(cfg)
-    if "transaction_cost_bps" not in portfolio:
+    cost_value = portfolio.get("transaction_cost_bps")
+    cost_model = portfolio.get("cost_model")
+    if isinstance(cost_model, Mapping):
+        override = cost_model.get("bps_per_trade")
+        if override is not None:
+            cost_value = override
+        slippage = cost_model.get("slippage_bps")
+        if slippage is not None:
+            try:
+                slip_value = float(slippage)
+            except (TypeError, ValueError) as exc:
+                raise TrendCLIError(
+                    "portfolio.cost_model.slippage_bps must be numeric"
+                ) from exc
+            if slip_value < 0:
+                raise TrendCLIError(
+                    "portfolio.cost_model.slippage_bps cannot be negative"
+                )
+    if cost_value is None:
         raise TrendCLIError(
             "Configuration must define portfolio.transaction_cost_bps for honest costs."
         )
     try:
-        cost = float(portfolio["transaction_cost_bps"])
+        cost = float(cost_value)
     except (TypeError, ValueError) as exc:
         raise TrendCLIError("portfolio.transaction_cost_bps must be numeric") from exc
     if cost < 0:

@@ -9,7 +9,8 @@ walk-forward portfolio evaluation with:
   calendar boundaries.
 * **Rolling *and* expanding windows** – switch between the two behaviours with
   the `window_mode` flag without changing your strategy code.
-* **Basis-point transaction costs** – supply `transaction_cost_bps` to apply
+* **Basis-point transaction costs + slippage** – supply `transaction_cost_bps`
+  or a `cost_model` with explicit `bps_per_trade`/`slippage_bps` values to apply
   fees on the absolute change in target weights at each rebalance.
 * **Minimum-trade bands** – use `min_trade` to skip rebalance instructions
   whose total absolute weight change falls below the specified threshold,

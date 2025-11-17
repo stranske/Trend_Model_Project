@@ -18,7 +18,7 @@ fields. Optional keys MAY be absent; consumers must code defensively.
 | `out_user_stats` | `Mapping[str, float]` | Yes | User‑weighted (custom) portfolio statistics for the out‑of‑sample window. |
 | `manager_changes` | `list[dict[str, object]]` | Threshold‑hold only | Sequence of change events (seed, added, dropped, replacement, low_weight_strikes, z_entry, z_exit). |
 | `turnover` | `float` | Threshold‑hold only | Period turnover (L1 weight change). |
-| `transaction_cost` | `float` | Threshold‑hold only | Turnover * (transaction_cost_bps / 10,000). |
+| `transaction_cost` | `float` | Threshold‑hold only | Turnover * ((transaction_cost_bps + slippage_bps) / 10,000). |
 | `cov_diag` | `list[float]` | Optional | Diagonal of covariance matrix (diagnostic / perf flags). |
 | `cache_stats` | `Mapping[str, int | float]` | Optional | Performance cache metrics (when covariance cache enabled). |
 

@@ -68,6 +68,9 @@ portfolio:
   rebalance_calendar: "NYSE"
   leverage_cap: 2.0 # max gross exposure
   transaction_cost_bps: 0       # linear cost per unit turnover
+  cost_model:
+    bps_per_trade: 0            # overrides transaction_cost_bps when provided
+    slippage_bps: 0             # additional penalty applied on turnover
   max_turnover: 1.0             # optional turnover cap (1.0 = no cap)
   rank:
     inclusion_approach: top_n     # top_n | top_pct | threshold

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 import numpy as np
 import pandas as pd
 
-from trend_analysis.backtesting import BacktestResult, bootstrap_equity
+from trend_analysis.backtesting import BacktestResult, CostModel, bootstrap_equity
 
 from .event_log import Event, EventLog
 from .metrics_extra import AVAILABLE_METRICS
@@ -153,6 +153,7 @@ class SimResult:
             window_mode="rolling",
             window_size=max(len(calendar), 1) if len(calendar) else 1,
             training_windows={},
+            cost_model=CostModel(),
         )
 
         band = bootstrap_equity(backtest, n=n, block=block, random_state=random_state)

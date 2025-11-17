@@ -32,7 +32,7 @@ def _init_matplotlib() -> Any:
 
 plt = _init_matplotlib()
 
-from trend_analysis.backtesting import BacktestResult  # noqa: E402
+from trend_analysis.backtesting import BacktestResult, CostModel  # noqa: E402
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_model.spec import TrendRunSpec
@@ -267,6 +267,7 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         window_mode=window_mode,
         window_size=window_size,
         training_windows={},
+        cost_model=CostModel(),
     )
 
 
@@ -420,6 +421,13 @@ def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     if isinstance(multi, Mapping) and multi.get("frequency"):
         freq = str(multi.get("frequency"))
         entries.append(("Multi-period frequency", freq))
+    model = getattr(spec, "cost_model", None)
+    if model is not None:
+        desc = f"{float(getattr(model, 'bps_per_trade', 0.0)):.2f} bps"
+        slip = float(getattr(model, "slippage_bps", 0.0))
+        if slip:
+            desc = f"{desc} + {slip:.2f} bps slippage"
+        entries.append(("Cost model", desc))
     return entries
 
 
@@ -470,6 +478,10 @@ def _build_param_summary(
     tx_cost = _get(portfolio, "transaction_cost_bps") or _get(run_cfg, "monthly_cost")
     if isinstance(tx_cost, (int, float)):
         params.append(("Transaction cost", f"{float(tx_cost):.2f} bps"))
+    cost_model_cfg = _get(portfolio, "cost_model", {})
+    slippage = _get(cost_model_cfg, "slippage_bps")
+    if isinstance(slippage, (int, float)) and float(slippage):
+        params.append(("Slippage assumption", f"{float(slippage):.2f} bps"))
     rebalance = _get(portfolio, "rebalance_calendar")
     if rebalance:
         params.append(("Rebalance calendar", str(rebalance)))
