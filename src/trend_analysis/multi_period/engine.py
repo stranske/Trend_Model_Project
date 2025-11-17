@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from .._typing import FloatArray
+from ..costs import CostModel
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
@@ -868,6 +869,8 @@ def run(
     prev_final_weights: pd.Series | None = None
     # Transaction cost and turnover-cap controls (Issue #429)
     tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
+    slippage_bps = float(cfg.portfolio.get("slippage_bps", 0.0))
+    cost_model = CostModel(bps_per_trade=tc_bps, slippage_bps=slippage_bps)
     max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
     low_weight_strikes: dict[str, int] = {}
 
@@ -1173,7 +1176,7 @@ def run(
 
         # Track turnover/cost for this period; persist weights for next period
         period_turnover = float((final_w - last_aligned).abs().sum())
-        period_cost = period_turnover * (tc_bps / 10000.0)
+        period_cost = cost_model.turnover_cost(period_turnover)
         prev_final_weights = final_w.copy()
         prev_weights = final_w.copy()
 
@@ -1215,6 +1218,7 @@ def run(
         res["manager_changes"] = events
         res["turnover"] = period_turnover
         res["transaction_cost"] = float(period_cost)
+        res["cost_model"] = cost_model.to_dict()
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(cast(MultiPeriodPeriodResult, res))
     # Update complete for this period; next loop will use prev_weights

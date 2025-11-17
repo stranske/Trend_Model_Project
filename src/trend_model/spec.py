@@ -45,6 +45,7 @@ class BacktestSpec:
     random_n: int
     rebalance_calendar: str | None
     transaction_cost_bps: float
+    slippage_bps: float
     max_turnover: float | None
     rank: Mapping[str, Any]
     selector: Mapping[str, Any]
@@ -202,6 +203,9 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         transaction_cost_bps=float(
             _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0)
             or 0.0
+        ),
+        slippage_bps=float(
+            _coerce_float(_section_get(portfolio, "slippage_bps", 0.0), 0.0) or 0.0
         ),
         max_turnover=_coerce_float(_section_get(portfolio, "max_turnover")),
         rank=rank_cfg,

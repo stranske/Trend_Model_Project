@@ -8,6 +8,7 @@ import pandas as pd
 
 from . import annual_return, information_ratio, max_drawdown, sharpe_ratio, volatility
 from .turnover import realized_turnover, turnover_cost
+from trend_analysis.costs import CostModel
 
 
 def summary_table(
@@ -16,6 +17,7 @@ def summary_table(
     benchmark: pd.Series | float | None = None,
     periods_per_year: int = 12,
     transaction_cost_bps: float = 0.0,
+    cost_model: CostModel | None = None,
 ) -> pd.DataFrame:
     """Return a one-column DataFrame of core performance statistics.
 
@@ -30,13 +32,17 @@ def summary_table(
     periods_per_year:
         Frequency of ``returns``.
     transaction_cost_bps:
-        Linear transaction cost applied to turnover when adjusting returns.
+        Legacy basis-point cost rate per unit turnover.
+    cost_model:
+        Optional :class:`~trend_analysis.costs.CostModel` overriding
+        ``transaction_cost_bps`` for more granular control.
     """
 
     bench = 0.0 if benchmark is None else benchmark
 
+    model = cost_model or CostModel.from_legacy(transaction_cost_bps)
     turn_df = realized_turnover(weights)
-    cost_series = turnover_cost(weights, transaction_cost_bps)
+    cost_series = turnover_cost(weights, model)
     net_returns = returns - cost_series.reindex(returns.index).fillna(0.0)
 
     cagr = annual_return(net_returns, periods_per_year=periods_per_year)

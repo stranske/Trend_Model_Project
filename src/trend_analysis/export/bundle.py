@@ -12,6 +12,7 @@ import matplotlib
 import pandas as pd
 
 from trend_analysis.backtesting import BacktestResult, bootstrap_equity
+from trend_analysis.costs import CostModel
 from trend_analysis.util.hash import (
     normalise_for_json,
     sha256_config,
@@ -152,6 +153,7 @@ def export_bundle(run: Any, path: Path) -> Path:
                     window_mode="rolling",
                     window_size=max(len(calendar), 1) if len(calendar) else 1,
                     training_windows={},
+                    cost_model=CostModel(),
                 )
                 bootstrap_band = bootstrap_equity(backtest)
             except Exception:  # pragma: no cover - defensive fallback

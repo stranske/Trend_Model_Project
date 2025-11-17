@@ -12,6 +12,7 @@ from typing import Mapping
 
 import pandas as pd
 
+from trend_analysis.costs import CostModel
 
 def _weights_to_frame(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
@@ -38,7 +39,7 @@ def realized_turnover(
 
 def turnover_cost(
     weights: Mapping[pd.Timestamp, pd.Series] | pd.DataFrame,
-    cost_bps: float,
+    cost: float | CostModel,
 ) -> pd.Series:
     """Return a Series of transaction cost deductions per period.
 
@@ -46,11 +47,13 @@ def turnover_cost(
     ----------
     weights : Mapping or DataFrame
         Weight history used to compute turnover.
-    cost_bps : float
-        Linear transaction cost in basis points applied to turnover.
+    cost : float or :class:`CostModel`
+        Linear transaction cost controls. When ``cost`` is a float it is
+        interpreted as basis points per unit turnover (legacy behaviour).
     """
     turn_df = realized_turnover(weights)
-    return turn_df["turnover"] * (cost_bps / 10000.0)
+    model = cost if isinstance(cost, CostModel) else CostModel.from_legacy(float(cost))
+    return turn_df["turnover"] * model.multiplier
 
 
 __all__ = ["realized_turnover", "turnover_cost"]

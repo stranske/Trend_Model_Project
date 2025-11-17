@@ -7,6 +7,7 @@ import pytest
 
 from trend_analysis.backtesting import harness
 from trend_analysis.backtesting.harness import BacktestResult, run_backtest
+from trend_analysis.costs import CostModel
 
 
 def _sample_returns(periods: int = 8) -> pd.DataFrame:
@@ -39,6 +40,7 @@ def test_backtest_result_summary_and_json_round_trip():
             index[0]: (index[0], index[1]),
             index[2]: (index[1], index[2]),
         },
+        cost_model=CostModel(),
     )
 
     summary = result.summary()

@@ -42,6 +42,7 @@ out_end = "2024-12"
 selection_mode = "rank"      # new rank-based selector
 rebalance_calendar = "NYSE"  # trading calendar driving rebalance dates
 transaction_cost_bps = 0.0   # demo assumes frictionless trades
+slippage_bps = 0.0
 max_turnover = 1.0           # set <1.0 to enforce turnover caps
 
 [portfolio.rank]

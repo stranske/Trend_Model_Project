@@ -30,6 +30,7 @@ def build_config_payload(
     rebalance_calendar: str,
     max_turnover: float,
     transaction_cost_bps: float,
+    slippage_bps: float = 0.0,
     target_vol: float,
 ) -> Dict[str, Any]:
     """Build a raw configuration mapping for minimal validation.
@@ -55,6 +56,7 @@ def build_config_payload(
             "rebalance_calendar": rebalance_calendar,
             "max_turnover": max_turnover,
             "transaction_cost_bps": transaction_cost_bps,
+            "slippage_bps": slippage_bps,
         },
         "vol_adjust": {"target_vol": target_vol},
     }

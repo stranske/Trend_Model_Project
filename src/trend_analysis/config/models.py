@@ -338,6 +338,15 @@ if _HAS_PYDANTIC:
                 if tc < 0:
                     raise ValueError("transaction_cost_bps must be >= 0")
                 v["transaction_cost_bps"] = tc
+            if "slippage_bps" in v:
+                raw = v["slippage_bps"]
+                try:
+                    slip = float(raw)
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError("slippage_bps must be numeric") from exc
+                if slip < 0:
+                    raise ValueError("slippage_bps must be >= 0")
+                v["slippage_bps"] = slip
             # Max turnover cap (fraction of portfolio; 1.0 = effectively uncapped)
             if "max_turnover" in v:
                 raw = v["max_turnover"]
@@ -493,6 +502,14 @@ else:  # Fallback mode for tests without pydantic
                     if tc < 0:
                         raise ValueError("transaction_cost_bps must be >= 0")
                     port["transaction_cost_bps"] = tc
+                if "slippage_bps" in port:
+                    try:
+                        slip = float(port["slippage_bps"])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError("slippage_bps must be numeric") from exc
+                    if slip < 0:
+                        raise ValueError("slippage_bps must be >= 0")
+                    port["slippage_bps"] = slip
                 if "max_turnover" in port:
                     try:
                         mt = float(port["max_turnover"])

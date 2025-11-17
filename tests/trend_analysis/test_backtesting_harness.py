@@ -9,6 +9,7 @@ import pandas.testing as pdt
 import pytest
 
 from trend_analysis.backtesting import harness as h
+from trend_analysis.costs import CostModel
 
 
 @pytest.fixture()
@@ -60,6 +61,7 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
         window_mode="rolling",
         window_size=3,
         training_windows=training_windows,
+        cost_model=CostModel(),
     )
 
 

@@ -33,6 +33,7 @@ def _init_matplotlib() -> Any:
 plt = _init_matplotlib()
 
 from trend_analysis.backtesting import BacktestResult  # noqa: E402
+from trend_analysis.costs import CostModel
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_model.spec import TrendRunSpec
@@ -267,6 +268,7 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         window_mode=window_mode,
         window_size=window_size,
         training_windows={},
+        cost_model=CostModel(),
     )
 
 
@@ -467,9 +469,23 @@ def _build_param_summary(
     max_turnover = _get(portfolio, "max_turnover")
     if isinstance(max_turnover, (int, float)):
         params.append(("Turnover cap", _format_percent(float(max_turnover))))
-    tx_cost = _get(portfolio, "transaction_cost_bps") or _get(run_cfg, "monthly_cost")
-    if isinstance(tx_cost, (int, float)):
-        params.append(("Transaction cost", f"{float(tx_cost):.2f} bps"))
+    tx_cost = _get(portfolio, "transaction_cost_bps")
+    slippage_cost = _get(portfolio, "slippage_bps")
+    monthly_cost = _get(run_cfg, "monthly_cost")
+    if isinstance(tx_cost, (int, float)) or isinstance(slippage_cost, (int, float)):
+        base = float(tx_cost) if isinstance(tx_cost, (int, float)) else 0.0
+        slip = float(slippage_cost) if isinstance(slippage_cost, (int, float)) else 0.0
+        if slip:
+            params.append(
+                (
+                    "Transaction cost",
+                    f"{base:.2f} bps + {slip:.2f} bps slippage",
+                )
+            )
+        else:
+            params.append(("Transaction cost", f"{base:.2f} bps"))
+    elif isinstance(monthly_cost, (int, float)):
+        params.append(("Transaction cost", f"{float(monthly_cost):.2f} bps"))
     rebalance = _get(portfolio, "rebalance_calendar")
     if rebalance:
         params.append(("Rebalance calendar", str(rebalance)))

@@ -315,8 +315,10 @@ realistic implementation:
 
 - `portfolio.transaction_cost_bps` – linear cost, in basis points, applied to
    the absolute turnover each rebalancing period. Must be a non‑negative
-   number (e.g. `10` = 10 bps = 0.10%). The summary metrics internally
-   subtract these costs when computing risk/return figures.
+   number (e.g. `10` = 10 bps = 0.10%).
+- `portfolio.slippage_bps` – optional additional basis-point penalty that uses
+   the same turnover events. Defaults to zero and is validated with the same
+   non‑negative constraint.
 - `portfolio.max_turnover` – soft cap on total turnover (sum of absolute
    weight changes) for a single rebalance expressed as a fraction of gross
    notional. Accepted range is `0.0` to `2.0` where `1.0` effectively means
@@ -325,7 +327,7 @@ realistic implementation:
 
 Validation rules:
 
-- Negative values for either field raise a configuration error.
+- Negative values for either cost field raise a configuration error.
 - Values are coerced from numeric strings when possible (e.g. `"15"`).
 - Omitting both keys preserves previous behaviour (no costs, no cap).
 

@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
+from trend_analysis.costs import CostModel
+
 WindowMode = Literal["rolling", "expanding"]
 
 
@@ -30,6 +32,7 @@ class BacktestResult:
     window_mode: WindowMode
     window_size: int
     training_windows: Mapping[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]]
+    cost_model: CostModel
 
     def summary(self) -> Dict[str, object]:
         """Return a JSON-serializable summary of the backtest metrics."""
@@ -39,6 +42,7 @@ class BacktestResult:
             "window_size": self.window_size,
             "calendar": [ts.isoformat() for ts in self.calendar],
             "metrics": {k: _to_float(v) for k, v in self.metrics.items()},
+            "cost_model": self.cost_model.to_dict(),
             "returns": _series_to_dict(self.returns),
             "rolling_sharpe": _series_to_dict(self.rolling_sharpe),
             "drawdown": _series_to_dict(self.drawdown),
@@ -73,12 +77,15 @@ def run_backtest(
     min_trade: float,
     rolling_sharpe_window: int | None = None,
     initial_weights: Mapping[str, float] | None = None,
+    cost_model: CostModel | None = None,
 ) -> BacktestResult:
     """Run a walk-forward backtest with a fixed rebalance calendar.
 
     Args:
         min_trade: Minimum total absolute weight change required to execute a
             rebalance. Smaller proposals are ignored to suppress micro-churn.
+        cost_model: Optional :class:`~trend_analysis.costs.CostModel` overriding
+            ``transaction_cost_bps`` for per-turnover slippage controls.
     """
 
     if window_size <= 0:
@@ -113,6 +120,7 @@ def run_backtest(
 
     prev_weights = _initial_weights(asset_columns, initial_weights)
     data_values = data.values
+    model = cost_model or CostModel.from_legacy(transaction_cost_bps)
 
     eligible_dates = [date for date in calendar if len(data.loc[:date]) >= window_size]
     if not eligible_dates:
@@ -133,7 +141,7 @@ def run_backtest(
         execute = delta >= float(min_trade)
         new_weights = proposed if execute else prev_weights
         applied_turnover = delta if execute else 0.0
-        cost = (transaction_cost_bps / 10000.0) * applied_turnover
+        cost = model.turnover_cost(applied_turnover)
 
         weights_history[date] = new_weights
         turnover.loc[date] = applied_turnover
@@ -205,6 +213,7 @@ def run_backtest(
         window_mode=window_mode,
         window_size=window_size,
         training_windows=training_windows,
+        cost_model=model,
     )
 
 

@@ -8,6 +8,7 @@ from typing import Mapping
 
 import numpy as np
 import pandas as pd
+import pandas.testing as pdt
 import pytest
 
 from trend_analysis.backtesting import run_backtest
@@ -27,6 +28,7 @@ from trend_analysis.backtesting.harness import (
     _to_float,
     _weights_to_dict,
 )
+from trend_analysis.costs import CostModel
 
 
 class MeanWinnerStrategy:
@@ -39,6 +41,15 @@ class MeanWinnerStrategy:
         weights = pd.Series(0.0, index=window.columns)
         weights[winner] = 1.0
         return weights
+
+
+def _zero_returns_frame(periods: int = 6) -> pd.DataFrame:
+    index = pd.date_range("2024-01-31", periods=periods, freq="ME")
+    return pd.DataFrame(0.0, index=index, columns=["A", "B"])
+
+
+def _toggling_strategy(window: pd.DataFrame) -> Mapping[str, float]:
+    return {"A": float(len(window) % 2 == 1), "B": float(len(window) % 2 == 0)}
 
 
 class AlternatingStrategy:
@@ -517,12 +528,62 @@ def test_backtest_result_summary_filters_weights() -> None:
         window_mode="rolling",
         window_size=2,
         training_windows={idx[0]: (idx[0], idx[0]), idx[1]: (idx[0], idx[1])},
+        cost_model=CostModel(),
     )
 
     summary = result.summary()
     weights_summary = summary["weights"]
     assert list(weights_summary) == [idx[1].isoformat()]
     assert summary["metrics"]["sharpe"] == 1.0
+
+
+def test_cost_model_zero_matches_baseline() -> None:
+    df = _zero_returns_frame()
+    base = run_backtest(
+        df,
+        _toggling_strategy,
+        rebalance_freq="ME",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+    zero = run_backtest(
+        df,
+        _toggling_strategy,
+        rebalance_freq="ME",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=CostModel(),
+    )
+
+    pdt.assert_series_equal(base.returns, zero.returns)
+    assert zero.transaction_costs.sum() == pytest.approx(0.0)
+
+
+def test_cost_model_penalises_turnover_with_expected_amount() -> None:
+    df = _zero_returns_frame(6)
+    model = CostModel(bps_per_trade=25.0, slippage_bps=15.0)
+    result = run_backtest(
+        df,
+        _toggling_strategy,
+        rebalance_freq="ME",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=model,
+    )
+
+    expected_costs = result.turnover.sort_index() * model.multiplier
+    pdt.assert_series_equal(
+        result.transaction_costs.sort_index(), expected_costs.sort_index()
+    )
+
+    net_returns = result.returns.dropna().sort_index()
+    expected_net = -result.transaction_costs.sort_index().shift(1).dropna()
+    pdt.assert_series_equal(
+        net_returns.loc[expected_net.index], expected_net, check_names=False
+    )
 
 
 def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) -> None:

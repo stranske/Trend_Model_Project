@@ -107,6 +107,7 @@ def test_generate_unified_report_includes_spec_summary() -> None:
         random_n=5,
         rebalance_calendar="NYSE",
         transaction_cost_bps=10.0,
+        slippage_bps=0.0,
         max_turnover=None,
         rank={"inclusion_approach": "top_n", "n": 5, "score_by": "Sharpe"},
         selector={},

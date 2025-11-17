@@ -57,3 +57,16 @@ def test_string_coercion():
     cfg = Config(**cfg_dict)
     assert cfg.portfolio["transaction_cost_bps"] == 15.0
     assert cfg.portfolio["max_turnover"] == 0.75
+@pytest.mark.parametrize("slip", [0, 2.5, 15.0])
+def test_slippage_bps_valid(slip):
+    cfg_dict = make_cfg({"portfolio": {"slippage_bps": slip}})
+    cfg = Config(**cfg_dict)
+    assert float(cfg.portfolio.get("slippage_bps")) == float(slip)
+
+
+@pytest.mark.parametrize("slip", [-0.01, -5])
+def test_slippage_bps_invalid(slip):
+    cfg_dict = make_cfg({"portfolio": {"slippage_bps": slip}})
+    with pytest.raises(Exception):
+        Config(**cfg_dict)
+

@@ -268,6 +268,7 @@ class PortfolioSettings(BaseModel):
     rebalance_calendar: str
     max_turnover: float
     transaction_cost_bps: float
+    slippage_bps: float = 0.0
 
     model_config = ConfigDict(extra="ignore")
 
@@ -305,6 +306,17 @@ class PortfolioSettings(BaseModel):
         if cost < 0:
             raise ValueError("portfolio.transaction_cost_bps cannot be negative.")
         return cost
+
+    @field_validator("slippage_bps", mode="before")
+    @classmethod
+    def _validate_slippage(cls, value: Any) -> float:
+        try:
+            slip = float(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("portfolio.slippage_bps must be numeric.") from exc
+        if slip < 0:
+            raise ValueError("portfolio.slippage_bps cannot be negative.")
+        return slip
 
 
 class RiskSettings(BaseModel):

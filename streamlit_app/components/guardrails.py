@@ -179,6 +179,7 @@ def validate_startup_payload(
         rebalance_calendar="NYSE",
         max_turnover=0.5,
         transaction_cost_bps=10.0,
+        slippage_bps=0.0,
         target_vol=risk_value,
     )
     base_dir = csv_real.parent if csv_real is not None else Path.cwd()

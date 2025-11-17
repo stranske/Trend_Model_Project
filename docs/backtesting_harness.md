@@ -9,8 +9,10 @@ walk-forward portfolio evaluation with:
   calendar boundaries.
 * **Rolling *and* expanding windows** – switch between the two behaviours with
   the `window_mode` flag without changing your strategy code.
-* **Basis-point transaction costs** – supply `transaction_cost_bps` to apply
-  fees on the absolute change in target weights at each rebalance.
+* **Basis-point transaction & slippage costs** – supply `transaction_cost_bps`
+  together with optional `slippage_bps`, or pass a
+  `trend_analysis.costs.CostModel` instance for per-turnover deductions on
+  every rebalance.
 * **Minimum-trade bands** – use `min_trade` to skip rebalance instructions
   whose total absolute weight change falls below the specified threshold,
   preventing micro-churn from leaking into the turnover ledger.
@@ -29,7 +31,7 @@ the walk-forward evaluation without bespoke post-processing or duplicated
 window bookkeeping.
 
 See `tests/backtesting/test_harness.py` for end-to-end usage examples covering
-window switching and transaction-cost verification.
+window switching and deterministic cost-model verification.
 
 ## Bootstrap uncertainty bands
 

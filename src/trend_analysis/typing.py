@@ -29,5 +29,6 @@ class MultiPeriodPeriodResult(TypedDict, total=False):
     manager_changes: MutableSequence[dict[str, object]]
     turnover: float
     transaction_cost: float
+    cost_model: StatsMapping
     cov_diag: CovarianceDiagonal
     cache_stats: StatsMapping

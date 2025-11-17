@@ -19,6 +19,7 @@ def test_build_config_payload_minimal():
     )
     assert payload["data"]["date_column"] == "Date"
     assert payload["portfolio"]["rebalance_calendar"] == "NYSE"
+    assert payload["portfolio"]["slippage_bps"] == 0.0
 
 
 def test_build_config_payload_optional_entries() -> None:
