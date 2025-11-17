@@ -1863,13 +1863,26 @@ jobs:
                   lastError = error;
                   const status = error && typeof error.status === 'number' ? error.status : null;
                   const message = error instanceof Error ? error.message : String(error);
-                  const retryable = !status || status >= 500 || status === 429;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = !status || status >= 500 || status === 429 || isRateLimit;
                   if (!retryable || attempt === attempts) {
                     core.error(`Failed ${label}: ${message}`);
                     throw error;
                   }
-                  const delay = baseDelay * attempt;
-                  core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
+                  let delay = baseDelay * attempt;
+                  if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+                    delay = Math.min(waitMs, 60000);
+                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${attempts}).`);
+                  } else {
+                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
+                  }
                   await sleep(delay);
                 }
               }

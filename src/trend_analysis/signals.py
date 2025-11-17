@@ -14,6 +14,8 @@ from typing import Literal, TypeAlias
 import numpy as np
 import pandas as pd
 
+from .util.rolling import rolling_shifted
+
 SignalFrame: TypeAlias = pd.DataFrame
 
 
@@ -63,15 +65,18 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
     numeric = _as_float_frame(returns)
     min_periods = spec.min_periods if spec.min_periods is not None else spec.window
 
-    rolling_mean = numeric.rolling(window=spec.window, min_periods=min_periods).mean()
-    signal = rolling_mean.shift(spec.lag)
+    rolling_mean = rolling_shifted(
+        numeric, window=spec.window, agg="mean", min_periods=min_periods
+    )
+    lag_offset = spec.lag - 1
+    signal = rolling_mean.shift(lag_offset) if lag_offset else rolling_mean
 
     if spec.vol_adjust:
-        rolling_std = (
-            numeric.rolling(window=spec.window, min_periods=min_periods)
-            .std(ddof=0)
-            .shift(spec.lag)
+        rolling_std = rolling_shifted(
+            numeric, window=spec.window, agg="std", min_periods=min_periods
         )
+        if lag_offset:
+            rolling_std = rolling_std.shift(lag_offset)
         with np.errstate(divide="ignore", invalid="ignore"):
             if spec.vol_target is not None:
                 scale = spec.vol_target / rolling_std

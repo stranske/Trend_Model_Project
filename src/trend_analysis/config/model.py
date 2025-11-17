@@ -273,7 +273,7 @@ class CostModelSettings(BaseModel):
 
     @field_validator("bps_per_trade", "slippage_bps", mode="before")
     @classmethod
-    def _validate_cost(cls, value: Any, info: ValidationInfo) -> float:
+    def _validate_cost(cls, value: Any, info: ValidationInfo[Any]) -> float:
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
