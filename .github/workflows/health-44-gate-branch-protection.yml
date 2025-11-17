@@ -30,11 +30,58 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { data } = await github.rest.repos.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            core.setOutput('name', data.default_branch);
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+                    delay = Math.min(waitMs, 60000);
+                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
+                  } else {
+                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                  }
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
+            const payload = context.payload || {};
+            const directDefault = payload.repository?.default_branch
+              || payload.pull_request?.base?.repo?.default_branch
+              || payload.workflow_run?.repository?.default_branch;
+
+            if (directDefault && typeof directDefault === 'string') {
+              core.info(`Using default branch from event payload: ${directDefault}`);
+              core.setOutput('name', directDefault);
+              return;
+            }
+
+            const response = await withApiRetry(
+              () => github.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              }),
+              { label: 'determine default branch' },
+            );
+            core.setOutput('name', response.data.default_branch || 'main');
 
       - name: Export default branch variable
         run: |
