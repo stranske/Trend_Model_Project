@@ -35,3 +35,14 @@ def test_compute_trend_signals_is_causal_with_vol_adjust() -> None:
     shifted = compute_trend_signals(tweaked, spec)
 
     pd.testing.assert_frame_equal(baseline, shifted)
+
+
+def test_compute_trend_signals_respects_lag_setting() -> None:
+    returns = _sample_returns()
+    spec_default = TrendSpec(window=3, min_periods=3, lag=1)
+    spec_lagged = TrendSpec(window=3, min_periods=3, lag=2)
+
+    baseline = compute_trend_signals(returns, spec_default)
+    lagged = compute_trend_signals(returns, spec_lagged)
+
+    pd.testing.assert_frame_equal(baseline.shift(1), lagged)
