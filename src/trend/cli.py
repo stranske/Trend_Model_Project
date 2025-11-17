@@ -15,9 +15,9 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
+from trend.config_schema import CoreConfigError, load_core_config
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
-from trend.config_schema import CoreConfigError, load_core_config
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation

@@ -8,13 +8,13 @@ building blocks keeps startup lean while providing actionable error messages for
 common mistakes (missing CSV path, typos in the universe membership file, wrong
 frequency, etc.).
 """
+
 from __future__ import annotations
 
+import glob
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
-
-import glob
 
 import yaml
 
@@ -279,5 +279,7 @@ def load_core_config(path: str | Path) -> CoreConfig:
     text = cfg_path.read_text(encoding="utf-8")
     data = yaml.safe_load(text)
     if not isinstance(data, Mapping):
-        raise CoreConfigError("Configuration files must contain a mapping at the top level")
+        raise CoreConfigError(
+            "Configuration files must contain a mapping at the top level"
+        )
     return validate_core_config(data, base_path=cfg_path.parent)
