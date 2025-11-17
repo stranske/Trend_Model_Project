@@ -82,7 +82,6 @@ jobs:
             const protectedPaths = [
               '.github/workflows/agents-*.yml',
             ];
-
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -95,14 +94,16 @@ jobs:
                   const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
                   const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
                   const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
-                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const hasRemainingValue = Number.isFinite(remaining);
+                  const hasResetValue = Number.isFinite(reset);
+                  const isRateLimit = status === 403 && hasRemainingValue && remaining <= 0;
                   const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {
                     core.error(`Failed ${label}: ${error.message}`);
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  if (isRateLimit && Number.isFinite(reset)) {
+                  if (isRateLimit && hasResetValue) {
                     const nowSeconds = Math.floor(Date.now() / 1000);
                     const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
                     delay = Math.min(waitMs, 60000);
@@ -116,67 +117,105 @@ jobs:
               throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
             }
 
+            const rateLimitNotes = [];
+            const isRateLimitError = (error) => {
+              if (!error) {
+                return false;
+              }
+              const status = Number(error?.status || error?.code || error?.response?.status || 0);
+              if (status === 429) {
+                return true;
+              }
+              if (status === 403) {
+                const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+                return message.includes('rate limit');
+              }
+              return false;
+            };
+
+            const warnRateLimit = (stage, fallbackDetail = 'continuing with partial data') => {
+              const note = `Rate limit encountered while ${stage}; ${fallbackDetail}.`;
+              core.warning(note);
+              rateLimitNotes.push(`- ${note}`);
+            };
+
             async function loadGuardModule() {
               if (fs.existsSync(guardPath)) {
                 return require(guardPath);
               }
 
               core.info(`Guard script missing locally; fetching ${guardRelativePath} at ${baseRef}`);
-              const response = await withApiRetry(
-                () => github.rest.repos.getContent({
+              try {
+                const response = await withApiRetry(
+                  () => github.rest.repos.getContent({
                   owner,
                   repo,
                   path: guardRelativePath,
                   ref: baseRef,
                 }),
                 { label: `load ${guardRelativePath}` },
-              );
+                );
 
-              if (Array.isArray(response.data) || response.data.type !== 'file') {
-                throw new Error(`Unable to load ${guardRelativePath} from ${baseRef}`);
+                if (Array.isArray(response.data) || response.data.type !== 'file') {
+                  throw new Error(`Unable to load ${guardRelativePath} from ${baseRef}`);
+                }
+
+                const encoding = response.data.encoding || 'base64';
+                const source = Buffer.from(response.data.content || '', encoding).toString('utf-8');
+
+                fs.mkdirSync(path.dirname(guardPath), { recursive: true });
+                fs.writeFileSync(guardPath, source, { encoding: 'utf-8' });
+                return require(guardPath);
+              } catch (error) {
+                if (isRateLimitError(error)) {
+                  warnRateLimit('loading the guard script from the default branch', 'using the checkout copy instead');
+                  if (fs.existsSync(guardPath)) {
+                    return require(guardPath);
+                  }
+                }
+                throw error;
               }
-
-              const encoding = response.data.encoding || 'base64';
-              const source = Buffer.from(response.data.content || '', encoding).toString('utf-8');
-
-              fs.mkdirSync(path.dirname(guardPath), { recursive: true });
-              fs.writeFileSync(guardPath, source, { encoding: 'utf-8' });
-              return require(guardPath);
             }
 
             const guardModule = await loadGuardModule();
             const { evaluateGuard, DEFAULT_MARKER } = guardModule;
             const marker = DEFAULT_MARKER || '<!-- agents-guard-marker -->';
 
-            const files = await withApiRetry(
-              () => github.paginate(github.rest.pulls.listFiles, {
-                owner,
-                repo,
-                pull_number: prNumber,
-                per_page: 100,
-              }),
-              { label: 'list pull files' },
-            );
+            async function safePaginate(label, fn, params) {
+              try {
+                return await withApiRetry(
+                  () => github.paginate(fn, params),
+                  { label },
+                );
+              } catch (error) {
+                if (isRateLimitError(error)) {
+                  warnRateLimit(label, 'falling back to an empty result set');
+                  return [];
+                }
+                throw error;
+              }
+            }
 
-            const labels = await withApiRetry(
-              () => github.paginate(github.rest.issues.listLabelsOnIssue, {
-                owner,
-                repo,
-                issue_number: prNumber,
-                per_page: 100,
-              }),
-              { label: 'list labels on issue' },
-            );
+            const files = await safePaginate('listing pull request files', github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
 
-            const reviews = await withApiRetry(
-              () => github.paginate(github.rest.pulls.listReviews, {
-                owner,
-                repo,
-                pull_number: prNumber,
-                per_page: 100,
-              }),
-              { label: 'list pull reviews' },
-            );
+            const labels = await safePaginate('enumerating labels on the pull request', github.rest.issues.listLabelsOnIssue, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const reviews = await safePaginate('enumerating reviews', github.rest.pulls.listReviews, {
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
 
             let codeownersContent = '';
             try {
@@ -196,7 +235,11 @@ jobs:
                 codeownersContent = Buffer.from(rawContent, encoding).toString('utf-8');
               }
             } catch (error) {
-              core.warning(`Failed to load CODEOWNERS: ${error.message}`);
+              if (isRateLimitError(error)) {
+                warnRateLimit('loading CODEOWNERS', 'continuing without CODEOWNERS context');
+              } else {
+                core.warning(`Failed to load CODEOWNERS: ${error.message}`);
+              }
             }
 
             const result = evaluateGuard({
@@ -211,7 +254,13 @@ jobs:
             });
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
-            core.setOutput('summary', result.summary);
+            let summary = result.summary;
+            if (rateLimitNotes.length) {
+              const noteBlock = `\n\nRate limit notices:\n${rateLimitNotes.join('\n')}`;
+              summary = summary ? `${summary}${noteBlock}` : `Rate limit notices:\n${rateLimitNotes.join('\n')}`;
+            }
+
+            core.setOutput('summary', summary);
             core.setOutput('marker', marker);
 
             if (result.commentBody) {
