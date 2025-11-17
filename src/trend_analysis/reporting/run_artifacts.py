@@ -28,12 +28,9 @@ def _git_hash() -> str:
     """Return the current git commit hash when available."""
 
     try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
-            )
-            .strip()
-        )
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], encoding="utf-8", shell=False
+        ).strip()
     except Exception:
         return "unknown"
 
@@ -121,19 +118,25 @@ def _render_html(
         for k, v in metrics.items()
     )
     artifacts = manifest.get("artifacts", [])
-    artifact_rows = "".join(
-        f"<li><a href=\"{html.escape(str(item.get('name', '')))}\">{html.escape(str(item.get('name', '')))}</a>"
-        f" ({item.get('size', 0)} bytes)</li>"
-        for item in artifacts
-    ) or "<li>No exported artifacts were detected.</li>"
+    artifact_rows = (
+        "".join(
+            (
+                f"<li><a href='{html.escape(str(item.get('name', '')))}'>"
+                f"{html.escape(str(item.get('name', '')))}</a>"
+                f" ({item.get('size', 0)} bytes)</li>"
+            )
+            for item in artifacts
+        )
+        or "<li>No exported artifacts were detected.</li>"
+    )
     data_window = manifest.get("data_window", {})
     date_range = " / ".join(
         filter(None, [str(data_window.get("start")), str(data_window.get("end"))])
     )
     return f"""<!doctype html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-  <meta charset=\"utf-8\">
+    <meta charset="utf-8">
   <title>Trend Analysis Run {html.escape(run_id)}</title>
   <style>
     body {{ font-family: Arial, sans-serif; margin: 2rem; line-height: 1.5; }}
@@ -158,7 +161,7 @@ def _render_html(
     <h2>Key metrics</h2>
     <table>
       <tbody>
-        {metric_rows or '<tr><td colspan=\"2\">No metrics recorded.</td></tr>'}
+        {metric_rows or '<tr><td colspan="2">No metrics recorded.</td></tr>'}
       </tbody>
     </table>
   </section>
@@ -244,7 +247,8 @@ def write_run_artifacts(
         "config_sha256": sha256_config(config),
         "git_hash": _git_hash(),
         "data_window": _data_window(df),
-        "metrics": _serialise_stats(details.get("out_ew_stats")) or _summarise_metrics(metrics_df),
+        "metrics": _serialise_stats(details.get("out_ew_stats"))
+        or _summarise_metrics(metrics_df),
         "metrics_overview": _summarise_metrics(metrics_df),
         "selected_funds": selected_list,
         "artifacts": copied,
@@ -261,11 +265,15 @@ def write_run_artifacts(
     manifest["run_directory"] = str(run_dir)
 
     manifest_path = run_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8"
+    )
 
     html_path = run_dir / "report.html"
     html_path.write_text(
-        _render_html(run_id=run_id, created=created, manifest=manifest, summary_text=summary_text),
+        _render_html(
+            run_id=run_id, created=created, manifest=manifest, summary_text=summary_text
+        ),
         encoding="utf-8",
     )
 
