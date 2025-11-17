@@ -475,6 +475,7 @@ def main(argv: list[str] | None = None) -> int:
                 "export_complete",
                 "Export finished",
             )
+            config_payload: Any
             if hasattr(cfg, "model_dump"):
                 try:
                     config_payload = cfg.model_dump()
