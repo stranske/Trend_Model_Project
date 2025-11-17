@@ -47,6 +47,15 @@ def _noop_maybe_log_step(
 _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
+_ORIGINAL_FALLBACKS: dict[str, Callable[..., Any]] = {}
+
+
+def _register_fallback(name: str, fn: Callable[..., Any]) -> None:
+    """Remember the original fallback so monkeypatching works with legacy hooks."""
+
+    _ORIGINAL_FALLBACKS.setdefault(name, fn)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,6 +128,9 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 
 
 def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
+    original = _ORIGINAL_FALLBACKS.get(name)
+    if original is not None and fallback is not original:
+        return fallback
     module = _refresh_legacy_cli_module()
     if module is not None:
         attr = getattr(module, name, None)
@@ -240,6 +252,9 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     return path
 
 
+_register_fallback("_resolve_returns_path", _resolve_returns_path)
+
+
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
     try:
         df = load_csv(str(path), errors="raise")
@@ -248,6 +263,9 @@ def _ensure_dataframe(path: Path) -> pd.DataFrame:
     if df is None:
         raise FileNotFoundError(str(path))
     return df
+
+
+_register_fallback("_ensure_dataframe", _ensure_dataframe)
 
 
 def _determine_seed(cfg: Any, override: int | None) -> int:
@@ -344,6 +362,9 @@ def _run_pipeline(
     return result, run_id, log_path
 
 
+_register_fallback("_run_pipeline", _run_pipeline)
+
+
 def _handle_exports(
     cfg: Any, result: RunResult, structured_log: bool, run_id: str
 ) -> None:
@@ -436,6 +457,9 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
                 print(f"  {key.capitalize()}: {value}")
 
 
+_register_fallback("_print_summary", _print_summary)
+
+
 def _write_report_files(
     out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
 ) -> None:
@@ -457,6 +481,9 @@ def _write_report_files(
         json.dump(result.details, fh, default=_json_default, indent=2)
     _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     print(f"Report artefacts written to {out_dir}")
+
+
+_register_fallback("_write_report_files", _write_report_files)
 
 
 def _resolve_report_output_path(
@@ -626,6 +653,9 @@ def _load_configuration(path: str) -> Any:
     cfg = load_config(cfg_path)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     return cfg_path, cfg
+
+
+_register_fallback("_load_configuration", _load_configuration)
 
 
 def main(argv: list[str] | None = None) -> int:
