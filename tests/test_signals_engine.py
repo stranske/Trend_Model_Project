@@ -60,7 +60,9 @@ def test_window_parameter_changes_behaviour(sample_returns: pd.DataFrame) -> Non
     assert not np.allclose(comparison, long_comp)
 
 
-def test_compute_trend_signals_never_uses_same_day(sample_returns: pd.DataFrame) -> None:
+def test_compute_trend_signals_never_uses_same_day(
+    sample_returns: pd.DataFrame,
+) -> None:
     spec = TrendSpec(window=3, lag=1, vol_adjust=True, vol_target=1.0)
     baseline = compute_trend_signals(sample_returns, spec)
     tweaked = sample_returns.copy()
