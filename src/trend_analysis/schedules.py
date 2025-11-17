@@ -81,7 +81,7 @@ def apply_rebalance_schedule(
 
     if frame.index[0] not in schedule:
         schedule = schedule.insert(0, frame.index[0])
-    schedule = pd.DatetimeIndex(schedule.sort_values().unique())
+    schedule = pd.DatetimeIndex(schedule.sort_values())
 
     mask = frame.index.isin(schedule)
     groups = mask.astype("int64").cumsum()
