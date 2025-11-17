@@ -6,7 +6,6 @@ import pytest
 import requests
 
 import tools.enforce_gate_branch_protection as guard
-
 from tools.enforce_gate_branch_protection import (
     DEFAULT_CONTEXTS,
     BranchProtectionError,
