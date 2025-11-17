@@ -12,3 +12,6 @@
 ## Acceptance criteria
 - [ ] All signal calculations that rely on history call the helper.
 - [ ] Tests show identical results to the previous correct implementations and no look-ahead.
+
+## Status
+- _As of this sync no scope items, tasks, or acceptance criteria have been satisfied; all checkboxes remain unchecked and will only flip after the corresponding work and validation land._
