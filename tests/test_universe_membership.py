@@ -105,3 +105,36 @@ def test_gate_universe_rebalance_only_uses_single_date(tmp_path: Path) -> None:
 
     assert list(gated["symbol"]) == ["AAA"]
     assert (gated["date"] == pd.Timestamp("2020-02-29")).all()
+
+
+def test_gate_universe_matches_date_symbol_pairs() -> None:
+    prices = pd.DataFrame(
+        {
+            "date": [
+                "2020-01-31",
+                "2020-02-29",
+                "2020-02-29",
+                "2020-03-31",
+                "2020-01-31",
+            ],
+            "symbol": ["BBB", "AAA", "BBB", "AAA", "AAA"],
+            "value": [5, 1, 2, 3, 4],
+        }
+    )
+    membership = pd.DataFrame(
+        {
+            "symbol": ["AAA", "BBB"],
+            "effective_date": ["2020-01-01", "2020-02-01"],
+            "end_date": [None, "2020-02-29"],
+        }
+    )
+
+    gated = gate_universe(prices, membership, pd.Timestamp("2020-03-31"))
+
+    expected_pairs = [
+        (pd.Timestamp("2020-01-31"), "AAA"),
+        (pd.Timestamp("2020-02-29"), "AAA"),
+        (pd.Timestamp("2020-02-29"), "BBB"),
+        (pd.Timestamp("2020-03-31"), "AAA"),
+    ]
+    assert list(zip(gated["date"], gated["symbol"])) == expected_pairs
