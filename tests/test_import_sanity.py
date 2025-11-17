@@ -1,4 +1,5 @@
 """Sanity checks for isolating the installed package from legacy modules."""
+
 from __future__ import annotations
 
 import importlib
@@ -51,9 +52,7 @@ def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
     env = os.environ.copy()
     pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
-        str(src_dir)
-        if not pythonpath
-        else os.pathsep.join((str(src_dir), pythonpath))
+        str(src_dir) if not pythonpath else os.pathsep.join((str(src_dir), pythonpath))
     )
 
     script = textwrap.dedent(
