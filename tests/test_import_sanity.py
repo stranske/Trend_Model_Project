@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import pkgutil
 import subprocess
@@ -37,6 +38,9 @@ def test_packages_do_not_expose_legacy_modules(package_name: str) -> None:
         assert all(
             forbidden_fragment not in module_name for module_name in package_modules
         ), forbidden_fragment
+
+        spec = importlib.util.find_spec(f"{package_name}.{legacy}")
+        assert spec is None, f"Unexpected spec discovered for {package_name}.{legacy}"
 
 
 def test_src_only_import_rejects_legacy_modules(tmp_path: Path) -> None:
