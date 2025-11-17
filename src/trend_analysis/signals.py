@@ -17,6 +17,8 @@ from typing import Any, Callable, Literal, TypeAlias
 import numpy as np
 import pandas as pd
 
+from .util.rolling import rolling_shifted
+
 SignalFrame: TypeAlias = pd.DataFrame
 
 
