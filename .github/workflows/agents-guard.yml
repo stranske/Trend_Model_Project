@@ -83,18 +83,54 @@ jobs:
               '.github/workflows/agents-*.yml',
             ];
 
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+                    delay = Math.min(waitMs, 60000);
+                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
+                  } else {
+                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                  }
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
             async function loadGuardModule() {
               if (fs.existsSync(guardPath)) {
                 return require(guardPath);
               }
 
               core.info(`Guard script missing locally; fetching ${guardRelativePath} at ${baseRef}`);
-              const response = await github.rest.repos.getContent({
-                owner,
-                repo,
-                path: guardRelativePath,
-                ref: baseRef,
-              });
+              const response = await withApiRetry(
+                () => github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: guardRelativePath,
+                  ref: baseRef,
+                }),
+                { label: `load ${guardRelativePath}` },
+              );
 
               if (Array.isArray(response.data) || response.data.type !== 'file') {
                 throw new Error(`Unable to load ${guardRelativePath} from ${baseRef}`);
@@ -112,35 +148,47 @@ jobs:
             const { evaluateGuard, DEFAULT_MARKER } = guardModule;
             const marker = DEFAULT_MARKER || '<!-- agents-guard-marker -->';
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner,
-              repo,
-              pull_number: prNumber,
-              per_page: 100,
-            });
+            const files = await withApiRetry(
+              () => github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: prNumber,
+                per_page: 100,
+              }),
+              { label: 'list pull files' },
+            );
 
-            const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+            const labels = await withApiRetry(
+              () => github.paginate(github.rest.issues.listLabelsOnIssue, {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }),
+              { label: 'list labels on issue' },
+            );
 
-            const reviews = await github.paginate(github.rest.pulls.listReviews, {
-              owner,
-              repo,
-              pull_number: prNumber,
-              per_page: 100,
-            });
+            const reviews = await withApiRetry(
+              () => github.paginate(github.rest.pulls.listReviews, {
+                owner,
+                repo,
+                pull_number: prNumber,
+                per_page: 100,
+              }),
+              { label: 'list pull reviews' },
+            );
 
             let codeownersContent = '';
             try {
-              const response = await github.rest.repos.getContent({
-                owner,
-                repo,
-                path: '.github/CODEOWNERS',
-                ref: baseRef,
-              });
+              const response = await withApiRetry(
+                () => github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: '.github/CODEOWNERS',
+                  ref: baseRef,
+                }),
+                { label: 'load CODEOWNERS' },
+              );
 
               if (!Array.isArray(response.data) && response.data.type === 'file') {
                 const encoding = response.data.encoding || 'utf-8';
@@ -196,6 +244,39 @@ jobs:
               core.warning(`Failed to load guard marker; using default: ${error.message}`);
             }
 
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+                    delay = Math.min(waitMs, 60000);
+                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
+                  } else {
+                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                  }
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
             const marker = (process.env.COMMENT_MARKER || '').trim() || defaultMarker;
             if (!marker) {
               core.warning('Resolved guard marker is empty; comment updates may duplicate.');
@@ -213,34 +294,43 @@ jobs:
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
 
-            const existingComments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+            const existingComments = await withApiRetry(
+              () => github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }),
+              { label: 'list guard comments' },
+            );
 
             const alreadyPosted = marker
               ? existingComments.find((comment) => comment.body && comment.body.includes(marker))
               : null;
             if (alreadyPosted) {
               if (alreadyPosted.body !== markedBody) {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: alreadyPosted.id,
-                  body: markedBody,
-                });
+                await withApiRetry(
+                  () => github.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: alreadyPosted.id,
+                    body: markedBody,
+                  }),
+                  { label: 'update guard comment' },
+                );
               }
               return;
             }
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body: markedBody,
-            });
+            await withApiRetry(
+              () => github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: markedBody,
+              }),
+              { label: 'create guard comment' },
+            );
 
       - name: Report agents guard commit status
         if: always()
@@ -274,16 +364,52 @@ jobs:
 
             const targetUrl = process.env.TARGET_URL || `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
 
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+                    delay = Math.min(waitMs, 60000);
+                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
+                  } else {
+                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                  }
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
             try {
-              await github.rest.repos.createCommitStatus({
-                owner,
-                repo,
-                sha,
-                state,
-                context: 'Health 45 Agents Guard / Enforce agents workflow protections',
-                description,
-                target_url: targetUrl,
-              });
+              await withApiRetry(
+                () => github.rest.repos.createCommitStatus({
+                  owner,
+                  repo,
+                  sha,
+                  state,
+                  context: 'Health 45 Agents Guard / Enforce agents workflow protections',
+                  description,
+                  target_url: targetUrl,
+                }),
+                { label: 'update guard commit status' },
+              );
               core.info(`Updated Health 45 Agents Guard commit status to ${state}.`);
             } catch (error) {
               core.warning(`Failed to update Health 45 Agents Guard commit status: ${error.message}`);
