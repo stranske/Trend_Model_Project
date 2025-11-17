@@ -856,10 +856,25 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const run_id = context.runId;
-            const jobs = await github.paginate(
-              github.rest.actions.listJobsForWorkflowRun,
-              { owner, repo, run_id, per_page: 100 },
-            );
+            let jobs;
+            try {
+              jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                { owner, repo, run_id, per_page: 100 },
+              );
+            } catch (error) {
+              const status = error?.status || error?.response?.status;
+              const isRateLimit = status === 403 && /rate limit/i.test(error?.message ?? '');
+              const message = isRateLimit
+                ? 'Skipped job summary because the GitHub API rate limit was hit while listing workflow jobs.'
+                : `Skipped job summary because job listing failed: ${error?.message ?? 'unknown error'}`;
+              core.warning(message);
+              await core.summary
+                .addHeading('Workflow job summary', 3)
+                .addRaw(`${message}\n\n`)
+                .write();
+              return;
+            }
             const statusEmoji = (conclusion) => {
               switch (conclusion) {
                 case 'success':
