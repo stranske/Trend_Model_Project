@@ -78,7 +78,7 @@ jobs:
               return;
             }
 
-            const fallback = directDefault || payload.repository?.default_branch || 'phase-2-dev';
+            const resolvedFallback = directDefault || payload.repository?.default_branch || 'phase-2-dev';
 
             try {
               const response = await withApiRetry(
@@ -88,15 +88,15 @@ jobs:
                 }),
                 { label: 'determine default branch' },
               );
-              core.setOutput('name', response.data.default_branch || fallback);
+              core.setOutput('name', response.data.default_branch || resolvedFallback);
             } catch (error) {
               const detail = error?.message || '';
               const status = error?.status || error?.response?.status;
               const rateLimited = status === 429 || (status === 403 && /rate limit/i.test(detail));
 
               if (rateLimited) {
-                core.warning(`Rate limit while resolving default branch; using fallback "${fallback}".`);
-                core.setOutput('name', fallback);
+                core.warning(`Rate limit while resolving default branch; using fallback "${resolvedFallback}".`);
+                core.setOutput('name', resolvedFallback);
               } else {
                 throw error;
               }
