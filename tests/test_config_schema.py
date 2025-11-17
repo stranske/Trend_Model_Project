@@ -13,12 +13,20 @@ from trend.config_schema import (
 )
 
 
-def _payload(csv_path: Path, membership_path: Path | None = None) -> dict:
+def _payload(
+    csv_path: Path | None,
+    *,
+    membership_path: Path | None = None,
+    managers_glob: str | None = None,
+) -> dict:
     data: dict[str, object] = {
-        "csv_path": str(csv_path),
         "date_column": "Date",
         "frequency": "M",
     }
+    if csv_path is not None:
+        data["csv_path"] = str(csv_path)
+    if managers_glob is not None:
+        data["managers_glob"] = managers_glob
     if membership_path is not None:
         data["universe_membership_path"] = str(membership_path)
     return {
@@ -40,6 +48,7 @@ def test_validate_core_config_round_trips(tmp_path: Path) -> None:
         _payload(csv, membership_path=membership), base_path=tmp_path
     )
     assert result.data.csv_path == csv.resolve()
+    assert result.data.managers_glob is None
     assert result.data.universe_membership_path == membership.resolve()
     assert result.data.frequency == "M"
     assert result.costs.transaction_cost_bps == pytest.approx(5.0)
@@ -50,9 +59,8 @@ def test_validate_core_config_round_trips(tmp_path: Path) -> None:
 
 
 def test_validate_core_config_requires_csv_path(tmp_path: Path) -> None:
-    payload = _payload(tmp_path / "missing.csv")
-    payload["data"].pop("csv_path")
-    with pytest.raises(CoreConfigError, match=r"data\.csv_path"):
+    payload = _payload(None)
+    with pytest.raises(CoreConfigError, match="Provide data.csv_path or"):
         validate_core_config(payload, base_path=tmp_path)
 
 
@@ -74,6 +82,31 @@ def test_validate_core_config_rejects_cost_type(tmp_path: Path) -> None:
         validate_core_config(payload, base_path=tmp_path)
 
 
+def test_validate_core_config_allows_managers_glob(tmp_path: Path) -> None:
+    data_dir = tmp_path / "inputs"
+    data_dir.mkdir()
+    csv = data_dir / "mgr_A.csv"
+    csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    payload = _payload(
+        None,
+        managers_glob=str((tmp_path / "inputs" / "mgr_*.csv").relative_to(tmp_path)),
+    )
+    result = validate_core_config(payload, base_path=tmp_path)
+    assert result.data.csv_path is None
+    assert result.data.managers_glob.endswith("mgr_*.csv")
+
+
+def test_validate_core_config_rejects_missing_managers_glob(tmp_path: Path) -> None:
+    data_dir = tmp_path / "inputs"
+    data_dir.mkdir()
+    payload = _payload(
+        None,
+        managers_glob=str((data_dir / "*.csv").relative_to(tmp_path)),
+    )
+    with pytest.raises(CoreConfigError, match="did not match any files"):
+        validate_core_config(payload, base_path=tmp_path)
+
+
 def test_load_core_config_reads_yaml(tmp_path: Path) -> None:
     csv = tmp_path / "returns.csv"
     csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
@@ -81,7 +114,7 @@ def test_load_core_config_reads_yaml(tmp_path: Path) -> None:
     cfg_path.write_text(
         """
         data:
-          csv_path: returns.csv
+          managers_glob: returns.csv
           date_column: Date
           frequency: M
         portfolio:
@@ -94,5 +127,5 @@ def test_load_core_config_reads_yaml(tmp_path: Path) -> None:
     )
 
     result = load_core_config(cfg_path)
-    assert result.data.csv_path == csv.resolve()
+    assert result.data.managers_glob.endswith("returns.csv")
     assert result.costs.transaction_cost_bps == pytest.approx(1.5)

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+import glob
+
 import yaml
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
 ]
 
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "ME"}
+_GLOB_CHARS = {"*", "?", "[", "]"}
 _DEFAULT_BASE = Path.cwd()
 _DEFAULT_DATE_COLUMN = "Date"
 _DEFAULT_FREQUENCY = "M"
@@ -41,7 +44,8 @@ class CoreConfigError(ValueError):
 class DataSettings:
     """Resolved data paths and time-series settings."""
 
-    csv_path: Path
+    csv_path: Path | None
+    managers_glob: str | None
     date_column: str
     frequency: str
     universe_membership_path: Path | None
@@ -66,18 +70,24 @@ class CoreConfig:
     def to_payload(self) -> dict[str, Any]:
         """Serialise the validated configuration back to simple dictionaries."""
 
+        csv_path = str(self.data.csv_path) if self.data.csv_path is not None else None
         membership = (
             str(self.data.universe_membership_path)
             if self.data.universe_membership_path is not None
             else None
         )
+        data_section: dict[str, Any] = {
+            "universe_membership_path": membership,
+            "date_column": self.data.date_column,
+            "frequency": self.data.frequency,
+        }
+        if csv_path is not None:
+            data_section["csv_path"] = csv_path
+        if self.data.managers_glob is not None:
+            data_section["managers_glob"] = self.data.managers_glob
+
         return {
-            "data": {
-                "csv_path": str(self.data.csv_path),
-                "universe_membership_path": membership,
-                "date_column": self.data.date_column,
-                "frequency": self.data.frequency,
-            },
+            "data": data_section,
             "portfolio": {
                 "transaction_cost_bps": self.costs.transaction_cost_bps,
                 "cost_model": {
@@ -125,6 +135,38 @@ def _normalise_path(
     if not candidate.is_file():
         raise CoreConfigError(f"{field} '{candidate}' must point to a file")
     return candidate
+
+
+def _normalise_glob(
+    value: Any,
+    *,
+    field: str,
+    base_path: Path | None,
+) -> str | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (str, Path)):
+        raw = str(value).strip()
+    else:
+        raise CoreConfigError(f"{field} must be a string")
+    if not raw:
+        raise CoreConfigError(f"{field} must be a non-empty string")
+    base = base_path or _DEFAULT_BASE
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = (base / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+    pattern = str(candidate)
+    contains_wildcard = any(ch in pattern for ch in _GLOB_CHARS)
+    if not contains_wildcard:
+        path = _normalise_path(candidate, field=field, base_path=None, required=True)
+        return str(path) if path is not None else None
+    matches = [Path(match) for match in glob.glob(pattern)]
+    files = [match for match in matches if match.is_file()]
+    if not files:
+        raise CoreConfigError(f"{field} '{value}' did not match any files")
+    return pattern
 
 
 def _normalise_string(value: Any, *, field: str, default: str) -> str:
@@ -175,8 +217,17 @@ def validate_core_config(
         data_section.get("csv_path"),
         field="data.csv_path",
         base_path=base_path,
-        required=True,
+        required=False,
     )
+    managers_glob = _normalise_glob(
+        data_section.get("managers_glob"),
+        field="data.managers_glob",
+        base_path=base_path,
+    )
+    if csv_path is None and managers_glob is None:
+        raise CoreConfigError(
+            "Provide data.csv_path or data.managers_glob to locate return series"
+        )
     universe_path = _normalise_path(
         data_section.get("universe_membership_path"),
         field="data.universe_membership_path",
@@ -208,6 +259,7 @@ def validate_core_config(
 
     data_settings = DataSettings(
         csv_path=csv_path,
+        managers_glob=managers_glob,
         date_column=date_column,
         frequency=frequency,
         universe_membership_path=universe_path,

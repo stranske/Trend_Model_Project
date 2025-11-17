@@ -54,12 +54,15 @@ def validate_payload(
 
     validated: Dict[str, Any] = dict(payload)
     data_section = dict(validated.get("data") or {})
-    data_section["csv_path"] = str(core.data.csv_path)
+    data_section["csv_path"] = (
+        str(core.data.csv_path) if core.data.csv_path is not None else None
+    )
     data_section["universe_membership_path"] = (
         str(core.data.universe_membership_path)
         if core.data.universe_membership_path is not None
         else None
     )
+    data_section["managers_glob"] = core.data.managers_glob
     data_section["date_column"] = core.data.date_column
     data_section["frequency"] = core.data.frequency
     validated["data"] = data_section
