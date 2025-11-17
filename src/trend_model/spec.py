@@ -13,6 +13,7 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - fallback for older interpreters
     import tomli as tomllib  # type: ignore[no-redef]
 
+from trend_analysis.backtesting import CostModel
 from trend_analysis.config import load_config
 from trend_analysis.signals import TrendSpec
 
@@ -45,6 +46,7 @@ class BacktestSpec:
     random_n: int
     rebalance_calendar: str | None
     transaction_cost_bps: float
+    cost_model: CostModel
     max_turnover: float | None
     rank: Mapping[str, Any]
     selector: Mapping[str, Any]
@@ -194,6 +196,16 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     checkpoint = _maybe_path(
         _section_get(run_cfg, "checkpoint_dir"), base_path=base_path
     )
+    cost_cfg = _cfg_section(portfolio, "cost_model")
+    slippage = float(_coerce_float(cost_cfg.get("slippage_bps"), 0.0) or 0.0)
+    override_bps = _coerce_float(cost_cfg.get("bps_per_trade"))
+    effective_bps = (
+        float(override_bps)
+        if override_bps is not None
+        else float(transaction_cost_bps)
+    )
+    cost_model = CostModel(bps_per_trade=effective_bps, slippage_bps=slippage)
+
     return BacktestSpec(
         window=window,
         selection_mode=str(_section_get(portfolio, "selection_mode", "all")),
@@ -203,6 +215,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
             _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0)
             or 0.0
         ),
+        cost_model=cost_model,
         max_turnover=_coerce_float(_section_get(portfolio, "max_turnover")),
         rank=rank_cfg,
         selector=selector_cfg,

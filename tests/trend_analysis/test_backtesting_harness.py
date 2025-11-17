@@ -60,6 +60,7 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
         window_mode="rolling",
         window_size=3,
         training_windows=training_windows,
+        cost_model=h.CostModel(),
     )
 
 
@@ -74,10 +75,12 @@ def test_backtest_result_summary_and_json(
     assert summary["metrics"]["cagr"] == pytest.approx(0.12)
     assert summary["turnover"]["2021-02-28T00:00:00"] == pytest.approx(0.05)
     assert summary["weights"]["2021-03-31T00:00:00"]["FundA"] == pytest.approx(0.5)
+    assert summary["cost_model"]["bps_per_trade"] == pytest.approx(0.0)
 
     json_blob = sample_backtest_result.to_json()
     parsed = json.loads(json_blob)
     assert parsed["training_windows"]
+    assert parsed["cost_model"] == summary["cost_model"]
     # Ensure explicit zeros round-trip instead of being silently dropped.
     assert parsed["turnover"]["2021-03-31T00:00:00"] == pytest.approx(0.0)
 

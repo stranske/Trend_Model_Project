@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.backtesting import BacktestResult, bootstrap_equity
+from trend_analysis.backtesting import BacktestResult, CostModel, bootstrap_equity
 from trend_analysis.backtesting.bootstrap import _init_rng, _validate_inputs
 
 
@@ -27,6 +27,7 @@ def _make_result(returns: pd.Series) -> BacktestResult:
         window_mode="rolling",
         window_size=1,
         training_windows={},
+        cost_model=CostModel(),
     )
 
 
