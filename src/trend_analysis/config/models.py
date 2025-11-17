@@ -351,6 +351,18 @@ if _HAS_PYDANTIC:
                 if mt > 2.0:
                     raise ValueError("max_turnover must be <= 2.0")
                 v["max_turnover"] = mt
+            cost_cfg = v.get("cost_model")
+            if isinstance(cost_cfg, dict):
+                for key in ("bps_per_trade", "slippage_bps"):
+                    if key not in cost_cfg:
+                        continue
+                    try:
+                        parsed = float(cost_cfg[key])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError(f"cost_model.{key} must be numeric") from exc
+                    if parsed < 0:
+                        raise ValueError(f"cost_model.{key} must be >= 0")
+                    cost_cfg[key] = parsed
             return v
 
     # Field constants are already defined as class variables above
@@ -503,6 +515,20 @@ else:  # Fallback mode for tests without pydantic
                     if mt > 2.0:
                         raise ValueError("max_turnover must be <= 2.0")
                     port["max_turnover"] = mt
+                cost_cfg = port.get("cost_model")
+                if isinstance(cost_cfg, dict):
+                    for key in ("bps_per_trade", "slippage_bps"):
+                        if key not in cost_cfg:
+                            continue
+                        try:
+                            parsed = float(cost_cfg[key])
+                        except Exception as exc:  # pragma: no cover - defensive
+                            raise ValueError(
+                                f"cost_model.{key} must be numeric"
+                            ) from exc
+                        if parsed < 0:
+                            raise ValueError(f"cost_model.{key} must be >= 0")
+                        cost_cfg[key] = parsed
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:

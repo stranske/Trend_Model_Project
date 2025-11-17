@@ -20,6 +20,7 @@ from pydantic import (
     ConfigDict,
     Field,
     ValidationError,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -262,12 +263,37 @@ class DataSettings(BaseModel):
         return self
 
 
+class CostModelSettings(BaseModel):
+    """Linear cost and slippage parameters."""
+
+    bps_per_trade: float = Field(default=0.0)
+    slippage_bps: float = Field(default=0.0)
+
+    model_config = ConfigDict(extra="ignore")
+
+    @field_validator("bps_per_trade", "slippage_bps", mode="before")
+    @classmethod
+    def _validate_cost(cls, value: Any, info: ValidationInfo) -> float:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"portfolio.cost_model.{info.field_name} must be numeric."
+            ) from exc
+        if parsed < 0:
+            raise ValueError(
+                f"portfolio.cost_model.{info.field_name} cannot be negative."
+            )
+        return parsed
+
+
 class PortfolioSettings(BaseModel):
     """Portfolio controls validated before running analyses."""
 
     rebalance_calendar: str
     max_turnover: float
     transaction_cost_bps: float
+    cost_model: CostModelSettings | None = None
 
     model_config = ConfigDict(extra="ignore")
 

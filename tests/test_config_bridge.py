@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trend_analysis.config.bridge import build_config_payload, validate_payload
 
 
@@ -19,6 +21,7 @@ def test_build_config_payload_minimal():
     )
     assert payload["data"]["date_column"] == "Date"
     assert payload["portfolio"]["rebalance_calendar"] == "NYSE"
+    assert payload["portfolio"]["cost_model"]["bps_per_trade"] == pytest.approx(5.0)
 
 
 def test_build_config_payload_optional_entries() -> None:
@@ -35,6 +38,7 @@ def test_build_config_payload_optional_entries() -> None:
     )
     assert "csv_path" not in payload["data"]
     assert payload["data"]["managers_glob"] == "data/*.csv"
+    assert payload["portfolio"]["cost_model"]["slippage_bps"] == pytest.approx(0.0)
 
 
 def test_validate_payload_success(tmp_path: Path):
@@ -130,3 +134,21 @@ def test_build_config_payload_includes_membership_path(tmp_path: Path) -> None:
         target_vol=0.1,
     )
     assert payload["data"]["universe_membership_path"] == str(membership)
+
+
+def test_build_config_payload_allows_slippage_override() -> None:
+    payload = build_config_payload(
+        csv_path="/tmp/data.csv",
+        universe_membership_path=None,
+        managers_glob=None,
+        date_column="Date",
+        frequency="M",
+        rebalance_calendar="NYSE",
+        max_turnover=0.5,
+        transaction_cost_bps=5.0,
+        slippage_bps=1.25,
+        target_vol=0.1,
+    )
+    model = payload["portfolio"]["cost_model"]
+    assert model["slippage_bps"] == pytest.approx(1.25)
+    assert model["bps_per_trade"] == pytest.approx(5.0)

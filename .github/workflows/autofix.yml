@@ -40,6 +40,8 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const summary = core.summary;
+            summary.addHeading('CI autofix loop guard');
+
             const maxAttempts = Number(process.env.MAX_ATTEMPTS || '2') || 2;
             const result = {
               should_run: 'false',
@@ -58,268 +60,295 @@ jobs:
               has_autofix_clean: 'false',
             };
 
-            summary.addHeading('CI autofix loop guard');
+            const RATE_LIMIT = Symbol('rate-limit');
 
-            const isLabeledEvent = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
-            const isPushEvent = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
-
-            if (!isLabeledEvent && !isPushEvent) {
-              result.skip_reason = 'unsupported-event';
-              summary.addRaw(`Autofix loop expects labeled or push events; got ${context.eventName}/${context.payload.action}.`).addEOL();
+            const finalize = async () => {
               for (const [key, value] of Object.entries(result)) {
                 core.setOutput(key, value);
               }
               await summary.write();
-              return;
-            }
+            };
 
-            let triggerLabel = '';
-            if (isLabeledEvent) {
-              const rawLabel = context.payload.label?.name;
-              triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
-              result.trigger_label = triggerLabel;
-              result.label_actor = String(context.payload.sender?.login || '');
+            const exitEarly = async (reason, message) => {
+              if (reason) {
+                result.skip_reason = reason;
+              }
+              if (message) {
+                summary.addRaw(message).addEOL();
+              }
+              await finalize();
+            };
 
-              summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
+            const isRateLimitError = (error) => {
+              if (!error) {
+                return false;
+              }
+              const status = error.status || error?.response?.status;
+              if (status && Number(status) === 403) {
+                const msg = String(error?.response?.data?.message || error.message || '').toLowerCase();
+                return msg.includes('rate limit');
+              }
+              const msg = String(error.message || '').toLowerCase();
+              return msg.includes('rate limit');
+            };
 
-              if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
-                result.skip_reason = 'unmatched-label';
-                summary.addRaw('Label is not autofix/autofix:clean; skipping.').addEOL();
-                for (const [key, value] of Object.entries(result)) {
-                  core.setOutput(key, value);
+            const sanitizeStage = (stage) =>
+              String(stage || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') || 'api';
+
+            const handleRateLimit = async (stage, error) => {
+              const key = sanitizeStage(stage);
+              result.skip_reason = `rate-limit-${key}`;
+              summary.addRaw(`GitHub API rate limit reached while ${stage}; skipping autofix iteration.`).addEOL();
+              const requestId =
+                error?.response?.headers?.['x-github-request-id'] ||
+                error?.response?.headers?.['X-GitHub-Request-Id'];
+              if (requestId) {
+                summary.addRaw(`request-id: ${requestId}`).addEOL();
+              }
+              await finalize();
+            };
+
+            const safeCall = async (stage, fn) => {
+              try {
+                return await fn();
+              } catch (error) {
+                if (isRateLimitError(error)) {
+                  await handleRateLimit(stage, error);
+                  throw RATE_LIMIT;
                 }
-                await summary.write();
+                throw error;
+              }
+            };
+
+            try {
+              const isLabeledEvent =
+                context.eventName === 'pull_request_target' &&
+                context.payload.action === 'labeled';
+              const isPushEvent =
+                context.eventName === 'pull_request' &&
+                ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+
+              if (!isLabeledEvent && !isPushEvent) {
+                await exitEarly(
+                  'unsupported-event',
+                  `Autofix loop expects labeled or push events; got ${context.eventName}/${context.payload.action}.`
+                );
                 return;
               }
-            } else {
-              summary.addRaw(`Triggered by push event: ${context.payload.action}`).addEOL();
-            }
 
-            const prNumber = Number(context.payload.pull_request?.number);
-            if (!prNumber) {
-              result.skip_reason = 'invalid-pr-number';
-              summary.addRaw('Unable to resolve pull request number.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              let triggerLabel = '';
+              if (isLabeledEvent) {
+                const rawLabel = context.payload.label?.name;
+                triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
+                result.trigger_label = triggerLabel;
+                result.label_actor = String(context.payload.sender?.login || '');
+
+                summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
+
+                if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
+                  await exitEarly('unmatched-label', 'Label is not autofix/autofix:clean; skipping.');
+                  return;
+                }
+              } else {
+                summary.addRaw(`Triggered by push event: ${context.payload.action}`).addEOL();
               }
-              await summary.write();
-              return;
-            }
 
-            const { owner, repo } = context.repo;
-            const prResponse = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-            const pr = prResponse.data;
-
-            summary.addRaw(`Evaluating PR #${pr.number}: ${pr.title}`).addEOL();
-
-            if (pr.state !== 'open') {
-              result.skip_reason = 'pr-closed';
-              summary.addRaw('PR is not open; skipping.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              const prNumber = Number(context.payload.pull_request?.number);
+              if (!prNumber) {
+                await exitEarly('invalid-pr-number', 'Unable to resolve pull request number.');
+                return;
               }
-              await summary.write();
-              return;
-            }
 
-            if (pr.draft) {
-              result.skip_reason = 'pr-draft';
-              summary.addRaw('PR is draft; skipping until ready.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              const { owner, repo } = context.repo;
+              const prResponse = await safeCall('fetching pull request', () =>
+                github.rest.pulls.get({ owner, repo, pull_number: prNumber })
+              );
+              const pr = prResponse.data;
+
+              summary.addRaw(`Evaluating PR #${pr.number}: ${pr.title}`).addEOL();
+
+              if (pr.state !== 'open') {
+                await exitEarly('pr-closed', 'PR is not open; skipping.');
+                return;
               }
-              await summary.write();
-              return;
-            }
 
-            const labelNames = (pr.labels || [])
-              .map((label) => {
-                if (!label) return '';
-                if (typeof label === 'string') return label.toLowerCase();
-                if (typeof label.name === 'string') return label.name.toLowerCase();
-                return '';
-              })
-              .filter(Boolean);
-
-            summary.addRaw(`Labels: ${labelNames.join(', ') || '(none)'}`).addEOL();
-
-            const hasAutofixClean = labelNames.includes('autofix:clean');
-            result.has_autofix_clean = hasAutofixClean ? 'true' : 'false';
-
-            if (!pr.head || !pr.base || !pr.head.repo || !pr.base.repo) {
-              result.skip_reason = 'missing-repo-context';
-              summary.addRaw('Unable to determine PR head/base repository.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              if (pr.draft) {
+                await exitEarly('pr-draft', 'PR is draft; skipping until ready.');
+                return;
               }
-              await summary.write();
-              return;
-            }
 
-            const sameRepo = pr.head.repo.full_name === pr.base.repo.full_name && pr.head.repo.full_name === `${owner}/${repo}`;
-            summary.addRaw(`Same repository PR: ${sameRepo}`).addEOL();
+              const labelNames = (pr.labels || [])
+                .map((label) => {
+                  if (!label) return '';
+                  if (typeof label === 'string') return label.toLowerCase();
+                  if (typeof label.name === 'string') return label.name.toLowerCase();
+                  return '';
+                })
+                .filter(Boolean);
 
-            if (!sameRepo) {
-              result.skip_reason = 'fork-pr';
-              summary.addRaw('Autofix loop only runs for same-repo branches.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              summary.addRaw(`Labels: ${labelNames.join(', ') || '(none)'}`).addEOL();
+
+              const hasAutofixClean = labelNames.includes('autofix:clean');
+              result.has_autofix_clean = hasAutofixClean ? 'true' : 'false';
+
+              if (!pr.head || !pr.base || !pr.head.repo || !pr.base.repo) {
+                await exitEarly('missing-repo-context', 'Unable to determine PR head/base repository.');
+                return;
               }
-              await summary.write();
-              return;
-            }
 
-            const token = String(process.env.ACTIONS_BOT_PAT || '').trim();
-            if (!token) {
-              result.skip_reason = 'missing-actions-bot-pat';
-              summary.addRaw('ACTIONS_BOT_PAT secret is missing; skipping autofix.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              const sameRepo =
+                pr.head.repo.full_name === pr.base.repo.full_name &&
+                pr.head.repo.full_name === `${owner}/${repo}`;
+              summary.addRaw(`Same repository PR: ${sameRepo}`).addEOL();
+
+              if (!sameRepo) {
+                await exitEarly('fork-pr', 'Autofix loop only runs for same-repo branches.');
+                return;
               }
-              await summary.write();
-              return;
-            }
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner,
-              repo,
-              pull_number: pr.number,
-              per_page: 100,
-            });
-            const allowedExtensions = ['.py', '.pyi'];
-            const pythonFiles = files
-              .map((file) => {
-                if (!file) return '';
-                if (typeof file === 'string') return file;
-                if (typeof file.filename === 'string') return file.filename;
-                return '';
-              })
-              .filter(Boolean)
-              .filter((filename) => {
-                const lower = filename.toLowerCase();
-                return allowedExtensions.some((ext) => lower.endsWith(ext));
+              const token = String(process.env.ACTIONS_BOT_PAT || '').trim();
+              if (!token) {
+                await exitEarly('missing-actions-bot-pat', 'ACTIONS_BOT_PAT secret is missing; skipping autofix.');
+                return;
+              }
+
+              const files = await safeCall('listing pull request files', () =>
+                github.paginate(github.rest.pulls.listFiles, {
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  per_page: 100,
+                })
+              );
+              const allowedExtensions = ['.py', '.pyi'];
+              const pythonFiles = files
+                .map((file) => {
+                  if (!file) return '';
+                  if (typeof file === 'string') return file;
+                  if (typeof file.filename === 'string') return file.filename;
+                  return '';
+                })
+                .filter(Boolean)
+                .filter((filename) => {
+                  const lower = filename.toLowerCase();
+                  return allowedExtensions.some((ext) => lower.endsWith(ext));
+                });
+
+              const nonPythonFiles = files
+                .map((file) => {
+                  if (!file) return '';
+                  if (typeof file === 'string') return file;
+                  if (typeof file.filename === 'string') return file.filename;
+                  return '';
+                })
+                .filter(Boolean)
+                .filter((filename) => {
+                  const lower = filename.toLowerCase();
+                  return !allowedExtensions.some((ext) => lower.endsWith(ext));
+                });
+
+              summary.addRaw(`Python files in PR: ${pythonFiles.length}`).addEOL();
+              summary.addRaw(`Non-Python files in PR: ${nonPythonFiles.length}`).addEOL();
+
+              if (pythonFiles.length === 0) {
+                await exitEarly('no-python-files', 'No Python files in PR; skipping autofix loop.');
+                return;
+              }
+
+              if (isPushEvent) {
+                const testFiles = pythonFiles.filter((filename) => {
+                  const lower = filename.toLowerCase();
+                  return lower.includes('/tests/') || /(^|\/)test_/.test(lower);
+                });
+                const sourceFiles = pythonFiles.length - testFiles.length;
+
+                summary.addRaw(`Push event: ${sourceFiles} source file(s), ${testFiles.length} test file(s); autofix will run.`).addEOL();
+              }
+
+              if (nonPythonFiles.length > 0) {
+                summary
+                  .addRaw(`Note: PR contains non-Python files (${nonPythonFiles.join(', ')}). Autofix will only commit changes to Python files.`)
+                  .addEOL();
+              }
+
+              const shortSha = (pr.head.sha || '').slice(0, 7);
+              const branchName = `autofix/${pr.number}-${shortSha}`;
+
+              const marker = '<!-- autofix-loop:';
+              let previousAttempts = 0;
+              let commentId = '';
+              let lastAutofixSha = '';
+
+              const comments = await safeCall('listing PR comments', () =>
+                github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  per_page: 100,
+                })
+              );
+
+              for (const comment of comments) {
+                const body = comment.body || '';
+                const markerIndex = body.indexOf(marker);
+                if (markerIndex === -1) continue;
+                const markerEnd = body.indexOf('-->', markerIndex);
+                if (markerEnd === -1) continue;
+                const payloadRaw = body.slice(markerIndex + marker.length, markerEnd).trim();
+                if (!payloadRaw) continue;
+                try {
+                  const payload = JSON.parse(payloadRaw);
+                  if (Number(payload.pr) !== pr.number) continue;
+                  previousAttempts = Number(payload.attempts || payload.attempt || 0) || 0;
+                  lastAutofixSha = String(payload.head || payload.head_sha || '').trim();
+                  commentId = String(comment.id);
+                  break;
+                } catch (error) {
+                  core.warning(`Failed to parse autofix marker on comment ${comment.id}: ${error}`);
+                }
+              }
+
+              const currentSha = String(pr.head.sha || '').trim();
+              if (lastAutofixSha && currentSha && lastAutofixSha !== currentSha) {
+                summary.addRaw(`New commit detected (${currentSha.slice(0, 7)} ≠ ${lastAutofixSha.slice(0, 7)}); resetting attempt counter.`).addEOL();
+                previousAttempts = 0;
+              }
+
+              summary.addRaw(`Previous attempts for this commit: ${previousAttempts}`).addEOL();
+
+              if (previousAttempts >= maxAttempts) {
+                await exitEarly(
+                  'max-attempts-reached',
+                  `Maximum autofix attempts (${maxAttempts}) reached for commit ${currentSha.slice(0, 7)}; skipping.`
+                );
+                return;
+              }
+
+              const attempt = previousAttempts + 1;
+
+              Object.assign(result, {
+                should_run: 'true',
+                skip_reason: '',
+                pr_number: String(pr.number),
+                head_ref: pr.head.ref || '',
+                head_sha: pr.head.sha || '',
+                short_sha: shortSha,
+                branch_name: branchName,
+                attempt: String(attempt),
+                comment_id: commentId,
               });
 
-            const nonPythonFiles = files
-              .map((file) => {
-                if (!file) return '';
-                if (typeof file === 'string') return file;
-                if (typeof file.filename === 'string') return file.filename;
-                return '';
-              })
-              .filter(Boolean)
-              .filter((filename) => {
-                const lower = filename.toLowerCase();
-                return !allowedExtensions.some((ext) => lower.endsWith(ext));
-              });
-
-            summary.addRaw(`Python files in PR: ${pythonFiles.length}`).addEOL();
-            summary.addRaw(`Non-Python files in PR: ${nonPythonFiles.length}`).addEOL();
-
-            if (pythonFiles.length === 0) {
-              result.skip_reason = 'no-python-files';
-              summary.addRaw('No Python files in PR; skipping autofix loop.').addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
+              summary.addRaw(`Attempt ${attempt} of ${maxAttempts} will run.`).addEOL();
+              await finalize();
+            } catch (error) {
+              if (error === RATE_LIMIT) {
+                return;
               }
-              await summary.write();
-              return;
+              throw error;
             }
-
-            // For push events, log whether test files are included
-            if (isPushEvent) {
-              const testFiles = pythonFiles.filter((filename) => {
-                const lower = filename.toLowerCase();
-                // Match files in /tests/ directory or files/directories starting with test_
-                return lower.includes('/tests/') || /(^|\/)test_/.test(lower);
-              });
-              const sourceFiles = pythonFiles.length - testFiles.length;
-
-              summary.addRaw(`Push event: ${sourceFiles} source file(s), ${testFiles.length} test file(s); autofix will run.`).addEOL();
-            }
-
-            if (nonPythonFiles.length > 0) {
-              summary
-                .addRaw(
-                  `Note: PR contains non-Python files (${nonPythonFiles.join(', ')}). Autofix will only commit changes to Python files.`
-                )
-                .addEOL();
-            }
-
-            const shortSha = (pr.head.sha || '').slice(0, 7);
-            const branchName = `autofix/${pr.number}-${shortSha}`;
-
-            const marker = '<!-- autofix-loop:';
-            let previousAttempts = 0;
-            let commentId = '';
-            let lastAutofixSha = '';
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number: pr.number,
-              per_page: 100,
-            });
-
-            for (const comment of comments) {
-              const body = comment.body || '';
-              const markerIndex = body.indexOf(marker);
-              if (markerIndex === -1) continue;
-              const markerEnd = body.indexOf('-->', markerIndex);
-              if (markerEnd === -1) continue;
-              const payloadRaw = body.slice(markerIndex + marker.length, markerEnd).trim();
-              if (!payloadRaw) continue;
-              try {
-                const payload = JSON.parse(payloadRaw);
-                if (Number(payload.pr) !== pr.number) continue;
-                previousAttempts = Number(payload.attempts || payload.attempt || 0) || 0;
-                lastAutofixSha = String(payload.head || payload.head_sha || '').trim();
-                commentId = String(comment.id);
-                break;
-              } catch (error) {
-                core.warning(`Failed to parse autofix marker on comment ${comment.id}: ${error}`);
-              }
-            }
-
-            // Reset attempt counter if head SHA has changed since last autofix
-            // This allows autofix to run on new commits even after hitting the limit
-            const currentSha = String(pr.head.sha || '').trim();
-            if (lastAutofixSha && currentSha && lastAutofixSha !== currentSha) {
-              summary.addRaw(`New commit detected (${currentSha.slice(0, 7)} ≠ ${lastAutofixSha.slice(0, 7)}); resetting attempt counter.`).addEOL();
-              previousAttempts = 0;
-            }
-
-            summary.addRaw(`Previous attempts for this commit: ${previousAttempts}`).addEOL();
-
-            if (previousAttempts >= maxAttempts) {
-              result.skip_reason = 'max-attempts-reached';
-              summary.addRaw(`Maximum autofix attempts (${maxAttempts}) reached for commit ${currentSha.slice(0, 7)}; skipping.`).addEOL();
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
-              }
-              await summary.write();
-              return;
-            }
-
-            const attempt = previousAttempts + 1;
-
-            Object.assign(result, {
-              should_run: 'true',
-              skip_reason: '',
-              pr_number: String(pr.number),
-              head_ref: pr.head.ref || '',
-              head_sha: pr.head.sha || '',
-              short_sha: shortSha,
-              branch_name: branchName,
-              attempt: String(attempt),
-              comment_id: commentId,
-            });
-
-            summary.addRaw(`Attempt ${attempt} of ${maxAttempts} will run.`).addEOL();
-            for (const [key, value] of Object.entries(result)) {
-              core.setOutput(key, value);
-            }
-            await summary.write();
 
       - name: Ensure ACTIONS_BOT_PAT is configured
         if: steps.context.outputs.should_run == 'true'

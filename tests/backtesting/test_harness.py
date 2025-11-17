@@ -8,11 +8,13 @@ from typing import Mapping
 
 import numpy as np
 import pandas as pd
+import pandas.testing as pdt
 import pytest
 
 from trend_analysis.backtesting import run_backtest
 from trend_analysis.backtesting.harness import (
     BacktestResult,
+    CostModel,
     _compute_drawdown,
     _compute_metrics,
     _infer_periods_per_year,
@@ -173,6 +175,116 @@ def test_transaction_costs_applied_to_turnover() -> None:
 
     assert result.turnover.iloc[0] == 1.0
     assert result.turnover.iloc[1] == 2.0
+
+
+def test_cost_model_zero_cost_matches_baseline() -> None:
+    returns = _synthetic_returns("2021-01-01", 80)
+    strategy_a = AlternatingStrategy()
+    baseline = run_backtest(
+        returns,
+        strategy_a,
+        rebalance_freq="M",
+        window_size=10,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+    strategy_b = AlternatingStrategy()
+    explicit_zero = run_backtest(
+        returns,
+        strategy_b,
+        rebalance_freq="M",
+        window_size=10,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=CostModel(bps_per_trade=0.0, slippage_bps=0.0),
+    )
+
+    pdt.assert_series_equal(baseline.returns, explicit_zero.returns)
+    assert baseline.transaction_costs.equals(explicit_zero.transaction_costs)
+
+
+def test_cost_model_slippage_costs_returns() -> None:
+    index = pd.date_range("2022-01-01", periods=60, freq="B")
+    returns = pd.DataFrame({"A": 0.002, "B": -0.001}, index=index)
+    baseline = run_backtest(
+        returns,
+        AlternatingStrategy(),
+        rebalance_freq="W",
+        window_size=5,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+    model = CostModel(bps_per_trade=25.0, slippage_bps=5.0)
+    taxed = run_backtest(
+        returns,
+        AlternatingStrategy(),
+        rebalance_freq="W",
+        window_size=5,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=model,
+    )
+
+    assert taxed.transaction_costs.notna().any()
+    expected_costs = taxed.turnover * (
+        (model.bps_per_trade + model.slippage_bps) / 10000.0
+    )
+    expected_costs = expected_costs.reindex(taxed.transaction_costs.index).fillna(0.0)
+    assert np.allclose(taxed.transaction_costs.values, expected_costs.values)
+
+    active_base = baseline.returns.dropna()
+    active_taxed = taxed.returns.dropna()
+    assert active_taxed.iloc[0] == pytest.approx(
+        active_base.iloc[0] - taxed.transaction_costs.iloc[0]
+    )
+    assert taxed.equity_curve.iloc[-1] < baseline.equity_curve.iloc[-1]
+
+
+def test_transaction_costs_drive_expected_drawdown() -> None:
+    index = pd.date_range("2021-02-01", periods=12, freq="B")
+    returns = pd.DataFrame({"A": 0.005}, index=index)
+
+    def buy_and_hold(_: pd.DataFrame) -> Mapping[str, float]:
+        return {"A": 1.0}
+
+    baseline = run_backtest(
+        returns,
+        buy_and_hold,
+        rebalance_freq="B",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=CostModel(bps_per_trade=0.0, slippage_bps=0.0),
+    )
+    penalty = CostModel(bps_per_trade=150.0, slippage_bps=0.0)
+    taxed = run_backtest(
+        returns,
+        buy_and_hold,
+        rebalance_freq="B",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=penalty,
+    )
+
+    assert not taxed.transaction_costs.empty
+    first_cost = taxed.transaction_costs.iloc[0]
+    expected_returns = baseline.returns.copy()
+    first_active = expected_returns.first_valid_index()
+    assert first_active is not None
+    expected_returns.loc[first_active] -= first_cost
+
+    expected_equity = (1.0 + expected_returns.fillna(0.0)).cumprod()
+    expected_drawdown = expected_equity / expected_equity.cummax() - 1.0
+
+    pdt.assert_series_equal(
+        taxed.drawdown.round(12),
+        expected_drawdown.round(12),
+        check_names=False,
+    )
+    assert taxed.drawdown.loc[first_active] == pytest.approx(
+        expected_returns.loc[first_active]
+    )
 
 
 def test_min_trade_threshold_clamps_micro_churn() -> None:
@@ -517,6 +629,7 @@ def test_backtest_result_summary_filters_weights() -> None:
         window_mode="rolling",
         window_size=2,
         training_windows={idx[0]: (idx[0], idx[0]), idx[1]: (idx[0], idx[1])},
+        cost_model=CostModel(),
     )
 
     summary = result.summary()

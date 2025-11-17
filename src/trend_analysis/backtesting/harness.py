@@ -13,6 +13,34 @@ from pandas.tseries.frequencies import to_offset
 WindowMode = Literal["rolling", "expanding"]
 
 
+@dataclass(frozen=True)
+class CostModel:
+    """Linear transaction cost model applied to turnover events."""
+
+    bps_per_trade: float = 0.0
+    slippage_bps: float = 0.0
+
+    def __post_init__(self) -> None:
+        for field_name, value in {
+            "bps_per_trade": self.bps_per_trade,
+            "slippage_bps": self.slippage_bps,
+        }.items():
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+
+    def apply(self, turnover: float) -> float:
+        if turnover <= 0:
+            return 0.0
+        multiplier = (self.bps_per_trade + self.slippage_bps) / 10000.0
+        return float(turnover) * multiplier
+
+    def as_dict(self) -> Dict[str, float]:
+        return {
+            "bps_per_trade": float(self.bps_per_trade),
+            "slippage_bps": float(self.slippage_bps),
+        }
+
+
 @dataclass
 class BacktestResult:
     """Container for backtest artifacts and computed performance statistics."""
@@ -26,6 +54,7 @@ class BacktestResult:
     rolling_sharpe: pd.Series
     drawdown: pd.Series
     metrics: Dict[str, float]
+    cost_model: CostModel
     calendar: pd.DatetimeIndex
     window_mode: WindowMode
     window_size: int
@@ -54,6 +83,7 @@ class BacktestResult:
                 }
                 for ts, window in self.training_windows.items()
             },
+            "cost_model": self.cost_model.as_dict(),
         }
 
     def to_json(self, **dumps_kwargs: Any) -> str:
@@ -69,10 +99,11 @@ def run_backtest(
     rebalance_freq: str,
     window_size: int,
     window_mode: WindowMode = "rolling",
-    transaction_cost_bps: float,
+    transaction_cost_bps: float = 0.0,
     min_trade: float,
     rolling_sharpe_window: int | None = None,
     initial_weights: Mapping[str, float] | None = None,
+    cost_model: CostModel | None = None,
 ) -> BacktestResult:
     """Run a walk-forward backtest with a fixed rebalance calendar.
 
@@ -89,6 +120,8 @@ def run_backtest(
         raise ValueError("transaction_cost_bps must be non-negative")
     if min_trade < 0:
         raise ValueError("min_trade must be non-negative")
+
+    model = cost_model or CostModel(bps_per_trade=transaction_cost_bps)
 
     data = _prepare_returns(returns)
     if data.empty:
@@ -133,7 +166,7 @@ def run_backtest(
         execute = delta >= float(min_trade)
         new_weights = proposed if execute else prev_weights
         applied_turnover = delta if execute else 0.0
-        cost = (transaction_cost_bps / 10000.0) * applied_turnover
+        cost = model.apply(applied_turnover)
 
         weights_history[date] = new_weights
         turnover.loc[date] = applied_turnover
@@ -205,6 +238,7 @@ def run_backtest(
         window_mode=window_mode,
         window_size=window_size,
         training_windows=training_windows,
+        cost_model=model,
     )
 
 
