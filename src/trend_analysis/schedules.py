@@ -52,7 +52,13 @@ def apply_rebalance_schedule(
     positions: pd.DataFrame | pd.Series,
     dates: Sequence[pd.Timestamp] | pd.DatetimeIndex | Iterable[object],
 ) -> pd.DataFrame | pd.Series:
-    """Restrict position changes to the provided rebalance dates."""
+    """Restrict position changes to the provided rebalance dates.
+
+    The first observation is always treated as a rebalance so the initial
+    portfolio state is preserved even when the provided calendar starts later
+    in the window. Raises ``ValueError`` when none of the requested dates align
+    with the supplied index so callers can surface configuration errors early.
+    """
 
     if not isinstance(positions.index, pd.DatetimeIndex):
         raise TypeError("positions index must be a DatetimeIndex")
@@ -64,17 +70,25 @@ def apply_rebalance_schedule(
         else positions.copy()
     )
 
+    original_index = frame.index
+    needs_resort = not original_index.is_monotonic_increasing
+    if needs_resort:
+        frame = frame.sort_index()
+
     schedule = get_rebalance_dates(frame.index, dates)
     if schedule.empty:
-        filled = frame.copy()
-        filled.loc[:, :] = 0.0
-    else:
-        mask = frame.index.isin(schedule)
-        gated = frame.copy()
-        gated.loc[~mask, :] = float("nan")
-        filled = gated.ffill().fillna(0.0)
+        raise ValueError("No rebalance dates overlap with the positions index")
 
-    return filled.iloc[:, 0] if is_series else filled
+    if frame.index[0] not in schedule:
+        schedule = schedule.insert(0, frame.index[0])
+    schedule = pd.DatetimeIndex(schedule.sort_values())
+
+    mask = frame.index.isin(schedule)
+    groups = mask.astype("int64").cumsum()
+    gated = frame.groupby(groups, group_keys=False).transform("first")
+
+    ordered = gated if not needs_resort else gated.reindex(original_index)
+    return ordered.iloc[:, 0] if is_series else ordered
 
 
 def _offset_from_frequency(freq: str) -> DateOffset:

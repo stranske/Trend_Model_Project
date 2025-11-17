@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.schedules import apply_rebalance_schedule, get_rebalance_dates
 
@@ -36,6 +37,18 @@ def test_get_rebalance_dates_weekly_skips_holidays() -> None:
     assert calendar.equals(expected)
 
 
+def test_get_rebalance_dates_custom_schedule_intersection() -> None:
+    index = pd.bdate_range("2023-01-02", periods=10)
+    custom = ["2023-01-01", "2023-01-05", "2023-01-12"]
+
+    calendar = get_rebalance_dates(index, custom)
+    expected = pd.DatetimeIndex(
+        [pd.Timestamp("2023-01-05"), pd.Timestamp("2023-01-12")],
+        name="rebalance_date",
+    )
+    assert calendar.equals(expected)
+
+
 def test_apply_rebalance_schedule_only_changes_on_calendar() -> None:
     index = pd.bdate_range("2023-01-02", periods=15)
     positions = pd.DataFrame(
@@ -57,3 +70,36 @@ def test_apply_rebalance_schedule_only_changes_on_calendar() -> None:
 
     mid_week = pd.Timestamp("2023-01-10")
     assert applied.loc[mid_week].equals(applied.loc[calendar[0]])
+
+
+def test_apply_rebalance_schedule_preserves_initial_window() -> None:
+    index = pd.bdate_range("2023-01-02", periods=5)
+    weights = pd.Series([0.2, 0.25, 0.3, 0.35, 0.4], index=index, name="weights")
+    calendar = get_rebalance_dates(index, "weekly")
+
+    applied = apply_rebalance_schedule(weights, calendar)
+
+    assert applied.iloc[0] == weights.iloc[0]
+    # The second trading day occurs before the first rebalance date, so it
+    # should still reflect the initial portfolio.
+    assert applied.iloc[1] == weights.iloc[0]
+
+
+def test_apply_rebalance_schedule_preserves_dtype_and_overlapping_calendar() -> None:
+    index = pd.bdate_range("2023-01-02", periods=6)
+    positions = pd.Series([1, 2, 3, 4, 5, 6], index=index, dtype="int64")
+    calendar = pd.DatetimeIndex([index[2], index[5]])
+
+    applied = apply_rebalance_schedule(positions, calendar)
+
+    assert applied.dtype == positions.dtype
+    assert applied.loc[index[3]] == positions.loc[index[2]]
+
+
+def test_apply_rebalance_schedule_errors_when_calendar_missing() -> None:
+    index = pd.bdate_range("2023-01-02", periods=3)
+    positions = pd.Series([0.1, 0.2, 0.3], index=index)
+    calendar = [index[-1] + pd.Timedelta(days=5)]
+
+    with pytest.raises(ValueError, match="No rebalance dates overlap"):
+        apply_rebalance_schedule(positions, calendar)
