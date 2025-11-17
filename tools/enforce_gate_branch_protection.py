@@ -7,10 +7,11 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping, Sequence
+from typing import Any, Callable, Iterable, List, Mapping, Sequence
 
 import requests
 
@@ -32,6 +33,11 @@ DEFAULT_CONTEXTS = (
 )
 
 DEFAULT_CONFIG_PATH = Path(".github/config/required-contexts.json")
+
+RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("GATE_API_MAX_ATTEMPTS", "5"))
+RATE_LIMIT_BASE_DELAY = float(os.getenv("GATE_API_BASE_DELAY", "1.0"))
+RATE_LIMIT_MIN_DELAY = float(os.getenv("GATE_API_MIN_DELAY", "1.0"))
+_sleep = time.sleep
 
 
 class BranchProtectionError(RuntimeError):
@@ -96,6 +102,94 @@ def _branch_url(repo: str, branch: str, *, api_root: str) -> str:
     return f"{api_root}/repos/{repo}/branches/{branch}"
 
 
+def _response_message(response: requests.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, Mapping):
+        message = payload.get("message")
+        if isinstance(message, str) and message.strip():
+            return message
+    text = response.text or ""
+    return text.strip()
+
+
+def _is_rate_limit_response(response: requests.Response) -> bool:
+    status = response.status_code
+    headers = response.headers
+    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get(
+        "x-ratelimit-remaining"
+    )
+    remaining_exhausted = False
+    if remaining_raw is not None:
+        try:
+            remaining_exhausted = float(str(remaining_raw)) <= 0
+        except ValueError:
+            remaining_exhausted = False
+
+    message = _response_message(response).lower()
+    if status == 429:
+        return True
+    if status == 403:
+        return remaining_exhausted or "rate limit" in message
+    return False
+
+
+def _retry_delay_seconds(response: requests.Response, attempt: int) -> float:
+    headers = response.headers
+    retry_after_raw = headers.get("Retry-After") or headers.get("retry-after")
+    delay = RATE_LIMIT_BASE_DELAY * attempt
+    if retry_after_raw is not None:
+        try:
+            retry_after = float(str(retry_after_raw))
+        except ValueError:
+            retry_after = None
+        else:
+            if retry_after and retry_after > 0:
+                delay = max(delay, retry_after)
+    else:
+        reset_raw = headers.get("X-RateLimit-Reset") or headers.get("x-ratelimit-reset")
+        if reset_raw is not None:
+            try:
+                reset_epoch = float(str(reset_raw))
+            except ValueError:
+                reset_epoch = None
+            else:
+                now = time.time()
+                if reset_epoch and reset_epoch > now:
+                    delay = max(delay, reset_epoch - now + 0.5)
+
+    return max(delay, RATE_LIMIT_MIN_DELAY)
+
+
+def _call_with_rate_limit_retry(
+    label: str, fn: Callable[[], requests.Response]
+) -> requests.Response:
+    last_response: requests.Response | None = None
+    for attempt in range(1, RATE_LIMIT_MAX_ATTEMPTS + 1):
+        response = fn()
+        if not _is_rate_limit_response(response):
+            return response
+        last_response = response
+        if attempt == RATE_LIMIT_MAX_ATTEMPTS:
+            break
+        delay = _retry_delay_seconds(response, attempt)
+        print(
+            f"[gate] Rate limit encountered while {label}; retrying in {delay:.2f}s (attempt {attempt + 1}/{RATE_LIMIT_MAX_ATTEMPTS}).",
+            file=sys.stderr,
+        )
+        _sleep(delay)
+
+    message = _response_message(last_response) if last_response else ""
+    status = last_response.status_code if last_response else "<unknown>"
+    raise BranchProtectionError(
+        "API rate limit exceeded while "
+        f"{label}; exhausted {RATE_LIMIT_MAX_ATTEMPTS} attempts. "
+        f"Last response: {status} {message}"
+    )
+
+
 def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
     protection = payload.get("protection")
     if not isinstance(protection, Mapping) or not protection.get("enabled"):
@@ -121,16 +215,22 @@ def fetch_status_checks(
     *,
     api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState:
-    response = session.get(
-        _status_checks_url(repo, branch, api_root=api_root), timeout=30
+    response = _call_with_rate_limit_retry(
+        f"fetching required status checks for {branch}",
+        lambda: session.get(
+            _status_checks_url(repo, branch, api_root=api_root), timeout=30
+        ),
     )
     if response.status_code == 404:
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
     if response.status_code == 403:
-        branch_response = session.get(
-            _branch_url(repo, branch, api_root=api_root), timeout=30
+        branch_response = _call_with_rate_limit_retry(
+            f"inspecting branch protection for {branch}",
+            lambda: session.get(
+                _branch_url(repo, branch, api_root=api_root), timeout=30
+            ),
         )
         if branch_response.status_code == 404:
             raise BranchProtectionMissingError(
@@ -162,10 +262,13 @@ def update_status_checks(
         "contexts": normalise_contexts(contexts),
         "strict": strict,
     }
-    response = session.patch(
-        _status_checks_url(repo, branch, api_root=api_root),
-        json=payload,
-        timeout=30,
+    response = _call_with_rate_limit_retry(
+        f"updating required status checks for {branch}",
+        lambda: session.patch(
+            _status_checks_url(repo, branch, api_root=api_root),
+            json=payload,
+            timeout=30,
+        ),
     )
     if response.status_code >= 400:
         raise BranchProtectionError(
@@ -200,10 +303,13 @@ def bootstrap_branch_protection(
         "required_conversation_resolution": True,
     }
 
-    response = session.put(
-        f"{api_root}/repos/{repo}/branches/{branch}/protection",
-        json=payload,
-        timeout=30,
+    response = _call_with_rate_limit_retry(
+        f"bootstrapping branch protection for {branch}",
+        lambda: session.put(
+            f"{api_root}/repos/{repo}/branches/{branch}/protection",
+            json=payload,
+            timeout=30,
+        ),
     )
 
     if response.status_code >= 400:
