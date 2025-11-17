@@ -48,6 +48,7 @@ STDLIB_MODULES = {
     "multiprocessing",
     "os",
     "pathlib",
+    "pkgutil",
     "pickle",
     "platform",
     "random",
