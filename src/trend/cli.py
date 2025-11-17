@@ -17,6 +17,7 @@ import pandas as pd
 
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
+from trend.config_schema import CoreConfigError, load_core_config
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -618,6 +619,10 @@ def _load_configuration(path: str) -> Any:
     cfg_path = Path(path).resolve()
     if not cfg_path.exists():
         raise FileNotFoundError(cfg_path)
+    try:
+        load_core_config(cfg_path)
+    except CoreConfigError as exc:
+        raise TrendCLIError(str(exc)) from exc
     cfg = load_config(cfg_path)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     return cfg_path, cfg
