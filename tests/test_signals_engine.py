@@ -58,3 +58,18 @@ def test_window_parameter_changes_behaviour(sample_returns: pd.DataFrame) -> Non
     comparison = short.iloc[6:].fillna(0.0).to_numpy()
     long_comp = long.iloc[6:].fillna(0.0).to_numpy()
     assert not np.allclose(comparison, long_comp)
+
+
+def test_compute_trend_signals_never_uses_same_day(
+    sample_returns: pd.DataFrame,
+) -> None:
+    spec = TrendSpec(window=3, lag=1, vol_adjust=True, vol_target=1.0)
+    baseline = compute_trend_signals(sample_returns, spec)
+    tweaked = sample_returns.copy()
+    tweaked.iloc[-1] += 10.0
+    shifted = compute_trend_signals(tweaked, spec)
+    pd.testing.assert_frame_equal(
+        baseline.iloc[:-1],
+        shifted.iloc[:-1],
+        check_names=False,
+    )
