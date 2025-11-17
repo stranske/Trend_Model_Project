@@ -236,6 +236,51 @@ def test_cost_model_slippage_costs_returns() -> None:
         active_base.iloc[0] - taxed.transaction_costs.iloc[0]
     )
     assert taxed.equity_curve.iloc[-1] < baseline.equity_curve.iloc[-1]
+
+
+def test_transaction_costs_drive_expected_drawdown() -> None:
+    index = pd.date_range("2021-02-01", periods=12, freq="B")
+    returns = pd.DataFrame({"A": 0.005}, index=index)
+
+    def buy_and_hold(_: pd.DataFrame) -> Mapping[str, float]:
+        return {"A": 1.0}
+
+    baseline = run_backtest(
+        returns,
+        buy_and_hold,
+        rebalance_freq="B",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=CostModel(bps_per_trade=0.0, slippage_bps=0.0),
+    )
+    penalty = CostModel(bps_per_trade=150.0, slippage_bps=0.0)
+    taxed = run_backtest(
+        returns,
+        buy_and_hold,
+        rebalance_freq="B",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        cost_model=penalty,
+    )
+
+    assert not taxed.transaction_costs.empty
+    first_cost = taxed.transaction_costs.iloc[0]
+    expected_returns = baseline.returns.copy()
+    first_active = expected_returns.first_valid_index()
+    assert first_active is not None
+    expected_returns.loc[first_active] -= first_cost
+
+    expected_equity = (1.0 + expected_returns.fillna(0.0)).cumprod()
+    expected_drawdown = expected_equity / expected_equity.cummax() - 1.0
+
+    pdt.assert_series_equal(
+        taxed.drawdown.round(12),
+        expected_drawdown.round(12),
+        check_names=False,
+    )
+    assert taxed.drawdown.loc[first_active] == pytest.approx(expected_returns.loc[first_active])
 def test_min_trade_threshold_clamps_micro_churn() -> None:
     returns = _synthetic_returns("2020-01-01", 80)
 
