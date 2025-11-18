@@ -36,6 +36,7 @@ history without confusing it with the live inventory.
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
+| **Minimal invariant CI** | `.github/workflows/pr-11-ci-smoke.yml` | `push`/`pull_request` targeting `phase-2-dev` + `main`, `workflow_dispatch` | `contents: read` | **No** – supplemental smoke test. | Single-runtime import + invariants sweep (`pytest tests/test_invariants.py -q`) that catches regressions quickly while Gate runs the heavier matrix. |
 
 #### Gate job map
 
