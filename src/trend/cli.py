@@ -226,17 +226,45 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> Path:
+    """Resolve the returns CSV path relative to sensible anchors.
+
+    Relative paths from the configuration are first checked relative to the
+    configuration file itself, then the directory *above* it (repo root), and
+    finally against the current working directory.  This mirrors the
+    ``DataSettings`` resolver so configs can reference ``demo/demo_returns.csv``
+    even though the YAML file lives under ``config/``.
+    """
+
+    def _resolve_relative(raw: Path, *, include_config_roots: bool) -> Path:
+        if raw.is_absolute():
+            return raw.resolve()
+        roots: list[Path] = []
+        if include_config_roots:
+            cfg_dir = config_path.parent
+            roots.append(cfg_dir)
+            parent = cfg_dir.parent
+            if parent != cfg_dir:
+                roots.append(parent)
+        roots.append(Path.cwd())
+        seen: set[Path] = set()
+        for root in roots:
+            if root in seen:
+                continue
+            seen.add(root)
+            candidate = (root / raw).resolve()
+            if candidate.exists():
+                return candidate
+        anchor = roots[0]
+        return (anchor / raw).resolve()
+
     if override:
-        path = Path(override)
-    else:
-        csv_path = cfg.data.get("csv_path") if hasattr(cfg, "data") else None
-        if not csv_path:
-            msg = "Configuration must define data.csv_path or use --returns"
-            raise TrendCLIError(msg)
-        path = Path(csv_path)
-    if not path.is_absolute():
-        path = (config_path.parent / path).resolve()
-    return path
+        return _resolve_relative(Path(override), include_config_roots=False)
+
+    csv_path = cfg.data.get("csv_path") if hasattr(cfg, "data") else None
+    if not csv_path:
+        msg = "Configuration must define data.csv_path or use --returns"
+        raise TrendCLIError(msg)
+    return _resolve_relative(Path(csv_path), include_config_roots=True)
 
 
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
