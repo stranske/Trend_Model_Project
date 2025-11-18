@@ -45,7 +45,6 @@ from ..weighting import (
 from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
-from .loaders import load_benchmarks, load_membership, load_prices
 
 # ``trend_analysis.typing`` does not exist in this project; keep the structural
 # intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
