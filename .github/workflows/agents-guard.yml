@@ -103,14 +103,22 @@ jobs:
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  if (isRateLimit && hasResetValue) {
+                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterSeconds = Number(retryAfterRaw);
+                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                    delay = Math.max(delay, retryAfterSeconds * 1000);
+                  } else if (isRateLimit && hasResetValue) {
                     const nowSeconds = Math.floor(Date.now() / 1000);
-                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-                    delay = Math.min(waitMs, 60000);
-                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
-                  } else {
-                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                    if (reset > nowSeconds) {
+                      const untilReset = (reset - nowSeconds) * 1000 + 500;
+                      delay = Math.max(delay, untilReset);
+                    }
                   }
+                  delay = Math.max(delay, 1000);
+                  const humanDelay = delay >= 60000
+                    ? `${(delay / 60000).toFixed(2)}m`
+                    : `${Math.round(delay)}ms`;
+                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
                   await sleep(delay);
                 }
               }
@@ -312,14 +320,22 @@ jobs:
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  if (isRateLimit && Number.isFinite(reset)) {
+                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterSeconds = Number(retryAfterRaw);
+                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                    delay = Math.max(delay, retryAfterSeconds * 1000);
+                  } else if (isRateLimit && Number.isFinite(reset)) {
                     const nowSeconds = Math.floor(Date.now() / 1000);
-                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-                    delay = Math.min(waitMs, 60000);
-                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
-                  } else {
-                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                    if (reset > nowSeconds) {
+                      const untilReset = (reset - nowSeconds) * 1000 + 500;
+                      delay = Math.max(delay, untilReset);
+                    }
                   }
+                  delay = Math.max(delay, 1000);
+                  const humanDelay = delay >= 60000
+                    ? `${(delay / 60000).toFixed(2)}m`
+                    : `${Math.round(delay)}ms`;
+                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
                   await sleep(delay);
                 }
               }
@@ -432,14 +448,22 @@ jobs:
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  if (isRateLimit && Number.isFinite(reset)) {
+                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterSeconds = Number(retryAfterRaw);
+                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                    delay = Math.max(delay, retryAfterSeconds * 1000);
+                  } else if (isRateLimit && Number.isFinite(reset)) {
                     const nowSeconds = Math.floor(Date.now() / 1000);
-                    const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-                    delay = Math.min(waitMs, 60000);
-                    core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying.`);
-                  } else {
-                    core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}).`);
+                    if (reset > nowSeconds) {
+                      const untilReset = (reset - nowSeconds) * 1000 + 500;
+                      delay = Math.max(delay, untilReset);
+                    }
                   }
+                  delay = Math.max(delay, 1000);
+                  const humanDelay = delay >= 60000
+                    ? `${(delay / 60000).toFixed(2)}m`
+                    : `${Math.round(delay)}ms`;
+                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
                   await sleep(delay);
                 }
               }
