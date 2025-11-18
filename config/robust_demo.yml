@@ -8,9 +8,9 @@ version: "0.1.0"
 # ----------------------------------------------------------------------
 
 data:
-  managers_glob: "demo/demo_returns.csv"
+  managers_glob: "../demo/demo_returns.csv"
   indices_glob: "data/raw/indices/*.csv"
-  csv_path: demo/demo_returns.csv
+  csv_path: ../demo/demo_returns.csv
   date_column: "Date"
   price_column: "Adj_Close"
   frequency: "D"

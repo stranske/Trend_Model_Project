@@ -48,12 +48,31 @@ _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
 _ORIGINAL_FALLBACKS: dict[str, Callable[..., Any]] = {}
+_LEGACY_BASELINES: dict[str, Callable[..., Any]] = {}
+
+
+def _env_flag(name: str) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+_USE_LEGACY_CLI = _env_flag("TREND_FORCE_LEGACY_CLI")
+
+
+def _capture_legacy_baseline(name: str) -> None:
+    module = _refresh_legacy_cli_module()
+    if module is None or name in _LEGACY_BASELINES:
+        return
+    attr = getattr(module, name, None)
+    if callable(attr):
+        _LEGACY_BASELINES[name] = attr
 
 
 def _register_fallback(name: str, fn: Callable[..., Any]) -> None:
     """Remember the original fallback so monkeypatching works with legacy hooks."""
 
     _ORIGINAL_FALLBACKS.setdefault(name, fn)
+    _capture_legacy_baseline(name)
 
 
 logger = logging.getLogger(__name__)
@@ -110,6 +129,10 @@ def _refresh_legacy_cli_module() -> ModuleType | None:
         if callable(maybe_log_step_fn):
             _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
         _legacy_extract_cache_stats = getattr(module, "_extract_cache_stats", None)
+        for name in _ORIGINAL_FALLBACKS:
+            attr = getattr(module, name, None)
+            if callable(attr) and name not in _LEGACY_BASELINES:
+                _LEGACY_BASELINES[name] = attr
 
     return module or _legacy_cli_module
 
@@ -135,7 +158,12 @@ def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., A
     if module is not None:
         attr = getattr(module, name, None)
         if callable(attr):
-            return cast(Callable[..., Any], attr)
+            baseline = _LEGACY_BASELINES.get(name)
+            if baseline is None:
+                _LEGACY_BASELINES[name] = attr
+                baseline = attr
+            if _USE_LEGACY_CLI or attr is not baseline:
+                return cast(Callable[..., Any], attr)
     return fallback
 
 
