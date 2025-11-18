@@ -13,6 +13,7 @@ import pandas as pd
 from pandas.util import hash_pandas_object
 
 from trend_analysis.util.joblib_shim import dump, load
+
 from .timing import log_timing
 
 

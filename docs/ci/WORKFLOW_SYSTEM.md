@@ -613,6 +613,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `pull_request_target` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Run optional fixers when the `autofix:clean` label is present and post Gate summaries. | ⚪ Optional | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Consolidate CI output, apply small hygiene fixes, and update failure-tracker state. | ⚪ Optional (auto) | [Gate workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-00-gate.yml) |
+| **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`phase-2-dev`, `main`), `pull_request` (`phase-2-dev`, `main`), `workflow_dispatch` | Quick import + invariant smoke test that installs once on Python 3.11 and runs `pytest tests/test_invariants.py -q` as an early warning net. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/pr-11-ci-smoke.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Check PyPI for new versions of CI/autofix tools and create/update an issue when updates are available. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-50-tool-version-check.yml) |
 | **Maint 51 Dependency Refresh** (`maint-51-dependency-refresh.yml`, maintenance bucket) | `schedule` (1st & 15th at 04:00 UTC), `workflow_dispatch` | Regenerate `requirements.lock` with `uv pip compile`, verify tool-pin alignment, and open a refresh PR when dependency updates are detected (supports dry-run previews). | ⚪ Scheduled | [Maint 51 dependency refresh](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-51-dependency-refresh.yml) |
@@ -962,6 +963,9 @@ branch-protection rulebook without re-learning the terminology.
      For manual dispatches, keep the default branch checked out so the summary
      references the merged commit.
   3. Once Gate summary job finishes, confirm the pull-request timeline shows the new
+     Gate summary job summary comment (with links back to the Gate run and reusable
+     matrix). If the comment is still absent, note the remediation in the
+     incident issue and ping `#trend-ci` for follow-up.
      Gate summary job summary comment (with links back to the Gate run and reusable
      matrix). If the comment is still absent, note the remediation in the
      incident issue and ping `#trend-ci` for follow-up.
