@@ -15,12 +15,14 @@ from __future__ import annotations
 import hashlib
 from collections import OrderedDict
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any, Callable, Dict, Iterable, Tuple
 
 import numpy as np
 import pandas as pd
 
 from .._typing import FloatArray, MatrixF
+from .timing import log_timing
 
 Key = Tuple[str, str, int, str]
 
@@ -99,11 +101,30 @@ class CovCache:
     def get_or_compute(
         self, key: Key, compute_fn: Callable[[], CovPayload]
     ) -> CovPayload:
+        start = perf_counter()
         cached = self.get(key)
         if cached is not None:
+            log_timing(
+                "cov_cache",
+                duration_s=perf_counter() - start,
+                status="hit",
+                start=key[0],
+                end=key[1],
+                freq=key[3],
+                assets=len(cached.assets),
+            )
             return cached
         payload = compute_fn()
         self.put(key, payload)
+        log_timing(
+            "cov_cache",
+            duration_s=perf_counter() - start,
+            status="miss",
+            start=key[0],
+            end=key[1],
+            freq=key[3],
+            assets=len(payload.assets),
+        )
         return payload
 
     def clear(self) -> None:

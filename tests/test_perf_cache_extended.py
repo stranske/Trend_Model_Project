@@ -146,3 +146,28 @@ def test_incremental_cov_update_matches_full_recompute() -> None:
     assert updated.n == recomputed.n
     assert updated.assets == recomputed.assets
     assert updated.s1 is not None and updated.s2 is not None
+
+
+def test_covcache_emits_timing_logs(monkeypatch) -> None:
+    cache = CovCache()
+    key = cache.make_key("2020-01", "2020-06", ["A", "B"])
+
+    logged: list[tuple[str, dict[str, object]]] = []
+
+    def fake_log(stage: str, **fields: object) -> None:  # pragma: no cover - simple
+        logged.append((stage, fields))
+
+    monkeypatch.setattr("trend_analysis.perf.cache.log_timing", fake_log)
+
+    payload = CovPayload(
+        cov=np.eye(2),
+        mean=np.zeros(2),
+        std=np.zeros(2),
+        n=2,
+        assets=("A", "B"),
+    )
+
+    cache.get_or_compute(key, lambda: payload)
+    cache.get_or_compute(key, lambda: payload)
+
+    assert [entry[1]["status"] for entry in logged] == ["miss", "hit"]
