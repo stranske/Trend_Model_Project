@@ -238,7 +238,13 @@ def _validate_task(
                             f"{ledger_path}: {context}.commit {commit} has no changed files"
                         )
                     else:
-                        ledger_relative = ledger_path.as_posix()
+                        try:
+                            ledger_relative = ledger_path.relative_to(
+                                REPO_ROOT
+                            ).as_posix()
+                        except ValueError:
+                            ledger_relative = ledger_path.as_posix()
+
                         if all(name.startswith(".agents/") for name in files):
                             allowed_sidecars = {
                                 ledger_relative,
