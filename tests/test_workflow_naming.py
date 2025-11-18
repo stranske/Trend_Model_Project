@@ -193,6 +193,7 @@ EXPECTED_NAMES = {
     "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "pr-00-gate.yml": "Gate",
+    "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",

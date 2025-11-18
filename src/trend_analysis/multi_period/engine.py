@@ -42,6 +42,7 @@ from ..weighting import (
     EqualWeight,
     ScorePropBayesian,
 )
+from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 from .loaders import load_benchmarks, load_membership, load_prices
@@ -52,6 +53,7 @@ from .loaders import load_benchmarks, load_membership, load_prices
 MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
+_DEFAULT_LOAD_CSV = load_csv
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
