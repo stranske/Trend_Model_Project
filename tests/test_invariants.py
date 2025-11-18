@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pandas.testing as pdt
+import pytest
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 
-from trend_analysis.backtesting.harness import run_backtest
+from trend.validation import build_validation_frame, validate_prices_frame
+from trend_analysis.backtesting.harness import _rebalance_calendar, run_backtest
 from trend_analysis.risk import RiskWindow, compute_constrained_weights
+from trend_analysis.universe import gate_universe
+from trend_analysis.util.rolling import rolling_shifted
 
 
 def _business_index(start: str = "2024-01-02", periods: int = 90) -> pd.DatetimeIndex:
@@ -118,3 +123,139 @@ def test_transaction_costs_are_monotonic() -> None:
     assert not high_cost.transaction_costs.empty
     assert (combined["high"] <= combined["low"] + 1e-12).all()
     assert (combined["high"] < combined["low"] - 1e-9).any()
+
+
+def test_validation_requires_date_and_value_columns() -> None:
+    frame = pd.DataFrame({"Alpha": [0.5]})
+    with pytest.raises(ValueError, match="must include 'Date'"):
+        build_validation_frame(frame)
+
+    date_only = pd.DataFrame({"Date": [pd.Timestamp("2024-01-31")]})
+    with pytest.raises(ValueError, match="value columns to validate"):
+        build_validation_frame(date_only)
+
+    tidy = build_validation_frame(
+        pd.DataFrame({"Date": ["2024-01-31"], "Alpha": [1.0], "Beta": [2.0]})
+    )
+    with pytest.raises(KeyError, match="symbol"):
+        validate_prices_frame(tidy.drop(columns=["symbol"]))
+
+
+def test_gate_universe_excludes_non_members_at_rebalance() -> None:
+    prices = pd.DataFrame(
+        {
+            "date": [
+                "2020-01-10",
+                "2020-01-10",
+                "2020-01-10",
+                "2020-01-20",
+                "2020-01-20",
+                "2020-01-20",
+            ],
+            "symbol": [
+                "Alpha",
+                "Beta",
+                "Gamma",
+                "Alpha",
+                "Beta",
+                "Gamma",
+            ],
+            "close": [1.0, 2.0, 3.0, 1.1, 2.1, 3.1],
+        }
+    )
+    membership = pd.DataFrame(
+        {
+            "symbol": ["Alpha", "Beta"],
+            "effective_date": ["2020-01-01", "2020-01-15"],
+            "end_date": ["2020-01-31", None],
+        }
+    )
+
+    jan10 = gate_universe(prices, membership, as_of="2020-01-10", rebalance_only=True)
+    assert set(jan10["symbol"]) == {"Alpha"}
+
+    jan20 = gate_universe(prices, membership, as_of="2020-01-20", rebalance_only=True)
+    assert set(jan20["symbol"]) == {"Alpha", "Beta"}
+    assert "Gamma" not in jan20["symbol"].values
+
+
+def test_rolling_shifted_never_uses_future_data() -> None:
+    index = pd.date_range("2024-01-02", periods=8, freq="B")
+    series = pd.Series(np.arange(1, len(index) + 1, dtype=float), index=index)
+
+    window = 3
+    result = rolling_shifted(series, window=window, agg="mean")
+    expected = series.shift(1).rolling(window=window, min_periods=window).mean()
+
+    pdt.assert_series_equal(result, expected)
+
+    for pos in range(window, len(series)):
+        current = index[pos]
+        history = series.iloc[pos - window : pos]
+        assert np.isclose(result.loc[current], history.mean(), equal_nan=True)
+
+
+def test_transaction_costs_reduce_returns_by_expected_amount() -> None:
+    index = pd.date_range("2021-01-01", periods=30, freq="B")
+    returns = pd.DataFrame({"Alpha": 0.01, "Beta": 0.005}, index=index)
+
+    class FlipFlopStrategy:
+        def __init__(self) -> None:
+            self.toggle = False
+
+        def __call__(self, window: pd.DataFrame) -> pd.Series:
+            weights = pd.Series(0.0, index=window.columns)
+            if self.toggle:
+                weights.iloc[0] = 1.0
+            else:
+                weights.iloc[1] = 1.0
+            self.toggle = not self.toggle
+            return weights
+
+    baseline = run_backtest(
+        returns,
+        FlipFlopStrategy(),
+        rebalance_freq="W",
+        window_size=5,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+    costly = run_backtest(
+        returns,
+        FlipFlopStrategy(),
+        rebalance_freq="W",
+        window_size=5,
+        transaction_cost_bps=100.0,
+        min_trade=0.0,
+    )
+
+    expected = baseline.returns.copy()
+    tx_per_unit = 100.0 / 10000.0
+    for ts, turnover in costly.per_period_turnover[
+        costly.per_period_turnover > 0
+    ].items():
+        expected.loc[ts] -= turnover * tx_per_unit
+
+    observed = costly.returns.dropna()
+    aligned_expected = expected.loc[observed.index]
+    pdt.assert_series_equal(observed, aligned_expected, check_names=False)
+
+
+def test_backtest_calendar_matches_calendar_helper() -> None:
+    returns = _backtest_returns().iloc[:60]
+    freq = "M"
+    window_size = 12
+    result = run_backtest(
+        returns,
+        _alternating_strategy,
+        rebalance_freq=freq,
+        window_size=window_size,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+    )
+
+    raw_calendar = _rebalance_calendar(returns.index, freq)
+    expected_calendar = pd.DatetimeIndex(
+        [date for date in raw_calendar if len(returns.loc[:date]) >= window_size]
+    )
+    pdt.assert_index_equal(result.calendar, expected_calendar)
