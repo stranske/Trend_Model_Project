@@ -16,7 +16,7 @@ import pandas as pd
 from trend_analysis.config import load
 from trend_analysis.config.models import ConfigProtocol
 from trend_analysis.data import load_csv
-from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_from_config as run_mp
 from trend_analysis.multi_period import run_schedule
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import ScorePropBayesian
