@@ -9,7 +9,7 @@ from . import export
 from .config import load
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .logging_setup import setup_logging
-from .multi_period import run as run_mp
+from .multi_period import run_from_config as run_mp
 
 
 def main(argv: list[str] | None = None) -> int:

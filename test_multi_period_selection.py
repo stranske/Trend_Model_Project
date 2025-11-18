@@ -11,7 +11,7 @@ from pathlib import Path  # noqa: F401 - retained for potential future path oper
 
 from trend_analysis.config import load
 from trend_analysis.data import load_csv
-from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_from_config as run_mp
 
 
 def test_multi_period_selection():

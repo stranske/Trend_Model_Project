@@ -32,7 +32,7 @@ from typing import Dict, List, Set
 import pandas as pd
 
 from trend_analysis.config import Config, load
-from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_from_config as run_mp
 from trend_analysis.script_logging import setup_script_logging
 
 

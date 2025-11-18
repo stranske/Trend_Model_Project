@@ -30,7 +30,11 @@ from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
-from ..universe import apply_membership_windows, load_universe_membership
+from ..universe import (
+    MembershipTable,
+    MembershipWindow,
+    apply_membership_windows,
+)
 from ..util.missing import apply_missing_policy
 from ..weighting import (
     AdaptiveBayesWeighting,
@@ -40,6 +44,7 @@ from ..weighting import (
 )
 from .replacer import Rebalancer
 from .scheduler import generate_periods
+from .loaders import load_benchmarks, load_membership, load_prices
 
 # ``trend_analysis.typing`` does not exist in this project; keep the structural
 # intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
@@ -49,12 +54,51 @@ MultiPeriodPeriodResult = Dict[str, Any]
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 
 
+class MissingPriceDataError(FileNotFoundError, ValueError):
+    """Raised when CSV fallback loading fails in ``run``."""
+
+
 def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
     """Return a forward-filled/zero-filled float copy of returns."""
 
     prepared = df.astype(float, copy=True)
     prepared = prepared.ffill().fillna(0.0)
     return prepared
+
+
+def _membership_table_from_frame(frame: pd.DataFrame) -> MembershipTable:
+    """Convert a membership ledger DataFrame into ``MembershipTable``."""
+
+    if frame is None or frame.empty:
+        return {}
+
+    lookup = {str(col).strip().lower(): col for col in frame.columns}
+    fund_col = lookup.get("fund") or lookup.get("symbol")
+    eff_col = lookup.get("effective_date")
+    end_col = lookup.get("end_date")
+    if not fund_col or not eff_col or not end_col:
+        raise ValueError(
+            "membership data must include fund, effective_date, and end_date columns"
+        )
+
+    normalised = frame.rename(
+        columns={fund_col: "fund", eff_col: "effective_date", end_col: "end_date"}
+    ).copy()
+    normalised["fund"] = normalised["fund"].astype(str).str.strip()
+    normalised["effective_date"] = pd.to_datetime(normalised["effective_date"])
+    normalised["end_date"] = pd.to_datetime(normalised["end_date"])
+
+    table: dict[str, tuple[MembershipWindow, ...]] = {}
+    grouped = normalised.sort_values(["fund", "effective_date"]).groupby("fund")
+    for fund, rows in grouped:
+        windows: list[MembershipWindow] = []
+        for row in rows.itertuples(index=False):
+            eff = pd.Timestamp(getattr(row, "effective_date"))
+            end_val = getattr(row, "end_date")
+            end = None if pd.isna(end_val) else pd.Timestamp(end_val)
+            windows.append(MembershipWindow(eff, end))
+        table[fund] = tuple(windows)
+    return table
 
 
 def _compute_turnover_state(
@@ -411,6 +455,8 @@ def run(
     cfg: Any,
     df: pd.DataFrame | None = None,
     price_frames: dict[str, pd.DataFrame] | None = None,
+    *,
+    membership: pd.DataFrame | None = None,
 ) -> List[MultiPeriodPeriodResult]:
     """Run the multi‑period back‑test.
 
@@ -420,12 +466,14 @@ def run(
         Loaded configuration object. ``cfg.multi_period`` drives the
         scheduling logic.
     df : pd.DataFrame, optional
-        Pre-loaded returns data.  If ``None`` the CSV pointed to by
-        ``cfg.data['csv_path']`` is loaded via :func:`load_csv`.
+        Pre-loaded returns data. Provide this or ``price_frames``.
     price_frames : dict[str, pd.DataFrame], optional
         Pre-computed price data frames by date/period. If provided, used instead
-        of building from returns data. If ``None``, data is built from returns
-        or loaded from CSV as usual.
+        of ``df``. One of ``df`` or ``price_frames`` must be supplied.
+    membership : pd.DataFrame, optional
+        Membership ledger DataFrame containing ``fund``, ``effective_date`` and
+        ``end_date`` columns. Required when the configuration specifies
+        ``data.universe_membership_path``.
 
     Returns
     -------
@@ -474,29 +522,32 @@ def run(
         else:
             raise ValueError("price_frames is empty - no data to process")
 
+    data_settings = getattr(cfg, "data", {}) or {}
+    missing_policy_cfg = data_settings.get("missing_policy")
+    if missing_policy_cfg is None:
+        missing_policy_cfg = data_settings.get("nan_policy")
+    missing_limit_cfg = data_settings.get("missing_limit")
+    if missing_limit_cfg is None:
+        missing_limit_cfg = data_settings.get("nan_limit")
+
     if df is None:
-        csv_path = cfg.data.get("csv_path")
+        csv_path = data_settings.get("csv_path")
         if not csv_path:
             raise KeyError("cfg.data['csv_path'] must be provided")
-        data_settings = getattr(cfg, "data", {}) or {}
-        missing_policy_cfg = data_settings.get("missing_policy")
-        if missing_policy_cfg is None:
-            missing_policy_cfg = data_settings.get("nan_policy")
-        missing_limit_cfg = data_settings.get("missing_limit")
-        if missing_limit_cfg is None:
-            missing_limit_cfg = data_settings.get("nan_limit")
-
-        df = load_csv(
-            csv_path,
-            errors="raise",
-            missing_policy=missing_policy_cfg,
-            missing_limit=missing_limit_cfg,
-        )
+        try:
+            df = load_csv(
+                csv_path,
+                errors="raise",
+                missing_policy=missing_policy_cfg,
+                missing_limit=missing_limit_cfg,
+            )
+        except FileNotFoundError as exc:
+            raise MissingPriceDataError(
+                "multi_period.run requires either a pre-loaded DataFrame or "
+                "price_frames; provide a valid 'csv_path' or in-memory frame"
+            ) from exc
         if df is None:
             raise ValueError(f"Failed to load CSV data from '{csv_path}'")
-
-    if df is None:
-        raise ValueError("Multi-period engine requires a DataFrame to operate")
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
@@ -505,16 +556,6 @@ def run(
     df = df.copy()
     if not pd.api.types.is_datetime64_any_dtype(df["Date"]):
         df["Date"] = pd.to_datetime(df["Date"])
-
-    # Apply missing-data policy before entering the analysis pipeline so that
-    # incremental covariance runs over forward-filled data when requested.
-    data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
-    if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
-    if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
 
     original_returns = df.set_index("Date")
     skip_missing_policy = (
@@ -539,9 +580,20 @@ def run(
     if cleaned.empty:
         raise ValueError("Missing-data policy removed all assets for analysis")
 
-    membership_path = data_settings.get("universe_membership_path")
-    if membership_path:
-        membership_windows = load_universe_membership(str(membership_path))
+    membership_required = bool(data_settings.get("universe_membership_path"))
+    membership_frame = membership if membership is not None else None
+    if membership_frame is not None and membership_frame.empty:
+        membership_frame = None
+    membership_windows: MembershipTable | None = None
+    if membership_frame is not None:
+        membership_windows = _membership_table_from_frame(membership_frame)
+    elif membership_required:
+        raise ValueError(
+            "cfg.data['universe_membership_path'] was provided; pass a membership "
+            "DataFrame via the 'membership' argument or call run_from_config()."
+        )
+
+    if membership_windows:
         missing_entries = sorted(
             asset for asset in cleaned.columns if asset not in membership_windows
         )
@@ -1220,3 +1272,16 @@ def run(
     # Update complete for this period; next loop will use prev_weights
 
     return results
+
+
+def run_from_config(cfg: Any) -> List[MultiPeriodPeriodResult]:
+    """Load all inputs declared in ``cfg`` and execute :func:`run`."""
+
+    prices = load_prices(cfg)
+    membership_df = load_membership(cfg)
+    benchmarks = load_benchmarks(cfg, prices)
+    if not benchmarks.empty:
+        inputs_meta = prices.attrs.setdefault("inputs", {})
+        inputs_meta["benchmarks"] = benchmarks
+    membership_arg = membership_df if not membership_df.empty else None
+    return run(cfg, df=prices, membership=membership_arg)
