@@ -113,10 +113,13 @@ def _render_html(
     summary_text: str,
 ) -> str:
     metrics = manifest.get("metrics", {})
-    metric_rows = "".join(
-        f"<tr><th>{html.escape(str(k))}</th><td>{html.escape(f'{v:.4f}' if isinstance(v, (int, float)) else str(v))}</td></tr>"
-        for k, v in metrics.items()
-    )
+    metric_rows_parts: list[str] = []
+    for key, value in metrics.items():
+        display = f"{value:.4f}" if isinstance(value, (int, float)) else str(value)
+        metric_rows_parts.append(
+            f"<tr><th>{html.escape(str(key))}</th><td>{html.escape(display)}</td></tr>"
+        )
+    metric_rows = "".join(metric_rows_parts)
     artifacts = manifest.get("artifacts", [])
     artifact_rows = (
         "".join(

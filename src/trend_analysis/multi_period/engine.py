@@ -27,6 +27,7 @@ import pandas as pd
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
+from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -51,6 +52,10 @@ from .loaders import load_benchmarks, load_membership, load_prices
 MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
+
+
+class MissingPriceDataError(FileNotFoundError, ValueError):
+    """Raised when CSV fallback loading fails in ``run``."""
 
 
 def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -517,11 +522,6 @@ def run(
         else:
             raise ValueError("price_frames is empty - no data to process")
 
-    if df is None:
-        raise ValueError(
-            "run requires either a pre-loaded DataFrame or price_frames input"
-        )
-
     data_settings = getattr(cfg, "data", {}) or {}
     missing_policy_cfg = data_settings.get("missing_policy")
     if missing_policy_cfg is None:
@@ -529,6 +529,25 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+
+    if df is None:
+        csv_path = data_settings.get("csv_path")
+        if not csv_path:
+            raise KeyError("cfg.data['csv_path'] must be provided")
+        try:
+            df = load_csv(
+                csv_path,
+                errors="raise",
+                missing_policy=missing_policy_cfg,
+                missing_limit=missing_limit_cfg,
+            )
+        except FileNotFoundError as exc:
+            raise MissingPriceDataError(
+                "multi_period.run requires either a pre-loaded DataFrame or "
+                "price_frames; provide a valid 'csv_path' or in-memory frame"
+            ) from exc
+        if df is None:
+            raise ValueError(f"Failed to load CSV data from '{csv_path}'")
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
