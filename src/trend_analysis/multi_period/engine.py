@@ -55,6 +55,10 @@ SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
 
 
+class MissingPriceDataError(FileNotFoundError, ValueError):
+    """Raised when CSV fallback loading fails in ``run``."""
+
+
 def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
     """Return a forward-filled/zero-filled float copy of returns."""
 
@@ -526,35 +530,25 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
-    csv_path_value = data_settings.get("csv_path")
-    csv_path_str = str(csv_path_value).strip() if csv_path_value is not None else ""
 
-    missing_data_msg = (
-        "multi_period.run requires either a pre-loaded DataFrame or "
-        "price_frames; provide an in-memory frame via the 'df' or "
-        "'price_frames' argument"
-    )
-
-    if df is None and price_frames is None:
-        if not csv_path_str:
+    if df is None:
+        csv_path = data_settings.get("csv_path")
+        if not csv_path:
             raise KeyError("cfg.data['csv_path'] must be provided")
         try:
-            loaded = load_csv(
-                csv_path_str,
+            df = load_csv(
+                csv_path,
                 errors="raise",
                 missing_policy=missing_policy_cfg,
                 missing_limit=missing_limit_cfg,
             )
         except FileNotFoundError as exc:
-            if load_csv is _DEFAULT_LOAD_CSV:
-                raise ValueError(missing_data_msg) from exc
-            raise
-        if loaded is None:
-            raise ValueError(f"Failed to load CSV data from '{csv_path_str}'")
-        df = loaded
-
-    if df is None:
-        raise ValueError(missing_data_msg)
+            raise MissingPriceDataError(
+                "multi_period.run requires either a pre-loaded DataFrame or "
+                "price_frames; provide a valid 'csv_path' or in-memory frame"
+            ) from exc
+        if df is None:
+            raise ValueError(f"Failed to load CSV data from '{csv_path}'")
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
