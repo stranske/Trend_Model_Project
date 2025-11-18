@@ -42,9 +42,9 @@ from ..weighting import (
     EqualWeight,
     ScorePropBayesian,
 )
+from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
-from .loaders import load_benchmarks, load_membership, load_prices
 
 # ``trend_analysis.typing`` does not exist in this project; keep the structural
 # intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
@@ -52,10 +52,7 @@ from .loaders import load_benchmarks, load_membership, load_prices
 MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
-
-
-class MissingPriceDataError(FileNotFoundError, ValueError):
-    """Raised when CSV fallback loading fails in ``run``."""
+_DEFAULT_LOAD_CSV = load_csv
 
 
 def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -529,25 +526,35 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+    csv_path_value = data_settings.get("csv_path")
+    csv_path_str = str(csv_path_value).strip() if csv_path_value is not None else ""
 
-    if df is None:
-        csv_path = data_settings.get("csv_path")
-        if not csv_path:
+    missing_data_msg = (
+        "multi_period.run requires either a pre-loaded DataFrame or "
+        "price_frames; provide an in-memory frame via the 'df' or "
+        "'price_frames' argument"
+    )
+
+    if df is None and price_frames is None:
+        if not csv_path_str:
             raise KeyError("cfg.data['csv_path'] must be provided")
         try:
-            df = load_csv(
-                csv_path,
+            loaded = load_csv(
+                csv_path_str,
                 errors="raise",
                 missing_policy=missing_policy_cfg,
                 missing_limit=missing_limit_cfg,
             )
         except FileNotFoundError as exc:
-            raise MissingPriceDataError(
-                "multi_period.run requires either a pre-loaded DataFrame or "
-                "price_frames; provide a valid 'csv_path' or in-memory frame"
-            ) from exc
-        if df is None:
-            raise ValueError(f"Failed to load CSV data from '{csv_path}'")
+            if load_csv is _DEFAULT_LOAD_CSV:
+                raise ValueError(missing_data_msg) from exc
+            raise
+        if loaded is None:
+            raise ValueError(f"Failed to load CSV data from '{csv_path_str}'")
+        df = loaded
+
+    if df is None:
+        raise ValueError(missing_data_msg)
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
