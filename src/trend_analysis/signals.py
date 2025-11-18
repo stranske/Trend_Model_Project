@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import logging
 import time
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
 

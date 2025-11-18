@@ -85,7 +85,9 @@ def test_compute_trend_signals_reuses_cached_numeric_frame() -> None:
     assert isinstance(memo, dict)
     cached_entry = memo.get("float_frame")
     assert cached_entry is not None
-    cached_numeric = cached_entry.get() if hasattr(cached_entry, "get") else cached_entry
+    cached_numeric = (
+        cached_entry.get() if hasattr(cached_entry, "get") else cached_entry
+    )
     assert isinstance(cached_numeric, pd.DataFrame)
 
     compute_trend_signals(returns, spec)
@@ -101,13 +103,17 @@ def test_compute_trend_signals_reuses_cached_numeric_frame() -> None:
     assert isinstance(cached_mean, pd.DataFrame)
 
 
-def test_compute_trend_signals_logs_stage_timings(caplog: pytest.LogCaptureFixture) -> None:
+def test_compute_trend_signals_logs_stage_timings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     returns = _sample_returns(rows=10)
     spec = TrendSpec(window=3, vol_adjust=True, vol_target=1.0, zscore=True)
 
     with caplog.at_level(logging.DEBUG, logger="trend_analysis.signals"):
         compute_trend_signals(returns, spec)
 
-    stage_logs = [rec.message for rec in caplog.records if "compute_trend_signals[" in rec.message]
+    stage_logs = [
+        rec.message for rec in caplog.records if "compute_trend_signals[" in rec.message
+    ]
     assert stage_logs, "expected timing logs for compute_trend_signals"
     assert any("float_coerce" in msg for msg in stage_logs)
