@@ -105,6 +105,24 @@ def test_resolve_returns_path_uses_config_directory(tmp_path: Path) -> None:
     assert resolved == (tmp_path / "data" / "returns.csv").resolve()
 
 
+def test_resolve_returns_path_falls_back_to_parent_directory(tmp_path: Path) -> None:
+    cfg_dir = tmp_path / "config"
+    cfg_dir.mkdir()
+    cfg_path = cfg_dir / "demo.yml"
+    cfg_path.write_text("", encoding="utf-8")
+
+    data_dir = tmp_path / "demo"
+    data_dir.mkdir()
+    target = data_dir / "demo_returns.csv"
+    target.write_text("Date,Mgr_01\n2020-01-31,0.01\n", encoding="utf-8")
+
+    class DummyCfg:
+        data = {"csv_path": "demo/demo_returns.csv"}
+
+    resolved = _resolve_returns_path(cfg_path, DummyCfg(), None)
+    assert resolved == target.resolve()
+
+
 def test_resolve_returns_path_requires_csv(tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yml"
     cfg_path.write_text("", encoding="utf-8")

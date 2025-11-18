@@ -23,6 +23,7 @@ from .io.market_data import MarketDataValidationError
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
+from .reporting.run_artifacts import write_run_artifacts
 from .signal_presets import (
     TrendSpecPreset,
     get_trend_spec_preset,
@@ -135,6 +136,33 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
 
     _visit(payload)
     return found[-1] if found else None
+
+
+def _resolve_artifact_paths(
+    out_dir: Path, filename: str, keys: Sequence[str], formats: Sequence[str]
+) -> list[Path]:
+    """Return the expected artifact paths for ``filename`` and ``formats``."""
+
+    seen: set[Path] = set()
+    paths: list[Path] = []
+    for fmt in formats:
+        fmt_norm = (fmt or "").lower()
+        fmt_norm = "xlsx" if fmt_norm == "excel" else fmt_norm
+        if not fmt_norm:
+            continue
+        if fmt_norm == "xlsx":
+            candidate = out_dir / f"{filename}.xlsx"
+            if candidate not in seen:
+                paths.append(candidate)
+                seen.add(candidate)
+            continue
+        for key in keys:
+            candidate = out_dir / f"{filename}_{key}.{fmt_norm}"
+            if candidate in seen:
+                continue
+            paths.append(candidate)
+            seen.add(candidate)
+    return paths
 
 
 def check_environment(lock_path: Path | None = None) -> int:
@@ -401,9 +429,20 @@ def main(argv: list[str] | None = None) -> int:
         if not out_dir and not out_formats:
             out_dir = DEFAULT_OUTPUT_DIRECTORY
             out_formats = DEFAULT_OUTPUT_FORMATS
+        manifest_dir: Path | None = None
         if out_dir and out_formats:
+            out_dir_path = Path(out_dir)
+            fmt_list = list(out_formats)
             data = {"metrics": metrics_df}
-            if any(f.lower() in {"excel", "xlsx"} for f in out_formats):
+            maybe_log_step(
+                do_structured,
+                run_id,
+                "export_start",
+                "Beginning export",
+                formats=fmt_list,
+            )
+            excel_requested = any(f.lower() in {"excel", "xlsx"} for f in fmt_list)
+            if excel_requested:
                 sheet_formatter = export.make_summary_formatter(
                     res,
                     str(split.get("in_start")),
@@ -412,33 +451,65 @@ def main(argv: list[str] | None = None) -> int:
                     str(split.get("out_end")),
                 )
                 data["summary"] = pd.DataFrame()
-                maybe_log_step(
-                    do_structured,
-                    run_id,
-                    "export_start",
-                    "Beginning export",
-                    formats=out_formats,
-                )
                 export.export_to_excel(
                     data,
-                    str(Path(out_dir) / f"{filename}.xlsx"),
+                    str(out_dir_path / f"{filename}.xlsx"),
                     default_sheet_formatter=sheet_formatter,
                 )
-                other = [f for f in out_formats if f.lower() not in {"excel", "xlsx"}]
-                if other:
-                    export.export_data(
-                        data, str(Path(out_dir) / filename), formats=other
-                    )
-                else:
-                    export.export_data(
-                        data, str(Path(out_dir) / filename), formats=out_formats
-                    )
+                other = [f for f in fmt_list if f.lower() not in {"excel", "xlsx"}]
+                target_formats = other if other else fmt_list
+            else:
+                target_formats = fmt_list
+            export.export_data(
+                data,
+                str(out_dir_path / filename),
+                formats=target_formats,
+            )
+            data_keys = list(data.keys())
+            artifact_paths = _resolve_artifact_paths(
+                out_dir_path, filename, data_keys, fmt_list
+            )
             maybe_log_step(
                 do_structured,
                 run_id,
                 "export_complete",
                 "Export finished",
             )
+            config_payload: Any
+            if hasattr(cfg, "model_dump"):
+                try:
+                    config_payload = cfg.model_dump()
+                except TypeError:  # pragma: no cover - defensive for exotic configs
+                    config_payload = cfg.model_dump()
+            elif hasattr(cfg, "__dict__"):
+                config_payload = dict(getattr(cfg, "__dict__"))
+            else:
+                config_payload = cfg
+            try:
+                manifest_dir = write_run_artifacts(
+                    output_dir=out_dir_path,
+                    run_id=run_id,
+                    config=config_payload,
+                    config_path=args.config,
+                    input_path=Path(args.input),
+                    data_frame=df,
+                    metrics_frame=metrics_df,
+                    run_details=res if isinstance(res, Mapping) else {},
+                    exported_files=artifact_paths,
+                    summary_text=text,
+                )
+            except Exception as exc:  # pragma: no cover - defensive guard
+                logging.getLogger(__name__).warning(
+                    "Failed to write run artifacts: %s", exc
+                )
+            else:
+                maybe_log_step(
+                    do_structured,
+                    run_id,
+                    "run_artifacts",
+                    "Run manifest written",
+                    directory=str(manifest_dir),
+                )
 
         # Optional bundle export (reproducibility manifest + hashes)
         if args.bundle:
