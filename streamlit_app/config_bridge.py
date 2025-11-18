@@ -1,15 +1,11 @@
-"""Bridge helpers to validate Streamlit form inputs with the minimal TrendConfig model.
-
-This keeps the UI aligned with startup validation semantics (Issue #1436).
-The functions here are pure so they can be unit tested without Streamlit.
-"""
+"""Bridge helpers aligning the Streamlit app with CLI configuration checks."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
-from trend_analysis.config import validate_trend_config
+from trend.config_schema import CoreConfigError, validate_core_config
 
 
 def build_config_payload(
@@ -52,10 +48,33 @@ def validate_payload(
     payload: Dict[str, Any], *, base_path: Path
 ) -> Tuple[dict, None] | Tuple[None, str]:
     try:
-        cfg = validate_trend_config(payload, base_path=base_path)
-        return cfg.model_dump(), None
-    except ValueError as exc:  # surface first-line message
+        core = validate_core_config(payload, base_path=base_path)
+    except CoreConfigError as exc:
         return None, str(exc)
+
+    validated: Dict[str, Any] = dict(payload)
+    data_section = dict(validated.get("data") or {})
+    data_section["csv_path"] = (
+        str(core.data.csv_path) if core.data.csv_path is not None else None
+    )
+    data_section["universe_membership_path"] = (
+        str(core.data.universe_membership_path)
+        if core.data.universe_membership_path is not None
+        else None
+    )
+    data_section["managers_glob"] = core.data.managers_glob
+    data_section["date_column"] = core.data.date_column
+    data_section["frequency"] = core.data.frequency
+    validated["data"] = data_section
+
+    portfolio = dict(validated.get("portfolio") or {})
+    portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
+    cost_model = dict(portfolio.get("cost_model") or {})
+    cost_model["bps_per_trade"] = core.costs.bps_per_trade
+    cost_model["slippage_bps"] = core.costs.slippage_bps
+    portfolio["cost_model"] = cost_model
+    validated["portfolio"] = portfolio
+    return validated, None
 
 
 __all__ = ["build_config_payload", "validate_payload"]
