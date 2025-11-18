@@ -27,6 +27,7 @@ import pandas as pd
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
+from ..data import load_csv
 from ..pipeline import _run_analysis
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -51,6 +52,7 @@ from .scheduler import generate_periods
 MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
+_DEFAULT_LOAD_CSV = load_csv
 
 
 def _prepare_returns_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -524,13 +526,35 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+    csv_path_value = data_settings.get("csv_path")
+    csv_path_str = str(csv_path_value).strip() if csv_path_value is not None else ""
+
+    missing_data_msg = (
+        "multi_period.run requires either a pre-loaded DataFrame or "
+        "price_frames; provide an in-memory frame via the 'df' or "
+        "'price_frames' argument"
+    )
+
+    if df is None and price_frames is None:
+        if not csv_path_str:
+            raise KeyError("cfg.data['csv_path'] must be provided")
+        try:
+            loaded = load_csv(
+                csv_path_str,
+                errors="raise",
+                missing_policy=missing_policy_cfg,
+                missing_limit=missing_limit_cfg,
+            )
+        except FileNotFoundError as exc:
+            if load_csv is _DEFAULT_LOAD_CSV:
+                raise ValueError(missing_data_msg) from exc
+            raise
+        if loaded is None:
+            raise ValueError(f"Failed to load CSV data from '{csv_path_str}'")
+        df = loaded
 
     if df is None:
-        raise ValueError(
-            "multi_period.run requires either a pre-loaded DataFrame or "
-            "price_frames; provide an in-memory frame via the 'df' or "
-            "'price_frames' argument"
-        )
+        raise ValueError(missing_data_msg)
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
