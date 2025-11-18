@@ -9,6 +9,7 @@ inventory and naming rules.
 ## 1. Architecture Snapshot
 Core layers:
 - Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to Python 3.11/3.12 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
+- Minimal invariant CI (`pr-11-ci-smoke.yml`): lean push/PR workflow that installs the project once on Python 3.11, sanity-checks imports, and executes the invariant tests from Issue #3651 so regressions surface quickly.
 - Gate summary (`pr-00-gate.yml` post-CI jobs): integrated post-CI reporting that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
 - Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - PR metadata management (`agents-pr-meta.yml`): serializes Codex activation commands and PR body decoration through dedicated jobs that share a concurrency group keyed by PR number. This prevents marker thrash while keeping activation dispatch responsive.
@@ -72,6 +73,7 @@ workflow files.
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
+| `pr-11-ci-smoke.yml` | push (`phase-2-dev`, `main`), pull_request (`phase-2-dev`, `main`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.

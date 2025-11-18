@@ -132,6 +132,9 @@ GUID: TMP-2025-11-16-CI-SMOKE
 Why:
 A tiny CI sweep prevents “it runs on my laptop” surprises.
 
+Scope:
+- Minimal CI: install, import, and run invariant tests.
+
 Tasks:
 - Add a workflow that sets up Python, installs the project, and runs the invariant tests from issue 11.
 - Run an import sanity check for the package.
