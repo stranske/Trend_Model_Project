@@ -1,10 +1,11 @@
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
 import requests
 
+import tools.enforce_gate_branch_protection as guard
 from tools.enforce_gate_branch_protection import (
     DEFAULT_CONTEXTS,
     BranchProtectionError,
@@ -29,13 +30,19 @@ REQUIRED_CONTEXTS = load_required_contexts(
 
 class DummyResponse(requests.Response):
     def __init__(
-        self, status_code: int, payload: dict | None = None, text: str = ""
+        self,
+        status_code: int,
+        payload: dict | None = None,
+        text: str = "",
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__()
         self.status_code = status_code
         content = json.dumps(payload or {}) if payload is not None else text
         self._content = content.encode("utf-8")
         self.encoding = "utf-8"
+        header_mapping = headers or {}
+        self.headers = requests.structures.CaseInsensitiveDict(header_mapping)
 
 
 class DummySession(requests.Session):
@@ -180,6 +187,43 @@ def test_fetch_status_checks_forbidden_without_branch_access_raises() -> None:
 
     with pytest.raises(BranchProtectionMissingError):
         fetch_status_checks(session, "owner/repo", "main")
+
+
+def test_fetch_status_checks_retries_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rate_limit_headers = {"Retry-After": "0", "X-RateLimit-Remaining": "0"}
+    rate_limited = DummyResponse(
+        403,
+        {"message": "API rate limit exceeded"},
+        headers=rate_limit_headers,
+    )
+    success = DummyResponse(200, {"strict": True, "contexts": ["Gate / gate"]})
+    session = DummySession([rate_limited, success])
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = fetch_status_checks(session, "owner/repo", "main")
+
+    assert state == StatusCheckState(strict=True, contexts=["Gate / gate"])
+
+
+def test_fetch_status_checks_rate_limit_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rate_limit_headers = {"Retry-After": "0", "X-RateLimit-Remaining": "0"}
+    rate_limited = DummyResponse(
+        403,
+        {"message": "API rate limit exceeded"},
+        headers=rate_limit_headers,
+    )
+    session = DummySession(rate_limited)
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+    monkeypatch.setattr(guard, "RATE_LIMIT_MAX_ATTEMPTS", 2)
+
+    with pytest.raises(BranchProtectionError) as excinfo:
+        fetch_status_checks(session, "owner/repo", "main")
+
+    assert "rate limit" in str(excinfo.value).lower()
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:

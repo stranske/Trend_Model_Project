@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import textwrap
 import types
 from pathlib import Path
 from types import SimpleNamespace
@@ -352,7 +353,24 @@ def test_load_configuration_reads_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg_file = tmp_path / "config.yml"
-    cfg_file.write_text("config", encoding="utf-8")
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_file.write_text(
+        textwrap.dedent(
+            """
+            data:
+              csv_path: returns.csv
+              date_column: Date
+              frequency: M
+            portfolio:
+              transaction_cost_bps: 1
+              cost_model:
+                bps_per_trade: 1
+                slippage_bps: 0
+            """
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(trend_cli, "load_config", lambda path: {"version": "1"})
 
