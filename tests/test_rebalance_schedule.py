@@ -154,4 +154,6 @@ def test_normalize_positions_two_asset_reproducible_weights() -> None:
     normalized = normalize_positions(df)
 
     expected_last = pd.Series({"AAA": -1.0, "BBB": 0.5})
-    pd.testing.assert_series_equal(normalized.iloc[-1], expected_last, check_names=False)
+    pd.testing.assert_series_equal(
+        normalized.iloc[-1], expected_last, check_names=False
+    )
