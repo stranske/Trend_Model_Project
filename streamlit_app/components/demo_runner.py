@@ -323,7 +323,7 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
     """Execute the demo pipeline and stash results in ``st.session_state``."""
 
     if st_module is None:
-        import streamlit as st  # noqa: WPS433 - local import for testability
+        import streamlit as st  # noqa: E402 - local import for testability
 
         st_module = st
 
