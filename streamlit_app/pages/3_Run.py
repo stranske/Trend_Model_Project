@@ -162,7 +162,7 @@ def main() -> None:
     # Re-import streamlit within the function to ensure any test-time monkeypatches
     # (e.g. replacing ``st.button``) are respected even if the module was previously
     # imported elsewhere.
-    import streamlit as st  # noqa: WPS433 - local import for testability
+    import streamlit as st  # noqa: E402 - local import for testability
 
     st.title("Run")
     # Always render disclaimer + button first so tests can capture state
