@@ -72,23 +72,70 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
 
 
 def _fetch_commit(commit: str) -> bool:
-    try:
-        subprocess.check_call(
-            [
-                "git",
-                "fetch",
-                "--no-tags",
-                "--depth",
-                "1",
-                "origin",
-                commit,
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except subprocess.CalledProcessError:
-        return False
-    return True
+    """Ensure *commit* exists locally, fetching extra history if needed."""
+
+    fetch_attempts = [
+        [
+            "git",
+            "fetch",
+            "--no-tags",
+            "--filter=blob:none",
+            "origin",
+            commit,
+        ],
+        [
+            "git",
+            "fetch",
+            "--no-tags",
+            "--filter=blob:none",
+            "--deepen",
+            "256",
+            "origin",
+        ],
+        [
+            "git",
+            "fetch",
+            "--no-tags",
+            "--filter=blob:none",
+            "--unshallow",
+            "origin",
+        ],
+    ]
+
+    for command in fetch_attempts:
+        try:
+            subprocess.check_call(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            continue
+
+        if command[-1] == commit:
+            return True
+
+        # Success without specifying the SHA just deepened the local clone;
+        # try once more to pull the exact commit while the additional history
+        # is available.
+        try:
+            subprocess.check_call(
+                [
+                    "git",
+                    "fetch",
+                    "--no-tags",
+                    "--filter=blob:none",
+                    "origin",
+                    commit,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            continue
+        return True
+
+    return False
 
 
 def _commit_files(commit: str) -> List[str]:
