@@ -232,14 +232,11 @@ def test_run_skips_missing_policy_when_price_frames_present(
     assert set(combined.columns) == {"Date", "FundA", "FundB"}
 
 
-def test_run_raises_when_loader_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_requires_price_data() -> None:
     cfg = BasicConfig()
-    cfg.data = {"csv_path": "missing.csv"}
 
-    monkeypatch.setattr(mp_engine, "load_csv", lambda *_a, **_k: None)
-
-    with pytest.raises(ValueError, match="Failed to load CSV data"):
-        mp_engine.run(cfg, df=None)
+    with pytest.raises(ValueError, match="requires either a pre-loaded DataFrame"):
+        mp_engine.run(cfg)
 
 
 def test_threshold_hold_returns_placeholder_for_empty_universe(
@@ -287,38 +284,41 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
     assert entry["manager_changes"] == []
 
 
-def test_run_loads_csv_with_nan_policy_and_string_dates(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_run_from_config_wires_through_loaders(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = BasicConfig()
-    cfg.performance = {"enable_cache": False}
-    cfg.data.update({"nan_policy": "ffill", "nan_limit": 3})
-
-    loaded = pd.DataFrame(
+    prices = pd.DataFrame({"Date": ["2020-01-31"], "FundA": [0.1]})
+    membership_df = pd.DataFrame(
         {
-            "Date": ["2020-01-31", "2020-02-29"],
-            "FundA": [0.1, 0.2],
+            "fund": ["FundA"],
+            "effective_date": ["2020-01-31"],
+            "end_date": [pd.NaT],
         }
     )
 
-    _patch_generate_periods(
-        monkeypatch,
-        [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
-    )
+    called: dict[str, bool] = {"bench": False}
 
-    monkeypatch.setattr(mp_engine, "load_csv", lambda *_a, **_k: loaded.copy())
+    monkeypatch.setattr(mp_engine, "load_prices", lambda _cfg: prices.copy())
+    monkeypatch.setattr(mp_engine, "load_membership", lambda _cfg: membership_df.copy())
 
-    captured_dates: list[pd.Timestamp] = []
+    def fake_load_benchmarks(_cfg: Any, frame: pd.DataFrame) -> pd.DataFrame:
+        called["bench"] = True
+        return pd.DataFrame({"Date": frame["Date"]})
 
-    def fake_run_analysis(
-        df: pd.DataFrame, *_args: Any, **_kwargs: Any
-    ) -> dict[str, Any]:
-        captured_dates.extend(df["Date"].tolist())
-        return {"ok": True}
+    monkeypatch.setattr(mp_engine, "load_benchmarks", fake_load_benchmarks)
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    def fake_run(
+        _cfg: Any,
+        *,
+        df: pd.DataFrame,
+        membership: pd.DataFrame | None = None,
+        **_kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        return [{"df": df, "membership": membership}]
 
-    results = mp_engine.run(cfg, df=None)
+    monkeypatch.setattr(mp_engine, "run", fake_run)
 
-    assert results
-    assert captured_dates == list(pd.to_datetime(["2020-01-31", "2020-02-29"]))
+    results = mp_engine.run_from_config(cfg)
+
+    assert results[0]["df"].equals(prices)
+    assert isinstance(results[0]["membership"], pd.DataFrame)
+    assert called["bench"]

@@ -49,7 +49,8 @@ try:
     from trend_analysis.core import rank_selection as rs
     from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
     from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
-    from trend_analysis.multi_period import run as run_mp
+    from trend_analysis.multi_period import run as run_core
+    from trend_analysis.multi_period import run_from_config as run_mp
     from trend_analysis.multi_period import run_schedule, scheduler
     from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
     from trend_analysis.multi_period.replacer import Rebalancer
@@ -1000,7 +1001,7 @@ if num_periods <= 1:
     raise SystemExit("Multi-period demo produced insufficient results")
 
 df_pre = demo_df
-results_pre = run_mp(cfg, df_pre)
+results_pre = run_core(cfg, df_pre)
 if len(results_pre) != num_periods:
     raise SystemExit("Preloaded DataFrame run mismatch")
 

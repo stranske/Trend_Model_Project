@@ -18,7 +18,7 @@ import pandas as pd
 
 from trend_analysis import export
 from trend_analysis.config import load
-from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period import run_from_config as run_mp
 
 
 def _to_row(label: str, stats: Any) -> dict[str, Any]:
