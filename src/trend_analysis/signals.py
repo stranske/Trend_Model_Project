@@ -8,15 +8,102 @@ to keep the computation fast even for large universes.
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Literal, TypeAlias
+from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
 
 import numpy as np
 import pandas as pd
 
-from .util.rolling import rolling_shifted
-
 SignalFrame: TypeAlias = pd.DataFrame
+
+
+LOGGER = logging.getLogger(__name__)
+_MEMO_ATTR = "_trend_signal_cache"
+
+
+class _FrameHandle:
+    __slots__ = ("frame",)
+
+    def __init__(self, frame: pd.DataFrame) -> None:
+        self.frame = frame
+
+    def get(self) -> pd.DataFrame:
+        return self.frame
+
+    def __deepcopy__(self, memo: dict[Any, Any]) -> "_FrameHandle":
+        return self
+
+
+def _resolve_frame(entry: Any) -> pd.DataFrame | None:
+    if isinstance(entry, pd.DataFrame):
+        return entry
+    if isinstance(entry, _FrameHandle):
+        return entry.get()
+    return None
+
+
+def _ensure_signal_cache(frame: pd.DataFrame) -> dict[Hashable, Any]:
+    memo = frame.attrs.get(_MEMO_ATTR)
+    if isinstance(memo, dict):
+        return cast(dict[Hashable, Any], memo)
+    new_memo: dict[Hashable, Any] = {}
+    frame.attrs[_MEMO_ATTR] = new_memo
+    return new_memo
+
+
+def _memoised_frame(
+    frame: pd.DataFrame,
+    key: Hashable,
+    builder: Callable[[], pd.DataFrame],
+) -> pd.DataFrame:
+    memo = _ensure_signal_cache(frame)
+    cached = _resolve_frame(memo.get(key))
+    if cached is not None:
+        return cached
+    numeric = builder()
+    numeric.attrs[_MEMO_ATTR] = memo
+    memo[key] = _FrameHandle(numeric)
+    return numeric
+
+
+def _memoised_rolling_stat(
+    frame: pd.DataFrame,
+    *,
+    window: int,
+    min_periods: int,
+    kind: Literal["mean", "std"],
+) -> pd.DataFrame:
+    memo = _ensure_signal_cache(frame)
+    key: tuple[str, Literal["mean", "std"], int, int] = (
+        "rolling",
+        kind,
+        window,
+        min_periods,
+    )
+    cached = _resolve_frame(memo.get(key))
+    if cached is not None:
+        return cached
+    roller = frame.rolling(window=window, min_periods=min_periods)
+    computed = roller.mean() if kind == "mean" else roller.std(ddof=0)
+    memo[key] = _FrameHandle(computed)
+    return computed
+
+
+@contextmanager
+def _timed_stage(stage: str) -> Iterator[None]:
+    if not LOGGER.isEnabledFor(logging.DEBUG):
+        yield
+        return
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        LOGGER.debug("compute_trend_signals[%s] %.2f ms", stage, duration_ms)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,10 +130,13 @@ class TrendSpec:
 
 
 def _as_float_frame(df: pd.DataFrame) -> pd.DataFrame:
-    numeric = df.copy()
-    for column in numeric.columns:
-        numeric[column] = pd.to_numeric(numeric[column], errors="coerce")
-    return numeric.astype(float)
+    def _build() -> pd.DataFrame:
+        numeric = df.copy()
+        for column in numeric.columns:
+            numeric[column] = pd.to_numeric(numeric[column], errors="coerce")
+        return numeric.astype(float)
+
+    return _memoised_frame(df, "float_frame", _build)
 
 
 def _zscore_rows(frame: pd.DataFrame) -> pd.DataFrame:
@@ -62,21 +152,21 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
-    numeric = _as_float_frame(returns)
+    with _timed_stage("float_coerce"):
+        numeric = _as_float_frame(returns)
     min_periods = spec.min_periods if spec.min_periods is not None else spec.window
 
-    rolling_mean = rolling_shifted(
-        numeric, window=spec.window, agg="mean", min_periods=min_periods
-    )
-    lag_offset = spec.lag - 1
-    signal = rolling_mean.shift(lag_offset) if lag_offset else rolling_mean
+    with _timed_stage("trend_mean"):
+        rolling_mean = _memoised_rolling_stat(
+            numeric, window=spec.window, min_periods=min_periods, kind="mean"
+        )
+    signal = rolling_mean.shift(spec.lag)
 
     if spec.vol_adjust:
-        rolling_std = rolling_shifted(
-            numeric, window=spec.window, agg="std", min_periods=min_periods
-        )
-        if lag_offset:
-            rolling_std = rolling_std.shift(lag_offset)
+        with _timed_stage("trend_vol"):
+            rolling_std = _memoised_rolling_stat(
+                numeric, window=spec.window, min_periods=min_periods, kind="std"
+            ).shift(spec.lag)
         with np.errstate(divide="ignore", invalid="ignore"):
             if spec.vol_target is not None:
                 scale = spec.vol_target / rolling_std
@@ -86,7 +176,8 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
         signal = signal.mul(scale)
 
     if spec.zscore:
-        signal = _zscore_rows(signal)
+        with _timed_stage("trend_zscore"):
+            signal = _zscore_rows(signal)
 
     signal = signal.replace([np.inf, -np.inf], np.nan).astype(float)
     signal.attrs["spec"] = asdict(spec)
