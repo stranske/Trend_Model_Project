@@ -1,21 +1,11 @@
-"""Streamlit / UI bridge helpers for the minimal startup configuration.
-
-This module provides lightweight helpers that the Streamlit application can
-import without pulling in heavier pipeline code.  It builds payloads matching
-the minimal :class:`TrendConfig` schema and validates them via the existing
-``validate_trend_config`` function, returning a serialisable dictionary on
-success (so the UI can stash it in ``st.session_state``) or a readable error.
-
-The functions are intentionally tiny and pure so they are easy to unit test
-outside of a Streamlit runtime.
-"""
+"""Keep Streamlit payload validation in sync with CLI startup checks."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
-from .model import validate_trend_config
+from trend.config_schema import CoreConfigError, validate_core_config
 
 __all__ = ["build_config_payload", "validate_payload"]
 
@@ -69,23 +59,33 @@ def build_config_payload(
 def validate_payload(
     payload: Dict[str, Any], *, base_path: Path
 ) -> Tuple[Dict[str, Any] | None, str | None]:
-    """Validate a raw payload returning (validated_dict, error_message).
-
-    On success ``error_message`` is ``None``; on failure ``validated_dict`` is
-    ``None``.  Only the first validation error is reported (consistent with
-    ``validate_trend_config`` behaviour).
-    """
+    """Validate a raw payload returning (validated_dict, error_message)."""
 
     try:
-        cfg = validate_trend_config(payload, base_path=base_path)
-    except ValueError as exc:  # surface single readable message
+        core = validate_core_config(payload, base_path=base_path)
+    except CoreConfigError as exc:
         return None, str(exc)
-    model = cfg.model_dump()
-    # Normalise Path objects to strings for JSON serialisation in the UI.
-    data = model.get("data", {})
-    if isinstance(data.get("csv_path"), Path):
-        data["csv_path"] = str(data["csv_path"])  # normalise for JSON
-    if isinstance(data.get("universe_membership_path"), Path):
-        data["universe_membership_path"] = str(data["universe_membership_path"])
-    model["data"] = data
-    return model, None
+
+    validated: Dict[str, Any] = dict(payload)
+    data_section = dict(validated.get("data") or {})
+    data_section["csv_path"] = (
+        str(core.data.csv_path) if core.data.csv_path is not None else None
+    )
+    data_section["universe_membership_path"] = (
+        str(core.data.universe_membership_path)
+        if core.data.universe_membership_path is not None
+        else None
+    )
+    data_section["managers_glob"] = core.data.managers_glob
+    data_section["date_column"] = core.data.date_column
+    data_section["frequency"] = core.data.frequency
+    validated["data"] = data_section
+
+    portfolio = dict(validated.get("portfolio") or {})
+    portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
+    cost_model = dict(portfolio.get("cost_model") or {})
+    cost_model["bps_per_trade"] = core.costs.bps_per_trade
+    cost_model["slippage_bps"] = core.costs.slippage_bps
+    portfolio["cost_model"] = cost_model
+    validated["portfolio"] = portfolio
+    return validated, None

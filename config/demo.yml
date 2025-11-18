@@ -2,7 +2,7 @@
 version: "1"                      # whatever your defaults.yml uses
 
 data:
-  csv_path: demo/demo_returns.csv   # <– written by generate_demo.py
+  csv_path: ../demo/demo_returns.csv   # <– written by generate_demo.py
   date_column: Date
   frequency: ME                 # monthly data
   missing_policy: drop

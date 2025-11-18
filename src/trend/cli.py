@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
+from trend.config_schema import CoreConfigError, load_core_config
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
@@ -46,6 +47,34 @@ def _noop_maybe_log_step(
 _legacy_cli_module: ModuleType | None = None
 _legacy_extract_cache_stats: LegacyExtractCacheStats | None = None
 _legacy_maybe_log_step: LegacyMaybeLogStep = _noop_maybe_log_step
+_ORIGINAL_FALLBACKS: dict[str, Callable[..., Any]] = {}
+_LEGACY_BASELINES: dict[str, Callable[..., Any]] = {}
+
+
+def _env_flag(name: str) -> bool:
+    value = os.getenv(name, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+_USE_LEGACY_CLI = _env_flag("TREND_FORCE_LEGACY_CLI")
+
+
+def _capture_legacy_baseline(name: str) -> None:
+    module = _refresh_legacy_cli_module()
+    if module is None or name in _LEGACY_BASELINES:
+        return
+    attr = getattr(module, name, None)
+    if callable(attr):
+        _LEGACY_BASELINES[name] = attr
+
+
+def _register_fallback(name: str, fn: Callable[..., Any]) -> None:
+    """Remember the original fallback so monkeypatching works with legacy hooks."""
+
+    _ORIGINAL_FALLBACKS.setdefault(name, fn)
+    _capture_legacy_baseline(name)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -100,6 +129,10 @@ def _refresh_legacy_cli_module() -> ModuleType | None:
         if callable(maybe_log_step_fn):
             _legacy_maybe_log_step = cast(LegacyMaybeLogStep, maybe_log_step_fn)
         _legacy_extract_cache_stats = getattr(module, "_extract_cache_stats", None)
+        for name in _ORIGINAL_FALLBACKS:
+            attr = getattr(module, name, None)
+            if callable(attr) and name not in _LEGACY_BASELINES:
+                _LEGACY_BASELINES[name] = attr
 
     return module or _legacy_cli_module
 
@@ -118,11 +151,19 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 
 
 def _legacy_callable(name: str, fallback: Callable[..., Any]) -> Callable[..., Any]:
+    original = _ORIGINAL_FALLBACKS.get(name)
+    if original is not None and fallback is not original:
+        return fallback
     module = _refresh_legacy_cli_module()
     if module is not None:
         attr = getattr(module, name, None)
         if callable(attr):
-            return cast(Callable[..., Any], attr)
+            baseline = _LEGACY_BASELINES.get(name)
+            if baseline is None:
+                _LEGACY_BASELINES[name] = attr
+                baseline = attr
+            if _USE_LEGACY_CLI or attr is not baseline:
+                return cast(Callable[..., Any], attr)
     return fallback
 
 
@@ -239,6 +280,9 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     return path
 
 
+_register_fallback("_resolve_returns_path", _resolve_returns_path)
+
+
 def _ensure_dataframe(path: Path) -> pd.DataFrame:
     try:
         df = load_csv(str(path), errors="raise")
@@ -247,6 +291,9 @@ def _ensure_dataframe(path: Path) -> pd.DataFrame:
     if df is None:
         raise FileNotFoundError(str(path))
     return df
+
+
+_register_fallback("_ensure_dataframe", _ensure_dataframe)
 
 
 def _determine_seed(cfg: Any, override: int | None) -> int:
@@ -343,6 +390,9 @@ def _run_pipeline(
     return result, run_id, log_path
 
 
+_register_fallback("_run_pipeline", _run_pipeline)
+
+
 def _handle_exports(
     cfg: Any, result: RunResult, structured_log: bool, run_id: str
 ) -> None:
@@ -435,6 +485,9 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
                 print(f"  {key.capitalize()}: {value}")
 
 
+_register_fallback("_print_summary", _print_summary)
+
+
 def _write_report_files(
     out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
 ) -> None:
@@ -456,6 +509,9 @@ def _write_report_files(
         json.dump(result.details, fh, default=_json_default, indent=2)
     _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     print(f"Report artefacts written to {out_dir}")
+
+
+_register_fallback("_write_report_files", _write_report_files)
 
 
 def _resolve_report_output_path(
@@ -618,9 +674,16 @@ def _load_configuration(path: str) -> Any:
     cfg_path = Path(path).resolve()
     if not cfg_path.exists():
         raise FileNotFoundError(cfg_path)
+    try:
+        load_core_config(cfg_path)
+    except CoreConfigError as exc:
+        raise TrendCLIError(str(exc)) from exc
     cfg = load_config(cfg_path)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     return cfg_path, cfg
+
+
+_register_fallback("_load_configuration", _load_configuration)
 
 
 def main(argv: list[str] | None = None) -> int:
