@@ -1,3 +1,5 @@
 # Keep sdists lean by pruning legacy directories that must never be imported.
 prune Old
 prune retired
+recursive-exclude Old *
+recursive-exclude retired *

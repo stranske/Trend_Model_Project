@@ -83,8 +83,8 @@ jobs:
               return;
             }
 
-            const fallbackDefault = eventDefault || 'phase-2-dev';
-            let resolvedDefault = fallbackDefault;
+            const resolvedFallback = directDefault || payload.repository?.default_branch || 'phase-2-dev';
+
             try {
               const response = await withApiRetry(
                 () => github.rest.repos.get({
@@ -93,13 +93,14 @@ jobs:
                 }),
                 { label: 'determine default branch' },
               );
-              resolvedDefault = response.data?.default_branch || fallbackDefault;
+              core.setOutput('name', response.data.default_branch || resolvedFallback);
             } catch (error) {
               const detail = error?.message || '';
               const status = error?.status || error?.response?.status;
               const rateLimited = status === 429 || (status === 403 && /rate limit/i.test(detail));
               if (rateLimited) {
-                core.warning(`Rate limit while resolving default branch; using fallback "${fallbackDefault}".`);
+                core.warning(`Rate limit while resolving default branch; using fallback "${resolvedFallback}".`);
+                core.setOutput('name', resolvedFallback);
               } else {
                 throw error;
               }
