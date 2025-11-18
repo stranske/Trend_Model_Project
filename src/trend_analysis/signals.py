@@ -11,13 +11,12 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Literal, TypeAlias
+from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
 
 import numpy as np
 import pandas as pd
-
-from .util.rolling import rolling_shifted
 
 SignalFrame: TypeAlias = pd.DataFrame
 
@@ -35,7 +34,7 @@ class _FrameHandle:
     def get(self) -> pd.DataFrame:
         return self.frame
 
-    def __deepcopy__(self, memo: dict[str, Any]) -> "_FrameHandle":
+    def __deepcopy__(self, memo: dict[Any, Any]) -> "_FrameHandle":
         return self
 
 
@@ -47,17 +46,19 @@ def _resolve_frame(entry: Any) -> pd.DataFrame | None:
     return None
 
 
-def _ensure_signal_cache(frame: pd.DataFrame) -> dict[str, Any]:
+def _ensure_signal_cache(frame: pd.DataFrame) -> dict[Hashable, Any]:
     memo = frame.attrs.get(_MEMO_ATTR)
     if isinstance(memo, dict):
-        return memo
-    memo = {}
-    frame.attrs[_MEMO_ATTR] = memo
-    return memo
+        return cast(dict[Hashable, Any], memo)
+    new_memo: dict[Hashable, Any] = {}
+    frame.attrs[_MEMO_ATTR] = new_memo
+    return new_memo
 
 
 def _memoised_frame(
-    frame: pd.DataFrame, key: str, builder: Callable[[], pd.DataFrame]
+    frame: pd.DataFrame,
+    key: Hashable,
+    builder: Callable[[], pd.DataFrame],
 ) -> pd.DataFrame:
     memo = _ensure_signal_cache(frame)
     cached = _resolve_frame(memo.get(key))
@@ -77,7 +78,12 @@ def _memoised_rolling_stat(
     kind: Literal["mean", "std"],
 ) -> pd.DataFrame:
     memo = _ensure_signal_cache(frame)
-    key = ("rolling", kind, window, min_periods)
+    key: tuple[str, Literal["mean", "std"], int, int] = (
+        "rolling",
+        kind,
+        window,
+        min_periods,
+    )
     cached = _resolve_frame(memo.get(key))
     if cached is not None:
         return cached
@@ -88,7 +94,7 @@ def _memoised_rolling_stat(
 
 
 @contextmanager
-def _timed_stage(stage: str):
+def _timed_stage(stage: str) -> Iterator[None]:
     if not LOGGER.isEnabledFor(logging.DEBUG):
         yield
         return
