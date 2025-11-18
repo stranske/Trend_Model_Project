@@ -231,7 +231,9 @@ def test_transaction_costs_reduce_returns_by_expected_amount() -> None:
 
     expected = baseline.returns.copy()
     tx_per_unit = 100.0 / 10000.0
-    for ts, turnover in costly.per_period_turnover[costly.per_period_turnover > 0].items():
+    for ts, turnover in costly.per_period_turnover[
+        costly.per_period_turnover > 0
+    ].items():
         expected.loc[ts] -= turnover * tx_per_unit
 
     observed = costly.returns.dropna()
