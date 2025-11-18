@@ -4,7 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.schedules import apply_rebalance_schedule, get_rebalance_dates
+from trend_analysis.schedules import (
+    apply_rebalance_schedule,
+    get_rebalance_dates,
+    normalize_positions,
+)
 
 
 def test_get_rebalance_dates_month_end_handles_missing_trading_days() -> None:
@@ -60,16 +64,17 @@ def test_apply_rebalance_schedule_only_changes_on_calendar() -> None:
     )
     calendar = get_rebalance_dates(index, "weekly")
 
+    normalised = normalize_positions(positions)
     applied = apply_rebalance_schedule(positions, calendar)
 
-    np.testing.assert_allclose(applied.loc[calendar], positions.loc[calendar])
+    np.testing.assert_allclose(applied.loc[calendar], normalised.loc[calendar])
 
     diffs = applied.diff().abs().sum(axis=1).fillna(0.0)
     changed = diffs[diffs > 1e-12]
     assert changed.index.equals(calendar)
 
     mid_week = pd.Timestamp("2023-01-10")
-    assert applied.loc[mid_week].equals(applied.loc[calendar[0]])
+    assert applied.loc[mid_week].equals(normalised.loc[calendar[0]])
 
 
 def test_apply_rebalance_schedule_preserves_initial_window() -> None:
@@ -92,8 +97,9 @@ def test_apply_rebalance_schedule_preserves_dtype_and_overlapping_calendar() -> 
 
     applied = apply_rebalance_schedule(positions, calendar)
 
-    assert applied.dtype == positions.dtype
-    assert applied.loc[index[3]] == positions.loc[index[2]]
+    assert applied.dtype == np.dtype("float64")
+    expected = normalize_positions(positions.to_frame("position"))["position"]
+    assert applied.loc[index[3]] == expected.loc[index[2]]
 
 
 def test_apply_rebalance_schedule_errors_when_calendar_missing() -> None:
@@ -103,3 +109,49 @@ def test_apply_rebalance_schedule_errors_when_calendar_missing() -> None:
 
     with pytest.raises(ValueError, match="No rebalance dates overlap"):
         apply_rebalance_schedule(positions, calendar)
+
+
+def test_normalize_positions_clamps_and_masks() -> None:
+    index = pd.to_datetime(["2023-01-31", "2023-02-28"])
+    df = pd.DataFrame(
+        {
+            "AAA": [1.4, -1.6],
+            "BBB": [np.nan, 0.4],
+            "IGNORED": [0.5, -0.25],
+        },
+        index=index,
+    )
+
+    normalized = normalize_positions(df, eligible=["BBB", "AAA"])
+
+    assert list(normalized.columns) == ["BBB", "AAA"]
+    np.testing.assert_allclose(
+        normalized.iloc[0].to_numpy(),
+        np.array([0.0, 1.0]),
+    )
+    np.testing.assert_allclose(
+        normalized.iloc[1].to_numpy(),
+        np.array([0.4, -1.0]),
+    )
+
+
+def test_normalize_positions_requires_datetime_index() -> None:
+    df = pd.DataFrame({"AAA": [0.1]}, index=["not-a-date"])
+    with pytest.raises(TypeError, match="normalize_positions contract"):
+        normalize_positions(df)
+
+
+def test_normalize_positions_two_asset_reproducible_weights() -> None:
+    index = pd.to_datetime(["2023-01-31", "2023-02-28", "2023-03-31"])
+    df = pd.DataFrame(
+        {
+            "AAA": [0.75, 1.5, -2.0],
+            "BBB": [np.nan, -0.8, 0.5],
+        },
+        index=index,
+    )
+
+    normalized = normalize_positions(df)
+
+    expected_last = pd.Series({"AAA": -1.0, "BBB": 0.5})
+    pd.testing.assert_series_equal(normalized.iloc[-1], expected_last, check_names=False)
