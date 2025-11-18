@@ -6,12 +6,14 @@ import hashlib
 import os
 import re
 from pathlib import Path
+from time import perf_counter
 from typing import Callable, Sequence
 
 import pandas as pd
 from pandas.util import hash_pandas_object
 
 from trend_analysis.util.joblib_shim import dump, load
+from .timing import log_timing
 
 
 def _get_default_cache_dir() -> Path:
@@ -98,14 +100,35 @@ class RollingCache:
     ) -> pd.Series:
         """Return cached result or compute and persist the series."""
 
+        start = perf_counter()
+
         if not self._enabled:
-            return compute_fn()
+            result = compute_fn()
+            log_timing(
+                "rolling_cache",
+                duration_s=perf_counter() - start,
+                status="disabled",
+                method=method,
+                window=window,
+                freq=freq,
+                hash=dataset_hash[:12],
+            )
+            return result
 
         cache_path = self._build_path(dataset_hash, window, freq, method)
         if cache_path.exists():
             try:
                 cached = load(cache_path)
                 if isinstance(cached, pd.Series):
+                    log_timing(
+                        "rolling_cache",
+                        duration_s=perf_counter() - start,
+                        status="hit",
+                        method=method,
+                        window=window,
+                        freq=freq,
+                        hash=dataset_hash[:12],
+                    )
                     return cached
             except Exception:  # pragma: no cover - cache corruption fallback
                 cache_path.unlink(missing_ok=True)
@@ -114,6 +137,15 @@ class RollingCache:
         if not isinstance(result, pd.Series):  # pragma: no cover - defensive
             raise TypeError("compute_fn must return a pandas Series")
         dump(result, cache_path)
+        log_timing(
+            "rolling_cache",
+            duration_s=perf_counter() - start,
+            status="miss",
+            method=method,
+            window=window,
+            freq=freq,
+            hash=dataset_hash[:12],
+        )
         return result
 
 

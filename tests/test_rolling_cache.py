@@ -81,3 +81,24 @@ def test_rolling_cache_invalidation_on_param_change(tmp_path):
     # Same window but different method -> miss
     cache.get_or_compute(dataset_hash, 4, "M", "method_b", compute)
     assert calls["n"] == 3
+
+
+def test_rolling_cache_emits_timing_logs(monkeypatch, tmp_path):
+    cache = RollingCache(cache_dir=tmp_path)
+    series = pd.Series([0.1, 0.2, 0.3], name="sig")
+    dataset_hash = compute_dataset_hash([series])
+
+    logged: list[tuple[str, dict[str, object]]] = []
+
+    def fake_log(stage: str, **fields: object) -> None:
+        logged.append((stage, fields))
+
+    monkeypatch.setattr(
+        "trend_analysis.perf.rolling_cache.log_timing",
+        fake_log,
+    )
+
+    cache.get_or_compute(dataset_hash, 3, "M", "method_a", lambda: series)
+    cache.get_or_compute(dataset_hash, 3, "M", "method_a", lambda: series)
+
+    assert [entry[1]["status"] for entry in logged] == ["miss", "hit"]
