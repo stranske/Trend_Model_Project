@@ -401,12 +401,17 @@ def _check_cli_env_multi(cfg_path: str) -> None:
         raise SystemExit("run_multi_analysis.main env failed")
 
 
-def _check_cli(cfg_path: str, csv_path: str) -> None:
+def _check_cli(
+    cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str]
+) -> None:
     """Exercise the simple CLI wrapper."""
+
+    cfg_arg = os.fspath(cfg_path)
+    csv_arg = os.fspath(csv_path)
     rc = cli.main(["--check"])
     if rc != 0:
         raise SystemExit("CLI --check failed")
-    rc = cli.main(["run", "-c", cfg_path, "-i", csv_path])
+    rc = cli.main(["run", "-c", cfg_arg, "-i", csv_arg])
     if rc != 0:
         raise SystemExit("CLI run failed")
 
@@ -955,8 +960,10 @@ def _check_stats_dataclass() -> None:
         "vol",
         "sharpe",
         "sortino",
-        "information_ratio",
         "max_drawdown",
+        "information_ratio",
+        "is_avg_corr",
+        "os_avg_corr",
     }
     actual = {f.name for f in fields(pipeline._Stats)}
     if actual != expected:
@@ -1955,6 +1962,18 @@ def _ensure_periods_placeholder(base: Path, *, message: str) -> None:
         txt_path.write_text(f"period,note\nN/A,{safe_msg}\n")
 
 
+def _yaml_friendly(obj: Any) -> Any:
+    """Convert Path-like objects (and containers) to YAML-friendly values."""
+
+    if isinstance(obj, os.PathLike):
+        return os.fspath(obj)
+    if isinstance(obj, dict):
+        return {k: _yaml_friendly(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_yaml_friendly(v) for v in obj]
+    return obj
+
+
 def _check_empty_export_helpers() -> None:
     """Ensure export helpers cope with empty result lists."""
 
@@ -2091,11 +2110,20 @@ def _check_module_exports() -> None:
             "list_available_presets",
             "load",
             "load_config",
+            "load_trend_config",
+            "validate_trend_config",
             "Config",
             "ConfigType",
             "DEFAULTS",
+            "TrendConfig",
         },
-        "data": {"load_csv", "identify_risk_free_fund", "ensure_datetime"},
+        "data": {
+            "load_csv",
+            "load_parquet",
+            "validate_dataframe",
+            "identify_risk_free_fund",
+            "ensure_datetime",
+        },
         "export": {
             "FORMATTERS_EXCEL",
             "register_formatter_excel",
@@ -2120,6 +2148,7 @@ def _check_module_exports() -> None:
             "export_phase1_multi_metrics",
             "export_multi_period_metrics",
             "export_bundle",
+            "bundle",
         },
         "weighting": {
             "BaseWeighting",
@@ -2135,8 +2164,10 @@ def _check_module_exports() -> None:
             "run_analysis",
             "run",
             "run_full",
+            "compute_signal",
+            "position_from_signal",
         },
-        "multi_period": {"run", "Portfolio", "run_schedule"},
+        "multi_period": {"run", "run_from_config", "Portfolio", "run_schedule"},
         "gui": {
             "launch",
             "load_state",
@@ -2275,7 +2306,7 @@ data = cfg.model_dump()
 data.setdefault("export", {})["directory"] = str(cli_out)
 data["export"]["formats"] = ["csv"]
 with cli_cfg.open("w", encoding="utf-8") as fh:
-    yaml.safe_dump(data, fh)
+    yaml.safe_dump(_yaml_friendly(data), fh)
 rc = run_multi_analysis.main(["-c", str(cli_cfg)])
 if rc != 0:
     raise SystemExit("run_multi_analysis CLI failed")
