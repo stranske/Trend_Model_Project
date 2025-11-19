@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Mapping, Sequence
-
 import hashlib
 import importlib
 import importlib.metadata as importlib_metadata
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
@@ -105,9 +104,7 @@ def build_metadata(
 
     universe_members = sorted({str(member) for member in universe})
     selected_members = (
-        [str(member) for member in selected]
-        if selected is not None
-        else []
+        [str(member) for member in selected] if selected is not None else []
     )
     lookbacks_payload = {
         "in_sample": {
@@ -194,7 +191,9 @@ class Results:
                 if isinstance(risk_diag, Mapping)
                 else None
             )
-            costs = {"turnover_applied": float(turnover_value)} if turnover_value else {}
+            costs = (
+                {"turnover_applied": float(turnover_value)} if turnover_value else {}
+            )
 
         return cls(
             returns=returns_series,
