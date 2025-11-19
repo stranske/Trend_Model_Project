@@ -7,7 +7,7 @@ import importlib
 import importlib.metadata as importlib_metadata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 import pandas as pd
 
@@ -50,7 +50,8 @@ def _normalise_membership(path: Path | None, columns: Sequence[str]) -> bytes:
     subset = frame[available].fillna("")
     subset = subset.astype(str)
     subset = subset.sort_values(by=available).reset_index(drop=True)
-    return subset.to_csv(index=False).encode("utf-8")
+    csv_payload = cast(str, subset.to_csv(index=False))
+    return csv_payload.encode("utf-8")
 
 
 def compute_universe_fingerprint(
