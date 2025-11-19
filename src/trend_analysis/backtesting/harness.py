@@ -17,6 +17,7 @@ from ..universe import MembershipTable, build_membership_mask
 logger = logging.getLogger(__name__)
 
 _MembershipPolicy = Literal["raise", "skip"]
+from backtest import shift_by_execution_lag
 
 WindowMode = Literal["rolling", "expanding"]
 
@@ -67,6 +68,7 @@ class BacktestResult:
     window_mode: WindowMode
     window_size: int
     training_windows: Mapping[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]]
+    execution_lag: int = 1
 
     def summary(self) -> Dict[str, object]:
         """Return a JSON-serializable summary of the backtest metrics."""
@@ -74,6 +76,7 @@ class BacktestResult:
         return {
             "window_mode": self.window_mode,
             "window_size": self.window_size,
+            "execution_lag": self.execution_lag,
             "calendar": [ts.isoformat() for ts in self.calendar],
             "metrics": {k: _to_float(v) for k, v in self.metrics.items()},
             "returns": _series_to_dict(self.returns),
@@ -114,6 +117,7 @@ def run_backtest(
     cost_model: CostModel | None = None,
     membership: pd.DataFrame | str | Path | MembershipTable | None = None,
     membership_policy: str = "raise",
+    execution_lag: int = 1,
 ) -> BacktestResult:
     """Run a walk-forward backtest with a fixed rebalance calendar.
 
@@ -128,6 +132,10 @@ def run_backtest(
             error when membership entries lack price history (or vice versa),
             while ``"skip"`` logs the discrepancy and continues without the
             offending rows/columns.
+        execution_lag: Number of periods between generating a signal and being
+            allowed to apply the resulting weights. ``1`` enforces the standard
+            "compute on close, trade next bar" convention and prevents
+            same-day look-ahead.
     """
 
     if window_size <= 0:
@@ -138,6 +146,8 @@ def run_backtest(
         raise ValueError("transaction_cost_bps must be non-negative")
     if min_trade < 0:
         raise ValueError("min_trade must be non-negative")
+    if execution_lag <= 0:
+        raise ValueError("execution_lag must be a positive integer to avoid look-ahead")
 
     model = cost_model or CostModel(bps_per_trade=transaction_cost_bps)
 
@@ -220,7 +230,7 @@ def run_backtest(
         else:
             stop = len(data.index)
 
-        apply_slice = slice(start_idx + 1, stop)
+        apply_slice = slice(start_idx + execution_lag, stop)
         if (
             apply_slice.start >= len(data.index)
             or apply_slice.start >= apply_slice.stop
@@ -257,6 +267,8 @@ def run_backtest(
         if weights_history
         else pd.DataFrame(columns=asset_columns, dtype=float)
     )
+    if not weights_df.empty and execution_lag:
+        weights_df = shift_by_execution_lag(weights_df, lag=execution_lag)
 
     return BacktestResult(
         returns=portfolio_returns,
@@ -273,6 +285,7 @@ def run_backtest(
         window_size=window_size,
         training_windows=training_windows,
         cost_model=model,
+        execution_lag=execution_lag,
     )
 
 
