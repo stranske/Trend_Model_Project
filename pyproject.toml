@@ -64,7 +64,7 @@ include = [
     "trend_analysis*",
     "trend_portfolio_app*",
     "trend_model*",
-    "data*",
+    "trend*",
     "analysis*",
 ]
 # Explicitly exclude retired and legacy modules regardless of their location.
