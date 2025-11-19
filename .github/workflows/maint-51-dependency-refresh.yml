@@ -93,7 +93,7 @@ jobs:
           PY
 
       - name: Verify tool pins remain aligned
-        run: python scripts/sync_tool_versions.py --check
+        run: python -m scripts.sync_tool_versions --check
 
       - name: Detect changes
         id: diff

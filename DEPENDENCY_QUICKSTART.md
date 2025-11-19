@@ -41,8 +41,8 @@ make lock
 
 ### Validate the tooling pins
 ```bash
-python scripts/sync_tool_versions.py --check   # ensure pyproject pins match the pin file
-python scripts/sync_tool_versions.py --apply   # rewrite pyproject.toml when pins drift
+python -m scripts.sync_tool_versions --check   # ensure pyproject pins match the pin file
+python -m scripts.sync_tool_versions --apply   # rewrite pyproject.toml when pins drift
 ```
 
 ## 🔧 Installation Paths
