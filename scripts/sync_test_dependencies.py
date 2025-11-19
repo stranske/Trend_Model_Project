@@ -118,6 +118,7 @@ PROJECT_MODULES = {
     "trend_model",
     "trend",
     "data",
+    "backtest",
     "app",
     "tools",
     "scripts",

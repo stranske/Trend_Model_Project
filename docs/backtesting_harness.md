@@ -15,6 +15,12 @@ walk-forward portfolio evaluation with:
 * **Minimum-trade bands** – use `min_trade` to skip rebalance instructions
   whose total absolute weight change falls below the specified threshold,
   preventing micro-churn from leaking into the turnover ledger.
+* **Execution lag enforcement** – configure `execution_lag` (default `1`) to
+  force a consistent "compute at close, execute next bar" convention.  The
+  helper automatically shifts stored weights via
+  `backtest.shift_by_execution_lag` so reported exposures align with when they
+  were actually in market and raises if callers request a zero-lag,
+  look-ahead-prone configuration.
 * **Rich performance analytics** – the returned `BacktestResult` exposes the
   equity curve, turnover, per-period turnover series, transaction-cost ledger,
   rolling Sharpe ratios, and
