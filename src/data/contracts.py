@@ -139,7 +139,7 @@ def _is_price_mode(df: pd.DataFrame) -> bool:
         metadata = market_meta.get("metadata")
         if metadata is not None:
             mode_attr = getattr(metadata, "mode", None)
-            if hasattr(mode_attr, "value"):
+            if mode_attr is not None and hasattr(mode_attr, "value"):
                 mode_candidate = mode_attr.value
             elif mode_attr is not None:
                 mode_candidate = str(mode_attr)
