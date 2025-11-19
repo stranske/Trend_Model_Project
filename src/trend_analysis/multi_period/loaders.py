@@ -7,6 +7,8 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from data.contracts import coerce_to_utc, validate_prices
+
 from ..data import load_csv
 
 __all__ = ["load_prices", "load_membership", "load_benchmarks"]
@@ -61,6 +63,10 @@ def load_prices(cfg: Any) -> pd.DataFrame:
     )
     if frame is None:
         raise FileNotFoundError(str(resolved))
+    frame = coerce_to_utc(frame)
+    freq_code = frame.attrs.get("market_data_frequency_code")
+    freq = str(freq_code) if freq_code else "D"
+    validate_prices(frame, freq=freq)
     return frame
 
 
