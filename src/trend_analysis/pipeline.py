@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from analysis.results import build_metadata
+
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -1121,6 +1123,25 @@ def _run_analysis(
         periods_per_year=periods_per_year,
     )
 
+    metadata = build_metadata(
+        universe=value_cols_all,
+        selected=fund_cols,
+        lookbacks={
+            "in_start": in_start,
+            "in_end": in_end,
+            "out_start": out_start,
+            "out_end": out_end,
+        },
+        costs={
+            "monthly_cost": monthly_cost,
+            "target_vol": target_vol,
+            "floor_vol": min_floor if min_floor > 0 else None,
+            "max_turnover": turnover_cap,
+        },
+    )
+    metadata["frequency"] = frequency_payload
+    metadata["missing_data"] = missing_payload
+
     return {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
@@ -1153,6 +1174,7 @@ def _run_analysis(
         "regime_notes": regime_payload.get("notes", []),
         "regime_settings": regime_payload.get("settings", {}),
         "regime_summary": regime_payload.get("summary"),
+        "metadata": metadata,
     }
 
 
