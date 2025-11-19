@@ -31,9 +31,7 @@ def shift_by_execution_lag(obj: PandasLike, lag: int = 1) -> PandasLike:
     if lag < 0:
         raise ValueError("execution lag must be non-negative")
     if not isinstance(obj, (pd.Series, pd.DataFrame)):
-        raise TypeError(
-            "shift_by_execution_lag expects a pandas Series or DataFrame"
-        )
+        raise TypeError("shift_by_execution_lag expects a pandas Series or DataFrame")
 
     if lag == 0:
         return obj.copy()
