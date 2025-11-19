@@ -6,7 +6,7 @@ import inspect
 import math
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, cast
+from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 
 try:  # Optional openpyxl for richer typing; not required at runtime.
     from openpyxl.utils import get_column_letter
@@ -273,7 +273,26 @@ def reset_formatters_excel() -> None:
 
 def _format_frequency_policy_line(res: Mapping[str, Any]) -> str:
     freq = cast(Mapping[str, Any], res.get("input_frequency", {}))
+    if not freq:
+        freq = cast(Mapping[str, Any], res.get("input_frequency_details", {}))
+    if not freq:
+        freq = cast(Mapping[str, Any], res.get("preprocessing", {})).get(
+            "input_frequency_details", {}
+        )
+    if not freq:
+        metadata = res.get("metadata")
+        if isinstance(metadata, Mapping):
+            freq = cast(Mapping[str, Any], metadata.get("frequency", {}))
+
     policy = cast(Mapping[str, Any], res.get("missing_data_policy", {}))
+    if not policy:
+        policy = cast(Mapping[str, Any], res.get("preprocessing", {})).get(
+            "missing_data_policy", {}
+        )
+    if not policy:
+        metadata = res.get("metadata")
+        if isinstance(metadata, Mapping):
+            policy = cast(Mapping[str, Any], metadata.get("missing_data", {}))
 
     freq_label = cast(str | None, freq.get("label"))
     target_label = cast(str | None, freq.get("target_label")) or freq_label
@@ -315,6 +334,97 @@ def _format_frequency_policy_line(res: Mapping[str, Any]) -> str:
     if extras:
         policy_part = f"{policy_part} ({', '.join(extras)})"
     return f"Frequency: {freq_part}; NA policy: {policy_part}"
+
+
+def _format_metadata_entries(meta: Mapping[str, Any]) -> list[str]:
+    lines: list[str] = []
+    universe = meta.get("universe")
+    if isinstance(universe, Mapping):
+        members = universe.get("members")
+        members_list = list(members) if isinstance(members, Sequence) else []
+        total = cast(int | None, universe.get("count")) or len(members_list)
+        selected = universe.get("selected")
+        selected_list = list(selected) if isinstance(selected, Sequence) else []
+        selected_count = cast(int | None, universe.get("selected_count")) or len(
+            selected_list
+        )
+        line = "Universe: "
+        line += f"{total} assets" if total else "N/A"
+        if selected_count:
+            line += f"; selected {selected_count}"
+        preview_source = selected_list or members_list
+        if preview_source:
+            preview = ", ".join(str(val) for val in preview_source[:5])
+            if preview:
+                suffix = "…" if len(preview_source) > 5 else ""
+                line += f" ({preview}{suffix})"
+        lines.append(line)
+
+    lookbacks = meta.get("lookbacks")
+    if isinstance(lookbacks, Mapping):
+        in_sample = cast(Mapping[str, Any], lookbacks.get("in_sample", {}))
+        out_sample = cast(Mapping[str, Any], lookbacks.get("out_sample", {}))
+        if in_sample or out_sample:
+            in_part = (
+                f"In {in_sample.get('start')} → {in_sample.get('end')}"
+                if in_sample.get("start") or in_sample.get("end")
+                else "In (unspecified)"
+            )
+            out_part = (
+                f"Out {out_sample.get('start')} → {out_sample.get('end')}"
+                if out_sample.get("start") or out_sample.get("end")
+                else "Out (unspecified)"
+            )
+            lines.append(f"Lookbacks: {in_part}; {out_part}")
+
+    costs = meta.get("costs")
+    if isinstance(costs, Mapping) and costs:
+        formatted: list[str] = []
+        for key, value in costs.items():
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isnan(number):
+                continue
+            label = str(key)
+            if abs(number) <= 1:
+                formatted.append(f"{label}={number:.2%}")
+            else:
+                formatted.append(f"{label}={number:.4f}")
+        if formatted:
+            lines.append("Costs: " + ", ".join(formatted))
+
+    code_version = meta.get("code_version")
+    fingerprint = meta.get("fingerprint")
+    parts: list[str] = []
+    if code_version:
+        parts.append(f"Code version: {code_version}")
+    if fingerprint:
+        parts.append(f"Fingerprint: {fingerprint}")
+    if parts:
+        lines.append("; ".join(parts))
+    return lines
+
+
+def _metadata_summary_lines(res: Mapping[str, Any]) -> list[str]:
+    lines: list[str] = []
+    summary_text = cast(
+        str,
+        res.get("preprocessing_summary")
+        or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
+    )
+    if summary_text:
+        lines.append(summary_text)
+    freq_line = _format_frequency_policy_line(res)
+    if freq_line:
+        lines.append(freq_line)
+    metadata = res.get("metadata")
+    if isinstance(metadata, Mapping):
+        lines.extend(_format_metadata_entries(metadata))
+    if not lines:
+        lines.append("Frequency: Unknown; NA policy: (not specified)")
+    return lines
 
 
 def _build_summary_formatter(
@@ -364,16 +474,10 @@ def _build_summary_formatter(
         ws.write_row(0, 0, ["Vol-Adj Trend Analysis"], bold)
         ws.write_row(1, 0, [f"In:  {in_start} → {in_end}"], bold)
         ws.write_row(2, 0, [f"Out: {out_start} → {out_end}"], bold)
-        summary_text = cast(
-            str,
-            res.get("preprocessing_summary")
-            or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
-        )
-        if summary_text:
-            meta_summary = summary_text
-        else:
-            meta_summary = "Frequency: Unknown; Missing data: (not specified)"
-        ws.write_row(3, 0, [meta_summary])
+        meta_lines = _metadata_summary_lines(res)
+        start_row = 3
+        for offset, line in enumerate(meta_lines):
+            ws.write_row(start_row + offset, 0, [line])
         bench_labels = list(res.get("benchmark_ir", {}))
         headers = [
             "Name",
@@ -392,10 +496,11 @@ def _build_summary_formatter(
         ]
         headers.extend([f"OS IR {b}" for b in bench_labels])
         headers.append("OS MaxDD")
-        ws.write_row(4, 0, headers, bold)
+        header_row = start_row + len(meta_lines)
+        ws.write_row(header_row, 0, headers, bold)
         for idx, h in enumerate(headers):
             ws.set_column(idx, idx, len(h) + 2)
-        ws.freeze_panes(5, 0)
+        ws.freeze_panes(header_row + 1, 0)
         numeric_fmts: list[Any] = []
         for h in headers[2:]:
             if "MaxDD" in h:
@@ -405,7 +510,7 @@ def _build_summary_formatter(
             else:
                 numeric_fmts.append(num2)
 
-        row = 5
+        row = header_row + 1
         for label, ins, outs in [
             ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
             ("User Weight", res["in_user_stats"], res["out_user_stats"]),
@@ -453,7 +558,7 @@ def _build_summary_formatter(
                 ws.write(row, col, safe(v), fmt)
             row += 1
 
-        ws.autofilter(4, 0, row - 1, len(headers) - 1)
+        ws.autofilter(header_row, 0, row - 1, len(headers) - 1)
 
         # Optional: append a Manager Changes section after the main table.
         changes = cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
@@ -638,16 +743,7 @@ def format_summary_text(
         f"In:  {in_start} → {in_end}",
         f"Out: {out_start} → {out_end}",
     ]
-    summary_text = cast(
-        str,
-        res.get("preprocessing_summary")
-        or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
-    )
-    if summary_text:
-        header.append(summary_text)
-    meta_line = _format_frequency_policy_line(res)
-    if meta_line:
-        header.append(meta_line)
+    header.extend(_metadata_summary_lines(res))
     risk_diag = cast(Mapping[str, Any] | None, res.get("risk_diagnostics"))
     if isinstance(risk_diag, Mapping) and risk_diag:
         asset_vol = risk_diag.get("asset_volatility")
