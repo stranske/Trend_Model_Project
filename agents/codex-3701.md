@@ -1,16 +1,18 @@
 <!-- bootstrap for codex on issue #3701 -->
 
-# Codex Bootstrap Checklist for Issue #3701
+# Codex Checklist for Issue #3701
 
 ## Scope
-Hold space for the Issue #3701 follow-up work so keepalive automation can continue nudging until the feature/fix is delivered. This bootstrap documents the outstanding to-dos that must be completed before closing the issue.
+- [x] Load `Trend Universe Membership.csv` into a date×instrument boolean mask.
+- [x] Intersect the membership mask with availability (non-NaN price history) at each rebalance.
+- [x] On conflicts (in membership but no data, or vice versa), raise or skip by policy with a log entry.
+- [x] Add tests for assets entering/exiting mid-sample and sparse histories.
 
 ## Tasks
-- [ ] Implement the code changes requested in Issue #3701 once the detailed requirements are finalized.
-- [ ] Add automated tests covering the new or updated behavior introduced for Issue #3701.
-- [ ] Update the relevant documentation (README, usage docs, or changelog entries) to reflect the delivered work.
+- [x] Build `membership_mask(date)`.
+- [x] Apply the mask inside weight construction/backtest so trading only occurs in the in-universe names.
+- [x] Add automated tests for entry/exit boundaries and sparse histories.
 
 ## Acceptance Criteria
-- [ ] All scoped functionality for Issue #3701 is implemented and merged.
-- [ ] Associated automated tests pass and provide coverage for the new behavior.
-- [ ] Documentation reflects the changes so future contributors and users understand the update.
+- [x] No positions in instruments outside membership on any rebalance date.
+- [x] Tests cover both entry and exit scenarios (including limited history edge cases).

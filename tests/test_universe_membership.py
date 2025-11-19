@@ -8,6 +8,7 @@ import pytest
 from trend_analysis.universe import (
     MembershipWindow,
     apply_membership_windows,
+    build_membership_mask,
     gate_universe,
     load_universe_membership,
 )
@@ -138,3 +139,35 @@ def test_gate_universe_matches_date_symbol_pairs() -> None:
         (pd.Timestamp("2020-03-31"), "AAA"),
     ]
     assert list(zip(gated["date"], gated["symbol"])) == expected_pairs
+
+
+def test_build_membership_mask_marks_entries_and_exits() -> None:
+    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    membership = pd.DataFrame(
+        {
+            "fund": ["Alpha", "Beta", "Gamma"],
+            "effective_date": ["2020-01-01", "2020-02-01", "2020-01-01"],
+            "end_date": [None, None, "2020-02-29"],
+        }
+    )
+
+    mask = build_membership_mask(dates, membership)
+
+    assert not bool(mask.loc[pd.Timestamp("2020-01-31"), "Beta"])
+    assert bool(mask.loc[pd.Timestamp("2020-02-29"), "Beta"])
+    assert not bool(mask.loc[pd.Timestamp("2020-03-31"), "Gamma"])
+
+
+def test_build_membership_mask_accepts_membership_table() -> None:
+    dates = pd.date_range("2020-01-31", periods=2, freq="M")
+    membership = {
+        "AAA": (
+            MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),
+        )
+    }
+
+    mask = build_membership_mask(dates, membership)
+
+    assert bool(mask.loc[pd.Timestamp("2020-01-31"), "AAA"])
+    assert bool(mask.loc[pd.Timestamp("2020-02-29"), "AAA"])
+    assert mask.columns.tolist() == ["AAA"]
