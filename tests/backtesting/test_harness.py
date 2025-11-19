@@ -316,14 +316,17 @@ def test_min_trade_threshold_clamps_micro_churn() -> None:
     second_rebalance = baseline.turnover.index[1]
     assert baseline.turnover.loc[second_rebalance] > 0
     assert banded.turnover.loc[second_rebalance] == pytest.approx(0.0)
-    first_rebalance = baseline.turnover.index[0]
-    assert banded.weights.loc[second_rebalance].equals(
-        banded.weights.loc[first_rebalance]
+    live_weights = banded.weights.dropna(how="all")
+    assert len(live_weights) >= 2
+    pdt.assert_series_equal(
+        live_weights.iloc[0],
+        live_weights.iloc[1],
+        check_names=False,
     )
     non_zero_periods = banded.per_period_turnover[banded.per_period_turnover > 0]
     assert not non_zero_periods.empty
     assert non_zero_periods.iloc[0] == pytest.approx(
-        banded.turnover.loc[first_rebalance]
+        banded.turnover.loc[baseline.turnover.index[0]]
     )
 
 
@@ -360,6 +363,17 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
             window_size=5,
             transaction_cost_bps=-1,
             min_trade=0.0,
+        )
+
+    with pytest.raises(ValueError, match="execution_lag"):
+        run_backtest(
+            base_returns,
+            strategy,
+            rebalance_freq="M",
+            window_size=5,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
+            execution_lag=0,
         )
 
     empty_returns = pd.DataFrame(columns=["A", "B"], index=pd.DatetimeIndex([]))
@@ -679,6 +693,6 @@ def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) 
     assert math.isclose(first_turnover, 0.8, rel_tol=1e-9)
 
     # Confirm that weights recorded in the result respect the strategy output.
-    first_weights = result.weights.iloc[0]
+    first_weights = result.weights.dropna(how="all").iloc[0]
     assert math.isclose(first_weights["A"], 0.6)
     assert math.isclose(first_weights["B"], 0.4)
