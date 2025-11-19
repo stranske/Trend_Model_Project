@@ -289,7 +289,6 @@ def run_backtest(
     if not weights_df.empty:
         shifted_weights = shift_by_execution_lag(weights_df, lag=execution_lag)
         weights_df = shifted_weights.fillna(0.0)
-    weights_df.attrs["execution_lag"] = execution_lag
 
     return BacktestResult(
         returns=portfolio_returns,
