@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
-from backtest import shift_by_execution_lag
+from ..backtest import shift_by_execution_lag
 
 from ..universe import MembershipTable, build_membership_mask
 
