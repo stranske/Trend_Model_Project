@@ -17,8 +17,6 @@ from ..universe import MembershipTable, build_membership_mask
 logger = logging.getLogger(__name__)
 
 _MembershipPolicy = Literal["raise", "skip"]
-from backtest import shift_by_execution_lag
-
 WindowMode = Literal["rolling", "expanding"]
 
 
@@ -267,8 +265,9 @@ def run_backtest(
         if weights_history
         else pd.DataFrame(columns=asset_columns, dtype=float)
     )
-    if not weights_df.empty and execution_lag:
-        weights_df = shift_by_execution_lag(weights_df, lag=execution_lag)
+    if not weights_df.empty:
+        weights_df = weights_df.fillna(0.0)
+        weights_df.attrs["execution_lag"] = execution_lag
 
     return BacktestResult(
         returns=portfolio_returns,
@@ -330,14 +329,13 @@ def _apply_membership_mask(
     missing_price_cols = sorted(set(membership_symbols) - set(data_symbols))
     if missing_price_cols:
         preview = _format_list_preview(missing_price_cols)
-        message = (
-            "Universe membership requires price columns for: "
-            f"{preview}"
-        )
+        message = "Universe membership requires price columns for: " f"{preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Skipping those entries.", message)
-        mask = mask.drop(columns=[col for col in missing_price_cols if col in mask.columns])
+        mask = mask.drop(
+            columns=[col for col in missing_price_cols if col in mask.columns]
+        )
 
     extra_price_cols = sorted(set(data_symbols) - set(mask.columns))
     if extra_price_cols:
@@ -361,9 +359,7 @@ def _apply_membership_mask(
     missing_data = mask & ~availability
     if bool(missing_data.values.any()):
         preview = _format_conflict_preview(missing_data)
-        message = (
-            "Universe membership entries are missing price history: " f"{preview}"
-        )
+        message = "Universe membership entries are missing price history: " f"{preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Ignoring those dates.", message)
