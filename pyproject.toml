@@ -60,7 +60,7 @@ trend-quick-report = "trend.reporting.quick_summary:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["trend_analysis*", "trend_portfolio_app*", "trend_model*"]
+include = ["trend_analysis*", "trend_portfolio_app*", "trend_model*", "data*"]
 # Explicitly exclude retired and legacy modules regardless of their location.
 # This guards against future refactors accidentally reintroducing the folders
 # into the package search path when additional roots are added.

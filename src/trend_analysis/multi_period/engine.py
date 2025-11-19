@@ -688,11 +688,16 @@ def run(
                 # Recreate in-sample frame identical to _run_analysis slice
                 date_col = "Date"
                 sub = df.copy()
-                if not pd.api.types.is_datetime64_any_dtype(sub[date_col]):
-                    sub[date_col] = pd.to_datetime(sub[date_col])
+                sub[date_col] = pd.to_datetime(sub[date_col], utc=True).dt.tz_localize(
+                    None
+                )
                 sub.sort_values(date_col, inplace=True)
-                sdate = pd.to_datetime(f"{in_start}-01") + pd.offsets.MonthEnd(0)
-                edate = pd.to_datetime(f"{in_end}-01") + pd.offsets.MonthEnd(0)
+                sdate = pd.to_datetime(f"{in_start}-01", utc=True).tz_localize(
+                    None
+                ) + pd.offsets.MonthEnd(0)
+                edate = pd.to_datetime(f"{in_end}-01", utc=True).tz_localize(
+                    None
+                ) + pd.offsets.MonthEnd(0)
                 in_df_full = sub[
                     (sub[date_col] >= sdate) & (sub[date_col] <= edate)
                 ].set_index(date_col)
@@ -790,15 +795,16 @@ def run(
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
-        return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
+        return pd.to_datetime(f"{s}-01", utc=True).tz_localize(
+            None
+        ) + pd.offsets.MonthEnd(0)
 
     def _valid_universe(
         full: pd.DataFrame, in_start: str, in_end: str, out_start: str, out_end: str
     ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], str]:
         date_col = "Date"
         sub = full.copy()
-        if not pd.api.types.is_datetime64_any_dtype(sub[date_col]):
-            sub[date_col] = pd.to_datetime(sub[date_col])
+        sub[date_col] = pd.to_datetime(sub[date_col], utc=True).dt.tz_localize(None)
         sub.sort_values(date_col, inplace=True)
         in_sdate, in_edate = _parse_month(in_start), _parse_month(in_end)
         out_sdate, out_edate = _parse_month(out_start), _parse_month(out_end)
