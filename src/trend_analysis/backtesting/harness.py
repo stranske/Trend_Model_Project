@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
+from backtest import shift_by_execution_lag
+
 from ..universe import MembershipTable, build_membership_mask
 
 logger = logging.getLogger(__name__)
@@ -175,9 +177,16 @@ def run_backtest(
     prev_weights = _initial_weights(asset_columns, initial_weights)
     data_values = data.fillna(0.0).values
 
-    eligible_dates = [date for date in calendar if len(data.loc[:date]) >= window_size]
+    def _has_required_history(date: pd.Timestamp) -> bool:
+        history_len = len(data.loc[:date])
+        return history_len >= window_size and history_len > execution_lag
+
+    eligible_dates = [date for date in calendar if _has_required_history(date)]
     if not eligible_dates:
-        raise ValueError("window_size too large – no eligible rebalance dates")
+        raise ValueError(
+            "window_size/execution_lag combination leaves no eligible rebalance dates "
+            "without violating the execution-lag (look-ahead) constraint."
+        )
 
     for i, date in enumerate(eligible_dates):
         history = data.loc[:date]
@@ -229,10 +238,22 @@ def run_backtest(
             stop = len(data.index)
 
         apply_slice = slice(start_idx + execution_lag, stop)
-        if (
-            apply_slice.start >= len(data.index)
-            or apply_slice.start >= apply_slice.stop
-        ):
+        if apply_slice.start >= len(data.index):
+            if i == 0:
+                last_available = data.index[-1]
+                raise ValueError(
+                    (
+                        "Execution lag of {lag} on {date} would require access to "
+                        "returns beyond the available history ending {last}, "
+                        "introducing look-ahead bias."
+                    ).format(
+                        lag=execution_lag,
+                        date=date.date(),
+                        last=last_available.date(),
+                    )
+                )
+            break
+        if apply_slice.start >= apply_slice.stop:
             continue
 
         pending_cost = float(cost)
@@ -266,8 +287,9 @@ def run_backtest(
         else pd.DataFrame(columns=asset_columns, dtype=float)
     )
     if not weights_df.empty:
-        weights_df = weights_df.fillna(0.0)
-        weights_df.attrs["execution_lag"] = execution_lag
+        shifted_weights = shift_by_execution_lag(weights_df, lag=execution_lag)
+        weights_df = shifted_weights.fillna(0.0)
+    weights_df.attrs["execution_lag"] = execution_lag
 
     return BacktestResult(
         returns=portfolio_returns,
