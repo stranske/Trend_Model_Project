@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Literal, Mapping, Sequence
+from pathlib import Path
+from typing import Any, Callable, Dict, Literal, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
-from backtest import shift_by_execution_lag
+from ..universe import MembershipTable, build_membership_mask
 
+logger = logging.getLogger(__name__)
+
+_MembershipPolicy = Literal["raise", "skip"]
 WindowMode = Literal["rolling", "expanding"]
 
 
@@ -108,6 +113,8 @@ def run_backtest(
     rolling_sharpe_window: int | None = None,
     initial_weights: Mapping[str, float] | None = None,
     cost_model: CostModel | None = None,
+    membership: pd.DataFrame | str | Path | MembershipTable | None = None,
+    membership_policy: str = "raise",
     execution_lag: int = 1,
 ) -> BacktestResult:
     """Run a walk-forward backtest with a fixed rebalance calendar.
@@ -115,6 +122,14 @@ def run_backtest(
     Args:
         min_trade: Minimum total absolute weight change required to execute a
             rebalance. Smaller proposals are ignored to suppress micro-churn.
+        membership: DataFrame, mapping, or CSV path describing dated universe
+            membership windows. When provided, returns prior to a fund's entry
+            (or after exit) are masked and weights are constrained to the
+            active members on each rebalance date.
+        membership_policy: Conflict handling policy. ``"raise"`` surfaces an
+            error when membership entries lack price history (or vice versa),
+            while ``"skip"`` logs the discrepancy and continues without the
+            offending rows/columns.
         execution_lag: Number of periods between generating a signal and being
             allowed to apply the resulting weights. ``1`` enforces the standard
             "compute on close, trade next bar" convention and prevents
@@ -135,6 +150,8 @@ def run_backtest(
     model = cost_model or CostModel(bps_per_trade=transaction_cost_bps)
 
     data = _prepare_returns(returns)
+    policy = _normalise_membership_policy(membership_policy)
+    data, membership_mask = _apply_membership_mask(data, membership, policy=policy)
     if data.empty:
         raise ValueError("returns must contain at least one row")
 
@@ -156,7 +173,7 @@ def run_backtest(
     training_windows: Dict[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]] = {}
 
     prev_weights = _initial_weights(asset_columns, initial_weights)
-    data_values = data.values
+    data_values = data.fillna(0.0).values
 
     eligible_dates = [date for date in calendar if len(data.loc[:date]) >= window_size]
     if not eligible_dates:
@@ -170,8 +187,22 @@ def run_backtest(
             train_window = history
         training_windows[date] = (train_window.index[0], train_window.index[-1])
 
-        raw_weights = strategy(train_window)
+        if membership_mask is not None:
+            history_mask = membership_mask.loc[train_window.index]
+            masked_window = train_window.where(history_mask)
+        else:
+            masked_window = train_window
+
+        raw_weights = strategy(masked_window)
         proposed = _normalise_weights(raw_weights, asset_columns)
+
+        if membership_mask is not None:
+            active_now = membership_mask.loc[date]
+            if not bool(active_now.any()):
+                raise ValueError(
+                    f"No active assets remain in the universe on {date.date()}"
+                )
+            proposed = proposed.where(active_now, 0.0)
 
         delta = float((proposed - prev_weights).abs().sum())
         execute = delta >= float(min_trade)
@@ -234,8 +265,9 @@ def run_backtest(
         if weights_history
         else pd.DataFrame(columns=asset_columns, dtype=float)
     )
-    if not weights_df.empty and execution_lag:
-        weights_df = shift_by_execution_lag(weights_df, lag=execution_lag)
+    if not weights_df.empty:
+        weights_df = weights_df.fillna(0.0)
+        weights_df.attrs["execution_lag"] = execution_lag
 
     return BacktestResult(
         returns=portfolio_returns,
@@ -268,6 +300,104 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     if numeric_df.empty:
         raise ValueError("returns must contain numeric columns")
     return numeric_df
+
+
+def _normalise_membership_policy(value: str | None) -> _MembershipPolicy:
+    policy = (value or "raise").strip().lower()
+    if policy not in {"raise", "skip"}:
+        raise ValueError("membership_policy must be 'raise' or 'skip'")
+    return cast(_MembershipPolicy, policy)
+
+
+def _apply_membership_mask(
+    data: pd.DataFrame,
+    membership: pd.DataFrame | str | Path | MembershipTable | None,
+    *,
+    policy: _MembershipPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    if membership is None or data.empty:
+        return data, None
+
+    mask = build_membership_mask(data.index, membership)
+    if mask.empty or mask.shape[1] == 0:
+        return data, None
+
+    cleaned = data.copy()
+    membership_symbols = list(mask.columns)
+    data_symbols = list(cleaned.columns)
+
+    missing_price_cols = sorted(set(membership_symbols) - set(data_symbols))
+    if missing_price_cols:
+        preview = _format_list_preview(missing_price_cols)
+        message = "Universe membership requires price columns for: " f"{preview}"
+        if policy == "raise":
+            raise ValueError(message)
+        logger.warning("%s. Skipping those entries.", message)
+        mask = mask.drop(
+            columns=[col for col in missing_price_cols if col in mask.columns]
+        )
+
+    extra_price_cols = sorted(set(data_symbols) - set(mask.columns))
+    if extra_price_cols:
+        preview = _format_list_preview(extra_price_cols)
+        message = (
+            "Price data includes columns missing from universe membership: "
+            f"{preview}"
+        )
+        if policy == "raise":
+            raise ValueError(message)
+        logger.warning("%s. Dropping those columns from analysis.", message)
+        cleaned = cleaned.drop(columns=extra_price_cols)
+
+    if cleaned.empty:
+        raise ValueError("Universe membership filtering removed all price columns")
+    if mask.empty or mask.shape[1] == 0:
+        return cleaned, None
+
+    mask = mask.reindex(index=cleaned.index, columns=cleaned.columns, fill_value=False)
+    availability = cleaned.notna()
+    missing_data = mask & ~availability
+    if bool(missing_data.values.any()):
+        preview = _format_conflict_preview(missing_data)
+        message = "Universe membership entries are missing price history: " f"{preview}"
+        if policy == "raise":
+            raise ValueError(message)
+        logger.warning("%s. Ignoring those dates.", message)
+        mask = mask & availability
+
+    masked = cleaned.where(mask)
+    if mask.shape[1] == 0:
+        return masked, None
+    return masked, mask
+
+
+def _format_conflict_preview(mask: pd.DataFrame, limit: int = 5) -> str:
+    if mask.empty:
+        return ""
+    flat = mask.stack()
+    flagged = flat[flat]
+    if flagged.empty:
+        return ""
+    preview_items: list[str] = []
+    total = int(flagged.sum())
+    for (ts, symbol), _ in flagged.items():
+        timestamp = ts.strftime("%Y-%m-%d") if isinstance(ts, pd.Timestamp) else str(ts)
+        preview_items.append(f"{timestamp}:{symbol}")
+        if len(preview_items) >= limit:
+            break
+    remaining = total - len(preview_items)
+    if remaining > 0:
+        preview_items.append(f"… (+{remaining} more)")
+    return ", ".join(preview_items)
+
+
+def _format_list_preview(items: Sequence[str], limit: int = 5) -> str:
+    if not items:
+        return ""
+    preview = ", ".join(items[:limit])
+    if len(items) > limit:
+        preview += f", … (+{len(items) - limit} more)"
+    return preview
 
 
 def _rebalance_calendar(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:

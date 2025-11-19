@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, MutableMapping, Sequence
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -136,14 +136,35 @@ def _normalise_price_frame(prices: pd.DataFrame) -> pd.DataFrame:
 
 
 def _normalise_membership_frame(
-    membership: pd.DataFrame | str | Path,
+    membership: pd.DataFrame | str | Path | Mapping[str, Sequence[Any]],
 ) -> pd.DataFrame:
     if isinstance(membership, (str, Path)):
         table = pd.read_csv(membership)
     elif isinstance(membership, pd.DataFrame):
         table = membership.copy()
+    elif isinstance(membership, Mapping):
+        rows: list[dict[str, object]] = []
+        for symbol, windows in membership.items():
+            if not windows:
+                continue
+            for window in windows:
+                effective = getattr(window, "effective_date", None)
+                end = getattr(window, "end_date", None)
+                if effective is None and isinstance(window, Mapping):
+                    effective = window.get("effective_date")
+                    end = window.get("end_date")
+                rows.append(
+                    {
+                        "symbol": symbol,
+                        "effective_date": effective,
+                        "end_date": end,
+                    }
+                )
+        table = pd.DataFrame(rows)
     else:  # pragma: no cover - defensive guard
-        raise TypeError("membership must be a DataFrame or path to a CSV file")
+        raise TypeError(
+            "membership must be a DataFrame, path to a CSV file, or mapping"
+        )
     if table.empty:
         return pd.DataFrame(columns=["symbol", "effective_date", "end_date"])
     lookup = {str(col).strip().lower(): col for col in table.columns}
@@ -166,6 +187,43 @@ def _normalise_membership_frame(
         raise ValueError("membership entries must include valid effective dates")
     table["symbol"] = table["symbol"].astype(str)
     return table[["symbol", "effective_date", "end_date"]]
+
+
+def build_membership_mask(
+    dates: Iterable[pd.Timestamp | str],
+    membership: pd.DataFrame | str | Path | Mapping[str, Sequence[Any]],
+) -> pd.DataFrame:
+    """Return a boolean mask of active funds for every date in ``dates``."""
+
+    index = pd.DatetimeIndex(pd.to_datetime(list(dates)))
+    if index.empty:
+        return pd.DataFrame(index=index)
+
+    membership_frame = _normalise_membership_frame(membership)
+    if membership_frame.empty:
+        return pd.DataFrame(index=index)
+
+    unique_dates = pd.Index(index.unique()).sort_values()
+    active_pairs = _expand_active_pairs(membership_frame, unique_dates)
+
+    symbols = sorted(membership_frame["symbol"].unique())
+    if active_pairs.empty:
+        mask = pd.DataFrame(False, index=index, columns=symbols, dtype=bool)
+        mask.index.name = None
+        mask.columns.name = None
+        return mask
+
+    active = (
+        active_pairs.assign(active=True)
+        .pivot_table(index="date", columns="symbol", values="active", fill_value=False)
+        .astype(bool)
+    )
+    active = active.reindex(unique_dates, fill_value=False)
+    mask = active.reindex(index, method=None).fillna(False)
+    mask = mask.reindex(columns=symbols, fill_value=False)
+    mask.index.name = None
+    mask.columns.name = None
+    return mask.astype(bool)
 
 
 def _expand_active_pairs(
@@ -257,5 +315,6 @@ __all__ = [
     "MembershipTable",
     "load_universe_membership",
     "apply_membership_windows",
+    "build_membership_mask",
     "gate_universe",
 ]
