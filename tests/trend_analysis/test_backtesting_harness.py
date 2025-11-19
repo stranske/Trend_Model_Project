@@ -285,6 +285,157 @@ def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
     assert list(result.weights.index) == sorted(result.weights.index)
 
 
+def test_run_backtest_enforces_membership_mask_on_weights() -> None:
+    dates = pd.date_range("2020-01-31", periods=5, freq="M")
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha": [0.01, 0.02, 0.03, 0.04, 0.05],
+            "Beta": [0.02, 0.02, 0.01, 0.0, -0.01],
+        }
+    )
+
+    def equal_weight(frame: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=frame.columns)
+
+    membership = pd.DataFrame(
+        {
+            "fund": ["Alpha", "Beta"],
+            "effective_date": ["2020-01-01", "2020-03-01"],
+            "end_date": [None, "2020-04-30"],
+        }
+    )
+
+    result = h.run_backtest(
+        returns,
+        equal_weight,
+        rebalance_freq="M",
+        window_size=2,
+        window_mode="rolling",
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        membership=membership,
+    )
+
+    weights = result.weights
+    assert weights.loc[pd.Timestamp("2020-02-29"), "Beta"] == pytest.approx(0.0)
+    assert weights.loc[pd.Timestamp("2020-03-31"), "Beta"] == pytest.approx(0.5)
+    assert weights.loc[pd.Timestamp("2020-05-31"), "Beta"] == pytest.approx(0.0)
+
+
+def test_run_backtest_membership_missing_price_data_raises() -> None:
+    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha": [0.01, 0.02, 0.03],
+            "Beta": [0.02, float("nan"), 0.01],
+        }
+    )
+
+    membership = pd.DataFrame(
+        {
+            "fund": ["Alpha", "Beta"],
+            "effective_date": ["2020-01-01", "2020-01-01"],
+            "end_date": [None, None],
+        }
+    )
+
+    with pytest.raises(ValueError, match="missing price history"):
+        h.run_backtest(
+            returns,
+            lambda frame: pd.Series(0.5, index=frame.columns),
+            rebalance_freq="M",
+            window_size=1,
+            window_mode="rolling",
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
+            membership=membership,
+        )
+
+
+def test_run_backtest_membership_policy_skip_masks_missing_rows() -> None:
+    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha": [0.01, 0.02, 0.03],
+            "Beta": [float("nan"), 0.01, 0.02],
+        }
+    )
+
+    membership = pd.DataFrame(
+        {
+            "fund": ["Alpha", "Beta"],
+            "effective_date": ["2020-01-01", "2020-01-01"],
+            "end_date": [None, None],
+        }
+    )
+
+    result = h.run_backtest(
+        returns,
+        lambda frame: pd.Series(0.5, index=frame.columns),
+        rebalance_freq="M",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        membership=membership,
+        membership_policy="skip",
+    )
+
+    weights = result.weights
+    assert weights.loc[pd.Timestamp("2020-01-31"), "Beta"] == pytest.approx(0.0)
+    assert weights.loc[pd.Timestamp("2020-02-29"), "Beta"] == pytest.approx(0.5)
+
+
+def test_run_backtest_membership_missing_column_skip_continues() -> None:
+    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    returns = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha": [0.01, 0.02, 0.03],
+            "Beta": [0.02, 0.03, 0.01],
+        }
+    )
+
+    membership = pd.DataFrame(
+        {"fund": ["Alpha"], "effective_date": ["2020-01-01"], "end_date": [None]}
+    )
+
+    result = h.run_backtest(
+        returns,
+        lambda frame: pd.Series(0.5, index=frame.columns),
+        rebalance_freq="M",
+        window_size=1,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        membership=membership,
+        membership_policy="skip",
+    )
+
+    assert set(result.weights.columns) == {"Alpha"}
+
+
+def test_run_backtest_membership_missing_column_raises() -> None:
+    dates = pd.date_range("2020-01-31", periods=2, freq="M")
+    returns = pd.DataFrame({"Date": dates, "Alpha": [0.01, 0.02]})
+
+    membership = pd.DataFrame(
+        {"fund": ["Beta"], "effective_date": ["2020-01-01"], "end_date": [None]}
+    )
+
+    with pytest.raises(ValueError, match="price columns"):
+        h.run_backtest(
+            returns,
+            lambda frame: pd.Series(1.0, index=frame.columns),
+            rebalance_freq="M",
+            window_size=1,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
+            membership=membership,
+        )
+
+
 def test_helpers_cover_frequency_conversion_and_json_default(
     sample_calendar: pd.DatetimeIndex,
 ) -> None:
