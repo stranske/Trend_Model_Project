@@ -94,7 +94,7 @@ python scripts/sync_test_dependencies.py --fix
 python scripts/sync_test_dependencies.py --verify
 
 # Confirm formatter/test tool pins match the canonical versions
-python scripts/sync_tool_versions.py --check
+python -m scripts.sync_tool_versions --check
 ```
 
 #### What It Does
