@@ -43,3 +43,20 @@ not meant to inform live investment decisions.
 If you need to extend the dataset for a new tutorial, keep the data synthetic or
 pull it from clearly documented public sources, then update this README to note
 any additions.
+
+## Data validation contract
+
+All CSV loaders now share the helpers in `src/data/contracts.py`, which expose
+`coerce_to_utc(df)` and `validate_prices(df, freq="D")`.  Contributors adding
+new demo fragments should call the helper pair before returning a `DataFrame` so
+they get consistent guarantees:
+
+- Datetime indexes are timezone-aware, normalised to UTC, and strictly
+  increasing without duplicates.
+- Timestamp cadence matches the supplied `freq` hint.
+- Price columns (identified via loader metadata) contain strictly positive
+  values.
+
+Hooking into the shared contract keeps CI, demos, and documentation aligned and
+provides actionable `ValueError` messages when new datasets violate the ingest
+rules.
