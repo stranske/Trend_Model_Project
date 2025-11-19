@@ -1,149 +1,273 @@
-1) Config schema validation with minimal friction
-Labels: agents, agent:codex, config, enhancement, testing
-GUID: TMP-2025-11-16-CONFIG-SCHEMA
+1) Title: Fix truncated filename and update references (scripts/sync_tool_versions.p → .py)
+Labels: bug, ci, testing, devops, priority: low, risk:low
+Body:
+## Why
+Coverage and CI reference a script with a truncated extension, which can break imports and coverage collection.
+## Scope
+- Rename `scripts/sync_tool_versions.p` to `scripts/sync_tool_versions.py`.
+- Grep the repo for references to the old name and update them (coverage configs, scripts, docs).
+- Run coverage in the same mode your pipeline uses to ensure inclusion/exclusion still works.
+## Non-Goals
+- Refactors to script internals beyond import path fixes.
+## Tasks
+- [ ] Rename file and update references.
+- [ ] Run `pytest -q` and the coverage target locally and in CI.
+- [ ] Attach a short note in the PR summarizing what was renamed and where.
+## Acceptance Criteria
+- No references to `sync_tool_versions.p` remain.
+- CI coverage and smoke steps succeed with the renamed script.
+- No new import or path errors surface in `scripts/*` or `.github/scripts/*`.
 
-Why:
-Typos in config keys or wrong types cascade into runtime explosions.
+2) Title: Add fail-fast data contracts for price ingest (monotonic index, no dupes, UTC)
+Labels: enhancement, data, backend, testing, priority: low, risk:low
+Body:
+## Why
+Malformed dates, duplicated timestamps, and mixed timezones silently taint signals and performance. Ingestion should refuse bad inputs early.
+## Scope
+- Add `src/data/contracts.py` with `validate_prices(df, *, freq="D")` asserting:
+  - Datetime index is monotonic increasing, tz-aware in UTC.
+  - No duplicate (instrument, timestamp) keys.
+  - No negative or zero prices where not allowed.
+- Add a helper `coerce_to_utc(df)` used by loaders.
+- Call `validate_prices` in existing loaders before returning data.
+- Tests for: unsorted index, dupes, tz-naive input, mixed frequencies, and negative values.
+## Non-Goals
+- Building a full schema registry; minimal invariants only.
+## Tasks
+- [ ] Implement `validate_prices` and `coerce_to_utc`.
+- [ ] Update loaders to call validation.
+- [ ] Add unit tests with synthetic and intentionally broken CSV fragments.
+## Acceptance Criteria
+- Bad inputs raise clear ValueErrors with actionable messages.
+- All loader paths validated in tests.
+- Existing demos still run after coercion to UTC.
 
-Tasks:
-- Define a lightweight config schema for core knobs: data paths, universe file, frequency, costs.
-- Validate on startup; include defaults and helpful error texts.
-- Add tests covering missing required fields and wrong types.
+3) Title: Freeze execution convention and block look-ahead (EOD t signals, trade t+1)
+Labels: enhancement, engine, backend, testing, priority: low, risk:low
+Body:
+## Why
+Mixing same-day signals with same-day fills leaks future info. We need one enforced convention.
+## Scope
+- Add `src/backtest/utils.py::shift_by_execution_lag(obj, lag=1)` to shift signals/weights.
+- In the backtest, require that weights effective on `t` were computed from data up to `t - lag`.
+- Add a guard that fails if any signal uses timestamps beyond the allowed cutoff.
+- Unit tests: include a case that intentionally violates the lag to ensure fail-fast.
+## Non-Goals
+- Changing indicator math; this is timing alignment only.
+## Tasks
+- [ ] Implement the shift utility and integrate it in the backtest loop.
+- [ ] Add pre-trade timing assertions.
+- [ ] Add tests for correct lag handling and failure on violations.
+## Acceptance Criteria
+- Backtest cannot run with look-ahead; violations raise an exception.
+- A demo run shows unchanged results except for the intended one-bar shift.
 
-Acceptance criteria:
-- Invalid configs fail fast with a single, clear error.
-- Valid configs round-trip through load/validate.
+4) Title: Enforce time-varying universe membership at rebalance
+Labels: enhancement, data, engine, testing, priority: low, risk:low
+Body:
+## Why
+Trading assets before they enter or after they exit the universe skews returns and turnover.
+## Scope
+- Load `Trend Universe Membership.csv` into a date×instrument boolean mask.
+- Intersect the mask with availability (non-NaN price history) at each rebalance.
+- On conflicts (in membership but no data, or vice versa), raise or skip by policy with a log entry.
+- Tests: assets entering/exiting mid-sample and sparse histories.
+## Non-Goals
+- Re-architecting universe definitions; keep current files.
+## Tasks
+- [ ] Build `membership_mask(date)`.
+- [ ] Apply mask in weight construction/backtest.
+- [ ] Add tests for entry/exit and partial histories.
+## Acceptance Criteria
+- No positions in instruments outside membership on any rebalance date.
+- Tests cover both entry and exit scenarios.
 
-Implementation notes:
-- Prefer stdlib/dataclasses + manual checks to avoid adding heavy deps.
-- Keep schema in a single file used by CLI/app.
+5) Title: Define missing-data and warm-up policy for rolling calcs and normalization
+Labels: enhancement, engine, testing, priority: low, risk:low
+Body:
+## Why
+Silent NaNs during warm-up windows or sparse assets cause unstable portfolio totals and random capital drift.
+## Scope
+- Create `portfolio/weight_policy.py` with a function that:
+  - Drops assets with invalid signals OR carries last valid weight OR reallocates to cash, based on a config flag.
+  - Normalizes only after filtering and checks a “min assets” threshold before allocation.
+- Apply this function wherever weights are built.
+- Unit tests for each policy, including a warm-up period.
+## Non-Goals
+- Optimizing for speed; clarity and determinism first.
+## Tasks
+- [ ] Implement the policy function and wire it into portfolio construction.
+- [ ] Tests for drop/carry/reallocate branches and “min assets” behavior.
+## Acceptance Criteria
+- No NaNs in resulting weights/returns.
+- Weight sums remain stable given each policy’s rules.
 
-------------------------------------------------------------
+6) Title: Add transaction costs, slippage, and turnover tracking to backtest
+Labels: enhancement, engine, testing, priority: low, risk:low
+Body:
+## Why
+Costs materially change trend results even at low bps; without them, conclusions are fragile.
+## Scope
+- Parameters: `per_trade_bps`, `half_spread_bps`, optional `turnover_cap`.
+- Compute turnover each rebalance and apply cost drag.
+- Persist `turnover` and `cost_drag` series in results.
+- Golden test dataset with known weights and expected turnover/cost.
+## Non-Goals
+- Complex market impact models; keep it linear/slippage-style.
+## Tasks
+- [ ] Add cost/slippage hooks to the backtest loop.
+- [ ] Record turnover and cost series in results.
+- [ ] Golden test asserting exact turnover and cost on a tiny toy path.
+## Acceptance Criteria
+- Backtest outputs include turnover and costs.
+- Golden test passes with exact expected numbers.
 
-2) Positions contract: single canonical structure between signals and portfolio
-Labels: agents, agent:codex, engine, enhancement, testing
-GUID: TMP-2025-11-16-POSITIONS-CONTRACT
+7) Title: Standardize a Results dataclass and add dataset fingerprinting
+Labels: enhancement, exports, data, config, priority: low, risk:low
+Body:
+## Why
+Consistent outputs make analyses reproducible; fingerprinting proves which inputs produced a run.
+## Scope
+- `analysis/results.py::Results` with: returns, weights, exposures, turnover, costs, and a `metadata` dict (universe, lookbacks, costs, code version).
+- Fingerprint: short hash over `Trend Universe Data.csv` and the membership file contents and key columns; store in `metadata`.
+- Update summary generation to include metadata and fingerprint.
+## Non-Goals
+- Full experiment tracking; a small metadata dict is enough.
+## Tasks
+- [ ] Implement `Results` and update call sites.
+- [ ] Compute and persist input fingerprints.
+- [ ] Update summary output to display metadata/fingerprint.
+## Acceptance Criteria
+- Results objects include complete fields and a stable input fingerprint.
 
-Why:
-Mismatched expectations about shapes/units of positions lead to mis-weights and odd fills.
+8) Title: Add walk-forward (time-series) cross-validation harness + CLI
+Labels: enhancement, engine, testing, exports, priority: low, risk:low
+Body:
+## Why
+Block/expanding validation offers a clearer OOS picture than a single in-sample run.
+## Scope
+- `analysis/cv.py::walk_forward(data, folds=3, expand=True, params=...) -> Report`.
+- Metrics per fold: OOS Sharpe, max drawdown, turnover, cost drag.
+- Small CLI entry point: `python -m src.cli cv --folds 5 --config config.yml`.
+- Export a concise CSV/MD report.
+## Non-Goals
+- Hyperparameter search; evaluation only.
+## Tasks
+- [ ] Implement harness and metrics.
+- [ ] CLI wrapper and example config.
+- [ ] Test on synthetic data with deterministic seed.
+## Acceptance Criteria
+- Running the CLI produces fold metrics and a combined OOS summary file.
+- Tests confirm fold boundaries and no look-ahead in CV splits.
 
-Tasks:
-- Define the positions contract: index is Date; columns are symbols; values are target weights in [-1, 1] or NaN for not held.
-- Provide `normalize_positions(df)` to enforce bounds, fill NaN with 0, and mask non-eligible assets.
-- Add tests for overweight, underweight, and NaN handling.
+9) Title: Cost-aware portfolio constructor (L1 turnover penalty option)
+Labels: enhancement, engine, priority: low, risk:low
+Body:
+## Why
+A small penalty on weight changes reduces churn and better reflects frictions.
+## Scope
+- In portfolio construction, add optional parameter `lambda_tc` that shrinks proposed weight changes toward previous weights (simple L1-style penalty or convex combination).
+- Switchable without touching signal definitions.
+- Unit tests on a toy series confirming reduced turnover as `lambda_tc` increases.
+## Non-Goals
+- Full optimizer rewrite; start with a simple penalty/shrinkage heuristic.
+## Tasks
+- [ ] Implement penalty logic gated by config.
+- [ ] Add tests demonstrating monotone decrease in turnover vs. `lambda_tc`.
+## Acceptance Criteria
+- With the same signals, higher `lambda_tc` yields lower turnover in tests.
 
-Acceptance criteria:
-- Portfolio layer accepts only normalized positions; rejects invalid shapes with helpful errors.
-- Tests show reproducible final weights for a simple two-asset toy case.
+10) Title: Centralize project-root path resolution to avoid CWD fragility
+Labels: enhancement, backend, config, priority: low, risk:low
+Body:
+## Why
+Relative paths break under Docker, tests, and Streamlit; a single resolver avoids “works on my machine.”
+## Scope
+- Add `src/utils/paths.py::proj_path(*parts)` which resolves relative to repo root (env override allowed).
+- Replace ad-hoc `Path.cwd()` joins in scripts and the app with `proj_path`.
+- Tests that simulate different CWDs to ensure stability.
+## Non-Goals
+- Changing storage locations; only how paths are resolved.
+## Tasks
+- [ ] Implement resolver and adopt it in scripts/apps where relevant.
+- [ ] Add tests covering non-root CWD and Docker working dirs.
+## Acceptance Criteria
+- All existing scripts run from any CWD without path errors.
 
-Implementation notes:
-- Document the contract beside the function and reference it in errors.
+11) Title: Streamlit app: cache heavy work and harden uploads (size and CSV injection)
+Labels: enhancement, backend, testing, documentation, priority: low, risk:low
+Body:
+## Why
+Uploads can be messy (duplicate columns, formula strings) and re-running heavy work kills UX.
+## Scope
+- Use `st.cache_data` for expensive loads and derived tables; `st.cache_resource` if needed.
+- Reject files above a configurable size (for example, 10 MB); sanitize headers starting with `=`, `+`, `-`, `@`.
+- Validate schema before merging uploaded data with internal series; require unique column names.
+- Extend `test_upload_app.py` with fuzzier inputs.
+## Non-Goals
+- Building a full data catalog; just guardrails for user inputs.
+## Tasks
+- [ ] Implement caching and guards.
+- [ ] Add validation errors with clear messages in the UI.
+- [ ] Extend tests for large files, duped columns, and formula-like headers.
+## Acceptance Criteria
+- App accepts valid CSVs quickly on rerun and rejects malformed inputs with actionable messages.
+- Tests cover the new edge cases.
 
-------------------------------------------------------------
+12) Title: Export a code-driven “tearsheet” (Markdown/HTML) from Results
+Labels: enhancement, exports, documentation, priority: low, risk:low
+Body:
+## Why
+A reproducible summary beats manually exporting notebook cells.
+## Scope
+- `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with:
+  - Table of headline stats (Sharpe, drawdown, vol, CAGR), turnover, cost drag.
+  - Plots: equity curve, rolling Sharpe/vol, drawdown, turnover.
+- Wire a CLI: `python -m src.cli report --last-run`.
+- Reference it from `Portfolio_Test_Results_Summary.md`.
+## Non-Goals
+- Styling perfection; prioritize content and determinism.
+## Tasks
+- [ ] Implement renderer and basic plots.
+- [ ] Minimal CLI and example run command in README.
+- [ ] Test that the file is written and includes expected sections.
+## Acceptance Criteria
+- Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
+- CI artifact (optional) or repo file present after a demo run.
 
-3) Run manifest + quick HTML report for reproducibility
-Labels: agents, agent:codex, exports, enhancement, docs
-GUID: TMP-2025-11-16-RUN-MANIFEST
+13) Title: Property-based tests for time-series robustness (Hypothesis)
+Labels: testing, engine, priority: low, risk:low
+Body:
+## Why
+Randomized series with drops/spikes catch edge cases that examples miss.
+## Scope
+- Add `tests/test_timeseries_properties.py` using Hypothesis to generate price paths with:
+  - Missing days, outliers, flat segments, and partial histories.
+- Assertions: no NaNs through the pipeline, monotonic timestamps preserved, turnover and cost finite, and contracts hold.
+- Cross-link with the data contracts (Issue 2) and timing (Issue 3).
+## Non-Goals
+- Maximizing coverage numbers; focus on failure discovery.
+## Tasks
+- [ ] Implement generators and property tests.
+- [ ] Ensure seeds are fixed for determinism in CI.
+## Acceptance Criteria
+- Property suite passes in CI and locally.
+- Failing seeds are reported with minimal repro context for debugging.
 
-Why:
-You need a durable breadcrumb of “what ran, with what, and when,” plus a one-pager to eyeball results.
-
-Tasks:
-- Emit a small JSON “manifest” per run: config hash, code commit (if available), data date range, instrument count, basic metrics.
-- Generate a minimalist HTML report with key charts/metrics and links to artifacts.
-- Save both alongside outputs in a timestamped directory.
-
-Acceptance criteria:
-- Each run leaves a manifest and HTML that can be opened standalone.
-- Manifests include enough metadata to rerun the job.
-
-Implementation notes:
-- Keep HTML extremely simple; avoid heavy templating. Inline CSS is fine.
-
-------------------------------------------------------------
-
-4) Critical invariant tests: data, universe, rebalance, no-lookahead, costs
-Labels: agents, agent:codex, testing, engine, data
-GUID: TMP-2025-11-16-INVARIANT-TESTS
-
-Why:
-A small battery of invariants catches 90% of regressions.
-
-Tasks:
-- Test that missing/extra columns raise validation errors.
-- Test that non-members are excluded at rebalance.
-- Test that rolling helper never uses future data.
-- Test that costs reduce returns by the analytical amount on a toy turnover sequence.
-- Test that rebalance dates occur only on the calendar utility’s dates.
-
-Acceptance criteria:
-- Five named tests pass; failures point to the exact invariant that broke.
-
-Implementation notes:
-- Keep fixtures tiny and inline to ensure legibility.
-
-------------------------------------------------------------
-
-5) Performance quick win: avoid duplicate groupby/apply and cache intermediate features
-Labels: agents, agent:codex, engine, enhancement
-GUID: TMP-2025-11-16-PERF-CACHE
-
-Why:
-Recomputing identical features inflates runtime. Small caching plus vectorization trims cycles.
-
-Tasks:
-- Identify top 2–3 repeated computations in signals and wrap them with a simple memo (`lru_cache` or dict keyed by params).
-- Replace slow `groupby.apply` with vectorized ops where feasible.
-- Add a one-line timing logger around key stages to verify improvement.
-
-Acceptance criteria:
-- On a medium sample dataset, end-to-end runtime improves meaningfully without altering results.
-- Timing logs show cached stages shrinking materially on successive runs.
-
-Implementation notes:
-- Keep caching in-process and ephemeral; no disk persistence required.
-
-------------------------------------------------------------
-
-6) Packaging hygiene: exclude `Old/` and `retired/` from imports and builds
-Labels: agents, agent:codex, backend, config
-GUID: TMP-2025-11-16-PKG-EXCLUDES
-
-Why:
-Legacy directories bleeding into imports is a haunted-house problem.
-
-Tasks:
-- Ensure `pyproject.toml` or equivalent excludes `Old/` and `retired/` from the package.
-- Add a sanity test that importing the package does not expose modules from those paths.
-
-Acceptance criteria:
-- Editable install shows no imports resolved from excluded folders.
-- CI import sanity check passes.
-
-Implementation notes:
-- If needed, add `MANIFEST.in` excludes for sdist.
-
-------------------------------------------------------------
-
-7) Minimal CI: install, import, and run invariant tests
-Labels: agents, agent:codex, ci, devops, testing
-GUID: TMP-2025-11-16-CI-SMOKE
-
-Why:
-A tiny CI sweep prevents “it runs on my laptop” surprises.
-
-Scope:
-- Minimal CI: install, import, and run invariant tests.
-
-Tasks:
-- Add a workflow that sets up Python, installs the project, and runs the invariant tests from issue 11.
-- Run an import sanity check for the package.
-- Cache dependencies between runs to keep it fast.
-
-Acceptance criteria:
-- Workflow is green on default branch and PRs.
-- Failures surface with actionable logs.
-
-Implementation notes:
-- Keep matrix minimal (one Python version).
-- Don’t enforce coverage thresholds; keep it lightweight.
+14) Title: Minimal config registry for universes (YAML)
+Labels: enhancement, config, data, priority: low, risk:low
+Body:
+## Why
+Swapping small predefined universes without branching code simplifies comparisons.
+## Scope
+- Add `config/universe/*.yml` describing a few “named universes” that map to the existing CSV membership timelines.
+- Loader knows how to pick a universe by key and read the current CSVs.
+- CLI switch `--universe core` to select at run time; default preserves today’s behavior.
+## Non-Goals
+- Moving to a complex config framework; keep it tiny and explicit.
+## Tasks
+- [ ] Create 2–3 example universe YAMLs.
+- [ ] Add a tiny accessor `load_universe(key)` that returns the time-varying mask.
+- [ ] Example run documented in README.
+## Acceptance Criteria
+- A run can be re-executed against another named universe by changing a single CLI flag.
