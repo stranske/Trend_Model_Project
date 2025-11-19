@@ -408,23 +408,27 @@ def _format_metadata_entries(meta: Mapping[str, Any]) -> list[str]:
 
 
 def _metadata_summary_lines(res: Mapping[str, Any]) -> list[str]:
-    lines: list[str] = []
+    segments: list[str] = []
     summary_text = cast(
         str,
         res.get("preprocessing_summary")
         or cast(Mapping[str, Any], res.get("preprocessing", {})).get("summary"),
     )
     if summary_text:
-        lines.append(summary_text)
+        segments.append(summary_text)
     freq_line = _format_frequency_policy_line(res)
     if freq_line:
-        lines.append(freq_line)
+        segments.append(freq_line)
     metadata = res.get("metadata")
     if isinstance(metadata, Mapping):
-        lines.extend(_format_metadata_entries(metadata))
-    if not lines:
-        lines.append("Frequency: Unknown; NA policy: (not specified)")
-    return lines
+        segments.extend(_format_metadata_entries(metadata))
+    if not segments:
+        segments.append("Frequency: Unknown; NA policy: (not specified)")
+    # The legacy workbook layout expects a single metadata row before the
+    # tabular header so downstream consumers can ``skiprows=4`` reliably.
+    # Combine all entries into one readable line separated by " | " to
+    # preserve the new metadata while keeping the row budget constant.
+    return [" | ".join(segments)]
 
 
 def _build_summary_formatter(
