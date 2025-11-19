@@ -92,17 +92,17 @@ echo "Latest commit: $(git log --oneline -1)"
 echo "Commit author: $(git log -1 --format='%an <%ae>')"
 echo ""
 
-if ! python scripts/sync_tool_versions.py --check >/dev/null 2>&1; then
+if ! python -m scripts.sync_tool_versions --check >/dev/null 2>&1; then
     if [[ "$FIX_MODE" == true ]]; then
         echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
-        if ! python scripts/sync_tool_versions.py --apply >/dev/null 2>&1; then
+        if ! python -m scripts.sync_tool_versions --apply >/dev/null 2>&1; then
             echo -e "${RED}✗ Failed to align tool pins automatically.${NC}" >&2
-            python scripts/sync_tool_versions.py --check
+            python -m scripts.sync_tool_versions --check
             exit 1
         fi
     else
-        echo -e "${RED}✗ Tool version pins are out of sync. Re-run with --fix or run 'python scripts/sync_tool_versions.py --apply'.${NC}" >&2
-        python scripts/sync_tool_versions.py --check
+        echo -e "${RED}✗ Tool version pins are out of sync. Re-run with --fix or run 'python -m scripts.sync_tool_versions --apply'.${NC}" >&2
+        python -m scripts.sync_tool_versions --check
         exit 1
     fi
 fi

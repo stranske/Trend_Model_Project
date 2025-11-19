@@ -71,7 +71,7 @@ The test dependency management system is now **fully automated** from detection 
 │ CI: Auto-Fix Step Runs                                      │
 │ └─ python scripts/sync_test_dependencies.py --fix           │
 │    ├─ Shows diff in job summary                             │
-│    ├─ python scripts/sync_tool_versions.py --check          │
+│    ├─ python -m scripts.sync_tool_versions --check          │
 │    └─ Still exits 1 (forces explicit commit)                │
 └─────────────────────────────────────────────────────────────┘
                         │
@@ -181,7 +181,7 @@ chmod +x .git/hooks/pre-commit
 ### CI Behavior
 When a PR is opened:
 1. CI installs dependencies from `requirements.lock`
-2. Validates `pyproject.toml` and `requirements.txt` with `python scripts/sync_tool_versions.py --check`
+2. Validates `pyproject.toml` and `requirements.txt` with `python -m scripts.sync_tool_versions --check`
 3. Runs all tests including enforcement tests
 4. If undeclared imports detected:
    - Shows error with fix command

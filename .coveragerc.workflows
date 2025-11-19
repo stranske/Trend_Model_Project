@@ -13,6 +13,7 @@ include =
     .github/scripts/decode_raw_input.py
     .github/scripts/parse_chatgpt_topics.py
     .github/scripts/fallback_split.py
+    scripts/sync_tool_versions.py
 exclude_lines =
     pragma: no cover
     if __name__ == '__main__'
