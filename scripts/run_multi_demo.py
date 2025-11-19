@@ -1971,6 +1971,8 @@ def _yaml_friendly(obj: Any) -> Any:
         return {k: _yaml_friendly(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_yaml_friendly(v) for v in obj]
+    if isinstance(obj, set):
+        return [_yaml_friendly(v) for v in obj]
     return obj
 
 
