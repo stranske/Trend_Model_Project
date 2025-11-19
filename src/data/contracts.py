@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from datetime import timedelta, timezone
-import warnings
 from typing import Any
 
 import pandas as pd
