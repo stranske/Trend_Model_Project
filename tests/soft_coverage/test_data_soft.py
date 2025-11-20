@@ -407,7 +407,8 @@ def test_load_parquet_success(
         nan_policy="Backfill",
         nan_limit="5",
     )
-    assert list(result.index) == list(frame.set_index("Date").index)
+    expected_index = frame.set_index("Date").tz_localize("UTC").index
+    assert result.index.equals(expected_index)
 
 
 def test_load_parquet_logs_errors(
