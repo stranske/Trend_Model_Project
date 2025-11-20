@@ -121,6 +121,16 @@ def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
+        "metadata": {
+            "universe": {"members": ["fund"], "count": 1, "selected": ["fund"]},
+            "lookbacks": {
+                "in_sample": {"start": "a", "end": "b"},
+                "out_sample": {"start": "c", "end": "d"},
+            },
+            "costs": {"monthly_cost": 0.001},
+            "code_version": "9.9.9",
+            "fingerprint": "abc123def456",
+        },
     }
     fmt = make_summary_formatter(res, "a", "b", "c", "d")
     assert "summary" in FORMATTERS_EXCEL
@@ -128,8 +138,9 @@ def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     wb = DummyWB()
     fmt(ws, wb)
     assert ws.rows[0][2][0] == "Vol-Adj Trend Analysis"
-    meta_rows = [row for row in ws.rows if row[0] == 3]
-    assert meta_rows and meta_rows[0][2][0].startswith("Frequency:")
+    meta_entries = [row[2][0] for row in ws.rows if row[0] >= 3]
+    assert any(entry.startswith("Frequency:") for entry in meta_entries)
+    assert any("Fingerprint" in entry for entry in meta_entries)
 
 
 @pytest.mark.parametrize("as_dataframe", [False, True])
@@ -187,10 +198,21 @@ def test_format_summary_text_basic():
         "in_sample_stats": {"fund": (5, 5, 5, 5, 5, 5)},
         "out_sample_stats": {"fund": (6, 6, 6, 6, 6, 6)},
         "fund_weights": {"fund": 0.5},
+        "metadata": {
+            "universe": {"members": ["fund"], "count": 1},
+            "lookbacks": {
+                "in_sample": {"start": "a", "end": "b"},
+                "out_sample": {"start": "c", "end": "d"},
+            },
+            "costs": {"monthly_cost": 0.002},
+            "code_version": "1.2.3",
+            "fingerprint": "feed1234beef",
+        },
     }
     text = format_summary_text(res, "a", "b", "c", "d")
     assert "Vol-Adj Trend Analysis" in text
     assert "fund" in text
+    assert "Fingerprint: feed1234beef" in text
 
 
 def test_format_summary_text_includes_regime_breakdown():

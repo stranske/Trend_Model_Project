@@ -112,6 +112,7 @@ TEST_FRAMEWORK_MODULES = {
 
 # Project modules (installed via ``pip install -e .``)
 PROJECT_MODULES = {
+    "analysis",
     "trend_analysis",
     "trend_portfolio_app",
     "streamlit_app",
