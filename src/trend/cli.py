@@ -387,11 +387,6 @@ def _run_pipeline(
     result = run_simulation(cfg, returns_df)
     analysis = getattr(result, "analysis", None)
     if analysis is not None:
-        setattr(result, "portfolio", analysis.returns)
-        setattr(result, "weights", analysis.weights)
-        setattr(result, "exposures", analysis.exposures)
-        setattr(result, "turnover", analysis.turnover)
-        setattr(result, "metadata", analysis.metadata)
     details = result.details
     if isinstance(details, dict):
         if analysis is None:
