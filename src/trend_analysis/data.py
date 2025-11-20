@@ -1,10 +1,10 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional
+from typing import Any, Literal, Mapping, Optional, cast
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype, is_datetime64tz_dtype
+from pandas.api.types import is_datetime64_any_dtype
 
 from data.contracts import coerce_to_utc, validate_prices
 from trend.input_validation import (
@@ -18,6 +18,8 @@ from .io.market_data import (
     ValidatedMarketData,
     validate_market_data,
 )
+
+MissingLimitArg = int | str | Mapping[str, int | str | None] | None
 
 DEFAULT_POLICY_FALLBACK = "drop"
 RETURNS_SCHEMA = InputSchema(
@@ -160,11 +162,18 @@ def _apply_price_contract(
     contract_frame = coerce_to_utc(frame)
     validate_prices(contract_frame, freq=freq)
 
+    frame.index = contract_frame.index
+    frame.index.name = contract_frame.index.name
+
     if include_date_column and "Date" in frame.columns:
         frame["Date"] = contract_frame["Date"].to_numpy()
-    if not include_date_column:
-        frame.index = contract_frame.index
-        frame.index.name = contract_frame.index.name
+        # Keeping a "Date" column alongside a DatetimeIndex named "Date" confuses
+        # downstream operations such as ``DataFrame.sort_values``. Clear the index
+        # name to avoid pandas raising "label or level" ambiguity errors while
+        # still preserving the timezone-aware index itself.
+        frame.index.name = None
+    elif not include_date_column and "Date" in frame.columns:
+        frame["Date"] = contract_frame["Date"].to_numpy()
     return frame
 
 
@@ -196,7 +205,7 @@ def _validate_payload(
     errors: ValidationErrorMode,
     include_date_column: bool,
     missing_policy: str | Mapping[str, str] | None = None,
-    missing_limit: int | Mapping[str, int | None] | None = None,
+    missing_limit: MissingLimitArg = None,
 ) -> Optional[pd.DataFrame]:
     try:
         payload = validate_input(
@@ -221,7 +230,9 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    if "Date" in payload.columns and is_datetime64tz_dtype(payload["Date"]):
+    if "Date" in payload.columns and isinstance(
+        payload["Date"].dtype, pd.DatetimeTZDtype
+    ):
         payload = payload.copy()
         payload["Date"] = payload["Date"].dt.tz_localize(None)
 
@@ -267,16 +278,21 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    result = _finalise_validated_frame(
+    finalised = _finalise_validated_frame(
         validated, include_date_column=include_date_column
     )
+
     try:
-        return _apply_price_contract(result, include_date_column=include_date_column)
+        priced = _apply_price_contract(
+            finalised, include_date_column=include_date_column
+        )
     except ValueError as exc:
         if errors == "raise":
             raise MarketDataValidationError(str(exc)) from exc
         logger.error("Validation failed (%s): %s", origin, exc)
         return None
+
+    return priced
 
 
 def _is_readable(mode: int) -> bool:
@@ -302,7 +318,7 @@ def load_csv(
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
     missing_policy: str | Mapping[str, str] | None = None,
-    missing_limit: int | Mapping[str, int | None] | None = None,
+    missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a CSV expecting a ``Date`` column."""
@@ -318,9 +334,9 @@ def load_csv(
         # for very early call-sites that splatted dictionaries before the
         # signature was expanded.  Retain the guard for clarity, but mark it as
         # unreachable for coverage to avoid penalising the suite.
-        missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
-            _legacy_kwargs.pop("missing_limit")
-        )
+        missing_limit = cast(
+            MissingLimitArg, _legacy_kwargs.pop("missing_limit")
+        )  # pragma: no cover
 
     p = Path(path)
     try:
@@ -336,7 +352,7 @@ def load_csv(
             return None
 
         raw = pd.read_csv(str(p))
-        return _validate_payload(
+        result = _validate_payload(
             raw,
             origin=str(p),
             errors=errors,
@@ -344,6 +360,9 @@ def load_csv(
             missing_policy=missing_policy,
             missing_limit=missing_limit,
         )
+        if isinstance(result, pd.DataFrame) and include_date_column:
+            result = result.reset_index(drop=True)
+        return result
     except (
         FileNotFoundError,
         PermissionError,
@@ -379,7 +398,7 @@ def load_parquet(
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
     missing_policy: str | Mapping[str, str] | None = None,
-    missing_limit: int | Mapping[str, int | None] | None = None,
+    missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
 ) -> Optional[pd.DataFrame]:
     """Load and validate a Parquet file containing market data."""
@@ -389,9 +408,9 @@ def load_parquet(
     if missing_limit is None and "nan_limit" in _legacy_kwargs:
         missing_limit = _coerce_limit_kwarg(_legacy_kwargs.pop("nan_limit"))
     if missing_limit is None and "missing_limit" in _legacy_kwargs:
-        missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
-            _legacy_kwargs.pop("missing_limit")
-        )
+        missing_limit = cast(
+            MissingLimitArg, _legacy_kwargs.pop("missing_limit")
+        )  # pragma: no cover
 
     p = Path(path)
     try:
@@ -404,7 +423,7 @@ def load_parquet(
             raise PermissionError(f"Permission denied accessing file: {path}")
 
         raw = pd.read_parquet(str(p))
-        return _validate_payload(
+        result = _validate_payload(
             raw,
             origin=str(p),
             errors=errors,
@@ -412,6 +431,9 @@ def load_parquet(
             missing_policy=missing_policy,
             missing_limit=missing_limit,
         )
+        if isinstance(result, pd.DataFrame) and include_date_column:
+            result = result.reset_index(drop=True)
+        return result
     except (
         FileNotFoundError,
         PermissionError,

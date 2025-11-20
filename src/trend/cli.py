@@ -386,7 +386,8 @@ def _run_pipeline(
 
     result = run_simulation(cfg, returns_df)
     analysis = getattr(result, "analysis", None)
-    # The following attributes are already set by run_simulation when analysis is present.
+    # The following attributes are already set by run_simulation when analysis exists,
+    # but we need to backfill them when analysis is absent (legacy callers).
     details = result.details
     if isinstance(details, dict):
         if analysis is None:
