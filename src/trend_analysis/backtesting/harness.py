@@ -157,6 +157,14 @@ def run_backtest(
     if data.empty:
         raise ValueError("returns must contain at least one row")
 
+    total_rows = len(data.index)
+    if window_size > total_rows:
+        raise ValueError(
+            "window_size too large relative to available return history; "
+            "window_size/execution_lag combination leaves no eligible rebalance "
+            "dates without violating the execution-lag (look-ahead) constraint."
+        )
+
     calendar = _rebalance_calendar(data.index, rebalance_freq)
     if not len(calendar):
         raise ValueError("rebalance calendar produced no dates – check frequency")
@@ -179,7 +187,7 @@ def run_backtest(
 
     def _has_required_history(date: pd.Timestamp) -> bool:
         history_len = len(data.loc[:date])
-        return history_len >= window_size and history_len > execution_lag
+        return history_len >= window_size
 
     eligible_dates = [date for date in calendar if _has_required_history(date)]
     if not eligible_dates:
@@ -238,7 +246,7 @@ def run_backtest(
             stop = len(data.index)
 
         apply_slice = slice(start_idx + execution_lag, stop)
-        if apply_slice.start >= len(data.index):
+        if apply_slice.start > len(data.index):
             if i == 0:
                 last_available = data.index[-1]
                 raise ValueError(
@@ -252,6 +260,8 @@ def run_backtest(
                         last=last_available.date(),
                     )
                 )
+            break
+        if apply_slice.start >= len(data.index):
             break
         if apply_slice.start >= apply_slice.stop:
             continue
