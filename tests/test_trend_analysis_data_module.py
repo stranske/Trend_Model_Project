@@ -113,7 +113,7 @@ def test_validate_payload_success(monkeypatch):
         }
     )
 
-    index = pd.to_datetime(["2024-01-01", "2024-01-02"])
+    index = pd.to_datetime(["2024-01-01", "2024-01-02"], utc=True)
     validated_frame = pd.DataFrame(
         {"alpha": [1000.0, 2000.0], "beta": [0.25, -0.5]}, index=index
     )
@@ -143,9 +143,10 @@ def test_validate_payload_success(monkeypatch):
 
     payload = captured["payload"]
     assert list(payload.columns) == ["Date", "alpha", "beta"]
+    expected_dates = pd.Series(index.tz_localize(None), name="Date")
     pd.testing.assert_series_equal(
         pd.to_datetime(payload["Date"]),
-        pd.Series(index, name="Date"),
+        expected_dates,
         check_names=False,
     )
     assert list(payload["alpha"]) == [1000.0, 2000.0]
@@ -200,7 +201,7 @@ def test_validate_payload_reraises_when_requested(monkeypatch):
 
 
 def test_finalise_validated_frame_includes_date_column():
-    index = pd.to_datetime(["2024-01-01", "2024-01-02"])
+    index = pd.to_datetime(["2024-01-01", "2024-01-02"], utc=True)
     frame = pd.DataFrame({"alpha": [1.0, 2.0]}, index=index)
     frame.index.name = "Date"
     metadata = _build_metadata(index)
@@ -223,7 +224,7 @@ def test_load_csv_validates_payload(tmp_path, monkeypatch):
     path = tmp_path / "data.csv"
     df.to_csv(path, index=False)
 
-    index = pd.to_datetime(["2024-01-01"])
+    index = pd.to_datetime(["2024-01-01"], utc=True)
     validated = ValidatedMarketData(
         pd.DataFrame({"alpha": [10]}, index=index, columns=["alpha"]),
         _build_metadata(index),
@@ -279,7 +280,7 @@ def test_load_parquet_success(tmp_path, monkeypatch):
     monkeypatch.setattr(data_module, "_is_readable", lambda mode: True)
     monkeypatch.setattr(pd, "read_parquet", lambda p: df)
 
-    index = pd.to_datetime(["2024-01-01"])
+    index = pd.to_datetime(["2024-01-01"], utc=True)
     validated = ValidatedMarketData(
         pd.DataFrame({"alpha": [1]}, index=index, columns=["alpha"]),
         _build_metadata(index),
@@ -339,7 +340,7 @@ def test_load_csv_legacy_missing_limit(tmp_path, monkeypatch):
     path = tmp_path / "legacy.csv"
     path.write_text("alpha\n1")
 
-    index = pd.to_datetime(["2024-01-01"])
+    index = pd.to_datetime(["2024-01-01"], utc=True)
     validated = ValidatedMarketData(
         pd.DataFrame({"alpha": [1]}, index=index, columns=["alpha"]),
         _build_metadata(index),
@@ -412,7 +413,7 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
     monkeypatch.setattr(data_module, "_is_readable", lambda mode: True)
     monkeypatch.setattr(pd, "read_parquet", lambda p: df)
 
-    index = pd.to_datetime(["2024-01-01"])
+    index = pd.to_datetime(["2024-01-01"], utc=True)
     validated = ValidatedMarketData(
         pd.DataFrame({"alpha": [1]}, index=index, columns=["alpha"]),
         _build_metadata(index),
@@ -437,9 +438,11 @@ def test_validate_dataframe_delegates(monkeypatch):
 
     def fake_validate(payload, **kwargs):
         called.update(kwargs)
+        idx = pd.to_datetime(["2024-01-01"], utc=True)
+        idx.name = "Date"
         return ValidatedMarketData(
-            pd.DataFrame({"alpha": [1]}, index=pd.to_datetime(["2024-01-01"])),
-            _build_metadata(pd.to_datetime(["2024-01-01"])),
+            pd.DataFrame({"alpha": [1]}, index=idx),
+            _build_metadata(idx),
         )
 
     monkeypatch.setattr(data_module, "validate_market_data", fake_validate)

@@ -75,6 +75,9 @@ def test_validate_payload_injects_wildcard_default(
     monkeypatch.setattr(
         "trend_analysis.data._finalise_validated_frame", _dummy_finalise
     )
+    monkeypatch.setattr(
+        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
+    )
 
     mapping = _WildcardMapping({"A": "ffill"})
 
@@ -120,6 +123,9 @@ def test_load_csv_missing_limit_kwarg_converted(
         return "finalised"
 
     monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", finalise)
+    monkeypatch.setattr(
+        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
+    )
 
     result = load_csv(
         str(path),
@@ -185,6 +191,9 @@ def test_load_parquet_missing_limit_kwarg_converted(
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
     monkeypatch.setattr(
         "trend_analysis.data._finalise_validated_frame", _dummy_finalise
+    )
+    monkeypatch.setattr(
+        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
     )
 
     result = load_parquet(str(path), missing_limit="9", include_date_column=False)
