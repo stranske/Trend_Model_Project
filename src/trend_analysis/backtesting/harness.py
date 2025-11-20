@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 _MembershipPolicy = Literal["raise", "skip"]
 WindowMode = Literal["rolling", "expanding"]
 
+_LOOKAHEAD_ERROR = (
+    "window_size/execution_lag combination leaves no eligible rebalance dates "
+    "without violating the execution-lag (look-ahead) constraint."
+)
+
 
 @dataclass(frozen=True)
 class CostModel:
@@ -161,8 +166,7 @@ def run_backtest(
     if window_size > total_rows:
         raise ValueError(
             "window_size too large relative to available return history; "
-            "window_size/execution_lag combination leaves no eligible rebalance "
-            "dates without violating the execution-lag (look-ahead) constraint."
+            + _LOOKAHEAD_ERROR
         )
 
     calendar = _rebalance_calendar(data.index, rebalance_freq)
@@ -191,10 +195,15 @@ def run_backtest(
 
     eligible_dates = [date for date in calendar if _has_required_history(date)]
     if not eligible_dates:
-        raise ValueError(
-            "window_size/execution_lag combination leaves no eligible rebalance dates "
-            "without violating the execution-lag (look-ahead) constraint."
-        )
+        raise ValueError(_LOOKAHEAD_ERROR)
+
+    eligible_dates = _enforce_execution_lag_calendar(
+        eligible_dates,
+        data.index,
+        execution_lag,
+    )
+    if not eligible_dates:
+        raise ValueError(_LOOKAHEAD_ERROR)
 
     for i, date in enumerate(eligible_dates):
         history = data.loc[:date]
@@ -202,13 +211,43 @@ def run_backtest(
             train_window = history.tail(window_size)
         else:
             train_window = history
-        training_windows[date] = (train_window.index[0], train_window.index[-1])
 
         if membership_mask is not None:
             history_mask = membership_mask.loc[train_window.index]
             masked_window = train_window.where(history_mask)
         else:
             masked_window = train_window
+
+        training_windows[date] = (train_window.index[0], train_window.index[-1])
+
+        start_idx = _last_index_position(data.index, date)
+        next_date = eligible_dates[i + 1] if i + 1 < len(eligible_dates) else None
+        if next_date is not None:
+            stop = _first_index_position(data.index, next_date) + 1
+        else:
+            stop = len(data.index)
+        apply_slice = slice(start_idx + execution_lag, stop)
+        if apply_slice.start > len(data.index):
+            if i == 0:
+                last_available = data.index[-1]
+                raise ValueError(
+                    (
+                        "Execution lag of {lag} on {date} would require access to "
+                        "returns beyond the available history ending {last}, "
+                        "introducing look-ahead bias."
+                    ).format(
+                        lag=execution_lag,
+                        date=date.date(),
+                        last=last_available.date(),
+                    )
+                )
+            break
+        if apply_slice.start >= len(data.index):
+            break
+        if apply_slice.start >= apply_slice.stop:
+            turnover.loc[date] = 0.0
+            tx_costs.loc[date] = 0.0
+            continue
 
         raw_weights = strategy(masked_window)
         proposed = _normalise_weights(raw_weights, asset_columns)
@@ -232,39 +271,6 @@ def run_backtest(
         tx_costs.loc[date] = float(cost)
 
         prev_weights = new_weights
-
-        start_idx = data.index.get_loc(date)
-        if isinstance(start_idx, slice):
-            start_idx = start_idx.stop - 1
-        next_date = eligible_dates[i + 1] if i + 1 < len(eligible_dates) else None
-        if next_date is not None:
-            end_idx = data.index.get_loc(next_date)
-            if isinstance(end_idx, slice):
-                end_idx = end_idx.start
-            stop = end_idx + 1
-        else:
-            stop = len(data.index)
-
-        apply_slice = slice(start_idx + execution_lag, stop)
-        if apply_slice.start > len(data.index):
-            if i == 0:
-                last_available = data.index[-1]
-                raise ValueError(
-                    (
-                        "Execution lag of {lag} on {date} would require access to "
-                        "returns beyond the available history ending {last}, "
-                        "introducing look-ahead bias."
-                    ).format(
-                        lag=execution_lag,
-                        date=date.date(),
-                        last=last_available.date(),
-                    )
-                )
-            break
-        if apply_slice.start >= len(data.index):
-            break
-        if apply_slice.start >= apply_slice.stop:
-            continue
 
         pending_cost = float(cost)
         if 0 <= apply_slice.start < len(per_period_turnover):
@@ -300,6 +306,10 @@ def run_backtest(
         shifted_weights = shift_by_execution_lag(weights_df, lag=execution_lag)
         weights_df = shifted_weights.fillna(0.0)
 
+    calendar_index = pd.DatetimeIndex(eligible_dates)
+    turnover = turnover.reindex(calendar_index, fill_value=0.0)
+    tx_costs = tx_costs.reindex(calendar_index, fill_value=0.0)
+
     return BacktestResult(
         returns=portfolio_returns,
         equity_curve=equity_curve,
@@ -310,13 +320,74 @@ def run_backtest(
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
         metrics=metrics,
-        calendar=pd.DatetimeIndex(eligible_dates),
+        calendar=calendar_index,
         window_mode=window_mode,
         window_size=window_size,
         training_windows=training_windows,
         cost_model=model,
         execution_lag=execution_lag,
     )
+
+
+def _first_index_position(index: pd.Index, label: pd.Timestamp) -> int:
+    loc = index.get_loc(label)
+    if isinstance(loc, slice):
+        return int(loc.start)
+    if isinstance(loc, np.ndarray):
+        return int(np.argmax(loc))
+    if isinstance(loc, (int, np.integer)):
+        return int(loc)
+    raise TypeError(f"Unsupported index locator type: {type(loc)!r}")
+
+
+def _last_index_position(index: pd.Index, label: pd.Timestamp) -> int:
+    loc = index.get_loc(label)
+    if isinstance(loc, slice):
+        return int(loc.stop - 1)
+    if isinstance(loc, np.ndarray):
+        # If loc is a boolean array, get the last matching index position
+        if loc.dtype == bool:
+            idxs = np.where(loc)[0]
+            if len(idxs) == 0:
+                raise KeyError(f"Label {label!r} not found in index")
+            return int(idxs[-1])
+        # Otherwise, assume it's an array of integer positions
+        return int(loc.max())
+    if isinstance(loc, (int, np.integer)):
+        return int(loc)
+    raise TypeError(f"Unsupported index locator type: {type(loc)!r}")
+
+
+def _enforce_execution_lag_calendar(
+    dates: Sequence[pd.Timestamp],
+    index: pd.Index,
+    execution_lag: int,
+) -> list[pd.Timestamp]:
+    if execution_lag <= 0 or not dates:
+        return list(dates)
+
+    keep = [False] * len(dates)
+    next_stop = len(index)
+    for idx in range(len(dates) - 1, -1, -1):
+        date = dates[idx]
+        start_pos = _last_index_position(index, date)
+        apply_pos = start_pos + execution_lag
+        if apply_pos >= len(index):
+            continue
+        if apply_pos >= next_stop:
+            continue
+        keep[idx] = True
+        next_stop = _first_index_position(index, date) + 1
+
+    kept_dates = [date for date, flag in zip(dates, keep) if flag]
+    if not kept_dates and dates:
+        # When every candidate would violate the lag constraint we still
+        # surface the final date so the caller can report the attempted
+        # rebalance with zero turnover. This preserves backward-compatibility
+        # for short datasets without introducing look-ahead because no future
+        # returns will be consumed.
+        return [dates[-1]]
+    return kept_dates
 
 
 def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:

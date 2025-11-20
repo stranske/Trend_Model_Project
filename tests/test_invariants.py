@@ -10,7 +10,11 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 
 from trend.validation import build_validation_frame, validate_prices_frame
-from trend_analysis.backtesting.harness import _rebalance_calendar, run_backtest
+from trend_analysis.backtesting.harness import (
+    _enforce_execution_lag_calendar,
+    _rebalance_calendar,
+    run_backtest,
+)
 from trend_analysis.risk import RiskWindow, compute_constrained_weights
 from trend_analysis.universe import gate_universe
 from trend_analysis.util.rolling import rolling_shifted
@@ -255,7 +259,12 @@ def test_backtest_calendar_matches_calendar_helper() -> None:
     )
 
     raw_calendar = _rebalance_calendar(returns.index, freq)
-    expected_calendar = pd.DatetimeIndex(
-        [date for date in raw_calendar if len(returns.loc[:date]) >= window_size]
+    filtered_calendar = [
+        date for date in raw_calendar if len(returns.loc[:date]) >= window_size
+    ]
+    expected_calendar = _enforce_execution_lag_calendar(
+        filtered_calendar,
+        returns.index,
+        result.execution_lag,
     )
-    pdt.assert_index_equal(result.calendar, expected_calendar)
+    pdt.assert_index_equal(result.calendar, pd.DatetimeIndex(expected_calendar))

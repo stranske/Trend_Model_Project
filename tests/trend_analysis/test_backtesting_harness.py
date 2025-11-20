@@ -296,12 +296,12 @@ def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
 
 
 def test_run_backtest_enforces_membership_mask_on_weights() -> None:
-    dates = pd.date_range("2020-01-31", periods=5, freq="M")
+    dates = pd.date_range("2020-01-31", periods=6, freq="M")
     returns = pd.DataFrame(
         {
             "Date": dates,
-            "Alpha": [0.01, 0.02, 0.03, 0.04, 0.05],
-            "Beta": [0.02, 0.02, 0.01, 0.0, -0.01],
+            "Alpha": [0.01, 0.02, 0.03, 0.04, 0.05, 0.06],
+            "Beta": [0.02, 0.02, 0.01, 0.0, -0.01, -0.02],
         }
     )
 
@@ -334,12 +334,12 @@ def test_run_backtest_enforces_membership_mask_on_weights() -> None:
 
 
 def test_run_backtest_membership_missing_price_data_raises() -> None:
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="M")
     returns = pd.DataFrame(
         {
             "Date": dates,
-            "Alpha": [0.01, 0.02, 0.03],
-            "Beta": [0.02, float("nan"), 0.01],
+            "Alpha": [0.01, 0.02, 0.03, 0.04],
+            "Beta": [0.02, float("nan"), 0.01, 0.0],
         }
     )
 
@@ -365,12 +365,12 @@ def test_run_backtest_membership_missing_price_data_raises() -> None:
 
 
 def test_run_backtest_membership_policy_skip_masks_missing_rows() -> None:
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="M")
     returns = pd.DataFrame(
         {
             "Date": dates,
-            "Alpha": [0.01, 0.02, 0.03],
-            "Beta": [float("nan"), 0.01, 0.02],
+            "Alpha": [0.01, 0.02, 0.03, 0.04],
+            "Beta": [float("nan"), 0.01, 0.02, 0.03],
         }
     )
 
