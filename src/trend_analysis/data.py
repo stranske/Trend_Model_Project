@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype, is_datetime64tz_dtype
+from pandas.api.types import is_datetime64_any_dtype
+
+from data.contracts import coerce_to_utc, validate_prices
 
 from trend.input_validation import (
     InputSchema,
@@ -143,6 +145,17 @@ def _normalise_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
     return cleaned
 
 
+def _apply_price_contract(frame: pd.DataFrame) -> pd.DataFrame:
+    """Ensure ``frame`` is UTC-indexed and passes the price contract."""
+
+    freq_alias = frame.attrs.get("market_data_frequency_code") or frame.attrs.get(
+        "market_data_frequency"
+    )
+    freq = str(freq_alias) if freq_alias else "D"
+    coerced = coerce_to_utc(frame)
+    return validate_prices(coerced, freq=freq)
+
+
 def _validate_payload(
     payload: pd.DataFrame,
     *,
@@ -175,7 +188,9 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    if "Date" in payload.columns and is_datetime64tz_dtype(payload["Date"]):
+    if "Date" in payload.columns and isinstance(
+        payload["Date"].dtype, pd.DatetimeTZDtype
+    ):
         payload = payload.copy()
         payload["Date"] = payload["Date"].dt.tz_localize(None)
 
@@ -220,7 +235,18 @@ def _validate_payload(
             message = f"{exc.user_message}\nUnable to parse Date values in {origin}"
         logger.error("Validation failed (%s): %s", origin, message)
         return None
-    return _finalise_validated_frame(validated, include_date_column=include_date_column)
+
+    finalised = _finalise_validated_frame(
+        validated, include_date_column=include_date_column
+    )
+
+    try:
+        return _apply_price_contract(finalised)
+    except ValueError as exc:
+        if errors == "raise":
+            raise
+        logger.error("Validation failed (%s): %s", origin, exc)
+        return None
 
 
 def _is_readable(mode: int) -> bool:

@@ -1,7 +1,7 @@
 import logging
 import os
 import stat
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 from unittest.mock import MagicMock
@@ -262,6 +262,81 @@ def test_validate_payload_success(monkeypatch, validated_payload):
     assert result.attrs["market_data_rows"] == validated_payload.metadata.rows
 
 
+def test_validate_payload_applies_price_contract(monkeypatch, sample_metadata):
+    payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-02"], "AAA": [1, 2]})
+    naive_idx = pd.DatetimeIndex(
+        [datetime(2024, 1, 1), datetime(2024, 1, 2)], name="Date"
+    )
+    validated = ValidatedMarketData(
+        frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=naive_idx),
+        metadata=sample_metadata,
+    )
+
+    monkeypatch.setattr(
+        data, "validate_market_data", lambda *_args, **_kwargs: validated
+    )
+
+    result = data._validate_payload(
+        payload,
+        origin="contracts.csv",
+        errors="raise",
+        include_date_column=True,
+    )
+
+    assert isinstance(result.index, pd.DatetimeIndex)
+    assert result.index.tz is timezone.utc
+    assert str(result["Date"].dtype) == "datetime64[ns, UTC]"
+
+
+def test_validate_payload_raises_value_error_for_contract(monkeypatch, sample_metadata):
+    payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-01"], "AAA": [1, 2]})
+    dup_idx = pd.DatetimeIndex(
+        [datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date"
+    )
+    validated = ValidatedMarketData(
+        frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=dup_idx),
+        metadata=sample_metadata,
+    )
+
+    monkeypatch.setattr(
+        data, "validate_market_data", lambda *_args, **_kwargs: validated
+    )
+
+    with pytest.raises(ValueError, match="Duplicate"):
+        data._validate_payload(
+            payload,
+            origin="dupes.csv",
+            errors="raise",
+            include_date_column=True,
+        )
+
+
+def test_validate_payload_logs_contract_error(monkeypatch, caplog, sample_metadata):
+    payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-01"], "AAA": [1, 2]})
+    dup_idx = pd.DatetimeIndex(
+        [datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date"
+    )
+    validated = ValidatedMarketData(
+        frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=dup_idx),
+        metadata=sample_metadata,
+    )
+
+    monkeypatch.setattr(
+        data, "validate_market_data", lambda *_args, **_kwargs: validated
+    )
+
+    with caplog.at_level(logging.ERROR):
+        result = data._validate_payload(
+            payload,
+            origin="dupes.csv",
+            errors="log",
+            include_date_column=True,
+        )
+
+    assert result is None
+    assert "Duplicate" in caplog.text
+
+
 def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
     payload = pd.DataFrame({"Date": ["2024-01-01"], "AAA": ["3"]})
 
@@ -281,7 +356,8 @@ def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
         missing_limit="2",
     )
 
-    assert result.index.equals(validated_payload.frame.index)
+    expected_index = validated_payload.frame.index.tz_localize(timezone.utc)
+    assert result.index.equals(expected_index)
 
 
 def test_validate_payload_logs_market_data_error(monkeypatch, caplog):
