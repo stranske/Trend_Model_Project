@@ -339,6 +339,13 @@ def _last_index_position(index: pd.Index, label: pd.Timestamp) -> int:
     if isinstance(loc, slice):
         return int(loc.stop - 1)
     if isinstance(loc, np.ndarray):
+        # If loc is a boolean array, get the last matching index position
+        if loc.dtype == bool:
+            idxs = np.where(loc)[0]
+            if len(idxs) == 0:
+                raise KeyError(f"Label {label!r} not found in index")
+            return int(idxs[-1])
+        # Otherwise, assume it's an array of integer positions
         return int(loc.max())
     if isinstance(loc, (int, np.integer)):
         return int(loc)
