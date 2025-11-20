@@ -291,11 +291,6 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, exc)
         return None
 
-    if include_date_column:
-        attrs = dict(priced.attrs)
-        priced = priced.reset_index(drop=True)
-        priced.attrs = attrs
-
     return priced
 
 
@@ -341,6 +336,8 @@ def load_csv(
         missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
             _legacy_kwargs.pop("missing_limit")
         )
+
+    missing_limit = _coerce_limit_kwarg(missing_limit)
 
     p = Path(path)
     try:
@@ -412,6 +409,8 @@ def load_parquet(
         missing_limit = _coerce_limit_kwarg(  # pragma: no cover - legacy alias
             _legacy_kwargs.pop("missing_limit")
         )
+
+    missing_limit = _coerce_limit_kwarg(missing_limit)
 
     p = Path(path)
     try:
