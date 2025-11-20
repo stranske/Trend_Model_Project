@@ -7,7 +7,6 @@ import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype, is_datetime64tz_dtype
 
 from data.contracts import coerce_to_utc, validate_prices
-
 from trend.input_validation import (
     InputSchema,
     InputValidationError,
