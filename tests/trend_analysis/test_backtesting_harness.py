@@ -11,6 +11,16 @@ import pytest
 from trend_analysis.backtesting import harness as h
 
 
+def _unshift_weights(result: h.BacktestResult) -> pd.DataFrame:
+    weights = result.weights
+    if weights.empty:
+        return weights
+    lag = int(weights.attrs.get("execution_lag", 0))
+    if lag <= 0:
+        return weights
+    return weights.shift(-lag).fillna(0.0)
+
+
 @pytest.fixture()
 def sample_calendar() -> pd.DatetimeIndex:
     return pd.date_range("2021-01-31", periods=4, freq="ME")
@@ -317,7 +327,7 @@ def test_run_backtest_enforces_membership_mask_on_weights() -> None:
         membership=membership,
     )
 
-    weights = result.weights
+    weights = _unshift_weights(result)
     assert weights.loc[pd.Timestamp("2020-02-29"), "Beta"] == pytest.approx(0.0)
     assert weights.loc[pd.Timestamp("2020-03-31"), "Beta"] == pytest.approx(0.5)
     assert weights.loc[pd.Timestamp("2020-05-31"), "Beta"] == pytest.approx(0.0)
@@ -383,7 +393,7 @@ def test_run_backtest_membership_policy_skip_masks_missing_rows() -> None:
         membership_policy="skip",
     )
 
-    weights = result.weights
+    weights = _unshift_weights(result)
     assert weights.loc[pd.Timestamp("2020-01-31"), "Beta"] == pytest.approx(0.0)
     assert weights.loc[pd.Timestamp("2020-02-29"), "Beta"] == pytest.approx(0.5)
 

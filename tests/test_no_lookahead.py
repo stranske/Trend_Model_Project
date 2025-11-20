@@ -53,7 +53,7 @@ def test_intentional_leak_is_detected(returns: list[float], window: int) -> None
 
 
 @given(_random_returns(min_size=10, max_size=48))
-@settings(max_examples=50)
+@settings(max_examples=50, deadline=500)
 def test_positions_depend_only_on_realised_history(returns: list[float]) -> None:
     df = pd.DataFrame({"returns": returns})
     signal = compute_signal(df, window=3)

@@ -317,10 +317,11 @@ def test_min_trade_threshold_clamps_micro_churn() -> None:
     assert baseline.turnover.loc[second_rebalance] > 0
     assert banded.turnover.loc[second_rebalance] == pytest.approx(0.0)
     live_weights = banded.weights.dropna(how="all")
-    assert len(live_weights) >= 2
+    stabilized = live_weights.loc[live_weights.abs().sum(axis=1) > 0]
+    assert len(stabilized) >= 2
     pdt.assert_series_equal(
-        live_weights.iloc[0],
-        live_weights.iloc[1],
+        stabilized.iloc[0],
+        stabilized.iloc[1],
         check_names=False,
     )
     non_zero_periods = banded.per_period_turnover[banded.per_period_turnover > 0]
@@ -421,7 +422,7 @@ def test_run_backtest_validates_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
                 min_trade=0.0,
             )
 
-    with pytest.raises(ValueError, match="window_size too large"):
+    with pytest.raises(ValueError, match="window_size/execution_lag"):
         run_backtest(
             base_returns.iloc[:5],
             strategy,
@@ -465,6 +466,44 @@ def test_run_backtest_handles_duplicate_index_slices() -> None:
     assert np.isclose(result.transaction_costs.iloc[0], 0.001)
     assert np.isclose(result.transaction_costs.iloc[1], 0.0)
     assert np.isclose(result.transaction_costs.iloc[-1], 0.0)
+
+
+def test_run_backtest_shifts_reported_weights_by_execution_lag() -> None:
+    returns = _synthetic_returns("2020-01-01", 80)
+
+    def constant_strategy(window: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=window.columns)
+
+    result = run_backtest(
+        returns,
+        constant_strategy,
+        rebalance_freq="W",
+        window_size=20,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        execution_lag=2,
+    )
+
+    assert result.weights.attrs["execution_lag"] == 2
+    assert not result.weights.empty
+    leading = result.weights.head(2)
+    assert np.allclose(leading.abs().sum(axis=1), 0.0)
+    assert result.weights.iloc[2].sum() == pytest.approx(1.0)
+
+
+def test_run_backtest_raises_when_execution_lag_needs_future_data() -> None:
+    returns = _synthetic_returns("2020-01-01", 40)
+
+    with pytest.raises(ValueError, match="look-ahead"):
+        run_backtest(
+            returns,
+            MeanWinnerStrategy(),
+            rebalance_freq="M",
+            window_size=5,
+            transaction_cost_bps=0.0,
+            min_trade=0.0,
+            execution_lag=25,
+        )
 
 
 def test_prepare_returns_validates_structure() -> None:
@@ -693,6 +732,7 @@ def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) 
     assert math.isclose(first_turnover, 0.8, rel_tol=1e-9)
 
     # Confirm that weights recorded in the result respect the strategy output.
-    first_weights = result.weights.dropna(how="all").iloc[0]
+    non_zero_weights = result.weights.loc[result.weights.abs().sum(axis=1) > 0]
+    first_weights = non_zero_weights.iloc[0]
     assert math.isclose(first_weights["A"], 0.6)
     assert math.isclose(first_weights["B"], 0.4)
