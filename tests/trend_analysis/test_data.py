@@ -357,7 +357,11 @@ def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
         missing_limit="2",
     )
 
-    expected_index = validated_payload.frame.index.tz_localize(timezone.utc)
+    expected_index = validated_payload.frame.index
+    if expected_index.tz is None:
+        expected_index = expected_index.tz_localize(timezone.utc)
+    else:
+        expected_index = expected_index.tz_convert(timezone.utc)
     assert result.index.equals(expected_index)
 
 
