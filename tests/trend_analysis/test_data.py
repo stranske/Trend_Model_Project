@@ -47,6 +47,7 @@ def validated_payload(sample_metadata: MarketDataMetadata) -> ValidatedMarketDat
                 datetime(2024, 1, 2),
                 datetime(2024, 1, 3),
             ],
+            tz="UTC",
             name="Date",
         ),
     )
