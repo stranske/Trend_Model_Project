@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import stat
+from datetime import timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,7 @@ def test_load_csv_success(tmp_path: Path) -> None:
     df = data_mod.load_csv(str(csv))
     assert df is not None
     assert list(df.columns) == ["Date", "A", "B"]
-    assert pd.api.types.is_datetime64_any_dtype(df["Date"])
+    assert str(df["Date"].dtype) == "datetime64[ns, UTC]"
     assert df.attrs["market_data_mode"] == "returns"
 
 
@@ -38,6 +39,14 @@ def test_load_csv_returns_none_by_default(
         result = data_mod.load_csv(str(csv))
     assert result is None
     assert "Duplicate timestamps" in caplog.text
+
+
+def test_load_csv_rejects_unsorted_dates(tmp_path: Path) -> None:
+    csv = tmp_path / "unsorted.csv"
+    csv.write_text("Date,A\n2024-02-01,0.01\n2024-01-01,0.02\n")
+
+    with pytest.raises(MarketDataValidationError, match="sorted in ascending"):
+        data_mod.load_csv(str(csv), errors="raise")
 
 
 def test_load_csv_raises_when_requested(tmp_path: Path) -> None:
@@ -74,6 +83,14 @@ def test_validate_dataframe_helper() -> None:
     )
     assert isinstance(validated.index, pd.DatetimeIndex)
     assert "market_data_mode" in validated.attrs
+
+
+def test_validate_dataframe_rejects_duplicates() -> None:
+    dates = pd.to_datetime(["2024-01-31", "2024-01-31"])
+    frame = pd.DataFrame({"Date": dates, "Fund": [0.01, 0.02]})
+
+    with pytest.raises(MarketDataValidationError, match="Duplicate timestamps"):
+        data_mod.validate_dataframe(frame, include_date_column=False, errors="raise")
 
 
 def test_identify_risk_free_fund_basic() -> None:
@@ -344,6 +361,44 @@ def test_validate_payload_reraises_when_requested(
     payload = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=1, freq="ME")})
 
     with pytest.raises(MarketDataValidationError):
+        data_mod._validate_payload(
+            payload,
+            origin="payload.csv",
+            errors="raise",
+            include_date_column=True,
+        )
+
+
+def test_validate_payload_enforces_price_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    idx = pd.DatetimeIndex(
+        [
+            pd.Timestamp("2024-01-03", tz=timezone.utc),
+            pd.Timestamp("2024-01-01", tz=timezone.utc),
+        ],
+        name="Date",
+    )
+    frame = pd.DataFrame({"fund": [0.1, 0.2]}, index=idx)
+    frame.attrs["market_data_mode"] = "price"
+    metadata = _build_metadata(["fund"])
+    metadata.mode = MarketDataMode.PRICE
+    metadata.frequency_detected = "D"
+    validated = ValidatedMarketData(frame=frame, metadata=metadata)
+
+    def fake_validate(*_: Any, **__: Any) -> ValidatedMarketData:
+        return validated
+
+    monkeypatch.setattr(data_mod, "validate_market_data", fake_validate)
+
+    payload = pd.DataFrame(
+        {
+            "Date": pd.date_range("2024-01-01", periods=2, freq="D"),
+            "fund": [0.1, 0.2],
+        }
+    )
+
+    with pytest.raises(MarketDataValidationError, match="sorted in ascending"):
         data_mod._validate_payload(
             payload,
             origin="payload.csv",
