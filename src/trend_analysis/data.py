@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
-from pandas.api.types import is_datetime64_any_dtype
 
 from data.contracts import coerce_to_utc, validate_prices
 
