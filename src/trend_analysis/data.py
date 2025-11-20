@@ -160,13 +160,14 @@ def _apply_price_contract(
     contract_frame = coerce_to_utc(frame)
     validate_prices(contract_frame, freq=freq)
 
+    # Always propagate the UTC index so consumers receive the validated,
+    # timezone-aware timestamps regardless of whether the Date column is
+    # present in the payload.
+    frame.index = contract_frame.index
+    frame.index.name = contract_frame.index.name
+
     if include_date_column and "Date" in frame.columns:
         frame["Date"] = contract_frame["Date"].to_numpy()
-    else:
-        # When the consumer omits the Date column, propagate the UTC index so
-        # downstream callers still receive timezone-aware timestamps.
-        frame.index = contract_frame.index
-        frame.index.name = contract_frame.index.name
     return frame
 
 
