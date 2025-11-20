@@ -328,7 +328,7 @@ def _first_index_position(index: pd.Index, label: pd.Timestamp) -> int:
     if isinstance(loc, slice):
         return int(loc.start)
     if isinstance(loc, np.ndarray):
-        return int(loc.min())
+        return int(np.argmax(loc))
     if isinstance(loc, (int, np.integer)):
         return int(loc)
     raise TypeError(f"Unsupported index locator type: {type(loc)!r}")
