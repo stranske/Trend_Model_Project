@@ -95,7 +95,9 @@ def _check_monotonic(idx: pd.DatetimeIndex) -> None:
     duplicates = idx[idx.duplicated()].unique()
     if len(duplicates) > 0:
         preview = ", ".join(ts.isoformat() for ts in duplicates[:5])
-        raise ValueError(f"Duplicate (instrument, timestamp) keys detected: {preview}.")
+        raise ValueError(
+            f"Duplicate timestamps detected (instrument, timestamp) keys: {preview}."
+        )
 
 
 def _normalise_frequency(freq: str | None) -> str | None:
