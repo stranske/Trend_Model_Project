@@ -162,12 +162,11 @@ def _apply_price_contract(
 
     if include_date_column and "Date" in frame.columns:
         frame["Date"] = contract_frame["Date"].to_numpy()
-
-    # Preserve a timestamp index regardless of how the consumer asked for the
-    # Date column to be represented so downstream logic can always rely on a
-    # DatetimeIndex carrying timezone information.
-    frame.index = contract_frame.index
-    frame.index.name = contract_frame.index.name
+    else:
+        # When the consumer omits the Date column, propagate the UTC index so
+        # downstream callers still receive timezone-aware timestamps.
+        frame.index = contract_frame.index
+        frame.index.name = contract_frame.index.name
     return frame
 
 
