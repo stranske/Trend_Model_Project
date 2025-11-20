@@ -96,7 +96,7 @@ def _check_monotonic(idx: pd.DatetimeIndex) -> None:
     if len(duplicates) > 0:
         preview = ", ".join(ts.isoformat() for ts in duplicates[:5])
         raise ValueError(
-            f"Duplicate timestamps detected (instrument, timestamp) keys: {preview}."
+            f"Duplicate timestamps detected: {preview}."
         )
 
 
