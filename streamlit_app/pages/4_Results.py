@@ -79,8 +79,13 @@ def _render_summary(result) -> None:
 
 
 def _render_charts(result) -> None:
+    analysis = getattr(result, "analysis", None)
     details = result.details if hasattr(result, "details") else {}
-    returns = details.get("portfolio_equal_weight_combined")
+    returns = None
+    if analysis is not None:
+        returns = analysis.returns
+    if returns is None:
+        returns = details.get("portfolio_equal_weight_combined")
     if isinstance(returns, pd.Series) and not returns.empty:
         equity = _prepare_equity_series(returns)
         drawdown = _prepare_drawdown(equity)
@@ -101,11 +106,13 @@ def _render_charts(result) -> None:
                 charts.rolling_sharpe_chart(rolling), use_container_width=True
             )
         with c4:
-            turnover = (
-                details.get("risk_diagnostics", {}).get("turnover")
-                if isinstance(details.get("risk_diagnostics"), dict)
-                else None
-            )
+            turnover = None
+            if analysis is not None:
+                turnover = analysis.turnover
+            if turnover is None:
+                diag_obj = details.get("risk_diagnostics")
+                if isinstance(diag_obj, dict):
+                    turnover = diag_obj.get("turnover")
             st.subheader("Turnover")
             if isinstance(turnover, pd.Series) and not turnover.empty:
                 st.altair_chart(
@@ -115,9 +122,12 @@ def _render_charts(result) -> None:
                 st.caption("Turnover data unavailable.")
 
         exposures = None
-        risk_diag = details.get("risk_diagnostics")
-        if isinstance(risk_diag, dict):
-            exposures = risk_diag.get("final_weights")
+        if analysis is not None:
+            exposures = analysis.exposures
+        if exposures is None:
+            risk_diag = details.get("risk_diagnostics")
+            if isinstance(risk_diag, dict):
+                exposures = risk_diag.get("final_weights")
         st.subheader("Exposures")
         if exposures is not None:
             st.altair_chart(charts.exposure_chart(exposures), use_container_width=True)

@@ -182,3 +182,39 @@ def test_run_simulation_accepts_mapping_payload_and_swallows_logging_errors(
 
     # Benchmark IR column is created even when the payload is a Mapping.
     assert result.metrics.loc["FundA", "ir_bench"] == 0.2
+
+
+def test_run_simulation_populates_structured_results(monkeypatch) -> None:
+    config = _make_config()
+    returns = _make_returns()
+
+    portfolio = pd.Series(
+        [0.01, 0.02], index=pd.date_range("2023-01-31", periods=2, freq="ME")
+    )
+    metadata = {"costs": {"monthly_cost": 0.001}, "fingerprint": "abc123def456"}
+
+    payload = {
+        "out_sample_stats": {
+            "FundA": SimpleNamespace(alpha=1.0, beta=0.5),
+        },
+        "benchmark_ir": {},
+        "portfolio_equal_weight_combined": portfolio,
+        "fund_weights": {"FundA": 0.6},
+        "risk_diagnostics": {
+            "final_weights": pd.Series({"FundA": 0.6}),
+            "turnover": pd.Series([0.1, 0.2]),
+        },
+        "metadata": metadata,
+    }
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+
+    result = api.run_simulation(config, returns)
+
+    assert result.analysis is not None
+    pd.testing.assert_series_equal(result.portfolio, portfolio.astype(float))
+    assert result.analysis.metadata["fingerprint"] == "abc123def456"
+    assert hasattr(result, "weights")
+    pd.testing.assert_series_equal(
+        result.weights.astype(float), pd.Series({"FundA": 0.6})
+    )

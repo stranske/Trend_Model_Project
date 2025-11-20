@@ -385,15 +385,18 @@ def _run_pipeline(
     )
 
     result = run_simulation(cfg, returns_df)
+    analysis = getattr(result, "analysis", None)
+    # The following attributes are already set by run_simulation when analysis is present.
     details = result.details
     if isinstance(details, dict):
-        portfolio_series = (
-            details.get("portfolio_user_weight")
-            or details.get("portfolio_equal_weight")
-            or details.get("portfolio_equal_weight_combined")
-        )
-        if portfolio_series is not None:
-            setattr(result, "portfolio", portfolio_series)
+        if analysis is None:
+            portfolio_series = (
+                details.get("portfolio_user_weight")
+                or details.get("portfolio_equal_weight")
+                or details.get("portfolio_equal_weight_combined")
+            )
+            if portfolio_series is not None:
+                setattr(result, "portfolio", portfolio_series)
         benchmarks = details.get("benchmarks")
         if isinstance(benchmarks, dict) and benchmarks:
             first = next(iter(benchmarks.values()))
