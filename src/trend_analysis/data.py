@@ -168,6 +168,11 @@ def _apply_price_contract(
 
     if include_date_column and "Date" in frame.columns:
         frame["Date"] = contract_frame["Date"].to_numpy()
+        # Keeping a "Date" column alongside a DatetimeIndex named "Date" confuses
+        # downstream operations such as ``DataFrame.sort_values``. Clear the index
+        # name to avoid pandas raising "label or level" ambiguity errors while
+        # still preserving the timezone-aware index itself.
+        frame.index.name = None
     return frame
 
 
