@@ -29,6 +29,16 @@ def test_load_csv_success(tmp_path: Path) -> None:
     assert df.attrs["market_data_mode"] == "returns"
 
 
+def test_load_csv_preserves_range_index(tmp_path: Path) -> None:
+    csv = tmp_path / "range.csv"
+    csv.write_text("Date,A\n2024-01-31,0.01\n2024-02-29,0.02\n")
+
+    df = data_mod.load_csv(str(csv))
+    assert df is not None
+    assert isinstance(df.index, pd.RangeIndex)
+    assert list(df.index) == [0, 1]
+
+
 def test_load_csv_returns_none_by_default(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

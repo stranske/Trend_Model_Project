@@ -282,12 +282,21 @@ def _validate_payload(
     )
 
     try:
-        return _apply_price_contract(finalised, include_date_column=include_date_column)
+        priced = _apply_price_contract(
+            finalised, include_date_column=include_date_column
+        )
     except ValueError as exc:
         if errors == "raise":
             raise MarketDataValidationError(str(exc)) from exc
         logger.error("Validation failed (%s): %s", origin, exc)
         return None
+
+    if include_date_column:
+        attrs = dict(priced.attrs)
+        priced = priced.reset_index(drop=True)
+        priced.attrs = attrs
+
+    return priced
 
 
 def _is_readable(mode: int) -> bool:
