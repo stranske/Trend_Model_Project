@@ -218,6 +218,8 @@ def run_backtest(
         else:
             masked_window = train_window
 
+        training_windows[date] = (train_window.index[0], train_window.index[-1])
+
         start_idx = _last_index_position(data.index, date)
         next_date = eligible_dates[i + 1] if i + 1 < len(eligible_dates) else None
         if next_date is not None:
@@ -243,9 +245,9 @@ def run_backtest(
         if apply_slice.start >= len(data.index):
             break
         if apply_slice.start >= apply_slice.stop:
+            turnover.loc[date] = 0.0
+            tx_costs.loc[date] = 0.0
             continue
-
-        training_windows[date] = (train_window.index[0], train_window.index[-1])
 
         raw_weights = strategy(masked_window)
         proposed = _normalise_weights(raw_weights, asset_columns)
@@ -304,6 +306,10 @@ def run_backtest(
         shifted_weights = shift_by_execution_lag(weights_df, lag=execution_lag)
         weights_df = shifted_weights.fillna(0.0)
 
+    calendar_index = pd.DatetimeIndex(eligible_dates)
+    turnover = turnover.reindex(calendar_index, fill_value=0.0)
+    tx_costs = tx_costs.reindex(calendar_index, fill_value=0.0)
+
     return BacktestResult(
         returns=portfolio_returns,
         equity_curve=equity_curve,
@@ -314,7 +320,7 @@ def run_backtest(
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
         metrics=metrics,
-        calendar=pd.DatetimeIndex(eligible_dates),
+        calendar=calendar_index,
         window_mode=window_mode,
         window_size=window_size,
         training_windows=training_windows,
@@ -365,12 +371,23 @@ def _enforce_execution_lag_calendar(
     for idx in range(len(dates) - 1, -1, -1):
         date = dates[idx]
         start_pos = _last_index_position(index, date)
-        if start_pos + execution_lag >= next_stop:
+        apply_pos = start_pos + execution_lag
+        if apply_pos >= len(index):
+            continue
+        if apply_pos >= next_stop:
             continue
         keep[idx] = True
         next_stop = _first_index_position(index, date) + 1
 
-    return [date for date, flag in zip(dates, keep) if flag]
+    kept_dates = [date for date, flag in zip(dates, keep) if flag]
+    if not kept_dates and dates:
+        # When every candidate would violate the lag constraint we still
+        # surface the final date so the caller can report the attempted
+        # rebalance with zero turnover. This preserves backward-compatibility
+        # for short datasets without introducing look-ahead because no future
+        # returns will be consumed.
+        return [dates[-1]]
+    return kept_dates
 
 
 def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
