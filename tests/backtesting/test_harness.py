@@ -506,6 +506,28 @@ def test_run_backtest_raises_when_execution_lag_needs_future_data() -> None:
         )
 
 
+def test_execution_lag_prunes_rebalances_without_future_data() -> None:
+    returns = _synthetic_returns("2020-01-01", 60)
+
+    def constant_strategy(window: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.5, index=window.columns)
+
+    result = run_backtest(
+        returns,
+        constant_strategy,
+        rebalance_freq="B",
+        window_size=15,
+        transaction_cost_bps=0.0,
+        min_trade=0.0,
+        execution_lag=5,
+    )
+
+    assert not result.calendar.empty
+    last_allowed = returns.index[-1 - 5]
+    assert result.calendar.max() <= last_allowed
+    assert all(result.training_windows[date][1] == date for date in result.calendar)
+
+
 def test_prepare_returns_validates_structure() -> None:
     numeric = _prepare_returns(
         pd.DataFrame(
