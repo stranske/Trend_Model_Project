@@ -13,7 +13,6 @@ import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
 from ..backtest import shift_by_execution_lag
-
 from ..universe import MembershipTable, build_membership_mask
 
 logger = logging.getLogger(__name__)
