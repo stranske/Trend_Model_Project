@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 _MembershipPolicy = Literal["raise", "skip"]
 WindowMode = Literal["rolling", "expanding"]
 
+_LOOKAHEAD_ERROR = (
+    "window_size/execution_lag combination leaves no eligible rebalance dates "
+    "without violating the execution-lag (look-ahead) constraint."
+)
+
 
 @dataclass(frozen=True)
 class CostModel:
@@ -161,8 +166,7 @@ def run_backtest(
     if window_size > total_rows:
         raise ValueError(
             "window_size too large relative to available return history; "
-            "window_size/execution_lag combination leaves no eligible rebalance "
-            "dates without violating the execution-lag (look-ahead) constraint."
+            + _LOOKAHEAD_ERROR
         )
 
     calendar = _rebalance_calendar(data.index, rebalance_freq)
@@ -191,10 +195,15 @@ def run_backtest(
 
     eligible_dates = [date for date in calendar if _has_required_history(date)]
     if not eligible_dates:
-        raise ValueError(
-            "window_size/execution_lag combination leaves no eligible rebalance dates "
-            "without violating the execution-lag (look-ahead) constraint."
-        )
+        raise ValueError(_LOOKAHEAD_ERROR)
+
+    eligible_dates = _enforce_execution_lag_calendar(
+        eligible_dates,
+        data.index,
+        execution_lag,
+    )
+    if not eligible_dates:
+        raise ValueError(_LOOKAHEAD_ERROR)
 
     for i, date in enumerate(eligible_dates):
         history = data.loc[:date]
@@ -202,13 +211,41 @@ def run_backtest(
             train_window = history.tail(window_size)
         else:
             train_window = history
-        training_windows[date] = (train_window.index[0], train_window.index[-1])
 
         if membership_mask is not None:
             history_mask = membership_mask.loc[train_window.index]
             masked_window = train_window.where(history_mask)
         else:
             masked_window = train_window
+
+        start_idx = _last_index_position(data.index, date)
+        next_date = eligible_dates[i + 1] if i + 1 < len(eligible_dates) else None
+        if next_date is not None:
+            stop = _first_index_position(data.index, next_date) + 1
+        else:
+            stop = len(data.index)
+        apply_slice = slice(start_idx + execution_lag, stop)
+        if apply_slice.start > len(data.index):
+            if i == 0:
+                last_available = data.index[-1]
+                raise ValueError(
+                    (
+                        "Execution lag of {lag} on {date} would require access to "
+                        "returns beyond the available history ending {last}, "
+                        "introducing look-ahead bias."
+                    ).format(
+                        lag=execution_lag,
+                        date=date.date(),
+                        last=last_available.date(),
+                    )
+                )
+            break
+        if apply_slice.start >= len(data.index):
+            break
+        if apply_slice.start >= apply_slice.stop:
+            continue
+
+        training_windows[date] = (train_window.index[0], train_window.index[-1])
 
         raw_weights = strategy(masked_window)
         proposed = _normalise_weights(raw_weights, asset_columns)
@@ -232,39 +269,6 @@ def run_backtest(
         tx_costs.loc[date] = float(cost)
 
         prev_weights = new_weights
-
-        start_idx = data.index.get_loc(date)
-        if isinstance(start_idx, slice):
-            start_idx = start_idx.stop - 1
-        next_date = eligible_dates[i + 1] if i + 1 < len(eligible_dates) else None
-        if next_date is not None:
-            end_idx = data.index.get_loc(next_date)
-            if isinstance(end_idx, slice):
-                end_idx = end_idx.start
-            stop = end_idx + 1
-        else:
-            stop = len(data.index)
-
-        apply_slice = slice(start_idx + execution_lag, stop)
-        if apply_slice.start > len(data.index):
-            if i == 0:
-                last_available = data.index[-1]
-                raise ValueError(
-                    (
-                        "Execution lag of {lag} on {date} would require access to "
-                        "returns beyond the available history ending {last}, "
-                        "introducing look-ahead bias."
-                    ).format(
-                        lag=execution_lag,
-                        date=date.date(),
-                        last=last_available.date(),
-                    )
-                )
-            break
-        if apply_slice.start >= len(data.index):
-            break
-        if apply_slice.start >= apply_slice.stop:
-            continue
 
         pending_cost = float(cost)
         if 0 <= apply_slice.start < len(per_period_turnover):
@@ -317,6 +321,49 @@ def run_backtest(
         cost_model=model,
         execution_lag=execution_lag,
     )
+
+
+def _first_index_position(index: pd.Index, label: pd.Timestamp) -> int:
+    loc = index.get_loc(label)
+    if isinstance(loc, slice):
+        return int(loc.start)
+    if isinstance(loc, np.ndarray):
+        return int(loc.min())
+    if isinstance(loc, (int, np.integer)):
+        return int(loc)
+    raise TypeError(f"Unsupported index locator type: {type(loc)!r}")
+
+
+def _last_index_position(index: pd.Index, label: pd.Timestamp) -> int:
+    loc = index.get_loc(label)
+    if isinstance(loc, slice):
+        return int(loc.stop - 1)
+    if isinstance(loc, np.ndarray):
+        return int(loc.max())
+    if isinstance(loc, (int, np.integer)):
+        return int(loc)
+    raise TypeError(f"Unsupported index locator type: {type(loc)!r}")
+
+
+def _enforce_execution_lag_calendar(
+    dates: Sequence[pd.Timestamp],
+    index: pd.Index,
+    execution_lag: int,
+) -> list[pd.Timestamp]:
+    if execution_lag <= 0 or not dates:
+        return list(dates)
+
+    keep = [False] * len(dates)
+    next_stop = len(index)
+    for idx in range(len(dates) - 1, -1, -1):
+        date = dates[idx]
+        start_pos = _last_index_position(index, date)
+        if start_pos + execution_lag >= next_stop:
+            continue
+        keep[idx] = True
+        next_stop = _first_index_position(index, date) + 1
+
+    return [date for date, flag in zip(dates, keep) if flag]
 
 
 def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:

@@ -19,7 +19,8 @@ walk-forward portfolio evaluation with:
   force a consistent "compute at close, execute next bar" convention.  The
   helper automatically shifts stored weights via
   `backtest.shift_by_execution_lag` so reported exposures align with when they
-  were actually in market and raises if callers request a zero-lag,
+  were actually in market, prunes any rebalance dates that would require
+  looking ahead to future bars, and raises if callers request a zero-lag,
   look-ahead-prone configuration.
 * **Rich performance analytics** – the returned `BacktestResult` exposes the
   equity curve, turnover, per-period turnover series, transaction-cost ledger,
