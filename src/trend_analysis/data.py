@@ -7,6 +7,7 @@ import pandas as pd
 
 from data.contracts import coerce_to_utc, validate_prices
 
+from data.contracts import coerce_to_utc, validate_prices
 from trend.input_validation import (
     InputSchema,
     InputValidationError,
@@ -121,6 +122,51 @@ def _finalise_validated_frame(
     )
     result.attrs = attrs
     return result
+
+
+def _contract_frequency(attrs: Mapping[str, Any]) -> str | None:
+    candidates: list[str | None] = []
+    for key in (
+        "market_data_frequency_code",
+        "market_data_frequency",
+    ):
+        value = attrs.get(key)
+        if value is None:
+            candidates.append(None)
+            continue
+        candidates.append(str(value))
+
+    market_meta = attrs.get("market_data")
+    if isinstance(market_meta, Mapping):
+        metadata = market_meta.get("metadata")
+        if metadata is not None:
+            candidates.append(getattr(metadata, "frequency_detected", None))
+            candidates.append(getattr(metadata, "frequency", None))
+
+    for candidate in candidates:
+        if candidate:
+            stripped = candidate.strip()
+            if stripped:
+                return stripped
+    return None
+
+
+def _apply_price_contract(
+    frame: pd.DataFrame, *, include_date_column: bool
+) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+
+    freq = _contract_frequency(frame.attrs) or "D"
+    contract_frame = coerce_to_utc(frame)
+    validate_prices(contract_frame, freq=freq)
+
+    if include_date_column and "Date" in frame.columns:
+        frame["Date"] = contract_frame["Date"].to_numpy()
+    if not include_date_column:
+        frame.index = contract_frame.index
+        frame.index.name = contract_frame.index.name
+    return frame
 
 
 def _normalise_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
