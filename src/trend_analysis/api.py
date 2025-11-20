@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, SupportsInt, cast
 import numpy as np
 import pandas as pd
 
+from analysis import Results
+
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
 else:  # Runtime: avoid importing typing-only names
@@ -58,6 +60,13 @@ class RunResult:
     seed: int
     environment: dict[str, Any]
     fallback_info: dict[str, Any] | None = None
+    analysis: Results | None = None
+    portfolio: pd.Series | None = None
+    weights: pd.Series | None = None
+    exposures: pd.Series | None = None
+    turnover: pd.Series | None = None
+    costs: dict[str, float] | None = None
+    metadata: dict[str, Any] | None = None
     details_sanitized: Any | None = None
 
 
@@ -278,13 +287,31 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     ):  # pragma: no cover - defensive
         pass
 
+    structured: Results | None = None
+    try:
+        structured = Results.from_payload(res_dict)
+    except Exception as exc:  # pragma: no cover - defensive capture
+        logger.debug("Failed to build structured Results payload: %s", exc)
+
     rr = RunResult(
         metrics=metrics_df,
         details=res_dict,
         seed=seed,
         environment=env,
         fallback_info=fallback_info,
+        analysis=structured,
     )
+
+    if structured is not None:
+        try:
+            rr.portfolio = structured.returns
+            rr.weights = structured.weights
+            rr.exposures = structured.exposures
+            rr.turnover = structured.turnover
+            rr.costs = dict(structured.costs)
+            rr.metadata = structured.metadata
+        except Exception:  # pragma: no cover - defensive attribute binding
+            pass
     # Ensure details dict is JSON-friendly (no Timestamp / non-primitive keys)
     try:  # pragma: no cover - lightweight sanitation (non-destructive)
         from pandas import DataFrame as _DataFrame

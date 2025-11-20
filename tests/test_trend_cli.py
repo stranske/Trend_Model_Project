@@ -793,7 +793,7 @@ def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> N
     assert len(run_id) == 12
     assert log_path is None
     assert "summary_render" in events
-    assert not hasattr(result, "portfolio")
+    assert getattr(result, "portfolio", None) is None
 
 
 def test_adjust_for_scenario_rejects_unknown() -> None:
