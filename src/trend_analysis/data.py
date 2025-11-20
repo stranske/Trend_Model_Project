@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Optional
 
 import pandas as pd
-
-from data.contracts import coerce_to_utc, validate_prices
+from pandas.api.types import is_datetime64_any_dtype
 
 from data.contracts import coerce_to_utc, validate_prices
 from trend.input_validation import (
@@ -190,17 +189,6 @@ def _normalise_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
     return cleaned
 
 
-def _apply_price_contract(frame: pd.DataFrame) -> pd.DataFrame:
-    """Ensure ``frame`` is UTC-indexed and passes the price contract."""
-
-    freq_alias = frame.attrs.get("market_data_frequency_code") or frame.attrs.get(
-        "market_data_frequency"
-    )
-    freq = str(freq_alias) if freq_alias else "D"
-    coerced = coerce_to_utc(frame)
-    return validate_prices(coerced, freq=freq)
-
-
 def _validate_payload(
     payload: pd.DataFrame,
     *,
@@ -286,10 +274,10 @@ def _validate_payload(
     )
 
     try:
-        return _apply_price_contract(finalised)
+        return _apply_price_contract(finalised, include_date_column=include_date_column)
     except ValueError as exc:
         if errors == "raise":
-            raise
+            raise MarketDataValidationError(str(exc)) from exc
         logger.error("Validation failed (%s): %s", origin, exc)
         return None
 
