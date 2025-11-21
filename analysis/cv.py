@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -15,9 +15,10 @@ __all__ = ["Report", "walk_forward", "export_report"]
 
 def _frame_to_markdown(df: pd.DataFrame) -> str:
     try:
-        return df.to_markdown(index=False)
+        markdown = df.to_markdown(index=False)
     except ImportError:
-        return df.to_string(index=False)
+        markdown = df.to_string(index=False)
+    return cast(str, markdown)
 
 
 @dataclass(slots=True)
