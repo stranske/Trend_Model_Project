@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -74,6 +75,77 @@ def test_main_run_reports_unknown_presets(monkeypatch, preset_missing: str, caps
     captured = capsys.readouterr()
     assert rc == 2
     assert "Unknown preset" in captured.err
+
+
+def test_main_run_applies_named_universe(monkeypatch, tmp_path, capsys):
+    cfg = _make_config()
+    cfg.export["directory"] = str(tmp_path)
+    cfg.export["formats"] = ["csv"]
+    recorded: dict[str, object] = {}
+
+    base_frame = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+            "A": [0.1, 0.2],
+            "B": [0.3, 0.4],
+        }
+    )
+
+    mask = pd.DataFrame(
+        [[True, False], [True, True]],
+        index=pd.to_datetime(["2020-01-31", "2020-02-29"]),
+        columns=["A", "B"],
+    )
+
+    def fake_load_universe(key: str, prices: pd.DataFrame):
+        recorded["universe"] = key
+        recorded["prices_snapshot"] = prices.copy()
+        return mask, SimpleNamespace(date_column="Date", membership_path=Path("m.csv"))
+
+    def fake_run_simulation(config: Any, returns: pd.DataFrame):
+        recorded["config"] = config
+        recorded["returns"] = returns.copy()
+        return SimpleNamespace(
+            metrics=pd.DataFrame({"metric": [1.0]}),
+            details={"portfolio_user_weight": pd.Series([0.1, 0.9])},
+            seed=7,
+            environment={},
+        )
+
+    monkeypatch.setattr(cli, "load_universe", fake_load_universe)
+    monkeypatch.setattr(cli, "load_config", lambda path: cfg)
+    monkeypatch.setattr(cli, "set_cache_enabled", lambda enabled: None)
+    monkeypatch.setattr(
+        cli, "load_market_data_csv", lambda path: SimpleNamespace(frame=base_frame)
+    )
+    monkeypatch.setattr(cli, "run_simulation", fake_run_simulation)
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "SUMMARY")
+    monkeypatch.setattr(cli.export, "export_to_excel", lambda *a, **k: None)
+    monkeypatch.setattr(cli.export, "export_data", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_: tmp_path)
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *a, **k: None)
+    monkeypatch.setattr(cli.run_logging, "get_default_log_path", lambda *_: tmp_path)
+
+    rc = cli.main(
+        [
+            "run",
+            "--config",
+            "cfg.yml",
+            "--input",
+            "returns.csv",
+            "--universe",
+            "core",
+        ]
+    )
+
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert recorded["universe"] == "core"
+    assert recorded["returns"]["B"].isna().iloc[0]
+    assert not recorded["returns"]["B"].isna().iloc[1]
+    assert "universe_membership_path" in getattr(cfg, "data")
+    assert "SUMMARY" in out
 
 
 def test_main_run_handles_market_data_validation_error(monkeypatch, capsys):

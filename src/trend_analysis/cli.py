@@ -29,6 +29,7 @@ from .signal_presets import (
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
+from .universe_catalog import NamedUniverse, load_universe
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -138,6 +139,91 @@ def _extract_cache_stats(payload: object) -> dict[str, int] | None:
     return found[-1] if found else None
 
 
+def _apply_universe_mask(
+    df: pd.DataFrame, mask: pd.DataFrame, *, date_column: str
+) -> pd.DataFrame:
+    """Apply a time-varying membership mask to returns data."""
+
+    if mask.empty:
+        return df
+    working = df.copy()
+    lookup = {str(col).lower(): col for col in working.columns}
+    try:
+        date_col = lookup[date_column.lower()]
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        raise KeyError(
+            f"Date column '{date_column}' is missing from the returns data"
+        ) from exc
+
+    working[date_col] = pd.to_datetime(working[date_col])
+    working = working.set_index(date_col)
+    aligned_mask = mask.reindex(index=working.index, fill_value=False)
+
+    missing = [col for col in aligned_mask.columns if col not in working.columns]
+    if missing:
+        preview = ", ".join(missing[:3])
+        raise KeyError(
+            "Universe members missing from returns data: "
+            f"{preview}" + ("…" if len(missing) > 3 else "")
+        )
+
+    masked = working.copy()
+    masked.loc[:, aligned_mask.columns] = masked.loc[:, aligned_mask.columns].where(
+        aligned_mask
+    )
+    masked.reset_index(inplace=True)
+    return masked
+
+
+def _attach_universe_paths(
+    cfg: Any, spec: NamedUniverse, *, csv_path: str | None
+) -> None:
+    """Persist the selected universe paths onto ``cfg.data`` when possible."""
+
+    membership_value = str(spec.membership_path)
+    csv_value = csv_path
+    data_section = getattr(cfg, "data", None)
+    if isinstance(data_section, Mapping):
+        merged = dict(data_section)
+        merged["universe_membership_path"] = membership_value
+        if csv_value:
+            merged.setdefault("csv_path", csv_value)
+        try:
+            setattr(cfg, "data", merged)
+        except Exception:
+            object.__setattr__(cfg, "data", merged)
+        return
+
+    if data_section is None:
+        payload: dict[str, str] = {"universe_membership_path": membership_value}
+        if csv_value:
+            payload["csv_path"] = csv_value
+        try:
+            setattr(cfg, "data", payload)
+        except Exception:
+            object.__setattr__(cfg, "data", payload)
+        return
+
+    try:
+        setattr(data_section, "universe_membership_path", membership_value)
+    except Exception:
+        try:
+            object.__setattr__(
+                data_section, "universe_membership_path", membership_value
+            )
+        except Exception:
+            data_section = None
+
+    if csv_value and data_section is not None:
+        try:
+            setattr(data_section, "csv_path", csv_value)
+        except Exception:
+            try:
+                object.__setattr__(data_section, "csv_path", csv_value)
+            except Exception:
+                pass
+
+
 def _resolve_artifact_paths(
     out_dir: Path, filename: str, keys: Sequence[str], formats: Sequence[str]
 ) -> list[Path]:
@@ -239,6 +325,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to JSONL structured log (defaults to outputs/logs/run_<id>.jsonl)",
     )
     run_p.add_argument(
+        "--universe",
+        help="Select a named universe defined under config/universe",
+    )
+    run_p.add_argument(
         "--no-structured-log",
         action="store_true",
         help="Disable structured JSONL logging for this run",
@@ -320,6 +410,12 @@ def main(argv: list[str] | None = None) -> int:
             print("Failed to load data", file=sys.stderr)
             return 1
         df = loaded.frame if hasattr(loaded, "frame") else loaded
+        universe_spec: NamedUniverse | None = None
+        if getattr(args, "universe", None):
+            mask, universe_spec = load_universe(args.universe, prices=df)
+            df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
+        if universe_spec is not None:
+            _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         import uuid
