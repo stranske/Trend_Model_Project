@@ -1,0 +1,22 @@
+version: 1
+key: core_plus_benchmarks
+name: Core + benchmark overlays
+description: Core trend managers plus representative benchmark series for comparison.
+data_csv: Trend Universe Data.csv
+membership_csv: Trend Universe Membership.csv
+date_column: Date
+members:
+  - AHL Dimension
+  - AlphaSimplex Managed Futures Strategy
+  - Crabel Advanced Trend Program
+  - DUNN WMA Program
+  - KeyQuant Key Trends Fund
+  - Lynx Fund
+  - Quantica Managed Futures Program
+  - Transtrend Diversified Trend Program
+  - Winton Trend Fund
+  - SG Trend Index
+  - Bloomberg US Tbill Index 1-3 Months
+  - HFRXSDV Base
+  - Efficient Capital Best Trend 15v
+  - Abrdn MOSERS Trend
