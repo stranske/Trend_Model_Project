@@ -23,13 +23,13 @@ from .io.market_data import MarketDataValidationError
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
-from .universe_catalog import NamedUniverse, load_universe
 from .reporting.run_artifacts import write_run_artifacts
 from .signal_presets import (
     TrendSpecPreset,
     get_trend_spec_preset,
     list_trend_spec_presets,
 )
+from .universe_catalog import NamedUniverse, load_universe
 
 APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app" / "app.py"
 LOCK_PATH = Path(__file__).resolve().parents[2] / "requirements.lock"
@@ -208,7 +208,9 @@ def _attach_universe_paths(
         setattr(data_section, "universe_membership_path", membership_value)
     except Exception:
         try:
-            object.__setattr__(data_section, "universe_membership_path", membership_value)
+            object.__setattr__(
+                data_section, "universe_membership_path", membership_value
+            )
         except Exception:
             data_section = None
 
@@ -220,6 +222,8 @@ def _attach_universe_paths(
                 object.__setattr__(data_section, "csv_path", csv_value)
             except Exception:
                 pass
+
+
 def _resolve_artifact_paths(
     out_dir: Path, filename: str, keys: Sequence[str], formats: Sequence[str]
 ) -> list[Path]:

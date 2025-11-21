@@ -64,9 +64,7 @@ def _resolve_universe_file(key: str | Path, *, base_dir: Path | None) -> Path:
             return candidate
     if Path(key).exists():  # Final fallback when caller passed a bare filename
         return Path(key).resolve()
-    raise FileNotFoundError(
-        f"Named universe '{key}' was not found under {search_dir}"
-    )
+    raise FileNotFoundError(f"Named universe '{key}' was not found under {search_dir}")
 
 
 def _clean_members(values: Iterable[object] | None) -> tuple[str, ...] | None:
@@ -129,10 +127,14 @@ def _resolve_date_column(prices: pd.DataFrame, candidate: str) -> str:
     try:
         return str(lookup[candidate.lower()])
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(f"Date column '{candidate}' was not found in price data") from exc
+        raise KeyError(
+            f"Date column '{candidate}' was not found in price data"
+        ) from exc
 
 
-def _filter_membership(membership: pd.DataFrame, members: Sequence[str] | None) -> pd.DataFrame:
+def _filter_membership(
+    membership: pd.DataFrame, members: Sequence[str] | None
+) -> pd.DataFrame:
     if members is None:
         return membership
     member_set = {str(item) for item in members}
