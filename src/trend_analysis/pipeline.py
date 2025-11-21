@@ -27,6 +27,7 @@ from .metrics import (
     volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .portfolio import apply_weight_policy
 from .regimes import build_regime_payload
 from .risk import (
     RiskDiagnostics,
@@ -567,6 +568,7 @@ def _run_analysis(
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -962,7 +964,35 @@ def _run_analysis(
             scale_factors=scale_factors,
         )
 
-    weights_series = weights_series.reindex(fund_cols).fillna(0.0)
+    policy_cfg = dict(weight_policy or {})
+    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
+    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
+
+    signal_snapshot: pd.Series | None = None
+    if not signal_frame.empty:
+        try:
+            target_index = (
+                out_df.index[0] if len(out_df.index) else signal_frame.index[-1]
+            )
+            aligned = signal_frame.reindex(columns=fund_cols)
+            if target_index in aligned.index:
+                signal_snapshot = aligned.loc[target_index]
+            elif not aligned.empty:
+                signal_snapshot = aligned.iloc[-1]
+        except Exception:  # pragma: no cover - defensive
+            signal_snapshot = None
+
+    weights_series = (
+        apply_weight_policy(
+            weights_series,
+            signal_snapshot,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=previous_weights,
+        )
+        .reindex(fund_cols)
+        .fillna(0.0)
+    )
     scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
     in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
@@ -1211,6 +1241,7 @@ def run_analysis(
     calendar_frequency: str | None = None,
     calendar_timezone: str | None = None,
     holiday_calendar: str | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
@@ -1255,6 +1286,7 @@ def run_analysis(
         max_turnover=max_turnover,
         signal_spec=signal_spec,
         regime_cfg=regime_cfg,
+        weight_policy=weight_policy,
     )
 
 
@@ -1349,6 +1381,7 @@ def run(cfg: Config) -> pd.DataFrame:
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
         regime_cfg=_cfg_section(cfg, "regime"),
+        weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
     if res is None:
         return pd.DataFrame()
@@ -1447,6 +1480,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
         regime_cfg=_cfg_section(cfg, "regime"),
+        weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
     return {} if res is None else res
 
