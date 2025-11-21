@@ -20,6 +20,7 @@ from typing import Iterable, List, Tuple
 import pandas as pd
 
 from streamlit_app.config_bridge import build_config_payload, validate_payload
+from utils.paths import proj_path
 
 MAX_DRY_RUN_LOOKBACK_MONTHS = 12
 MAX_DRY_RUN_OUT_MONTHS = 3
@@ -181,7 +182,7 @@ def validate_startup_payload(
         transaction_cost_bps=10.0,
         target_vol=risk_value,
     )
-    base_dir = csv_real.parent if csv_real is not None else Path.cwd()
+    base_dir = csv_real.parent if csv_real is not None else proj_path()
     validated, validation_error = validate_payload(payload, base_path=base_dir)
     if validation_error:
         error_lines = [
