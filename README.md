@@ -44,6 +44,22 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Named universes
+
+Predefined membership sets live under `config/universe`. Swap between them at
+runtime by adding the `--universe` flag to `trend-model run`:
+
+```bash
+trend-model run \
+  --config config/trend_universe_2004.yml \
+  --input "Trend Universe Data.csv" \
+  --universe core
+```
+
+Change the universe key (for example, `managed_futures_min`) to rerun the same
+configuration against a different membership timeline without editing the
+config file.
+
 ### Walk-forward stability harness
 
 Use the lightweight walk-forward sweep when you need deterministic train/test
