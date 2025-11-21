@@ -113,6 +113,7 @@ def test_generate_unified_report_includes_spec_summary() -> None:
         rank={"inclusion_approach": "top_n", "n": 5, "score_by": "Sharpe"},
         selector={},
         weighting={},
+        weight_policy=None,
         weighting_scheme="equal",
         custom_weights=None,
         manual_list=(),

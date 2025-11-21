@@ -51,6 +51,7 @@ class BacktestSpec:
     rank: Mapping[str, Any]
     selector: Mapping[str, Any]
     weighting: Mapping[str, Any]
+    weight_policy: Mapping[str, Any] | None
     weighting_scheme: str | None
     custom_weights: Mapping[str, float] | None
     manual_list: tuple[str, ...]
@@ -237,6 +238,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         rank=rank_cfg,
         selector=selector_cfg,
         weighting=weighting_cfg,
+        weight_policy=_section_get(portfolio, "weight_policy"),
         weighting_scheme=_section_get(portfolio, "weighting_scheme"),
         custom_weights=_section_get(portfolio, "custom_weights"),
         manual_list=_as_tuple(manual, coerce=str),

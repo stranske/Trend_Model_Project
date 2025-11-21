@@ -317,6 +317,7 @@ class PortfolioSettings(BaseModel):
     transaction_cost_bps: float
     cost_model: CostModelSettings | None = None
     turnover_cap: float | None = None
+    weight_policy: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="ignore")
 
