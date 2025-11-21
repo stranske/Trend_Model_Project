@@ -19,6 +19,7 @@ from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run_from_config as run_multi
+from utils.paths import proj_path
 
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
 _STREAMLIT_LOG_PATH: Path | None = None
@@ -253,7 +254,7 @@ def _columns(spec: Any) -> List[Any]:
 
 def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     """Instantiate the flexible ``Config`` object used by the pipeline."""
-    validate_trend_config(d, base_path=Path.cwd())
+    validate_trend_config(d, base_path=proj_path())
     return Config(**d)
 
 

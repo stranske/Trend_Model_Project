@@ -125,6 +125,7 @@ PROJECT_MODULES = {
     "tools",
     "scripts",
     "tests",
+    "utils",
     "_autofix_diag",
     "gate_summary",
     "restore_branch_snapshots",

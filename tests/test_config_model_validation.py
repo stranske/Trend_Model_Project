@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from trend_analysis.config import model as config_model
+from utils.paths import proj_path
 
 
 def test_resolve_path_prefers_base_dir_and_errors(tmp_path: Path) -> None:
@@ -233,8 +234,12 @@ def test_expand_pattern_deduplicates_roots(
     base_dir.mkdir()
     monkeypatch.chdir(base_dir)
     expanded = config_model._expand_pattern("example.csv", base_dir=base_dir)
-    # Only two unique candidates should be produced (base_dir and cwd which are identical).
-    assert len(expanded) == 2
+    # Only three unique candidates should be produced (base_dir/cwd, parent, repo root).
+    assert expanded[:3] == [
+        base_dir / "example.csv",
+        base_dir.parent / "example.csv",
+        proj_path() / "example.csv",
+    ]
     assert expanded[0] != expanded[1]
 
 
@@ -321,7 +326,7 @@ def test_candidate_roots_includes_base_and_parent(tmp_path: Path) -> None:
     roots = list(config_model._candidate_roots(base_dir))
     assert base_dir in roots
     assert base_dir.parent in roots
-    assert Path.cwd() in roots
+    assert proj_path() in roots
 
 
 def test_data_settings_pathlike_managers_glob(tmp_path: Path) -> None:

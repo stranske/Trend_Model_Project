@@ -108,6 +108,7 @@ PROJECT_MODULES = {
     "tools",
     "scripts",
     "tests",
+    "utils",
     # Test-specific internal modules
     "_autofix_diag",
     "gate_summary",

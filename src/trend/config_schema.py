@@ -18,6 +18,8 @@ from typing import Any, Mapping
 
 import yaml
 
+from utils.paths import proj_path
+
 __all__ = [
     "CoreConfig",
     "CoreConfigError",
@@ -29,7 +31,7 @@ __all__ = [
 
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "ME"}
 _GLOB_CHARS = {"*", "?", "[", "]"}
-_DEFAULT_BASE = Path.cwd()
+_DEFAULT_BASE = proj_path()
 _DEFAULT_DATE_COLUMN = "Date"
 _DEFAULT_FREQUENCY = "M"
 _DEFAULT_TRANSACTION_COST = 0.0
