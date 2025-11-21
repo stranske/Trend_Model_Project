@@ -18,12 +18,13 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
-from utils.paths import proj_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():  # ensure local package import works before editable install
     sys.path.insert(0, str(SRC_ROOT))
+
+from utils.paths import proj_path  # noqa: E402
 
 
 VALID_STATUSES = {"todo", "doing", "done"}

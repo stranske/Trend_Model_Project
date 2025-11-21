@@ -5,11 +5,11 @@ current working directory.  The root may be overridden via the environment
 variable ``TREND_REPO_ROOT`` to support containerised or embedded deployments
 that relocate the source tree.
 """
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterable
 
 _ENV_REPO_ROOT = "TREND_REPO_ROOT"
 

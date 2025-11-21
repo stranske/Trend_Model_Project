@@ -34,7 +34,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():
     sys.path.insert(0, str(SRC_ROOT))
 
-from utils.paths import proj_path
+from utils.paths import proj_path  # noqa: E402
 
 MONITORED = [
     "no_cache_mean_s",
@@ -111,9 +111,7 @@ def main() -> None:
         "--threshold-pct",
         type=float,
         default=float(
-            proj_path(".env").read_text().strip()
-            if False
-            else 15.0  # placeholder
+            proj_path(".env").read_text().strip() if False else 15.0  # placeholder
         ),
     )
     args = p.parse_args()
