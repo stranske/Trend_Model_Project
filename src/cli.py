@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -41,7 +40,9 @@ def _load_returns(cfg: Mapping[str, Any], *, base_dir: Path) -> pd.DataFrame:
     return numeric
 
 
-def _load_cv_spec(cfg_path: Path) -> tuple[pd.DataFrame, Mapping[str, Any], int, bool, Path]:
+def _load_cv_spec(
+    cfg_path: Path,
+) -> tuple[pd.DataFrame, Mapping[str, Any], int, bool, Path]:
     raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     data_cfg = raw.get("data", {})
     params = raw.get("params", {}) or {}

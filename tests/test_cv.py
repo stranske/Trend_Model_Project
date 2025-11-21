@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from analysis.cv import walk_forward
 import src.cli as cli
+from analysis.cv import walk_forward
 
 
 def _synth_returns(length: int = 12) -> pd.DataFrame:
@@ -102,7 +102,15 @@ def test_cli_generates_outputs(tmp_path: Path):
     )
 
     exit_code = cli.main(
-        ["cv", "--config", str(cfg_path), "--folds", "2", "--output-dir", str(tmp_path / "out")]
+        [
+            "cv",
+            "--config",
+            str(cfg_path),
+            "--folds",
+            "2",
+            "--output-dir",
+            str(tmp_path / "out"),
+        ]
     )
     assert exit_code == 0
 

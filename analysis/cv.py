@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+
 from trend_analysis.metrics import max_drawdown, sharpe_ratio
 from trend_analysis.walk_forward import infer_periods_per_year
 
@@ -56,7 +58,9 @@ def _prepare_frame(data: pd.DataFrame | Mapping[str, Sequence[Any]]) -> pd.DataF
     return numeric.sort_index()
 
 
-def _build_splits(index: pd.DatetimeIndex, folds: int, expand: bool) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
+def _build_splits(
+    index: pd.DatetimeIndex, folds: int, expand: bool
+) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
     if folds <= 0:
         raise ValueError("folds must be positive")
     n = len(index)
@@ -175,9 +179,7 @@ def walk_forward(
         train_df = df.loc[train_idx]
         test_df = df.loc[test_idx]
 
-        weights = _select_weights(
-            train_df, top_n=top_n, lookback=lookback, rng=rng
-        )
+        weights = _select_weights(train_df, top_n=top_n, lookback=lookback, rng=rng)
         turnover = _turnover(prev_weights, weights)
         cost_drag = turnover * cost_per_turnover
         prev_weights = weights
@@ -226,27 +228,33 @@ def walk_forward(
         folds_df["test_start"] = pd.to_datetime(folds_df["test_start"])
         folds_df["test_end"] = pd.to_datetime(folds_df["test_end"])
 
-    combined = pd.concat(oos_returns).sort_index() if oos_returns else pd.Series(dtype=float)
+    combined = (
+        pd.concat(oos_returns).sort_index() if oos_returns else pd.Series(dtype=float)
+    )
     summary = pd.DataFrame(
         [
             {
                 "folds": len(fold_records),
-                "oos_sharpe": float(
-                    sharpe_ratio(
-                        combined, risk_free=0.0, periods_per_year=periods_per_year
+                "oos_sharpe": (
+                    float(
+                        sharpe_ratio(
+                            combined, risk_free=0.0, periods_per_year=periods_per_year
+                        )
                     )
-                )
-                if len(combined)
-                else float("nan"),
-                "oos_max_drawdown": float(max_drawdown(combined))
-                if len(combined)
-                else float("nan"),
-                "avg_turnover": float(folds_df["turnover"].mean())
-                if not folds_df.empty
-                else float("nan"),
-                "total_cost_drag": float(folds_df["cost_drag"].sum())
-                if not folds_df.empty
-                else 0.0,
+                    if len(combined)
+                    else float("nan")
+                ),
+                "oos_max_drawdown": (
+                    float(max_drawdown(combined)) if len(combined) else float("nan")
+                ),
+                "avg_turnover": (
+                    float(folds_df["turnover"].mean())
+                    if not folds_df.empty
+                    else float("nan")
+                ),
+                "total_cost_drag": (
+                    float(folds_df["cost_drag"].sum()) if not folds_df.empty else 0.0
+                ),
             }
         ]
     )
