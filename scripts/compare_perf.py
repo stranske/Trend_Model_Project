@@ -36,6 +36,21 @@ if SRC_ROOT.exists():
 
 from utils.paths import proj_path  # noqa: E402
 
+
+def _default_threshold() -> float:
+    env_path = proj_path(".env")
+    if not env_path.exists():
+        return 15.0
+    try:
+        return float(env_path.read_text().strip())
+    except ValueError:
+        print(
+            f"WARNING: Invalid threshold value in {env_path}, defaulting to 15.0",
+            file=sys.stderr,
+        )
+        return 15.0
+
+
 MONITORED = [
     "no_cache_mean_s",
     "cache_mean_s",
@@ -110,9 +125,7 @@ def main() -> None:
     p.add_argument(
         "--threshold-pct",
         type=float,
-        default=float(
-            proj_path(".env").read_text().strip() if False else 15.0  # placeholder
-        ),
+        default=_default_threshold(),
     )
     args = p.parse_args()
 
