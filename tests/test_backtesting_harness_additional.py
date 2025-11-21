@@ -29,6 +29,7 @@ def test_backtest_result_summary_and_json_round_trip():
         turnover=pd.Series([0.1, 0.2, 0.0], index=index),
         per_period_turnover=pd.Series([0.1, 0.2, 0.0], index=index),
         transaction_costs=pd.Series([0.0005, 0.0010, 0.0], index=index),
+        cost_drag=pd.Series([0.0005, 0.0010, 0.0], index=index),
         rolling_sharpe=pd.Series([np.nan, 0.3, 0.4], index=index),
         drawdown=pd.Series([0.0, -0.01, -0.02], index=index),
         metrics={"sharpe": np.float64(1.234), "volatility": np.float32(0.5)},

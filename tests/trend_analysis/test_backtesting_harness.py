@@ -63,6 +63,7 @@ def sample_backtest_result(sample_calendar: pd.DatetimeIndex) -> h.BacktestResul
         turnover=turnover,
         per_period_turnover=turnover,
         transaction_costs=tx_costs,
+        cost_drag=tx_costs,
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
         metrics=metrics,

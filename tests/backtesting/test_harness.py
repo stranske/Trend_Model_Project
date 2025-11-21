@@ -240,6 +240,49 @@ def test_cost_model_slippage_costs_returns() -> None:
     assert taxed.equity_curve.iloc[-1] < baseline.equity_curve.iloc[-1]
 
 
+def test_turnover_cap_and_cost_drag_series() -> None:
+    index = pd.date_range("2024-01-31", periods=3, freq="ME")
+    returns = pd.DataFrame({"A": 0.0, "B": 0.0}, index=index)
+
+    weights = [
+        pd.Series({"A": 0.6, "B": 0.4}),
+        pd.Series({"A": 0.2, "B": 0.8}),
+        pd.Series({"A": 0.2, "B": 0.8}),
+    ]
+
+    def scripted_strategy(_: pd.DataFrame, seq=iter(weights)) -> pd.Series:
+        try:
+            return next(seq)
+        except StopIteration:
+            return weights[-1]
+
+    model = CostModel(per_trade_bps=10.0, half_spread_bps=5.0)
+    result = run_backtest(
+        returns,
+        scripted_strategy,
+        rebalance_freq="M",
+        window_size=1,
+        min_trade=0.0,
+        turnover_cap=0.8,
+        initial_weights={"A": 0.0, "B": 1.0},
+        cost_model=model,
+    )
+
+    cost_multiplier = (
+        model.effective_per_trade_bps + model.effective_half_spread_bps
+    ) / 10000.0
+    expected_turnover = pd.Series([0.8, 0.4], index=result.turnover.index)
+    pdt.assert_series_equal(result.turnover, expected_turnover)
+
+    expected_costs = expected_turnover * cost_multiplier
+    pdt.assert_series_equal(result.transaction_costs, expected_costs)
+
+    expected_drag = pd.Series(
+        {index[1]: 0.8 * cost_multiplier, index[2]: 0.4 * cost_multiplier}
+    ).reindex(index, fill_value=0.0)
+    pdt.assert_series_equal(result.cost_drag.reindex(index), expected_drag)
+
+
 def test_transaction_costs_drive_expected_drawdown() -> None:
     index = pd.date_range("2021-02-01", periods=12, freq="B")
     returns = pd.DataFrame({"A": 0.005}, index=index)
@@ -697,6 +740,7 @@ def test_backtest_result_summary_filters_weights() -> None:
         turnover=pd.Series([0.0, 1.0], index=idx),
         per_period_turnover=pd.Series([0.0, 1.0], index=idx),
         transaction_costs=pd.Series([0.0, 0.001], index=idx),
+        cost_drag=pd.Series([0.0, 0.001], index=idx),
         rolling_sharpe=pd.Series([np.nan, 1.0], index=idx),
         drawdown=pd.Series([0.0, -0.1], index=idx),
         metrics={"sharpe": 1.0},
