@@ -101,6 +101,7 @@ PROJECT_MODULES = {
     "streamlit_app",
     "trend_model",
     "trend",
+    "src",
     "data",
     "backtest",
     "app",

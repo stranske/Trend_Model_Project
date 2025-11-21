@@ -1,0 +1,17 @@
+data:
+  csv_path: demo/demo_returns.csv
+  date_column: Date
+  columns: [Mgr_01, Mgr_02, Mgr_03, Mgr_04]
+
+cv:
+  folds: 4
+  expand: true
+
+params:
+  top_n: 3
+  lookback: 24
+  cost_per_turnover: 0.001
+  seed: 7
+
+output:
+  dir: perf/cv
