@@ -148,6 +148,21 @@ def _compute_turnover_state(
     return turnover, nidx, nvals
 
 
+def _as_weight_series(obj: pd.DataFrame | pd.Series | Mapping[str, float]) -> pd.Series:
+    """Return a float weight series regardless of the original container."""
+
+    if isinstance(obj, pd.DataFrame):
+        if "weight" in obj.columns:
+            series = obj["weight"]
+        else:
+            series = obj.iloc[:, 0]
+    elif isinstance(obj, pd.Series):
+        series = obj
+    else:
+        series = pd.Series(obj)
+    return series.astype(float)
+
+
 def _apply_weight_bounds(
     weights: pd.Series,
     min_w_bound: float,
@@ -305,18 +320,6 @@ def run_schedule(
     policy_cfg = dict(weight_policy or {})
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
     min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
-
-    def _as_weight_series(obj: pd.DataFrame | pd.Series | Mapping[str, float]) -> pd.Series:
-        if isinstance(obj, pd.DataFrame):
-            if "weight" in obj.columns:
-                series = obj["weight"]
-            else:
-                series = obj.iloc[:, 0]
-        elif isinstance(obj, pd.Series):
-            series = obj
-        else:
-            series = pd.Series(obj)
-        return series.astype(float)
 
     def _fast_turnover(
         prev_idx: FloatArray | None,
@@ -1251,7 +1254,9 @@ def run(
                     )
             if holdings:
                 weights_df = weighting.weight(sf.loc[holdings], period_ts)
-                signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
+                signal_slice = (
+                    sf.loc[holdings, metric] if metric in sf.columns else None
+                )
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
                 weights_df = weight_series.to_frame("weight")
                 nat_w = weight_series.astype(float)
