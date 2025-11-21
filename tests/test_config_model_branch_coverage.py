@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from utils.paths import proj_path
 
 from trend_analysis.config import model
 
@@ -47,28 +48,28 @@ def test_validate_managers_glob_requires_string() -> None:
     data = _base_data_settings()
     data["managers_glob"] = 123
     with pytest.raises(ValueError):
-        model.DataSettings.model_validate(data, context={"base_path": Path.cwd()})
+        model.DataSettings.model_validate(data, context={"base_path": proj_path()})
 
 
 def test_validate_date_column_rejects_empty() -> None:
     data = _base_data_settings()
     data["date_column"] = ""
     with pytest.raises(ValueError):
-        model.DataSettings.model_validate(data, context={"base_path": Path.cwd()})
+        model.DataSettings.model_validate(data, context={"base_path": proj_path()})
 
 
 def test_normalize_frequency_requires_supported_value() -> None:
     data = _base_data_settings()
     data["frequency"] = "Hourly"
     with pytest.raises(ValueError):
-        model.DataSettings.model_validate(data, context={"base_path": Path.cwd()})
+        model.DataSettings.model_validate(data, context={"base_path": proj_path()})
 
 
 def test_validate_missing_limit_rejects_non_numeric() -> None:
     data = _base_data_settings()
     data["missing_limit"] = "invalid"
     with pytest.raises(ValueError):
-        model.DataSettings.model_validate(data, context={"base_path": Path.cwd()})
+        model.DataSettings.model_validate(data, context={"base_path": proj_path()})
 
 
 def test_ensure_source_requires_csv_or_glob() -> None:
@@ -76,7 +77,7 @@ def test_ensure_source_requires_csv_or_glob() -> None:
     data["csv_path"] = None
     data["managers_glob"] = None
     with pytest.raises(ValueError):
-        model.DataSettings.model_validate(data, context={"base_path": Path.cwd()})
+        model.DataSettings.model_validate(data, context={"base_path": proj_path()})
 
 
 def test_portfolio_turnover_bounds() -> None:

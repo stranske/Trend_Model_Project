@@ -43,12 +43,20 @@ import os
 import pathlib
 import shlex
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if SRC_ROOT.exists():
+    sys.path.insert(0, str(SRC_ROOT))
+
+from utils.paths import proj_path
+
 SCENARIO_ENV = os.getenv("SCENARIOS", "t01_basic,t02_reuse,t03_rebootstrap")
-WORKDIR = pathlib.Path.cwd()
+WORKDIR = proj_path()
 LOG_DIR = WORKDIR / "codex-scenario-logs"
 LOG_DIR.mkdir(exist_ok=True)
 

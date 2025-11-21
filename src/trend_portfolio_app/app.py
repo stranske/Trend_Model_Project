@@ -14,6 +14,8 @@ import pandas as pd
 import streamlit as st
 import yaml
 
+from utils.paths import proj_path
+
 import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
@@ -253,7 +255,7 @@ def _columns(spec: Any) -> List[Any]:
 
 def _build_cfg(d: Dict[str, Any]) -> ConfigType:
     """Instantiate the flexible ``Config`` object used by the pipeline."""
-    validate_trend_config(d, base_path=Path.cwd())
+    validate_trend_config(d, base_path=proj_path())
     return Config(**d)
 
 

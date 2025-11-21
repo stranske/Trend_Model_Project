@@ -14,6 +14,8 @@ from __future__ import annotations
 import glob
 from dataclasses import dataclass
 from pathlib import Path
+
+from utils.paths import proj_path
 from typing import Any, Mapping
 
 import yaml
@@ -29,7 +31,7 @@ __all__ = [
 
 _ALLOWED_FREQUENCIES = {"D", "W", "M", "ME"}
 _GLOB_CHARS = {"*", "?", "[", "]"}
-_DEFAULT_BASE = Path.cwd()
+_DEFAULT_BASE = proj_path()
 _DEFAULT_DATE_COLUMN = "Date"
 _DEFAULT_FREQUENCY = "M"
 _DEFAULT_TRANSACTION_COST = 0.0

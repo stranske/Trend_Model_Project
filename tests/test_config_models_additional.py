@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from utils.paths import proj_path
 
 from trend_analysis.config import models
 
@@ -145,7 +146,7 @@ def test_load_config_invokes_validation_for_mappings(
 
     assert loaded.version == cfg["version"]
     assert calls and calls[0][0] == cfg
-    assert calls[0][1] == Path.cwd()
+    assert calls[0][1] == proj_path()
 
 
 def test_load_config_skips_validation_without_pydantic(

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+from utils.paths import proj_path
 from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
@@ -295,7 +296,7 @@ def test_candidate_roots_includes_parent(tmp_path, monkeypatch):
     roots = list(config_model._candidate_roots(base))
     assert roots[0] == base
     assert roots[1] == tmp_path
-    assert Path.cwd() in roots
+    assert proj_path() in roots
 
 
 def test_data_settings_missing_policy_invalid_type(tmp_path):

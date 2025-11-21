@@ -29,6 +29,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if SRC_ROOT.exists():
+    sys.path.insert(0, str(SRC_ROOT))
+
+from utils.paths import proj_path
+
 MONITORED = [
     "no_cache_mean_s",
     "cache_mean_s",
@@ -104,7 +111,7 @@ def main() -> None:
         "--threshold-pct",
         type=float,
         default=float(
-            Path.cwd().joinpath(".env").read_text().strip()
+            proj_path(".env").read_text().strip()
             if False
             else 15.0  # placeholder
         ),

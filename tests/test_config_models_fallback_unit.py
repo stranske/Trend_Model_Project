@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import Any, Generator
 
 import pytest
+from utils.paths import proj_path
 import yaml
 
 
@@ -286,7 +287,7 @@ def test_load_accepts_direct_mapping(fallback_models: ModuleType) -> None:
     payload = _base_config_payload()
     cfg = fallback_models.load(payload)  # type: ignore[attr-defined]
     assert cfg.version == "1.0"
-    assert fallback_models._validate_calls[-1][1] == Path.cwd()  # type: ignore[attr-defined]
+    assert fallback_models._validate_calls[-1][1] == proj_path()  # type: ignore[attr-defined]
 
 
 def test_load_config_accepts_mapping_and_path(
@@ -295,7 +296,7 @@ def test_load_config_accepts_mapping_and_path(
     payload = _base_config_payload()
     cfg = fallback_models.load_config(payload)  # type: ignore[attr-defined]
     assert cfg.version == "1.0"
-    assert fallback_models._validate_calls[-1][1] == Path.cwd()  # type: ignore[attr-defined]
+    assert fallback_models._validate_calls[-1][1] == proj_path()  # type: ignore[attr-defined]
 
     cfg_file = tmp_path / "config.yml"
     _write_config_file(cfg_file, payload)

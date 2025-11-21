@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
+from utils.paths import proj_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -333,7 +334,7 @@ def validate_ledger(path: Path) -> List[str]:
 def find_ledgers(explicit: Iterable[str]) -> List[Path]:
     if explicit:
         return [Path(item) for item in explicit]
-    root = Path.cwd()
+    root = proj_path()
     agents_dir = root / ".agents"
     if not agents_dir.exists():
         return []

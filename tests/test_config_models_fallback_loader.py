@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+from utils.paths import proj_path
 
 
 def test_fallback_loader_activates_when_imports_fail(
@@ -40,7 +41,7 @@ def test_fallback_loader_activates_when_imports_fail(
 
     assert module.validate_trend_config.__module__ == module.__name__
 
-    validated = module.validate_trend_config({"version": "1.0"}, base_path=Path.cwd())
+    validated = module.validate_trend_config({"version": "1.0"}, base_path=proj_path())
     assert isinstance(validated, dict)
 
 
@@ -83,7 +84,7 @@ def test_fallback_loader_returns_minimal_payload(
         "extra": {"ignored": True},
     }
 
-    validated = module.validate_trend_config(payload, base_path=Path.cwd())
+    validated = module.validate_trend_config(payload, base_path=proj_path())
 
     assert set(validated.keys()) >= {"data", "portfolio", "vol_adjust"}
     assert "extra" not in validated

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from utils.paths import proj_path
 
 from trend_analysis.config.model import (
     DataSettings,
@@ -41,12 +42,13 @@ def test_expand_pattern_deduplicates_roots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    base_dir = Path.cwd()
+    base_dir = proj_path()
     pattern = "inputs/*.csv"
     result = _expand_pattern(pattern, base_dir=base_dir)
     assert result[0] == base_dir / Path(pattern)
     assert result[1] == base_dir.parent / Path(pattern)
-    assert len(result) == 2
+    assert result[2] == Path.cwd() / Path(pattern)
+    assert len(result) == 3
 
     absolute = _expand_pattern(str(tmp_path / "absolute.csv"), base_dir=base_dir)
     assert absolute == [tmp_path / "absolute.csv"]
