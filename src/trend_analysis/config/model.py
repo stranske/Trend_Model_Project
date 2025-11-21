@@ -294,6 +294,7 @@ class PortfolioSettings(BaseModel):
     max_turnover: float
     transaction_cost_bps: float
     cost_model: CostModelSettings | None = None
+    weight_policy: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="ignore")
 
