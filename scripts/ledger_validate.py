@@ -24,6 +24,8 @@ SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():  # ensure local package import works before editable install
     sys.path.insert(0, str(SRC_ROOT))
 
+from utils.paths import proj_path  # noqa: E402
+
 
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
@@ -333,7 +335,7 @@ def validate_ledger(path: Path) -> List[str]:
 def find_ledgers(explicit: Iterable[str]) -> List[Path]:
     if explicit:
         return [Path(item) for item in explicit]
-    root = Path.cwd()
+    root = proj_path()
     agents_dir = root / ".agents"
     if not agents_dir.exists():
         return []
