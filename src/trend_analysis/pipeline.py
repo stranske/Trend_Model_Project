@@ -27,6 +27,7 @@ from .metrics import (
     volatility,
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .portfolio import apply_weight_policy
 from .regimes import build_regime_payload
 from .risk import (
     RiskDiagnostics,
@@ -35,7 +36,6 @@ from .risk import (
     periods_per_year_from_code,
     realised_volatility,
 )
-from .portfolio import apply_weight_policy
 from .signals import TrendSpec, compute_trend_signals
 from .time_utils import align_calendar
 from .timefreq import MONTHLY_DATE_FREQ
@@ -971,7 +971,9 @@ def _run_analysis(
     signal_snapshot: pd.Series | None = None
     if not signal_frame.empty:
         try:
-            target_index = out_df.index[0] if len(out_df.index) else signal_frame.index[-1]
+            target_index = (
+                out_df.index[0] if len(out_df.index) else signal_frame.index[-1]
+            )
             aligned = signal_frame.reindex(columns=fund_cols)
             if target_index in aligned.index:
                 signal_snapshot = aligned.loc[target_index]
@@ -980,13 +982,17 @@ def _run_analysis(
         except Exception:  # pragma: no cover - defensive
             signal_snapshot = None
 
-    weights_series = apply_weight_policy(
-        weights_series,
-        signal_snapshot,
-        mode=policy_mode,
-        min_assets=min_assets_policy,
-        previous=previous_weights,
-    ).reindex(fund_cols).fillna(0.0)
+    weights_series = (
+        apply_weight_policy(
+            weights_series,
+            signal_snapshot,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=previous_weights,
+        )
+        .reindex(fund_cols)
+        .fillna(0.0)
+    )
     scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
 
     in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost

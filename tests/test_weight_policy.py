@@ -59,14 +59,14 @@ def test_apply_weight_policy_handles_warmup_with_previous_weights():
 
     assert set(result.index) == {"A", "B"}
     assert np.isclose(result.sum(), 1.0)
-    pd.testing.assert_series_equal(result.sort_index(), (previous / previous.sum()).sort_index())
+    pd.testing.assert_series_equal(
+        result.sort_index(), (previous / previous.sum()).sort_index()
+    )
 
 
 def test_run_schedule_drops_invalid_signals_and_normalises():
     score_frames = {
-        "2020-01-31": pd.DataFrame(
-            {"Sharpe": [1.0, np.nan]}, index=["FundA", "FundB"]
-        ),
+        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, np.nan]}, index=["FundA", "FundB"]),
         "2020-02-29": pd.DataFrame({"Sharpe": [1.0, 2.0]}, index=["FundA", "FundB"]),
     }
 
