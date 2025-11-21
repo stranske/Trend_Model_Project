@@ -210,9 +210,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     effective_bps = float(
         per_trade_bps
         if per_trade_bps is not None
-        else override_bps
-        if override_bps is not None
-        else transaction_cost_bps
+        else override_bps if override_bps is not None else transaction_cost_bps
     )
     cost_model = CostModel(
         bps_per_trade=effective_bps,
@@ -223,9 +221,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
 
     turnover_cap = _coerce_float(_section_get(portfolio, "turnover_cap"))
     max_turnover_cfg = _coerce_float(_section_get(portfolio, "max_turnover"))
-    max_turnover_value = (
-        turnover_cap if turnover_cap is not None else max_turnover_cfg
-    )
+    max_turnover_value = turnover_cap if turnover_cap is not None else max_turnover_cfg
 
     return BacktestSpec(
         window=window,
