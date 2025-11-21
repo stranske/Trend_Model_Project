@@ -29,6 +29,7 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..pipeline import _run_analysis
+from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
     MembershipTable,
@@ -145,6 +146,21 @@ def _compute_turnover_state(
 
     turnover = float(np.abs(new_aligned - prev_aligned).sum())
     return turnover, nidx, nvals
+
+
+def _as_weight_series(obj: pd.DataFrame | pd.Series | Mapping[str, float]) -> pd.Series:
+    """Return a float weight series regardless of the original container."""
+
+    if isinstance(obj, pd.DataFrame):
+        if "weight" in obj.columns:
+            series = obj["weight"]
+        else:
+            series = obj.iloc[:, 0]
+    elif isinstance(obj, pd.Series):
+        series = obj
+    else:
+        series = pd.Series(obj)
+    return series.astype(float)
 
 
 def _apply_weight_bounds(
@@ -267,6 +283,7 @@ def run_schedule(
     rebalancer: "Rebalancer | None" = None,
     rebalance_strategies: List[str] | None = None,
     rebalance_params: Dict[str, Dict[str, Any]] | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``.
 
@@ -299,6 +316,10 @@ def run_schedule(
     # Fast turnover state (index array + values array)
     prev_tidx: FloatArray | None = None
     prev_tvals: FloatArray | None = None
+
+    policy_cfg = dict(weight_policy or {})
+    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
+    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
 
     def _fast_turnover(
         prev_idx: FloatArray | None,
@@ -367,6 +388,15 @@ def run_schedule(
         date_ts = pd.to_datetime(date)
         selected, _ = selector.select(sf)
         target_weights = weighting.weight(selected, date_ts)
+        signal_slice = sf[col] if col and col in sf.columns else None
+        target_series = apply_weight_policy(
+            _as_weight_series(target_weights),
+            signal_slice,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=prev_weights,
+        )
+        target_weights = target_series.to_frame("weight")
 
         # Apply legacy rebalancer (threshold-hold system) if configured
         if rebalancer is not None:
@@ -919,6 +949,10 @@ def run(
     else:
         weighting = EqualWeight()
 
+    policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
+    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
+    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
+
     rebalancer = Rebalancer(cfg.model_dump())
 
     # --- main loop ------------------------------------------------------
@@ -958,6 +992,18 @@ def run(
             seen.add(f)
             deduped.append(fund)
         return deduped
+
+    def _apply_policy_to_weights(
+        weights_obj: pd.DataFrame | pd.Series | Mapping[str, float],
+        signals: pd.Series | None,
+    ) -> pd.Series:
+        return apply_weight_policy(
+            _as_weight_series(weights_obj),
+            signals,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=prev_weights,
+        )
 
     for pt in periods:
         period_ts = pd.to_datetime(pt.out_end)
@@ -1040,7 +1086,10 @@ def run(
                         break
                 holdings = keep
             weights_df = weighting.weight(sf.loc[holdings], period_ts)
-            prev_weights = weights_df["weight"].astype(float)
+            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
+            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+            weights_df = weight_series.to_frame("weight")
+            prev_weights = weight_series.astype(float)
             # Log seed additions
             for f in holdings:
                 events.append(
@@ -1142,7 +1191,10 @@ def run(
                         }
                     )
             weights_df = weighting.weight(sf.loc[holdings], period_ts)
-            prev_weights = weights_df["weight"].astype(float)
+            signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
+            weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+            weights_df = weight_series.to_frame("weight")
+            prev_weights = weight_series.astype(float)
 
         # Natural weights (pre-bounds) for strikes on min threshold
         nat_w = prev_weights.copy()
@@ -1202,7 +1254,12 @@ def run(
                     )
             if holdings:
                 weights_df = weighting.weight(sf.loc[holdings], period_ts)
-                nat_w = weights_df["weight"].astype(float)
+                signal_slice = (
+                    sf.loc[holdings, metric] if metric in sf.columns else None
+                )
+                weight_series = _apply_policy_to_weights(weights_df, signal_slice)
+                weights_df = weight_series.to_frame("weight")
+                nat_w = weight_series.astype(float)
                 prev_weights = nat_w.copy()
 
         # Apply weight bounds and renormalise

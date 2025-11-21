@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
+from utils.paths import proj_path
+
 # ``models.py`` is executed under different module names in the test suite so we
 # import ``validate_trend_config`` via its fully-qualified path to avoid
 # relative-import resolution against the temporary alias (for example when the
@@ -736,14 +738,14 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     pydantic_present = sys.modules.get("pydantic") is not None
     if _HAS_PYDANTIC:
         # Allow ValidationError to propagate (tests expect this)
-        validate_trend_config(cfg_dict, base_path=Path.cwd())
+        validate_trend_config(cfg_dict, base_path=proj_path())
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
         if (not pydantic_present) or validator_module.startswith(
             "trend_analysis.config"
         ):
             try:
-                validate_trend_config(cfg_dict, base_path=Path.cwd())
+                validate_trend_config(cfg_dict, base_path=proj_path())
             except Exception:
                 pass
     return Config(**cfg_dict)
@@ -756,7 +758,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
     consulted before falling back to ``DEFAULTS``.
     If ``path`` is a dict, it is used directly as configuration data.
     """
-    base_dir = Path.cwd()
+    base_dir = proj_path()
     if isinstance(path, dict):
         data = path.copy()
     elif path is None:

@@ -25,6 +25,8 @@ from pydantic import (
     model_validator,
 )
 
+from utils.paths import proj_path
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -43,7 +45,7 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         user directories before resolution.
     base_dir:
         Directory that should be treated as the root for relative paths.  When
-        ``None`` the current working directory is used instead.
+        ``None`` the repository root and current working directory are checked.
     """
 
     raw = Path(value).expanduser()
@@ -54,14 +56,17 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         if base_dir is not None:
             roots.append(base_dir)
             roots.append(base_dir.parent)
-        roots.append(Path.cwd())
+        roots.append(proj_path())
+        cwd = Path.cwd()
+        if cwd not in roots:
+            roots.append(cwd)
         for root in roots:
             candidate = (root / raw).resolve()
             if candidate.exists():
                 path = candidate
                 break
         else:
-            path = (base_dir or Path.cwd()) / raw
+            path = (base_dir or proj_path()) / raw
             path = path.resolve()
     if any(ch in str(raw) for ch in _GLOB_CHARS):
         # Globs are not supported because downstream readers expect a concrete
@@ -91,10 +96,16 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
 def _candidate_roots(base_dir: Path | None) -> Iterable[Path]:
     """Yield roots that should be considered when resolving relative paths."""
 
+    seen: set[Path] = set()
     if base_dir is not None:
-        yield base_dir
-        yield base_dir.parent
-    yield Path.cwd()
+        for candidate in (base_dir, base_dir.parent):
+            if candidate not in seen:
+                seen.add(candidate)
+                yield candidate
+    for candidate in (proj_path(), Path.cwd()):
+        if candidate not in seen:
+            seen.add(candidate)
+            yield candidate
 
 
 def _expand_pattern(pattern: str, *, base_dir: Path | None) -> list[Path]:
@@ -128,7 +139,7 @@ def _ensure_glob_matches(pattern: str, *, base_dir: Path | None) -> None:
 
     files = [path for path in matched if path.is_file()]
     if not files:
-        base_hint = base_dir or Path.cwd()
+        base_hint = base_dir or proj_path()
         raise ValueError(
             "data.managers_glob did not match any CSV files. "
             f"Update the glob '{pattern}' relative to '{base_hint}' or "
@@ -294,6 +305,7 @@ class PortfolioSettings(BaseModel):
     max_turnover: float
     transaction_cost_bps: float
     cost_model: CostModelSettings | None = None
+    weight_policy: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="ignore")
 

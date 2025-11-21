@@ -65,6 +65,7 @@ include = [
     "trend_portfolio_app*",
     "trend_model*",
     "trend*",
+    "utils*",
     "analysis*",
     "data",
     "backtest*",
