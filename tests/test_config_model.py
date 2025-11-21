@@ -7,6 +7,7 @@ from typing import Mapping
 
 import pytest
 from pydantic import ValidationError
+
 from utils.paths import proj_path
 
 pytest.importorskip("yaml")

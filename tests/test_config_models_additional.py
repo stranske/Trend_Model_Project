@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-from utils.paths import proj_path
 
 from trend_analysis.config import models
+from utils.paths import proj_path
 
 
 def _base_config() -> dict[str, object]:

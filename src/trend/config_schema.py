@@ -14,11 +14,11 @@ from __future__ import annotations
 import glob
 from dataclasses import dataclass
 from pathlib import Path
-
-from utils.paths import proj_path
 from typing import Any, Mapping
 
 import yaml
+
+from utils.paths import proj_path
 
 __all__ = [
     "CoreConfig",

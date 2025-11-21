@@ -14,13 +14,12 @@ import pandas as pd
 import streamlit as st
 import yaml
 
-from utils.paths import proj_path
-
 import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run_from_config as run_multi
+from utils.paths import proj_path
 
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
 _STREAMLIT_LOG_PATH: Path | None = None

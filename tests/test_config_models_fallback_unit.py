@@ -8,8 +8,9 @@ from types import ModuleType
 from typing import Any, Generator
 
 import pytest
-from utils.paths import proj_path
 import yaml
+
+from utils.paths import proj_path
 
 
 @pytest.fixture

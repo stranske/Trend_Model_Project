@@ -18,7 +18,6 @@ import pandas as pd
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
-from utils.paths import proj_path
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -27,6 +26,7 @@ from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FO
 from trend_analysis.data import load_csv
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
+from utils.paths import proj_path
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 

@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from utils.paths import proj_path
 
 from trend_analysis.config import model
+from utils.paths import proj_path
 
 
 def _base_data_settings() -> dict[str, object]:

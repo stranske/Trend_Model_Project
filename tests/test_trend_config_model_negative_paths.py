@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
-from utils.paths import proj_path
 from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
+from utils.paths import proj_path
 
 
 def test_resolve_path_considers_base_dir_parent(tmp_path, monkeypatch):

@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Iterable, List, Tuple
 
 import pandas as pd
-from utils.paths import proj_path
 
 from streamlit_app.config_bridge import build_config_payload, validate_payload
+from utils.paths import proj_path
 
 MAX_DRY_RUN_LOOKBACK_MONTHS = 12
 MAX_DRY_RUN_OUT_MONTHS = 3

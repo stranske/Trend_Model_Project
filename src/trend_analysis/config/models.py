@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
+
 from utils.paths import proj_path
 
 # ``models.py`` is executed under different module names in the test suite so we
