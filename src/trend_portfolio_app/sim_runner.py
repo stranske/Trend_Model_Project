@@ -146,6 +146,7 @@ class SimResult:
             turnover=pd.Series(dtype=float),
             per_period_turnover=pd.Series(dtype=float),
             transaction_costs=pd.Series(dtype=float),
+            cost_drag=pd.Series(dtype=float),
             rolling_sharpe=pd.Series(dtype=float),
             drawdown=drawdown,
             metrics={},

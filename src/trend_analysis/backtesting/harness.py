@@ -33,25 +33,50 @@ class CostModel:
 
     bps_per_trade: float = 0.0
     slippage_bps: float = 0.0
+    per_trade_bps: float | None = None
+    half_spread_bps: float | None = None
 
     def __post_init__(self) -> None:
-        for field_name, value in {
+        values = {
             "bps_per_trade": self.bps_per_trade,
             "slippage_bps": self.slippage_bps,
-        }.items():
-            if value < 0:
+            "per_trade_bps": self.per_trade_bps,
+            "half_spread_bps": self.half_spread_bps,
+        }
+        for field_name, raw in values.items():
+            if raw is None:
+                continue
+            if raw < 0:
                 raise ValueError(f"{field_name} must be non-negative")
+
+    @property
+    def effective_per_trade_bps(self) -> float:
+        base = self.per_trade_bps
+        if base is None:
+            return float(self.bps_per_trade)
+        return float(base)
+
+    @property
+    def effective_half_spread_bps(self) -> float:
+        base = self.half_spread_bps
+        if base is None:
+            return float(self.slippage_bps)
+        return float(base)
 
     def apply(self, turnover: float) -> float:
         if turnover <= 0:
             return 0.0
-        multiplier = (self.bps_per_trade + self.slippage_bps) / 10000.0
+        multiplier = (
+            self.effective_per_trade_bps + self.effective_half_spread_bps
+        ) / 10000.0
         return float(turnover) * multiplier
 
     def as_dict(self) -> Dict[str, float]:
         return {
             "bps_per_trade": float(self.bps_per_trade),
             "slippage_bps": float(self.slippage_bps),
+            "per_trade_bps": self.effective_per_trade_bps,
+            "half_spread_bps": self.effective_half_spread_bps,
         }
 
 
@@ -65,6 +90,7 @@ class BacktestResult:
     turnover: pd.Series
     per_period_turnover: pd.Series
     transaction_costs: pd.Series
+    cost_drag: pd.Series
     rolling_sharpe: pd.Series
     drawdown: pd.Series
     metrics: Dict[str, float]
@@ -91,6 +117,7 @@ class BacktestResult:
             "turnover": _series_to_dict(self.turnover),
             "per_period_turnover": _series_to_dict(self.per_period_turnover),
             "transaction_costs": _series_to_dict(self.transaction_costs),
+            "cost_drag": _series_to_dict(self.cost_drag),
             "weights": _weights_to_dict(self.weights),
             "training_windows": {
                 ts.isoformat(): {
@@ -117,6 +144,7 @@ def run_backtest(
     window_mode: WindowMode = "rolling",
     transaction_cost_bps: float = 0.0,
     min_trade: float,
+    turnover_cap: float | None = None,
     rolling_sharpe_window: int | None = None,
     initial_weights: Mapping[str, float] | None = None,
     cost_model: CostModel | None = None,
@@ -129,6 +157,9 @@ def run_backtest(
     Args:
         min_trade: Minimum total absolute weight change required to execute a
             rebalance. Smaller proposals are ignored to suppress micro-churn.
+        turnover_cap: Optional per-rebalance cap on total absolute turnover.
+            When provided, trades are scaled proportionally toward the target
+            weights so the executed turnover does not exceed the limit.
         membership: DataFrame, mapping, or CSV path describing dated universe
             membership windows. When provided, returns prior to a fund's entry
             (or after exit) are masked and weights are constrained to the
@@ -149,6 +180,8 @@ def run_backtest(
         raise ValueError("window_mode must be 'rolling' or 'expanding'")
     if transaction_cost_bps < 0:
         raise ValueError("transaction_cost_bps must be non-negative")
+    if turnover_cap is not None and turnover_cap < 0:
+        raise ValueError("turnover_cap must be non-negative when provided")
     if min_trade < 0:
         raise ValueError("min_trade must be non-negative")
     if execution_lag <= 0:
@@ -183,6 +216,7 @@ def run_backtest(
     weights_history: Dict[pd.Timestamp, pd.Series] = {}
     turnover = pd.Series(dtype=float)
     per_period_turnover = pd.Series(0.0, index=data.index, dtype=float)
+    cost_drag = pd.Series(0.0, index=data.index, dtype=float)
     tx_costs = pd.Series(dtype=float)
     training_windows: Dict[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]] = {}
 
@@ -260,10 +294,16 @@ def run_backtest(
                 )
             proposed = proposed.where(active_now, 0.0)
 
-        delta = float((proposed - prev_weights).abs().sum())
-        execute = delta >= float(min_trade)
+        trades = proposed - prev_weights
+        desired_turnover = float(trades.abs().sum())
+        execute = desired_turnover >= float(min_trade)
+        applied_turnover = desired_turnover if execute else 0.0
         new_weights = proposed if execute else prev_weights
-        applied_turnover = delta if execute else 0.0
+        if execute and turnover_cap is not None and turnover_cap >= 0:
+            if desired_turnover > turnover_cap:
+                scale = turnover_cap / desired_turnover if desired_turnover > 0 else 0.0
+                new_weights = prev_weights + trades * scale
+                applied_turnover = float((new_weights - prev_weights).abs().sum())
         cost = model.apply(applied_turnover)
 
         weights_history[date] = new_weights
@@ -275,6 +315,7 @@ def run_backtest(
         pending_cost = float(cost)
         if 0 <= apply_slice.start < len(per_period_turnover):
             per_period_turnover.iloc[apply_slice.start] = applied_turnover
+            cost_drag.iloc[apply_slice.start] = pending_cost
         for idx in range(apply_slice.start, apply_slice.stop):
             ret = float(np.dot(data_values[idx], prev_weights.values))
             if pending_cost:
@@ -317,6 +358,7 @@ def run_backtest(
         turnover=turnover.sort_index(),
         per_period_turnover=per_period_turnover,
         transaction_costs=tx_costs.sort_index(),
+        cost_drag=cost_drag,
         rolling_sharpe=rolling_sharpe,
         drawdown=drawdown,
         metrics=metrics,

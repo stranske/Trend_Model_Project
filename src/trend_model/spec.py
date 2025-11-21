@@ -200,12 +200,31 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0
     )
     cost_cfg = _cfg_section(portfolio, "cost_model")
+    half_spread_bps = _coerce_float(cost_cfg.get("half_spread_bps"))
     slippage = float(_coerce_float(cost_cfg.get("slippage_bps"), 0.0) or 0.0)
+    if half_spread_bps is not None:
+        slippage = float(half_spread_bps)
     override_bps = _coerce_float(cost_cfg.get("bps_per_trade"))
-    effective_bps = (
-        float(override_bps) if override_bps is not None else float(transaction_cost_bps)
+    per_trade_bps = _coerce_float(cost_cfg.get("per_trade_bps"))
+    effective_bps = float(
+        per_trade_bps
+        if per_trade_bps is not None
+        else override_bps
+        if override_bps is not None
+        else transaction_cost_bps
     )
-    cost_model = CostModel(bps_per_trade=effective_bps, slippage_bps=slippage)
+    cost_model = CostModel(
+        bps_per_trade=effective_bps,
+        slippage_bps=slippage,
+        per_trade_bps=per_trade_bps if per_trade_bps is not None else override_bps,
+        half_spread_bps=half_spread_bps,
+    )
+
+    turnover_cap = _coerce_float(_section_get(portfolio, "turnover_cap"))
+    max_turnover_cfg = _coerce_float(_section_get(portfolio, "max_turnover"))
+    max_turnover_value = (
+        turnover_cap if turnover_cap is not None else max_turnover_cfg
+    )
 
     return BacktestSpec(
         window=window,
@@ -214,7 +233,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         rebalance_calendar=_section_get(portfolio, "rebalance_calendar"),
         transaction_cost_bps=transaction_cost_bps,
         cost_model=cost_model,
-        max_turnover=_coerce_float(_section_get(portfolio, "max_turnover")),
+        max_turnover=max_turnover_value,
         rank=rank_cfg,
         selector=selector_cfg,
         weighting=weighting_cfg,
