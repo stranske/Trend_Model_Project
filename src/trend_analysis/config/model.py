@@ -279,6 +279,8 @@ class CostModelSettings(BaseModel):
 
     bps_per_trade: float = Field(default=0.0)
     slippage_bps: float = Field(default=0.0)
+    per_trade_bps: float | None = Field(default=None)
+    half_spread_bps: float | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -297,6 +299,15 @@ class CostModelSettings(BaseModel):
             )
         return parsed
 
+    @field_validator("per_trade_bps", "half_spread_bps", mode="before")
+    @classmethod
+    def _validate_optional_cost(
+        cls, value: Any, info: ValidationInfo[Any]
+    ) -> float | None:
+        if value in (None, "", "null"):
+            return None
+        return cls._validate_cost(value, info)
+
 
 class PortfolioSettings(BaseModel):
     """Portfolio controls validated before running analyses."""
@@ -305,6 +316,7 @@ class PortfolioSettings(BaseModel):
     max_turnover: float
     transaction_cost_bps: float
     cost_model: CostModelSettings | None = None
+    turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="ignore")
@@ -332,6 +344,13 @@ class PortfolioSettings(BaseModel):
                 "portfolio.max_turnover must be between 0 and 1.0 inclusive to cap per-period turnover."
             )
         return turnover
+
+    @field_validator("turnover_cap", mode="before")
+    @classmethod
+    def _validate_turnover_cap(cls, value: Any) -> float | None:
+        if value in (None, "", "null"):
+            return None
+        return cls._validate_turnover(value)
 
     @field_validator("transaction_cost_bps", mode="before")
     @classmethod

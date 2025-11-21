@@ -49,6 +49,8 @@ def build_config_payload(
             "cost_model": {
                 "bps_per_trade": transaction_cost_bps,
                 "slippage_bps": slippage_bps,
+                "per_trade_bps": transaction_cost_bps,
+                "half_spread_bps": slippage_bps,
             },
         },
         "vol_adjust": {"target_vol": target_vol},
@@ -86,6 +88,8 @@ def validate_payload(
     cost_model = dict(portfolio.get("cost_model") or {})
     cost_model["bps_per_trade"] = core.costs.bps_per_trade
     cost_model["slippage_bps"] = core.costs.slippage_bps
+    cost_model["per_trade_bps"] = core.costs.per_trade_bps
+    cost_model["half_spread_bps"] = core.costs.half_spread_bps
     portfolio["cost_model"] = cost_model
     validated["portfolio"] = portfolio
     return validated, None

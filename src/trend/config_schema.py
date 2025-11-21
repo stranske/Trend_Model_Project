@@ -60,6 +60,8 @@ class CostSettings:
     transaction_cost_bps: float
     bps_per_trade: float
     slippage_bps: float
+    per_trade_bps: float
+    half_spread_bps: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +97,8 @@ class CoreConfig:
                 "cost_model": {
                     "bps_per_trade": self.costs.bps_per_trade,
                     "slippage_bps": self.costs.slippage_bps,
+                    "per_trade_bps": self.costs.per_trade_bps,
+                    "half_spread_bps": self.costs.half_spread_bps,
                 },
             },
         }
@@ -258,6 +262,14 @@ def validate_core_config(
         cost_model.get("slippage_bps", _DEFAULT_SLIPPAGE),
         field="portfolio.cost_model.slippage_bps",
     )
+    per_trade_bps = _coerce_float(
+        cost_model.get("per_trade_bps", bps_per_trade),
+        field="portfolio.cost_model.per_trade_bps",
+    )
+    half_spread_bps = _coerce_float(
+        cost_model.get("half_spread_bps", slippage_bps),
+        field="portfolio.cost_model.half_spread_bps",
+    )
 
     data_settings = DataSettings(
         csv_path=csv_path,
@@ -270,6 +282,8 @@ def validate_core_config(
         transaction_cost_bps=transaction_cost,
         bps_per_trade=bps_per_trade,
         slippage_bps=slippage_bps,
+        per_trade_bps=per_trade_bps,
+        half_spread_bps=half_spread_bps,
     )
     return CoreConfig(data=data_settings, costs=cost_settings)
 
