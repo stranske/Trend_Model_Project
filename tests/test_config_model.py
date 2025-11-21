@@ -8,6 +8,8 @@ from typing import Mapping
 import pytest
 from pydantic import ValidationError
 
+from utils.paths import proj_path
+
 pytest.importorskip("yaml")
 
 from trend_analysis.config import model as config_model  # noqa: E402
@@ -62,7 +64,7 @@ class TestGlobHelpers:
         expected = [
             base / "demo" / "*.yml",
             base.parent / "demo" / "*.yml",
-            Path.cwd() / "demo" / "*.yml",
+            proj_path() / "demo" / "*.yml",
         ]
         assert candidates[:3] == expected
 
@@ -89,17 +91,18 @@ class TestGlobHelpers:
         monkeypatch.chdir(tmp_path)
         candidates = config_model._expand_pattern("demo/*.yml", base_dir=tmp_path)
 
-        # When base_dir equals cwd the first two entries should be identical and
-        # therefore deduplicated, leaving the cwd entry last.
+        # When base_dir equals cwd the base and parent entries are deduplicated
+        # and the repository root is appended.
         assert candidates == [
             tmp_path / "demo" / "*.yml",
             tmp_path.parent / "demo" / "*.yml",
+            proj_path() / "demo" / "*.yml",
         ]
 
     def test_candidate_roots_uses_current_directory_when_base_missing(self) -> None:
         roots = list(config_model._candidate_roots(None))
 
-        assert roots == [Path.cwd()]
+        assert roots == [proj_path()]
 
 
 class TestDataSettings:
@@ -159,7 +162,7 @@ class TestDataSettings:
                     "date_column": "date",
                     "frequency": "W",
                 },
-                context={"base_path": Path.cwd()},
+                context={"base_path": proj_path()},
             )
 
     def test_managers_glob_accepts_resolved_path(self, tmp_path: Path) -> None:
@@ -262,7 +265,7 @@ class TestDataSettings:
                     "date_column": "date",
                     "frequency": "hourly",
                 },
-                context={"base_path": Path.cwd()},
+                context={"base_path": proj_path()},
             )
 
     def test_frequency_accepts_month_end_alias(self, tmp_path: Path) -> None:

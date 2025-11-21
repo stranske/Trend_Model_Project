@@ -26,6 +26,7 @@ from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FO
 from trend_analysis.data import load_csv
 from trend_analysis.logging_setup import setup_logging
 from trend_model.spec import ensure_run_spec
+from utils.paths import proj_path
 
 LegacyExtractCacheStats = Callable[[object], dict[str, int] | None]
 
@@ -271,7 +272,7 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
 
     Relative paths from the configuration are first checked relative to the
     configuration file itself, then the directory *above* it (repo root), and
-    finally against the current working directory.  This mirrors the
+    finally against the repository root.  This mirrors the
     ``DataSettings`` resolver so configs can reference ``demo/demo_returns.csv``
     even though the YAML file lives under ``config/``.
     """
@@ -286,7 +287,7 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
             parent = cfg_dir.parent
             if parent != cfg_dir:
                 roots.append(parent)
-        roots.append(Path.cwd())
+        roots.append(proj_path())
         seen: set[Path] = set()
         for root in roots:
             if root in seen:
@@ -558,7 +559,7 @@ def _resolve_report_output_path(
         if base.suffix:
             return base
         return base / f"trend_report_{run_id}.html"
-    base_dir = export_dir if export_dir is not None else Path.cwd()
+    base_dir = export_dir if export_dir is not None else proj_path()
     return base_dir / f"trend_report_{run_id}.html"
 
 

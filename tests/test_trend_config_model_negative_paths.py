@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
+from utils.paths import proj_path
 
 
 def test_resolve_path_considers_base_dir_parent(tmp_path, monkeypatch):
@@ -295,7 +295,7 @@ def test_candidate_roots_includes_parent(tmp_path, monkeypatch):
     roots = list(config_model._candidate_roots(base))
     assert roots[0] == base
     assert roots[1] == tmp_path
-    assert Path.cwd() in roots
+    assert proj_path() in roots
 
 
 def test_data_settings_missing_policy_invalid_type(tmp_path):
