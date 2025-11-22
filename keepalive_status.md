@@ -14,4 +14,7 @@
 - [ ] Runs fail fast with a clear error if the configured risk-free column is missing.
 - [ ] Risk metrics and scaling use the configured series, with tests covering both explicit and opt-in heuristic modes.
 
+## Progress notes
+- Status unchanged: no scope items, tasks, or acceptance criteria have been met yet. Check items off only after acceptance criteria are satisfied and repost this checklist whenever any box is newly completed.
+
 Status auto-updates as tasks complete on this branch.
