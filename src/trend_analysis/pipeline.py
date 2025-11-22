@@ -1420,10 +1420,6 @@ def run(cfg: Config) -> pd.DataFrame:
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
-    risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
-    risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
     res = _run_analysis(
         df,
