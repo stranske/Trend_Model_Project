@@ -50,10 +50,22 @@ from datetime import datetime
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
-if SRC_ROOT.exists():
-    sys.path.insert(0, str(SRC_ROOT))
 
-from utils.paths import proj_path
+
+def _load_proj_path():
+    """Import proj_path after ensuring src/ is available on sys.path."""
+
+    if SRC_ROOT.exists():
+        src_str = str(SRC_ROOT)
+        if src_str not in sys.path:
+            sys.path.insert(0, src_str)
+
+    from utils.paths import proj_path as _proj_path
+
+    return _proj_path
+
+
+proj_path = _load_proj_path()
 
 SCENARIO_ENV = os.getenv("SCENARIOS", "t01_basic,t02_reuse,t03_rebootstrap")
 WORKDIR = proj_path()

@@ -79,7 +79,9 @@ def _price_frame_strategy(draw: st.DrawFn) -> pd.DataFrame:
             st.integers(min_value=0, max_value=max(1, len(index) // MAX_STAGGER_RATIO))
         )
         series_index = index[offset:]
-        asset_series = pd.Series(path[offset:], index=series_index, name=f"A{asset_idx}")
+        asset_series = pd.Series(
+            path[offset:], index=series_index, name=f"A{asset_idx}"
+        )
         columns[asset_series.name] = asset_series
 
     frame = pd.concat(columns.values(), axis=1)
