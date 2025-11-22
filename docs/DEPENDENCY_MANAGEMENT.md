@@ -374,6 +374,6 @@ The dependency management system follows these principles:
 
 ## Related Documentation
 
-- [Testing Guide](TESTING_SUMMARY.md) - Overview of test infrastructure
+- [Testing Guide](../archives/reports/2025-11-22_TESTING_SUMMARY.md) - Overview of test infrastructure (archived ledger)
 - [Coverage Guide](coverage-summary.md) - Coverage tracking and thresholds
 - [GitHub Copilot Instructions](../.github/copilot-instructions.md) - Development workflow
