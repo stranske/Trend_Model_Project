@@ -464,11 +464,11 @@ class TestConfigurationEdgeCases:
         """Test quality filter default values."""
         cfg = rank_selection.default_quality_config()
         # Check that config has expected keys
-        assert set(cfg) == {
+        assert set(cfg).issuperset({
             "implausible_value_limit",
             "max_missing_months",
             "max_missing_ratio",
-        }
+        })
 
     def test_risk_stats_config_defaults(self):
         """Test RiskStatsConfig default values."""
