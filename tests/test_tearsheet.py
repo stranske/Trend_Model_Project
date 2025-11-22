@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from analysis.tearsheet import DEFAULT_OUTPUT, load_results_payload, render
 from analysis import Results
+from analysis.tearsheet import DEFAULT_OUTPUT, load_results_payload, render
 
 
 def _dummy_results() -> Results:

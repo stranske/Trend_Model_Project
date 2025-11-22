@@ -10,6 +10,11 @@ from typing import IO, Sequence
 
 import pandas as pd
 
+from trend_portfolio_app.data_schema import (
+    apply_original_headers,
+    extract_headers_from_bytes,
+)
+
 logger = logging.getLogger(__name__)
 
 _SAMPLE_PREVIEW = (
@@ -89,11 +94,16 @@ def validate_uploaded_csv(
 
     try:
         buffer = _buffer_from_upload(file)
+        raw = buffer.getvalue()
+        is_excel = buffer.name.lower().endswith((".xlsx", ".xls"))
+        headers = extract_headers_from_bytes(raw, is_excel=is_excel)
+        data_buffer = io.BytesIO(raw)
+        data_buffer.name = buffer.name
         try:
-            if buffer.name.lower().endswith((".xlsx", ".xls")):
-                df = pd.read_excel(buffer)
+            if is_excel:
+                df = pd.read_excel(data_buffer)
             else:
-                df = pd.read_csv(buffer)
+                df = pd.read_csv(data_buffer)
         except Exception as exc:  # pragma: no cover - pandas already tested
             raise CSVValidationError(
                 "We could not read the uploaded file. Confirm it's a flat table with a "
@@ -101,6 +111,7 @@ def validate_uploaded_csv(
                 issues=[str(exc)],
                 sample_preview=_SAMPLE_PREVIEW,
             ) from exc
+        apply_original_headers(df, headers)
 
         original_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
         safe_columns = [_safe_column_name(col) for col in original_headers]
@@ -110,7 +121,7 @@ def validate_uploaded_csv(
             raise CSVValidationError(
                 "Column names must be unique.",
                 issues=(
-                    [f"Duplicate column(s) detected: {dup_display}."]
+                    [f"Duplicate headers detected: {dup_display}"]
                     if dup_display
                     else None
                 ),
