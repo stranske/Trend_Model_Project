@@ -144,12 +144,19 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
         validator(models._PydanticConfigImpl, {"max_turnover": "2.5"})  # type: ignore[attr-defined]
 
+    with pytest.raises(ValueError, match="lambda_tc must be >= 0"):
+        validator(models._PydanticConfigImpl, {"lambda_tc": "-0.1"})  # type: ignore[attr-defined]
+
+    with pytest.raises(ValueError, match="lambda_tc must be <= 1"):
+        validator(models._PydanticConfigImpl, {"lambda_tc": "1.5"})  # type: ignore[attr-defined]
+
     validated = validator(
         models._PydanticConfigImpl,
-        {"transaction_cost_bps": "15", "max_turnover": "1.5"},
+        {"transaction_cost_bps": "15", "max_turnover": "1.5", "lambda_tc": "0.3"},
     )  # type: ignore[attr-defined]
     assert validated["transaction_cost_bps"] == pytest.approx(15.0)
     assert validated["max_turnover"] == pytest.approx(1.5)
+    assert validated["lambda_tc"] == pytest.approx(0.3)
 
 
 def test_pydantic_config_cache_reused(monkeypatch: pytest.MonkeyPatch) -> None:
