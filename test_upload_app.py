@@ -116,3 +116,12 @@ except ImportError as e:
     if uploaded_file:
         st.sidebar.write(f"File: {uploaded_file.name}")
         st.sidebar.write(f"Size: {uploaded_file.size:,} bytes")
+
+
+# Quick-reference fuzz cases used by automated tests and manual checks
+FUZZY_UPLOAD_CASES = {
+    "duplicate_columns": "Date,Return,Return\n2020-01-31,0.1,0.2\n",
+    "formula_headers": "=Date,=Alpha\n2020-01-31,0.1\n",
+    "too_many_rows": "Date,Value\n"
+    + "\n".join([f"2020-01-{day:02d},{day}" for day in range(1, 105)]),
+}

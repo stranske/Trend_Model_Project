@@ -26,6 +26,7 @@ class SampleDataset:
     description: str | None = None
 
 
+@st.cache_data(show_spinner=False)
 def _available_demo_files() -> list[Path]:
     """Return a list of existing demo dataset paths."""
 
@@ -36,6 +37,7 @@ def _available_demo_files() -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
+@st.cache_data(show_spinner=False)
 def list_sample_datasets() -> list[SampleDataset]:
     """Return the bundled sample datasets that are available on disk."""
 
@@ -94,6 +96,7 @@ def default_sample_dataset() -> SampleDataset | None:
     return datasets[0] if datasets else None
 
 
+@st.cache_data(show_spinner=False)
 def dataset_choices() -> Mapping[str, SampleDataset]:
     """Return a mapping from human readable label to dataset metadata."""
 
