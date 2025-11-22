@@ -194,7 +194,9 @@ def _resolve_risk_free_column(
 
     if allow_fallback:
         if not candidates:
-            raise ValueError("No numeric columns available to infer a risk-free series.")
+            raise ValueError(
+                "No numeric columns available to infer a risk-free series."
+            )
         probe_cols = [date_col, *candidates] if date_col in df.columns else candidates
         rf_col = identify_risk_free_fund(df[probe_cols])
         if rf_col is None:
