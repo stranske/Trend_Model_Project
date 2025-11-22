@@ -56,6 +56,11 @@ pip install --no-deps -e .[dev]
 COVERAGE_PROFILE=full ./scripts/run_tests.sh
 ```
 
+## Docker Helpers and Release Smoke Tests
+
+- **Local services with Compose:** Use `docker compose up --build app` for the Streamlit UI or `docker compose up --build api` to include the FastAPI service on port 8000. Both services share the local image built from `Dockerfile` and mount `./data` into the containers for quick manual validation.
+- **Published image verification:** After the GitHub release workflow publishes `ghcr.io/stranske/trend-model:latest`, run `./test_docker.sh` to pull the image, wait for the API health endpoint, and confirm CLI/import readiness. The script is manual-only; CI does not invoke it.
+
 ## Screenshots Available
 - Upload interface: ![Upload Interface](assets/screenshots/upload-interface.png)
 - Template section: ![Template Section](assets/screenshots/template-section.png)

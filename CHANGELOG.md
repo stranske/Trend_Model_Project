@@ -13,6 +13,7 @@ The format is based on Keep a Changelog (https://keepachangelog.com/) and this p
 
 ### Changed
 - `compute_signal` now returns a strictly causal rolling mean shifted by one period (previously included the current row). Prevents subtle look‑ahead bias in downstream position construction (Issue #1438).
+- Documented the continued manual use of `docker-compose.yml` and `test_docker.sh` for local smoke tests and GHCR release verification, avoiding archival after confirming no CI dependencies.
 
 ### Deprecated
 - Legacy root scripts (`portfolio_analysis_report.py`, `manager_attribution_analysis.py`, `demo_turnover_cap.py`) now emit `DeprecationWarning` and delegate to unified `trend` CLI (Issue #1437).
