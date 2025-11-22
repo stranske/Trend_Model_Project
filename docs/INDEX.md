@@ -8,8 +8,8 @@ Use this index to find the current contributor guides and to understand which ov
 | `README.md` | Contributors running the CLI and demos | Quickstart for editable installs and CLI usage; retains legacy actionlint appendix that is being superseded by this index. |
 | `README_APP.md` | Streamlit app users and simulation maintainers | Install, layout, and Streamlit/CLI integration notes for the packaged app. |
 | `README_DATA.md` | Anyone using bundled datasets | Provenance, intended use, and validation contract for the demo CSVs. |
-| `TESTING_SUMMARY.md` | Test authors and reviewers | Upload app test coverage, commands, and portfolio app coverage notes. |
-| `Issues.txt` | Automation/backlog tooling | Structured list of engine/config cleanup tasks consumed by parser tests. |
+| `archives/reports/2025-11-22_TESTING_SUMMARY.md` | Test authors and reviewers | Archived upload app test coverage, commands, and portfolio app coverage notes. |
+| `archives/docs/2025-11-22_Issues.txt` | Automation/backlog tooling | Historical list of engine/config cleanup tasks kept for parser reference. |
 | `ROBUSTNESS_GUIDE.md` | Historical reference | Stub pointing to the archived robustness how-to at `archives/docs/ROBUSTNESS_GUIDE.md`. |
 | `docs/README.md` | Documentation entrypoint | Replaces the vendored actionlint README; routes readers here. |
 
@@ -20,7 +20,7 @@ Use this index to find the current contributor guides and to understand which ov
 - `docs/WORKFLOW_GUIDE.md` plus `docs/ci/WORKFLOW_SYSTEM.md` for CI/workflow topology and maintenance.
 
 ### Testing
-- `TESTING_SUMMARY.md` for the upload and portfolio app testing ledger.
+- `archives/reports/2025-11-22_TESTING_SUMMARY.md` for the upload and portfolio app testing ledger.
 - `scripts/run_tests.sh` for the standard suite entrypoint referenced across CI jobs.
 
 ### Robustness

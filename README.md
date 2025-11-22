@@ -116,12 +116,42 @@ if __name__ == "__main__":
     setup_script_logging(app_name="rebalance-helper")
 ```
 
+### Root-level file inventory and placement
+
+| File | Category | Purpose / placement rationale |
+| --- | --- | --- |
+| `README.md` | Reference doc | CLI quickstart and inventory anchor kept at the repository entrypoint. |
+| `AGENTS_APP.md` | Reference doc | App + simulator work instructions surfaced at the top level for quick discovery. |
+| `Agents.md` | Reference doc | Guard-rails and workflow guidance that govern repository changes. |
+| `README_APP.md` | Reference doc | Streamlit app install, layout, and preset notes for maintainers. |
+| `README_DATA.md` | Reference doc | Provenance and usage notes for bundled datasets referenced during onboarding. |
+| `CHANGELOG.md` | Reference doc | Release notes held at the root per conventional placement. |
+| `CODE_OF_CONDUCT.md` | Reference doc | Community policy required at repository entry. |
+| `CONTRIBUTING.md` | Reference doc | Contribution workflow and review expectations. |
+| `DEPENDENCY_QUICKSTART.md` | Reference doc | Dependency setup cheat sheet kept beside the main README. |
+| `DOCKER_QUICKSTART.md` | Reference doc | Docker usage guide co-located with `docker-compose.yml` and the root Dockerfile. |
+| `ROBUSTNESS_GUIDE.md` | Reference doc | Legacy robustness pointer retained until a refreshed guide lands. |
+| `SECURITY.md` | Reference doc | Security policy and disclosure expectations. |
+| `Trend Universe Data.csv` | Data sample | Primary demo return matrix; universe configs reference the root path directly. |
+| `Trend Universe Membership.csv` | Data sample | Membership ledger paired with the return matrix; loaders expect the root location. |
+| `hedge_fund_returns_with_indexes.csv` | Data sample | Benchmark demo input consumed by example configs and docs. |
+| `test_multi_period_selection.py` | Active script | Standalone regression harness kept at root for quick manual selection checks. |
+| `test_upload_app.py` | Active script | Upload-app smoke harness invoked directly outside the pytest tree. |
+| `coverage-summary.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_coverage-summary.md` (CI snapshot). |
+| `gate-summary.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_gate-summary.md` (CI gate snapshot). |
+| `keepalive_status.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_keepalive_status.md` (keepalive snapshot). |
+
+See `archives/ROOT_FILE_INDEX.md` for the dated archive index covering additional root-level artefacts moved out of the entrypoint.
+
 ### Archived generated artifacts
 
 Historical CI outputs (for example `coverage-summary.md`, `gate-summary.md`,
-`keepalive_status.md`, and the performance baseline) now live under
-`archives/generated/2025/`.  Symlinks at the original paths keep existing
-workflows and scripts working while clearly separating past runs from new ones.
+and `keepalive_status.md`) are date-stamped under
+`archives/generated/2025/` with root-level symlinks pointing at the current
+copies. Additional legacy reports such as `Portfolio_Test_Results_Summary.md`,
+`TESTING_SUMMARY.md`, and `Issues.txt` moved to the `archives/reports/`
+and `archives/docs/` trees on 2025-11-22; use `archives/ROOT_FILE_INDEX.md`
+to find the precise paths.
 
 ---
 
