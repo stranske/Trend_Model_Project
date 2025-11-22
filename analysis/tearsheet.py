@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 import matplotlib
+import numpy as np
 import pandas as pd
 
 from .results import Results, build_metadata
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402  (deferred import for Agg)
+from matplotlib.axes import Axes
 
 DEFAULT_LAST_RUN = Path("demo/portfolio_test_results/last_run_results.json")
 DEFAULT_OUTPUT = Path("reports/tearsheet.md")
@@ -53,7 +55,9 @@ def _annualised_sharpe(returns: pd.Series, periods_per_year: float) -> float:
     vol = returns.std(ddof=0)
     if vol == 0:
         return float("nan")
-    return float((returns.mean() * periods_per_year) / (vol * math.sqrt(periods_per_year)))
+    return float(
+        (returns.mean() * periods_per_year) / (vol * math.sqrt(periods_per_year))
+    )
 
 
 def _annualised_volatility(returns: pd.Series, periods_per_year: float) -> float:
@@ -104,7 +108,9 @@ def _inflate_results(payload: Mapping[str, Any]) -> Results:
     return Results.from_payload(payload)
 
 
-def bootstrap_demo_results(data_path: Path | str = "demo/extended_returns.csv") -> Results:
+def bootstrap_demo_results(
+    data_path: Path | str = "demo/extended_returns.csv",
+) -> Results:
     data_path = Path(data_path)
     if not data_path.is_absolute():
         data_path = (_ROOT / data_path).resolve()
@@ -152,8 +158,17 @@ def load_results_payload(path: Path | str = DEFAULT_LAST_RUN) -> Results:
     return results
 
 
-def _plot_axes(ax, index: Iterable[Any], series: Iterable[float], title: str, *, color: str = "tab:blue") -> None:
-    ax.plot(index, list(series), color=color)
+def _plot_axes(
+    ax: Axes,
+    index: Iterable[Any],
+    series: Iterable[float],
+    title: str,
+    *,
+    color: str = "tab:blue",
+) -> None:
+    x_values = np.asarray(list(index))
+    y_values = np.asarray(list(series), dtype=float)
+    ax.plot(x_values, y_values, color=color)
     ax.set_title(title)
     ax.grid(True, linestyle=":", linewidth=0.6)
 
@@ -162,7 +177,9 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     returns = _ensure_datetime_index(results.returns).sort_index()
-    turnover = _ensure_datetime_index(results.turnover).reindex_like(returns, method="ffill")
+    turnover = _ensure_datetime_index(results.turnover).reindex_like(
+        returns, method="ffill"
+    )
 
     equity = (1 + returns.fillna(0)).cumprod()
     drawdown = equity / equity.cummax() - 1
@@ -172,7 +189,11 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
     cagr = _cagr(equity, periods_per_year)
     max_dd = float(drawdown.min()) if not drawdown.empty else float("nan")
     avg_turnover = float(turnover.mean()) if not turnover.empty else 0.0
-    cost_drag = float(results.costs.get("turnover_applied") or results.costs.get("monthly_cost") or 0.0)
+    cost_drag = float(
+        results.costs.get("turnover_applied")
+        or results.costs.get("monthly_cost")
+        or 0.0
+    )
 
     roll_window = max(6, min(len(returns), 12))
     rolling_sharpe = returns.rolling(roll_window).apply(
@@ -184,10 +205,22 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
     _plot_axes(axes[0, 0], equity.index, equity, "Equity curve", color="tab:green")
-    _plot_axes(axes[0, 1], rolling_sharpe.index, rolling_sharpe, "Rolling Sharpe", color="tab:purple")
+    _plot_axes(
+        axes[0, 1],
+        rolling_sharpe.index,
+        rolling_sharpe,
+        "Rolling Sharpe",
+        color="tab:purple",
+    )
     _plot_axes(axes[1, 0], drawdown.index, drawdown, "Drawdown", color="tab:red")
     _plot_axes(axes[1, 1], turnover.index, turnover, "Turnover", color="tab:orange")
-    axes[0, 1].plot(rolling_vol.index, rolling_vol, color="tab:blue", linestyle="--", label="Rolling vol")
+    axes[0, 1].plot(
+        rolling_vol.index,
+        rolling_vol,
+        color="tab:blue",
+        linestyle="--",
+        label="Rolling vol",
+    )
     axes[0, 1].legend()
     for ax in axes.flat:
         ax.tick_params(axis="x", rotation=20)
@@ -219,4 +252,3 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
 
     out_path.write_text("\n".join(lines), encoding="utf-8")
     return out_path, plot_path
-
