@@ -146,15 +146,6 @@ def validate_uploaded_csv(
                 sample_preview=_SAMPLE_PREVIEW,
             )
 
-        duplicated = df.columns[df.columns.duplicated()].unique()
-        if len(duplicated) > 0:
-            preview = ", ".join(str(col) for col in duplicated[:5])
-            raise CSVValidationError(
-                "Column names must be unique.",
-                issues=[f"Duplicate headers detected: {preview}"],
-                sample_preview=_SAMPLE_PREVIEW,
-            )
-
         lookup = {_normalise(col): str(col) for col in df.columns}
         missing = [col for col in required_columns if _normalise(col) not in lookup]
         if missing:
