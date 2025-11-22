@@ -1,5 +1,7 @@
 # Keepalive Status — PR #3717
 
+> **Status:** No scope items completed yet; checklists remain unchecked until the acceptance criteria are satisfied.
+
 ## Scope
 - [ ] In portfolio construction, add optional parameter `lambda_tc` that shrinks proposed weight changes toward previous weights (simple L1-style penalty or convex combination).
 - [ ] Switchable without touching signal definitions.
