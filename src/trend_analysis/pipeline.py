@@ -13,6 +13,8 @@ from analysis.results import build_metadata
 
 from .core.rank_selection import (
     RiskStatsConfig,
+    get_window_metric_bundle,
+    make_window_key,
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
@@ -138,7 +140,8 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
                 return default
         except KeyError:
             return default
-    return default
+    attr_value = getattr(section, key, default)
+    return attr_value
 
 
 def _resolve_risk_free_column(
@@ -864,6 +867,9 @@ def _run_analysis(
     if indices_list is None:
         indices_list = []
 
+    rf_col: str
+    fund_cols: list[str]
+    rf_source: str
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         df,
         date_col=date_col,
@@ -925,13 +931,20 @@ def _run_analysis(
         sub = df.loc[mask, fund_cols]
         window_key = None
         bundle = None
+        if stats_cfg is not None and fund_cols:
+            try:
+                window_key = make_window_key(in_start, in_end, sub.columns, stats_cfg)
+            except Exception:  # pragma: no cover - defensive
+                window_key = None
+        if window_key is not None:
+            bundle = get_window_metric_bundle(window_key)
         rank_options: dict[str, Any] = dict(rank_kwargs or {})
+        rank_options.setdefault("window_key", window_key)
+        rank_options.setdefault("bundle", bundle)
         fund_cols = rank_select_funds(
             sub,
             stats_cfg,
             **rank_options,
-            window_key=window_key,
-            bundle=bundle,
             risk_free=risk_free_override,
         )
     elif selection_mode == "manual":

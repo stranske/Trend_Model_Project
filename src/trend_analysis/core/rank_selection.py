@@ -1001,8 +1001,14 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
+            metric_kwargs: dict[str, Any] = {}
+            if risk_free_override is not None:
+                metric_kwargs["risk_free_override"] = risk_free_override
             raw = _compute_metric_series(
-                in_sample_df, metric, stats_cfg, risk_free_override=risk_free_override
+                in_sample_df,
+                metric,
+                stats_cfg,
+                **metric_kwargs,
             )
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score
