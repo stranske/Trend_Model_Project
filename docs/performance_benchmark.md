@@ -18,8 +18,10 @@ runtime increases by more than `PERF_REGRESSION_PCT` (default 15%). Equal or
 smaller increases pass (non-strict comparator).
 
 ## Baseline
-Stored at `perf/perf_baseline.json` (generated with rows=1200, cols=35, runs=4).
-To regenerate after intentional optimisation:
+Stored at `archives/generated/2025/perf/perf_baseline.json` (generated with
+rows=1200, cols=35, runs=4). The legacy path `perf/perf_baseline.json` remains
+available via a symlink for CI and helper script compatibility. To regenerate
+after intentional optimisation:
 
 ```bash
 python scripts/benchmark_performance.py \

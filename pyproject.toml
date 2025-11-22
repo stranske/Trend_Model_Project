@@ -111,6 +111,7 @@ extend-exclude = '''
 /(
         Old
     | notebooks/old
+    | archives/legacy_assets
     | \\.autofix-venv
     | .*\.ipynb
 )/
@@ -121,6 +122,7 @@ force-exclude = '''
 
 [tool.ruff]
 extend-exclude = [
+  "archives/legacy_assets",
   "notebooks/old",
   "Old",
   "*.ipynb",
@@ -136,7 +138,7 @@ extend-exclude = [
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
-exclude = "^(Old/|notebooks/old/)"
+exclude = "^(Old/|notebooks/old/|archives/legacy_assets/)"
 mypy_path = ["src", "src/trend_analysis/stubs"]
 explicit_package_bases = true
 namespace_packages = true

@@ -133,7 +133,7 @@ fi
 
 # Analyze what changed to determine optimal validation strategy
 echo -e "${BLUE}Analyzing changes...${NC}"
-CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null || echo "")
+CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(Old/|notebooks/old/|archives/legacy_assets/)' 2>/dev/null || echo "")
 PYTHON_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(py)$' 2>/dev/null || echo "")
 CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|toml|cfg|ini)$' 2>/dev/null || echo "")
 TEST_FILES=$(echo "$PYTHON_FILES" | grep -E '^tests/' 2>/dev/null || echo "")
