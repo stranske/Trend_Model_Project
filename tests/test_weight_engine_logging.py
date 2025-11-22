@@ -126,6 +126,76 @@ def test_weight_engine_import_failure_logging(caplog):
     assert "Mock import error" in fallback_logs[0].message
 
 
+def test_weight_engine_failure_preserves_logger_level_and_metadata(caplog):
+    """Fallback path should not mutate logger levels and carries diagnostics."""
+
+    df = make_df()
+    original_level = pipeline.logger.level
+    pipeline.logger.setLevel(logging.INFO)
+
+    try:
+        with caplog.at_level(logging.DEBUG, logger=pipeline.logger.name):
+            result = pipeline._run_analysis(
+                df,
+                "2020-01",
+                "2020-03",  # in sample
+                "2020-04",
+                "2020-06",  # out of sample
+                target_vol=1.0,
+                monthly_cost=0.0,
+                weighting_scheme="nonexistent_engine",
+            )
+
+        assert pipeline.logger.level == logging.INFO
+    finally:
+        pipeline.logger.setLevel(original_level)
+    fallback = result["weight_engine_fallback"]
+    assert fallback["engine"] == "nonexistent_engine"
+    assert fallback["logger_level"]
+
+    debug_logs = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.DEBUG and getattr(record, "weight_engine", None)
+        == "nonexistent_engine"
+    ]
+    assert any("falling back to equal weights" in record.message for record in debug_logs)
+
+
+def test_weight_engine_success_preserves_logger_level(caplog):
+    """Successful engine creation should leave logger level untouched."""
+
+    df = make_df()
+    original_level = pipeline.logger.level
+    pipeline.logger.setLevel(logging.INFO)
+
+    try:
+        with caplog.at_level(logging.DEBUG, logger=pipeline.logger.name):
+            result = pipeline._run_analysis(
+                df,
+                "2020-01",
+                "2020-03",  # in sample
+                "2020-04",
+                "2020-06",  # out of sample
+                target_vol=1.0,
+                monthly_cost=0.0,
+                weighting_scheme="risk_parity",
+            )
+
+        assert result is not None
+        assert pipeline.logger.level == logging.INFO
+    finally:
+        pipeline.logger.setLevel(original_level)
+
+    debug_logs = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.DEBUG and getattr(record, "weight_engine", None)
+        == "risk_parity"
+    ]
+    assert any("Successfully created risk_parity weight engine" in record.message for record in debug_logs)
+
+
 def test_weight_engine_no_scheme_no_logging(caplog):
     """Test that no weight engine logging occurs when no weighting scheme is
     provided."""

@@ -1,18 +1,15 @@
-# Keepalive Status for Tearsheets PR
+# Keepalive Status for Weight Engine Logging PR
 
 ## Scope
-- [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
-- [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
-- [x] CLI wiring: `python -m src.cli report --last-run`.
-- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
+- [x] Eliminate global logger level changes in weight engine fallbacks.
+- [x] Use contextual debug logging or enrich existing fallback metadata instead.
+- [x] Add targeted tests to ensure logging levels remain stable after fallback execution.
 
 ## Tasks
-- [x] Implement renderer and basic plots.
-- [x] Minimal CLI and example run command in README.
-- [x] Test that the file is written and includes expected sections.
+- [x] Update fallback code to avoid changing logger levels while still capturing useful debug information.
+- [x] Add tests verifying logger levels before/after fallback remain unchanged and that debug details are available via structured data/log messages.
 
 ## Acceptance criteria
-- [x] Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
-- [x] CI artifact (optional) or repo file present after a demo run.
+- [x] Weight engine failures no longer mutate global logger levels, and diagnostics remain accessible.
 
 Status auto-updates as tasks complete on this branch.
