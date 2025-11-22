@@ -116,7 +116,7 @@ if __name__ == "__main__":
     setup_script_logging(app_name="rebalance-helper")
 ```
 
-### Archived generated artefacts
+### Archived generated artifacts
 
 Historical CI outputs (for example `coverage-summary.md`, `gate-summary.md`,
 `keepalive_status.md`, and the performance baseline) now live under
