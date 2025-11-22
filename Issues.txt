@@ -1,131 +1,95 @@
-1) Add walk-forward (time-series) cross-validation harness + CLI
-Labels: enhancement, engine, testing, exports, priority: low, risk:low
+1) Title: Break up monolithic _run_analysis into testable stages with explicit outcomes
+Labels: enhancement, engine, backend, priority: medium, risk:medium
 Body:
 ## Why
-Block/expanding validation offers a clearer OOS picture than a single in-sample run.
+The current `_run_analysis` function spans preprocessing, selection, weighting, risk scaling, benchmarking, and exports in a single block with multiple silent early exits. This coupling makes it difficult to unit-test stages, reason about failures, or reuse components.
 ## Scope
-- `analysis/cv.py::walk_forward(data, folds=3, expand=True, params=...) -> Report`.
-- Metrics per fold: OOS Sharpe, max drawdown, turnover, cost drag.
-- Small CLI entry point: `python -m src.cli cv --folds 5 --config config.yml`.
-- Export a concise CSV/MD report.
+- Introduce focused helpers for each stage (preprocessing, sampling/window resolution, selection, weighting/risk scaling, benchmarking/report assembly) and have `_run_analysis` orchestrate them.
+- Return structured result/diagnostic objects instead of bare `None` so callers can trace why a run produced no output.
+- Preserve existing behaviour by keeping the public API intact while internally delegating to the new helpers.
 ## Non-Goals
-- Hyperparameter search; evaluation only.
+- Changing business logic or defaults beyond improved structure and observability.
+- Reworking the CLI/UI layers beyond adapting to the new return structure if required.
 ## Tasks
-- [ ] Implement harness and metrics.
-- [ ] CLI wrapper and example config.
-- [ ] Test on synthetic data with deterministic seed.
+- [ ] Identify logical sub-steps in `_run_analysis` and extract them into testable functions with clear inputs/outputs.
+- [ ] Add unit tests per helper covering success and failure paths.
+- [ ] Update `_run_analysis` to orchestrate helpers and propagate structured diagnostics.
+- [ ] Verify existing entry points (CLI/API) handle the richer return values without behaviour changes.
 ## Acceptance Criteria
-- Running the CLI produces fold metrics and a combined OOS summary file.
-- Tests confirm fold boundaries and no look-ahead in CV splits.
+- `_run_analysis` reads as a short orchestrator calling extracted helpers.
+- Unit tests cover the new helpers and confirm early exits report explicit reasons instead of returning `None`.
+- Existing external behaviour (inputs/outputs) remains unchanged aside from added diagnostics.
 
-2) Title: Cost-aware portfolio constructor (L1 turnover penalty option)
-Labels: enhancement, engine, priority: low, risk:low
+2) Title: Require explicit risk-free series configuration instead of lowest-volatility heuristic
+Labels: bug, config, engine, priority: medium, risk:medium
 Body:
 ## Why
-A small penalty on weight changes reduces churn and better reflects frictions.
+Selecting the lowest-volatility column as the risk-free proxy can misclassify investable assets (e.g., low-vol ETFs) and distort Sharpe/IR calculations and scaling decisions. An explicit configuration avoids accidental misuse.
 ## Scope
-- In portfolio construction, add optional parameter `lambda_tc` that shrinks proposed weight changes toward previous weights (simple L1-style penalty or convex combination).
-- Switchable without touching signal definitions.
-- Unit tests on a toy series confirming reduced turnover as `lambda_tc` increases.
+- Add a configuration option to specify the risk-free column name, with validation to ensure it exists and is excluded from investable assets.
+- Make the current lowest-volatility fallback opt-in and clearly logged when used.
+- Update documentation and example configs to demonstrate explicit risk-free selection.
 ## Non-Goals
-- Full optimizer rewrite; start with a simple penalty/shrinkage heuristic.
+- Changing metric definitions or portfolio construction logic beyond risk-free handling.
 ## Tasks
-- [ ] Implement penalty logic gated by config.
-- [ ] Add tests demonstrating monotone decrease in turnover vs. `lambda_tc`.
+- [ ] Add config parsing/validation for an explicit risk-free column and gate the heuristic behind a flag.
+- [ ] Adjust risk calculations to use the configured series and exclude it from asset universes.
+- [ ] Update docs/sample configs and add tests covering explicit selection and the optional fallback.
 ## Acceptance Criteria
-- With the same signals, higher `lambda_tc` yields lower turnover in tests.
+- Runs fail fast with a clear error if the configured risk-free column is missing.
+- Risk metrics and scaling use the configured series, with tests covering both explicit and opt-in heuristic modes.
 
-3) Title: Centralize project-root path resolution to avoid CWD fragility
-Labels: enhancement, backend, config, priority: low, risk:low
+3) Title: Emit structured diagnostics for all early-exit conditions
+Labels: enhancement, backend, logging, priority: medium, risk:low
 Body:
 ## Why
-Relative paths break under Docker, tests, and Streamlit; a single resolver avoids “works on my machine.”
+Many branches in the pipeline return `None` when data is empty, dates are invalid, or universes are filtered out, leaving callers without context. Structured diagnostics improve debuggability.
 ## Scope
-- Add `src/utils/paths.py::proj_path(*parts)` which resolves relative to repo root (env override allowed).
-- Replace ad-hoc `Path.cwd()` joins in scripts and the app with `proj_path`.
-- Tests that simulate different CWDs to ensure stability.
+- Enumerate early-exit conditions across preprocessing, calendar alignment, missing-data filtering, and selection stages.
+- Replace bare `None` returns with status objects or warnings that include reason codes and key context (e.g., empty timestamps, all funds filtered by missing-data policy).
+- Ensure CLI/API surfaces these diagnostics to users (e.g., logged warnings or structured responses).
 ## Non-Goals
-- Changing storage locations; only how paths are resolved.
+- Changing underlying filtering rules or thresholds.
 ## Tasks
-- [ ] Implement resolver and adopt it in scripts/apps where relevant.
-- [ ] Add tests covering non-root CWD and Docker working dirs.
+- [ ] Catalogue current `None` return paths and add reason codes/messages.
+- [ ] Thread diagnostics through the pipeline and surface them in user-facing logs/outputs.
+- [ ] Add tests verifying each early-exit condition reports the expected diagnostic.
 ## Acceptance Criteria
-- All existing scripts run from any CWD without path errors.
+- Every early-exit path returns a diagnostic payload instead of silent `None`.
+- CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
 
-4) Title: Streamlit app: cache heavy work and harden uploads (size and CSV injection)
-Labels: enhancement, backend, testing, documentation, priority: low, risk:low
+4) Title: Remove logging-level mutation in weight engine fallback paths
+Labels: bug, logging, engine, priority: low, risk:low
 Body:
 ## Why
-Uploads can be messy (duplicate columns, formula strings) and re-running heavy work kills UX.
+When a plugin weight engine fails, the fallback currently mutates the module logger level to DEBUG, altering global logging behaviour beyond the failure scope.
 ## Scope
-- Use `st.cache_data` for expensive loads and derived tables; `st.cache_resource` if needed.
-- Reject files above a configurable size (for example, 10 MB); sanitize headers starting with `=`, `+`, `-`, `@`.
-- Validate schema before merging uploaded data with internal series; require unique column names.
-- Extend `test_upload_app.py` with fuzzier inputs.
+- Eliminate global logger level changes in weight engine fallbacks.
+- Use contextual debug logging or enrich existing fallback metadata instead.
+- Add targeted tests to ensure logging levels remain stable after fallback execution.
 ## Non-Goals
-- Building a full data catalog; just guardrails for user inputs.
+- Redesigning logging configuration elsewhere in the project.
 ## Tasks
-- [ ] Implement caching and guards.
-- [ ] Add validation errors with clear messages in the UI.
-- [ ] Extend tests for large files, duped columns, and formula-like headers.
+- [ ] Update fallback code to avoid changing logger levels while still capturing useful debug information.
+- [ ] Add tests verifying logger levels before/after fallback remain unchanged and that debug details are available via structured data/log messages.
 ## Acceptance Criteria
-- App accepts valid CSVs quickly on rerun and rejects malformed inputs with actionable messages.
-- Tests cover the new edge cases.
+- Weight engine failures no longer mutate global logger levels, and diagnostics remain accessible.
 
-5) Title: Export a code-driven “tearsheet” (Markdown/HTML) from Results
-Labels: enhancement, exports, documentation, priority: low, risk:low
+5) Title: Remove or quarantine unused ranking utilities to reduce maintenance noise
+Labels: cleanup, engine, testing, priority: low, risk:low
 Body:
 ## Why
-A reproducible summary beats manually exporting notebook cells.
+Unused artifacts like `some_function_missing_annotation` and the `FundSelectionConfig` dataclass in `core/rank_selection.py` add confusion and risk divergence from actively used ranking logic.
 ## Scope
-- `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with:
-  - Table of headline stats (Sharpe, drawdown, vol, CAGR), turnover, cost drag.
-  - Plots: equity curve, rolling Sharpe/vol, drawdown, turnover.
-- Wire a CLI: `python -m src.cli report --last-run`.
-- Reference it from `Portfolio_Test_Results_Summary.md`.
+- Identify unused ranking utilities and remove them or move them into a clearly marked legacy/experimental module.
+- Ensure public APIs and tests reference only the supported ranking functions.
+- Add or update tests to confirm the active ranking path remains intact after cleanup.
 ## Non-Goals
-- Styling perfection; prioritize content and determinism.
+- Introducing new ranking features or altering current selection behaviour.
 ## Tasks
-- [ ] Implement renderer and basic plots.
-- [ ] Minimal CLI and example run command in README.
-- [ ] Test that the file is written and includes expected sections.
+- [ ] Trace usage of ranking utilities and delete or isolate unused items with appropriate documentation.
+- [ ] Update imports/call sites and adjust tests accordingly.
+- [ ] Add/maintain tests to ensure the supported ranking functions operate as before.
 ## Acceptance Criteria
-- Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
-- CI artifact (optional) or repo file present after a demo run.
-
-6) Title: Property-based tests for time-series robustness (Hypothesis)
-Labels: testing, engine, priority: low, risk:low
-Body:
-## Why
-Randomized series with drops/spikes catch edge cases that examples miss.
-## Scope
-- Add `tests/test_timeseries_properties.py` using Hypothesis to generate price paths with:
-  - Missing days, outliers, flat segments, and partial histories.
-- Assertions: no NaNs through the pipeline, monotonic timestamps preserved, turnover and cost finite, and contracts hold.
-- Cross-link with the data contracts (Issue 2) and timing (Issue 3).
-## Non-Goals
-- Maximizing coverage numbers; focus on failure discovery.
-## Tasks
-- [ ] Implement generators and property tests.
-- [ ] Ensure seeds are fixed for determinism in CI.
-## Acceptance Criteria
-- Property suite passes in CI and locally.
-- Failing seeds are reported with minimal repro context for debugging.
-
-7) Title: Minimal config registry for universes (YAML)
-Labels: enhancement, config, data, priority: low, risk:low
-Body:
-## Why
-Swapping small predefined universes without branching code simplifies comparisons.
-## Scope
-- Add `config/universe/*.yml` describing a few “named universes” that map to the existing CSV membership timelines.
-- Loader knows how to pick a universe by key and read the current CSVs.
-- CLI switch `--universe core` to select at run time; default preserves today’s behavior.
-## Non-Goals
-- Moving to a complex config framework; keep it tiny and explicit.
-## Tasks
-- [ ] Create 2–3 example universe YAMLs.
-- [ ] Add a tiny accessor `load_universe(key)` that returns the time-varying mask.
-- [ ] Example run documented in README.
-## Acceptance Criteria
-- A run can be re-executed against another named universe by changing a single CLI flag.
+- `core/rank_selection.py` contains only actively used utilities (or clearly segregated legacy stubs).
+- Test suite passes with the cleaned-up module and no stray references to removed utilities.
