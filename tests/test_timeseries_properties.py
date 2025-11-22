@@ -58,7 +58,7 @@ def _price_frame_strategy(draw: st.DrawFn) -> pd.DataFrame:
         path = 100.0 * np.cumprod(1.0 + steps)
 
         flat_len = draw(st.integers(min_value=1, max_value=min(5, len(path))))
-        flat_start = draw(st.integers(min_value=0, max_value=len(path) - flat_len))
+        flat_start = draw(st.integers(min_value=0, max_value=max(0, len(path) - flat_len)))
         path[flat_start : flat_start + flat_len] = path[flat_start]
 
         outlier_idx = draw(st.integers(min_value=0, max_value=len(path) - 1))
