@@ -565,6 +565,7 @@ def _run_analysis(
     risk_window: Mapping[str, Any] | None = None,
     periods_per_year_override: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
+    lambda_tc: float | None = None,
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
@@ -924,6 +925,7 @@ def _run_analysis(
             long_only=long_only,
             max_weight=max_weight_val,
             previous_weights=previous_weights,
+            lambda_tc=lambda_tc,
             max_turnover=turnover_cap,
             group_caps=group_caps_map,
             groups=groups_map,
@@ -1235,6 +1237,7 @@ def run_analysis(
     risk_window: Mapping[str, Any] | None = None,
     periods_per_year: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
+    lambda_tc: float | None = None,
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
@@ -1283,6 +1286,7 @@ def run_analysis(
         risk_window=risk_window,
         periods_per_year_override=periods_per_year,
         previous_weights=previous_weights,
+        lambda_tc=lambda_tc,
         max_turnover=max_turnover,
         signal_spec=signal_spec,
         regime_cfg=regime_cfg,
@@ -1353,6 +1357,7 @@ def run(cfg: Config) -> pd.DataFrame:
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
     trend_spec = _build_trend_spec(cfg, vol_adjust)
+    lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
 
     res = _run_analysis(
         df,
@@ -1378,6 +1383,7 @@ def run(cfg: Config) -> pd.DataFrame:
         missing_limit=limit_spec,
         risk_window=_section_get(vol_adjust, "window"),
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        lambda_tc=lambda_tc_val,
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
         regime_cfg=_cfg_section(cfg, "regime"),
@@ -1451,6 +1457,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
     trend_spec = _build_trend_spec(cfg, vol_adjust)
+    lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
 
     res = _run_analysis(
         df,
@@ -1477,6 +1484,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         missing_limit=limit_spec,
         risk_window=_section_get(vol_adjust, "window"),
         previous_weights=_section_get(portfolio_cfg, "previous_weights"),
+        lambda_tc=lambda_tc_val,
         max_turnover=_section_get(portfolio_cfg, "max_turnover"),
         signal_spec=trend_spec,
         regime_cfg=_cfg_section(cfg, "regime"),

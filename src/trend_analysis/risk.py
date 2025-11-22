@@ -124,6 +124,32 @@ def _normalise(weights: pd.Series) -> pd.Series:
     return weights / total
 
 
+def _apply_turnover_penalty(
+    target: pd.Series,
+    prev: pd.Series | None,
+    lambda_tc: float | None,
+) -> pd.Series:
+    """Blend ``target`` towards ``prev`` when ``lambda_tc`` is positive."""
+
+    if prev is None:
+        return target
+    if lambda_tc is None:
+        return target
+    try:
+        lam = float(lambda_tc)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        lam = 0.0
+    if lam <= 0.0:
+        return target
+    if lam >= 1.0:
+        return _normalise(prev.reindex(target.index.union(prev.index), fill_value=0.0))
+
+    aligned_index = target.index.union(prev.index)
+    prev_aligned = prev.reindex(aligned_index, fill_value=0.0).astype(float)
+    target_aligned = target.reindex(aligned_index, fill_value=0.0).astype(float)
+    return prev_aligned + (target_aligned - prev_aligned) * (1.0 - lam)
+
+
 def _enforce_turnover_cap(
     target: pd.Series,
     prev: pd.Series | None,
@@ -157,6 +183,7 @@ def compute_constrained_weights(
     long_only: bool,
     max_weight: float | None,
     previous_weights: Mapping[str, float] | pd.Series | None = None,
+    lambda_tc: float | None = None,
     max_turnover: float | None = None,
     group_caps: Mapping[str, float] | None = None,
     groups: Mapping[str, str] | None = None,
@@ -192,6 +219,7 @@ def compute_constrained_weights(
     prev_series = (
         _ensure_series(previous_weights) if previous_weights is not None else None
     )
+    constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
     constrained, turnover_value = _enforce_turnover_cap(
         constrained, prev_series, max_turnover
     )

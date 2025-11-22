@@ -92,6 +92,47 @@ def test_compute_constrained_weights_respects_turnover_cap() -> None:
     assert abs(weights.sum() - 1.0) < 1e-9
 
 
+def test_compute_constrained_weights_lambda_penalty_reduces_turnover() -> None:
+    returns = pd.DataFrame(
+        {
+            "A": [0.02, 0.015, -0.01, 0.025],
+            "B": [-0.01, 0.01, 0.02, -0.005],
+        },
+        index=pd.date_range("2021-06-30", periods=4, freq="ME"),
+    )
+    base = {"A": 0.8, "B": 0.2}
+    prev = {"A": 0.1, "B": 0.9}
+
+    _, diag_zero = compute_constrained_weights(
+        base,
+        returns,
+        window=RiskWindow(length=2, decay="simple"),
+        target_vol=0.12,
+        periods_per_year=12,
+        floor_vol=0.01,
+        long_only=True,
+        max_weight=0.9,
+        previous_weights=prev,
+        lambda_tc=0.0,
+        max_turnover=None,
+    )
+    _, diag_high = compute_constrained_weights(
+        base,
+        returns,
+        window=RiskWindow(length=2, decay="simple"),
+        target_vol=0.12,
+        periods_per_year=12,
+        floor_vol=0.01,
+        long_only=True,
+        max_weight=0.9,
+        previous_weights=prev,
+        lambda_tc=0.8,
+        max_turnover=None,
+    )
+
+    assert diag_high.turnover_value < diag_zero.turnover_value
+
+
 def test_periods_per_year_from_code_defaults() -> None:
     assert risk.periods_per_year_from_code(None) == 12.0
     assert risk.periods_per_year_from_code("W") == 52.0
