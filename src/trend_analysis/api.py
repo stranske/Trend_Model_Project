@@ -175,6 +175,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         missing_limit=limit_spec,
         risk_window=config.vol_adjust.get("window"),
         previous_weights=config.portfolio.get("previous_weights"),
+        lambda_tc=config.portfolio.get("lambda_tc"),
         max_turnover=config.portfolio.get("max_turnover"),
         regime_cfg=regime_cfg,
     )
