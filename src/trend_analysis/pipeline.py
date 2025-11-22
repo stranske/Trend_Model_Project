@@ -864,8 +864,11 @@ def _run_analysis(
             engine = create_weight_engine(weighting_scheme.lower())
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            logger.setLevel(logging.DEBUG)
-            logger.debug("Successfully created %s weight engine", weighting_scheme)
+            logger.debug(
+                "Successfully created %s weight engine",
+                weighting_scheme,
+                extra={"weight_engine": weighting_scheme},
+            )
         except Exception as e:  # pragma: no cover - exercised via tests
             msg = (
                 "Weight engine '%s' failed (%s: %s); falling back to equal weights"
@@ -879,6 +882,7 @@ def _run_analysis(
                 "engine": str(weighting_scheme),
                 "error_type": type(e).__name__,
                 "error": str(e),
+                "logger_level": logging.getLevelName(logger.getEffectiveLevel()),
             }
             custom_weights = None
 

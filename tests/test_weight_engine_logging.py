@@ -71,6 +71,7 @@ def test_weight_engine_failure_logging(caplog):
     assert result.get("weight_engine_fallback") is not None
     fb = result["weight_engine_fallback"]
     assert fb["engine"] == "nonexistent_engine"
+    assert fb["logger_level"] == "DEBUG"
 
     # Check that fallback message was logged
     debug_logs = [
@@ -124,6 +125,34 @@ def test_weight_engine_import_failure_logging(caplog):
     ]
     assert len(fallback_logs) > 0
     assert "Mock import error" in fallback_logs[0].message
+
+
+def test_weight_engine_failure_preserves_logger_level(caplog):
+    """Ensure fallback path does not permanently change logger levels."""
+
+    df = make_df()
+    logger = logging.getLogger("trend_analysis.pipeline")
+    previous_level = logger.level
+    logger.setLevel(logging.INFO)
+
+    try:
+        result = pipeline._run_analysis(
+            df,
+            "2020-01",
+            "2020-03",  # in sample
+            "2020-04",
+            "2020-06",  # out of sample
+            target_vol=1.0,
+            monthly_cost=0.0,
+            weighting_scheme="nonexistent_engine",
+        )
+
+        assert result is not None
+        fallback = result["weight_engine_fallback"]
+        assert fallback["logger_level"] == "INFO"
+        assert logger.level == logging.INFO
+    finally:
+        logger.setLevel(previous_level)
 
 
 def test_weight_engine_no_scheme_no_logging(caplog):
