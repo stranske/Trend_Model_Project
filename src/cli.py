@@ -7,7 +7,8 @@ from typing import Any, Mapping
 import pandas as pd
 import yaml
 
-from analysis.cv import export_report, walk_forward
+from analysis import load_results_payload
+from analysis.tearsheet import render
 
 
 def _load_returns(cfg: Mapping[str, Any], *, base_dir: Path) -> pd.DataFrame:
@@ -78,10 +79,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     cv_p.set_defaults(expand=None)
 
+    report_p = sub.add_parser("report", help="Generate a portfolio tearsheet")
+    report_p.add_argument(
+        "--last-run",
+        default="demo/portfolio_test_results/last_run_results.json",
+        help="Path to a saved results payload (JSON)",
+    )
+    report_p.add_argument(
+        "--output",
+        default="reports/tearsheet.md",
+        help="Destination markdown file for the tearsheet",
+    )
+
     return parser
 
 
 def _handle_cv(args: argparse.Namespace) -> int:
+    from analysis.cv import export_report, walk_forward
+
     cfg_path = Path(args.config)
     if not cfg_path.is_file():
         raise SystemExit(f"Config not found: {cfg_path}")
@@ -102,11 +117,21 @@ def _handle_cv(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_report(args: argparse.Namespace) -> int:
+    results = load_results_payload(args.last_run)
+    md_path, plot_path = render(results, out=Path(args.output))
+    print(f"Tearsheet written to: {md_path}")
+    print(f"Charts written to: {plot_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "cv":
         return _handle_cv(args)
+    if args.command == "report":
+        return _handle_report(args)
     parser.error("Unknown command")
     return 1
 
