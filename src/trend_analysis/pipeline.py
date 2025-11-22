@@ -13,8 +13,6 @@ from analysis.results import build_metadata
 
 from .core.rank_selection import (
     RiskStatsConfig,
-    get_window_metric_bundle,
-    make_window_key,
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
@@ -141,76 +139,6 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
         except KeyError:
             return default
     return default
-
-
-def _resolve_risk_free_column(
-    df: pd.DataFrame,
-    *,
-    date_col: str = "Date",
-    configured: str | None = None,
-    allow_fallback: bool = False,
-    indices_list: list[str] | None = None,
-) -> str:
-    """Determine the risk-free column for ``df``.
-
-    Parameters
-    ----------
-    df:
-        Returns DataFrame containing a ``date_col`` plus one or more return
-        series.
-    configured:
-        Explicit column name provided by configuration.  When supplied, the
-        function validates presence and numeric dtype.
-    allow_fallback:
-        When ``True``, fall back to the lowest-volatility numeric column after
-        excluding any index columns.
-    indices_list:
-        Optional list of index column names to exclude from the fallback search
-        and from the investable universe.
-
-    Returns
-    -------
-    str
-        Column name selected as the risk-free series.
-    """
-
-    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
-    if configured:
-        if configured not in df.columns:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' was not found in the input data."
-            )
-        if configured not in numeric_cols:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' must be numeric."
-            )
-        logger.info("Using configured risk-free column '%s'.", configured)
-        return configured
-
-    candidates = numeric_cols
-    if indices_list:
-        idx_set = {str(c) for c in indices_list}
-        candidates = [c for c in candidates if c not in idx_set]
-
-    if allow_fallback:
-        if not candidates:
-            raise ValueError("No numeric columns available to infer a risk-free series.")
-        probe_cols = [date_col, *candidates] if date_col in df.columns else candidates
-        rf_col = identify_risk_free_fund(df[probe_cols])
-        if rf_col is None:
-            raise ValueError(
-                "Unable to infer a risk-free column; provide data.risk_free_column or "
-                "enable the fallback when a numeric column is available."
-            )
-        logger.info(
-            "Risk-free column inferred via lowest-volatility fallback: %s", rf_col
-        )
-        return rf_col
-
-    raise ValueError(
-        "Risk-free column is not configured. Set data.risk_free_column or enable "
-        "data.allow_risk_free_fallback to use the heuristic."
-    )
 
 
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
@@ -510,10 +438,23 @@ def _resolve_risk_free_column(
     indices_list: list[str] | None,
     risk_free_column: str | None,
     allow_risk_free_fallback: bool | None,
-) -> tuple[str, list[str]]:
-    ret_cols = [c for c in df.columns if c != date_col]
-    idx_set = set(indices_list or [])
-    ret_cols = [c for c in ret_cols if c not in idx_set]
+) -> tuple[str, list[str], str]:
+    """Select the risk-free column and investable funds.
+
+    Returns
+    -------
+    tuple[str, list[str], str]
+        ``(risk_free_column, fund_columns, source)`` where ``source`` is
+        ``"configured"`` when explicitly provided or ``"fallback"`` when the
+        column is inferred.
+    """
+
+    idx_set = {str(c) for c in indices_list or []}
+    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
+    ret_cols = [c for c in numeric_cols if c not in idx_set]
+
+    if not ret_cols:
+        raise ValueError("No numeric return columns available to process")
 
     configured_rf = (risk_free_column or "").strip()
     if configured_rf:
@@ -523,26 +464,39 @@ def _resolve_risk_free_column(
             raise ValueError(
                 f"Configured risk-free column '{configured_rf}' was not found in the dataset"
             )
+        if configured_rf not in numeric_cols:
+            raise ValueError(
+                f"Configured risk-free column '{configured_rf}' must be numeric"
+            )
         if configured_rf in idx_set:
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
             )
         rf_col = configured_rf
+        source = "configured"
     else:
-        fallback_enabled = allow_risk_free_fallback is True or allow_risk_free_fallback is None
+        fallback_enabled = (
+            allow_risk_free_fallback is True or allow_risk_free_fallback is None
+        )
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
-        rf_col = identify_risk_free_fund(df[ret_cols])
-        if rf_col is None:
-            raise ValueError("Risk-free fallback could not find a numeric return series")
+        probe_cols = [date_col, *ret_cols] if date_col in df.columns else ret_cols
+        detected = identify_risk_free_fund(df[probe_cols])
+        if detected is None:
+            raise ValueError(
+                "Risk-free fallback could not find a numeric return series"
+            )
+        rf_col = detected
+        source = "fallback"
         logger.info(
-            "Using lowest-volatility column '%s' as risk-free (fallback enabled)", rf_col
+            "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
+            rf_col,
         )
 
     fund_cols = [c for c in ret_cols if c != rf_col]
-    return rf_col, fund_cols
+    return rf_col, fund_cols, source
 
 
 def single_period_run(
@@ -838,7 +792,7 @@ def _run_analysis(
     if indices_list is None:
         indices_list = []
 
-    rf_col, fund_cols = _resolve_risk_free_column(
+    rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         df,
         date_col=date_col,
         indices_list=indices_list,

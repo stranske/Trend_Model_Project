@@ -878,17 +878,21 @@ def run(
         ].set_index(date_col)
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
-        ret_cols = [c for c in sub.columns if c != date_col]
-        # Exclude indices if configured
+        numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
-        if indices_list:
-            idx_set = set(indices_list)
-            ret_cols = [c for c in ret_cols if c not in idx_set]
+        idx_set = {str(c) for c in indices_list}
+        ret_cols = [c for c in numeric_cols if c not in idx_set]
+        if not ret_cols:
+            raise ValueError("No numeric return columns available to process")
         configured_rf = (risk_free_column_cfg or "").strip()
         if configured_rf:
             if configured_rf not in sub.columns:
                 raise ValueError(
                     f"Configured risk-free column '{configured_rf}' was not found in the dataset"
+                )
+            if configured_rf not in numeric_cols:
+                raise ValueError(
+                    f"Configured risk-free column '{configured_rf}' must be numeric"
                 )
             if configured_rf in idx_set:
                 raise ValueError(
@@ -903,11 +907,16 @@ def run(
                 raise ValueError(
                     "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
                 )
-            rf_col = identify_risk_free_fund(sub[ret_cols])
-            if rf_col is None:
-                raise ValueError("Risk-free fallback could not find a numeric return series")
+            probe_cols = [date_col, *ret_cols] if date_col in sub.columns else ret_cols
+            detected = identify_risk_free_fund(sub[probe_cols])
+            if detected is None:
+                raise ValueError(
+                    "Risk-free fallback could not find a numeric return series"
+                )
+            rf_col = detected
             logger.info(
-                "Using lowest-volatility column '%s' as risk-free (fallback enabled)", rf_col
+                "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
+                rf_col,
             )
         fund_cols = [c for c in ret_cols if c != rf_col]
         # Keep only funds with complete data in both windows
