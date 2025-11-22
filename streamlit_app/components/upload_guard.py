@@ -51,6 +51,33 @@ def _format_size(num_bytes: int) -> str:
     return f"{mb:.1f} MB"
 
 
+def configured_max_upload_bytes(default: int = MAX_UPLOAD_BYTES) -> int:
+    """Return the configured upload size limit in bytes."""
+
+    env_bytes = os.getenv("TREND_UPLOAD_MAX_BYTES")
+    env_mb = os.getenv("TREND_UPLOAD_MAX_MB")
+
+    def _parse(value: str | None, multiplier: int = 1) -> int | None:
+        if value is None:
+            return None
+        try:
+            parsed = int(value)
+        except ValueError:
+            return None
+        if parsed <= 0:
+            return None
+        return parsed * multiplier
+
+    overrides = [
+        _parse(env_bytes),
+        _parse(env_mb, multiplier=1024 * 1024),
+    ]
+    for override in overrides:
+        if override is not None:
+            return override
+    return default
+
+
 def _ensure_upload_dir(base: Path | None) -> Path:
     target = (base or DEFAULT_UPLOAD_DIR).resolve()
     target.mkdir(parents=True, exist_ok=True)
@@ -82,7 +109,7 @@ def guard_and_buffer_upload(
     uploaded: UploadedFile,
     *,
     allowed_extensions: Iterable[str] = ALLOWED_EXTENSIONS,
-    max_bytes: int = MAX_UPLOAD_BYTES,
+    max_bytes: int | None = None,
     upload_dir: Path | None = None,
 ) -> GuardedUpload:
     """Validate ``uploaded`` and persist a safe copy to disk."""
@@ -104,10 +131,11 @@ def guard_and_buffer_upload(
     if not data:
         raise UploadViolation("Uploaded file is empty.")
 
+    limit = max_bytes if max_bytes is not None else configured_max_upload_bytes()
     size = len(data)
-    if size > max_bytes:
+    if size > limit:
         raise UploadViolation(
-            f"File too large: {_format_size(size)} (limit {_format_size(max_bytes)})."
+            f"File too large: {_format_size(size)} (limit {_format_size(limit)})."
         )
 
     content_hash = hash_bytes(data)
