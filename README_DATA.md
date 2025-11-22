@@ -40,6 +40,18 @@ not meant to inform live investment decisions.
 - Do not redistribute the files as if they were representative research data;
   they are strictly illustrative.
 
+## Risk-free columns in sample data
+
+- The long backtest sample (`hedge_fund_returns_with_indexes.csv`) includes a
+  **"Risk-Free Rate"** column. Configs such as `config/long_backtest.yml`
+  specify `data.risk_free_column: "Risk-Free Rate"` and set
+  `allow_risk_free_fallback: false` to ensure the cash proxy is used and
+  excluded from investable assets.
+- Other sample CSVs (for example, `demo/demo_returns.csv`) do not ship with a
+  cash series; keep `data.risk_free_column` unset and enable
+  `allow_risk_free_fallback` if you want the lowest-volatility column treated as
+  the risk-free proxy.
+
 If you need to extend the dataset for a new tutorial, keep the data synthetic or
 pull it from clearly documented public sources, then update this README to note
 any additions.

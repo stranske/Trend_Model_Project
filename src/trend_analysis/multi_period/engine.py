@@ -584,6 +584,10 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
+    allow_risk_free_fallback = bool(
+        data_settings.get("allow_risk_free_fallback", False)
+    )
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -721,6 +725,8 @@ def run(
                 risk_window=cfg.vol_adjust.get("window"),
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
+                risk_free_column=risk_free_column,
+                allow_risk_free_fallback=allow_risk_free_fallback,
             )
             if res is None:
                 continue
@@ -1377,6 +1383,8 @@ def run(
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
+            risk_free_column=risk_free_column,
+            allow_risk_free_fallback=allow_risk_free_fallback,
         )
         if res is None:
             continue
