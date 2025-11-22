@@ -49,6 +49,8 @@ results/
 !Trend Universe Membership.csv
 !data/raw/managers/*.csv
 !data/raw/indices/*.csv
+!archives/notebooks/**/*.csv
+!archives/notebooks/**/*.xlsx
 *.json
 !docs/evidence/gate-branch-protection/*.json
 !config/coverage-baseline.json
