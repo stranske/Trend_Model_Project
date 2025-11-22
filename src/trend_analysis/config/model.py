@@ -56,7 +56,9 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         if base_dir is not None:
             roots.append(base_dir)
             roots.append(base_dir.parent)
-        roots.append(proj_path())
+        repo_root = proj_path()
+        if repo_root not in roots:
+            roots.append(repo_root)
         cwd = Path.cwd()
         if cwd not in roots:
             roots.append(cwd)
@@ -102,10 +104,14 @@ def _candidate_roots(base_dir: Path | None) -> Iterable[Path]:
             if candidate not in seen:
                 seen.add(candidate)
                 yield candidate
-    for candidate in (proj_path(), Path.cwd()):
-        if candidate not in seen:
-            seen.add(candidate)
-            yield candidate
+    repo_root = proj_path()
+    if repo_root not in seen:
+        seen.add(repo_root)
+        yield repo_root
+    cwd = Path.cwd()
+    if cwd not in seen:
+        seen.add(cwd)
+        yield cwd
 
 
 def _expand_pattern(pattern: str, *, base_dir: Path | None) -> list[Path]:
