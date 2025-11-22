@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """DEPRECATED: Manager attribution legacy script.
 
+Last-known use: pre-unified CLI era; no Makefile/docs/scripts references
+in the current repository snapshot. Archived for reference only.
+
 Replaced by unified `trend` CLI (issue #1437). Migrate to one of:
 
     trend run --config config/demo.yml --returns demo/demo_returns.csv
