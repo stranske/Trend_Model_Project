@@ -28,7 +28,7 @@ from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
-from ..pipeline import _run_analysis
+from ..pipeline import AnalysisRunResult, _run_analysis, _unwrap_run_result
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -719,9 +719,10 @@ def run(
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
             )
-            if res is None:
+            payload = _unwrap_run_result(res)
+            if payload is None:
                 continue
-            res = dict(res)
+            res = dict(payload)
             res["period"] = (
                 pt.in_start,
                 pt.in_end,
@@ -1349,9 +1350,10 @@ def run(
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
         )
-        if res is None:
+        payload = _unwrap_run_result(res)
+        if payload is None:
             continue
-        res = dict(res)
+        res = dict(payload)
         res["period"] = (
             pt.in_start,
             pt.in_end,

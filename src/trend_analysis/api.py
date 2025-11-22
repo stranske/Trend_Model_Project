@@ -24,7 +24,13 @@ from trend.validation import (
 )
 
 from .logging import log_step as _log_step  # lightweight import
-from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
+from .pipeline import (
+    AnalysisRunResult,
+    _policy_from_config,
+    _resolve_sample_split,
+    _run_analysis,
+    _unwrap_run_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,14 +185,16 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         max_turnover=config.portfolio.get("max_turnover"),
         regime_cfg=regime_cfg,
     )
-    if res is None:
-        logger.warning("run_simulation produced no result")
+    diagnostics = res.diagnostics if isinstance(res, AnalysisRunResult) else []
+    res_dict = _unwrap_run_result(res)
+    if res_dict is None:
+        logger.warning(
+            "run_simulation produced no result%s",
+            f" ({diagnostics[0].reason})" if diagnostics else "",
+        )
         return RunResult(pd.DataFrame(), {}, seed, env)
-
-    if isinstance(res, dict):
-        res_dict: dict[str, Any] = res
-    elif isinstance(res, Mapping):
-        res_dict = dict(res)
+    if isinstance(res_dict, Mapping):
+        res_dict = dict(res_dict)
     else:
         logger.warning("Unexpected result type from _run_analysis: %s", type(res))
         return RunResult(pd.DataFrame(), {}, seed, env)

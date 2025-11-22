@@ -84,18 +84,18 @@ def test_single_period_run_adds_avg_corr_metric() -> None:
 
 
 def test_run_analysis_df_none_returns_none() -> None:
-    assert (
-        pipeline._run_analysis(
-            None,
-            "2024-01",
-            "2024-02",
-            "2024-03",
-            "2024-04",
-            target_vol=0.1,
-            monthly_cost=0.0,
-        )
-        is None
+    result = pipeline._run_analysis(
+        None,
+        "2024-01",
+        "2024-02",
+        "2024-03",
+        "2024-04",
+        target_vol=0.1,
+        monthly_cost=0.0,
     )
+    assert isinstance(result, pipeline.AnalysisRunResult)
+    assert result.payload is None
+    assert result.diagnostics[-1].reason == "missing_dataframe"
 
 
 def test_run_analysis_requires_date_column() -> None:
@@ -148,7 +148,8 @@ def test_run_analysis_returns_none_when_windows_empty(
         target_vol=0.1,
         monthly_cost=0.0,
     )
-    assert result is None
+    assert isinstance(result, pipeline.AnalysisRunResult)
+    assert result.payload is None
 
 
 def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:

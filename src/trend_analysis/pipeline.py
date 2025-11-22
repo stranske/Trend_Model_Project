@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -570,9 +570,13 @@ def _run_analysis(
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
-) -> dict[str, object] | None:
+) -> AnalysisRunResult:
+    diagnostics: list[AnalysisDiagnostic] = []
     if df is None:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="input", reason="missing_dataframe")],
+        )
 
     date_col = "Date"
     if date_col not in df.columns:
@@ -585,7 +589,10 @@ def _run_analysis(
     # pathological DataFrame subclasses continue to short-circuit.
     date_probe = pd.to_datetime(df[date_col], errors="coerce")
     if not date_probe.notna().any():
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="input", reason="no_valid_dates")],
+        )
 
     # Normalise potentially exotic DataFrame subclasses into a vanilla
     # ``pd.DataFrame`` so pandas internals do not trip over overridden
@@ -607,7 +614,10 @@ def _run_analysis(
             "contains no valid timestamps" in message
             or "All rows were removed" in message
         ):
-            return None
+            return AnalysisRunResult(
+                None,
+                [AnalysisDiagnostic(stage="calendar", reason="empty_after_alignment")],
+            )
         raise
     alignment_info = df.attrs.get("calendar_alignment", {})
 
@@ -638,15 +648,24 @@ def _run_analysis(
         enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="preprocess", reason="empty_after_prepare")],
+        )
 
     df = df_prepared.copy()
     value_cols_all = [c for c in df.columns if c != date_col]
     if not value_cols_all:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="preprocess", reason="no_value_columns")],
+        )
 
     if df.empty or df.shape[1] <= 1:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="preprocess", reason="insufficient_columns")],
+        )
 
     freq_code = freq_summary.code
     missing_meta = missing_result
@@ -717,11 +736,17 @@ def _run_analysis(
     )
 
     if in_df.empty or out_df.empty:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="windowing", reason="empty_window")],
+        )
 
     ret_cols = [c for c in df.columns if c != date_col]
     if not ret_cols:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="windowing", reason="no_return_columns")],
+        )
     if indices_list:
         idx_set = set(indices_list)  # pragma: no cover - seldom used
         ret_cols = [c for c in ret_cols if c not in idx_set]  # pragma: no cover
@@ -796,7 +821,10 @@ def _run_analysis(
             fund_cols = []  # pragma: no cover
 
     if not fund_cols:
-        return None
+        return AnalysisRunResult(
+            None,
+            [AnalysisDiagnostic(stage="selection", reason="no_funds")],
+        )
     score_frame = single_period_run(
         df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
     )
@@ -830,6 +858,13 @@ def _run_analysis(
                 "error_type": type(e).__name__,
                 "error": str(e),
             }
+            diagnostics.append(
+                AnalysisDiagnostic(
+                    stage="weighting",
+                    reason="engine_fallback",
+                    details=weight_engine_fallback,
+                )
+            )
             custom_weights = None
 
     if custom_weights is None:
@@ -1174,7 +1209,8 @@ def _run_analysis(
     metadata["frequency"] = frequency_payload
     metadata["missing_data"] = missing_payload
 
-    return {
+    return AnalysisRunResult(
+        {
         "selected_funds": fund_cols,
         "in_sample_scaled": in_scaled,
         "out_sample_scaled": out_scaled,
@@ -1207,7 +1243,9 @@ def _run_analysis(
         "regime_settings": regime_payload.get("settings", {}),
         "regime_summary": regime_payload.get("summary"),
         "metadata": metadata,
-    }
+        },
+        diagnostics,
+    )
 
 
 def run_analysis(
@@ -1245,7 +1283,7 @@ def run_analysis(
     calendar_timezone: str | None = None,
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
-) -> dict[str, object] | None:
+) -> AnalysisRunResult:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
         value is not None
@@ -1389,12 +1427,13 @@ def run(cfg: Config) -> pd.DataFrame:
         regime_cfg=_cfg_section(cfg, "regime"),
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
-    if res is None:
+    payload = _unwrap_run_result(res)
+    if payload is None:
         return pd.DataFrame()
-    stats = cast(dict[str, _Stats], res["out_sample_stats"])
+    stats = cast(dict[str, _Stats], payload["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
-        dict[str, dict[str, float]], res.get("benchmark_ir", {})
+        dict[str, dict[str, float]], payload.get("benchmark_ir", {})
     ).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
@@ -1407,7 +1446,7 @@ def run(cfg: Config) -> pd.DataFrame:
     return df
 
 
-def run_full(cfg: Config) -> dict[str, object]:
+def run_full(cfg: Config) -> AnalysisRunResult:
     """Return the full analysis results based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
     preprocessing_section = _cfg_section(cfg, "preprocessing")
@@ -1490,7 +1529,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         regime_cfg=_cfg_section(cfg, "regime"),
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
-    return {} if res is None else res
+    return res if isinstance(res, AnalysisRunResult) else AnalysisRunResult(res)
 
 
 # --- Shift-safe helpers ----------------------------------------------------
@@ -1633,3 +1672,39 @@ def __getattr__(name: str) -> object:
 
 
 del Stats
+@dataclass
+class AnalysisDiagnostic:
+    stage: str
+    reason: str
+    details: Mapping[str, Any] | None = None
+
+
+class AnalysisRunResult(dict):
+    """Wrapper around the analysis payload with structured diagnostics."""
+
+    def __init__(
+        self,
+        payload: dict[str, object] | None,
+        diagnostics: Sequence[AnalysisDiagnostic] | None = None,
+    ) -> None:
+        super().__init__(payload or {})
+        self.payload = payload
+        self.diagnostics: list[AnalysisDiagnostic] = list(diagnostics or [])
+
+    @property
+    def is_success(self) -> bool:
+        return self.payload is not None
+
+    def add_diagnostics(self, entries: Sequence[AnalysisDiagnostic]) -> None:
+        self.diagnostics.extend(entries)
+
+    def copy_payload(self) -> dict[str, object]:
+        return dict(self.payload or {})
+
+
+def _unwrap_run_result(
+    result: AnalysisRunResult | dict[str, object] | None,
+) -> dict[str, object] | None:
+    if isinstance(result, AnalysisRunResult):
+        return result.payload
+    return result
