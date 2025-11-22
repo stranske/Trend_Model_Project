@@ -1431,45 +1431,8 @@ direct_res = pipeline._run_analysis(
 if direct_res is None or "score_frame" not in direct_res:
     raise SystemExit("_run_analysis direct call failed")
 
-# cover helper with missing type annotations
-scores = rs._compute_metric_series(window, "Sharpe", rs_cfg)
-extra_ids = rs.some_function_missing_annotation(
-    scores,
-    "top_n",
-    n=2,
-    ascending=False,
-)
-if len(extra_ids) != 2:
-    raise SystemExit("some_function_missing_annotation failed")
-pct_ids = rs.some_function_missing_annotation(
-    scores,
-    "top_pct",
-    pct=0.5,
-    ascending=False,
-)
-if not pct_ids:
-    raise SystemExit("some_function_missing_annotation top_pct failed")
-thr_ids = rs.some_function_missing_annotation(
-    scores,
-    "threshold",
-    threshold=0.0,
-    ascending=False,
-)
-if not thr_ids:
-    raise SystemExit("some_function_missing_annotation threshold failed")
-
-# also cover the ascending=True branch for completeness
-asc_ids = rs.some_function_missing_annotation(
-    scores,
-    "threshold",
-    threshold=scores.max(),
-    ascending=True,
-)
-if not asc_ids:
-    raise SystemExit("some_function_missing_annotation ascending branch failed")
-
 # quality_filter and select_funds interfaces
-qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
+qcfg = rs.default_quality_config(max_missing_ratio=0.5)
 eligible = rs.quality_filter(df_full, qcfg)
 if not eligible or not set(eligible).issubset(df_full.columns):
     raise SystemExit("quality_filter failed")

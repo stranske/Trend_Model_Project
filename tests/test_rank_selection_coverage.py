@@ -11,7 +11,6 @@ import pytest
 import trend_analysis.core.rank_selection as rank_selection
 from trend_analysis.core.rank_selection import (
     DEFAULT_METRIC,
-    FundSelectionConfig,
     RiskStatsConfig,
     WindowMetricBundle,
     _apply_transform,
@@ -28,7 +27,6 @@ from trend_analysis.core.rank_selection import (
     rank_select_funds,
     select_funds,
     selector_cache_stats,
-    some_function_missing_annotation,
     store_window_metric_bundle,
 )
 
@@ -48,7 +46,7 @@ class TestQualityFilter:
         """Test quality filter with empty dataframe."""
         df = pd.DataFrame(columns=["Date", "A", "B"])
         fund_columns = ["A", "B"]
-        cfg = FundSelectionConfig()
+        cfg = rank_selection.default_quality_config()
 
         result = _quality_filter(df, fund_columns, "2020-01", "2020-12", cfg)
         # With empty DataFrame, quality filter might still return fund columns
@@ -65,7 +63,7 @@ class TestQualityFilter:
             }
         )
         fund_columns = ["A", "B"]
-        cfg = FundSelectionConfig()
+        cfg = rank_selection.default_quality_config()
 
         result = _quality_filter(df, fund_columns, "2020-01", "2020-03", cfg)
         # Just test that it returns a list (actual filtering logic may vary)
@@ -83,7 +81,7 @@ class TestQualityFilter:
             }
         )
         fund_columns = ["A", "B", "C"]
-        cfg = FundSelectionConfig()
+        cfg = rank_selection.default_quality_config()
 
         result = _quality_filter(df, fund_columns, "2020-01", "2020-12", cfg)
         assert isinstance(result, list)
@@ -99,7 +97,7 @@ class TestQualityFilter:
             }
         )
         fund_columns = ["A", "B"]
-        cfg = FundSelectionConfig()
+        cfg = rank_selection.default_quality_config()
 
         # Test with exact start/end dates
         result = _quality_filter(df, fund_columns, "2020-01", "2020-06", cfg)
@@ -199,7 +197,7 @@ class TestSelectFunds:
             }
         )
         self.fund_columns = ["A", "B", "C", "D"]
-        self.cfg = FundSelectionConfig()
+        self.cfg = rank_selection.default_quality_config()
 
     def test_select_funds_all_mode(self):
         """Test select_funds with 'all' mode."""
@@ -423,36 +421,6 @@ class TestRankSelectionInternals:
         with pytest.raises(ValueError, match="stats configuration"):
             rank_select_funds(df, cfg, bundle=wrong_hash_bundle)
 
-    def test_some_function_missing_annotation_paths(self):
-        series = pd.Series([3.0, 2.0, 1.0], index=["A", "B", "C"])
-        top_two = some_function_missing_annotation(
-            series,
-            "top_n",
-            n=2,
-            ascending=False,
-        )
-        assert top_two == ["A", "B"]
-
-        pct = some_function_missing_annotation(
-            series,
-            "top_pct",
-            pct=0.5,
-            ascending=False,
-        )
-        assert len(pct) == 2
-
-        thresh = some_function_missing_annotation(
-            series,
-            "threshold",
-            threshold=2.5,
-            ascending=False,
-        )
-        assert thresh == ["A"]
-
-        with pytest.raises(ValueError):
-            some_function_missing_annotation(series, "threshold", ascending=False)
-
-
 class TestBuildUI:
     """Test the build_ui function and widget building."""
 
@@ -492,12 +460,15 @@ class TestBuildUI:
 class TestConfigurationEdgeCases:
     """Test configuration objects with edge cases."""
 
-    def test_fund_selection_config_defaults(self):
-        """Test FundSelectionConfig default values."""
-        cfg = FundSelectionConfig()
-        # Check that config has expected attributes
-        assert hasattr(cfg, "max_missing_months")
-        assert hasattr(cfg, "outlier_threshold")
+    def test_quality_filter_defaults(self):
+        """Test quality filter default values."""
+        cfg = rank_selection.default_quality_config()
+        # Check that config has expected keys
+        assert set(cfg) == {
+            "implausible_value_limit",
+            "max_missing_months",
+            "max_missing_ratio",
+        }
 
     def test_risk_stats_config_defaults(self):
         """Test RiskStatsConfig default values."""
@@ -696,7 +667,7 @@ class TestSelectFundsExtendedExtras:
                 "B": np.linspace(0.02, 0.07, len(dates)),
             }
         )
-        cfg = FundSelectionConfig()
+        cfg = rank_selection.default_quality_config()
 
         np.random.seed(1)
         selected = select_funds(

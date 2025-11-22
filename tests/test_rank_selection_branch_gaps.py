@@ -15,10 +15,10 @@ import pytest
 
 from trend_analysis.core import rank_selection
 from trend_analysis.core.rank_selection import (
-    FundSelectionConfig,
     RiskStatsConfig,
     WindowMetricBundle,
     clear_window_metric_cache,
+    default_quality_config,
     get_window_metric_bundle,
 )
 from trend_analysis.perf.cache import CovPayload
@@ -180,21 +180,6 @@ def test_rank_select_funds_parameter_validation(
         )
 
 
-def test_some_function_missing_annotation_requires_parameters() -> None:
-    scores = pd.Series({"A": 2.0, "B": 1.0})
-
-    with pytest.raises(ValueError):
-        rank_selection.some_function_missing_annotation(scores, "top_n")
-
-    with pytest.raises(ValueError):
-        rank_selection.some_function_missing_annotation(scores, "top_pct", pct=1.2)
-
-    with pytest.raises(ValueError):
-        rank_selection.some_function_missing_annotation(
-            scores, "threshold", ascending=False
-        )
-
-
 def test_canonical_metric_list_alias_resolution() -> None:
     all_metrics = rank_selection.canonical_metric_list()
     assert all_metrics, "registry should not be empty"
@@ -219,7 +204,7 @@ def test_quality_filters_cover_ratio_and_limits() -> None:
             "D": [0.0, 0.1, 0.2],
         }
     )
-    cfg = FundSelectionConfig(
+    cfg = default_quality_config(
         max_missing_months=2,
         max_missing_ratio=0.3,
         implausible_value_limit=1.0,
@@ -376,7 +361,7 @@ def test_select_funds_random_requires_n(monkeypatch: pytest.MonkeyPatch) -> None
 
     selected = rank_selection.select_funds(df, "RF", mode="random", n=1)
 
-    expected_pool = rank_selection.quality_filter(df, FundSelectionConfig())
+    expected_pool = rank_selection.quality_filter(df, default_quality_config())
     assert captured["eligible"] == expected_pool
     assert selected == [expected_pool[0]]
 
@@ -391,7 +376,7 @@ def test_select_funds_extended_random_branch(monkeypatch: pytest.MonkeyPatch) ->
             "FundB": [0.02, 0.01, 0.02],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     monkeypatch.setattr(
         np.random, "choice", lambda eligible, n, replace=False: np.array(eligible[:n])
@@ -425,7 +410,7 @@ def test_select_funds_extended_rank_injects_window_key(
             "FundB": [0.02, 0.01, 0.02],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     captured: dict[str, object] = {}
 
@@ -464,7 +449,7 @@ def test_select_funds_extended_all_and_unknown_mode() -> None:
             "FundA": [0.01, 0.02],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     all_selected = rank_selection.select_funds_extended(
         df,
@@ -503,7 +488,7 @@ def test_select_funds_extended_requires_rank_kwargs() -> None:
             "FundB": [0.02, 0.01, 0.02],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     with pytest.raises(ValueError, match="rank mode requires rank_kwargs"):
         rank_selection.select_funds_extended(
@@ -529,7 +514,7 @@ def test_select_funds_extended_random_requires_parameter() -> None:
             "FundA": [0.01, 0.02, 0.03],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     with pytest.raises(ValueError, match="random_n must be provided for random mode"):
         rank_selection.select_funds_extended(
@@ -555,7 +540,7 @@ def test_select_funds_allows_extended_call_through_helper(
             "A": [0.01, 0.02],
         }
     )
-    cfg = FundSelectionConfig()
+    cfg = default_quality_config()
 
     called: dict[str, object] = {}
 

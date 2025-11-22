@@ -285,7 +285,7 @@ def test_quality_filters_remove_missing_and_implausible():
             "Fund C": [0.01, 0.01, 0.01, 0.01],
         }
     )
-    cfg = rank_selection.FundSelectionConfig(
+    cfg = rank_selection.default_quality_config(
         max_missing_months=1,
         max_missing_ratio=0.3,
         implausible_value_limit=0.3,
@@ -304,27 +304,7 @@ def test_quality_filters_remove_missing_and_implausible():
 
 
 def test_some_function_missing_annotation_branches():
-    scores = pd.Series({"Fund A": 2.0, "Fund B": 1.5, "Fund C": 1.0})
-    assert rank_selection.some_function_missing_annotation(scores, "top_n", n=2) == [
-        "Fund C",
-        "Fund B",
-    ]
-
-    assert rank_selection.some_function_missing_annotation(
-        scores, "top_pct", pct=0.5
-    ) == [
-        "Fund C",
-        "Fund B",
-    ]
-
-    assert rank_selection.some_function_missing_annotation(
-        scores,
-        "threshold",
-        threshold=1.5,
-        ascending=False,
-    ) == ["Fund A", "Fund B"]
-
-    assert rank_selection.some_function_missing_annotation(scores, "unsupported") == []
+    pytest.skip("Legacy helper removed; covered by rank_select_funds pathways")
 
 
 def test_apply_transform_modes_and_guardrails():
@@ -546,7 +526,7 @@ def test_select_funds_extended_random_requires_parameter():
             "FundB": [0.02, 0.01, 0.02],
         }
     )
-    cfg = rank_selection.FundSelectionConfig()
+    cfg = rank_selection.default_quality_config()
 
     with pytest.raises(ValueError, match="random_n must be provided"):
         rank_selection.select_funds_extended(
@@ -572,7 +552,7 @@ def test_select_funds_extended_rank_requires_kwargs(df=None):
             "FundB": [0.02, 0.01, 0.02],
         }
     )
-    cfg = rank_selection.FundSelectionConfig()
+    cfg = rank_selection.default_quality_config()
 
     with pytest.raises(ValueError, match="rank mode requires rank_kwargs"):
         rank_selection.select_funds_extended(
@@ -787,7 +767,7 @@ def test_select_funds_extended_rank_injects_bundle_and_window_key(monkeypatch):
             "FundB": np.linspace(0.02, 0.06, len(dates)),
         }
     )
-    cfg = rank_selection.FundSelectionConfig()
+    cfg = rank_selection.default_quality_config()
     expected_key = rank_selection.make_window_key(
         "2020-01",
         "2020-03",

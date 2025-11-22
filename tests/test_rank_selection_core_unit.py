@@ -209,7 +209,7 @@ def test_quality_filter_basic_thresholds():
             "FundB": [0.05, 0.07, 20.0],
         }
     )
-    cfg = rank_selection.FundSelectionConfig(
+    cfg = rank_selection.default_quality_config(
         max_missing_months=1,
         max_missing_ratio=0.5,
         implausible_value_limit=10.0,
@@ -281,7 +281,7 @@ def test_select_funds_extended_rank_flow():
             "FundB": [0.01, 0.02, 0.015, 0.03],
         }
     )
-    cfg = rank_selection.FundSelectionConfig(
+    cfg = rank_selection.default_quality_config(
         max_missing_months=2,
         max_missing_ratio=0.5,
         implausible_value_limit=1.0,

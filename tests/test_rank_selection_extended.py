@@ -308,7 +308,7 @@ class TestSelectFunds:
         """Test select_funds with 'all' mode."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         result = rs.select_funds(
             df,
@@ -328,7 +328,7 @@ class TestSelectFunds:
         """Test select_funds with 'random' mode."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         result = rs.select_funds(
             df,
@@ -348,7 +348,7 @@ class TestSelectFunds:
         """Test select_funds random mode without random_n raises error."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         with pytest.raises(ValueError, match="random_n must be provided"):
             rs.select_funds(
@@ -367,7 +367,7 @@ class TestSelectFunds:
         """Test select_funds with 'rank' mode."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
         rank_kwargs = {
             "inclusion_approach": "top_n",
             "n": 2,
@@ -392,7 +392,7 @@ class TestSelectFunds:
         """Test select_funds rank mode without rank_kwargs raises error."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         with pytest.raises(ValueError, match="rank mode requires rank_kwargs"):
             rs.select_funds(
@@ -411,7 +411,7 @@ class TestSelectFunds:
         """Test select_funds with invalid mode raises error."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         with pytest.raises(ValueError, match="Unsupported selection_mode"):
             rs.select_funds(
@@ -434,7 +434,7 @@ class TestQualityFilter:
         """Test basic quality filtering."""
         df = make_extended_df()
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig()
+        cfg = rs.default_quality_config()
 
         result = rs._quality_filter(df, fund_columns, "2020-01", "2020-12", cfg)
         assert isinstance(result, list)
@@ -446,7 +446,7 @@ class TestQualityFilter:
         # Add missing values to fund C
         df.loc[1:4, "C"] = np.nan
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig(max_missing_months=2)
+        cfg = rs.default_quality_config(max_missing_months=2)
 
         result = rs._quality_filter(df, fund_columns, "2020-01", "2020-12", cfg)
         # Fund C should be filtered out due to too many missing values
@@ -458,7 +458,7 @@ class TestQualityFilter:
         # Add implausible value to fund D
         df.loc[2, "D"] = 2.0  # 200% return is implausible
         fund_columns = ["A", "B", "C", "D"]
-        cfg = rs.FundSelectionConfig(implausible_value_limit=1.0)
+        cfg = rs.default_quality_config(implausible_value_limit=1.0)
 
         result = rs._quality_filter(df, fund_columns, "2020-01", "2020-12", cfg)
         # Fund D should be filtered out
@@ -474,7 +474,7 @@ class TestQualityFilterEdgeCases:
         # Create a fund with too many missing months
         df.loc[df.index[:8], "C"] = np.nan  # 8 missing months
 
-        cfg = rs.FundSelectionConfig(max_missing_months=5)
+        cfg = rs.default_quality_config(max_missing_months=5)
         result = rs.quality_filter(df, cfg)
 
         # C should be excluded due to too many missing months
@@ -489,7 +489,7 @@ class TestQualityFilterEdgeCases:
         missing_count = int(total_len * 0.6)  # 60% missing
         df.iloc[:missing_count, df.columns.get_loc("C")] = np.nan
 
-        cfg = rs.FundSelectionConfig(max_missing_ratio=0.5)  # Allow max 50%
+        cfg = rs.default_quality_config(max_missing_ratio=0.5)  # Allow max 50%
         result = rs.quality_filter(df, cfg)
 
         # C should be excluded due to high missing ratio
@@ -502,7 +502,7 @@ class TestQualityFilterEdgeCases:
         # Create implausibly large return
         df.iloc[0, df.columns.get_loc("C")] = 10.0  # 1000% return
 
-        cfg = rs.FundSelectionConfig(implausible_value_limit=1.0)  # Max 100%
+        cfg = rs.default_quality_config(implausible_value_limit=1.0)  # Max 100%
         result = rs.quality_filter(df, cfg)
 
         # C should be excluded due to implausible value
@@ -554,7 +554,7 @@ class TestSelectFundsEdgeCases:
             df,
             "rf",
             mode="rank",
-            quality_cfg=rs.FundSelectionConfig(implausible_value_limit=1.0),
+            quality_cfg=rs.default_quality_config(implausible_value_limit=1.0),
             inclusion_approach="top_n",
             n=2,
             score_by="Sharpe",

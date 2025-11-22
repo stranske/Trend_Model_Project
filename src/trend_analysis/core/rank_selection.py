@@ -37,6 +37,12 @@ DEFAULT_METRIC = "annual_return"
 
 WindowKey = tuple[str, str, str, str]
 
+_DEFAULT_QUALITY_CONFIG: dict[str, float] = {
+    "max_missing_months": 3,
+    "implausible_value_limit": 1.0,
+    "max_missing_ratio": 0.05,
+}
+
 
 def _json_default(value: Any) -> Any:
     """Helper for JSON serialisation of stats configuration objects."""
@@ -541,53 +547,20 @@ def rank_select_funds(
         raise ValueError("Unknown inclusion_approach")
 
 
-def some_function_missing_annotation(
-    scores: pd.Series,
-    inclusion_approach: str,
-    n: int | None = None,
-    pct: float | None = None,
-    threshold: float | None = None,
-    ascending: bool = True,
-) -> list[str]:
-    scores = scores.sort_values(ascending=ascending)
-    if inclusion_approach == "top_n":
-        if n is None:
-            raise ValueError("top_n requires parameter n")
-        return cast(list[str], scores.head(n).index.tolist())
-    if inclusion_approach == "top_pct":
-        if pct is None or not 0 < pct <= 1:
-            raise ValueError("top_pct requires 0 < pct ≤ 1")
-        k = max(1, int(round(len(scores) * pct)))
-        return cast(list[str], scores.head(k).index.tolist())
-    if inclusion_approach == "threshold":
-        if threshold is None:
-            raise ValueError("threshold approach requires a threshold value")
-        mask = scores <= threshold if ascending else scores >= threshold
-        return cast(list[str], scores[mask].index.tolist())
-    return []  # Ensure function always returns a list
+def default_quality_config(**overrides: float) -> dict[str, float]:
+    """Return default quality gates with optional overrides."""
+
+    cfg = dict(_DEFAULT_QUALITY_CONFIG)
+    cfg.update({k: v for k, v in overrides.items() if v is not None})
+    return cfg
 
 
-@dataclass
-class FundSelectionConfig:
-    """Simple quality-gate configuration."""
-
-    max_missing_months: int = 3
-    max_consecutive_month_gap: int = 6
-    implausible_value_limit: float = 1.0
-    outlier_threshold: float = 0.5
-    zero_return_threshold: float = 0.2
-    enforce_monotonic_index: bool = True
-    allow_duplicate_dates: bool = False
-    max_missing_ratio: float = 0.05
-    max_drawdown: float = 0.3
-    min_volatility: float = 0.05
-    max_volatility: float = 1.0
-    min_avg_return: float = 0.0
-    max_skewness: float = 3.0
-    max_kurtosis: float = 10.0
-    expected_freq: str = "B"
-    max_gap_days: int = 3
-    min_aum_usd: float = 1e7
+def _normalise_quality_cfg(cfg: dict[str, float] | None) -> dict[str, float]:
+    if cfg is None:
+        return dict(_DEFAULT_QUALITY_CONFIG)
+    merged = dict(_DEFAULT_QUALITY_CONFIG)
+    merged.update(cfg)
+    return merged
 
 
 @dataclass
@@ -661,7 +634,7 @@ def _get_metric_context() -> dict[str, Any]:
     return ctx
 
 
-def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
+def quality_filter(df: pd.DataFrame, cfg: dict[str, float] | None = None) -> List[str]:
     """Public interface for quality filtering funds based on data quality
     gates.
 
@@ -669,7 +642,7 @@ def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
     ----------
     df : pd.DataFrame
         DataFrame with fund data
-    cfg : FundSelectionConfig
+    cfg : dict[str, float] | None
         Configuration for quality filtering
 
     Returns
@@ -677,6 +650,7 @@ def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
     List[str]
         List of fund columns that pass quality filters
     """
+    cfg = _normalise_quality_cfg(cfg)
     # Get all non-Date columns as fund columns
     fund_columns = [col for col in df.columns if col != "Date"]
 
@@ -684,11 +658,11 @@ def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
     for col in fund_columns:
         series = df[col]
         missing = series.isna().sum()
-        if missing > cfg.max_missing_months:
+        if missing > cfg["max_missing_months"]:
             continue
-        if len(series) > 0 and missing / len(series) > cfg.max_missing_ratio:
+        if len(series) > 0 and missing / len(series) > cfg["max_missing_ratio"]:
             continue
-        if series.abs().max() > cfg.implausible_value_limit:
+        if series.abs().max() > cfg["implausible_value_limit"]:
             continue
         eligible.append(col)
     return eligible
@@ -699,7 +673,7 @@ def _quality_filter(
     fund_columns: List[str],
     in_sdate: str,
     out_edate: str,
-    cfg: FundSelectionConfig,
+    cfg: dict[str, float] | None,
 ) -> List[str]:
     """Return funds passing very basic data-quality gates."""
 
@@ -707,16 +681,17 @@ def _quality_filter(
         pd.Period(in_sdate, "M").to_timestamp("M"),
         pd.Period(out_edate, "M").to_timestamp("M"),
     )
+    cfg = _normalise_quality_cfg(cfg)
     sub = df.loc[mask, fund_columns]
     eligible: List[str] = []
     for col in fund_columns:
         series = sub[col]
         missing = series.isna().sum()
-        if missing > cfg.max_missing_months:
+        if missing > cfg["max_missing_months"]:
             continue
-        if len(series) > 0 and missing / len(series) > cfg.max_missing_ratio:
+        if len(series) > 0 and missing / len(series) > cfg["max_missing_ratio"]:
             continue
-        if series.abs().max() > cfg.implausible_value_limit:
+        if series.abs().max() > cfg["implausible_value_limit"]:
             continue
         eligible.append(col)
     return eligible
@@ -997,7 +972,7 @@ def select_funds(
     mode: str | None = None,
     selection_mode: str | None = None,
     n: int | None = None,
-    quality_cfg: FundSelectionConfig | None = None,
+    quality_cfg: dict[str, float] | None = None,
     random_n: int | None = None,
     rank_kwargs: dict[str, Any] | None = None,
     **kwargs: Any,
@@ -1037,8 +1012,7 @@ def select_funds(
 
     # Simple calling pattern
     mode = mode or selection_mode or "all"
-    if quality_cfg is None:
-        quality_cfg = FundSelectionConfig()
+    quality_cfg = _normalise_quality_cfg(quality_cfg)
 
     # Get fund columns (exclude Date and rf_col) for simple path
     simple_fund_columns: list[str] = [
@@ -1088,7 +1062,7 @@ def select_funds_extended(
     in_edate: str,
     out_sdate: str,
     out_edate: str,
-    cfg: FundSelectionConfig,
+    cfg: dict[str, float] | None,
     selection_mode: str = "all",
     random_n: int | None = None,
     rank_kwargs: dict[str, Any] | None = None,
@@ -1543,7 +1517,6 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
 
 
 __all__ = [
-    "FundSelectionConfig",
     "RiskStatsConfig",
     "register_metric",
     "METRIC_REGISTRY",
@@ -1561,4 +1534,5 @@ __all__ = [
     "select_funds",
     "build_ui",
     "canonical_metric_list",
+    "default_quality_config",
 ]
