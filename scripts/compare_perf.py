@@ -45,7 +45,7 @@ def _default_threshold() -> float:
         return float(env_path.read_text().strip())
     except ValueError:
         print(
-            f"WARNING: Invalid threshold value in {env_path}, defaulting to 15.0",
+            f"WARNING: Invalid threshold value in {env_path} (expected a numeric value), defaulting to 15.0",
             file=sys.stderr,
         )
         return 15.0
