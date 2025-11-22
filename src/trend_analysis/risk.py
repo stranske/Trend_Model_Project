@@ -142,7 +142,7 @@ def _apply_turnover_penalty(
     if lam <= 0.0:
         return target
     if lam >= 1.0:
-        return prev.reindex(target.index.union(prev.index), fill_value=0.0)
+        return _normalise(prev.reindex(target.index.union(prev.index), fill_value=0.0))
 
     aligned_index = target.index.union(prev.index)
     prev_aligned = prev.reindex(aligned_index, fill_value=0.0).astype(float)
