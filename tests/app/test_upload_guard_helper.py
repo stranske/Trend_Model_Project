@@ -8,6 +8,7 @@ import pytest
 
 from streamlit_app.components.upload_guard import (
     GuardedUpload,
+    MAX_UPLOAD_BYTES,
     UploadViolation,
     guard_and_buffer_upload,
     hash_bytes,
@@ -51,5 +52,15 @@ def test_guard_rejects_large_file(tmp_path: Path) -> None:
 
     with pytest.raises(UploadViolation) as exc:
         guard_and_buffer_upload(uploaded, max_bytes=4, upload_dir=tmp_path)
+
+    assert "File too large" in str(exc.value)
+
+
+def test_guard_rejects_default_limit(tmp_path: Path) -> None:
+    oversized = MAX_UPLOAD_BYTES + 1
+    uploaded = StubUploadedFile("returns.csv", b"0" * oversized)
+
+    with pytest.raises(UploadViolation) as exc:
+        guard_and_buffer_upload(uploaded, upload_dir=tmp_path)
 
     assert "File too large" in str(exc.value)
