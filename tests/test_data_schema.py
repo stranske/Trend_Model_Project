@@ -88,8 +88,8 @@ def test_infer_benchmarks():
 def test_validate_df_sanitizes_formula_headers():
     csv = "Date,=SUM(B1:B2),-Weird\n2020-01-01,0.01,0.02\n"
     df, meta = load_and_validate_csv(io.StringIO(csv))
-    assert "safe_SUM(B1:B2)" in df.columns
-    assert "safe_Weird" in df.columns
+    assert "SUM(B1:B2)" in df.columns
+    assert "Weird" in df.columns
     sanitized = meta["sanitized_columns"]
     assert len(sanitized) == 2
     warnings = meta["validation"]["warnings"]
@@ -99,7 +99,7 @@ def test_validate_df_sanitizes_formula_headers():
 def test_validate_df_sanitizes_duplicate_formula_headers_unique():
     csv = "Date,=Alpha,=Alpha\n2020-01-01,0.01,0.02\n"
     df, meta = load_and_validate_csv(io.StringIO(csv))
-    assert list(df.columns) == ["safe_Alpha", "safe_Alpha_2"]
+    assert list(df.columns) == ["Alpha", "Alpha_2"]
     mapping = meta["sanitized_columns"]
-    assert mapping[0]["sanitized"] == "safe_Alpha"
-    assert mapping[1]["sanitized"] == "safe_Alpha_2"
+    assert mapping[0]["sanitized"] == "Alpha"
+    assert mapping[1]["sanitized"] == "Alpha_2"

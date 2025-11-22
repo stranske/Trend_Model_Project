@@ -157,7 +157,7 @@ def _build_validation_report(
             for entry in sanitized_columns
         )
         warnings.append(
-            "Sanitized column headers to prevent Excel from running formulas: "
+            "Sanitized column headers (cleaned) to prevent Excel from running formulas: "
             + formatted
             + "."
         )
@@ -233,8 +233,10 @@ def _sanitize_formula_headers(
 
         stripped = original.lstrip()
         body = stripped.lstrip("=+-@").strip()
-        safe_base = f"{SAFE_HEADER_PREFIX}{body or 'column'}"
-        candidate = _allocate_unique_name(safe_base, occupied)
+        base = body or f"{SAFE_HEADER_PREFIX}column"
+        if base.casefold() == DATE_COL.casefold():
+            base = DATE_COL
+        candidate = _allocate_unique_name(base, occupied)
         new_columns[idx] = candidate
         changes.append({"original": original, "sanitized": candidate})
         mutated = True
@@ -248,12 +250,12 @@ def _sanitize_formula_headers(
 
 
 def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
+    sanitized_source, sanitized_columns = _sanitize_formula_headers(df)
     try:
-        normalised = validate_input(df, UPLOAD_SCHEMA)
+        normalised = validate_input(sanitized_source, UPLOAD_SCHEMA)
     except InputValidationError as exc:
         raise MarketDataValidationError(exc.user_message, exc.issues) from exc
-    sanitized, sanitized_columns = _sanitize_formula_headers(normalised)
-    validated = validate_market_data(sanitized)
+    validated = validate_market_data(normalised)
     meta = _build_meta(validated, sanitized_columns=sanitized_columns)
     return validated.frame, meta
 
