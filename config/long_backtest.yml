@@ -5,6 +5,8 @@ data:
   csv_path: hedge_fund_returns_with_indexes.csv
   date_column: Date
   frequency: ME  # monthly data (month-end)
+  risk_free_column: "Risk-Free Rate"
+  allow_risk_free_fallback: false
   na_as_zero:
     enabled: true
     max_missing_per_window: 1

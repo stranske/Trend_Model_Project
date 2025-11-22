@@ -7,6 +7,8 @@ data:
   frequency: ME                 # monthly data
   missing_policy: drop
   missing_fill_limit: null
+  risk_free_column: null        # Set to your cash proxy when present
+  allow_risk_free_fallback: true
 
 preprocessing:
   steps: []                     # none for a synthetic demo

@@ -28,7 +28,7 @@ from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
-from ..pipeline import _run_analysis
+from ..pipeline import _resolve_risk_free_column, _run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -581,6 +581,10 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
+    allow_risk_free_fallback = bool(
+        data_settings.get("allow_risk_free_fallback", False)
+    )
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -718,6 +722,8 @@ def run(
                 risk_window=cfg.vol_adjust.get("window"),
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
+                risk_free_column=risk_free_column,
+                allow_risk_free_fallback=allow_risk_free_fallback,
             )
             if res is None:
                 continue
@@ -870,11 +876,15 @@ def run(
         ret_cols = [c for c in sub.columns if c != date_col]
         # Exclude indices if configured
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
-        if indices_list:
-            idx_set = set(indices_list)
-            ret_cols = [c for c in ret_cols if c not in idx_set]
-        rf_col = min(ret_cols, key=lambda c: sub[c].std())
-        fund_cols = [c for c in ret_cols if c != rf_col]
+        indices_set = {str(c) for c in indices_list}
+        rf_col = _resolve_risk_free_column(
+            sub,
+            date_col=date_col,
+            configured=risk_free_column,
+            allow_fallback=allow_risk_free_fallback,
+            indices_list=indices_list,
+        )
+        fund_cols = [c for c in ret_cols if c not in indices_set and c != rf_col]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
         out_ok = ~out_df[fund_cols].isna().any()
@@ -1348,6 +1358,8 @@ def run(
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
+            risk_free_column=risk_free_column,
+            allow_risk_free_fallback=allow_risk_free_fallback,
         )
         if res is None:
             continue
