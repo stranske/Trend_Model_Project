@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import io
 import csv
+import io
 from pathlib import Path
 from typing import IO, Any, Dict, List, Optional, Sequence, Tuple
 

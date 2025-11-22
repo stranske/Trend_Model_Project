@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from streamlit_app.components.upload_guard import (
-    GuardedUpload,
     MAX_UPLOAD_BYTES,
+    GuardedUpload,
     UploadViolation,
     guard_and_buffer_upload,
     hash_bytes,
