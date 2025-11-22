@@ -6,7 +6,7 @@ Goals (automation-safe):
     * Optionally inject `# type: ignore[import-untyped, unused-ignore]` comments for a curated allowlist of known untyped
         imports.  If a stub file or `py.typed` marker is present, the script leaves the import unchanged.
   * Idempotent: never duplicate ignore comments.
-  * Skip legacy / excluded paths (Old/, notebooks/old/).
+  * Skip legacy / excluded paths (archives/legacy_assets/, Old/, notebooks/old/).
   * Avoid masking *semantic* errors – we only touch import lines that succeed at runtime but lack stubs.
 
 Non-goals:
@@ -33,6 +33,7 @@ from typing import Iterator, List
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIRS = [ROOT / "src", ROOT / "tests"]
 EXCLUDE_PATTERNS = [
+    re.compile(r"(^|/)archives/legacy_assets(/|$)"),
     re.compile(r"(^|/)Old(/|$)"),
     re.compile(r"(^|/)notebooks/old(/|$)"),
 ]

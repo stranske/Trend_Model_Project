@@ -19,7 +19,7 @@ if [[ -z "$VIRTUAL_ENV" && -f ".venv/bin/activate" ]]; then
 fi
 
 # Determine changed Python files (latest commit + working tree)
-CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/)' 2>/dev/null | head -5)
+CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(Old/|notebooks/old/|archives/legacy_assets/)' 2>/dev/null | head -5)
 if [[ $? -ne 0 ]]; then
     echo "::warning::git diff command failed, but continuing. Recent changes check may be incomplete."
     CHANGED_FILES=""
