@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import csv
 import io
-import re
-from typing import IO, Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import IO, Any, Dict, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
@@ -13,6 +14,9 @@ from trend_analysis.io.market_data import (
     ValidatedMarketData,
     validate_market_data,
 )
+
+DANGEROUS_HEADER_PREFIXES = ("=", "+", "-", "@")
+SAFE_HEADER_PREFIX = "safe_"
 
 DATE_COL = "Date"
 UPLOAD_SCHEMA = InputSchema(
@@ -29,7 +33,90 @@ class SchemaMeta(Dict[str, Any]):
     metadata: Optional[MarketDataMetadata]
 
 
-def _build_validation_report(validated: ValidatedMarketData) -> Dict[str, Any]:
+def _normalise_header_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if pd.isna(value):
+        return ""
+    return str(value)
+
+
+def extract_headers_from_bytes(raw: bytes, *, is_excel: bool) -> list[str] | None:
+    """Return the first-row headers without pandas mangling duplicate names."""
+
+    if not raw:
+        return []
+    if is_excel:
+        try:
+            preview = pd.read_excel(io.BytesIO(raw), header=None, nrows=1)
+        except Exception:
+            return None
+        if preview.empty:
+            return []
+        return [_normalise_header_value(value) for value in preview.iloc[0].tolist()]
+
+    lines = raw.splitlines()
+    if not lines:
+        return []
+    try:
+        decoded = lines[0].decode("utf-8-sig", errors="ignore")
+    except Exception:
+        decoded = lines[0].decode(errors="ignore")
+    reader = csv.reader([decoded])
+    try:
+        header = next(reader)
+    except StopIteration:
+        return []
+    return [_normalise_header_value(value) for value in header]
+
+
+def apply_original_headers(
+    df: pd.DataFrame, headers: Sequence[str] | None
+) -> Sequence[str] | None:
+    """Assign ``headers`` to ``df`` when lengths match, preserving duplicates."""
+
+    if not headers:
+        return None
+    if len(headers) != len(df.columns):
+        return None
+    df.columns = list(headers)
+    return headers
+
+
+def _read_binary_payload(file_like: IO[Any] | str | Path) -> tuple[bytes, str]:
+    if isinstance(file_like, (str, Path)):
+        path = Path(file_like)
+        return path.read_bytes(), path.name
+
+    if hasattr(file_like, "read") and callable(file_like.read):
+        try:
+            current = file_like.tell()
+            file_like.seek(0)
+        except Exception:
+            current = None
+        data = file_like.read()
+        if current is not None:
+            try:
+                file_like.seek(current)
+            except Exception:
+                # Seeking may fail for some file-like objects (e.g., streams); safe to ignore.
+                pass
+        if isinstance(data, bytes):
+            raw = data
+        else:
+            raw = str(data or "").encode("utf-8")
+        name = getattr(file_like, "name", "upload")
+        return raw, name
+
+    raise TypeError("Unsupported file-like object for data ingestion.")
+
+
+def _build_validation_report(
+    validated: ValidatedMarketData,
+    sanitized_columns: Optional[list[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
     metadata = validated.metadata
     frame = validated.frame
     warnings: list[str] = []
@@ -64,19 +151,29 @@ def _build_validation_report(validated: ValidatedMarketData) -> Dict[str, Any]:
         warnings.append(
             "Missing-data policy applied: " f"{metadata.missing_policy_summary}."
         )
+    if sanitized_columns:
+        formatted = ", ".join(
+            f"{entry['original']!r} → {entry['sanitized']!r}"
+            for entry in sanitized_columns
+        )
+        warnings.append(
+            "Sanitized column headers (cleaned) to prevent Excel from running formulas: "
+            + formatted
+            + "."
+        )
     return {"issues": [], "warnings": warnings}
 
 
 def _build_meta(
-    validated: ValidatedMarketData, *, extra_warnings: Optional[List[str]] = None
+    validated: ValidatedMarketData,
+    sanitized_columns: Optional[list[Dict[str, str]]] = None,
 ) -> SchemaMeta:
     metadata = validated.metadata
     meta = SchemaMeta()
     meta["metadata"] = metadata
-    validation = _build_validation_report(validated)
-    if extra_warnings:
-        validation["warnings"].extend(extra_warnings)
-    meta["validation"] = validation
+    meta["validation"] = _build_validation_report(
+        validated, sanitized_columns=sanitized_columns
+    )
     meta["original_columns"] = list(metadata.columns or metadata.symbols)
     meta["symbols"] = list(metadata.symbols)
     meta["n_rows"] = metadata.rows
@@ -93,99 +190,108 @@ def _build_meta(
     meta["date_range"] = metadata.date_range
     meta["start"] = metadata.start
     meta["end"] = metadata.end
+    meta["sanitized_columns"] = sanitized_columns or []
     return meta
 
 
-def _validate_df(
-    df: pd.DataFrame, *, extra_warnings: Optional[List[str]] = None
-) -> Tuple[pd.DataFrame, SchemaMeta]:
+def _needs_formula_sanitization(name: str) -> bool:
+    stripped = str(name).lstrip()
+    return bool(stripped) and stripped.startswith(DANGEROUS_HEADER_PREFIXES)
+
+
+def _allocate_unique_name(base: str, occupied: set[str]) -> str:
+    """Return ``base`` or a suffixed variant that does not clash with ``occupied``."""
+
+    candidate = base
+    if candidate not in occupied:
+        occupied.add(candidate)
+        return candidate
+
+    suffix = 2
+    while True:
+        candidate = f"{base}_{suffix}"
+        if candidate not in occupied:
+            occupied.add(candidate)
+            return candidate
+        suffix += 1
+
+
+def _sanitize_formula_headers(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, list[Dict[str, str]]]:
+    """Rename headers that could be interpreted as Excel formulas."""
+
+    occupied = {str(column) for column in df.columns}
+    new_columns: list[Any] = list(df.columns)
+    changes: list[Dict[str, str]] = []
+    mutated = False
+
+    for idx, column in enumerate(df.columns):
+        original = str(column)
+        if not _needs_formula_sanitization(original):
+            continue
+
+        stripped = original.lstrip()
+        body = stripped.lstrip("=+-@").strip()
+        base = body or f"{SAFE_HEADER_PREFIX}column"
+        if base.casefold() == DATE_COL.casefold():
+            base = DATE_COL
+        candidate = _allocate_unique_name(base, occupied)
+        new_columns[idx] = candidate
+        changes.append({"original": original, "sanitized": candidate})
+        mutated = True
+
+    if not mutated:
+        return df, []
+
+    sanitized = df.copy()
+    sanitized.columns = new_columns
+    return sanitized, changes
+
+
+def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
+    sanitized_source, sanitized_columns = _sanitize_formula_headers(df)
     try:
-        normalised = validate_input(df, UPLOAD_SCHEMA)
+        normalised = validate_input(sanitized_source, UPLOAD_SCHEMA)
     except InputValidationError as exc:
         raise MarketDataValidationError(exc.user_message, exc.issues) from exc
     validated = validate_market_data(normalised)
-    meta = _build_meta(validated, extra_warnings=extra_warnings)
+    meta = _build_meta(validated, sanitized_columns=sanitized_columns)
     return validated.frame, meta
 
 
-def _sanitize_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
-    sanitized: list[str] = []
-    warnings: list[str] = []
-    duplicates: dict[str, list[str]] = {}
-    seen: dict[str, str] = {}
-
-    for column in df.columns:
-        text = str(column).strip()
-        stripped = text
-        while stripped.startswith(("=", "+", "-", "@")):
-            stripped = stripped[1:]
-        safe = stripped or "column"
-
-        key = safe.casefold()
-        if key in seen:
-            duplicates.setdefault(key, [seen[key]]).append(text)
-        seen[key] = text
-        sanitized.append(safe)
-
-    if duplicates:
-        dup_values = {orig for items in duplicates.values() for orig in items}
-        dup_display = ", ".join(sorted(dup_values))
-        raise InputValidationError(
-            "Column names must be unique.",
-            issues=(
-                [f"Duplicate column(s) detected: {dup_display}."]
-                if dup_display
-                else None
-            ),
-        )
-
-    formula_like = [orig for orig, safe in zip(df.columns, sanitized) if orig != safe]
-    if formula_like:
-        formatted = ", ".join(sorted({str(col) for col in formula_like}))
-        warnings.append(
-            "Column names starting with =, +, -, or @ were cleaned to remove the prefix: "
-            f"{formatted}."
-        )
-
-    cleaned = df.copy()
-    cleaned.columns = sanitized
-    return cleaned, warnings
+def load_and_validate_csv(
+    file_like: IO[Any] | str | Path,
+) -> Tuple[pd.DataFrame, SchemaMeta]:
+    raw, name = _read_binary_payload(file_like)
+    buffer = io.BytesIO(raw)
+    buffer.name = name or "upload.csv"
+    headers = extract_headers_from_bytes(raw, is_excel=False)
+    df = pd.read_csv(buffer)
+    apply_original_headers(df, headers)
+    return _validate_df(df)
 
 
-def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
-    df = pd.read_csv(file_like)
-    base_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
-    df.columns = base_headers
-    sanitized, warnings = _sanitize_headers(df)
-    return _validate_df(sanitized, extra_warnings=warnings)
+def load_and_validate_file(
+    file_like: IO[Any] | str | Path,
+) -> Tuple[pd.DataFrame, SchemaMeta]:
+    """Load CSV or Excel from an UploadedFile or file-like, then validate."""
 
-
-def load_and_validate_file(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
-    """Load CSV or Excel from an UploadedFile or file-like, then validate.
-
-    Prefers file extension on the object (``.name``) to decide parser.
-    Falls back to CSV when extension is missing or unrecognised.
-    """
-    name = getattr(file_like, "name", "").lower()
+    raw, name = _read_binary_payload(file_like)
+    lowered = (name or "").lower()
+    is_excel = lowered.endswith((".xlsx", ".xls"))
+    headers = extract_headers_from_bytes(raw, is_excel=is_excel)
+    buffer = io.BytesIO(raw)
+    buffer.name = name
     try:
-        if name.endswith((".xlsx", ".xls")):
-            # Ensure we pass a seekable buffer to pandas
-            data = file_like.read()
-            buf = io.BytesIO(data)
-            df = pd.read_excel(buf)
+        if is_excel:
+            df = pd.read_excel(buffer)
         else:
-            df = pd.read_csv(file_like)
+            df = pd.read_csv(buffer)
     except Exception:
         raise
-    else:
-        try:
-            file_like.seek(0)
-        except Exception:
-            pass
-    base_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
-    df.columns = base_headers
-    sanitized, warnings = _sanitize_headers(df)
-    return _validate_df(sanitized, extra_warnings=warnings)
+    apply_original_headers(df, headers)
+    return _validate_df(df)
 
 
 def infer_benchmarks(columns: List[str]) -> List[str]:

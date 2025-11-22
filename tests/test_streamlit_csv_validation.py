@@ -69,3 +69,10 @@ def test_validate_uploaded_csv_reports_missing_date_column() -> None:
         validate_uploaded_csv(payload.encode("utf-8"), ("Date",), max_rows=10)
     assert "Missing columns" in excinfo.value.issues[0]
     assert excinfo.value.sample_preview is not None
+
+
+def test_validate_uploaded_csv_rejects_duplicate_headers() -> None:
+    payload = "Date,Mgr_A,Mgr_A\n2020-01-31,0.01,0.02"
+    with pytest.raises(CSVValidationError) as excinfo:
+        validate_uploaded_csv(payload.encode("utf-8"), ("Date",), max_rows=10)
+    assert "Duplicate headers" in excinfo.value.issues[0]

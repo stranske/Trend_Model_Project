@@ -12,7 +12,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from hypothesis import given, note, seed as set_seed, settings
+from hypothesis import given, note, settings
+from hypothesis import seed as set_seed
 from hypothesis import strategies as st
 
 from data.contracts import coerce_to_utc, validate_prices
