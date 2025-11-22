@@ -1,18 +1,20 @@
-# Keepalive Status for Tearsheets PR
+# Keepalive Status for Issue #3753
 
 ## Scope
-- [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
-- [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
-- [x] CLI wiring: `python -m src.cli report --last-run`.
-- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
+- [ ] Introduce focused helpers for each stage (preprocessing, sampling/window resolution, selection, weighting/risk scaling, benchmarking/report assembly) and have `_run_analysis` orchestrate them.
+- [ ] Return structured result/diagnostic objects instead of bare `None` so callers can trace why a run produced no output.
+- [ ] Preserve existing behaviour by keeping the public API intact while internally delegating to the new helpers.
 
 ## Tasks
-- [x] Implement renderer and basic plots.
-- [x] Minimal CLI and example run command in README.
-- [x] Test that the file is written and includes expected sections.
+- [ ] Identify logical sub-steps in `_run_analysis` and extract them into testable functions with clear inputs/outputs.
+- [ ] Add unit tests per helper covering success and failure paths.
+- [ ] Update `_run_analysis` to orchestrate helpers and propagate structured diagnostics.
+- [ ] Verify existing entry points (CLI/API) handle the richer return values without behaviour changes.
 
 ## Acceptance criteria
-- [x] Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
-- [x] CI artifact (optional) or repo file present after a demo run.
+- [ ] `_run_analysis` reads as a short orchestrator calling extracted helpers.
+- [ ] Unit tests cover the new helpers and confirm early exits report explicit reasons instead of returning `None`.
+- [ ] Existing external behaviour (inputs/outputs) remains unchanged aside from added diagnostics.
 
-Status auto-updates as tasks complete on this branch.
+## Progress update
+- Reviewed current codebase and confirmed `_run_analysis` is still monolithic with no extracted helper orchestration; diagnostics wrappers and tests remain in place, so helper extraction and orchestration refactor are still outstanding.
