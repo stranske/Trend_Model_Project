@@ -5,8 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from streamlit_app.components.csv_validation import CSVValidationError, validate_uploaded_csv
-from streamlit_app.components.upload_guard import UploadViolation, guard_and_buffer_upload
+from streamlit_app.components.csv_validation import (
+    CSVValidationError,
+    validate_uploaded_csv,
+)
+from streamlit_app.components.upload_guard import (
+    UploadViolation,
+    guard_and_buffer_upload,
+)
 from trend_portfolio_app.data_schema import load_and_validate_csv
 
 
@@ -22,7 +28,9 @@ class _FakeUpload:
         self._buffer.seek(offset)
 
 
-def test_guard_and_buffer_upload_respects_env_limit(monkeypatch, tmp_path: Path) -> None:
+def test_guard_and_buffer_upload_respects_env_limit(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("TREND_UPLOAD_MAX_BYTES", "1024")
     upload = _FakeUpload("huge.csv", b"x" * 2048)
 

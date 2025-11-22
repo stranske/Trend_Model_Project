@@ -132,9 +132,11 @@ def _sanitize_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
         dup_display = ", ".join(sorted(dup_values))
         raise InputValidationError(
             "Column names must be unique.",
-            issues=[f"Duplicate column(s) detected: {dup_display}."]
-            if dup_display
-            else None,
+            issues=(
+                [f"Duplicate column(s) detected: {dup_display}."]
+                if dup_display
+                else None
+            ),
         )
 
     formula_like = [orig for orig, safe in zip(df.columns, sanitized) if orig != safe]

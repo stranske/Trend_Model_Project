@@ -109,9 +109,11 @@ def validate_uploaded_csv(
             dup_display = ", ".join(sorted(duplicates))
             raise CSVValidationError(
                 "Column names must be unique.",
-                issues=[f"Duplicate column(s) detected: {dup_display}."]
-                if dup_display
-                else None,
+                issues=(
+                    [f"Duplicate column(s) detected: {dup_display}."]
+                    if dup_display
+                    else None
+                ),
                 sample_preview=_SAMPLE_PREVIEW,
             )
         df = df.copy()
