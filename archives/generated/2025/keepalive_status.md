@@ -14,4 +14,4 @@
 - [ ] Every early-exit path returns a diagnostic payload instead of silent `None`.
 - [ ] CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
 
-Status auto-updates as tasks complete on this branch.
+Progress: no tasks or acceptance criteria have been completed yet; checkboxes will be updated only when the related criteria are fully satisfied.
