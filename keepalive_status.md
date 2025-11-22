@@ -1,18 +1,18 @@
-# Keepalive Status for CV Harness PR
+# Keepalive Status for Upload Guard Enhancements
 
 ## Scope
-- [x] `analysis/cv.py::walk_forward(data, folds=3, expand=True, params=...) -> Report`.
-- [x] Metrics per fold: OOS Sharpe, max drawdown, turnover, cost drag.
-- [x] Small CLI entry point: `python -m src.cli cv --folds 5 --config config.yml`.
-- [x] Export a concise CSV/MD report.
+- [ ] Use `st.cache_data` for expensive loads and derived tables; `st.cache_resource` if needed.
+- [ ] Reject files above a configurable size (for example, 10 MB); sanitize headers starting with `=`, `+`, `-`, `@`.
+- [ ] Validate schema before merging uploaded data with internal series; require unique column names.
+- [ ] Extend `test_upload_app.py` with fuzzier inputs.
 
 ## Tasks
-- [x] Implement harness and metrics.
-- [x] CLI wrapper and example config.
-- [x] Test on synthetic data with deterministic seed.
+- [ ] Implement caching and guards.
+- [ ] Add validation errors with clear messages in the UI.
+- [ ] Extend tests for large files, duped columns, and formula-like headers.
 
 ## Acceptance criteria
-- [x] Running the CLI produces fold metrics and a combined OOS summary file.
-- [x] Tests confirm fold boundaries and no look-ahead in CV splits.
+- [ ] App accepts valid CSVs quickly on rerun and rejects malformed inputs with actionable messages.
+- [ ] Tests cover the new edge cases.
 
-Status reflects completed implementation and tests on this branch.
+Statuses remain unchecked until each acceptance criterion is met to keep the workflow nudging.
