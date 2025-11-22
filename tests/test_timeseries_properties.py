@@ -20,6 +20,10 @@ from trend_analysis.pipeline import compute_signal, position_from_signal
 
 HYPOTHESIS_SEED = 20240618
 HYPOTHESIS_SETTINGS = settings(max_examples=25, deadline=None, derandomize=True)
+# Allow up to roughly one sixth of the days to be missing to simulate patchy data
+MAX_MISSING_RATIO = 6
+# Allow staggered starts up to roughly one eighth of the total length
+MAX_STAGGER_RATIO = 8
 
 
 @st.composite
@@ -30,7 +34,10 @@ def _price_frame_strategy(draw: st.DrawFn) -> pd.DataFrame:
     )
 
     missing_candidates = draw(
-        st.sets(st.integers(min_value=0, max_value=days - 1), max_size=max(1, days // 6))
+        st.sets(
+            st.integers(min_value=0, max_value=days - 1),
+            max_size=max(1, days // MAX_MISSING_RATIO),
+        )
     )
     keep_positions = [idx for idx in range(days) if idx not in missing_candidates]
     index = base_index[keep_positions]
@@ -58,14 +65,19 @@ def _price_frame_strategy(draw: st.DrawFn) -> pd.DataFrame:
         path = 100.0 * np.cumprod(1.0 + steps)
 
         flat_len = draw(st.integers(min_value=1, max_value=min(5, len(path))))
-        flat_start = draw(st.integers(min_value=0, max_value=max(0, len(path) - flat_len)))
+        flat_len = min(flat_len, len(path))
+        flat_start = draw(
+            st.integers(min_value=0, max_value=max(0, len(path) - flat_len))
+        )
         path[flat_start : flat_start + flat_len] = path[flat_start]
 
         outlier_idx = draw(st.integers(min_value=0, max_value=len(path) - 1))
         outlier_mult = draw(st.sampled_from([0.25, 0.5, 1.5, 2.0, 3.0]))
         path[outlier_idx] = max(path[outlier_idx] * outlier_mult, 1e-3)
 
-        offset = draw(st.integers(min_value=0, max_value=max(1, len(index) // 8)))
+        offset = draw(
+            st.integers(min_value=0, max_value=max(1, len(index) // MAX_STAGGER_RATIO))
+        )
         series_index = index[offset:]
         asset_series = pd.Series(path[offset:], index=series_index, name=f"A{asset_idx}")
         columns[asset_series.name] = asset_series
