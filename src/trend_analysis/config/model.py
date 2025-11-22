@@ -237,7 +237,9 @@ class DataSettings(BaseModel):
             return None
         if isinstance(value, bool):
             return value
-        raise ValueError("data.allow_risk_free_fallback must be a boolean when provided")
+        raise ValueError(
+            "data.allow_risk_free_fallback must be a boolean when provided"
+        )
 
     @field_validator("date_column")
     @classmethod

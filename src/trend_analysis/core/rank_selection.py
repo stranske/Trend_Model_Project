@@ -832,7 +832,9 @@ def _compute_metric_series(
     token = _METRIC_CONTEXT.set(context)
     try:
         rf_value: float | pd.Series = (
-            risk_free_override if risk_free_override is not None else stats_cfg.risk_free
+            risk_free_override
+            if risk_free_override is not None
+            else stats_cfg.risk_free
         )
         return in_sample_df.apply(
             fn,
