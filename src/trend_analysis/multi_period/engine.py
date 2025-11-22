@@ -26,14 +26,14 @@ from typing import Any, Dict, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.diagnostics import DiagnosticPayload
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
-from ..data import identify_risk_free_fund, load_csv
-from ..diagnostics import PipelineResult, coerce_pipeline_result
-from ..pipeline import _invoke_analysis_with_diag
+from ..data import load_csv
+from ..diagnostics import PipelineResult
+from ..pipeline import _invoke_analysis_with_diag, _resolve_risk_free_column
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -62,41 +62,12 @@ _DEFAULT_LOAD_CSV = load_csv
 
 logger = logging.getLogger(__name__)
 
-def _call_pipeline_with_diag(
-    *args: Any, **kwargs: Any
-) -> DiagnosticResult[dict[str, object] | None]:
-    """Invoke the single-period pipeline and always return a DiagnosticResult."""
-
-    result = _run_analysis(*args, **kwargs)
-    if isinstance(result, DiagnosticResult):
-        return result
-    payload, diag = coerce_pipeline_result(result)
-    return DiagnosticResult(value=payload, diagnostic=diag)
-
 
 # Back-compat shim so legacy tests can patch ``engine._run_analysis`` while the
 # default implementation continues to funnel through the diagnostics-aware
 # pipeline entry point.
 def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
-
-
-def _derive_risk_free_preferences(
-    data_settings: Mapping[str, Any] | None,
-) -> tuple[str | None, bool]:
-    """Return the configured risk-free column and fallback flag."""
-
-    if not data_settings:
-        return None, True
-
-    raw_rf = data_settings.get("risk_free_column")
-    rf_col = raw_rf.strip() if isinstance(raw_rf, str) else None
-
-    flag = data_settings.get("allow_risk_free_fallback")
-    if flag is None:
-        return rf_col, rf_col is None
-
-    return rf_col, bool(flag)
 
 
 def _coerce_analysis_result(
@@ -649,8 +620,8 @@ def run(
     missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(
         data_settings
     )
-    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
-    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
+    risk_free_column_cfg = cast(str | None, data_settings.get("risk_free_column"))
+    allow_risk_free_fallback_cfg = data_settings.get("allow_risk_free_fallback")
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -788,8 +759,8 @@ def run(
                 risk_window=cfg.vol_adjust.get("window"),
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
-                risk_free_column=risk_free_column,
-                allow_risk_free_fallback=allow_risk_free_fallback,
+                risk_free_column=risk_free_column_cfg,
+                allow_risk_free_fallback=allow_risk_free_fallback_cfg,
             )
             payload, diag = _coerce_analysis_result(analysis_res)
             if payload is None:
@@ -924,8 +895,6 @@ def run(
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
-    risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
-    allow_risk_free_fallback = cfg.data.get("allow_risk_free_fallback")
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
@@ -952,45 +921,15 @@ def run(
             return in_df, out_df, [], ""
         numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
+        rf_col, candidate_cols, _ = _resolve_risk_free_column(
+            sub,
+            date_col=date_col,
+            indices_list=indices_list,
+            risk_free_column=risk_free_column_cfg,
+            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+        )
         idx_set = {str(c) for c in indices_list}
-        ret_cols = [c for c in numeric_cols if c not in idx_set]
-        if not ret_cols:
-            raise ValueError("No numeric return columns available to process")
-        configured_rf = (risk_free_column_cfg or "").strip()
-        if configured_rf:
-            if configured_rf not in sub.columns:
-                raise ValueError(
-                    f"Configured risk-free column '{configured_rf}' was not found in the dataset"
-                )
-            if configured_rf not in numeric_cols:
-                raise ValueError(
-                    f"Configured risk-free column '{configured_rf}' must be numeric"
-                )
-            if configured_rf in idx_set:
-                raise ValueError(
-                    f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
-                )
-            rf_col = configured_rf
-        else:
-            fallback_enabled = (
-                allow_risk_free_fallback is True or allow_risk_free_fallback is None
-            )
-            if not fallback_enabled:
-                raise ValueError(
-                    "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
-                )
-            probe_cols = [date_col, *ret_cols] if date_col in sub.columns else ret_cols
-            detected = identify_risk_free_fund(sub[probe_cols])
-            if detected is None:
-                raise ValueError(
-                    "Risk-free fallback could not find a numeric return series"
-                )
-            rf_col = detected
-            logger.info(
-                "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
-                rf_col,
-            )
-        fund_cols = [c for c in ret_cols if c != rf_col]
+        fund_cols = [c for c in candidate_cols if c in numeric_cols and c not in idx_set]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
         out_ok = ~out_df[fund_cols].isna().any()
@@ -1464,8 +1403,8 @@ def run(
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
-            risk_free_column=risk_free_column,
-            allow_risk_free_fallback=allow_risk_free_fallback,
+            risk_free_column=risk_free_column_cfg,
+            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
         )
         payload, diag = _coerce_analysis_result(res)
         if payload is None:
