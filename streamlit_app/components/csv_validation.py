@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import logging
+import re
+from collections import Counter
 from typing import IO, Sequence
 
 import pandas as pd
@@ -56,8 +58,26 @@ def _buffer_from_upload(file: bytes | IO[bytes]) -> io.BytesIO:
     return buffer
 
 
+_FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+def _strip_formula_prefix(name: str) -> str:
+    text = str(name).strip()
+    while text.startswith(_FORMULA_PREFIXES):
+        text = text[1:]
+    return text
+
+
+def _safe_column_name(name: str) -> str:
+    cleaned = str(name).strip()
+    stripped = _strip_formula_prefix(cleaned)
+    if stripped != cleaned:
+        return stripped or "column"
+    return cleaned or "column"
+
+
 def _normalise(name: str) -> str:
-    return str(name).strip().casefold()
+    return _strip_formula_prefix(str(name)).casefold()
 
 
 def validate_uploaded_csv(
@@ -81,6 +101,21 @@ def validate_uploaded_csv(
                 issues=[str(exc)],
                 sample_preview=_SAMPLE_PREVIEW,
             ) from exc
+
+        original_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
+        safe_columns = [_safe_column_name(col) for col in original_headers]
+        duplicates = {col for col, count in Counter(safe_columns).items() if count > 1}
+        if duplicates:
+            dup_display = ", ".join(sorted(duplicates))
+            raise CSVValidationError(
+                "Column names must be unique.",
+                issues=[f"Duplicate column(s) detected: {dup_display}."]
+                if dup_display
+                else None,
+                sample_preview=_SAMPLE_PREVIEW,
+            )
+        df = df.copy()
+        df.columns = safe_columns
 
         if df.empty:
             raise CSVValidationError(

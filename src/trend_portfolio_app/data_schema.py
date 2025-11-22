@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 from typing import IO, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -66,11 +67,16 @@ def _build_validation_report(validated: ValidatedMarketData) -> Dict[str, Any]:
     return {"issues": [], "warnings": warnings}
 
 
-def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
+def _build_meta(
+    validated: ValidatedMarketData, *, extra_warnings: Optional[List[str]] = None
+) -> SchemaMeta:
     metadata = validated.metadata
     meta = SchemaMeta()
     meta["metadata"] = metadata
-    meta["validation"] = _build_validation_report(validated)
+    validation = _build_validation_report(validated)
+    if extra_warnings:
+        validation["warnings"].extend(extra_warnings)
+    meta["validation"] = validation
     meta["original_columns"] = list(metadata.columns or metadata.symbols)
     meta["symbols"] = list(metadata.symbols)
     meta["n_rows"] = metadata.rows
@@ -90,19 +96,66 @@ def _build_meta(validated: ValidatedMarketData) -> SchemaMeta:
     return meta
 
 
-def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
+def _validate_df(
+    df: pd.DataFrame, *, extra_warnings: Optional[List[str]] = None
+) -> Tuple[pd.DataFrame, SchemaMeta]:
     try:
         normalised = validate_input(df, UPLOAD_SCHEMA)
     except InputValidationError as exc:
         raise MarketDataValidationError(exc.user_message, exc.issues) from exc
     validated = validate_market_data(normalised)
-    meta = _build_meta(validated)
+    meta = _build_meta(validated, extra_warnings=extra_warnings)
     return validated.frame, meta
+
+
+def _sanitize_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
+    sanitized: list[str] = []
+    warnings: list[str] = []
+    duplicates: dict[str, list[str]] = {}
+    seen: dict[str, str] = {}
+
+    for column in df.columns:
+        text = str(column).strip()
+        stripped = text
+        while stripped.startswith(("=", "+", "-", "@")):
+            stripped = stripped[1:]
+        safe = stripped or "column"
+
+        key = safe.casefold()
+        if key in seen:
+            duplicates.setdefault(key, [seen[key]]).append(text)
+        seen[key] = text
+        sanitized.append(safe)
+
+    if duplicates:
+        dup_values = {orig for items in duplicates.values() for orig in items}
+        dup_display = ", ".join(sorted(dup_values))
+        raise InputValidationError(
+            "Column names must be unique.",
+            issues=[f"Duplicate column(s) detected: {dup_display}."]
+            if dup_display
+            else None,
+        )
+
+    formula_like = [orig for orig, safe in zip(df.columns, sanitized) if orig != safe]
+    if formula_like:
+        formatted = ", ".join(sorted({str(col) for col in formula_like}))
+        warnings.append(
+            "Column names starting with =, +, -, or @ were cleaned to remove the prefix: "
+            f"{formatted}."
+        )
+
+    cleaned = df.copy()
+    cleaned.columns = sanitized
+    return cleaned, warnings
 
 
 def load_and_validate_csv(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
     df = pd.read_csv(file_like)
-    return _validate_df(df)
+    base_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
+    df.columns = base_headers
+    sanitized, warnings = _sanitize_headers(df)
+    return _validate_df(sanitized, extra_warnings=warnings)
 
 
 def load_and_validate_file(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta]:
@@ -127,7 +180,10 @@ def load_and_validate_file(file_like: IO[Any]) -> Tuple[pd.DataFrame, SchemaMeta
             file_like.seek(0)
         except Exception:
             pass
-    return _validate_df(df)
+    base_headers = [re.sub(r"\.\d+$", "", str(col)) for col in df.columns]
+    df.columns = base_headers
+    sanitized, warnings = _sanitize_headers(df)
+    return _validate_df(sanitized, extra_warnings=warnings)
 
 
 def infer_benchmarks(columns: List[str]) -> List[str]:
