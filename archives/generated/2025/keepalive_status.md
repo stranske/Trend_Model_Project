@@ -14,4 +14,4 @@
 - [ ] `core/rank_selection.py` contains only actively used utilities (or clearly segregated legacy stubs).
 - [ ] Test suite passes with the cleaned-up module and no stray references to removed utilities.
 
-Status auto-updates as tasks complete on this branch.
+Status auto-updates as tasks complete on this branch. No checklist items have been completed yet.
