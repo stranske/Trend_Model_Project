@@ -4,6 +4,16 @@
 
 The 20-year trend portfolio backtest from July 2005 to June 2025 demonstrates the effectiveness of a systematic trend-following approach with volatility targeting and Bayesian manager selection. Despite challenging market conditions including the 2008 financial crisis, COVID-19 pandemic, and various market cycles, the portfolio delivered consistent positive returns with controlled risk.
 
+## Tearsheet
+
+Generate a reproducible Markdown + PNG tear sheet from the latest demo results:
+
+```bash
+python -m src.cli report --last-run demo/portfolio_test_results/last_run_results.json
+```
+
+The command writes `reports/tearsheet.md` and a chart image alongside this summary.
+
 ## Key Performance Highlights
 
 ### Overall Portfolio Performance

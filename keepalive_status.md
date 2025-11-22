@@ -1,18 +1,18 @@
-# Keepalive Status for CV Harness PR
+# Keepalive Status for Tearsheets PR
 
 ## Scope
-- [x] `analysis/cv.py::walk_forward(data, folds=3, expand=True, params=...) -> Report`.
-- [x] Metrics per fold: OOS Sharpe, max drawdown, turnover, cost drag.
-- [x] Small CLI entry point: `python -m src.cli cv --folds 5 --config config.yml`.
-- [x] Export a concise CSV/MD report.
+- [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
+- [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
+- [x] CLI wiring: `python -m src.cli report --last-run`.
+- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
 
 ## Tasks
-- [x] Implement harness and metrics.
-- [x] CLI wrapper and example config.
-- [x] Test on synthetic data with deterministic seed.
+- [x] Implement renderer and basic plots.
+- [x] Minimal CLI and example run command in README.
+- [x] Test that the file is written and includes expected sections.
 
 ## Acceptance criteria
-- [x] Running the CLI produces fold metrics and a combined OOS summary file.
-- [x] Tests confirm fold boundaries and no look-ahead in CV splits.
+- [x] Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
+- [x] CI artifact (optional) or repo file present after a demo run.
 
-Status reflects completed implementation and tests on this branch.
+Status auto-updates as tasks complete on this branch.
