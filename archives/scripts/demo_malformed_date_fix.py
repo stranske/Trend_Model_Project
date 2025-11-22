@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Demo script showing the malformed date validation fix.
 
+Last-known use: manual validation demo; no Makefile/docs/scripts references
+as of the current repository state. Archived for historical context.
+
 This script demonstrates how malformed dates are now properly handled
 as validation errors rather than being silently converted to NaT values
 that could be mishandled downstream.
@@ -9,9 +12,11 @@ that could be mishandled downstream.
 import os
 import sys
 import tempfile
+from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+# Add repo src to path
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
 
 def create_test_csv_with_malformed_dates():

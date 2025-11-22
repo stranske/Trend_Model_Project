@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Demonstration of the Streamlit WebSocket proxy.
 
+Last-known use: manual Streamlit proxy debugging demo; no current
+Makefile/docs/scripts references. Archived to preserve usage notes.
+
 This script shows how to use the proxy and provides examples
 of the key functionality that solves the WebSocket issue.
 """
@@ -9,7 +12,8 @@ import sys
 from pathlib import Path
 
 # Add src to path for importing
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 
 def demonstrate_proxy_import():
