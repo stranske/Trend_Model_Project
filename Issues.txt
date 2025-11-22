@@ -1,95 +1,61 @@
-1) Title: Break up monolithic _run_analysis into testable stages with explicit outcomes
-Labels: enhancement, engine, backend, priority: medium, risk:medium
+1) Title: Make autofix workflow fork-safe without ACTIONS_BOT_PAT
+Labels: bug, ci, github-actions, priority: medium, risk:medium
 Body:
 ## Why
-The current `_run_analysis` function spans preprocessing, selection, weighting, risk scaling, benchmarking, and exports in a single block with multiple silent early exits. This coupling makes it difficult to unit-test stages, reason about failures, or reuse components.
+The autofix loop exits early on forked pull requests because it hard-requires the ACTIONS_BOT_PAT secret before running, so contributors cannot receive patch artifacts or cosmetic fixes when repository secrets are unavailable.
 ## Scope
-- Introduce focused helpers for each stage (preprocessing, sampling/window resolution, selection, weighting/risk scaling, benchmarking/report assembly) and have `_run_analysis` orchestrate them.
-- Return structured result/diagnostic objects instead of bare `None` so callers can trace why a run produced no output.
-- Preserve existing behaviour by keeping the public API intact while internally delegating to the new helpers.
+- Introduce a fallback path that uses GITHUB_TOKEN-only permissions for forked PRs and produces patch artifacts instead of pushing branches when a PAT is missing.
+- Preserve the current PAT-powered branch push/comment flow for trusted contexts where secrets are available.
+- Ensure autofix status reporting clearly indicates when a fallback mode was used and where maintainers can fetch patches.
 ## Non-Goals
-- Changing business logic or defaults beyond improved structure and observability.
-- Reworking the CLI/UI layers beyond adapting to the new return structure if required.
+- Changing formatter/tool versions or adding new linters.
+- Altering the max-attempts/keepalive logic that decides whether autofix should run.
 ## Tasks
-- [ ] Identify logical sub-steps in `_run_analysis` and extract them into testable functions with clear inputs/outputs.
-- [ ] Add unit tests per helper covering success and failure paths.
-- [ ] Update `_run_analysis` to orchestrate helpers and propagate structured diagnostics.
-- [ ] Verify existing entry points (CLI/API) handle the richer return values without behaviour changes.
+- [ ] Detect forked contexts or missing ACTIONS_BOT_PAT and switch to a patch-only mode using GITHUB_TOKEN, skipping branch pushes.
+- [ ] Continue using the PAT path (checkout + push) when secrets are present while keeping step conditions mutual and explicit.
+- [ ] Emit clear summary/comment text that states whether autofix ran in PAT or fallback mode and links to the produced patch artifact when no push occurs.
+- [ ] Add coverage in the workflow tests (or mock runs) to confirm both paths succeed without secret access errors on forks.
 ## Acceptance Criteria
-- `_run_analysis` reads as a short orchestrator calling extracted helpers.
-- Unit tests cover the new helpers and confirm early exits report explicit reasons instead of returning `None`.
-- Existing external behaviour (inputs/outputs) remains unchanged aside from added diagnostics.
+- Autofix no longer fails on forked PRs due to missing ACTIONS_BOT_PAT and instead provides a downloadable patch artifact.
+- PAT-backed runs still push branches and comments as before, with logs showing which path executed.
+- Workflow documentation/comments note the fork-safe fallback behaviour for future maintenance.
 
-2) Title: Require explicit risk-free series configuration instead of lowest-volatility heuristic
-Labels: bug, config, engine, priority: medium, risk:medium
+2) Title: Harden workflow checkouts for forked PR heads
+Labels: bug, ci, github-actions, priority: medium, risk:medium
 Body:
 ## Why
-Selecting the lowest-volatility column as the risk-free proxy can misclassify investable assets (e.g., low-vol ETFs) and distort Sharpe/IR calculations and scaling decisions. An explicit configuration avoids accidental misuse.
+Gate and orchestrator jobs that checkout PR head commits can fail for forked contributions when the repository input defaults to the base repo, blocking detection, summary composition, or keepalive orchestration.
 ## Scope
-- Add a configuration option to specify the risk-free column name, with validation to ensure it exists and is excluded from investable assets.
-- Make the current lowest-volatility fallback opt-in and clearly logged when used.
-- Update documentation and example configs to demonstrate explicit risk-free selection.
+- Audit workflow jobs that read PR head SHAs (Gate summary helpers, orchestrator workflow_run handlers, belt conveyor/meta workflows) and ensure checkouts target the contributing repository when available.
+- Add fallback protections so workflow_run events gracefully handle missing pull_request metadata or inaccessible SHAs instead of aborting.
 ## Non-Goals
-- Changing metric definitions or portfolio construction logic beyond risk-free handling.
+- Modifying job logic unrelated to repository selection or ref resolution.
+- Changing concurrency, keepalive, or scheduling policies.
 ## Tasks
-- [ ] Add config parsing/validation for an explicit risk-free column and gate the heuristic behind a flag.
-- [ ] Adjust risk calculations to use the configured series and exclude it from asset universes.
-- [ ] Update docs/sample configs and add tests covering explicit selection and the optional fallback.
+- [ ] Identify every actions/checkout step that pulls a PR head SHA and add repository overrides that prefer `pull_request.head.repo.full_name` (or equivalent) with safe fallbacks to `github.repository`.
+- [ ] Update workflow_run handlers to skip or warn when head metadata is absent rather than failing the run, keeping automation resilient across event types.
+- [ ] Add lightweight validation (unit tests or dry-run jobs) demonstrating forked PR head checkouts succeed for the audited workflows.
 ## Acceptance Criteria
-- Runs fail fast with a clear error if the configured risk-free column is missing.
-- Risk metrics and scaling use the configured series, with tests covering both explicit and opt-in heuristic modes.
+- All PR-head checkouts succeed on forked contributions across Gate/orchestrator/meta workflows, with no missing-commit errors.
+- workflow_run jobs log warnings instead of failing when head data is unavailable, and default to the base repo safely.
+- New coverage confirms fork-aware repository selection is exercised in CI.
 
-3) Title: Emit structured diagnostics for all early-exit conditions
-Labels: enhancement, backend, logging, priority: medium, risk:low
+3) Title: Reduce Python CI install time with reusable caches
+Labels: enhancement, ci, performance, priority: medium, risk:low
 Body:
 ## Why
-Many branches in the pipeline return `None` when data is empty, dates are invalid, or universes are filtered out, leaving callers without context. Structured diagnostics improve debuggability.
+Python CI jobs reinstall the full toolchain (uv, pytest, formatters) on every matrix run, leading to long runtimes and occasional timeouts on larger PRs despite pip cache toggles.
 ## Scope
-- Enumerate early-exit conditions across preprocessing, calendar alignment, missing-data filtering, and selection stages.
-- Replace bare `None` returns with status objects or warnings that include reason codes and key context (e.g., empty timestamps, all funds filtered by missing-data policy).
-- Ensure CLI/API surfaces these diagnostics to users (e.g., logged warnings or structured responses).
+- Leverage uv/pip caching to reuse compiled wheels and virtual environments across matrix entries and reruns.
+- Trim redundant installs by reusing shared tool versions (from autofix pins) and avoiding duplicate `pip install` calls where uv sync already resolves dependencies.
 ## Non-Goals
-- Changing underlying filtering rules or thresholds.
+- Changing test selection, markers, or coverage thresholds.
+- Introducing new dependencies beyond cache helpers.
 ## Tasks
-- [ ] Catalogue current `None` return paths and add reason codes/messages.
-- [ ] Thread diagnostics through the pipeline and surface them in user-facing logs/outputs.
-- [ ] Add tests verifying each early-exit condition reports the expected diagnostic.
+- [ ] Enable uv cache (or actions/cache) for uv's cache directory and wheel artifacts keyed by python version + lockfile, and document the cache keys.
+- [ ] Consolidate formatter/test dependency installs to a single install path per run (e.g., rely on uv sync + pinned extras) to eliminate duplicate pip invocations.
+- [ ] Add timing notes or a metrics hook to confirm install duration drops after caching.
 ## Acceptance Criteria
-- Every early-exit path returns a diagnostic payload instead of silent `None`.
-- CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
-
-4) Title: Remove logging-level mutation in weight engine fallback paths
-Labels: bug, logging, engine, priority: low, risk:low
-Body:
-## Why
-When a plugin weight engine fails, the fallback currently mutates the module logger level to DEBUG, altering global logging behaviour beyond the failure scope.
-## Scope
-- Eliminate global logger level changes in weight engine fallbacks.
-- Use contextual debug logging or enrich existing fallback metadata instead.
-- Add targeted tests to ensure logging levels remain stable after fallback execution.
-## Non-Goals
-- Redesigning logging configuration elsewhere in the project.
-## Tasks
-- [ ] Update fallback code to avoid changing logger levels while still capturing useful debug information.
-- [ ] Add tests verifying logger levels before/after fallback remain unchanged and that debug details are available via structured data/log messages.
-## Acceptance Criteria
-- Weight engine failures no longer mutate global logger levels, and diagnostics remain accessible.
-
-5) Title: Remove or quarantine unused ranking utilities to reduce maintenance noise
-Labels: cleanup, engine, testing, priority: low, risk:low
-Body:
-## Why
-Unused artifacts like `some_function_missing_annotation` and the `FundSelectionConfig` dataclass in `core/rank_selection.py` add confusion and risk divergence from actively used ranking logic.
-## Scope
-- Identify unused ranking utilities and remove them or move them into a clearly marked legacy/experimental module.
-- Ensure public APIs and tests reference only the supported ranking functions.
-- Add or update tests to confirm the active ranking path remains intact after cleanup.
-## Non-Goals
-- Introducing new ranking features or altering current selection behaviour.
-## Tasks
-- [ ] Trace usage of ranking utilities and delete or isolate unused items with appropriate documentation.
-- [ ] Update imports/call sites and adjust tests accordingly.
-- [ ] Add/maintain tests to ensure the supported ranking functions operate as before.
-## Acceptance Criteria
-- `core/rank_selection.py` contains only actively used utilities (or clearly segregated legacy stubs).
-- Test suite passes with the cleaned-up module and no stray references to removed utilities.
+- Python CI jobs reuse cached dependencies across matrix runs, with logs showing cache hits and reduced install time.
+- Redundant install steps are removed/merged while still installing pinned tooling from `.github/workflows/autofix-versions.env`.
+- CI remains green across reruns with the new cache strategy.
