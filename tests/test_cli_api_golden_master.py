@@ -32,7 +32,13 @@ def make_test_config(csv_path: str) -> Config:
     """Create test configuration."""
     return Config(
         version="1",
-        data={"csv_path": csv_path},
+        data={
+            "csv_path": csv_path,
+            "risk_free_column": "RF",
+            "date_column": "Date",
+            "frequency": "M",
+            "allow_risk_free_fallback": False,
+        },
         preprocessing={},
         vol_adjust={"target_vol": 1.0},
         sample_split={
