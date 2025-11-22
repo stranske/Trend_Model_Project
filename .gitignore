@@ -61,6 +61,8 @@ results/
 !tests/fixtures/agents_pr_meta/*.json
 !tests/fixtures/orchestrator/*.json
 !tests/data/*.csv
+# generated tear sheets
+reports/*.png
 # Stop tracking noisy autofix history (now artifact-only)
 ci/autofix/history.json
 ci/autofix/diagnostics.json

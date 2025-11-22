@@ -44,6 +44,15 @@ Run the demo pipeline end-to-end using the helper script:
 python scripts/run_multi_demo.py
 ```
 
+### Generate a markdown tear sheet
+
+Create a quick report from the most recent demo results (writes both Markdown and a PNG chart bundle):
+
+```bash
+python -m src.cli report --last-run demo/portfolio_test_results/last_run_results.json
+cat reports/tearsheet.md
+```
+
 ### Named universes
 
 Predefined membership sets live under `config/universe`. Swap between them at
