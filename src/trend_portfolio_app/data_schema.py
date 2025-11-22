@@ -101,6 +101,7 @@ def _read_binary_payload(file_like: IO[Any] | str | Path) -> tuple[bytes, str]:
             try:
                 file_like.seek(current)
             except Exception:
+                # Seeking may fail for some file-like objects (e.g., streams); safe to ignore.
                 pass
         if isinstance(data, bytes):
             raw = data
