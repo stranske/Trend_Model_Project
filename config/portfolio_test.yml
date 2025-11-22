@@ -5,6 +5,8 @@ data:
   csv_path: demo/extended_returns.csv
   date_column: Date
   frequency: ME  # monthly data
+  risk_free_column: null
+  allow_risk_free_fallback: true
 
 preprocessing:
   steps: []

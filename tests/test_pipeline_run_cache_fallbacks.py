@@ -63,6 +63,8 @@ def test_run_uses_nan_policy_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
             "csv_path": "dummy.csv",
             "nan_policy": {"default": "zero"},
             "nan_limit": {"default": 2},
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": True,
         },
         "sample_split": {
             "in_start": "2020-01",
@@ -112,6 +114,8 @@ def test_run_full_uses_nan_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
             "csv_path": "dummy.csv",
             "nan_policy": {"default": "ffill"},
             "nan_limit": {"default": 1},
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": True,
         },
         "sample_split": {
             "in_start": "2020-01",

@@ -17,6 +17,7 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 
 from __future__ import annotations  # mypy: ignore-errors
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
@@ -27,7 +28,7 @@ import pandas as pd
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
-from ..data import load_csv
+from ..data import identify_risk_free_fund, load_csv
 from ..pipeline import _run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
@@ -54,6 +55,8 @@ MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
+
+logger = logging.getLogger(__name__)
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
@@ -843,6 +846,8 @@ def run(
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
+    risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
+    allow_risk_free_fallback = cfg.data.get("allow_risk_free_fallback")
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
@@ -873,7 +878,32 @@ def run(
         if indices_list:
             idx_set = set(indices_list)
             ret_cols = [c for c in ret_cols if c not in idx_set]
-        rf_col = min(ret_cols, key=lambda c: sub[c].std())
+        configured_rf = (risk_free_column_cfg or "").strip()
+        idx_set = set(indices_list)
+        if configured_rf:
+            if configured_rf not in sub.columns:
+                raise ValueError(
+                    f"Configured risk-free column '{configured_rf}' was not found in the dataset"
+                )
+            if configured_rf in idx_set:
+                raise ValueError(
+                    f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
+                )
+            rf_col = configured_rf
+        else:
+            fallback_enabled = (
+                allow_risk_free_fallback is True or allow_risk_free_fallback is None
+            )
+            if not fallback_enabled:
+                raise ValueError(
+                    "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
+                )
+            rf_col = identify_risk_free_fund(sub[ret_cols])
+            if rf_col is None:
+                raise ValueError("Risk-free fallback could not find a numeric return series")
+            logger.info(
+                "Using lowest-volatility column '%s' as risk-free (fallback enabled)", rf_col
+            )
         fund_cols = [c for c in ret_cols if c != rf_col]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()

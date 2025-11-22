@@ -175,6 +175,8 @@ class DataSettings(BaseModel):
     frequency: Literal["D", "W", "M", "ME"] = Field()
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
+    risk_free_column: str | None = Field(default=None)
+    allow_risk_free_fallback: bool | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -217,6 +219,25 @@ class DataSettings(BaseModel):
         if info.context:
             base_dir = info.context.get("base_path")
         return _resolve_path(value, base_dir=base_dir)
+
+    @field_validator("risk_free_column", mode="before")
+    @classmethod
+    def _validate_risk_free_column(cls, value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        raise ValueError("data.risk_free_column must be a string when provided")
+
+    @field_validator("allow_risk_free_fallback", mode="before")
+    @classmethod
+    def _validate_allow_risk_free_fallback(cls, value: Any) -> bool | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, bool):
+            return value
+        raise ValueError("data.allow_risk_free_fallback must be a boolean when provided")
 
     @field_validator("date_column")
     @classmethod

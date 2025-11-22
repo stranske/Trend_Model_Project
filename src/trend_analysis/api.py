@@ -149,6 +149,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
+    risk_free_column = data_settings.get("risk_free_column")
+    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
 
     res = _run_analysis(
         returns,
@@ -178,6 +180,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         lambda_tc=config.portfolio.get("lambda_tc"),
         max_turnover=config.portfolio.get("max_turnover"),
         regime_cfg=regime_cfg,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
     )
     if res is None:
         logger.warning("run_simulation produced no result")

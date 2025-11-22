@@ -49,7 +49,11 @@ def _sample_split_fixture() -> dict[str, str]:
 @pytest.fixture(name="base_config")
 def _base_config_fixture() -> dict[str, object]:
     return {
-        "data": {"csv_path": "dummy.csv"},
+        "data": {
+            "csv_path": "dummy.csv",
+            "risk_free_column": None,
+            "allow_risk_free_fallback": True,
+        },
         "sample_split": {},
         "preprocessing": {},
         "run": {},
