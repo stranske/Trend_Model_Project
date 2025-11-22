@@ -116,6 +116,13 @@ if __name__ == "__main__":
     setup_script_logging(app_name="rebalance-helper")
 ```
 
+### Archived generated artefacts
+
+Historical CI outputs (for example `coverage-summary.md`, `gate-summary.md`,
+`keepalive_status.md`, and the performance baseline) now live under
+`archives/generated/2025/`.  Symlinks at the original paths keep existing
+workflows and scripts working while clearly separating past runs from new ones.
+
 ---
 
 ==========
