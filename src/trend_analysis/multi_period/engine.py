@@ -62,7 +62,6 @@ _DEFAULT_LOAD_CSV = load_csv
 
 logger = logging.getLogger(__name__)
 
-
 def _call_pipeline_with_diag(
     *args: Any, **kwargs: Any
 ) -> DiagnosticResult[dict[str, object] | None]:
@@ -85,12 +84,7 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
 def _derive_risk_free_preferences(
     data_settings: Mapping[str, Any] | None,
 ) -> tuple[str | None, bool]:
-    """Return the configured risk-free column and fallback flag.
-
-    When neither ``risk_free_column`` nor ``allow_risk_free_fallback`` are
-    provided this helper enables the fallback path by default so the multi-period
-    engine can continue selecting a cash proxy heuristically.
-    """
+    """Return the configured risk-free column and fallback flag."""
 
     if not data_settings:
         return None, True
@@ -132,7 +126,6 @@ def _coerce_analysis_result(
         "Unexpected analysis payload type: %%s", type(payload)
     )  # pragma: no cover - defensive
     return None, cast(DiagnosticPayload | None, diag)
-
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
@@ -653,15 +646,11 @@ def run(
             raise ValueError("price_frames is empty - no data to process")
 
     data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg = data_settings.get("missing_policy")
-    if missing_policy_cfg is None:
-        missing_policy_cfg = data_settings.get("nan_policy")
-    missing_limit_cfg = data_settings.get("missing_limit")
-    if missing_limit_cfg is None:
-        missing_limit_cfg = data_settings.get("nan_limit")
-    risk_free_column, allow_risk_free_fallback = _derive_risk_free_preferences(
-        cast(Mapping[str, Any] | None, data_settings)
+    missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(
+        data_settings
     )
+    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
+    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -776,7 +765,7 @@ def run(
         prev_in_df = None
 
         for pt in periods:
-            diag_res = _call_pipeline_with_diag(
+            analysis_res = _run_analysis(
                 df,
                 pt.in_start[:7],
                 pt.in_end[:7],
@@ -802,13 +791,19 @@ def run(
                 risk_free_column=risk_free_column,
                 allow_risk_free_fallback=allow_risk_free_fallback,
             )
-            res_payload = diag_res.value
-            if res_payload is None:
+            payload, diag = _coerce_analysis_result(analysis_res)
+            if payload is None:
+                if diag is not None:
+                    logger.warning(
+                        "Multi-period analysis skipped period %s/%s (%s): %s",
+                        pt.in_start,
+                        pt.out_start,
+                        diag.reason_code,
+                        diag.message,
+                    )
                 continue
-            res = dict(res_payload)
-            if diag_res.diagnostic and "diagnostic" not in res:
-                res["diagnostic"] = diag_res.diagnostic
-            res["period"] = (
+            res_dict = dict(payload)
+            res_dict["period"] = (
                 pt.in_start,
                 pt.in_end,
                 pt.out_start,
@@ -920,18 +915,17 @@ def run(
                         in_df_prepared, materialise_aggregates=incremental_cov
                     )
                 prev_in_df = in_df_prepared
-                res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
+                res_dict["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
-                    res.setdefault("cache_stats", cov_cache_obj.stats())
-            out_results.append(res)
+                    res_dict.setdefault("cache_stats", cov_cache_obj.stats())
+            out_results.append(res_dict)
         return out_results
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
-    risk_free_column_cfg, allow_risk_free_fallback = _derive_risk_free_preferences(
-        cast(Mapping[str, Any] | None, getattr(cfg, "data", {}) or {})
-    )
+    risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
+    allow_risk_free_fallback = cfg.data.get("allow_risk_free_fallback")
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
@@ -978,7 +972,9 @@ def run(
                 )
             rf_col = configured_rf
         else:
-            fallback_enabled = allow_risk_free_fallback is True
+            fallback_enabled = (
+                allow_risk_free_fallback is True or allow_risk_free_fallback is None
+            )
             if not fallback_enabled:
                 raise ValueError(
                     "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
@@ -1449,7 +1445,7 @@ def run(
             str(k): float(v) * 100.0 for k, v in prev_weights.items()
         }
 
-        diag_res = _call_pipeline_with_diag(
+        res = _run_analysis(
             df,
             pt.in_start[:7],
             pt.in_end[:7],
@@ -1471,24 +1467,30 @@ def run(
             risk_free_column=risk_free_column,
             allow_risk_free_fallback=allow_risk_free_fallback,
         )
-        payload = diag_res.value
+        payload, diag = _coerce_analysis_result(res)
         if payload is None:
+            if diag is not None:
+                logger.warning(
+                    "Manual selection period skipped %s/%s (%s): %s",
+                    pt.in_start,
+                    pt.out_start,
+                    diag.reason_code,
+                    diag.message,
+                )
             continue
-        res = dict(payload)
-        if diag_res.diagnostic and "diagnostic" not in res:
-            res["diagnostic"] = diag_res.diagnostic
-        res["period"] = (
+        res_dict = dict(payload)
+        res_dict["period"] = (
             pt.in_start,
             pt.in_end,
             pt.out_start,
             pt.out_end,
         )
         # Attach per-period manager change log and execution stats
-        res["manager_changes"] = events
-        res["turnover"] = period_turnover
-        res["transaction_cost"] = float(period_cost)
+        res_dict["manager_changes"] = events
+        res_dict["turnover"] = period_turnover
+        res_dict["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
-        results.append(res)
+        results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
 
     return results

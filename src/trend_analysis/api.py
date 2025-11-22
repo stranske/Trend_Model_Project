@@ -161,6 +161,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
+    risk_free_column = data_settings.get("risk_free_column")
+    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
 
     pipeline_output = _run_analysis(
         returns,

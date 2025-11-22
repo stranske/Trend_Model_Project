@@ -10,6 +10,8 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from analysis.results import build_metadata
+from trend.diagnostics import DiagnosticResult
+
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -21,8 +23,8 @@ from .diagnostics import (
     AnalysisResult,
     PipelineReasonCode,
     PipelineResult,
-    coerce_pipeline_result,
     pipeline_failure,
+    pipeline_success,
 )
 from .metrics import (
     annual_return,
@@ -230,97 +232,103 @@ def _prepare_preprocess_stage(
             or "All rows were removed" in message
         ):
             return pipeline_failure(
-        def _run_analysis(
-            df: pd.DataFrame,
-            in_start: str,
-            in_end: str,
-            out_start: str,
-            out_end: str,
-            target_vol: float,
-            monthly_cost: float,
-            *,
-            floor_vol: float | None = None,
-            warmup_periods: int = 0,
-            selection_mode: str = "all",
-            random_n: int = 8,
-            custom_weights: dict[str, float] | None = None,
-            rank_kwargs: Mapping[str, Any] | None = None,
-            manual_funds: list[str] | None = None,
-            indices_list: list[str] | None = None,
-            benchmarks: dict[str, str] | None = None,
-            seed: int = 42,
-            stats_cfg: RiskStatsConfig | None = None,
-            weighting_scheme: str | None = None,
-            constraints: dict[str, Any] | None = None,
-            missing_policy: str | Mapping[str, str] | None = None,
-            missing_limit: int | Mapping[str, int | None] | None = None,
-            risk_window: Mapping[str, Any] | None = None,
-            periods_per_year_override: float | None = None,
-            previous_weights: Mapping[str, float] | None = None,
-            lambda_tc: float | None = None,
-            max_turnover: float | None = None,
-            signal_spec: TrendSpec | None = None,
-            regime_cfg: Mapping[str, Any] | None = None,
-            weight_policy: Mapping[str, Any] | None = None,
-            risk_free_column: str | None = None,
-            allow_risk_free_fallback: bool | None = None,
-        ) -> AnalysisResult | None:
-            """Backward-compatible wrapper returning raw payloads for tests."""
-
-            result = _run_analysis_with_diagnostics(
-                df,
-                in_start,
-                in_end,
-                out_start,
-                out_end,
-                target_vol,
-                monthly_cost,
-                floor_vol=floor_vol,
-                warmup_periods=warmup_periods,
-                selection_mode=selection_mode,
-                random_n=random_n,
-                custom_weights=custom_weights,
-                rank_kwargs=rank_kwargs,
-                manual_funds=manual_funds,
-                indices_list=indices_list,
-                benchmarks=benchmarks,
-                seed=seed,
-                stats_cfg=stats_cfg,
-                weighting_scheme=weighting_scheme,
-                constraints=constraints,
-                missing_policy=missing_policy,
-                missing_limit=missing_limit,
-                risk_window=risk_window,
-                periods_per_year_override=periods_per_year_override,
-                previous_weights=previous_weights,
-                lambda_tc=lambda_tc,
-                max_turnover=max_turnover,
-                signal_spec=signal_spec,
-                regime_cfg=regime_cfg,
-                weight_policy=weight_policy,
-                risk_free_column=risk_free_column,
-                allow_risk_free_fallback=allow_risk_free_fallback,
+                PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
+                context={"error": message},
             )
-            return result.unwrap()
+        raise
+    alignment_info = df.attrs.get("calendar_alignment", {})
 
+    try:
+        min_floor = float(floor_vol) if floor_vol is not None else 0.0
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        min_floor = 0.0
+    if min_floor < 0:
+        min_floor = 0.0
+    try:
+        warmup = int(warmup_periods)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        warmup = 0
+    if warmup < 0:
+        warmup = 0
 
-        _DEFAULT_RUN_ANALYSIS = _run_analysis
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
+    enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
 
+    df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(
+        df,
+        date_col=date_col,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+        enforce_completeness=enforce_complete,
+    )
+    if df_prepared.empty:
+        return pipeline_failure(
+            PipelineReasonCode.PREPARED_FRAME_EMPTY,
+            context={
+                "missing_summary": getattr(missing_result, "summary", None),
+                "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
+            },
+        )
+    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
+    df_original = df_prepared.copy()
+    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
 
-        def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
-            """Call the patched analysis hook and normalise into a PipelineResult."""
+    if not initial_value_cols or not value_cols_all:
+        reason = (
+            PipelineReasonCode.NO_VALUE_COLUMNS
+            if not initial_value_cols
+            else PipelineReasonCode.INSUFFICIENT_COLUMNS
+        )
+        return pipeline_failure(
+            reason,
+            context={
+                "stage": "post-prep-column-check",
+                "initial_value_cols": len(initial_value_cols),
+                "post_probe_value_cols": len(value_cols_all),
+            },
+        )
 
-            if _run_analysis is _DEFAULT_RUN_ANALYSIS:
-                return _run_analysis_with_diagnostics(*args, **kwargs)
-            patched_result = _run_analysis(*args, **kwargs)
-            if isinstance(patched_result, PipelineResult):
-                return patched_result
-            if isinstance(patched_result, DiagnosticResult):
-                return PipelineResult(
-                    value=patched_result.value,
-                    diagnostic=patched_result.diagnostic,
-                )
-            return PipelineResult(value=patched_result, diagnostic=None)
+    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+        df = pd.DataFrame(df_original)
+    else:
+        df = df_original
+    if prepared_attrs:
+        df.attrs = prepared_attrs
+
+    if df.empty or df.shape[1] <= 1:
+        return pipeline_failure(
+            PipelineReasonCode.INSUFFICIENT_COLUMNS,
+            context={"columns": df.shape[1], "rows": df.shape[0]},
+        )
+
+    frequency_payload = {
+        "code": freq_summary.code,
+        "label": freq_summary.label,
+        "target": freq_summary.target,
+        "target_label": freq_summary.target_label,
+        "resampled": freq_summary.resampled,
+    }
+    periods_per_year = periods_per_year_override or periods_per_year_from_code(
+        freq_summary.target
+    )
+    missing_payload = {
+        "policy": missing_result.default_policy,
+        "policy_map": missing_result.policy,
+        "limit": missing_result.default_limit,
+        "limit_map": missing_result.limit,
+        "dropped_assets": list(missing_result.dropped_assets),
+        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
+        "total_filled": missing_result.total_filled,
+    }
+
+    preprocess_info = {
+        "input_frequency": frequency_payload["code"],
+        "input_frequency_details": frequency_payload,
+        "resampled_to_monthly": normalised,
+        "missing": missing_result,
+        "missing_data_policy": missing_payload,
+    }
     preprocess_info["summary"] = _preprocessing_summary(
         freq_summary.code,
         normalised=normalised,
@@ -1424,7 +1432,9 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
-        fallback_enabled = allow_risk_free_fallback is True
+        fallback_enabled = (
+            allow_risk_free_fallback is True or allow_risk_free_fallback is None
+        )
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
@@ -1472,7 +1482,7 @@ def single_period_run(
         and carries ``insample_len`` and ``period`` metadata so callers
         can reason about the analysed window.
     """
-    from .core.rank_selection import RiskStatsConfig, _call_metric_series
+    from .core.rank_selection import RiskStatsConfig, _compute_metric_series
 
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig()
@@ -1494,13 +1504,9 @@ def single_period_run(
     if not metrics:
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
-    in_sample = window.dropna(axis=1, how="all")
     parts = [
-        _call_metric_series(
-            in_sample,
-            m,
-            stats_cfg,
-            risk_free_override=risk_free,
+        _compute_metric_series(
+            window.dropna(axis=1, how="all"), m, stats_cfg, risk_free_override=risk_free
         )
         for m in metrics
     ]
@@ -1520,7 +1526,7 @@ def single_period_run(
             from .core.rank_selection import compute_metric_series_with_cache
 
             avg_corr_series = compute_metric_series_with_cache(
-                in_sample,
+                window.dropna(axis=1, how="all"),
                 "AvgCorr",
                 stats_cfg,
                 risk_free_override=risk_free,
@@ -1582,6 +1588,13 @@ def _run_analysis_with_diagnostics(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
     risk_window: Mapping[str, Any] | None = None,
+    periods_per_year_override: float | None = None,
+    previous_weights: Mapping[str, float] | None = None,
+    lambda_tc: float | None = None,
+    max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
+    regime_cfg: Mapping[str, Any] | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
 ) -> PipelineResult:
@@ -1696,6 +1709,7 @@ def _run_analysis(
     allow_risk_free_fallback: bool | None = None,
 ) -> AnalysisResult | None:
     """Backward-compatible wrapper returning raw payloads for tests."""
+
     result = _run_analysis_with_diagnostics(
         df,
         in_start,
@@ -1730,30 +1744,325 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    payload, _diag = coerce_pipeline_result(result)
-    return payload
+    return result.unwrap()
 
 
-_ORIGINAL_RUN_ANALYSIS = _run_analysis
+_DEFAULT_RUN_ANALYSIS = _run_analysis
 
 
-def _ensure_pipeline_result(result: object) -> PipelineResult:
-    payload, diag = coerce_pipeline_result(result)
-    return PipelineResult(value=payload, diagnostic=diag)
+def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
+    """Call the patched analysis hook and normalise into a PipelineResult."""
 
+    if _run_analysis is _DEFAULT_RUN_ANALYSIS:
+        return _run_analysis_with_diagnostics(*args, **kwargs)
+    patched_result = _run_analysis(*args, **kwargs)
+    if isinstance(patched_result, PipelineResult):
+        return patched_result
+    if isinstance(patched_result, DiagnosticResult):
+        return PipelineResult(
+            value=patched_result.value,
+            diagnostic=patched_result.diagnostic,
+        )
+    return PipelineResult(value=patched_result, diagnostic=None)
+        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
+    else:
+        signal_frame = pd.DataFrame(dtype=float)
 
-def _invoke_analysis_with_diag(
-    *args: Any, **kwargs: Any
-) -> PipelineResult:  # pragma: no cover - thin adapter
-    """Execute the pipeline and always return a DiagnosticResult wrapper."""
-    run_fn = _run_analysis
-    # When callers monkeypatch ``_run_analysis`` we prefer their stub so tests
-    # remain compatible. Compare by identity to detect overrides.
-    if run_fn is not _ORIGINAL_RUN_ANALYSIS:
-        return _ensure_pipeline_result(run_fn(*args, **kwargs))
+    try:
+        weights_series, risk_diagnostics = compute_constrained_weights(
+            base_series,
+            in_df[fund_cols],
+            window=window_spec,
+            target_vol=target_vol,
+            periods_per_year=periods_per_year,
+            floor_vol=min_floor if min_floor > 0 else None,
+            long_only=long_only,
+            max_weight=max_weight_val,
+            previous_weights=previous_weights,
+            lambda_tc=lambda_tc,
+            max_turnover=turnover_cap,
+            group_caps=group_caps_map,
+            groups=groups_map,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning(
+            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
+        )
+        weights_series = base_series.copy()
+        asset_vol = realised_volatility(
+            in_df[fund_cols], window_spec, periods_per_year=periods_per_year
+        )
+        latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
+        latest_vol = latest_vol.ffill().bfill()
+        positive = latest_vol[latest_vol > 0]
+        fallback_vol = float(positive.min()) if not positive.empty else 1.0
+        latest_vol = latest_vol.fillna(fallback_vol)
+        if min_floor > 0:
+            latest_vol = latest_vol.clip(lower=min_floor)
+        scale_factors = (
+            pd.Series(target_vol, index=fund_cols, dtype=float)
+            .div(latest_vol)
+            .replace([np.inf, -np.inf], 0.0)
+            .fillna(0.0)
+        )
+        scaled_returns = in_df[fund_cols].mul(scale_factors, axis=1)
+        portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
+        portfolio_vol = realised_volatility(
+            portfolio_returns.to_frame("portfolio"),
+            window_spec,
+            periods_per_year=periods_per_year,
+        )["portfolio"]
+        risk_diagnostics = RiskDiagnostics(
+            asset_volatility=asset_vol,
+            portfolio_volatility=portfolio_vol,
+            turnover=pd.Series(dtype=float, name="turnover"),
+            turnover_value=float("nan"),
+            scale_factors=scale_factors,
+        )
 
-    result = _run_analysis_with_diagnostics(*args, **kwargs)
-    return _ensure_pipeline_result(result)
+    policy_cfg = dict(weight_policy or {})
+    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
+    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
+
+    signal_snapshot: pd.Series | None = None
+    if not signal_frame.empty:
+        try:
+            target_index = (
+                out_df.index[0] if len(out_df.index) else signal_frame.index[-1]
+            )
+            aligned = signal_frame.reindex(columns=fund_cols)
+            if target_index in aligned.index:
+                signal_snapshot = aligned.loc[target_index]
+            elif not aligned.empty:
+                signal_snapshot = aligned.iloc[-1]
+        except Exception:  # pragma: no cover - defensive
+            signal_snapshot = None
+
+    weights_series = (
+        apply_weight_policy(
+            weights_series,
+            signal_snapshot,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=previous_weights,
+        )
+        .reindex(fund_cols)
+        .fillna(0.0)
+    )
+    scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
+
+    in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
+    out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
+    in_scaled = in_scaled.clip(lower=-1.0)
+    out_scaled = out_scaled.clip(lower=-1.0)
+
+    if warmup > 0:
+        warmup_in = min(warmup, len(in_scaled))
+        warmup_out = min(warmup, len(out_scaled))
+        if warmup_in:
+            in_scaled.iloc[:warmup_in] = 0.0
+        if warmup_out:
+            out_scaled.iloc[:warmup_out] = 0.0
+
+    in_scaled = in_scaled.fillna(0.0)
+    out_scaled = out_scaled.fillna(0.0)
+
+    rf_in = in_df[rf_col]
+    rf_out = out_df[rf_col]
+
+    want_avg_corr = False
+    try:
+        reg = getattr(stats_cfg, "metrics_to_run", []) or []
+        want_avg_corr = "AvgCorr" in reg
+    except Exception:  # pragma: no cover - defensive
+        want_avg_corr = False
+
+    is_avg_corr: dict[str, float] | None = None
+    os_avg_corr: dict[str, float] | None = None
+    if want_avg_corr and len(fund_cols) > 1:
+        try:
+            corr_in = in_scaled[fund_cols].corr()
+            corr_out = out_scaled[fund_cols].corr()
+            n_f = len(fund_cols)
+            is_avg_corr = {}
+            os_avg_corr = {}
+            denominator = float(n_f - 1) if n_f > 1 else 1.0
+            for f in fund_cols:
+                in_sum = cast(float, corr_in.loc[f].sum())
+                out_sum = cast(float, corr_out.loc[f].sum())
+                in_val = (in_sum - 1.0) / denominator
+                out_val = (out_sum - 1.0) / denominator
+                is_avg_corr[f] = float(in_val)
+                os_avg_corr[f] = float(out_val)
+        except Exception:  # pragma: no cover - defensive
+            is_avg_corr = None
+            os_avg_corr = None
+
+    in_stats = _compute_stats(
+        in_scaled,
+        rf_in,
+        in_sample_avg_corr=is_avg_corr,
+        out_sample_avg_corr=None,
+    )
+    out_stats = _compute_stats(
+        out_scaled,
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
+    out_stats_raw = _compute_stats(
+        out_df[fund_cols],
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
+
+    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
+    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
+    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
+    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
+    out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
+
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
+    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
+    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
+
+    user_w = weights_series.to_numpy(dtype=float, copy=False)
+    user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
+
+    in_user = calc_portfolio_returns(user_w, in_scaled)
+    out_user = calc_portfolio_returns(user_w, out_scaled)
+    out_user_raw = calc_portfolio_returns(user_w, out_df[fund_cols])
+
+    in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
+    out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
+    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
+        "user"
+    ]
+
+    benchmark_stats: dict[str, dict[str, _Stats]] = {}
+    benchmark_ir: dict[str, dict[str, float]] = {}
+    all_benchmarks: dict[str, str] = {}
+    if benchmarks:
+        all_benchmarks.update(benchmarks)
+    for idx in valid_indices:
+        if idx not in all_benchmarks:
+            all_benchmarks[idx] = idx
+
+    risk_payload = {
+        "asset_volatility": risk_diagnostics.asset_volatility,
+        "portfolio_volatility": risk_diagnostics.portfolio_volatility,
+        "turnover": risk_diagnostics.turnover,
+        "turnover_value": risk_diagnostics.turnover_value,
+        "scale_factors": scale_factors,
+        "final_weights": weights_series,
+    }
+
+    for label, col in all_benchmarks.items():
+        if col not in in_df.columns or col not in out_df.columns:
+            continue
+        benchmark_stats[label] = {
+            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
+                label
+            ],
+            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), rf_out)[
+                label
+            ],
+        }
+        ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
+        ir_dict = (
+            ir_series.to_dict()
+            if isinstance(ir_series, pd.Series)
+            else {fund_cols[0]: float(ir_series)}
+        )
+        # Add portfolio-level IR references for context
+        try:
+            ir_eq = information_ratio(out_ew_raw, out_df[col])
+            ir_usr = information_ratio(out_user_raw, out_df[col])
+            # Best effort conversion; skip if not scalar convertible
+            ir_dict["equal_weight"] = (
+                float(ir_eq)
+                if isinstance(ir_eq, (float, int, np.floating))
+                else float("nan")
+            )
+            ir_dict["user_weight"] = (
+                float(ir_usr)
+                if isinstance(ir_usr, (float, int, np.floating))
+                else float("nan")
+            )
+        except Exception:
+            # Leave without portfolio-level IRs if computation fails
+            pass
+        benchmark_ir[label] = ir_dict
+
+    regime_returns_map: dict[str, pd.Series] = {
+        "User": out_user.astype(float, copy=False),
+        "Equal-Weight": out_ew.astype(float, copy=False),
+    }
+    regime_payload = build_regime_payload(
+        data=df,
+        out_index=out_df.index,
+        returns_map=regime_returns_map,
+        risk_free=rf_out,
+        config=regime_cfg,
+        freq_code=freq_summary.target,
+        periods_per_year=periods_per_year,
+    )
+
+    metadata = build_metadata(
+        universe=value_cols_all,
+        selected=fund_cols,
+        lookbacks={
+            "in_start": in_start,
+            "in_end": in_end,
+            "out_start": out_start,
+            "out_end": out_end,
+        },
+        costs={
+            "monthly_cost": monthly_cost,
+            "target_vol": target_vol,
+            "floor_vol": min_floor if min_floor > 0 else None,
+            "max_turnover": turnover_cap,
+        },
+    )
+    metadata["frequency"] = frequency_payload
+    metadata["missing_data"] = missing_payload
+    metadata["risk_free_column"] = rf_col
+
+    return {
+        "selected_funds": fund_cols,
+        "in_sample_scaled": in_scaled,
+        "out_sample_scaled": out_scaled,
+        "in_sample_stats": in_stats,
+        "out_sample_stats": out_stats,
+        "out_sample_stats_raw": out_stats_raw,
+        "in_ew_stats": in_ew_stats,
+        "out_ew_stats": out_ew_stats,
+        "out_ew_stats_raw": out_ew_stats_raw,
+        "in_user_stats": in_user_stats,
+        "out_user_stats": out_user_stats,
+        "out_user_stats_raw": out_user_stats_raw,
+        "ew_weights": ew_w_dict,
+        "fund_weights": user_w_dict,
+        "benchmark_stats": benchmark_stats,
+        "benchmark_ir": benchmark_ir,
+        "score_frame": score_frame,
+        "weight_engine_fallback": weight_engine_fallback,
+        "preprocessing": preprocess_info,
+        "preprocessing_summary": preprocess_info.get("summary"),
+        "risk_diagnostics": risk_payload,
+        "signal_frame": signal_frame,
+        "signal_spec": effective_signal_spec,
+        "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
+        "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
+        "regime_labels_out": regime_payload.get(
+            "out_labels", pd.Series(dtype="string")
+        ),
+        "regime_notes": regime_payload.get("notes", []),
+        "regime_settings": regime_payload.get("settings", {}),
+        "regime_summary": regime_payload.get("summary"),
+        "metadata": metadata,
+    }
 
 
 def run_analysis(
@@ -1793,8 +2102,8 @@ def run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> PipelineResult | dict[str, object] | None:
-    """Backward-compatible wrapper around ``_run_analysis``."""
+) -> PipelineResult:
+    """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
         value is not None
         for value in (calendar_frequency, calendar_timezone, holiday_calendar)
@@ -1909,9 +2218,7 @@ def run(cfg: Config) -> pd.DataFrame:
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", True)
-    )
+    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
     diag_res = _invoke_analysis_with_diag(
         df,
@@ -1946,8 +2253,7 @@ def run(cfg: Config) -> pd.DataFrame:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    result_payload: AnalysisResult | None = diag_res.value
-    if result_payload is None:
+    if diag_res.value is None:
         if diag:
             logger.warning(
                 "pipeline.run aborted (%s): %s",
@@ -1959,7 +2265,7 @@ def run(cfg: Config) -> pd.DataFrame:
             empty.attrs["diagnostic"] = diag
         return empty
 
-    res: AnalysisResult = result_payload
+    res = diag_res.value
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
@@ -2031,9 +2337,7 @@ def run_full(cfg: Config) -> PipelineResult:
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", True)
-    )
+    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
     diag_res = _invoke_analysis_with_diag(
         df,
@@ -2069,8 +2373,7 @@ def run_full(cfg: Config) -> PipelineResult:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    value_payload: AnalysisResult | None = diag_res.value
-    if value_payload is None:
+    if diag_res.value is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",
