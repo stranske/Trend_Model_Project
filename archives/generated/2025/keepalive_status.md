@@ -1,18 +1,17 @@
-# Keepalive Status for Tearsheets PR
+# Keepalive Status for Structured Diagnostics PR
 
 ## Scope
-- [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
-- [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
-- [x] CLI wiring: `python -m src.cli report --last-run`.
-- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
+- [ ] Enumerate early-exit conditions across preprocessing, calendar alignment, missing-data filtering, and selection stages.
+- [ ] Replace bare `None` returns with status objects or warnings that include reason codes and key context (e.g., empty timestamps, all funds filtered by missing-data policy).
+- [ ] Ensure CLI/API surfaces these diagnostics to users (e.g., logged warnings or structured responses).
 
 ## Tasks
-- [x] Implement renderer and basic plots.
-- [x] Minimal CLI and example run command in README.
-- [x] Test that the file is written and includes expected sections.
+- [ ] Catalogue current `None` return paths and add reason codes/messages.
+- [ ] Thread diagnostics through the pipeline and surface them in user-facing logs/outputs.
+- [ ] Add tests verifying each early-exit condition reports the expected diagnostic.
 
 ## Acceptance criteria
-- [x] Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
-- [x] CI artifact (optional) or repo file present after a demo run.
+- [ ] Every early-exit path returns a diagnostic payload instead of silent `None`.
+- [ ] CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
 
 Status auto-updates as tasks complete on this branch.
