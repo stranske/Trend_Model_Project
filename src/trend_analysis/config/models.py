@@ -353,6 +353,17 @@ if _HAS_PYDANTIC:
                 if mt > 2.0:
                     raise ValueError("max_turnover must be <= 2.0")
                 v["max_turnover"] = mt
+            if "lambda_tc" in v:
+                raw = v["lambda_tc"]
+                try:
+                    lam = float(raw)
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError("lambda_tc must be numeric") from exc
+                if lam < 0:
+                    raise ValueError("lambda_tc must be >= 0")
+                if lam > 1:
+                    raise ValueError("lambda_tc must be <= 1")
+                v["lambda_tc"] = lam
             cost_cfg = v.get("cost_model")
             if isinstance(cost_cfg, dict):
                 for key in ("bps_per_trade", "slippage_bps"):
@@ -517,6 +528,16 @@ else:  # Fallback mode for tests without pydantic
                     if mt > 2.0:
                         raise ValueError("max_turnover must be <= 2.0")
                     port["max_turnover"] = mt
+                if "lambda_tc" in port:
+                    try:
+                        lam = float(port["lambda_tc"])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError("lambda_tc must be numeric") from exc
+                    if lam < 0:
+                        raise ValueError("lambda_tc must be >= 0")
+                    if lam > 1:
+                        raise ValueError("lambda_tc must be <= 1")
+                    port["lambda_tc"] = lam
                 cost_cfg = port.get("cost_model")
                 if isinstance(cost_cfg, dict):
                     for key in ("bps_per_trade", "slippage_bps"):

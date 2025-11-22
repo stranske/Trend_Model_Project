@@ -90,6 +90,23 @@ def test_portfolio_turnover_bounds() -> None:
         model.PortfolioSettings.model_validate(base)
 
 
+def test_portfolio_lambda_tc_bounds() -> None:
+    base = _portfolio_settings()
+    base["lambda_tc"] = -0.1
+    with pytest.raises(ValueError):
+        model.PortfolioSettings.model_validate(base)
+
+    base = _portfolio_settings()
+    base["lambda_tc"] = 1.1
+    with pytest.raises(ValueError):
+        model.PortfolioSettings.model_validate(base)
+
+    base = _portfolio_settings()
+    base["lambda_tc"] = 0.25
+    validated = model.PortfolioSettings.model_validate(base)
+    assert validated.lambda_tc == pytest.approx(0.25)
+
+
 def test_portfolio_cost_non_negative() -> None:
     base = _portfolio_settings()
     base["transaction_cost_bps"] = -5
