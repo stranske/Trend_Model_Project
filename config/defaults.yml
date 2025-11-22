@@ -16,6 +16,8 @@ data:
   missing_policy: "ffill" # drop | ffill | zero
   missing_limit: null      # Optional int (per-column overrides supported)
   lookback_required: 756 # minimum obs (≈3 yrs daily)
+  risk_free_column: null          # Explicit risk-free series column name
+  allow_risk_free_fallback: true  # Opt-in heuristic: lowest-volatility column
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS
 # ----------------------------------------------------------------------

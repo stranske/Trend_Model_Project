@@ -379,6 +379,7 @@ def rank_select_funds(
     enable_cov_cache: bool = True,
     incremental_cov: bool = False,
     store_bundle: bool = True,
+    risk_free: float | pd.Series | None = None,
 ) -> list[str]:
     """Select funds based on ranking by a specified metric."""
 
@@ -392,6 +393,11 @@ def rank_select_funds(
     universe = tuple(df.columns)
     cfg_hash = _stats_cfg_hash(cfg)
 
+    if risk_free is not None:
+        bundle = None
+        window_key = None
+        store_bundle = False
+        enable_cov_cache = False
     if bundle is not None and bundle.universe != universe:
         raise ValueError("Provided bundle does not match DataFrame columns")
     if bundle is not None and bundle.stats_cfg_hash != cfg_hash:
@@ -434,6 +440,7 @@ def rank_select_funds(
             cov_cache=cov_cache,
             enable_cov_cache=enable_cov_cache,
             incremental_cov=incremental_cov,
+            risk_free_override=risk_free,
         )
     else:
         if bundle is not None:
@@ -445,7 +452,9 @@ def rank_select_funds(
                 incremental_cov=incremental_cov,
             ).copy()
         else:
-            scores = _compute_metric_series(df, metric_name, cfg)
+            scores = _compute_metric_series(
+                df, metric_name, cfg, risk_free_override=risk_free
+            )
 
     # Apply transform
     scores = _apply_transform(
@@ -806,7 +815,11 @@ DEFAULT_METRIC = "AnnualReturn"
 
 
 def _compute_metric_series(
-    in_sample_df: pd.DataFrame, metric_name: str, stats_cfg: RiskStatsConfig
+    in_sample_df: pd.DataFrame,
+    metric_name: str,
+    stats_cfg: RiskStatsConfig,
+    *,
+    risk_free_override: float | pd.Series | None = None,
 ) -> pd.Series:
     """Return a pd.Series (index = fund code, value = metric score).
 
@@ -818,10 +831,13 @@ def _compute_metric_series(
     context: dict[str, Any] = {"frame": in_sample_df}
     token = _METRIC_CONTEXT.set(context)
     try:
+        rf_value: float | pd.Series = (
+            risk_free_override if risk_free_override is not None else stats_cfg.risk_free
+        )
         return in_sample_df.apply(
             fn,
             periods_per_year=stats_cfg.periods_per_year,
-            risk_free=stats_cfg.risk_free,
+            risk_free=rf_value,
             axis=0,
         )
     finally:
@@ -872,6 +888,7 @@ def compute_metric_series_with_cache(
     metric_name: str,
     stats_cfg: RiskStatsConfig,
     *,
+    risk_free_override: float | pd.Series | None = None,
     cov_cache: "CovCache | None" = None,
     window_start: str | None = None,
     window_end: str | None = None,
@@ -888,7 +905,12 @@ def compute_metric_series_with_cache(
     path without altering existing registry semantics.
     """
     if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _compute_metric_series(in_sample_df, metric_name, stats_cfg)
+        return _compute_metric_series(
+            in_sample_df,
+            metric_name,
+            stats_cfg,
+            risk_free_override=risk_free_override,
+        )
     from ..perf.cache import compute_cov_payload
 
     # Caching disabled path
@@ -948,6 +970,7 @@ def blended_score(
     cov_cache: "CovCache | None" = None,
     enable_cov_cache: bool = True,
     incremental_cov: bool = False,
+    risk_free_override: float | pd.Series | None = None,
 ) -> pd.Series:
     """Z‑score each contributing metric, then weighted linear combo."""
     if not weights:
@@ -976,7 +999,9 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
-            raw = _compute_metric_series(in_sample_df, metric, stats_cfg)
+            raw = _compute_metric_series(
+                in_sample_df, metric, stats_cfg, risk_free_override=risk_free_override
+            )
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score
         if metric in ASCENDING_METRICS:
