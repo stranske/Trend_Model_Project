@@ -879,7 +879,6 @@ def run(
             idx_set = set(indices_list)
             ret_cols = [c for c in ret_cols if c not in idx_set]
         configured_rf = (risk_free_column_cfg or "").strip()
-        idx_set = set(indices_list)
         if configured_rf:
             if configured_rf not in sub.columns:
                 raise ValueError(
