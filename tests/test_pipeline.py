@@ -4,6 +4,7 @@ import pytest
 from trend_analysis import config, pipeline
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
+from trend_analysis.diagnostics import is_early_exit, normalise_early_exit
 
 pytestmark = pytest.mark.runtime
 
@@ -113,7 +114,8 @@ def test_run_analysis_none():
     res = pipeline.run_analysis(
         None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
     )
-    assert res is None
+    assert is_early_exit(res)
+    assert normalise_early_exit(res)["code"] == "no_input_frame"
 
 
 def test_run_analysis_missing_date():
@@ -138,7 +140,8 @@ def test_run_analysis_no_funds():
     res = pipeline.run_analysis(
         df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0
     )
-    assert res is None
+    assert is_early_exit(res)
+    assert normalise_early_exit(res)["code"] == "no_funds_selected"
 
 
 def test_run_analysis_returns_none_when_window_missing():
@@ -148,13 +151,15 @@ def test_run_analysis_returns_none_when_window_missing():
     res_in_empty = pipeline.run_analysis(
         df, "2019-01", "2019-03", "2020-04", "2020-06", 1.0, 0.0
     )
-    assert res_in_empty is None
+    assert is_early_exit(res_in_empty)
+    assert normalise_early_exit(res_in_empty)["code"] == "empty_window"
 
     # Out-of-sample window after available data.
     res_out_empty = pipeline.run_analysis(
         df, "2020-01", "2020-03", "2021-01", "2021-03", 1.0, 0.0
     )
-    assert res_out_empty is None
+    assert is_early_exit(res_out_empty)
+    assert normalise_early_exit(res_out_empty)["code"] == "empty_window"
 
 
 def test_run_missing_csv_key(tmp_path):

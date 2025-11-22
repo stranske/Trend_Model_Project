@@ -14,4 +14,4 @@
 - [ ] Every early-exit path returns a diagnostic payload instead of silent `None`.
 - [ ] CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
 
-Progress: no tasks or acceptance criteria have been completed yet; checkboxes will be updated only when the related criteria are fully satisfied.
+Progress: early-exit diagnostics are now emitted from the single-period pipeline, but no tasks or acceptance criteria are marked complete until coverage extends across all scoped stages.

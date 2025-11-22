@@ -18,6 +18,7 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import load_csv
+from .diagnostics import early_exit_payload, is_early_exit
 from .metrics import (
     annual_return,
     information_ratio,
@@ -570,9 +571,13 @@ def _run_analysis(
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
-) -> dict[str, object] | None:
+) -> Mapping[str, object]:
     if df is None:
-        return None
+        return early_exit_payload(
+            "no_input_frame",
+            "No input DataFrame was provided to the pipeline",
+            stage="preprocessing",
+        )
 
     date_col = "Date"
     if date_col not in df.columns:
@@ -585,7 +590,12 @@ def _run_analysis(
     # pathological DataFrame subclasses continue to short-circuit.
     date_probe = pd.to_datetime(df[date_col], errors="coerce")
     if not date_probe.notna().any():
-        return None
+        return early_exit_payload(
+            "no_valid_timestamps",
+            "Input DataFrame contains no valid timestamps",
+            stage="calendar_alignment",
+            details={"column": date_col},
+        )
 
     # Normalise potentially exotic DataFrame subclasses into a vanilla
     # ``pd.DataFrame`` so pandas internals do not trip over overridden
@@ -607,7 +617,11 @@ def _run_analysis(
             "contains no valid timestamps" in message
             or "All rows were removed" in message
         ):
-            return None
+            return early_exit_payload(
+                "calendar_alignment_failed",
+                message,
+                stage="calendar_alignment",
+            )
         raise
     alignment_info = df.attrs.get("calendar_alignment", {})
 
@@ -638,15 +652,29 @@ def _run_analysis(
         enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
-        return None
+        return early_exit_payload(
+            "no_data_after_missing_policy",
+            "All assets were removed after applying the missing-data policy",
+            stage="preprocessing",
+            details={"dropped_assets": list(missing_result.dropped_assets)},
+        )
 
     df = df_prepared.copy()
     value_cols_all = [c for c in df.columns if c != date_col]
     if not value_cols_all:
-        return None
+        return early_exit_payload(
+            "no_value_columns",
+            "No asset columns remain after preprocessing",
+            stage="preprocessing",
+        )
 
     if df.empty or df.shape[1] <= 1:
-        return None
+        return early_exit_payload(
+            "insufficient_columns",
+            "DataFrame is empty or missing asset columns after preprocessing",
+            stage="preprocessing",
+            details={"shape": tuple(df.shape)},
+        )
 
     freq_code = freq_summary.code
     missing_meta = missing_result
@@ -717,11 +745,25 @@ def _run_analysis(
     )
 
     if in_df.empty or out_df.empty:
-        return None
+        return early_exit_payload(
+            "empty_window",
+            "In-sample or out-of-sample window contained no rows",
+            stage="sample_split",
+            details={
+                "in_window_rows": len(in_df),
+                "out_window_rows": len(out_df),
+                "in_window": (in_start, in_end),
+                "out_window": (out_start, out_end),
+            },
+        )
 
     ret_cols = [c for c in df.columns if c != date_col]
     if not ret_cols:
-        return None
+        return early_exit_payload(
+            "no_return_columns",
+            "No return columns available after preprocessing",
+            stage="preprocessing",
+        )
     if indices_list:
         idx_set = set(indices_list)  # pragma: no cover - seldom used
         ret_cols = [c for c in ret_cols if c not in idx_set]  # pragma: no cover
@@ -796,7 +838,15 @@ def _run_analysis(
             fund_cols = []  # pragma: no cover
 
     if not fund_cols:
-        return None
+        return early_exit_payload(
+            "no_funds_selected",
+            "No funds satisfied selection and missing-data policies",
+            stage="selection",
+            details={
+                "missing_policy": missing_payload,
+                "available_assets": value_cols_all,
+            },
+        )
     score_frame = single_period_run(
         df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
     )
@@ -1245,7 +1295,7 @@ def run_analysis(
     calendar_timezone: str | None = None,
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
-) -> dict[str, object] | None:
+) -> Mapping[str, object]:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
         value is not None
@@ -1389,7 +1439,7 @@ def run(cfg: Config) -> pd.DataFrame:
         regime_cfg=_cfg_section(cfg, "regime"),
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
-    if res is None:
+    if is_early_exit(res):
         return pd.DataFrame()
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
@@ -1490,7 +1540,7 @@ def run_full(cfg: Config) -> dict[str, object]:
         regime_cfg=_cfg_section(cfg, "regime"),
         weight_policy=_section_get(portfolio_cfg, "weight_policy"),
     )
-    return {} if res is None else res
+    return {} if is_early_exit(res) else res
 
 
 # --- Shift-safe helpers ----------------------------------------------------

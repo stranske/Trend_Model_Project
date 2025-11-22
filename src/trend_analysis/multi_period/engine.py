@@ -28,6 +28,7 @@ from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
+from ..diagnostics import is_early_exit, normalise_early_exit
 from ..pipeline import _run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
@@ -719,7 +720,18 @@ def run(
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
             )
-            if res is None:
+            if is_early_exit(res):
+                out_results.append(
+                    {
+                        "period": (
+                            pt.in_start,
+                            pt.in_end,
+                            pt.out_start,
+                            pt.out_end,
+                        ),
+                        "early_exit": normalise_early_exit(res),
+                    }
+                )
                 continue
             res = dict(res)
             res["period"] = (
@@ -1349,7 +1361,18 @@ def run(
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
         )
-        if res is None:
+        if is_early_exit(res):
+            results.append(
+                {
+                    "period": (
+                        pt.in_start,
+                        pt.in_end,
+                        pt.out_start,
+                        pt.out_end,
+                    ),
+                    "early_exit": normalise_early_exit(res),
+                }
+            )
             continue
         res = dict(res)
         res["period"] = (

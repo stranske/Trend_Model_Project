@@ -24,6 +24,7 @@ from trend.validation import (
 )
 
 from .logging import log_step as _log_step  # lightweight import
+from .diagnostics import is_early_exit, normalise_early_exit
 from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,9 @@ class RunResult:
         Present when a requested weight engine failed and the system
         reverted to equal weights.  Includes keys: ``engine``,
         ``error_type`` and ``error``.
+    diagnostic : dict[str, Any] | None
+        Early-exit diagnostic payload when the pipeline did not produce
+        metrics.
     """
 
     metrics: pd.DataFrame
@@ -68,6 +72,7 @@ class RunResult:
     costs: dict[str, float] | None = None
     metadata: dict[str, Any] | None = None
     details_sanitized: Any | None = None
+    diagnostic: dict[str, Any] | None = None
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -179,9 +184,20 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         max_turnover=config.portfolio.get("max_turnover"),
         regime_cfg=regime_cfg,
     )
-    if res is None:
-        logger.warning("run_simulation produced no result")
-        return RunResult(pd.DataFrame(), {}, seed, env)
+    if is_early_exit(res):
+        diagnostic = normalise_early_exit(res)
+        logger.warning(
+            "run_simulation ended early (%s): %s",
+            diagnostic.get("code"),
+            diagnostic.get("message"),
+        )
+        return RunResult(
+            pd.DataFrame(),
+            {"early_exit": diagnostic},
+            seed,
+            env,
+            diagnostic=diagnostic,
+        )
 
     if isinstance(res, dict):
         res_dict: dict[str, Any] = res

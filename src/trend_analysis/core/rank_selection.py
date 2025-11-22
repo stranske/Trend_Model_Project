@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .. import metrics as _metrics
+from ..diagnostics import is_early_exit, normalise_early_exit
 from ..data import ensure_datetime, load_csv
 from ..export import Formatter
 
@@ -1479,7 +1480,12 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
                     indices_list=list(idx_select.value),
                     benchmarks={b: b for b in bench_select.value},
                 )
-                if res is None:
+                if is_early_exit(res):
+                    diag = normalise_early_exit(res)
+                    print(
+                        f"Early exit ({diag.get('code')}): {diag.get('message')}"
+                    )
+                elif res is None:
                     print("No results")
                 else:
                     sheet_formatter = export.make_summary_formatter(

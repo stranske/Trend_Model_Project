@@ -71,6 +71,13 @@ def main(argv: list[str] | None = None) -> int:
     # Use unified API instead of direct pipeline calls
     result = api.run_simulation(cfg, df)
 
+    if result.diagnostic:
+        code = result.diagnostic.get("code") if isinstance(result.diagnostic, dict) else None
+        message = result.diagnostic.get("message") if isinstance(result.diagnostic, dict) else None
+        prefix = f"Early exit ({code})" if code else "Early exit"
+        print(f"{prefix}: {message or 'No diagnostic message provided'}")
+        return 0
+
     if args.detailed:
         if result.metrics.empty:
             print("No results")  # pragma: no cover - trivial branch

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
+from trend_analysis.diagnostics import is_early_exit, normalise_early_exit
 from trend_analysis.pipeline import _run_analysis
 
 
@@ -33,7 +34,8 @@ def test_strict_mode_drops_funds_with_nans():
         0.0,
     )
     # A has NaN in IS, B has NaN in OOS => both dropped => None
-    assert res is None or len(res.get("selected_funds", [])) == 0
+    assert is_early_exit(res)
+    assert normalise_early_exit(res)["code"] == "no_funds_selected"
 
 
 def test_na_as_zero_retains_and_fills():
