@@ -1485,8 +1485,6 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
                     print(
                         f"Early exit ({diag.get('code')}): {diag.get('message')}"
                     )
-                elif res is None:
-                    print("No results")
                 else:
                     sheet_formatter = export.make_summary_formatter(
                         res,
