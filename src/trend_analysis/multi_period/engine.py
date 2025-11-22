@@ -230,6 +230,27 @@ def _apply_weight_bounds(
     return floored
 
 
+def _apply_turnover_penalty(
+    target_w: pd.Series,
+    last_aligned: pd.Series,
+    lambda_tc: float,
+    min_w_bound: float,
+    max_w_bound: float,
+) -> pd.Series:
+    """Shrink trades toward the previous allocation to damp turnover.
+
+    A convex combination between the previous weights and the proposed target
+    reduces total turnover when ``lambda_tc`` is in ``(0, 1]``. Bounds are
+    re-applied to keep the adjusted weights feasible.
+    """
+
+    if lambda_tc <= NUMERICAL_TOLERANCE_HIGH:
+        return _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
+
+    shrunk = last_aligned + (target_w - last_aligned) * (1.0 - lambda_tc)
+    return _apply_weight_bounds(shrunk, min_w_bound, max_w_bound)
+
+
 @dataclass
 class Portfolio:
     """Minimal container for weight, turnover and cost history."""
@@ -962,6 +983,7 @@ def run(
     # Transaction cost and turnover-cap controls (Issue #429)
     tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
     max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
+    lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
 
     def _firm(name: str) -> str:
@@ -1273,6 +1295,15 @@ def run(
             union_ix = prev_final_weights.index.union(target_w.index)
             last_aligned = prev_final_weights.reindex(union_ix, fill_value=0.0)
             target_w = target_w.reindex(union_ix, fill_value=0.0)
+
+        if (
+            lambda_tc > NUMERICAL_TOLERANCE_HIGH
+            and prev_final_weights is not None
+            and float(last_aligned.abs().sum()) > NUMERICAL_TOLERANCE_HIGH
+        ):
+            target_w = _apply_turnover_penalty(
+                target_w, last_aligned, lambda_tc, min_w_bound, max_w_bound
+            )
 
         desired_trades = target_w - last_aligned
         desired_turnover = float(desired_trades.abs().sum())

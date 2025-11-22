@@ -321,6 +321,7 @@ class PortfolioSettings(BaseModel):
     rebalance_calendar: str
     max_turnover: float
     transaction_cost_bps: float
+    lambda_tc: float = Field(default=0.0)
     cost_model: CostModelSettings | None = None
     turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
@@ -368,6 +369,19 @@ class PortfolioSettings(BaseModel):
         if cost < 0:
             raise ValueError("portfolio.transaction_cost_bps cannot be negative.")
         return cost
+
+    @field_validator("lambda_tc", mode="before")
+    @classmethod
+    def _validate_lambda_tc(cls, value: Any) -> float:
+        if value in (None, "", "null"):
+            return 0.0
+        try:
+            lam = float(value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            raise ValueError("portfolio.lambda_tc must be numeric.") from exc
+        if lam < 0 or lam > 1:
+            raise ValueError("portfolio.lambda_tc must be between 0 and 1 inclusive.")
+        return lam
 
 
 class RiskSettings(BaseModel):
