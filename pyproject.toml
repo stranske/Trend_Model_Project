@@ -111,6 +111,7 @@ extend-exclude = '''
 /(
         Old
     | notebooks/old
+    | archives
     | archives/legacy_assets
     | \\.autofix-venv
     | .*\.ipynb
@@ -122,15 +123,17 @@ force-exclude = '''
 
 [tool.ruff]
 extend-exclude = [
-  "archives/legacy_assets",
-  "notebooks/old",
-  "Old",
-  "*.ipynb",
-  "scripts",
-  "manager_attribution_analysis.py",
-  "examples/portfolio_analysis_report.py",
-  "examples/debug_fund_selection.py",
-  "test_multi_period_selection.py",
+    "archives",
+    "archives/**",
+    "archives/legacy_assets",
+    "notebooks/old",
+    "Old",
+    "*.ipynb",
+    "scripts",
+    "manager_attribution_analysis.py",
+    "examples/portfolio_analysis_report.py",
+    "examples/debug_fund_selection.py",
+    "test_multi_period_selection.py",
     ".autofix-venv",
 ]
 
