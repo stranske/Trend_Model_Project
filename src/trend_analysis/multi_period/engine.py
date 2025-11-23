@@ -17,6 +17,7 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 
 from __future__ import annotations  # mypy: ignore-errors
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
@@ -27,7 +28,7 @@ import pandas as pd
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
-from ..data import load_csv
+from ..data import identify_risk_free_fund, load_csv
 from ..pipeline import _run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
@@ -54,6 +55,8 @@ MultiPeriodPeriodResult = Dict[str, Any]
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
+
+logger = logging.getLogger(__name__)
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
@@ -581,6 +584,8 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
+    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
+    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -718,6 +723,8 @@ def run(
                 risk_window=cfg.vol_adjust.get("window"),
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
+                risk_free_column=risk_free_column,
+                allow_risk_free_fallback=allow_risk_free_fallback,
             )
             if res is None:
                 continue
@@ -843,6 +850,8 @@ def run(
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
+    risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
+    allow_risk_free_fallback = cfg.data.get("allow_risk_free_fallback")
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
@@ -867,13 +876,46 @@ def run(
         ].set_index(date_col)
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
-        ret_cols = [c for c in sub.columns if c != date_col]
-        # Exclude indices if configured
+        numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
-        if indices_list:
-            idx_set = set(indices_list)
-            ret_cols = [c for c in ret_cols if c not in idx_set]
-        rf_col = min(ret_cols, key=lambda c: sub[c].std())
+        idx_set = {str(c) for c in indices_list}
+        ret_cols = [c for c in numeric_cols if c not in idx_set]
+        if not ret_cols:
+            raise ValueError("No numeric return columns available to process")
+        configured_rf = (risk_free_column_cfg or "").strip()
+        if configured_rf:
+            if configured_rf not in sub.columns:
+                raise ValueError(
+                    f"Configured risk-free column '{configured_rf}' was not found in the dataset"
+                )
+            if configured_rf not in numeric_cols:
+                raise ValueError(
+                    f"Configured risk-free column '{configured_rf}' must be numeric"
+                )
+            if configured_rf in idx_set:
+                raise ValueError(
+                    f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
+                )
+            rf_col = configured_rf
+        else:
+            fallback_enabled = (
+                allow_risk_free_fallback is True or allow_risk_free_fallback is None
+            )
+            if not fallback_enabled:
+                raise ValueError(
+                    "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
+                )
+            probe_cols = [date_col, *ret_cols] if date_col in sub.columns else ret_cols
+            detected = identify_risk_free_fund(sub[probe_cols])
+            if detected is None:
+                raise ValueError(
+                    "Risk-free fallback could not find a numeric return series"
+                )
+            rf_col = detected
+            logger.info(
+                "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
+                rf_col,
+            )
         fund_cols = [c for c in ret_cols if c != rf_col]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
@@ -1348,6 +1390,8 @@ def run(
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
+            risk_free_column=risk_free_column,
+            allow_risk_free_fallback=allow_risk_free_fallback,
         )
         if res is None:
             continue

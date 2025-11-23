@@ -1,4 +1,7 @@
 import pandas as pd
+import pytest
+
+from trend_analysis.metrics import sharpe_ratio
 
 
 def _mini_df():
@@ -34,6 +37,8 @@ def test_pipeline_respects_lowest_vol_exclusion_as_rf():
     funds = set(res["selected_funds"])  # type: ignore[index]
     # Pipeline picks the lowest-vol column as RF and excludes it from funds
     assert "RF" not in funds
+    assert res.get("risk_free_column") == "RF"
+    assert res.get("risk_free_source") == "fallback"
 
 
 def test_pipeline_constant_rf_via_stats_cfg_executes():
@@ -64,6 +69,47 @@ def test_pipeline_constant_rf_via_stats_cfg_executes():
     assert len(out_stats) >= 1
 
 
+def test_pipeline_requires_configured_risk_free_column():
+    df = _mini_df().drop(columns=["RF"])
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    with pytest.raises(ValueError, match="Configured risk-free column 'RF'"):
+        pipeline._run_analysis(  # type: ignore[attr-defined]
+            df,
+            in_start="2020-01",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-06",
+            target_vol=0.10,
+            monthly_cost=0.0,
+            selection_mode="all",
+            stats_cfg=RiskStatsConfig(),
+            risk_free_column="RF",
+            allow_risk_free_fallback=False,
+        )
+
+
+def test_pipeline_requires_flag_for_fallback_when_missing_rf():
+    df = _mini_df().drop(columns=["RF"])
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    with pytest.raises(ValueError, match="allow_risk_free_fallback"):
+        pipeline._run_analysis(  # type: ignore[attr-defined]
+            df,
+            in_start="2020-01",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-06",
+            target_vol=0.10,
+            monthly_cost=0.0,
+            selection_mode="all",
+            stats_cfg=RiskStatsConfig(),
+            allow_risk_free_fallback=False,
+        )
+
+
 def test_identify_risk_free_name_heuristics():
     # Named RF candidate should be preferred over other numerics
     dates = pd.date_range("2021-01-31", periods=4, freq="ME")
@@ -92,3 +138,31 @@ def test_identify_risk_free_name_aliases_case_insensitive():
     from trend_analysis.data import identify_risk_free_fund
 
     assert identify_risk_free_fund(df) == "t-Bill"
+
+
+def test_pipeline_uses_configured_series_for_metrics():
+    df = _mini_df().rename(columns={"RF": "Cash"})
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+        df,
+        in_start="2020-01",
+        in_end="2020-03",
+        out_start="2020-04",
+        out_end="2020-06",
+        target_vol=0.10,
+        monthly_cost=0.0,
+        selection_mode="all",
+        stats_cfg=RiskStatsConfig(),
+        risk_free_column="Cash",
+        allow_risk_free_fallback=False,
+    )
+    assert res is not None
+    assert res.get("risk_free_column") == "Cash"
+    assert res.get("risk_free_source") == "configured"
+    out_slice = df.set_index("Date").loc["2020-04-30":"2020-06-30"]
+    expected_sharpe = sharpe_ratio(
+        res["out_sample_scaled"]["A"], risk_free=out_slice["Cash"]
+    )
+    assert res["out_sample_stats"]["A"].sharpe == pytest.approx(expected_sharpe)

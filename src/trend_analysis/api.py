@@ -102,6 +102,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
     data_settings = getattr(config, "data", {}) or {}
+    risk_free_column = data_settings.get("risk_free_column")
+    allow_risk_free_fallback = cast(
+        bool | None, data_settings.get("allow_risk_free_fallback")
+    )
     max_lag_days = data_settings.get("max_lag_days")
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):
@@ -178,6 +182,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         lambda_tc=config.portfolio.get("lambda_tc"),
         max_turnover=config.portfolio.get("max_turnover"),
         regime_cfg=regime_cfg,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
     )
     if res is None:
         logger.warning("run_simulation produced no result")
