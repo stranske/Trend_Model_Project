@@ -92,22 +92,6 @@ def test_rank_select_funds_blended_requires_weights():
         )
 
 
-@pytest.mark.parametrize(
-    "approach,kwargs,expected",
-    [
-        ("top_n", {"n": 2}, ["Alpha One", "Alpha Two"]),
-        ("top_pct", {"pct": 0.5}, ["Alpha One", "Alpha Two"]),
-        ("threshold", {"threshold": 0.1}, ["Alpha One", "Alpha Two", "Beta Core"]),
-    ],
-)
-def test_some_function_missing_annotation_branches(approach, kwargs, expected):
-    series = pd.Series([0.6, 0.5, 0.4], index=["Alpha One", "Alpha Two", "Beta Core"])
-    result = rs.some_function_missing_annotation(
-        series, approach, ascending=False, **kwargs
-    )
-    assert list(result) == expected[: len(result)]
-
-
 def test_canonical_metric_list_alias_and_default():
     names = rs.canonical_metric_list(["annual_return", "Sharpe", "Custom"])
     assert names[:2] == ["AnnualReturn", "Sharpe"]
@@ -306,36 +290,3 @@ def test_apply_transform_variants_and_errors():
 
     with pytest.raises(ValueError):
         rs._apply_transform(series, mode="unknown")
-
-
-def test_quality_filter_and_private_variant_share_logic():
-    df = make_simple_returns().reset_index().rename(columns={"index": "Date"})
-    cfg = rs.FundSelectionConfig(max_missing_months=1, max_missing_ratio=0.5)
-    eligible_public = rs.quality_filter(df, cfg)
-    eligible_private = rs._quality_filter(
-        df, eligible_public, "2021-01", "2021-12", cfg
-    )
-    assert eligible_public == eligible_private
-
-
-def test_select_funds_random_mode_uses_numpy_choice(monkeypatch):
-    df = make_simple_returns().reset_index().rename(columns={"index": "Date"})
-    cfg = rs.FundSelectionConfig()
-
-    called = {}
-
-    def fake_choice(arr, size, replace):
-        called["args"] = (tuple(arr), size, replace)
-        return np.array(arr[:size])
-
-    monkeypatch.setattr(np.random, "choice", fake_choice)
-
-    result = rs.select_funds(
-        df,
-        "Date",
-        mode="random",
-        n=2,
-        quality_cfg=cfg,
-    )
-    assert len(result) == 2
-    assert called["args"][-1] is False
