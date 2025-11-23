@@ -18,6 +18,8 @@ data:
   currency: "USD"
   missing_policy: "ffill"
   missing_limit: null
+  risk_free_column: null
+  allow_risk_free_fallback: true
   lookback_required: 252  # 1 year minimum for demo
 
 preprocessing:

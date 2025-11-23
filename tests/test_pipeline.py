@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import pytest
 
@@ -20,6 +22,8 @@ def make_cfg(tmp_path, df):
             "csv_path": str(csv),
             "date_column": "Date",
             "frequency": "M",
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": False,
         },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
@@ -80,6 +84,58 @@ def test_run_with_benchmarks(tmp_path):
     cfg.benchmarks = {"spx": "SPX"}
     out = pipeline.run(cfg)
     assert "ir_spx" in out.columns
+
+
+def test_run_errors_when_risk_free_column_missing(tmp_path):
+    cfg = make_cfg(tmp_path, make_df())
+    cfg.data["risk_free_column"] = "MissingRF"
+    cfg.data["allow_risk_free_fallback"] = False
+    with pytest.raises(ValueError, match="Configured risk-free column 'MissingRF'"):
+        pipeline.run(cfg)
+
+
+def test_risk_free_series_used_for_score_frame():
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    rf = pd.Series([0.001, 0.001, 0.002, 0.002], index=dates)
+    a = pd.Series([0.011, 0.012, 0.01, 0.009], index=dates)
+    df = pd.DataFrame({"Date": dates, "RF": rf, "A": a, "B": 0.0})
+    res = pipeline.run_analysis(
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-04",
+        1.0,
+        0.0,
+        risk_free_column="RF",
+        allow_risk_free_fallback=False,
+    )
+
+    assert res is not None
+    expected_sharpe = pipeline.sharpe_ratio(
+        a.iloc[:2], risk_free=rf.iloc[:2], periods_per_year=12
+    )
+    assert res["score_frame"].loc["A", "Sharpe"] == pytest.approx(expected_sharpe)
+
+
+def test_risk_free_fallback_logs_choice(caplog):
+    caplog.set_level(logging.INFO, logger="trend_analysis.pipeline")
+    df = _make_two_fund_df()
+
+    res = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        allow_risk_free_fallback=True,
+        risk_free_column=None,
+    )
+
+    assert res is not None
+    assert "fallback enabled" in caplog.text
 
 
 def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):

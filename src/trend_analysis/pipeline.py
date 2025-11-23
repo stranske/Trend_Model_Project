@@ -140,79 +140,8 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
                 return default
         except KeyError:
             return default
-    return default
-
-
-def _resolve_risk_free_column(
-    df: pd.DataFrame,
-    *,
-    date_col: str = "Date",
-    configured: str | None = None,
-    allow_fallback: bool = False,
-    indices_list: list[str] | None = None,
-) -> str:
-    """Determine the risk-free column for ``df``.
-
-    Parameters
-    ----------
-    df:
-        Returns DataFrame containing a ``date_col`` plus one or more return
-        series.
-    configured:
-        Explicit column name provided by configuration.  When supplied, the
-        function validates presence and numeric dtype.
-    allow_fallback:
-        When ``True``, fall back to the lowest-volatility numeric column after
-        excluding any index columns.
-    indices_list:
-        Optional list of index column names to exclude from the fallback search
-        and from the investable universe.
-
-    Returns
-    -------
-    str
-        Column name selected as the risk-free series.
-    """
-
-    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
-    if configured:
-        if configured not in df.columns:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' was not found in the input data."
-            )
-        if configured not in numeric_cols:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' must be numeric."
-            )
-        logger.info("Using configured risk-free column '%s'.", configured)
-        return configured
-
-    candidates = numeric_cols
-    if indices_list:
-        idx_set = {str(c) for c in indices_list}
-        candidates = [c for c in candidates if c not in idx_set]
-
-    if allow_fallback:
-        if not candidates:
-            raise ValueError(
-                "No numeric columns available to infer a risk-free series."
-            )
-        probe_cols = [date_col, *candidates] if date_col in df.columns else candidates
-        rf_col = identify_risk_free_fund(df[probe_cols])
-        if rf_col is None:
-            raise ValueError(
-                "Unable to infer a risk-free column; provide data.risk_free_column or "
-                "enable the fallback when a numeric column is available."
-            )
-        logger.info(
-            "Risk-free column inferred via lowest-volatility fallback: %s", rf_col
-        )
-        return rf_col
-
-    raise ValueError(
-        "Risk-free column is not configured. Set data.risk_free_column or enable "
-        "data.allow_risk_free_fallback to use the heuristic."
-    )
+    attr_value = getattr(section, key, default)
+    return attr_value
 
 
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
@@ -505,12 +434,81 @@ def calc_portfolio_returns(
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
 
+def _resolve_risk_free_column(
+    df: pd.DataFrame,
+    *,
+    date_col: str,
+    indices_list: list[str] | None,
+    risk_free_column: str | None,
+    allow_risk_free_fallback: bool | None,
+) -> tuple[str, list[str], str]:
+    """Select the risk-free column and investable funds.
+
+    Returns
+    -------
+    tuple[str, list[str], str]
+        ``(risk_free_column, fund_columns, source)`` where ``source`` is
+        ``"configured"`` when explicitly provided or ``"fallback"`` when the
+        column is inferred.
+    """
+
+    idx_set = {str(c) for c in indices_list or []}
+    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
+    ret_cols = [c for c in numeric_cols if c not in idx_set]
+
+    if not ret_cols:
+        raise ValueError("No numeric return columns available to process")
+
+    configured_rf = (risk_free_column or "").strip()
+    if configured_rf:
+        if configured_rf == date_col:
+            raise ValueError("Risk-free column cannot reuse the date column")
+        if configured_rf not in df.columns:
+            raise ValueError(
+                f"Configured risk-free column '{configured_rf}' was not found in the dataset"
+            )
+        if configured_rf not in numeric_cols:
+            raise ValueError(
+                f"Configured risk-free column '{configured_rf}' must be numeric"
+            )
+        if configured_rf in idx_set:
+            raise ValueError(
+                f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
+            )
+        rf_col = configured_rf
+        source = "configured"
+    else:
+        fallback_enabled = (
+            allow_risk_free_fallback is True or allow_risk_free_fallback is None
+        )
+        if not fallback_enabled:
+            raise ValueError(
+                "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
+            )
+        probe_cols = [date_col, *ret_cols] if date_col in df.columns else ret_cols
+        detected = identify_risk_free_fund(df[probe_cols])
+        if detected is None:
+            raise ValueError(
+                "Risk-free fallback could not find a numeric return series"
+            )
+        rf_col = detected
+        source = "fallback"
+        logger.info(
+            "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
+            rf_col,
+        )
+
+    fund_cols = [c for c in ret_cols if c != rf_col]
+    return rf_col, fund_cols, source
+
+
 def single_period_run(
     df: pd.DataFrame,
     start: str,
     end: str,
     *,
     stats_cfg: RiskStatsConfig | None = None,
+    risk_free: float | pd.Series | None = None,
 ) -> pd.DataFrame:
     """Return a score frame of metrics for a single period.
 
@@ -553,7 +551,9 @@ def single_period_run(
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
     parts = [
-        _compute_metric_series(window.dropna(axis=1, how="all"), m, stats_cfg)
+        _compute_metric_series(
+            window.dropna(axis=1, how="all"), m, stats_cfg, risk_free_override=risk_free
+        )
         for m in metrics
     ]
     score_frame = pd.concat(parts, axis=1)
@@ -575,6 +575,7 @@ def single_period_run(
                 window.dropna(axis=1, how="all"),
                 "AvgCorr",
                 stats_cfg,
+                risk_free_override=risk_free,
                 enable_cache=False,
             )
             score_frame = pd.concat([score_frame, avg_corr_series], axis=1)
@@ -641,7 +642,7 @@ def _run_analysis(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool = True,
+    allow_risk_free_fallback: bool | None = None,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -791,21 +792,19 @@ def _run_analysis(
     if in_df.empty or out_df.empty:
         return None
 
-    ret_cols = [c for c in df.columns if c != date_col]
-    if not ret_cols:
-        return None
+    if indices_list is None:
+        indices_list = []
 
-    indices_list = indices_list or []
-    indices_set = {str(c) for c in indices_list}
-    rf_col = _resolve_risk_free_column(
+    rf_col: str
+    fund_cols: list[str]
+    rf_source: str
+    rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         df,
         date_col=date_col,
-        configured=risk_free_column,
-        allow_fallback=allow_risk_free_fallback,
         indices_list=indices_list,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    rf_source = "configured" if risk_free_column else "fallback"
-    fund_cols = [c for c in ret_cols if c not in indices_set and c != rf_col]
 
     # determine which index columns have complete data
     valid_indices: list[str] = []
@@ -850,21 +849,31 @@ def _run_analysis(
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig(risk_free=0.0)
 
+    risk_free_override = in_df[rf_col]
+
     if selection_mode == "random" and len(fund_cols) > random_n:
         rng = np.random.default_rng(seed)
         fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
     elif selection_mode == "rank":
         mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
         sub = df.loc[mask, fund_cols]
-        window_key = make_window_key(in_start, in_end, fund_cols, stats_cfg)
-        bundle = get_window_metric_bundle(window_key)
+        window_key = None
+        bundle = None
+        if stats_cfg is not None and fund_cols:
+            try:
+                window_key = make_window_key(in_start, in_end, sub.columns, stats_cfg)
+            except Exception:  # pragma: no cover - defensive
+                window_key = None
+        if window_key is not None:
+            bundle = get_window_metric_bundle(window_key)
         rank_options: dict[str, Any] = dict(rank_kwargs or {})
+        rank_options.setdefault("window_key", window_key)
+        rank_options.setdefault("bundle", bundle)
         fund_cols = rank_select_funds(
             sub,
             stats_cfg,
             **rank_options,
-            window_key=window_key,
-            bundle=bundle,
+            risk_free=risk_free_override,
         )
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
@@ -875,7 +884,11 @@ def _run_analysis(
     if not fund_cols:
         return None
     score_frame = single_period_run(
-        df[[date_col] + fund_cols], in_start, in_end, stats_cfg=stats_cfg
+        df[[date_col] + fund_cols],
+        in_start,
+        in_end,
+        stats_cfg=stats_cfg,
+        risk_free=in_df[rf_col],
     )
 
     weight_engine_fallback: dict[str, str] | None = None
@@ -1254,6 +1267,7 @@ def _run_analysis(
     )
     metadata["frequency"] = frequency_payload
     metadata["missing_data"] = missing_payload
+    metadata["risk_free_column"] = rf_col
 
     return {
         "selected_funds": fund_cols,
@@ -1329,7 +1343,7 @@ def run_analysis(
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool = True,
+    allow_risk_free_fallback: bool | None = None,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
@@ -1443,12 +1457,10 @@ def run(cfg: Config) -> pd.DataFrame:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
-    risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", False)
-    )
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
+    risk_free_column = _section_get(data_settings, "risk_free_column")
+    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
     res = _run_analysis(
         df,
@@ -1550,11 +1562,10 @@ def run_full(cfg: Config) -> dict[str, object]:
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", False)
-    )
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
+    risk_free_column = _section_get(data_settings, "risk_free_column")
+    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
     res = _run_analysis(
         df,

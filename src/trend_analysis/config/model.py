@@ -176,7 +176,7 @@ class DataSettings(BaseModel):
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
-    allow_risk_free_fallback: bool = Field(default=False)
+    allow_risk_free_fallback: bool | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -225,25 +225,21 @@ class DataSettings(BaseModel):
     def _validate_risk_free_column(cls, value: Any) -> str | None:
         if value in (None, ""):
             return None
-        if not isinstance(value, str):
-            raise ValueError("data.risk_free_column must be a string when provided.")
-        text = value.strip()
-        return text or None
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        raise ValueError("data.risk_free_column must be a string when provided")
 
     @field_validator("allow_risk_free_fallback", mode="before")
     @classmethod
-    def _validate_allow_risk_free_fallback(cls, value: Any) -> bool:
+    def _validate_allow_risk_free_fallback(cls, value: Any) -> bool | None:
+        if value in (None, ""):
+            return None
         if isinstance(value, bool):
             return value
-        if value in (None, ""):
-            return False
-        if isinstance(value, str):
-            lowered = value.strip().lower()
-            if lowered in {"true", "1", "yes", "on"}:
-                return True
-            if lowered in {"false", "0", "no", "off"}:
-                return False
-        raise ValueError("data.allow_risk_free_fallback must be a boolean value.")
+        raise ValueError(
+            "data.allow_risk_free_fallback must be a boolean when provided"
+        )
 
     @field_validator("date_column")
     @classmethod

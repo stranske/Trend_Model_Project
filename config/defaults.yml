@@ -18,6 +18,8 @@ data:
   risk_free_column: null   # Explicit risk-free series name when present
   allow_risk_free_fallback: true  # Opt-in heuristic to use lowest-vol column
   lookback_required: 756 # minimum obs (≈3 yrs daily)
+  risk_free_column: null          # Explicit risk-free series column name
+  allow_risk_free_fallback: true  # Opt-in heuristic: lowest-volatility column
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS
 # ----------------------------------------------------------------------
