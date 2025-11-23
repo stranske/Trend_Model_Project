@@ -3,6 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
   "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-venv",
   "postCreateCommand": "./scripts/setup_env.sh && python -c 'import numpy, pandas'",
+  "postStartCommand": "./scripts/setup_env.sh",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/node:1": {
