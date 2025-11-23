@@ -33,6 +33,7 @@ def _init_matplotlib() -> Any:
 plt = _init_matplotlib()
 
 from trend_analysis.backtesting import BacktestResult, CostModel  # noqa: E402
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_model.spec import TrendRunSpec
@@ -176,7 +177,7 @@ def _coerce_window_mode(value: Any) -> WindowMode:
     return "rolling"
 
 
-def _build_backtest(result: Any) -> BacktestResult | None:
+def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
     details_obj = getattr(result, "details", None)
     details: Mapping[str, Any] = details_obj if isinstance(details_obj, Mapping) else {}
     portfolio = getattr(result, "portfolio", None)
@@ -186,7 +187,11 @@ def _build_backtest(result: Any) -> BacktestResult | None:
             portfolio = details.get("portfolio")
     series = _maybe_series(portfolio)
     if series is None or series.empty:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_PORTFOLIO_SERIES",
+            message="Backtest results missing portfolio returns for report rendering.",
+            context={"has_details": bool(details), "portfolio_keys": list(details.keys())},
+        )
     series = series.sort_index()
     if isinstance(series.index, pd.PeriodIndex):
         calendar = series.index.to_timestamp()
@@ -253,9 +258,10 @@ def _build_backtest(result: Any) -> BacktestResult | None:
             filled.rolling(rolling_window).std(ddof=0) + 1e-12
         )
         rolling_sharpe = roll * math.sqrt(periods)
-    return BacktestResult(
-        returns=series,
-        equity_curve=equity_curve,
+    return DiagnosticResult.success(
+        BacktestResult(
+            returns=series,
+            equity_curve=equity_curve,
         weights=weights_df,
         turnover=turnover_series.sort_index(),
         per_period_turnover=pd.Series(dtype=float),
@@ -269,6 +275,7 @@ def _build_backtest(result: Any) -> BacktestResult | None:
         window_size=window_size,
         training_windows={},
         cost_model=CostModel(),
+        )
     )
 
 
@@ -539,9 +546,13 @@ def _render_chart(fig: Any) -> str:
     return base64.b64encode(buf.read()).decode("ascii")
 
 
-def _turnover_chart(backtest: BacktestResult | None) -> str | None:
+def _turnover_chart(backtest: BacktestResult | None) -> DiagnosticResult[str]:
     if backtest is None or backtest.turnover.empty:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_SERIES",
+            message="Turnover diagnostics missing or empty; chart skipped.",
+            context={"has_backtest": backtest is not None},
+        )
     series = backtest.turnover.sort_index()
     fig, ax = plt.subplots(figsize=(8, 3))
     x_values = (
@@ -555,7 +566,7 @@ def _turnover_chart(backtest: BacktestResult | None) -> str | None:
     ax.grid(alpha=0.25)
     if isinstance(series.index, pd.DatetimeIndex):
         fig.autofmt_xdate()
-    return _render_chart(fig)
+    return DiagnosticResult.success(_render_chart(fig))
 
 
 def _exposure_chart(backtest: BacktestResult | None) -> str | None:
@@ -975,12 +986,15 @@ def generate_unified_report(
     """Produce HTML (and optional PDF) report artifacts for a simulation
     result."""
 
-    backtest = _build_backtest(result)
+    backtest_result = _build_backtest(result)
+    backtest = backtest_result.value
     exec_summary = _build_exec_summary(result, backtest)
     metrics_df = getattr(result, "metrics", pd.DataFrame())
     metrics_html, metrics_text = _metrics_table_html(metrics_df)
     params = _build_param_summary(config, spec)
     caveats = _build_caveats(result, backtest)
+    if backtest_result.diagnostic:
+        caveats.append(backtest_result.diagnostic.message)
     details_mapping = (
         getattr(result, "details", {})
         if isinstance(getattr(result, "details", None), Mapping)
@@ -998,7 +1012,14 @@ def generate_unified_report(
     narrative = _narrative(
         backtest, regime_summary if isinstance(regime_summary, str) else None
     )
-    turnover_chart = _turnover_chart(backtest)
+    diagnostics: list[DiagnosticPayload] = []
+    if backtest_result.diagnostic:
+        diagnostics.append(backtest_result.diagnostic)
+    turnover_chart_result = _turnover_chart(backtest)
+    if turnover_chart_result.diagnostic:
+        diagnostics.append(turnover_chart_result.diagnostic)
+        caveats.append(turnover_chart_result.diagnostic.message)
+    turnover_chart = turnover_chart_result.value
     exposure_chart = _exposure_chart(backtest)
     footer = "Past performance does not guarantee future results."
     context: dict[str, Any] = {
@@ -1019,6 +1040,7 @@ def generate_unified_report(
         ],
         "turnover_chart": turnover_chart,
         "exposure_chart": exposure_chart,
+        "diagnostics": diagnostics,
         "footer": footer,
     }
     if spec is None:

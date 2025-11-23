@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 import pandas as pd
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 
 def _init_matplotlib() -> Any:  # pragma: no cover - thin wrapper
@@ -140,10 +141,14 @@ def _encode_plot(fig: "Figure") -> str:
     return base64.b64encode(buffer.read()).decode("ascii")
 
 
-def _equity_drawdown_chart(returns: pd.Series) -> str | None:
+def _equity_drawdown_chart(returns: pd.Series) -> DiagnosticResult[str]:
     equity, drawdown = _compute_equity_and_drawdown(returns)
     if equity.empty:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_RETURNS_SERIES",
+            message="No portfolio returns available to draw equity curve.",
+            context={"length": len(returns)},
+        )
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8, 5))
     ax1.plot(equity.index, equity.values, color="#1f77b4", linewidth=1.5)
     ax1.set_title("Equity Curve")
@@ -154,12 +159,16 @@ def _equity_drawdown_chart(returns: pd.Series) -> str | None:
     ax2.fill_between(drawdown.index, drawdown.values, 0.0, color="#d62728", alpha=0.2)
     fig.autofmt_xdate()
     fig.tight_layout()
-    return _encode_plot(fig)
+    return DiagnosticResult.success(_encode_plot(fig))
 
 
-def _turnover_chart(turnover: pd.Series) -> str | None:
+def _turnover_chart(turnover: pd.Series) -> DiagnosticResult[str]:
     if turnover.empty:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_SERIES",
+            message="Turnover diagnostics missing or empty; chart skipped.",
+            context={"length": len(turnover)},
+        )
     fig, ax = plt.subplots(figsize=(8, 3))
     ax.plot(turnover.index, turnover.values, color="#ff7f0e", linewidth=1.5)
     ax.set_title("Turnover")
@@ -167,7 +176,7 @@ def _turnover_chart(turnover: pd.Series) -> str | None:
     ax.grid(True, alpha=0.3)
     fig.autofmt_xdate()
     fig.tight_layout()
-    return _encode_plot(fig)
+    return DiagnosticResult.success(_encode_plot(fig))
 
 
 def render_parameter_grid_heatmap(
@@ -236,6 +245,8 @@ def _render_html(
     summary_text: str | None,
     equity_chart: str | None,
     turnover_chart: str | None,
+    equity_diagnostic: DiagnosticPayload | None,
+    turnover_diagnostic: DiagnosticPayload | None,
     heatmap_rel_path: str,
 ) -> str:
     numeric_cols = metrics.select_dtypes(include="number").columns
@@ -258,11 +269,19 @@ def _render_html(
         if equity_chart
         else '<p class="placeholder">No equity data available.</p>'
     )
+    if equity_diagnostic is not None:
+        equity_block = (
+            f"{equity_block}<p class=\"placeholder\">{html_escape(equity_diagnostic.message)}</p>"
+        )
     turnover_block = (
         f'<img alt="Turnover" src="data:image/png;base64,{turnover_chart}">'
         if turnover_chart
         else '<p class="placeholder">No turnover data available.</p>'
     )
+    if turnover_diagnostic is not None:
+        turnover_block = (
+            f"{turnover_block}<p class=\"placeholder\">{html_escape(turnover_diagnostic.message)}</p>"
+        )
     summary_section = (
         f"<section><h2>Summary</h2>{summary_block}</section>" if summary_block else ""
     )
@@ -355,14 +374,19 @@ def build_run_report(
     destination = output_path or (base / "reports" / f"{run_id}.html")
     heatmap_rel_path = os.path.relpath(heatmap_path, start=destination.parent)
 
+    equity_chart_result = _equity_drawdown_chart(returns)
+    turnover_chart_result = _turnover_chart(turnover)
+
     html_output = _render_html(
         run_id=run_id,
         generated_at=datetime.now(UTC),
         config_text=config_text,
         metrics=metrics,
         summary_text=summary_text,
-        equity_chart=_equity_drawdown_chart(returns),
-        turnover_chart=_turnover_chart(turnover),
+        equity_chart=equity_chart_result.value,
+        turnover_chart=turnover_chart_result.value,
+        equity_diagnostic=equity_chart_result.diagnostic,
+        turnover_diagnostic=turnover_chart_result.diagnostic,
         heatmap_rel_path=heatmap_rel_path,
     )
 
