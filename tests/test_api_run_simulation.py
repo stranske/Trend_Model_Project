@@ -13,9 +13,17 @@ def make_df():
 
 
 def make_cfg(path: str | None = None) -> Config:
+    data_section: dict[str, object] = {
+        "risk_free_column": "RF",
+        "allow_risk_free_fallback": False,
+        "date_column": "Date",
+        "frequency": "M",
+    }
+    if path:
+        data_section["csv_path"] = path
     cfg = Config(
         version="1",
-        data={"csv_path": path} if path else {},
+        data=data_section,
         preprocessing={},
         vol_adjust={"target_vol": 1.0},
         sample_split={
