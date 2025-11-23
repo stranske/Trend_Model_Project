@@ -33,5 +33,3 @@ def test_rank_select_funds_blended_requires_weights_and_no_dedupe():
         df, cfg, inclusion_approach="top_n", n=2, limit_one_per_firm=False
     )
     assert len(res) == 2
-
-
