@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 import yaml
 
+from trend.diagnostics import DiagnosticPayload
+
 from trend_analysis import cli
 from trend_analysis.api import RunResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
@@ -165,6 +167,48 @@ def test_cli_default_json(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out.strip()
     assert rc == 0
     assert out == "No results"
+
+
+def test_cli_outputs_pipeline_diagnostic(tmp_path, capsys, monkeypatch):
+    cfg_path = tmp_path / "cfg.yml"
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("Date,RF\n2020-01-31,0.0\n", encoding="utf-8")
+    _write_cfg(cfg_path, "1", csv_path=csv_path)
+
+    original_load_config = cli.load_config
+
+    def fake_load_config(path):
+        cfg_obj = original_load_config(path)
+        setattr(
+            cfg_obj,
+            "sample_split",
+            {
+                "in_start": "2020-01",
+                "in_end": "2020-01",
+                "out_start": "2020-02",
+                "out_end": "2020-02",
+            },
+        )
+        return cfg_obj
+
+    diag = DiagnosticPayload(
+        reason_code="PIPELINE_NO_FUNDS_SELECTED",
+        message="No funds available",
+    )
+    run_result = RunResult(pd.DataFrame(), {}, 42, {}, diagnostic=diag)
+
+    monkeypatch.setattr(cli, "load_config", fake_load_config)
+    monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: run_result)
+    monkeypatch.setattr(cli.run_logging, "init_run_logger", lambda *a, **k: None)
+
+    rc = cli.main(["run", "-c", str(cfg_path), "-i", str(csv_path)])
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    lines = [line.strip() for line in captured.out.splitlines() if line.strip()]
+    assert lines[0].startswith("Pipeline skipped (")
+    assert diag.reason_code in lines[0]
+    assert lines[-1] == "No results"
 
 
 def test_cli_validation_error(monkeypatch, capsys):

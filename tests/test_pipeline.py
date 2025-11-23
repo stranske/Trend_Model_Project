@@ -6,6 +6,7 @@ import pytest
 from trend_analysis import config, pipeline
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
+from trend_analysis.diagnostics import PipelineReasonCode
 
 pytestmark = pytest.mark.runtime
 
@@ -145,6 +146,9 @@ def test_run_returns_empty_when_no_funds(tmp_path, monkeypatch):
     cfg = make_cfg(tmp_path, df)
     result = pipeline.run(cfg)
     assert result.empty
+    diagnostic = result.attrs.get("diagnostic")
+    assert diagnostic is not None
+    assert diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value
 
 
 def test_run_file_missing(tmp_path, monkeypatch):
