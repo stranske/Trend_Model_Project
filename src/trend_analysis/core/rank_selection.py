@@ -1478,6 +1478,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
                     manual_funds=manual_funds,
                     indices_list=list(idx_select.value),
                     benchmarks={b: b for b in bench_select.value},
+                    allow_risk_free_fallback=True,
                 )
                 if res is None:
                     print("No results")

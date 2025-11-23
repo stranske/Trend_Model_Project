@@ -204,8 +204,10 @@ def _resolve_risk_free_column(
                 "Unable to infer a risk-free column; provide data.risk_free_column or "
                 "enable the fallback when a numeric column is available."
             )
-        logger.info(
-            "Risk-free column inferred via lowest-volatility fallback: %s", rf_col
+        logger.warning(
+            "Risk-free column inferred via lowest-volatility fallback: %s. "
+            "Set data.risk_free_column to lock the cash series and silence this warning.",
+            rf_col,
         )
         return rf_col
 
@@ -641,7 +643,7 @@ def _run_analysis(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool = True,
+    allow_risk_free_fallback: bool = False,
 ) -> dict[str, object] | None:
     if df is None:
         return None
@@ -1329,7 +1331,7 @@ def run_analysis(
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool = True,
+    allow_risk_free_fallback: bool = False,
 ) -> dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(

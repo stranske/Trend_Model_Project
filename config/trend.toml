@@ -8,6 +8,8 @@ csv_path = "../demo/demo_returns.csv"  # relative paths resolve from this file
 date_column = "Date"                    # column containing ISO-8601 dates
 frequency = "ME"                        # returns are month-end observations
 missing_policy = "drop"                 # initial policy before preprocessing
+risk_free_column = "RF"                 # explicit cash proxy in the demo CSV
+allow_risk_free_fallback = false
 
 # ---------------------------------------------------------------------------
 # Lightweight preprocessing. The demo only forward-fills short gaps.

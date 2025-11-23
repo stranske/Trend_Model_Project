@@ -1,6 +1,8 @@
 data:
   csv_path: ../demo/demo_returns.csv
   date_column: Date
+  risk_free_column: RF
+  allow_risk_free_fallback: false
   columns:
     - Mgr_01
     - Mgr_02

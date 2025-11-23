@@ -15,8 +15,8 @@ data:
   currency: "USD"
   missing_policy: "ffill" # drop | ffill | zero
   missing_limit: null      # Optional int (per-column overrides supported)
-  risk_free_column: null   # Explicit risk-free series name when present
-  allow_risk_free_fallback: true  # Opt-in heuristic to use lowest-vol column
+  risk_free_column: "Risk-Free Rate"   # Explicit cash proxy (required)
+  allow_risk_free_fallback: false      # Opt-in heuristic guarded by flag
   lookback_required: 756 # minimum obs (≈3 yrs daily)
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS

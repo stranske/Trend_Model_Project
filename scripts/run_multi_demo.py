@@ -166,12 +166,12 @@ def _check_demo_data(cfg: Config) -> pd.DataFrame:  # use concrete Config for mo
     df = ensure_datetime(df)
     if not df["Date"].is_monotonic_increasing:
         raise SystemExit("Demo dataset not sorted by date")
-    if df.shape != (120, 22):
+    if df.shape != (120, 23):
         raise SystemExit("Demo dataset shape mismatch")
     if df["Date"].isnull().any():
         raise SystemExit("Demo dataset contains invalid dates")
     mgr_cols = [c for c in df.columns if c != "Date"]
-    if len(mgr_cols) != 21:
+    if len(mgr_cols) != 22:
         raise SystemExit("Demo dataset manager count mismatch")
     first = df["Date"].iloc[0]
     last = df["Date"].iloc[-1]
@@ -993,6 +993,9 @@ _check_generate_demo_help()
 
 
 cfg = load("config/demo.yml")
+data_cfg = getattr(cfg, "data", {}) or {}
+cfg_risk_free = data_cfg.get("risk_free_column")
+cfg_rf_fallback = bool(data_cfg.get("allow_risk_free_fallback", False))
 regime_cfg = getattr(cfg, "regime", {})
 demo_df = _check_demo_data(cfg)
 if cfg.export.get("filename") != "alias_demo.csv":
@@ -1427,6 +1430,8 @@ direct_res = pipeline._run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="rank",
     rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+    risk_free_column=cfg_risk_free,
+    allow_risk_free_fallback=cfg_rf_fallback,
 )
 if direct_res is None or "score_frame" not in direct_res:
     raise SystemExit("_run_analysis direct call failed")
@@ -1670,6 +1675,8 @@ analysis_res = pipeline.run_analysis(
     selection_mode="rank",
     rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
     regime_cfg=regime_cfg,
+    risk_free_column=cfg_risk_free,
+    allow_risk_free_fallback=cfg_rf_fallback,
 )
 if analysis_res is None or analysis_res.get("score_frame") is None:
     raise SystemExit("pipeline.run_analysis failed")
@@ -1690,6 +1697,8 @@ analysis_idx = pipeline.run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     indices_list=["Mgr_01", "Mgr_02"],
     regime_cfg=regime_cfg,
+    risk_free_column=cfg_risk_free,
+    allow_risk_free_fallback=cfg_rf_fallback,
 )
 if analysis_idx is None or not analysis_idx.get("benchmark_stats"):
     raise SystemExit("pipeline.run_analysis with indices_list failed")
@@ -1708,6 +1717,8 @@ cw_res = pipeline._run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="all",
     custom_weights={"Mgr_01": 60, "Mgr_02": 40},
+    risk_free_column=cfg_risk_free,
+    allow_risk_free_fallback=cfg_rf_fallback,
 )
 fw = cw_res.get("fund_weights", {})
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
@@ -1873,6 +1884,8 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         str(cfg.sample_split["out_end"]),
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+        risk_free_column=cfg_risk_free,
+        allow_risk_free_fallback=cfg_rf_fallback,
     )
     if res is not None:
         raise SystemExit("_run_analysis did not return None on missing df")
@@ -1886,6 +1899,8 @@ def _check_run_analysis_errors(cfg: Config) -> None:
             str(cfg.sample_split["out_end"]),
             cfg.vol_adjust.get("target_vol", 1.0),
             getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+            risk_free_column=cfg_risk_free,
+            allow_risk_free_fallback=cfg_rf_fallback,
         )
     except ValueError:
         pass

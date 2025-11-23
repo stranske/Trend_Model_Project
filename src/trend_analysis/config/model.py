@@ -297,6 +297,16 @@ class DataSettings(BaseModel):
             ) from exc
 
     @model_validator(mode="after")
+    def _require_risk_free_column(self) -> "DataSettings":
+        if self.allow_risk_free_fallback:
+            return self
+        if isinstance(self.risk_free_column, str) and self.risk_free_column.strip():
+            return self
+        raise ValueError(
+            "data.risk_free_column must be provided when data.allow_risk_free_fallback is false."
+        )
+
+    @model_validator(mode="after")
     def _ensure_source(self) -> "DataSettings":
         if self.csv_path is None:
             managers = (self.managers_glob or "").strip()

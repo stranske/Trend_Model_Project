@@ -61,9 +61,14 @@ def main() -> None:
         drift = rng.normal(scale=0.002, size=periods).cumsum()
         data[f"Mgr_{i:02d}"] = base + trend + drift
 
-    # Add a simple market index so benchmark logic can run
+    # Add a simple market index plus an explicit risk-free proxy so configs
+    # can reference concrete columns instead of relying on heuristics.
     spx = rng.normal(loc=0.005, scale=0.03, size=periods)
     data["SPX"] = spx
+    # Keep the risk-free proxy low-volatility with a small positive drift so it
+    # remains distinct from the investable universe.
+    rf = rng.normal(loc=0.0015, scale=0.002, size=periods)
+    data["RF"] = rf
 
     df = pd.DataFrame(data, index=dates)
     df.index.name = "Date"

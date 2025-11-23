@@ -18,7 +18,7 @@ at the repository root.
 ## Demo data generation
 
 - `scripts/generate_demo.py`
-  - Purpose: build a 10-year synthetic return set for ~20 managers plus SPX.
+  - Purpose: build a 10-year synthetic return set for ~20 managers plus SPX and a low-volatility RF column.
   - Inputs: none; optional `--no-xlsx` flag to skip Excel output.
   - Outputs: `demo/demo_returns.csv` (always) and `demo/demo_returns.xlsx` (default).
   - Example: `python scripts/generate_demo.py --no-xlsx`
