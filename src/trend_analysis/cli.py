@@ -13,6 +13,8 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
+from trend.diagnostics import DiagnosticPayload
+
 from . import export, pipeline
 from . import logging as run_logging
 from .api import run_simulation
@@ -52,6 +54,28 @@ def load_market_data_csv(
         include_date_column if include_date_column is not None else True,
     )
     return load_csv(path, **effective_kwargs)
+
+
+def _report_pipeline_diagnostic(
+    diagnostic: DiagnosticPayload,
+    *,
+    structured_log: bool,
+    run_id: str,
+) -> None:
+    """Print and log a structured diagnostic emitted by the pipeline."""
+
+    context = diagnostic.context or {}
+    text = f"Pipeline skipped ({diagnostic.reason_code}): {diagnostic.message}"
+    print(text)
+    safe_fields = {k: v for k, v in context.items() if isinstance(k, str)}
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "pipeline_diagnostic",
+        diagnostic.message,
+        reason_code=diagnostic.reason_code,
+        **safe_fields,
+    )
 
 
 def _apply_trend_spec_preset(cfg: Any, preset: TrendSpecPreset) -> None:
@@ -441,6 +465,7 @@ def main(argv: list[str] | None = None) -> int:
             "CLI run initialised",
             config_path=args.config,
         )
+        pipeline_diagnostic: DiagnosticPayload | None = None
         if required_keys.issubset(split):
             maybe_log_step(
                 do_structured,
@@ -460,6 +485,15 @@ def main(argv: list[str] | None = None) -> int:
             metrics_df = run_result.metrics
             res = run_result.details
             run_seed = run_result.seed
+            pipeline_diagnostic = getattr(run_result, "diagnostic", None)
+            if pipeline_diagnostic and not res:
+                _report_pipeline_diagnostic(
+                    pipeline_diagnostic,
+                    structured_log=do_structured,
+                    run_id=run_id,
+                )
+                print("No results")
+                return 0
             # Attach time series required by export_bundle if present
             if isinstance(res, dict):
                 # portfolio returns preference: user_weight then equal_weight fallback
@@ -488,7 +522,16 @@ def main(argv: list[str] | None = None) -> int:
             metrics_df = pipeline.run(cfg)
             res = pipeline.run_full(cfg)
             run_seed = getattr(cfg, "seed", 42)
+            pipeline_diagnostic = cast(
+                DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
+            )
         if not res:
+            if pipeline_diagnostic:
+                _report_pipeline_diagnostic(
+                    pipeline_diagnostic,
+                    structured_log=do_structured,
+                    run_id=run_id,
+                )
             print("No results")
             return 0
 

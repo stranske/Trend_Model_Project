@@ -53,6 +53,28 @@ _ORIGINAL_FALLBACKS: dict[str, Callable[..., Any]] = {}
 _LEGACY_BASELINES: dict[str, Callable[..., Any]] = {}
 
 
+def _report_legacy_pipeline_diagnostic(
+    diagnostic: DiagnosticPayload,
+    *,
+    structured_log: bool,
+    run_id: str,
+) -> None:
+    """Surface pipeline diagnostics within the legacy CLI."""
+
+    context = diagnostic.context or {}
+    text = f"Pipeline skipped ({diagnostic.reason_code}): {diagnostic.message}"
+    print(text)
+    safe_fields = {k: v for k, v in context.items() if isinstance(k, str)}
+    _legacy_maybe_log_step(
+        structured_log,
+        run_id,
+        "pipeline_diagnostic",
+        diagnostic.message,
+        reason_code=diagnostic.reason_code,
+        **safe_fields,
+    )
+
+
 def _env_flag(name: str) -> bool:
     value = os.getenv(name, "").strip().lower()
     return value in {"1", "true", "yes", "on"}
@@ -402,6 +424,14 @@ def _run_pipeline(
     )
 
     result = run_simulation(cfg, returns_df)
+    diagnostic = getattr(result, "diagnostic", None)
+    if diagnostic and not result.details:
+        _report_legacy_pipeline_diagnostic(
+            diagnostic,
+            structured_log=structured_log,
+            run_id=run_id,
+        )
+        return result, run_id, log_path
     analysis = getattr(result, "analysis", None)
     # The following attributes are already set by run_simulation when analysis exists,
     # but we need to backfill them when analysis is absent (legacy callers).

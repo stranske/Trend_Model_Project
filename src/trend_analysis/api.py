@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from analysis import Results
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
@@ -24,7 +25,14 @@ from trend.validation import (
 )
 
 from .logging import log_step as _log_step  # lightweight import
-from .pipeline import _policy_from_config, _resolve_sample_split, _run_analysis
+from .pipeline import (
+    _policy_from_config,
+    _resolve_sample_split,
+    _run_analysis_with_diagnostics,
+)
+
+# Back-compat attribute so legacy tests can patch ``api._run_analysis``.
+_run_analysis = _run_analysis_with_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +76,7 @@ class RunResult:
     costs: dict[str, float] | None = None
     metadata: dict[str, Any] | None = None
     details_sanitized: Any | None = None
+    diagnostic: DiagnosticPayload | None = None
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -154,7 +163,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
 
-    res = _run_analysis(
+    pipeline_output = _run_analysis(
         returns,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -185,17 +194,32 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if res is None:
-        logger.warning("run_simulation produced no result")
-        return RunResult(pd.DataFrame(), {}, seed, env)
-
-    if isinstance(res, dict):
-        res_dict: dict[str, Any] = res
-    elif isinstance(res, Mapping):
-        res_dict = dict(res)
+    if isinstance(pipeline_output, DiagnosticResult):
+        diag_res = pipeline_output
     else:
-        logger.warning("Unexpected result type from _run_analysis: %s", type(res))
-        return RunResult(pd.DataFrame(), {}, seed, env)
+        diag_res = DiagnosticResult(value=pipeline_output, diagnostic=None)
+    diag = diag_res.diagnostic
+    if diag_res.value is None:
+        if diag:
+            logger.warning(
+                "run_simulation produced no result (%s): %s",
+                diag.reason_code,
+                diag.message,
+            )
+        else:
+            logger.warning("run_simulation produced no result (unknown reason)")
+        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
+
+    payload = diag_res.value
+    if isinstance(payload, dict):
+        res_dict: dict[str, Any] = payload
+    elif isinstance(payload, Mapping):
+        res_dict = dict(payload)
+    else:
+        logger.warning(
+            "Unexpected result type from pipeline diagnostics: %s", type(payload)
+        )
+        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
 
     _log_step(run_id, "metrics_build", "Building metrics dataframe")
     stats_obj = res_dict.get("out_sample_stats")
@@ -307,6 +331,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         environment=env,
         fallback_info=fallback_info,
         analysis=structured,
+        diagnostic=diag,
     )
 
     if structured is not None:
