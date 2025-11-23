@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
 
 import matplotlib
 import pandas as pd
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend_analysis.backtesting import BacktestResult, CostModel
 
 
 def _init_matplotlib() -> Any:
@@ -31,9 +33,6 @@ def _init_matplotlib() -> Any:
 
 
 plt = _init_matplotlib()
-
-from trend_analysis.backtesting import BacktestResult, CostModel  # noqa: E402
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from trend_model.spec import TrendRunSpec
@@ -190,7 +189,10 @@ def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
         return DiagnosticResult.failure(
             reason_code="NO_PORTFOLIO_SERIES",
             message="Backtest results missing portfolio returns for report rendering.",
-            context={"has_details": bool(details), "portfolio_keys": list(details.keys())},
+            context={
+                "has_details": bool(details),
+                "portfolio_keys": list(details.keys()),
+            },
         )
     series = series.sort_index()
     if isinstance(series.index, pd.PeriodIndex):
@@ -262,19 +264,19 @@ def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
         BacktestResult(
             returns=series,
             equity_curve=equity_curve,
-        weights=weights_df,
-        turnover=turnover_series.sort_index(),
-        per_period_turnover=pd.Series(dtype=float),
-        transaction_costs=pd.Series(dtype=float),
-        cost_drag=pd.Series(dtype=float),
-        rolling_sharpe=rolling_sharpe,
-        drawdown=drawdown,
-        metrics=metrics,
-        calendar=pd.DatetimeIndex(calendar),
-        window_mode=window_mode,
-        window_size=window_size,
-        training_windows={},
-        cost_model=CostModel(),
+            weights=weights_df,
+            turnover=turnover_series.sort_index(),
+            per_period_turnover=pd.Series(dtype=float),
+            transaction_costs=pd.Series(dtype=float),
+            cost_drag=pd.Series(dtype=float),
+            rolling_sharpe=rolling_sharpe,
+            drawdown=drawdown,
+            metrics=metrics,
+            calendar=pd.DatetimeIndex(calendar),
+            window_mode=window_mode,
+            window_size=window_size,
+            training_windows={},
+            cost_model=CostModel(),
         )
     )
 
