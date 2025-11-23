@@ -1,4 +1,4 @@
-archives/generated/2025/2025-11-22_coverage-summary.md
+### Coverage Trend
 - Trend: 85.00% → 0.00% (-85.00 pts)
 - Current: 0.00%
 - Baseline: 85.00%
