@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from analysis.results import build_metadata
+from trend.diagnostics import DiagnosticResult
 
 from .core.rank_selection import (
     RiskStatsConfig,
@@ -653,11 +654,16 @@ def _run_analysis_with_diagnostics(
     if df is None:
         return pipeline_failure(PipelineReasonCode.INPUT_NONE)
 
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    if attrs_copy:
+        df.attrs = attrs_copy
+
     date_col = "Date"
     if date_col not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
-    attrs_copy = dict(getattr(df, "attrs", {}))
     calendar_settings = attrs_copy.get("calendar_settings", {})
 
     # Fast-fail when no usable timestamps exist so tests that simulate
@@ -669,12 +675,9 @@ def _run_analysis_with_diagnostics(
             context={"date_column": date_col},
         )
 
-    # Normalise potentially exotic DataFrame subclasses into a vanilla
-    # ``pd.DataFrame`` so pandas internals do not trip over overridden
-    # properties (Issue #3633 regression).
-    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
-        df = pd.DataFrame(df)
-    df.attrs = attrs_copy
+    # ``df`` is now a vanilla ``pd.DataFrame`` so pandas internals do not
+    # trip over overridden properties (Issue #3633 regression). Align the
+    # calendar next so downstream stages operate on consistent timestamps.
     try:
         df = align_calendar(
             df,
@@ -730,9 +733,15 @@ def _run_analysis_with_diagnostics(
                 "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
             },
         )
-
-    df = df_prepared.copy()
-    value_cols_all = [c for c in df.columns if c != date_col]
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
+    df_original = df_prepared.copy()
+    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+        df = pd.DataFrame(df_original)
+    else:
+        df = df_original
+    if prepared_attrs:
+        df.attrs = prepared_attrs
     if not value_cols_all:
         return pipeline_failure(PipelineReasonCode.NO_VALUE_COLUMNS)
 
@@ -1031,8 +1040,9 @@ def _run_analysis_with_diagnostics(
         vol_target=None,
         zscore=False,
     )
+    signal_source = df_original
     signal_inputs = (
-        df.set_index(date_col)[fund_cols].astype(float)
+        signal_source.set_index(date_col)[fund_cols].astype(float)
         if fund_cols
         else pd.DataFrame(dtype=float)
     )
@@ -1423,6 +1433,20 @@ def _run_analysis(
     return result.value
 
 
+_DEFAULT_RUN_ANALYSIS = _run_analysis
+
+
+def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
+    """Call the patched analysis hook and normalise into a PipelineResult."""
+
+    if _run_analysis is _DEFAULT_RUN_ANALYSIS:
+        return _run_analysis_with_diagnostics(*args, **kwargs)
+    patched_result = _run_analysis(*args, **kwargs)
+    if isinstance(patched_result, DiagnosticResult):
+        return patched_result
+    return DiagnosticResult(value=patched_result, diagnostic=None)
+
+
 def run_analysis(
     df: pd.DataFrame,
     in_start: str,
@@ -1578,7 +1602,7 @@ def run(cfg: Config) -> pd.DataFrame:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    diag_res = _run_analysis_with_diagnostics(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -1697,7 +1721,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    diag_res = _run_analysis_with_diagnostics(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],

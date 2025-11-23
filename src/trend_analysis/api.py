@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from analysis import Results
-from trend.diagnostics import DiagnosticPayload
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
@@ -30,6 +30,9 @@ from .pipeline import (
     _resolve_sample_split,
     _run_analysis_with_diagnostics,
 )
+
+# Back-compat attribute so legacy tests can patch ``api._run_analysis``.
+_run_analysis = _run_analysis_with_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +163,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     _log_step(run_id, "analysis_start", "_run_analysis dispatch")
     resolved_split = _resolve_sample_split(returns, split)
 
-    diag_res = _run_analysis_with_diagnostics(
+    pipeline_output = _run_analysis(
         returns,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -191,6 +194,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
+    if isinstance(pipeline_output, DiagnosticResult):
+        diag_res = pipeline_output
+    else:
+        diag_res = DiagnosticResult(value=pipeline_output, diagnostic=None)
     diag = diag_res.diagnostic
     if diag_res.value is None:
         if diag:

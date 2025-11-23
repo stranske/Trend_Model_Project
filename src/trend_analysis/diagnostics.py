@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Mapping
+from typing import Mapping, TypeAlias
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
-AnalysisResult = dict[str, object]
-PipelineResult = DiagnosticResult[AnalysisResult]
+AnalysisResult: TypeAlias = dict[str, object]
+PipelineResult: TypeAlias = DiagnosticResult[AnalysisResult]
 
 
 class PipelineReasonCode(str, Enum):
@@ -53,11 +53,11 @@ def pipeline_failure(
     default_message = _DEFAULT_MESSAGES.get(code)
     # Fallback order: (1) custom message, (2) default message, (3) enum value itself
     if message is not None:
-        payload_message: str = message
+        payload_message = message
     elif default_message is not None:
-        payload_message: str = default_message
+        payload_message = default_message
     else:
-        payload_message: str = code.value
+        payload_message = code.value
     payload = DiagnosticPayload(
         reason_code=code.value,
         message=payload_message,
