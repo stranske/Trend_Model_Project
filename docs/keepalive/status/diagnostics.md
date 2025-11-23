@@ -15,3 +15,7 @@ This checklist is scoped to the diagnostics keepalive run. Use a separate file u
 ## Acceptance criteria
 - [ ] Every early-exit path returns a diagnostic payload instead of silent `None`.
 - [ ] CLI/API outputs clearly state why a run ended early, with tests covering representative cases.
+
+## Progress
+- No checklist items have been met yet. Re-run the scope/tasks/acceptance lists as work lands and check items off only once the
+  corresponding acceptance criteria are satisfied.
