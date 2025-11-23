@@ -216,7 +216,7 @@ Dependencies are added alphabetically under `# Testing dependencies` section.
 ## Related Documentation
 
 - [CI/CD Documentation](../ci/)
-- [Testing Guidelines](TESTING_SUMMARY.md)
+- [Testing Guidelines](../archives/reports/2025-11-22_TESTING_SUMMARY.md)
 - [Autofix Workflow](../.github/workflows/autofix.yml)
 - [Dependency Check](../.github/workflows/reusable-10-ci-python.yml)
 

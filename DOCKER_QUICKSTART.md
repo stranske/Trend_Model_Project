@@ -151,7 +151,7 @@ docker stop trend-test && docker rm trend-test
 docker run --rm trend-model:local trend-analysis --help
 
 # Comprehensive test suite
-./test_docker.sh
+./scripts/test_docker.sh
 ```
 
 Swap in `ghcr.io/stranske/trend-model:latest` if you want to validate the

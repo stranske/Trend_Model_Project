@@ -24,7 +24,7 @@ The initial bootstrap request added this documentation file so that future follo
 - Document each increment of improved coverage in the PR description and checklist so reviewers can verify progress.
 
 ## Additional Resources
-- [Testing summary](../TESTING_SUMMARY.md)
+- [Testing summary](../archives/reports/2025-11-22_TESTING_SUMMARY.md)
 - [Coverage summary](../coverage-summary.md)
 - [Contribution guidelines](../CONTRIBUTING.md)
 

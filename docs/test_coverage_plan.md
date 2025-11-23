@@ -12,7 +12,7 @@
 - CI coverage soft gate reports >=95% aggregate coverage and no file flagged below the 90% minimum threshold.
 - All newly added or modified tests pass locally (`pytest`) and in CI.
 - Any identified bugs exposed by new tests are either fixed with accompanying tests or logged with blocking issues referencing the failing scenarios.
-- Test documentation updated (e.g., `TESTING_SUMMARY.md`) if new test suites, fixtures, or execution steps are introduced.
+- Test documentation updated (e.g., `archives/reports/2025-11-22_TESTING_SUMMARY.md`) if new test suites, fixtures, or execution steps are introduced.
 - No regressions in existing functionality as validated by the standard test suite and smoke commands defined in project docs.
 
 ## Initial Task Checklist
@@ -32,5 +32,5 @@
    - [x] Re-run local coverage profile (`pytest tests/test_portfolio_app_io_utils.py --cov=trend_portfolio_app.io_utils --cov-report=term-missing`) to validate the uplift ahead of CI.
 
 4. **Documentation and Handover**
-   - [x] Summarise coverage deltas, remaining gaps, and follow-up actions in `TESTING_SUMMARY.md` or the associated issue (#1630).
+   - [x] Summarise coverage deltas, remaining gaps, and follow-up actions in `archives/reports/2025-11-22_TESTING_SUMMARY.md` or the associated issue (#1630).
    - [x] Capture lessons learned / reusable fixtures for future contributors.

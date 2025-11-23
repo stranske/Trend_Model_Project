@@ -5,7 +5,7 @@
 - [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
 - [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
 - [x] CLI wiring: `python -m src.cli report --last-run`.
-- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
+- [x] Reference the new report from `archives/reports/2025-11-22_Portfolio_Test_Results_Summary.md`.
 
 #### Tasks
 - [x] Implement renderer and basic plots.
