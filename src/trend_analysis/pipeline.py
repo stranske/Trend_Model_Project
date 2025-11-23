@@ -144,78 +144,6 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
     return attr_value
 
 
-def _resolve_risk_free_column(
-    df: pd.DataFrame,
-    *,
-    date_col: str = "Date",
-    configured: str | None = None,
-    allow_fallback: bool = False,
-    indices_list: list[str] | None = None,
-) -> str:
-    """Determine the risk-free column for ``df``.
-
-    Parameters
-    ----------
-    df:
-        Returns DataFrame containing a ``date_col`` plus one or more return
-        series.
-    configured:
-        Explicit column name provided by configuration.  When supplied, the
-        function validates presence and numeric dtype.
-    allow_fallback:
-        When ``True``, fall back to the lowest-volatility numeric column after
-        excluding any index columns.
-    indices_list:
-        Optional list of index column names to exclude from the fallback search
-        and from the investable universe.
-
-    Returns
-    -------
-    str
-        Column name selected as the risk-free series.
-    """
-
-    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
-    if configured:
-        if configured not in df.columns:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' was not found in the input data."
-            )
-        if configured not in numeric_cols:
-            raise ValueError(
-                f"Configured risk-free column '{configured}' must be numeric."
-            )
-        logger.info("Using configured risk-free column '%s'.", configured)
-        return configured
-
-    candidates = numeric_cols
-    if indices_list:
-        idx_set = {str(c) for c in indices_list}
-        candidates = [c for c in candidates if c not in idx_set]
-
-    if allow_fallback:
-        if not candidates:
-            raise ValueError(
-                "No numeric columns available to infer a risk-free series."
-            )
-        probe_cols = [date_col, *candidates] if date_col in df.columns else candidates
-        rf_col = identify_risk_free_fund(df[probe_cols])
-        if rf_col is None:
-            raise ValueError(
-                "Unable to infer a risk-free column; provide data.risk_free_column or "
-                "enable the fallback when a numeric column is available."
-            )
-        logger.info(
-            "Risk-free column inferred via lowest-volatility fallback: %s", rf_col
-        )
-        return rf_col
-
-    raise ValueError(
-        "Risk-free column is not configured. Set data.risk_free_column or enable "
-        "data.allow_risk_free_fallback to use the heuristic."
-    )
-
-
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
     current = cfg
     visited: set[int] = set()
@@ -1529,10 +1457,6 @@ def run(cfg: Config) -> pd.DataFrame:
     vol_adjust = _cfg_section(cfg, "vol_adjust")
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
-    risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", False)
-    )
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
@@ -1638,9 +1562,6 @@ def run_full(cfg: Config) -> dict[str, object]:
     run_settings = _cfg_section(cfg, "run")
     portfolio_cfg = _cfg_section(cfg, "portfolio")
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = bool(
-        _section_get(data_settings, "allow_risk_free_fallback", False)
-    )
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
