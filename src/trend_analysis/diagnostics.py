@@ -51,7 +51,13 @@ def pipeline_failure(
     """Create a failure diagnostic populated with pipeline metadata."""
 
     default_message = _DEFAULT_MESSAGES.get(code)
-    payload_message: str = message or default_message or code.value
+    # Fallback order: (1) custom message, (2) default message, (3) enum value itself
+    if message is not None:
+        payload_message: str = message
+    elif default_message is not None:
+        payload_message: str = default_message
+    else:
+        payload_message: str = code.value
     payload = DiagnosticPayload(
         reason_code=code.value,
         message=payload_message,
