@@ -141,8 +141,10 @@ def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
 
 def test_build_backtest_and_context_generation():
     result, config = _build_result_with_details()
-    backtest = unified._build_backtest(result)
+    backtest_result = unified._build_backtest(result)
+    backtest = backtest_result.value
     assert backtest is not None
+    assert backtest_result.diagnostic is None
     assert backtest.window_mode == "expanding"
     assert "total_return" in backtest.metrics
 
@@ -170,7 +172,7 @@ def test_build_backtest_and_context_generation():
     narrative = unified._narrative(backtest, "Summary")
     assert "Summary" in narrative
 
-    turnover_chart = unified._turnover_chart(backtest)
+    turnover_chart = unified._turnover_chart(backtest).value
     exposure_chart = unified._exposure_chart(backtest)
     assert turnover_chart and exposure_chart
 
@@ -283,24 +285,31 @@ def test_build_backtest_handles_fallback_portfolio():
     }
     result = SimpleNamespace(details=details, portfolio=None)
 
-    backtest = unified._build_backtest(result)
+    backtest_result = unified._build_backtest(result)
+    backtest = backtest_result.value
     assert backtest is not None
+    assert backtest_result.diagnostic is None
     assert backtest.calendar.empty
     assert backtest.turnover.empty is False
 
 
-def test_build_backtest_returns_none_for_empty_series():
+def test_build_backtest_returns_diagnostic_for_empty_series():
     details = {"portfolio": []}
     result = SimpleNamespace(details=details, portfolio=None)
-    assert unified._build_backtest(result) is None
+    backtest_result = unified._build_backtest(result)
+    assert backtest_result.value is None
+    assert backtest_result.diagnostic is not None
+    assert backtest_result.diagnostic.reason_code == "NO_PORTFOLIO_SERIES"
 
 
 def test_build_backtest_handles_non_mapping_risk_diag():
     details = {"portfolio": [0.01, 0.02], "risk_diagnostics": "unavailable"}
     result = SimpleNamespace(details=details, portfolio=None)
 
-    backtest = unified._build_backtest(result)
+    backtest_result = unified._build_backtest(result)
+    backtest = backtest_result.value
     assert backtest is not None
+    assert backtest_result.diagnostic is None
     assert backtest.turnover.empty
     assert backtest.weights.empty
 
@@ -309,8 +318,10 @@ def test_build_backtest_small_series_skips_rolling():
     details = {"portfolio": [0.02]}
     result = SimpleNamespace(details=details, portfolio=None)
 
-    backtest = unified._build_backtest(result)
+    backtest_result = unified._build_backtest(result)
+    backtest = backtest_result.value
     assert backtest is not None
+    assert backtest_result.diagnostic is None
     assert backtest.rolling_sharpe.empty
 
 
@@ -561,11 +572,15 @@ def test_exec_summary_and_caveats_edge_cases():
 
 
 def test_chart_helpers_handle_empty_inputs():
-    assert unified._turnover_chart(None) is None
+    turnover_result = unified._turnover_chart(None)
+    assert turnover_result.value is None
+    assert turnover_result.diagnostic is not None
     dummy_backtest = SimpleNamespace(
         turnover=pd.Series(dtype=float), weights=pd.DataFrame()
     )
-    assert unified._turnover_chart(dummy_backtest) is None
+    empty_turnover = unified._turnover_chart(dummy_backtest)
+    assert empty_turnover.value is None
+    assert empty_turnover.diagnostic is not None
     assert unified._exposure_chart(dummy_backtest) is None
 
 

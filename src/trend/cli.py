@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from trend.config_schema import CoreConfigError, load_core_config
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
@@ -82,12 +83,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _PerfLoggerState:
     last_path: Path | None = None
+    diagnostic: DiagnosticPayload | None = None
 
 
 _PERF_LOG_STATE = _PerfLoggerState()
 
 
-def _init_perf_logger(app_name: str = "app") -> Path | None:
+def _init_perf_logger(app_name: str = "app") -> DiagnosticResult[Path]:
     """Initialise central logging for CLI invocations.
 
     Returns the file path when logging is enabled, otherwise ``None``.
@@ -95,15 +97,27 @@ def _init_perf_logger(app_name: str = "app") -> Path | None:
 
     disable = os.environ.get("TREND_DISABLE_PERF_LOGS", "").strip().lower()
     if disable in {"1", "true", "yes"}:
-        return None
+        diagnostic = DiagnosticPayload(
+            reason_code="PERF_LOG_DISABLED",
+            message="Performance logging disabled via environment flag.",
+        )
+        _PERF_LOG_STATE.diagnostic = diagnostic
+        return DiagnosticResult(value=None, diagnostic=diagnostic)
     try:
         log_path = setup_logging(app_name=app_name)
     except Exception as exc:  # pragma: no cover - fail-safe path
         logger.warning("Failed to initialise perf log handler: %s", exc)
-        return None
+        diagnostic = DiagnosticPayload(
+            reason_code="PERF_LOG_DISABLED",
+            message="Performance logging disabled or could not be initialised.",
+            context={"error": str(exc)},
+        )
+        _PERF_LOG_STATE.diagnostic = diagnostic
+        return DiagnosticResult(value=None, diagnostic=diagnostic)
     print(f"Run log: {log_path}")
     _PERF_LOG_STATE.last_path = log_path
-    return log_path
+    _PERF_LOG_STATE.diagnostic = None
+    return DiagnosticResult.success(log_path)
 
 
 def get_last_perf_log_path() -> Path | None:
@@ -370,7 +384,9 @@ def _run_pipeline(
     bundle: Path | None,
 ) -> tuple[RunResult, str, Path | None]:
     _require_transaction_cost_controls(cfg)
-    _init_perf_logger()
+    perf_log_result = _init_perf_logger()
+    if perf_log_result.diagnostic:
+        logger.info(perf_log_result.diagnostic.message)
     run_id = getattr(cfg, "run_id", None) or uuid.uuid4().hex[:12]
     try:
         setattr(cfg, "run_id", run_id)
@@ -415,7 +431,9 @@ def _run_pipeline(
     )
 
     _handle_exports(cfg, result, structured_log, run_id)
-    _persist_turnover_ledger(run_id, getattr(result, "details", {}))
+    ledger_result = _persist_turnover_ledger(run_id, getattr(result, "details", {}))
+    if ledger_result.diagnostic:
+        logger.info(ledger_result.diagnostic.message)
 
     if bundle:
         _write_bundle(cfg, result, source_path, Path(bundle), structured_log, run_id)
@@ -540,7 +558,11 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
+    turnover_csv_result = _maybe_write_turnover_csv(
+        out_dir, getattr(result, "details", {})
+    )
+    if turnover_csv_result.diagnostic:
+        logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
 
 
@@ -584,12 +606,20 @@ def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serialisable")
 
 
-def _maybe_write_turnover_csv(directory: Path, details: Any) -> Path | None:
+def _maybe_write_turnover_csv(directory: Path, details: Any) -> DiagnosticResult[Path]:
     if not isinstance(details, Mapping):
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_EXPORT",
+            message="Turnover diagnostics absent or non-numeric; skipping CSV export.",
+            context={"details_type": type(details).__name__},
+        )
     diag = details.get("risk_diagnostics")
     if not isinstance(diag, Mapping):
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_EXPORT",
+            message="Turnover diagnostics absent or non-numeric; skipping CSV export.",
+            context={"has_risk_diag": False},
+        )
     turnover_obj = diag.get("turnover")
     if isinstance(turnover_obj, pd.Series):
         series = turnover_obj.copy()
@@ -598,19 +628,31 @@ def _maybe_write_turnover_csv(directory: Path, details: Any) -> Path | None:
     elif isinstance(turnover_obj, (list, tuple)):
         series = pd.Series(turnover_obj)
     else:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_EXPORT",
+            message="Turnover diagnostics absent or non-numeric; skipping CSV export.",
+            context={"turnover_type": type(turnover_obj).__name__},
+        )
     try:
         series = series.astype(float)
     except (TypeError, ValueError):
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_EXPORT",
+            message="Turnover diagnostics absent or non-numeric; skipping CSV export.",
+            context={"turnover_type": type(turnover_obj).__name__},
+        )
     if series.empty:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_EXPORT",
+            message="Turnover diagnostics absent or non-numeric; skipping CSV export.",
+            context={"turnover_type": type(turnover_obj).__name__},
+        )
     series = series.sort_index()
     frame = series.rename("turnover").to_frame()
     frame.index.name = "Date"
     path = directory / "turnover.csv"
     frame.to_csv(path)
-    return path
+    return DiagnosticResult.success(path)
 
 
 def _portfolio_settings(cfg: Any) -> Mapping[str, Any]:
@@ -655,32 +697,62 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
         raise TrendCLIError("portfolio.transaction_cost_bps cannot be negative")
 
 
-def _persist_turnover_ledger(run_id: str, details: Any) -> Path | None:
+def _persist_turnover_ledger(run_id: str, details: Any) -> DiagnosticResult[Path]:
     if not isinstance(details, Mapping):
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_LEDGER",
+            message="No turnover diagnostics captured for ledger persistence.",
+            context={"details_type": type(details).__name__},
+        )
     diag = details.get("risk_diagnostics")
     if not isinstance(diag, Mapping):
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_LEDGER",
+            message="No turnover diagnostics captured for ledger persistence.",
+            context={"has_risk_diag": False},
+        )
     turnover_obj = diag.get("turnover")
     if turnover_obj is None:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_LEDGER",
+            message="No turnover diagnostics captured for ledger persistence.",
+            context={"turnover_type": None},
+        )
     if isinstance(turnover_obj, pd.Series):
         if turnover_obj.empty:
-            return None
+            return DiagnosticResult.failure(
+                reason_code="NO_TURNOVER_LEDGER",
+                message="No turnover diagnostics captured for ledger persistence.",
+                context={"turnover_type": "Series"},
+            )
     elif isinstance(turnover_obj, Mapping):
         if not turnover_obj:
-            return None
+            return DiagnosticResult.failure(
+                reason_code="NO_TURNOVER_LEDGER",
+                message="No turnover diagnostics captured for ledger persistence.",
+                context={"turnover_type": "Mapping"},
+            )
     elif isinstance(turnover_obj, (list, tuple)):
         if not turnover_obj:
-            return None
+            return DiagnosticResult.failure(
+                reason_code="NO_TURNOVER_LEDGER",
+                message="No turnover diagnostics captured for ledger persistence.",
+                context={"turnover_type": "Sequence"},
+            )
     else:
-        return None
+        return DiagnosticResult.failure(
+            reason_code="NO_TURNOVER_LEDGER",
+            message="No turnover diagnostics captured for ledger persistence.",
+            context={"turnover_type": type(turnover_obj).__name__},
+        )
     target_dir = Path("perf") / run_id
     target_dir.mkdir(parents=True, exist_ok=True)
-    path = _maybe_write_turnover_csv(target_dir, details)
-    if path is not None:
-        print(f"Turnover ledger written to {path}")
-    return path
+    path_result = _maybe_write_turnover_csv(target_dir, details)
+    if path_result.value is not None:
+        print(f"Turnover ledger written to {path_result.value}")
+    if path_result.diagnostic or path_result.value is None:
+        return path_result
+    return DiagnosticResult.success(path_result.value)
 
 
 def _adjust_for_scenario(cfg: Any, scenario: str) -> None:
