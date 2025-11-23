@@ -733,17 +733,32 @@ def _run_analysis_with_diagnostics(
                 "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
             },
         )
-    value_cols_all = [c for c in df_prepared.columns if c != date_col]
+    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
     df_original = df_prepared.copy()
     prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
+
+    if not initial_value_cols or not value_cols_all:
+        reason = (
+            PipelineReasonCode.NO_VALUE_COLUMNS
+            if not initial_value_cols
+            else PipelineReasonCode.INSUFFICIENT_COLUMNS
+        )
+        return pipeline_failure(
+            reason,
+            context={
+                "stage": "post-prep-column-check",
+                "initial_value_cols": len(initial_value_cols),
+                "post_probe_value_cols": len(value_cols_all),
+            },
+        )
+
     if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
         df = pd.DataFrame(df_original)
     else:
         df = df_original
     if prepared_attrs:
         df.attrs = prepared_attrs
-    if not value_cols_all:
-        return pipeline_failure(PipelineReasonCode.NO_VALUE_COLUMNS)
 
     if df.empty or df.shape[1] <= 1:
         return pipeline_failure(
@@ -1430,7 +1445,7 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return result.value
+    return cast("dict[str, object] | None", result.value)
 
 
 _DEFAULT_RUN_ANALYSIS = _run_analysis
@@ -1755,7 +1770,8 @@ def run_full(cfg: Config) -> dict[str, object]:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    if diag_res.value is None:
+    value = diag_res.value
+    if value is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",
@@ -1763,7 +1779,7 @@ def run_full(cfg: Config) -> dict[str, object]:
                 diag.message,
             )
         return {}
-    return diag_res.value
+    return value
 
 
 # --- Shift-safe helpers ----------------------------------------------------
