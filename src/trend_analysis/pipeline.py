@@ -17,13 +17,13 @@ from .core.rank_selection import (
     make_window_key,
     rank_select_funds,
 )
+from .data import identify_risk_free_fund, load_csv
 from .diagnostics import (
     PipelineReasonCode,
     PipelineResult,
     pipeline_failure,
     pipeline_success,
 )
-from .data import identify_risk_free_fund, load_csv
 from .metrics import (
     annual_return,
     information_ratio,
