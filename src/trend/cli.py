@@ -750,7 +750,7 @@ def _persist_turnover_ledger(run_id: str, details: Any) -> DiagnosticResult[Path
     path_result = _maybe_write_turnover_csv(target_dir, details)
     if path_result.value is not None:
         print(f"Turnover ledger written to {path_result.value}")
-    if path_result.diagnostic:
+    if path_result.diagnostic or path_result.value is None:
         return path_result
     return DiagnosticResult.success(path_result.value)
 
