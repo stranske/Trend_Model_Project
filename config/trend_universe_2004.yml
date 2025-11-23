@@ -6,6 +6,8 @@ data:
   universe_membership_path: Trend Universe Membership.csv
   date_column: Date
   frequency: ME  # monthly data (month-end)
+  risk_free_column: "Bloomberg US Tbill Index 1-3 Months"
+  allow_risk_free_fallback: false
   na_as_zero:
     enabled: true
     max_missing_per_window: 1

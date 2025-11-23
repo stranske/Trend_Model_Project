@@ -12,6 +12,7 @@ def test_cli_no_structured_log(tmp_path: Path):
     df = pd.DataFrame(
         {
             "Date": pd.date_range("2023-01-31", periods=8, freq="ME"),
+            "RF": 0.0,
             "Fund_A": 0.01,
             "Fund_B": 0.012,
         }
@@ -24,6 +25,8 @@ def test_cli_no_structured_log(tmp_path: Path):
             "csv_path": str(csv_path),
             "date_column": "Date",
             "frequency": "M",
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": False,
         },
         "preprocessing": {},
         "vol_adjust": {"target_vol": 1.0},
