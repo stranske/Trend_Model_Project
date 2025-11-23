@@ -1377,8 +1377,15 @@ def _run_analysis(
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
 ) -> dict[str, object] | None:
-    """Backward-compatible wrapper returning the raw analysis payload."""
+    """
+    Backward-compatible wrapper returning the raw analysis payload.
 
+    Returns
+    -------
+    dict[str, object] or None
+        Returns a dictionary containing the analysis results on success,
+        or None if the pipeline exits early (e.g., due to a failure or unmet precondition).
+    """
     result = _run_analysis_with_diagnostics(
         df,
         in_start,
