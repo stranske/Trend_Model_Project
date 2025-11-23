@@ -1445,7 +1445,8 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return cast("dict[str, object] | None", result.value)
+    value = result.value
+    return value
 
 
 _DEFAULT_RUN_ANALYSIS = _run_analysis
