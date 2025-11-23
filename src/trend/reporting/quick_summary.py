@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 import pandas as pd
+
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 
@@ -270,18 +271,14 @@ def _render_html(
         else '<p class="placeholder">No equity data available.</p>'
     )
     if equity_diagnostic is not None:
-        equity_block = (
-            f"{equity_block}<p class=\"placeholder\">{html_escape(equity_diagnostic.message)}</p>"
-        )
+        equity_block = f'{equity_block}<p class="placeholder">{html_escape(equity_diagnostic.message)}</p>'
     turnover_block = (
         f'<img alt="Turnover" src="data:image/png;base64,{turnover_chart}">'
         if turnover_chart
         else '<p class="placeholder">No turnover data available.</p>'
     )
     if turnover_diagnostic is not None:
-        turnover_block = (
-            f"{turnover_block}<p class=\"placeholder\">{html_escape(turnover_diagnostic.message)}</p>"
-        )
+        turnover_block = f'{turnover_block}<p class="placeholder">{html_escape(turnover_diagnostic.message)}</p>'
     summary_section = (
         f"<section><h2>Summary</h2>{summary_block}</section>" if summary_block else ""
     )

@@ -14,9 +14,9 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 from trend.config_schema import CoreConfigError, load_core_config
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting import generate_unified_report
 from trend.reporting.quick_summary import main as quick_summary_main
 from trend_analysis import export
@@ -558,7 +558,9 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    turnover_csv_result = _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
+    turnover_csv_result = _maybe_write_turnover_csv(
+        out_dir, getattr(result, "details", {})
+    )
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
 
 import matplotlib
 import pandas as pd
+
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.backtesting import BacktestResult, CostModel
 
