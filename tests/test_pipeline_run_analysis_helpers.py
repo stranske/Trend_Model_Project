@@ -3,13 +3,13 @@ import pytest
 
 from trend_analysis.pipeline import (
     PipelineReasonCode,
+    RiskStatsConfig,
     _assemble_analysis_output,
     _build_sample_windows,
     _compute_weights_and_stats,
     _prepare_preprocess_stage,
     _select_universe,
 )
-from trend_analysis.pipeline import RiskStatsConfig
 
 
 def _make_simple_frame() -> pd.DataFrame:
@@ -122,18 +122,26 @@ def test_select_universe_reports_missing_funds() -> None:
         allow_risk_free_fallback=True,
     )
 
-    assert selection.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
+    assert (
+        selection.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
+    )
 
 
-def test_compute_weights_and_stats_produces_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compute_weights_and_stats_produces_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr("trend_analysis.pipeline.single_period_run", _fake_single_period_run)
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
@@ -187,18 +195,26 @@ def test_compute_weights_and_stats_produces_metrics(monkeypatch: pytest.MonkeyPa
     )
 
     assert set(computation.in_stats.keys()) == set(selection.fund_cols)
-    assert computation.risk_diagnostics.scale_factors.shape[0] == len(selection.fund_cols)
+    assert computation.risk_diagnostics.scale_factors.shape[0] == len(
+        selection.fund_cols
+    )
 
 
-def test_assemble_analysis_output_wraps_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_assemble_analysis_output_wraps_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr("trend_analysis.pipeline.single_period_run", _fake_single_period_run)
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
@@ -266,4 +282,3 @@ def test_assemble_analysis_output_wraps_success(monkeypatch: pytest.MonkeyPatch)
     assert result.diagnostic is None
     assert result.value is not None
     assert set(result.value["selected_funds"]) == set(selection.fund_cols)
-

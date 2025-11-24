@@ -227,7 +227,10 @@ def _prepare_preprocess_stage(
         )
     except ValueError as exc:
         message = str(exc)
-        if "contains no valid timestamps" in message or "All rows were removed" in message:
+        if (
+            "contains no valid timestamps" in message
+            or "All rows were removed" in message
+        ):
             return pipeline_failure(
                 PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
                 context={"error": message},
@@ -693,7 +696,9 @@ def _compute_weights_and_stats(
         )
         weights_series = base_series.copy()
         asset_vol = realised_volatility(
-            window.in_df[fund_cols], window_spec, periods_per_year=window.periods_per_year
+            window.in_df[fund_cols],
+            window_spec,
+            periods_per_year=window.periods_per_year,
         )
         latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
         latest_vol = latest_vol.ffill().bfill()
@@ -731,7 +736,9 @@ def _compute_weights_and_stats(
     if not signal_frame.empty:
         try:
             target_index = (
-                window.out_df.index[0] if len(window.out_df.index) else signal_frame.index[-1]
+                window.out_df.index[0]
+                if len(window.out_df.index)
+                else signal_frame.index[-1]
             )
             aligned = signal_frame.reindex(columns=fund_cols)
             if target_index in aligned.index:
@@ -898,7 +905,8 @@ def _assemble_analysis_output(
         all_benchmarks = index_map
 
     out_user = calc_portfolio_returns(
-        computation.weights_series.to_numpy(dtype=float, copy=False), computation.out_scaled
+        computation.weights_series.to_numpy(dtype=float, copy=False),
+        computation.out_scaled,
     )
     out_user_raw = calc_portfolio_returns(
         computation.weights_series.to_numpy(dtype=float, copy=False), out_df[fund_cols]
@@ -914,9 +922,9 @@ def _assemble_analysis_output(
         if col not in in_df.columns or col not in out_df.columns:
             continue
         benchmark_stats[label] = {
-            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), computation.rf_in)[
-                label
-            ],
+            "in_sample": _compute_stats(
+                pd.DataFrame({label: in_df[col]}), computation.rf_in
+            )[label],
             "out_sample": _compute_stats(
                 pd.DataFrame({label: out_df[col]}), computation.rf_out
             )[label],
@@ -1705,6 +1713,7 @@ def _run_analysis(
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     return result.unwrap()
+
 
 _DEFAULT_RUN_ANALYSIS = _run_analysis
 
