@@ -20,6 +20,7 @@ from .core.rank_selection import (
 )
 from .data import identify_risk_free_fund, load_csv
 from .diagnostics import (
+    AnalysisResult,
     PipelineReasonCode,
     PipelineResult,
     pipeline_failure,
@@ -1401,8 +1402,8 @@ def _run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> PipelineResult:
-    """Backward-compatible wrapper returning diagnostics-aware payloads."""
+) -> AnalysisResult | None:
+    """Backward-compatible wrapper returning raw payloads for tests."""
     result = _run_analysis_with_diagnostics(
         df,
         in_start,
@@ -1437,7 +1438,7 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return result
+    return result.unwrap()
 
 
 _DEFAULT_RUN_ANALYSIS = _run_analysis

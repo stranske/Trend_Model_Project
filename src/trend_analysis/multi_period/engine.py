@@ -20,15 +20,19 @@ from __future__ import annotations  # mypy: ignore-errors
 import logging
 import os
 from dataclasses import dataclass, field
+from collections.abc import Mapping as _MappingABC
 from typing import Any, Dict, List, Mapping, Protocol, cast
 
 import numpy as np
 import pandas as pd
 
+from trend.diagnostics import DiagnosticPayload
+
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
+from ..diagnostics import PipelineResult
 from ..pipeline import _invoke_analysis_with_diag
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
@@ -57,6 +61,42 @@ SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
 
 logger = logging.getLogger(__name__)
+
+
+# Back-compat shim so legacy tests can patch ``engine._run_analysis`` while the
+# default implementation continues to funnel through the diagnostics-aware
+# pipeline entry point.
+def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
+    return _invoke_analysis_with_diag(*args, **kwargs)
+
+
+def _coerce_analysis_result(
+    result: object,
+) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
+    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
+
+    diag = getattr(result, "diagnostic", None)
+    if hasattr(result, "unwrap"):
+        unwrap = getattr(result, "unwrap", None)
+        if callable(unwrap):
+            try:
+                payload = unwrap()
+            except Exception:  # pragma: no cover - defensive guard
+                payload = None
+        else:  # pragma: no cover - defensive guard
+            payload = None
+    else:
+        payload = result
+
+    if payload is None:
+        return None, cast(DiagnosticPayload | None, diag)
+    if isinstance(payload, _MappingABC):
+        return dict(payload), cast(DiagnosticPayload | None, diag)
+
+    logger.warning(
+        "Unexpected analysis payload type: %%s", type(payload)
+    )  # pragma: no cover - defensive
+    return None, cast(DiagnosticPayload | None, diag)
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
@@ -700,7 +740,7 @@ def run(
         prev_in_df = None
 
         for pt in periods:
-            analysis_res = _invoke_analysis_with_diag(
+            analysis_res = _run_analysis(
                 df,
                 pt.in_start[:7],
                 pt.in_end[:7],
@@ -726,9 +766,8 @@ def run(
                 risk_free_column=risk_free_column,
                 allow_risk_free_fallback=allow_risk_free_fallback,
             )
-            payload = analysis_res.unwrap()
+            payload, diag = _coerce_analysis_result(analysis_res)
             if payload is None:
-                diag = analysis_res.diagnostic
                 if diag is not None:
                     logger.warning(
                         "Multi-period analysis skipped period %s/%s (%s): %s",
@@ -855,7 +894,7 @@ def run(
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
                     res_dict.setdefault("cache_stats", cov_cache_obj.stats())
-            out_results.append(cast(MultiPeriodPeriodResult, res_dict))
+            out_results.append(res_dict)
         return out_results
 
     # Threshold-hold path with Bayesian weighting
@@ -1381,7 +1420,7 @@ def run(
             str(k): float(v) * 100.0 for k, v in prev_weights.items()
         }
 
-        res = _invoke_analysis_with_diag(
+        res = _run_analysis(
             df,
             pt.in_start[:7],
             pt.in_end[:7],
@@ -1403,9 +1442,8 @@ def run(
             risk_free_column=risk_free_column,
             allow_risk_free_fallback=allow_risk_free_fallback,
         )
-        payload = res.unwrap()
+        payload, diag = _coerce_analysis_result(res)
         if payload is None:
-            diag = res.diagnostic
             if diag is not None:
                 logger.warning(
                     "Manual selection period skipped %s/%s (%s): %s",
@@ -1427,7 +1465,7 @@ def run(
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
-        results.append(cast(MultiPeriodPeriodResult, res_dict))
+        results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
 
     return results
