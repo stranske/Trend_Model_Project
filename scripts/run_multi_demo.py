@@ -1618,7 +1618,7 @@ analysis_idx = pipeline.run_analysis(
     indices_list=["Mgr_01", "Mgr_02"],
     regime_cfg=regime_cfg,
 )
-if not analysis_idx or not analysis_idx.get("benchmark_stats"):
+if analysis_idx.value is None or not analysis_idx.value.get("benchmark_stats"):
     diag = analysis_idx.diagnostic
     if diag is not None:
         raise SystemExit(
