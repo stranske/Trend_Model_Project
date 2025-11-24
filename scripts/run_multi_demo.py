@@ -2002,7 +2002,7 @@ def _check_run_full_outputs(cfg: Config) -> None:
     """Validate keys returned by ``pipeline.run_full``."""
 
     res = pipeline.run_full(cfg)
-    if not res:
+    if not res.value:
         diag = res.diagnostic
         if diag is not None:
             raise SystemExit(
