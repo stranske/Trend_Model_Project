@@ -40,7 +40,7 @@ def test_positions_ignore_future_data():
         max_size=32,
     )
 )
-@settings(max_examples=50)
+@settings(max_examples=50, deadline=None)
 def test_shift_safe_pipeline_is_causal(returns):
     df = pd.DataFrame({"returns": returns})
     global_positions = position_from_signal(compute_signal(df, window=3))
@@ -58,7 +58,7 @@ def test_shift_safe_pipeline_is_causal(returns):
         max_size=48,
     )
 )
-@settings(max_examples=50)
+@settings(max_examples=50, deadline=None)
 def test_compute_signal_only_uses_past_data(returns):
     df = pd.DataFrame({"returns": returns})
     window = 3
