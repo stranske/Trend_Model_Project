@@ -21,6 +21,9 @@ def make_df():
     )
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def test_weight_engine_success_logging(caplog):
     """Test successful weight engine creation logs success message."""
     df = make_df()
@@ -35,6 +38,7 @@ def test_weight_engine_success_logging(caplog):
             target_vol=1.0,
             monthly_cost=0.0,
             weighting_scheme="risk_parity",
+            **RUN_KWARGS,
         )
 
     # Check that analysis succeeded
@@ -63,6 +67,7 @@ def test_weight_engine_failure_logging(caplog):
             target_vol=1.0,
             monthly_cost=0.0,
             weighting_scheme="nonexistent_engine",  # This should fail
+            **RUN_KWARGS,
         )
 
     # Check that analysis succeeded (fallback to equal weights)
@@ -111,6 +116,7 @@ def test_weight_engine_import_failure_logging(caplog):
                 target_vol=1.0,
                 monthly_cost=0.0,
                 weighting_scheme="risk_parity",
+                **RUN_KWARGS,
             )
 
     # Check that analysis succeeded (fallback to equal weights)
@@ -145,6 +151,7 @@ def test_weight_engine_failure_preserves_logger_level(caplog):
             target_vol=1.0,
             monthly_cost=0.0,
             weighting_scheme="nonexistent_engine",
+            **RUN_KWARGS,
         )
 
         assert result is not None
@@ -170,6 +177,7 @@ def test_weight_engine_no_scheme_no_logging(caplog):
             target_vol=1.0,
             monthly_cost=0.0,
             weighting_scheme=None,  # No scheme provided
+            **RUN_KWARGS,
         )
 
     # Check that analysis succeeded
@@ -197,6 +205,7 @@ def test_weight_engine_equal_scheme_no_logging(caplog):
             target_vol=1.0,
             monthly_cost=0.0,
             weighting_scheme="equal",  # Equal weighting - should skip engine creation
+            **RUN_KWARGS,
         )
 
     # Check that analysis succeeded

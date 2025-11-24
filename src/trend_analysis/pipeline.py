@@ -12,6 +12,13 @@ from numpy.typing import NDArray
 from analysis.results import build_metadata
 from trend.diagnostics import DiagnosticResult
 
+from .diagnostics import (
+    AnalysisResult,
+    PipelineReasonCode,
+    PipelineResult,
+    coerce_pipeline_result,
+    pipeline_failure,
+)
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -19,7 +26,6 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
-from .diagnostics import PipelineReasonCode, PipelineResult, pipeline_failure
 from .metrics import (
     annual_return,
     information_ratio,
@@ -646,7 +652,7 @@ def _run_analysis_with_diagnostics(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = True,
+    allow_risk_free_fallback: bool | None = None,
 ) -> PipelineResult | dict[str, object] | None:
     if df is None:
         return pipeline_failure(PipelineReasonCode.INPUT_NONE)
@@ -1398,7 +1404,7 @@ def _run_analysis(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = True,
+    allow_risk_free_fallback: bool | None = None,
 ) -> PipelineResult | dict[str, object] | None:
     """Compatibility shim that exposes the legacy private entry point."""
     result = _run_analysis_with_diagnostics(
@@ -1443,6 +1449,11 @@ def _run_analysis(
 _ORIGINAL_RUN_ANALYSIS = _run_analysis
 
 
+def _ensure_pipeline_result(result: object) -> PipelineResult:
+    payload, diag = coerce_pipeline_result(result)
+    return PipelineResult(value=payload, diagnostic=diag)
+
+
 def _invoke_analysis_with_diag(
     *args: Any, **kwargs: Any
 ) -> PipelineResult:  # pragma: no cover - thin adapter
@@ -1451,15 +1462,10 @@ def _invoke_analysis_with_diag(
     # When callers monkeypatch ``_run_analysis`` we prefer their stub so tests
     # remain compatible. Compare by identity to detect overrides.
     if run_fn is not _ORIGINAL_RUN_ANALYSIS:
-        result = run_fn(*args, **kwargs)
-        if isinstance(result, DiagnosticResult):
-            return result
-        return DiagnosticResult(value=result, diagnostic=None)
+        return _ensure_pipeline_result(run_fn(*args, **kwargs))
 
     result = _run_analysis_with_diagnostics(*args, **kwargs)
-    if isinstance(result, DiagnosticResult):
-        return result
-    return DiagnosticResult(value=result, diagnostic=None)
+    return _ensure_pipeline_result(result)
 
 
 def run_analysis(
@@ -1498,7 +1504,7 @@ def run_analysis(
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = True,
+    allow_risk_free_fallback: bool | None = None,
 ) -> PipelineResult | dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
@@ -1652,7 +1658,8 @@ def run(cfg: Config) -> pd.DataFrame:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    if diag_res.value is None:
+    result_payload: AnalysisResult | None = diag_res.value
+    if result_payload is None:
         if diag:
             logger.warning(
                 "pipeline.run aborted (%s): %s",
@@ -1664,7 +1671,7 @@ def run(cfg: Config) -> pd.DataFrame:
             empty.attrs["diagnostic"] = diag
         return empty
 
-    res = diag_res.value
+    res: AnalysisResult = result_payload
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
@@ -1774,7 +1781,8 @@ def run_full(cfg: Config) -> PipelineResult:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    if diag_res.value is None:
+    value_payload: AnalysisResult | None = diag_res.value
+    if value_payload is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",

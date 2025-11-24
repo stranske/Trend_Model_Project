@@ -8,6 +8,9 @@ import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
+
+RUN_KWARGS = {"risk_free_column": "Rf", "allow_risk_free_fallback": False}
+
 EXPECTED_IN_SAMPLE_ROWS = 3
 
 
@@ -43,6 +46,7 @@ def compute_expected_rows_for_autofix() -> int:
         1.0,
         0.0,
         warmup_periods=1,
+        **RUN_KWARGS,
     )
     return int(result["in_sample_scaled"].shape[0])
 
@@ -71,7 +75,15 @@ def test_run_analysis_warmup_zeroes_leading_rows() -> None:
         }
     )
     result = _run_analysis(
-        dataset, "2022-01", "2022-04", "2022-05", "2022-06", 1.0, 0.0, warmup_periods=2
+        dataset,
+        "2022-01",
+        "2022-04",
+        "2022-05",
+        "2022-06",
+        1.0,
+        0.0,
+        warmup_periods=2,
+        **RUN_KWARGS,
     )
     assert result is not None
     frame = result["in_sample_scaled"]
@@ -95,6 +107,7 @@ def test_run_analysis_additional_metrics_coverages() -> None:
         1.0,
         0.0,
         warmup_periods=1,
+        **RUN_KWARGS,
     )
     assert result["in_sample_scaled"].shape[0] == EXPECTED_IN_SAMPLE_ROWS
     fancy_array = _pretend_array(np.array([1.0, 2.0, 3.0]))

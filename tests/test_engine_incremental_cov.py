@@ -13,13 +13,14 @@ def _synthetic_df(periods=10, assets=5, seed=0):
     cols = [f"F{i}" for i in range(assets)]
     df = pd.DataFrame(data, columns=cols)
     df.insert(0, "Date", dates)
+    df.insert(1, "RF", 0.0)
     return df
 
 
 def _base_cfg():
     return Config(
         version="0.1.0",
-        data={},
+        data={"risk_free_column": "RF"},
         preprocessing={},
         vol_adjust={},
         sample_split={},

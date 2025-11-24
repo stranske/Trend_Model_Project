@@ -234,7 +234,7 @@ def test_run_skips_missing_policy_with_price_frames(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = DummyCfg()
-    cfg.data = {"csv_path": "unused.csv"}
+    cfg.data = {"csv_path": "unused.csv", "risk_free_column": "RF"}
     cfg.performance = {"enable_cache": False}
 
     period = SimpleNamespace(
@@ -424,7 +424,7 @@ def test_run_threshold_hold_low_weight_replacement(
     class THConfig(DummyCfg):
         def __init__(self) -> None:
             super().__init__()
-            self.data = {"missing_policy": "ffill"}
+            self.data = {"missing_policy": "ffill", "risk_free_column": "RF"}
             self.portfolio.update(
                 {
                     "policy": "threshold_hold",
@@ -473,6 +473,7 @@ def test_run_threshold_hold_low_weight_replacement(
             "FundC": np.linspace(0.03, 0.07, num=5),
             "FundD": [0.01, 0.01, 0.01, 0.01, 0.01],
             "FundE": np.linspace(0.05, 0.09, num=5),
+            "RF": 0.001,
         }
     )
 
@@ -489,8 +490,16 @@ def test_run_threshold_hold_low_weight_replacement(
     def fake_metric_series(
         frame: pd.DataFrame, metric: str, stats_cfg: object
     ) -> pd.Series:
+        del metric, stats_cfg
         base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
-        return pd.Series(base, index=frame.columns, dtype=float)
+        series = pd.Series(base, index=frame.columns, dtype=float)
+        if "FundA" in series.index:
+            series.loc["FundA"] = float(series.max()) + 1.0
+        if "FundB" in series.index:
+            series.loc["FundB"] = float(series.max()) + 0.5
+        if "FundD" in series.index:
+            series.loc["FundD"] = float(series.min()) - 0.5
+        return series
 
     monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
 
@@ -597,7 +606,7 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     class THConfig(DummyCfg):
         def __init__(self) -> None:
             super().__init__()
-            self.data = {"missing_policy": "ffill"}
+            self.data = {"missing_policy": "ffill", "risk_free_column": "RF"}
             self.portfolio.update(
                 {
                     "policy": "threshold_hold",
@@ -629,6 +638,7 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
             "FundA": [0.01, 0.02, 0.015],
             "FundB": [0.03, 0.025, 0.02],
             "FundC": [0.04, 0.045, 0.05],
+            "RF": 0.001,
         }
     )
 
@@ -641,8 +651,19 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     def fake_metric_series(
         frame: pd.DataFrame, metric: str, stats_cfg: object
     ) -> pd.Series:
-        base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
-        return pd.Series(base, index=frame.columns, dtype=float)
+        del metric, stats_cfg
+        base = pd.Series(
+            {
+                "FundA": 5.0,
+                "FundB": 4.0,
+                "FundC": 3.0,
+                "FundD": -1.0,
+            }
+        )
+        series = base.reindex(frame.columns, fill_value=0.1).astype(float)
+        if "FundA" in series.index:
+            series.loc["FundA"] = float(series.max()) + 1.0
+        return series
 
     monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
 
@@ -706,7 +727,7 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     class THConfig(DummyCfg):
         def __init__(self) -> None:
             super().__init__()
-            self.data = {"missing_policy": "ffill"}
+            self.data = {"missing_policy": "ffill", "risk_free_column": "RF"}
             self.portfolio.update(
                 {
                     "policy": "threshold_hold",
@@ -747,6 +768,7 @@ def test_run_threshold_hold_reseeds_and_skips_period(
             "FundB": [0.025, 0.03, 0.028, 0.029],
             "FundC": [0.035, 0.04, 0.038, 0.039],
             "FundD": [0.01, 0.01, 0.01, 0.01],
+            "RF": 0.001,
         }
     )
 
@@ -759,8 +781,19 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     def fake_metric_series(
         frame: pd.DataFrame, metric: str, stats_cfg: object
     ) -> pd.Series:
-        base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
-        return pd.Series(base, index=frame.columns, dtype=float)
+        del metric, stats_cfg
+        base = pd.Series(
+            {
+                "FundA": 5.0,
+                "FundB": 4.0,
+                "FundC": 3.0,
+                "FundD": -1.0,
+            }
+        )
+        series = base.reindex(frame.columns, fill_value=0.1).astype(float)
+        if "FundA" in series.index:
+            series.loc["FundA"] = float(series.max()) + 1.0
+        return series
 
     monkeypatch.setattr(rank_selection, "_compute_metric_series", fake_metric_series)
 
@@ -968,7 +1001,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = DummyCfg()
-    cfg.data = {"csv_path": "unused.csv"}
+    cfg.data = {"csv_path": "unused.csv", "risk_free_column": "RF"}
     cfg.portfolio.update(
         {
             "policy": "threshold_hold",
@@ -1002,7 +1035,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
         rank_column = "Sharpe"
 
         def select(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-            return frame.iloc[:3], frame.iloc[:3]
+            return frame, frame
 
     import trend_analysis.selector as selector_mod
 
@@ -1037,7 +1070,12 @@ def test_threshold_hold_replacements_and_turnover_cap(
         def weight(self, frame: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:
             self.calls += 1
             plans = [
-                {"Alpha Fund": 0.05, "Beta Fund": 0.5, "Gamma Fund": 0.45},
+                {
+                    "Alpha Fund": 0.05,
+                    "Beta Fund": 0.45,
+                    "Gamma Fund": 0.35,
+                    "Delta Fund": 0.15,
+                },
                 {"Beta Fund": 0.4, "Gamma Fund": 0.35, "Delta Fund": 0.25},
                 {"Beta Fund": 0.05, "Gamma Fund": 0.05, "Delta Fund": 0.9},
             ]
@@ -1096,6 +1134,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
             "Beta Fund": np.linspace(0.02, 0.03, num=6),
             "Gamma Fund": np.linspace(0.015, 0.025, num=6),
             "Delta Fund": np.linspace(0.03, 0.04, num=6),
+            "RF": 0.001,
         }
     )
 

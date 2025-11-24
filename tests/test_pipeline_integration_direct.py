@@ -26,6 +26,7 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
             "csv_path": str(csv_path),
             "date_column": "Date",
             "frequency": "ME",
+            "risk_free_column": "RF",
         },
         "vol_adjust": {"enabled": True, "target_vol": 1.0},
         "sample_split": {
@@ -101,6 +102,7 @@ def _make_returns_frame(periods: int = 84) -> pd.DataFrame:
         seasonal = 0.002 * np.sin(np.linspace(0, 6 * np.pi, periods))
         data[f"Mgr_{idx:02d}"] = base + drift + seasonal
     data["SPX"] = rng.normal(0.006, 0.035, size=periods)
+    data["RF"] = rng.normal(0.001, 0.003, size=periods)
     return pd.DataFrame(data)
 
 
@@ -233,8 +235,8 @@ def test_multi_period_with_price_frames(tmp_path: Path) -> None:
 
     # Build price frames keyed by pseudo-period identifier.
     frames = {
-        "block_a": returns.iloc[:24][["Date", "Mgr_01", "Mgr_02", "SPX"]],
-        "block_b": returns.iloc[24:][["Date", "Mgr_01", "Mgr_02", "SPX"]],
+        "block_a": returns.iloc[:24][["Date", "Mgr_01", "Mgr_02", "SPX", "RF"]],
+        "block_b": returns.iloc[24:][["Date", "Mgr_01", "Mgr_02", "SPX", "RF"]],
     }
 
     results = run_multi(cfg, price_frames=frames)

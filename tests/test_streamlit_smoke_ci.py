@@ -50,7 +50,11 @@ def demo_config():
     """Create demo configuration for testing."""
     return Config(
         version="1",
-        data={},
+        data={
+            "date_column": "Date",
+            "frequency": "M",
+            "allow_risk_free_fallback": True,
+        },
         preprocessing={},
         vol_adjust={"target_vol": 1.0},
         sample_split={

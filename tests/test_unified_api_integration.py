@@ -33,7 +33,12 @@ def test_comprehensive_api_integration():
         # Create config
         config = Config(
             version="1",
-            data={"csv_path": str(csv_file)},
+            data={
+                "csv_path": str(csv_file),
+                "date_column": "Date",
+                "frequency": "M",
+                "risk_free_column": "RF",
+            },
             preprocessing={},
             vol_adjust={"target_vol": 1.0},
             sample_split={

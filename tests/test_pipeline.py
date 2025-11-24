@@ -58,6 +58,9 @@ def make_df():
     )
 
 
+RUN_ANALYSIS_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def test_run_returns_dataframe(tmp_path):
     cfg = make_cfg(tmp_path, make_df())
     out = pipeline.run(cfg)
@@ -186,7 +189,14 @@ def test_run_analysis_string_dates():
     df = make_df()
     df["Date"] = df["Date"].astype(str)
     res = pipeline.run_analysis(
-        df, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        **RUN_ANALYSIS_KWARGS,
     )
     assert res is not None
 
@@ -196,7 +206,14 @@ def test_run_analysis_no_funds():
         {"Date": pd.date_range("2020-01-31", periods=3, freq="ME"), "RF": 0.0}
     )
     res = pipeline.run_analysis(
-        df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0
+        df,
+        "2020-01",
+        "2020-02",
+        "2020-03",
+        "2020-03",
+        1.0,
+        0.0,
+        **RUN_ANALYSIS_KWARGS,
     )
     assert res.unwrap() is None
 
@@ -206,13 +223,27 @@ def test_run_analysis_returns_none_when_window_missing():
 
     # In-sample window entirely before available data.
     res_in_empty = pipeline.run_analysis(
-        df, "2019-01", "2019-03", "2020-04", "2020-06", 1.0, 0.0
+        df,
+        "2019-01",
+        "2019-03",
+        "2020-04",
+        "2020-06",
+        1.0,
+        0.0,
+        **RUN_ANALYSIS_KWARGS,
     )
     assert res_in_empty.unwrap() is None
 
     # Out-of-sample window after available data.
     res_out_empty = pipeline.run_analysis(
-        df, "2020-01", "2020-03", "2021-01", "2021-03", 1.0, 0.0
+        df,
+        "2020-01",
+        "2020-03",
+        "2021-01",
+        "2021-03",
+        1.0,
+        0.0,
+        **RUN_ANALYSIS_KWARGS,
     )
     assert res_out_empty.unwrap() is None
 
@@ -244,6 +275,7 @@ def test_run_analysis_custom_weights():
         1.0,
         0.0,
         custom_weights={"A": 100},
+        **RUN_ANALYSIS_KWARGS,
     )
     assert res["fund_weights"]["A"] == 1.0
 
@@ -304,6 +336,7 @@ def test_run_analysis_applies_constraints(monkeypatch):
         1.0,
         0.0,
         constraints=constraints_cfg,
+        **RUN_ANALYSIS_KWARGS,
     )
 
     assert res is not None
@@ -336,6 +369,7 @@ def test_run_analysis_constraint_failure_falls_back(monkeypatch):
         1.0,
         0.0,
         constraints={"max_weight": 0.6},
+        **RUN_ANALYSIS_KWARGS,
     )
 
     assert calls, "Expected apply_constraints to be invoked"
@@ -361,6 +395,7 @@ def test_run_analysis_injects_avg_corr_metric():
         1.0,
         0.0,
         stats_cfg=stats_cfg,
+        **RUN_ANALYSIS_KWARGS,
     )
 
     assert res is not None
@@ -396,6 +431,7 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
         1.0,
         0.0,
         benchmarks={"spx": "SPX"},
+        **RUN_ANALYSIS_KWARGS,
     )
 
     assert res is not None

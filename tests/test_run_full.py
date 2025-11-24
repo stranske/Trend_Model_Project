@@ -11,7 +11,12 @@ def make_cfg(tmp_path, df):
     df.to_csv(csv, index=False)
     cfg = Config(
         version="1",
-        data={"csv_path": str(csv)},
+        data={
+            "csv_path": str(csv),
+            "date_column": "Date",
+            "frequency": "M",
+            "risk_free_column": "RF",
+        },
         preprocessing={},
         vol_adjust={"target_vol": 1.0},
         sample_split={

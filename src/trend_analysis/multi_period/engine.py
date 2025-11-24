@@ -26,13 +26,17 @@ from typing import Any, Dict, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
-from trend.diagnostics import DiagnosticResult
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
-from ..pipeline import _run_analysis as _pipeline_run_analysis
+from ..diagnostics import PipelineResult, coerce_pipeline_result
+from ..pipeline import (
+    _invoke_analysis_with_diag,
+    _run_analysis as _pipeline_run_analysis,
+)
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -61,19 +65,17 @@ _DEFAULT_LOAD_CSV = load_csv
 
 logger = logging.getLogger(__name__)
 
-# Backwards compatible alias so tests can monkeypatch ``engine._run_analysis``.
-_run_analysis = _pipeline_run_analysis
-
 
 def _call_pipeline_with_diag(
     *args: Any, **kwargs: Any
-) -> DiagnosticResult[dict[str, object]]:
+) -> DiagnosticResult[dict[str, object] | None]:
     """Invoke the single-period pipeline and always return a DiagnosticResult."""
 
-    result = _run_analysis(*args, **kwargs)
+    result = _pipeline_run_analysis(*args, **kwargs)
     if isinstance(result, DiagnosticResult):
         return result
-    return DiagnosticResult(value=result, diagnostic=None)
+    payload, diag = coerce_pipeline_result(result)
+    return DiagnosticResult(value=payload, diagnostic=diag)
 
 
 # Back-compat shim so legacy tests can patch ``engine._run_analysis`` while the
@@ -897,11 +899,11 @@ def run(
                         in_df_prepared, materialise_aggregates=incremental_cov
                     )
                 prev_in_df = in_df_prepared
-                res_dict["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
+                res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
-                    res_dict.setdefault("cache_stats", cov_cache_obj.stats())
-            out_results.append(res_dict)
+                    res.setdefault("cache_stats", cov_cache_obj.stats())
+            out_results.append(res)
         return out_results
 
     # Threshold-hold path with Bayesian weighting
@@ -1460,11 +1462,11 @@ def run(
             pt.out_end,
         )
         # Attach per-period manager change log and execution stats
-        res_dict["manager_changes"] = events
-        res_dict["turnover"] = period_turnover
-        res_dict["transaction_cost"] = float(period_cost)
+        res["manager_changes"] = events
+        res["turnover"] = period_turnover
+        res["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
-        results.append(res_dict)
+        results.append(res)
     # Update complete for this period; next loop will use prev_weights
 
     return results

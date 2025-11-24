@@ -8,6 +8,7 @@ toy = pd.DataFrame(
         "FundA": [0.02, -0.01, 0.03, 0.02, -0.01, 0.04],
         "FundB": [0.01, 0.01, 0.00, 0.02, 0.01, 0.03],
         "FundC": [0.00, 0.02, -0.02, 0.03, 0.02, 0.01],
+        "RF": [0.001] * 6,
     }
 )
 
@@ -23,6 +24,7 @@ def test_single_period_smoke() -> None:
         0.10,
         0.0,
         selection_mode="all",
+        risk_free_column="RF",
     )
     assert res is not None
     assert "selected_funds" in res

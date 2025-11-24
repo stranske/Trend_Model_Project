@@ -239,7 +239,7 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     return reset.rename(columns={index_name: "Date"})
 
 
-def _run_analysis(payload: AnalysisPayload):
+def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
     config = _build_config(payload)
@@ -283,7 +283,7 @@ def run_cached_analysis(
         model_state=model_state,
         benchmark=benchmark,
     )
-    return _run_analysis(payload)
+    return _execute_analysis(payload)
 
 
 def run_analysis(

@@ -22,7 +22,12 @@ class MinimalConfig:
             "end": "2020-04",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    data: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "csv_path": "unused.csv",
+            "allow_risk_free_fallback": True,
+        }
+    )
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",

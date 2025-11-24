@@ -26,6 +26,8 @@ def test_pipeline_run_applies_calendar_alignment():
         target_vol=0.1,
         monthly_cost=0.0,
         stats_cfg=RiskStatsConfig(risk_free=0.0),
+        risk_free_column="RF",
+        allow_risk_free_fallback=False,
     )
     assert result is not None
 

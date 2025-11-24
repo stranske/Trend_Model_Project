@@ -26,6 +26,7 @@ def test_indices_promoted_to_benchmarks():
         1.0,
         0.0,
         indices_list=["SPX"],
+        risk_free_column="RF",
     )
     assert "SPX" in res["benchmark_ir"]
 
@@ -41,6 +42,7 @@ def test_missing_benchmark_column_ignored():
         1.0,
         0.0,
         benchmarks={"foo": "FOO"},
+        risk_free_column="RF",
     )
     assert "foo" not in res["benchmark_ir"]
 
@@ -57,5 +59,6 @@ def test_indices_already_in_benchmarks():
         0.0,
         indices_list=["SPX"],
         benchmarks={"SPX": "SPX"},
+        risk_free_column="RF",
     )
     assert list(res["benchmark_ir"].keys()) == ["SPX"]
