@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
+from dataclasses import dataclass
 from enum import Enum
+from typing import Tuple, cast
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 AnalysisResult = dict[str, object]
 
 
-class PipelineResult(DiagnosticResult[AnalysisResult], Mapping[str, object]):
-    """Dictionary-like DiagnosticResult specialised for pipeline payloads."""
+@dataclass(slots=True)
+class PipelineResult(Mapping[str, object]):
+    """Dictionary-like container pairing a payload with diagnostics."""
+
+    value: AnalysisResult | None
+    diagnostic: DiagnosticPayload | None = None
 
     def _require_value(self) -> AnalysisResult:
         if self.value is None:
@@ -29,7 +35,7 @@ class PipelineResult(DiagnosticResult[AnalysisResult], Mapping[str, object]):
         data = self.value or {}
         return len(data)
 
-    def __bool__(self) -> bool:  # pragma: no cover - trivial
+    def __bool__(self) -> bool:  # pragma: no cover - trivial truthiness
         return bool(self.value)
 
     def get(self, key: str, default: object | None = None) -> object | None:
@@ -114,10 +120,51 @@ def pipeline_failure(
     return PipelineResult(value=None, diagnostic=payload)
 
 
+def coerce_pipeline_result(
+    result: object,
+) -> Tuple[AnalysisResult | None, DiagnosticPayload | None]:
+    """Return a ``(payload, diagnostic)`` pair for arbitrary pipeline outputs."""
+
+    if isinstance(result, PipelineResult):
+        return result.value, result.diagnostic
+
+    diagnostic_attr = getattr(result, "diagnostic", None)
+    if diagnostic_attr is not None and not isinstance(
+        diagnostic_attr, DiagnosticPayload
+    ):
+        raise TypeError(
+            "Pipeline diagnostics must be DiagnosticPayload instances; received "
+            f"{type(diagnostic_attr)!r}"
+        )
+    diagnostic: DiagnosticPayload | None = diagnostic_attr
+
+    if isinstance(result, DiagnosticResult):
+        payload = cast(AnalysisResult | None, result.value)
+    elif isinstance(result, Mapping):
+        payload = cast(AnalysisResult | None, result)
+    elif hasattr(result, "value"):
+        payload = cast(AnalysisResult | None, getattr(result, "value"))
+    else:
+        payload = cast(AnalysisResult | None, result)
+
+    if payload is None:
+        return None, diagnostic
+
+    if not isinstance(payload, Mapping):
+        raise TypeError(
+            "Pipeline outputs must be mapping-like; received " f"{type(payload)!r}"
+        )
+
+    if isinstance(payload, dict):
+        return payload, diagnostic
+    return dict(payload), diagnostic
+
+
 __all__ = [
     "AnalysisResult",
     "PipelineResult",
     "PipelineReasonCode",
     "pipeline_failure",
     "pipeline_success",
+    "coerce_pipeline_result",
 ]

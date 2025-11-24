@@ -49,6 +49,7 @@ try:
     from trend_analysis.core import rank_selection as rs
     from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
     from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
+    from trend_analysis.diagnostics import coerce_pipeline_result
     from trend_analysis.multi_period import run as run_core
     from trend_analysis.multi_period import run_from_config as run_mp
     from trend_analysis.multi_period import run_schedule, scheduler
@@ -1488,12 +1489,11 @@ _check_schedule(
 # Exercise the single-period pipeline and export helpers - using run_full
 # to avoid redundant computation
 full_result = pipeline.run_full(cfg)
-full_res = full_result.value
-if not isinstance(full_res, dict) or not full_res:
-    diag = full_result.diagnostic
-    if diag is not None:
+full_res, diag_payload = coerce_pipeline_result(full_result)
+if not full_res:
+    if diag_payload is not None:
         raise SystemExit(
-            f"pipeline.run_full failed ({diag.reason_code}): {diag.message}"
+            f"pipeline.run_full failed ({diag_payload.reason_code}): {diag_payload.message}"
         )
     raise SystemExit("pipeline.run_full did not return a payload")
 

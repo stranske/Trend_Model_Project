@@ -17,6 +17,7 @@ import yaml
 import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
+from trend_analysis.diagnostics import coerce_pipeline_result
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run_from_config as run_multi
 from utils.paths import proj_path
@@ -465,8 +466,9 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                 run_full_error = exc
                 full_result = None
             if full_result is not None:
-                full_result_payload = full_result.value
-                full_result_diag = full_result.diagnostic
+                full_result_payload, full_result_diag = coerce_pipeline_result(
+                    full_result
+                )
 
         summary = _summarise_run_df(
             summary_frame if isinstance(summary_frame, pd.DataFrame) else None

@@ -22,6 +22,7 @@ from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
 from .io.market_data import MarketDataValidationError
+from .diagnostics import coerce_pipeline_result
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
@@ -440,6 +441,7 @@ def main(argv: list[str] | None = None) -> int:
             df = _apply_universe_mask(df, mask, date_column=universe_spec.date_column)
         if universe_spec is not None:
             _attach_universe_paths(cfg, universe_spec, csv_path=args.input)
+        res: dict[str, Any] | None = None
         split = cfg.sample_split
         required_keys = {"in_start", "in_end", "out_start", "out_end"}
         import uuid
@@ -521,11 +523,13 @@ def main(argv: list[str] | None = None) -> int:
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
             full_result = pipeline.run_full(cfg)
-            res = full_result.value
+            res, diag_payload = coerce_pipeline_result(full_result)
             run_seed = getattr(cfg, "seed", 42)
-            pipeline_diagnostic = full_result.diagnostic or cast(
+            pipeline_diagnostic = diag_payload or cast(
                 DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
             )
+            if res is None:
+                res = {}
         if not res:
             if pipeline_diagnostic:
                 _report_pipeline_diagnostic(

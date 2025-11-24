@@ -47,7 +47,8 @@ def test_run_simulation_matches_pipeline(tmp_path):
     df.to_csv(csv, index=False)
     cfg = make_cfg(str(csv))
 
-    expected_details = pipeline.run_full(cfg)
+    expected_details = pipeline.run_full(cfg).unwrap()
+    assert expected_details is not None
     expected_metrics = pipeline.run(cfg)
 
     result = api.run_simulation(cfg, df)

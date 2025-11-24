@@ -853,7 +853,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
 
         result = pipeline.run_full(cfg)
 
-    assert result == payload
+    assert result.unwrap() is payload
     assert captured["missing_policy"] == "drop"
     assert captured["missing_limit"] == {"FundA": 1}
 
