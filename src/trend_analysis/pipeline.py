@@ -119,6 +119,952 @@ def _preprocessing_summary(
     return "; ".join(parts)
 
 
+@dataclass(slots=True)
+class _PreprocessStage:
+    df: pd.DataFrame
+    date_col: str
+    freq_summary: FrequencySummary
+    missing_result: MissingPolicyResult
+    preprocess_info: dict[str, object]
+    frequency_payload: dict[str, object]
+    missing_payload: Mapping[str, object]
+    alignment_info: Mapping[str, Any]
+    min_floor: float
+    warmup: int
+    value_cols_all: list[str]
+    df_original: pd.DataFrame
+    periods_per_year: float
+
+
+@dataclass(slots=True)
+class _WindowStage:
+    in_df: pd.DataFrame
+    out_df: pd.DataFrame
+    in_start: pd.Timestamp
+    in_end: pd.Timestamp
+    out_start: pd.Timestamp
+    out_end: pd.Timestamp
+    periods_per_year: float
+    date_col: str
+
+
+@dataclass(slots=True)
+class _SelectionStage:
+    fund_cols: list[str]
+    rf_col: str
+    rf_source: str
+    score_frame: pd.DataFrame
+    risk_free_override: pd.Series
+    indices_list: list[str]
+
+
+@dataclass(slots=True)
+class _ComputationStage:
+    weights_series: pd.Series
+    risk_diagnostics: RiskDiagnostics
+    weight_engine_fallback: dict[str, str] | None
+    turnover_cap: float | None
+    in_scaled: pd.DataFrame
+    out_scaled: pd.DataFrame
+    rf_in: pd.Series
+    rf_out: pd.Series
+    in_stats: dict[str, _Stats]
+    out_stats: dict[str, _Stats]
+    out_stats_raw: dict[str, _Stats]
+    in_ew_stats: _Stats
+    out_ew_stats: _Stats
+    out_ew_stats_raw: _Stats
+    in_user_stats: _Stats
+    out_user_stats: _Stats
+    out_user_stats_raw: _Stats
+    ew_weights: dict[str, float]
+    user_weights: dict[str, float]
+    score_frame: pd.DataFrame
+    weight_policy: dict[str, Any]
+    signal_frame: pd.DataFrame
+    effective_signal_spec: TrendSpec
+
+
+def _prepare_preprocess_stage(
+    df: pd.DataFrame | None,
+    *,
+    floor_vol: float | None,
+    warmup_periods: int,
+    missing_policy: str | Mapping[str, str] | None,
+    missing_limit: int | Mapping[str, int | None] | None,
+    stats_cfg: RiskStatsConfig | None,
+    periods_per_year_override: float | None,
+) -> _PreprocessStage | PipelineResult:
+    if df is None:
+        return pipeline_failure(PipelineReasonCode.INPUT_NONE)
+
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    if attrs_copy:
+        df.attrs = attrs_copy
+
+    date_col = "Date"
+    if date_col not in df.columns:
+        raise ValueError("DataFrame must contain a 'Date' column")
+
+    calendar_settings = attrs_copy.get("calendar_settings", {})
+
+    date_probe = pd.to_datetime(df[date_col], errors="coerce")
+    if not date_probe.notna().any():
+        return pipeline_failure(
+            PipelineReasonCode.NO_VALID_DATES,
+            context={"date_column": date_col},
+        )
+
+    try:
+        df = align_calendar(
+            df,
+            date_col=date_col,
+            frequency=calendar_settings.get("frequency"),
+            timezone=calendar_settings.get("timezone", "UTC"),
+            holiday_calendar=calendar_settings.get("holiday_calendar"),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if (
+            "contains no valid timestamps" in message
+            or "All rows were removed" in message
+        ):
+            return pipeline_failure(
+                PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
+                context={"error": message},
+            )
+        raise
+    alignment_info = df.attrs.get("calendar_alignment", {})
+
+    try:
+        min_floor = float(floor_vol) if floor_vol is not None else 0.0
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        min_floor = 0.0
+    if min_floor < 0:
+        min_floor = 0.0
+    try:
+        warmup = int(warmup_periods)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        warmup = 0
+    if warmup < 0:
+        warmup = 0
+
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
+    enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
+
+    df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(
+        df,
+        date_col=date_col,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+        enforce_completeness=enforce_complete,
+    )
+    if df_prepared.empty:
+        return pipeline_failure(
+            PipelineReasonCode.PREPARED_FRAME_EMPTY,
+            context={
+                "missing_summary": getattr(missing_result, "summary", None),
+                "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
+            },
+        )
+    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
+    df_original = df_prepared.copy()
+    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
+
+    if not initial_value_cols or not value_cols_all:
+        reason = (
+            PipelineReasonCode.NO_VALUE_COLUMNS
+            if not initial_value_cols
+            else PipelineReasonCode.INSUFFICIENT_COLUMNS
+        )
+        return pipeline_failure(
+            reason,
+            context={
+                "stage": "post-prep-column-check",
+                "initial_value_cols": len(initial_value_cols),
+                "post_probe_value_cols": len(value_cols_all),
+            },
+        )
+
+    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+        df = pd.DataFrame(df_original)
+    else:
+        df = df_original
+    if prepared_attrs:
+        df.attrs = prepared_attrs
+
+    if df.empty or df.shape[1] <= 1:
+        return pipeline_failure(
+            PipelineReasonCode.INSUFFICIENT_COLUMNS,
+            context={"columns": df.shape[1], "rows": df.shape[0]},
+        )
+
+    frequency_payload = {
+        "code": freq_summary.code,
+        "label": freq_summary.label,
+        "target": freq_summary.target,
+        "target_label": freq_summary.target_label,
+        "resampled": freq_summary.resampled,
+    }
+    periods_per_year = periods_per_year_override or periods_per_year_from_code(
+        freq_summary.target
+    )
+    missing_payload = {
+        "policy": missing_result.default_policy,
+        "policy_map": missing_result.policy,
+        "limit": missing_result.default_limit,
+        "limit_map": missing_result.limit,
+        "dropped_assets": list(missing_result.dropped_assets),
+        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
+        "total_filled": missing_result.total_filled,
+    }
+
+    preprocess_info = {
+        "input_frequency": frequency_payload["code"],
+        "input_frequency_details": frequency_payload,
+        "resampled_to_monthly": normalised,
+        "missing": missing_result,
+        "missing_data_policy": missing_payload,
+    }
+    preprocess_info["summary"] = _preprocessing_summary(
+        freq_summary.code,
+        normalised=normalised,
+        missing_summary=missing_result.summary,
+    )
+    preprocess_info["calendar_alignment"] = alignment_info
+
+    return _PreprocessStage(
+        df=df,
+        date_col=date_col,
+        freq_summary=freq_summary,
+        missing_result=missing_result,
+        preprocess_info=preprocess_info,
+        frequency_payload=frequency_payload,
+        missing_payload=missing_payload,
+        alignment_info=alignment_info,
+        min_floor=min_floor,
+        warmup=warmup,
+        value_cols_all=value_cols_all,
+        df_original=df_original,
+        periods_per_year=periods_per_year,
+    )
+
+
+def _build_sample_windows(
+    preprocess: _PreprocessStage,
+    *,
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> _WindowStage | PipelineResult:
+    def _is_month_label(label: str) -> bool:
+        text = str(label).strip()
+        return len(text) == 7 and text.count("-") == 1
+
+    def _resolve_bound(label: str, *, bound: str) -> pd.Timestamp:
+        text = str(label).strip()
+        if not text:
+            raise ValueError("Period label must be non-empty")
+        try:
+            if _is_month_label(text):
+                period = pd.Period(text, freq="M")
+                ts = period.start_time if bound == "start" else period.end_time
+            else:
+                ts = pd.to_datetime(text)
+        except Exception as exc:  # pragma: no cover - defensive
+            msg = f"Failed to parse period label '{label}': {exc}"
+            raise ValueError(msg) from exc
+        return pd.Timestamp(ts).normalize()
+
+    in_sdate = _resolve_bound(in_start, bound="start")
+    in_edate = _resolve_bound(in_end, bound="end")
+    out_sdate = _resolve_bound(out_start, bound="start")
+    out_edate = _resolve_bound(out_end, bound="end")
+
+    if pd.api.types.is_datetime64tz_dtype(preprocess.df[preprocess.date_col]):
+        tz = preprocess.df[preprocess.date_col].dt.tz
+        in_sdate = in_sdate.tz_localize(tz)
+        in_edate = in_edate.tz_localize(tz)
+        out_sdate = out_sdate.tz_localize(tz)
+        out_edate = out_edate.tz_localize(tz)
+
+    in_df = preprocess.df[
+        (preprocess.df[preprocess.date_col] >= in_sdate)
+        & (preprocess.df[preprocess.date_col] <= in_edate)
+    ].set_index(preprocess.date_col)
+    out_df = preprocess.df[
+        (preprocess.df[preprocess.date_col] >= out_sdate)
+        & (preprocess.df[preprocess.date_col] <= out_edate)
+    ].set_index(preprocess.date_col)
+
+    if in_df.empty or out_df.empty:
+        return pipeline_failure(
+            PipelineReasonCode.SAMPLE_WINDOW_EMPTY,
+            context={
+                "in_rows": int(in_df.shape[0]),
+                "out_rows": int(out_df.shape[0]),
+            },
+        )
+
+    return _WindowStage(
+        in_df=in_df,
+        out_df=out_df,
+        in_start=in_sdate,
+        in_end=in_edate,
+        out_start=out_sdate,
+        out_end=out_edate,
+        periods_per_year=preprocess.periods_per_year,
+        date_col=preprocess.date_col,
+    )
+
+
+def _select_universe(
+    preprocess: _PreprocessStage,
+    window: _WindowStage,
+    *,
+    in_label: str,
+    in_end_label: str,
+    selection_mode: str,
+    random_n: int,
+    custom_weights: dict[str, float] | None,
+    rank_kwargs: Mapping[str, Any] | None,
+    manual_funds: list[str] | None,
+    indices_list: list[str] | None,
+    seed: int,
+    stats_cfg: RiskStatsConfig | None,
+    risk_free_column: str | None,
+    allow_risk_free_fallback: bool | None,
+) -> _SelectionStage | PipelineResult:
+    if indices_list is None:
+        indices_list = []
+
+    rf_col: str
+    fund_cols: list[str]
+    rf_source: str
+    rf_col, fund_cols, rf_source = _resolve_risk_free_column(
+        preprocess.df,
+        date_col=preprocess.date_col,
+        indices_list=indices_list,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
+    )
+
+    valid_indices: list[str] = []
+    if indices_list:
+        index_presence = window.in_df[indices_list].notnull().any(axis=0)
+        valid_indices = list(index_presence[index_presence].index)
+
+    if selection_mode == "all" and custom_weights is not None:
+        fund_cols = [c for c in fund_cols if c in custom_weights]
+        if not fund_cols and custom_weights:
+            fund_cols = list(custom_weights.keys())
+        else:
+            custom_weights = None
+
+    # keep only funds that satisfy missing-data policy in both windows. The
+    # default behaviour enforces strict completeness, while ``na_as_zero`` can
+    # provide tolerances for total and consecutive gaps (Issue #3633).
+    def _max_consecutive_nans(series: pd.Series) -> int:
+        if not series.isna().any():
+            return 0
+        is_na = series.isna().astype(int)
+        groups = (is_na != is_na.shift()).cumsum()
+        runs = is_na.groupby(groups).cumsum() * is_na
+        return int(runs.max()) if not runs.empty else 0
+
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
+    if na_cfg and bool(na_cfg.get("enabled", False)):
+        max_missing = int(na_cfg.get("max_missing_per_window", 0) or 0)
+        max_gap = int(na_cfg.get("max_consecutive_gap", 0) or 0)
+
+        def _window_ok(window_df: pd.DataFrame, column: str) -> bool:
+            series = window_df[column]
+            missing = int(series.isna().sum())
+            if missing == 0:
+                return True
+            if missing > max_missing:
+                return False
+            if max_gap <= 0:
+                return True
+            return _max_consecutive_nans(series) <= max_gap
+
+        fund_cols = [
+            col
+            for col in fund_cols
+            if _window_ok(window.in_df, col) and _window_ok(window.out_df, col)
+        ]
+    else:
+        in_ok = ~window.in_df[fund_cols].isna().any()
+        out_ok = ~window.out_df[fund_cols].isna().any()
+        fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
+
+    if stats_cfg is None:
+        stats_cfg = RiskStatsConfig(risk_free=0.0)
+
+    risk_free_override = window.in_df[rf_col]
+
+    if selection_mode == "random" and len(fund_cols) > random_n:
+        rng = np.random.default_rng(seed)
+        fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
+    elif selection_mode == "rank":
+        mask = (preprocess.df[preprocess.date_col] >= window.in_start) & (
+            preprocess.df[preprocess.date_col] <= window.in_end
+        )
+        sub = preprocess.df.loc[mask, fund_cols]
+        window_key = None
+        bundle = None
+        if stats_cfg is not None and fund_cols:
+            try:
+                window_key = make_window_key(
+                    window.in_start, window.in_end, sub.columns, stats_cfg
+                )
+            except Exception:  # pragma: no cover - defensive
+                window_key = None
+        if window_key is not None:
+            bundle = get_window_metric_bundle(window_key)
+        rank_options: dict[str, Any] = dict(rank_kwargs or {})
+        rank_options.setdefault("window_key", window_key)
+        rank_options.setdefault("bundle", bundle)
+        fund_cols = rank_select_funds(
+            sub,
+            stats_cfg,
+            **rank_options,
+            risk_free=risk_free_override,
+        )
+    elif selection_mode == "manual":
+        if manual_funds:  # pragma: no cover - rarely hit
+            fund_cols = [c for c in fund_cols if c in manual_funds]
+        else:
+            fund_cols = []  # pragma: no cover
+
+    if not fund_cols:
+        return pipeline_failure(
+            PipelineReasonCode.NO_FUNDS_SELECTED,
+            context={
+                "selection_mode": selection_mode,
+                "universe_size": len(preprocess.value_cols_all),
+            },
+        )
+
+    score_frame = single_period_run(
+        preprocess.df[[preprocess.date_col] + fund_cols],
+        in_label,
+        in_end_label,
+        stats_cfg=stats_cfg,
+        risk_free=risk_free_override,
+    )
+
+    return _SelectionStage(
+        fund_cols=fund_cols,
+        rf_col=rf_col,
+        rf_source=rf_source,
+        score_frame=score_frame,
+        risk_free_override=risk_free_override,
+        indices_list=valid_indices,
+    )
+
+
+def _compute_weights_and_stats(
+    preprocess: _PreprocessStage,
+    window: _WindowStage,
+    selection: _SelectionStage,
+    *,
+    target_vol: float,
+    monthly_cost: float,
+    custom_weights: dict[str, float] | None,
+    weighting_scheme: str | None,
+    constraints: Mapping[str, Any] | None,
+    risk_window: Mapping[str, Any] | None,
+    previous_weights: Mapping[str, float] | None,
+    lambda_tc: float | None,
+    max_turnover: float | None,
+    signal_spec: TrendSpec | None,
+    weight_policy: Mapping[str, Any] | None,
+    warmup: int,
+    min_floor: float,
+    stats_cfg: RiskStatsConfig,
+) -> _ComputationStage:
+    fund_cols = selection.fund_cols
+
+    weight_engine_fallback: dict[str, str] | None = None
+    if (
+        custom_weights is None
+        and weighting_scheme
+        and weighting_scheme.lower() != "equal"
+    ):
+        try:
+            from .plugins import create_weight_engine
+
+            cov = window.in_df[fund_cols].cov()
+            engine = create_weight_engine(weighting_scheme.lower())
+            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            logger.debug(
+                "Successfully created %s weight engine",
+                weighting_scheme,
+                extra={"weight_engine": weighting_scheme},
+            )
+        except Exception as e:  # pragma: no cover - exercised via tests
+            msg = (
+                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
+                % (weighting_scheme, type(e).__name__, e)
+            )
+            logger.warning(msg)
+            logger.debug(
+                "Weight engine creation failed, falling back to equal weights: %s", e
+            )
+            weight_engine_fallback = {
+                "engine": str(weighting_scheme),
+                "error_type": type(e).__name__,
+                "error": str(e),
+                "logger_level": logging.getLevelName(logger.getEffectiveLevel()),
+            }
+            custom_weights = None
+
+    if custom_weights is None:
+        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
+
+    base_series = pd.Series(
+        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
+        dtype=float,
+    )
+    if float(base_series.sum()) <= 0:
+        base_series = pd.Series(
+            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
+            index=fund_cols,
+            dtype=float,
+        )
+
+    constraints_cfg = constraints or {}
+    if not isinstance(constraints_cfg, Mapping):
+        constraints_cfg = {}
+    long_only = bool(constraints_cfg.get("long_only", True))
+    raw_max_weight = constraints_cfg.get("max_weight")
+    try:
+        max_weight_val = float(raw_max_weight) if raw_max_weight is not None else None
+    except (TypeError, ValueError):
+        max_weight_val = None
+    raw_group_caps = constraints_cfg.get("group_caps")
+    group_caps_map = (
+        {str(k): float(v) for k, v in raw_group_caps.items()}
+        if isinstance(raw_group_caps, Mapping)
+        else None
+    )
+    raw_groups = constraints_cfg.get("groups")
+    groups_map = (
+        {str(k): str(v) for k, v in raw_groups.items()}
+        if isinstance(raw_groups, Mapping)
+        else None
+    )
+
+    window_cfg = dict(risk_window or {})
+    try:
+        window_length = int(window_cfg.get("length", len(window.in_df)))
+    except (TypeError, ValueError):
+        window_length = len(window.in_df)
+    if window_length <= 0:
+        window_length = max(len(window.in_df), 1)
+    decay_mode = str(window_cfg.get("decay", "simple"))
+    lambda_value = window_cfg.get("lambda", window_cfg.get("ewma_lambda", 0.94))
+    try:
+        ewma_lambda = float(lambda_value)
+    except (TypeError, ValueError):
+        ewma_lambda = 0.94
+    window_spec = RiskWindow(
+        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
+    )
+
+    turnover_cap = None
+    if max_turnover is not None:
+        try:
+            mt = float(max_turnover)
+        except (TypeError, ValueError):
+            mt = None
+        if mt is not None and mt > 0:
+            turnover_cap = mt
+
+    effective_signal_spec = signal_spec or TrendSpec(
+        window=window_spec.length,
+        min_periods=None,
+        lag=1,
+        vol_adjust=False,
+        vol_target=None,
+        zscore=False,
+    )
+    signal_source = preprocess.df_original
+    signal_inputs = (
+        signal_source.set_index(window.date_col)[fund_cols].astype(float)
+        if fund_cols
+        else pd.DataFrame(dtype=float)
+    )
+    if not signal_inputs.empty:
+        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
+    else:
+        signal_frame = pd.DataFrame(dtype=float)
+
+    try:
+        weights_series, risk_diagnostics = compute_constrained_weights(
+            base_series,
+            window.in_df[fund_cols],
+            window=window_spec,
+            target_vol=target_vol,
+            periods_per_year=window.periods_per_year,
+            floor_vol=min_floor if min_floor > 0 else None,
+            long_only=long_only,
+            max_weight=max_weight_val,
+            previous_weights=previous_weights,
+            lambda_tc=lambda_tc,
+            max_turnover=turnover_cap,
+            group_caps=group_caps_map,
+            groups=groups_map,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning(
+            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
+        )
+        weights_series = base_series.copy()
+        asset_vol = realised_volatility(
+            window.in_df[fund_cols],
+            window_spec,
+            periods_per_year=window.periods_per_year,
+        )
+        latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
+        latest_vol = latest_vol.ffill().bfill()
+        positive = latest_vol[latest_vol > 0]
+        fallback_vol = float(positive.min()) if not positive.empty else 1.0
+        latest_vol = latest_vol.fillna(fallback_vol)
+        if min_floor > 0:
+            latest_vol = latest_vol.clip(lower=min_floor)
+        scale_factors = (
+            pd.Series(target_vol, index=fund_cols, dtype=float)
+            .div(latest_vol)
+            .replace([np.inf, -np.inf], 0.0)
+            .fillna(0.0)
+        )
+        scaled_returns = window.in_df[fund_cols].mul(scale_factors, axis=1)
+        portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
+        portfolio_vol = realised_volatility(
+            portfolio_returns.to_frame("portfolio"),
+            window_spec,
+            periods_per_year=window.periods_per_year,
+        )["portfolio"]
+        risk_diagnostics = RiskDiagnostics(
+            asset_volatility=asset_vol,
+            portfolio_volatility=portfolio_vol,
+            turnover=pd.Series(dtype=float, name="turnover"),
+            turnover_value=float("nan"),
+            scale_factors=scale_factors,
+        )
+
+    policy_cfg = dict(weight_policy or {})
+    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
+    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
+
+    signal_snapshot: pd.Series | None = None
+    if not signal_frame.empty:
+        try:
+            target_index = (
+                window.out_df.index[0]
+                if len(window.out_df.index)
+                else signal_frame.index[-1]
+            )
+            aligned = signal_frame.reindex(columns=fund_cols)
+            if target_index in aligned.index:
+                signal_snapshot = aligned.loc[target_index]
+            elif not aligned.empty:
+                signal_snapshot = aligned.iloc[-1]
+        except Exception:  # pragma: no cover - defensive
+            signal_snapshot = None
+
+    weights_series = (
+        apply_weight_policy(
+            weights_series,
+            signal_snapshot,
+            mode=policy_mode,
+            min_assets=min_assets_policy,
+            previous=previous_weights,
+        )
+        .reindex(fund_cols)
+        .fillna(0.0)
+    )
+    scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
+
+    in_scaled = window.in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
+    out_scaled = window.out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
+    in_scaled = in_scaled.clip(lower=-1.0)
+    out_scaled = out_scaled.clip(lower=-1.0)
+
+    if warmup > 0:
+        warmup_in = min(warmup, len(in_scaled))
+        warmup_out = min(warmup, len(out_scaled))
+        if warmup_in:
+            in_scaled.iloc[:warmup_in] = 0.0
+        if warmup_out:
+            out_scaled.iloc[:warmup_out] = 0.0
+
+    in_scaled = in_scaled.fillna(0.0)
+    out_scaled = out_scaled.fillna(0.0)
+
+    rf_in = window.in_df[selection.rf_col]
+    rf_out = window.out_df[selection.rf_col]
+
+    want_avg_corr = False
+    try:
+        reg = getattr(stats_cfg, "metrics_to_run", []) or []
+        want_avg_corr = "AvgCorr" in reg
+    except Exception:  # pragma: no cover - defensive
+        want_avg_corr = False
+
+    is_avg_corr: dict[str, float] | None = None
+    os_avg_corr: dict[str, float] | None = None
+    if want_avg_corr and len(fund_cols) > 1:
+        try:
+            corr_in = in_scaled[fund_cols].corr()
+            corr_out = out_scaled[fund_cols].corr()
+            n_f = len(fund_cols)
+            is_avg_corr = {}
+            os_avg_corr = {}
+            denominator = float(n_f - 1) if n_f > 1 else 1.0
+            for f in fund_cols:
+                in_sum = cast(float, corr_in.loc[f].sum())
+                out_sum = cast(float, corr_out.loc[f].sum())
+                in_val = (in_sum - 1.0) / denominator
+                out_val = (out_sum - 1.0) / denominator
+                is_avg_corr[f] = float(in_val)
+                os_avg_corr[f] = float(out_val)
+        except Exception:  # pragma: no cover - defensive
+            is_avg_corr = None
+            os_avg_corr = None
+
+    in_stats = _compute_stats(
+        in_scaled,
+        rf_in,
+        in_sample_avg_corr=is_avg_corr,
+        out_sample_avg_corr=None,
+    )
+    out_stats = _compute_stats(
+        out_scaled,
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
+    out_stats_raw = _compute_stats(
+        window.out_df[fund_cols],
+        rf_out,
+        in_sample_avg_corr=None,
+        out_sample_avg_corr=os_avg_corr,
+    )
+
+    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
+    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
+    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
+    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
+    out_ew_raw = calc_portfolio_returns(ew_weights, window.out_df[fund_cols])
+
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
+    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
+    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
+
+    user_w = weights_series.to_numpy(dtype=float, copy=False)
+    user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
+
+    in_user = calc_portfolio_returns(user_w, in_scaled)
+    out_user = calc_portfolio_returns(user_w, out_scaled)
+    out_user_raw = calc_portfolio_returns(user_w, window.out_df[fund_cols])
+
+    in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
+    out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
+    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
+        "user"
+    ]
+
+    return _ComputationStage(
+        weights_series=weights_series,
+        risk_diagnostics=risk_diagnostics,
+        weight_engine_fallback=weight_engine_fallback,
+        turnover_cap=turnover_cap,
+        in_scaled=in_scaled,
+        out_scaled=out_scaled,
+        rf_in=rf_in,
+        rf_out=rf_out,
+        in_stats=in_stats,
+        out_stats=out_stats,
+        out_stats_raw=out_stats_raw,
+        in_ew_stats=in_ew_stats,
+        out_ew_stats=out_ew_stats,
+        out_ew_stats_raw=out_ew_stats_raw,
+        in_user_stats=in_user_stats,
+        out_user_stats=out_user_stats,
+        out_user_stats_raw=out_user_stats_raw,
+        ew_weights=ew_w_dict,
+        user_weights=user_w_dict,
+        score_frame=selection.score_frame,
+        weight_policy=policy_cfg,
+        signal_frame=signal_frame,
+        effective_signal_spec=effective_signal_spec,
+    )
+
+
+def _assemble_analysis_output(
+    preprocess: _PreprocessStage,
+    window: _WindowStage,
+    selection: _SelectionStage,
+    computation: _ComputationStage,
+    *,
+    benchmarks: Mapping[str, str] | None,
+    regime_cfg: Mapping[str, Any] | None,
+    target_vol: float,
+    monthly_cost: float,
+    min_floor: float,
+) -> PipelineResult:
+    fund_cols = selection.fund_cols
+    rf_col = selection.rf_col
+    benchmark_stats = {}
+    benchmark_ir = {}
+    out_df = window.out_df
+    in_df = window.in_df
+
+    benchmarks = benchmarks or {}
+    indices_list = selection.indices_list
+    all_benchmarks = benchmarks if benchmarks else {}
+    if indices_list:
+        index_map = {idx: idx for idx in indices_list}
+        index_map.update(benchmarks)
+        all_benchmarks = index_map
+
+    out_user = calc_portfolio_returns(
+        computation.weights_series.to_numpy(dtype=float, copy=False),
+        computation.out_scaled,
+    )
+    out_user_raw = calc_portfolio_returns(
+        computation.weights_series.to_numpy(dtype=float, copy=False), out_df[fund_cols]
+    )
+    out_ew = calc_portfolio_returns(
+        np.repeat(1.0 / len(fund_cols), len(fund_cols)), computation.out_scaled
+    )
+    out_ew_raw = calc_portfolio_returns(
+        np.repeat(1.0 / len(fund_cols), len(fund_cols)), out_df[fund_cols]
+    )
+
+    for label, col in all_benchmarks.items():
+        if col not in in_df.columns or col not in out_df.columns:
+            continue
+        benchmark_stats[label] = {
+            "in_sample": _compute_stats(
+                pd.DataFrame({label: in_df[col]}), computation.rf_in
+            )[label],
+            "out_sample": _compute_stats(
+                pd.DataFrame({label: out_df[col]}), computation.rf_out
+            )[label],
+        }
+        ir_series = information_ratio(computation.out_scaled[fund_cols], out_df[col])
+        ir_dict = (
+            ir_series.to_dict()
+            if isinstance(ir_series, pd.Series)
+            else {fund_cols[0]: float(ir_series)}
+        )
+        try:
+            ir_eq = information_ratio(out_ew_raw, out_df[col])
+            ir_usr = information_ratio(out_user_raw, out_df[col])
+            ir_dict["equal_weight"] = (
+                float(ir_eq)
+                if isinstance(ir_eq, (float, int, np.floating))
+                else float("nan")
+            )
+            ir_dict["user_weight"] = (
+                float(ir_usr)
+                if isinstance(ir_usr, (float, int, np.floating))
+                else float("nan")
+            )
+        except Exception:
+            pass
+        benchmark_ir[label] = ir_dict
+
+    regime_returns_map: dict[str, pd.Series] = {
+        "User": out_user.astype(float, copy=False),
+        "Equal-Weight": out_ew.astype(float, copy=False),
+    }
+    regime_payload = build_regime_payload(
+        data=preprocess.df,
+        out_index=out_df.index,
+        returns_map=regime_returns_map,
+        risk_free=computation.rf_out,
+        config=regime_cfg,
+        freq_code=preprocess.freq_summary.target,
+        periods_per_year=window.periods_per_year,
+    )
+
+    metadata = build_metadata(
+        universe=preprocess.value_cols_all,
+        selected=fund_cols,
+        lookbacks={
+            "in_start": window.in_start,
+            "in_end": window.in_end,
+            "out_start": window.out_start,
+            "out_end": window.out_end,
+        },
+        costs={
+            "monthly_cost": monthly_cost,
+            "target_vol": target_vol,
+            "floor_vol": min_floor if min_floor > 0 else None,
+            "max_turnover": computation.turnover_cap,
+        },
+    )
+    metadata["frequency"] = preprocess.frequency_payload
+    metadata["missing_data"] = preprocess.missing_payload
+    metadata["risk_free_column"] = rf_col
+
+    return pipeline_success(
+        {
+            "selected_funds": fund_cols,
+            "risk_free_column": rf_col,
+            "risk_free_source": selection.rf_source,
+            "in_sample_scaled": computation.in_scaled,
+            "out_sample_scaled": computation.out_scaled,
+            "in_sample_stats": computation.in_stats,
+            "out_sample_stats": computation.out_stats,
+            "out_sample_stats_raw": computation.out_stats_raw,
+            "in_ew_stats": computation.in_ew_stats,
+            "out_ew_stats": computation.out_ew_stats,
+            "out_ew_stats_raw": computation.out_ew_stats_raw,
+            "in_user_stats": computation.in_user_stats,
+            "out_user_stats": computation.out_user_stats,
+            "out_user_stats_raw": computation.out_user_stats_raw,
+            "ew_weights": computation.ew_weights,
+            "fund_weights": computation.user_weights,
+            "benchmark_stats": benchmark_stats,
+            "benchmark_ir": benchmark_ir,
+            "score_frame": computation.score_frame,
+            "weight_engine_fallback": computation.weight_engine_fallback,
+            "preprocessing": preprocess.preprocess_info,
+            "preprocessing_summary": preprocess.preprocess_info.get("summary"),
+            "risk_diagnostics": {
+                "asset_volatility": computation.risk_diagnostics.asset_volatility,
+                "portfolio_volatility": computation.risk_diagnostics.portfolio_volatility,
+                "turnover": computation.risk_diagnostics.turnover,
+                "turnover_value": computation.risk_diagnostics.turnover_value,
+                "scale_factors": computation.risk_diagnostics.scale_factors,
+                "final_weights": computation.weights_series,
+            },
+            "signal_frame": computation.signal_frame,
+            "signal_spec": computation.effective_signal_spec,
+            "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
+            "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
+            "regime_labels_out": regime_payload.get(
+                "out_labels", pd.Series(dtype="string")
+            ),
+            "regime_notes": regime_payload.get("notes", []),
+            "regime_settings": regime_payload.get("settings", {}),
+            "regime_summary": regime_payload.get("summary"),
+            "metadata": metadata,
+        }
+    )
+
+
 def _cfg_value(cfg: Mapping[str, Any] | Any, key: str, default: Any = None) -> Any:
     if isinstance(cfg, Mapping):
         return cfg.get(key, default)
@@ -652,719 +1598,78 @@ def _run_analysis_with_diagnostics(
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
 ) -> PipelineResult:
-    if df is None:
-        return pipeline_failure(PipelineReasonCode.INPUT_NONE)
-
-    attrs_copy = dict(getattr(df, "attrs", {}))
-    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
-        df = pd.DataFrame(df)
-    if attrs_copy:
-        df.attrs = attrs_copy
-
-    date_col = "Date"
-    if date_col not in df.columns:
-        raise ValueError("DataFrame must contain a 'Date' column")
-
-    calendar_settings = attrs_copy.get("calendar_settings", {})
-
-    # Fast-fail when no usable timestamps exist so tests that simulate
-    # pathological DataFrame subclasses continue to short-circuit.
-    date_probe = pd.to_datetime(df[date_col], errors="coerce")
-    if not date_probe.notna().any():
-        return pipeline_failure(
-            PipelineReasonCode.NO_VALID_DATES,
-            context={"date_column": date_col},
-        )
-
-    # ``df`` is now a vanilla ``pd.DataFrame`` so pandas internals do not
-    # trip over overridden properties (Issue #3633 regression). Align the
-    # calendar next so downstream stages operate on consistent timestamps.
-    try:
-        df = align_calendar(
-            df,
-            date_col=date_col,
-            frequency=calendar_settings.get("frequency"),
-            timezone=calendar_settings.get("timezone", "UTC"),
-            holiday_calendar=calendar_settings.get("holiday_calendar"),
-        )
-    except ValueError as exc:
-        message = str(exc)
-        if (
-            "contains no valid timestamps" in message
-            or "All rows were removed" in message
-        ):
-            return pipeline_failure(
-                PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
-                context={"error": message},
-            )
-        raise
-    alignment_info = df.attrs.get("calendar_alignment", {})
-
-    # Guard against negative configuration inputs.  ``floor_vol`` enforces the
-    # minimum realised volatility used for scaling so we never divide by zero,
-    # while ``warmup_periods`` zeroes the initial rows (Issue #1439).
-    try:
-        min_floor = float(floor_vol) if floor_vol is not None else 0.0
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        min_floor = 0.0
-    if min_floor < 0:
-        min_floor = 0.0
-    try:
-        warmup = int(warmup_periods)
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        warmup = 0
-    if warmup < 0:
-        warmup = 0
-
-    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
-    enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
-
-    df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(
+    preprocess_stage = _prepare_preprocess_stage(
         df,
-        date_col=date_col,
+        floor_vol=floor_vol,
+        warmup_periods=warmup_periods,
         missing_policy=missing_policy,
         missing_limit=missing_limit,
-        enforce_completeness=enforce_complete,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=periods_per_year_override,
     )
-    if df_prepared.empty:
-        return pipeline_failure(
-            PipelineReasonCode.PREPARED_FRAME_EMPTY,
-            context={
-                "missing_summary": getattr(missing_result, "summary", None),
-                "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
-            },
-        )
-    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
-    df_original = df_prepared.copy()
-    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
-    value_cols_all = [c for c in df_prepared.columns if c != date_col]
+    if isinstance(preprocess_stage, PipelineResult):
+        return preprocess_stage
 
-    if not initial_value_cols or not value_cols_all:
-        reason = (
-            PipelineReasonCode.NO_VALUE_COLUMNS
-            if not initial_value_cols
-            else PipelineReasonCode.INSUFFICIENT_COLUMNS
-        )
-        return pipeline_failure(
-            reason,
-            context={
-                "stage": "post-prep-column-check",
-                "initial_value_cols": len(initial_value_cols),
-                "post_probe_value_cols": len(value_cols_all),
-            },
-        )
-
-    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
-        df = pd.DataFrame(df_original)
-    else:
-        df = df_original
-    if prepared_attrs:
-        df.attrs = prepared_attrs
-
-    if df.empty or df.shape[1] <= 1:
-        return pipeline_failure(
-            PipelineReasonCode.INSUFFICIENT_COLUMNS,
-            context={"columns": df.shape[1], "rows": df.shape[0]},
-        )
-
-    freq_code = freq_summary.code
-    missing_meta = missing_result
-
-    frequency_payload = {
-        "code": freq_summary.code,
-        "label": freq_summary.label,
-        "target": freq_summary.target,
-        "target_label": freq_summary.target_label,
-        "resampled": freq_summary.resampled,
-    }
-    periods_per_year = periods_per_year_override or periods_per_year_from_code(
-        freq_summary.target
+    window_stage = _build_sample_windows(
+        preprocess_stage,
+        in_start=in_start,
+        in_end=in_end,
+        out_start=out_start,
+        out_end=out_end,
     )
-    missing_payload = {
-        "policy": missing_result.default_policy,
-        "policy_map": missing_result.policy,
-        "limit": missing_result.default_limit,
-        "limit_map": missing_result.limit,
-        "dropped_assets": list(missing_result.dropped_assets),
-        "filled_assets": {asset: count for asset, count in missing_result.filled_cells},
-        "total_filled": missing_result.total_filled,
-    }
+    if isinstance(window_stage, PipelineResult):
+        return window_stage
 
-    preprocess_info = {
-        "input_frequency": frequency_payload["code"],
-        "input_frequency_details": frequency_payload,
-        "resampled_to_monthly": normalised,
-        "missing": missing_meta,
-        "missing_data_policy": missing_payload,
-    }
-    preprocess_info["summary"] = _preprocessing_summary(
-        freq_code,
-        normalised=normalised,
-        missing_summary=missing_meta.summary,
-    )
-    preprocess_info["calendar_alignment"] = alignment_info
-
-    def _is_month_label(label: str) -> bool:
-        text = str(label).strip()
-        return len(text) == 7 and text.count("-") == 1
-
-    def _resolve_bound(label: str, *, bound: str) -> pd.Timestamp:
-        text = str(label).strip()
-        if not text:
-            raise ValueError("Period label must be non-empty")
-        try:
-            if _is_month_label(text):
-                period = pd.Period(text, freq="M")
-                ts = period.start_time if bound == "start" else period.end_time
-            else:
-                ts = pd.to_datetime(text)
-        except Exception as exc:  # pragma: no cover - defensive
-            msg = f"Failed to parse period label '{label}': {exc}"
-            raise ValueError(msg) from exc
-        return pd.Timestamp(ts).normalize()
-
-    in_sdate = _resolve_bound(in_start, bound="start")
-    in_edate = _resolve_bound(in_end, bound="end")
-    out_sdate = _resolve_bound(out_start, bound="start")
-    out_edate = _resolve_bound(out_end, bound="end")
-
-    in_df = df[(df[date_col] >= in_sdate) & (df[date_col] <= in_edate)].set_index(
-        date_col
-    )
-    out_df = df[(df[date_col] >= out_sdate) & (df[date_col] <= out_edate)].set_index(
-        date_col
-    )
-
-    if in_df.empty or out_df.empty:
-        return pipeline_failure(
-            PipelineReasonCode.SAMPLE_WINDOW_EMPTY,
-            context={
-                "in_rows": int(in_df.shape[0]),
-                "out_rows": int(out_df.shape[0]),
-            },
-        )
-
-    if indices_list is None:
-        indices_list = []
-
-    rf_col: str
-    fund_cols: list[str]
-    rf_source: str
-    rf_col, fund_cols, rf_source = _resolve_risk_free_column(
-        df,
-        date_col=date_col,
+    selection_stage = _select_universe(
+        preprocess_stage,
+        window_stage,
+        in_label=in_start,
+        in_end_label=in_end,
+        selection_mode=selection_mode,
+        random_n=random_n,
+        custom_weights=custom_weights,
+        rank_kwargs=rank_kwargs,
+        manual_funds=manual_funds,
         indices_list=indices_list,
+        seed=seed,
+        stats_cfg=stats_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
+    if isinstance(selection_stage, PipelineResult):
+        return selection_stage
 
-    # determine which index columns have complete data
-    valid_indices: list[str] = []
-    if indices_list:
-        idx_in_ok = ~in_df[indices_list].isna().any()  # pragma: no cover
-        idx_out_ok = ~out_df[indices_list].isna().any()  # pragma: no cover
-        valid_indices = [
-            c for c in indices_list if idx_in_ok[c] and idx_out_ok[c]
-        ]  # pragma: no cover
-
-    # keep only funds that satisfy missing-data policy in both windows
-    # default is strict completeness; optionally allow small gaps if
-    # stats_cfg carries an `na_as_zero_cfg` with tolerances.
-    def _max_consecutive_nans(s: pd.Series) -> int:
-        is_na = s.isna().astype(int)
-        # count consecutive runs
-        runs = is_na.groupby((is_na != is_na.shift()).cumsum()).cumsum() * is_na
-        return int(runs.max() if not runs.empty else 0)
-
-    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None)
-    if na_cfg and bool(na_cfg.get("enabled", False)):
-        max_missing = int(na_cfg.get("max_missing_per_window", 0))
-        max_gap = int(na_cfg.get("max_consecutive_gap", 0))
-
-        def _ok_window(window: pd.DataFrame, col: str) -> bool:
-            s = window[col]
-            missing = int(s.isna().sum())
-            if missing == 0:
-                return True
-            if missing > max_missing:
-                return False
-            return _max_consecutive_nans(s) <= max_gap
-
-        fund_cols = [
-            c for c in fund_cols if _ok_window(in_df, c) and _ok_window(out_df, c)
-        ]
-    else:
-        in_ok = ~in_df[fund_cols].isna().any()
-        out_ok = ~out_df[fund_cols].isna().any()
-        fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
-
-    if stats_cfg is None:
-        stats_cfg = RiskStatsConfig(risk_free=0.0)
-
-    risk_free_override = in_df[rf_col]
-
-    if selection_mode == "random" and len(fund_cols) > random_n:
-        rng = np.random.default_rng(seed)
-        fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
-    elif selection_mode == "rank":
-        mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
-        sub = df.loc[mask, fund_cols]
-        window_key = None
-        bundle = None
-        if stats_cfg is not None and fund_cols:
-            try:
-                window_key = make_window_key(in_start, in_end, sub.columns, stats_cfg)
-            except Exception:  # pragma: no cover - defensive
-                window_key = None
-        if window_key is not None:
-            bundle = get_window_metric_bundle(window_key)
-        rank_options: dict[str, Any] = dict(rank_kwargs or {})
-        rank_options.setdefault("window_key", window_key)
-        rank_options.setdefault("bundle", bundle)
-        fund_cols = rank_select_funds(
-            sub,
-            stats_cfg,
-            **rank_options,
-            risk_free=risk_free_override,
-        )
-    elif selection_mode == "manual":
-        if manual_funds:  # pragma: no cover - rarely hit
-            fund_cols = [c for c in fund_cols if c in manual_funds]
-        else:
-            fund_cols = []  # pragma: no cover
-
-    if not fund_cols:
-        return pipeline_failure(
-            PipelineReasonCode.NO_FUNDS_SELECTED,
-            context={
-                "selection_mode": selection_mode,
-                "universe_size": len(value_cols_all),
-            },
-        )
-    score_frame = single_period_run(
-        df[[date_col] + fund_cols],
-        in_start,
-        in_end,
-        stats_cfg=stats_cfg,
-        risk_free=in_df[rf_col],
+    stats_cfg_obj = stats_cfg or RiskStatsConfig(risk_free=0.0)
+    computation_stage = _compute_weights_and_stats(
+        preprocess_stage,
+        window_stage,
+        selection_stage,
+        target_vol=target_vol,
+        monthly_cost=monthly_cost,
+        custom_weights=custom_weights,
+        weighting_scheme=weighting_scheme,
+        constraints=constraints,
+        risk_window=risk_window,
+        previous_weights=previous_weights,
+        lambda_tc=lambda_tc,
+        max_turnover=max_turnover,
+        signal_spec=signal_spec,
+        weight_policy=weight_policy,
+        warmup=preprocess_stage.warmup,
+        min_floor=preprocess_stage.min_floor,
+        stats_cfg=stats_cfg_obj,
     )
 
-    weight_engine_fallback: dict[str, str] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
-        try:
-            from .plugins import create_weight_engine
-
-            cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            logger.debug(
-                "Successfully created %s weight engine",
-                weighting_scheme,
-                extra={"weight_engine": weighting_scheme},
-            )
-        except Exception as e:  # pragma: no cover - exercised via tests
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
-            )
-            logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
-            weight_engine_fallback = {
-                "engine": str(weighting_scheme),
-                "error_type": type(e).__name__,
-                "error": str(e),
-                "logger_level": logging.getLevelName(logger.getEffectiveLevel()),
-            }
-            custom_weights = None
-
-    if custom_weights is None:
-        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-
-    base_series = pd.Series(
-        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
-        dtype=float,
-    )
-    if float(base_series.sum()) <= 0:
-        base_series = pd.Series(
-            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
-            index=fund_cols,
-            dtype=float,
-        )
-
-    constraints_cfg = constraints or {}
-    if not isinstance(constraints_cfg, Mapping):
-        constraints_cfg = {}
-    long_only = bool(constraints_cfg.get("long_only", True))
-    raw_max_weight = constraints_cfg.get("max_weight")
-    try:
-        max_weight_val = float(raw_max_weight) if raw_max_weight is not None else None
-    except (TypeError, ValueError):
-        max_weight_val = None
-    raw_group_caps = constraints_cfg.get("group_caps")
-    group_caps_map = (
-        {str(k): float(v) for k, v in raw_group_caps.items()}
-        if isinstance(raw_group_caps, Mapping)
-        else None
-    )
-    raw_groups = constraints_cfg.get("groups")
-    groups_map = (
-        {str(k): str(v) for k, v in raw_groups.items()}
-        if isinstance(raw_groups, Mapping)
-        else None
-    )
-
-    window_cfg = dict(risk_window or {})
-    try:
-        window_length = int(window_cfg.get("length", len(in_df)))
-    except (TypeError, ValueError):
-        window_length = len(in_df)
-    if window_length <= 0:
-        window_length = max(len(in_df), 1)
-    decay_mode = str(window_cfg.get("decay", "simple"))
-    lambda_value = window_cfg.get("lambda", window_cfg.get("ewma_lambda", 0.94))
-    try:
-        ewma_lambda = float(lambda_value)
-    except (TypeError, ValueError):
-        ewma_lambda = 0.94
-    window_spec = RiskWindow(
-        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
-    )
-
-    turnover_cap = None
-    if max_turnover is not None:
-        try:
-            mt = float(max_turnover)
-        except (TypeError, ValueError):
-            mt = None
-        if mt is not None and mt > 0:
-            turnover_cap = mt
-
-    risk_diagnostics: RiskDiagnostics
-
-    effective_signal_spec = signal_spec or TrendSpec(
-        window=window_spec.length,
-        min_periods=None,
-        lag=1,
-        vol_adjust=False,
-        vol_target=None,
-        zscore=False,
-    )
-    signal_source = df_original
-    signal_inputs = (
-        signal_source.set_index(date_col)[fund_cols].astype(float)
-        if fund_cols
-        else pd.DataFrame(dtype=float)
-    )
-    if not signal_inputs.empty:
-        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
-    else:
-        signal_frame = pd.DataFrame(dtype=float)
-
-    try:
-        weights_series, risk_diagnostics = compute_constrained_weights(
-            base_series,
-            in_df[fund_cols],
-            window=window_spec,
-            target_vol=target_vol,
-            periods_per_year=periods_per_year,
-            floor_vol=min_floor if min_floor > 0 else None,
-            long_only=long_only,
-            max_weight=max_weight_val,
-            previous_weights=previous_weights,
-            lambda_tc=lambda_tc,
-            max_turnover=turnover_cap,
-            group_caps=group_caps_map,
-            groups=groups_map,
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.warning(
-            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
-        )
-        weights_series = base_series.copy()
-        asset_vol = realised_volatility(
-            in_df[fund_cols], window_spec, periods_per_year=periods_per_year
-        )
-        latest_vol = asset_vol.iloc[-1].reindex(fund_cols)
-        latest_vol = latest_vol.ffill().bfill()
-        positive = latest_vol[latest_vol > 0]
-        fallback_vol = float(positive.min()) if not positive.empty else 1.0
-        latest_vol = latest_vol.fillna(fallback_vol)
-        if min_floor > 0:
-            latest_vol = latest_vol.clip(lower=min_floor)
-        scale_factors = (
-            pd.Series(target_vol, index=fund_cols, dtype=float)
-            .div(latest_vol)
-            .replace([np.inf, -np.inf], 0.0)
-            .fillna(0.0)
-        )
-        scaled_returns = in_df[fund_cols].mul(scale_factors, axis=1)
-        portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
-        portfolio_vol = realised_volatility(
-            portfolio_returns.to_frame("portfolio"),
-            window_spec,
-            periods_per_year=periods_per_year,
-        )["portfolio"]
-        risk_diagnostics = RiskDiagnostics(
-            asset_volatility=asset_vol,
-            portfolio_volatility=portfolio_vol,
-            turnover=pd.Series(dtype=float, name="turnover"),
-            turnover_value=float("nan"),
-            scale_factors=scale_factors,
-        )
-
-    policy_cfg = dict(weight_policy or {})
-    policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
-    min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
-
-    signal_snapshot: pd.Series | None = None
-    if not signal_frame.empty:
-        try:
-            target_index = (
-                out_df.index[0] if len(out_df.index) else signal_frame.index[-1]
-            )
-            aligned = signal_frame.reindex(columns=fund_cols)
-            if target_index in aligned.index:
-                signal_snapshot = aligned.loc[target_index]
-            elif not aligned.empty:
-                signal_snapshot = aligned.iloc[-1]
-        except Exception:  # pragma: no cover - defensive
-            signal_snapshot = None
-
-    weights_series = (
-        apply_weight_policy(
-            weights_series,
-            signal_snapshot,
-            mode=policy_mode,
-            min_assets=min_assets_policy,
-            previous=previous_weights,
-        )
-        .reindex(fund_cols)
-        .fillna(0.0)
-    )
-    scale_factors = risk_diagnostics.scale_factors.reindex(fund_cols).fillna(0.0)
-
-    in_scaled = in_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
-    out_scaled = out_df[fund_cols].mul(scale_factors, axis=1) - monthly_cost
-    in_scaled = in_scaled.clip(lower=-1.0)
-    out_scaled = out_scaled.clip(lower=-1.0)
-
-    if warmup > 0:
-        warmup_in = min(warmup, len(in_scaled))
-        warmup_out = min(warmup, len(out_scaled))
-        if warmup_in:
-            in_scaled.iloc[:warmup_in] = 0.0
-        if warmup_out:
-            out_scaled.iloc[:warmup_out] = 0.0
-
-    in_scaled = in_scaled.fillna(0.0)
-    out_scaled = out_scaled.fillna(0.0)
-
-    rf_in = in_df[rf_col]
-    rf_out = out_df[rf_col]
-
-    want_avg_corr = False
-    try:
-        reg = getattr(stats_cfg, "metrics_to_run", []) or []
-        want_avg_corr = "AvgCorr" in reg
-    except Exception:  # pragma: no cover - defensive
-        want_avg_corr = False
-
-    is_avg_corr: dict[str, float] | None = None
-    os_avg_corr: dict[str, float] | None = None
-    if want_avg_corr and len(fund_cols) > 1:
-        try:
-            corr_in = in_scaled[fund_cols].corr()
-            corr_out = out_scaled[fund_cols].corr()
-            n_f = len(fund_cols)
-            is_avg_corr = {}
-            os_avg_corr = {}
-            denominator = float(n_f - 1) if n_f > 1 else 1.0
-            for f in fund_cols:
-                in_sum = cast(float, corr_in.loc[f].sum())
-                out_sum = cast(float, corr_out.loc[f].sum())
-                in_val = (in_sum - 1.0) / denominator
-                out_val = (out_sum - 1.0) / denominator
-                is_avg_corr[f] = float(in_val)
-                os_avg_corr[f] = float(out_val)
-        except Exception:  # pragma: no cover - defensive
-            is_avg_corr = None
-            os_avg_corr = None
-
-    in_stats = _compute_stats(
-        in_scaled,
-        rf_in,
-        in_sample_avg_corr=is_avg_corr,
-        out_sample_avg_corr=None,
-    )
-    out_stats = _compute_stats(
-        out_scaled,
-        rf_out,
-        in_sample_avg_corr=None,
-        out_sample_avg_corr=os_avg_corr,
-    )
-    out_stats_raw = _compute_stats(
-        out_df[fund_cols],
-        rf_out,
-        in_sample_avg_corr=None,
-        out_sample_avg_corr=os_avg_corr,
-    )
-
-    ew_weights = np.repeat(1.0 / len(fund_cols), len(fund_cols))
-    ew_w_dict = {c: w for c, w in zip(fund_cols, ew_weights)}
-    in_ew = calc_portfolio_returns(ew_weights, in_scaled)
-    out_ew = calc_portfolio_returns(ew_weights, out_scaled)
-    out_ew_raw = calc_portfolio_returns(ew_weights, out_df[fund_cols])
-
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": in_ew}), rf_in)["ew"]
-    out_ew_stats = _compute_stats(pd.DataFrame({"ew": out_ew}), rf_out)["ew"]
-    out_ew_stats_raw = _compute_stats(pd.DataFrame({"ew": out_ew_raw}), rf_out)["ew"]
-
-    user_w = weights_series.to_numpy(dtype=float, copy=False)
-    user_w_dict = {c: float(weights_series[c]) for c in fund_cols}
-
-    in_user = calc_portfolio_returns(user_w, in_scaled)
-    out_user = calc_portfolio_returns(user_w, out_scaled)
-    out_user_raw = calc_portfolio_returns(user_w, out_df[fund_cols])
-
-    in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
-    out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
-    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
-        "user"
-    ]
-
-    benchmark_stats: dict[str, dict[str, _Stats]] = {}
-    benchmark_ir: dict[str, dict[str, float]] = {}
-    all_benchmarks: dict[str, str] = {}
-    if benchmarks:
-        all_benchmarks.update(benchmarks)
-    for idx in valid_indices:
-        if idx not in all_benchmarks:
-            all_benchmarks[idx] = idx
-
-    risk_payload = {
-        "asset_volatility": risk_diagnostics.asset_volatility,
-        "portfolio_volatility": risk_diagnostics.portfolio_volatility,
-        "turnover": risk_diagnostics.turnover,
-        "turnover_value": risk_diagnostics.turnover_value,
-        "scale_factors": scale_factors,
-        "final_weights": weights_series,
-    }
-
-    for label, col in all_benchmarks.items():
-        if col not in in_df.columns or col not in out_df.columns:
-            continue
-        benchmark_stats[label] = {
-            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), rf_in)[
-                label
-            ],
-            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), rf_out)[
-                label
-            ],
-        }
-        ir_series = information_ratio(out_scaled[fund_cols], out_df[col])
-        ir_dict = (
-            ir_series.to_dict()
-            if isinstance(ir_series, pd.Series)
-            else {fund_cols[0]: float(ir_series)}
-        )
-        # Add portfolio-level IR references for context
-        try:
-            ir_eq = information_ratio(out_ew_raw, out_df[col])
-            ir_usr = information_ratio(out_user_raw, out_df[col])
-            # Best effort conversion; skip if not scalar convertible
-            ir_dict["equal_weight"] = (
-                float(ir_eq)
-                if isinstance(ir_eq, (float, int, np.floating))
-                else float("nan")
-            )
-            ir_dict["user_weight"] = (
-                float(ir_usr)
-                if isinstance(ir_usr, (float, int, np.floating))
-                else float("nan")
-            )
-        except Exception:
-            # Leave without portfolio-level IRs if computation fails
-            pass
-        benchmark_ir[label] = ir_dict
-
-    regime_returns_map: dict[str, pd.Series] = {
-        "User": out_user.astype(float, copy=False),
-        "Equal-Weight": out_ew.astype(float, copy=False),
-    }
-    regime_payload = build_regime_payload(
-        data=df,
-        out_index=out_df.index,
-        returns_map=regime_returns_map,
-        risk_free=rf_out,
-        config=regime_cfg,
-        freq_code=freq_summary.target,
-        periods_per_year=periods_per_year,
-    )
-
-    metadata = build_metadata(
-        universe=value_cols_all,
-        selected=fund_cols,
-        lookbacks={
-            "in_start": in_start,
-            "in_end": in_end,
-            "out_start": out_start,
-            "out_end": out_end,
-        },
-        costs={
-            "monthly_cost": monthly_cost,
-            "target_vol": target_vol,
-            "floor_vol": min_floor if min_floor > 0 else None,
-            "max_turnover": turnover_cap,
-        },
-    )
-    metadata["frequency"] = frequency_payload
-    metadata["missing_data"] = missing_payload
-    metadata["risk_free_column"] = rf_col
-
-    return pipeline_success(
-        {
-            "selected_funds": fund_cols,
-            "risk_free_column": rf_col,
-            "risk_free_source": rf_source,
-            "in_sample_scaled": in_scaled,
-            "out_sample_scaled": out_scaled,
-            "in_sample_stats": in_stats,
-            "out_sample_stats": out_stats,
-            "out_sample_stats_raw": out_stats_raw,
-            "in_ew_stats": in_ew_stats,
-            "out_ew_stats": out_ew_stats,
-            "out_ew_stats_raw": out_ew_stats_raw,
-            "in_user_stats": in_user_stats,
-            "out_user_stats": out_user_stats,
-            "out_user_stats_raw": out_user_stats_raw,
-            "ew_weights": ew_w_dict,
-            "fund_weights": user_w_dict,
-            "benchmark_stats": benchmark_stats,
-            "benchmark_ir": benchmark_ir,
-            "score_frame": score_frame,
-            "weight_engine_fallback": weight_engine_fallback,
-            "preprocessing": preprocess_info,
-            "preprocessing_summary": preprocess_info.get("summary"),
-            "risk_diagnostics": risk_payload,
-            "signal_frame": signal_frame,
-            "signal_spec": effective_signal_spec,
-            "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
-            "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
-            "regime_labels_out": regime_payload.get(
-                "out_labels", pd.Series(dtype="string")
-            ),
-            "regime_notes": regime_payload.get("notes", []),
-            "regime_settings": regime_payload.get("settings", {}),
-            "regime_summary": regime_payload.get("summary"),
-            "metadata": metadata,
-        }
+    return _assemble_analysis_output(
+        preprocess_stage,
+        window_stage,
+        selection_stage,
+        computation_stage,
+        benchmarks=benchmarks,
+        regime_cfg=regime_cfg,
+        target_vol=target_vol,
+        monthly_cost=monthly_cost,
+        min_floor=preprocess_stage.min_floor,
     )
 
 
@@ -1404,6 +1709,7 @@ def _run_analysis(
     allow_risk_free_fallback: bool | None = None,
 ) -> AnalysisResult | None:
     """Backward-compatible wrapper returning raw payloads for tests."""
+
     result = _run_analysis_with_diagnostics(
         df,
         in_start,
