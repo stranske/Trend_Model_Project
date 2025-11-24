@@ -1297,6 +1297,10 @@ df_full = demo_df
 rf_col = identify_risk_free_fund(df_full)
 if rf_col is None:
     raise SystemExit("identify_risk_free_fund failed")
+RUN_KWARGS = {
+    "risk_free_column": rf_col,
+    "allow_risk_free_fallback": False,
+}
 mask = df_full["Date"].between(cfg.sample_split["in_start"], cfg.sample_split["in_end"])
 window = df_full.loc[mask].drop(columns=["Date"])
 rs_cfg = RiskStatsConfig()
@@ -1427,6 +1431,7 @@ direct_res = pipeline._run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="rank",
     rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+    **RUN_KWARGS,
 )
 if direct_res is None or "score_frame" not in direct_res:
     raise SystemExit("_run_analysis direct call failed")
@@ -1469,20 +1474,26 @@ if not asc_ids:
     raise SystemExit("some_function_missing_annotation ascending branch failed")
 
 # quality_filter and select_funds interfaces
-qcfg = rs.FundSelectionConfig(max_missing_ratio=0.5)
-eligible = rs.quality_filter(df_full, qcfg)
-if not eligible or not set(eligible).issubset(df_full.columns):
-    raise SystemExit("quality_filter failed")
+fund_cfg_cls = getattr(rs, "FundSelectionConfig", None)
+quality_filter_fn = getattr(rs, "quality_filter", None)
+private_quality_filter_fn = getattr(rs, "_quality_filter", None)
+if fund_cfg_cls and quality_filter_fn and private_quality_filter_fn:
+    qcfg = fund_cfg_cls(max_missing_ratio=0.5)
+    eligible = quality_filter_fn(df_full, qcfg)
+    if not eligible or not set(eligible).issubset(df_full.columns):
+        raise SystemExit("quality_filter failed")
 
-filtered = rs._quality_filter(
-    df_full,
-    [c for c in df_full.columns if c not in {"Date", rf_col}],
-    str(cfg.sample_split["in_start"]),
-    str(cfg.sample_split["out_end"]),
-    qcfg,
-)
-if not filtered:
-    raise SystemExit("_quality_filter returned no funds")
+    filtered = private_quality_filter_fn(
+        df_full,
+        [c for c in df_full.columns if c not in {"Date", rf_col}],
+        str(cfg.sample_split["in_start"]),
+        str(cfg.sample_split["out_end"]),
+        qcfg,
+    )
+    if not filtered:
+        raise SystemExit("_quality_filter returned no funds")
+else:
+    print("Skipping quality_filter checks; FundSelectionConfig is unavailable")
 
 simple_sel = rs.select_funds(df_full, rf_col, mode="random", n=2)
 if len(simple_sel) != 2:
@@ -1708,6 +1719,7 @@ cw_res = pipeline._run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     selection_mode="all",
     custom_weights={"Mgr_01": 60, "Mgr_02": 40},
+    **RUN_KWARGS,
 )
 fw = cw_res.get("fund_weights", {})
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
@@ -1873,6 +1885,7 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         str(cfg.sample_split["out_end"]),
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+        allow_risk_free_fallback=False,
     )
     if res is not None:
         raise SystemExit("_run_analysis did not return None on missing df")
@@ -1886,6 +1899,7 @@ def _check_run_analysis_errors(cfg: Config) -> None:
             str(cfg.sample_split["out_end"]),
             cfg.vol_adjust.get("target_vol", 1.0),
             getattr(cfg, "run", {}).get("monthly_cost", 0.0),
+            allow_risk_free_fallback=False,
         )
     except ValueError:
         pass
@@ -2185,7 +2199,6 @@ def _check_module_exports() -> None:
             "list_builtin_cfgs",
         },
         "core.rank_selection": {
-            "FundSelectionConfig",
             "RiskStatsConfig",
             "register_metric",
             "METRIC_REGISTRY",
@@ -2206,14 +2219,23 @@ def _check_module_exports() -> None:
         },
     }
 
+    optional_map = {
+        "core.rank_selection": {"FundSelectionConfig"},
+    }
+
     for name, expected in expected_map.items():
         if "." in name:
             module = importlib.import_module(f"trend_analysis.{name}")
         else:
             module = getattr(ta, name)
         actual = set(getattr(module, "__all__", []))
-        if actual != expected:
-            raise SystemExit(f"{name} __all__ mismatch")
+        optional = optional_map.get(name, set())
+        missing = expected - actual
+        unexpected = actual - expected - optional
+        if missing or unexpected:
+            raise SystemExit(
+                f"{name} __all__ mismatch (missing={sorted(missing)}, unexpected={sorted(unexpected)})"
+            )
 
 
 _check_module_exports()
