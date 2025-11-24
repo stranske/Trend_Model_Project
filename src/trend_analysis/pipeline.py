@@ -12,6 +12,8 @@ from numpy.typing import NDArray
 from analysis.results import build_metadata
 from trend.diagnostics import DiagnosticResult
 
+from .diagnostics import PipelineReasonCode, PipelineResult, pipeline_failure
+
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -479,9 +481,7 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
-        fallback_enabled = (
-            allow_risk_free_fallback is True or allow_risk_free_fallback is None
-        )
+        fallback_enabled = allow_risk_free_fallback is True
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
@@ -529,7 +529,7 @@ def single_period_run(
         and carries ``insample_len`` and ``period`` metadata so callers
         can reason about the analysed window.
     """
-    from .core.rank_selection import RiskStatsConfig, _compute_metric_series
+    from .core.rank_selection import RiskStatsConfig, _call_metric_series
 
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig()
@@ -551,9 +551,13 @@ def single_period_run(
     if not metrics:
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
+    in_sample = window.dropna(axis=1, how="all")
     parts = [
-        _compute_metric_series(
-            window.dropna(axis=1, how="all"), m, stats_cfg, risk_free_override=risk_free
+        _call_metric_series(
+            in_sample,
+            m,
+            stats_cfg,
+            risk_free_override=risk_free,
         )
         for m in metrics
     ]
@@ -573,7 +577,7 @@ def single_period_run(
             from .core.rank_selection import compute_metric_series_with_cache
 
             avg_corr_series = compute_metric_series_with_cache(
-                window.dropna(axis=1, how="all"),
+                in_sample,
                 "AvgCorr",
                 stats_cfg,
                 risk_free_override=risk_free,
@@ -643,8 +647,8 @@ def _run_analysis_with_diagnostics(
     regime_cfg: Mapping[str, Any] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
+    allow_risk_free_fallback: bool | None = True,
+) -> PipelineResult | dict[str, object] | None:
     if df is None:
         return pipeline_failure(PipelineReasonCode.INPUT_NONE)
 
@@ -1041,14 +1045,17 @@ def _run_analysis_with_diagnostics(
 
     risk_diagnostics: RiskDiagnostics
 
-    effective_signal_spec = signal_spec or TrendSpec(
-        window=window_spec.length,
-        min_periods=None,
-        lag=1,
-        vol_adjust=False,
-        vol_target=None,
-        zscore=False,
-    )
+    if isinstance(signal_spec, TrendSpec):
+        effective_signal_spec = signal_spec
+    else:
+        effective_signal_spec = TrendSpec(
+            window=window_spec.length,
+            min_periods=None,
+            lag=1,
+            vol_adjust=False,
+            vol_target=None,
+            zscore=False,
+        )
     signal_source = df_original
     signal_inputs = (
         signal_source.set_index(date_col)[fund_cols].astype(float)
@@ -1359,6 +1366,103 @@ def _run_analysis_with_diagnostics(
     }
 
 
+def _run_analysis(
+    df: pd.DataFrame,
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+    target_vol: float,
+    monthly_cost: float,
+    *,
+    floor_vol: float | None = None,
+    warmup_periods: int = 0,
+    selection_mode: str = "all",
+    random_n: int = 8,
+    custom_weights: dict[str, float] | None = None,
+    rank_kwargs: Mapping[str, Any] | None = None,
+    manual_funds: list[str] | None = None,
+    indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
+    seed: int = 42,
+    stats_cfg: RiskStatsConfig | None = None,
+    weighting_scheme: str | None = None,
+    constraints: dict[str, Any] | None = None,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
+    risk_window: Mapping[str, Any] | None = None,
+    periods_per_year_override: float | None = None,
+    previous_weights: Mapping[str, float] | None = None,
+    lambda_tc: float | None = None,
+    max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
+    regime_cfg: Mapping[str, Any] | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
+    risk_free_column: str | None = None,
+    allow_risk_free_fallback: bool | None = True,
+) -> PipelineResult | dict[str, object] | None:
+    """Compatibility shim that exposes the legacy private entry point."""
+    result = _run_analysis_with_diagnostics(
+        df,
+        in_start,
+        in_end,
+        out_start,
+        out_end,
+        target_vol,
+        monthly_cost,
+        floor_vol=floor_vol,
+        warmup_periods=warmup_periods,
+        selection_mode=selection_mode,
+        random_n=random_n,
+        custom_weights=custom_weights,
+        rank_kwargs=rank_kwargs,
+        manual_funds=manual_funds,
+        indices_list=indices_list,
+        benchmarks=benchmarks,
+        seed=seed,
+        stats_cfg=stats_cfg,
+        weighting_scheme=weighting_scheme,
+        constraints=constraints,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+        risk_window=risk_window,
+        periods_per_year_override=periods_per_year_override,
+        previous_weights=previous_weights,
+        lambda_tc=lambda_tc,
+        max_turnover=max_turnover,
+        signal_spec=signal_spec,
+        regime_cfg=regime_cfg,
+        weight_policy=weight_policy,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
+    )
+    if isinstance(result, DiagnosticResult):
+        return result.value
+    return result
+
+
+_ORIGINAL_RUN_ANALYSIS = _run_analysis
+
+
+def _invoke_analysis_with_diag(
+    *args: Any, **kwargs: Any
+) -> PipelineResult:  # pragma: no cover - thin adapter
+    """Execute the pipeline and always return a DiagnosticResult wrapper."""
+    run_fn = _run_analysis
+    # When callers monkeypatch ``_run_analysis`` we prefer their stub so tests
+    # remain compatible. Compare by identity to detect overrides.
+    if run_fn is not _ORIGINAL_RUN_ANALYSIS:
+        result = run_fn(*args, **kwargs)
+        if isinstance(result, DiagnosticResult):
+            return result
+        return DiagnosticResult(value=result, diagnostic=None)
+
+    result = _run_analysis_with_diagnostics(*args, **kwargs)
+    if isinstance(result, DiagnosticResult):
+        return result
+    return DiagnosticResult(value=result, diagnostic=None)
+
+
 def run_analysis(
     df: pd.DataFrame,
     in_start: str,
@@ -1395,8 +1499,8 @@ def run_analysis(
     holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
-    allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
+    allow_risk_free_fallback: bool | None = True,
+) -> PipelineResult | dict[str, object] | None:
     """Backward-compatible wrapper around ``_run_analysis``."""
     if any(
         value is not None
@@ -1512,7 +1616,9 @@ def run(cfg: Config) -> pd.DataFrame:
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
+    allow_risk_free_fallback = bool(
+        _section_get(data_settings, "allow_risk_free_fallback", True)
+    )
 
     diag_res = _invoke_analysis_with_diag(
         df,
@@ -1631,7 +1737,9 @@ def run_full(cfg: Config) -> dict[str, object]:
     trend_spec = _build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = _section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column = _section_get(data_settings, "risk_free_column")
-    allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
+    allow_risk_free_fallback = bool(
+        _section_get(data_settings, "allow_risk_free_fallback", True)
+    )
 
     diag_res = _invoke_analysis_with_diag(
         df,

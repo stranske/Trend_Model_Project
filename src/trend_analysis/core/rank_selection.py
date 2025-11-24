@@ -12,11 +12,13 @@ by metrics registered in `METRIC_REGISTRY`. Metrics listed in
 from __future__ import annotations
 
 import hashlib
+import inspect
 import io
 import json
 import re
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, cast
 
 import ipywidgets as widgets
@@ -452,7 +454,7 @@ def rank_select_funds(
                 incremental_cov=incremental_cov,
             ).copy()
         else:
-            scores = _compute_metric_series(
+            scores = _call_metric_series(
                 df, metric_name, cfg, risk_free_override=risk_free
             )
 
@@ -736,6 +738,42 @@ def _compute_metric_series(
         _METRIC_CONTEXT.reset(token)
 
 
+@lru_cache(maxsize=None)
+def _metric_fn_accepts_risk_free_override(func: Callable[..., Any]) -> bool:
+    """Return True if *func* accepts ``risk_free_override`` keyword."""
+
+    try:
+        return "risk_free_override" in inspect.signature(func).parameters
+    except (ValueError, TypeError):  # pragma: no cover - defensive
+        return False
+
+
+def _call_metric_series(
+    in_sample_df: pd.DataFrame,
+    metric_name: str,
+    stats_cfg: RiskStatsConfig,
+    *,
+    risk_free_override: float | pd.Series | None = None,
+) -> pd.Series:
+    """Invoke :func:`_compute_metric_series` with optional RF override.
+
+    Tests frequently monkeypatch ``_compute_metric_series`` with simplified
+    stand-ins that do not accept ``risk_free_override``.  This helper inspects
+    the active callable at runtime and only forwards the override when it is
+    supported, preserving backwards compatibility.
+    """
+
+    fn = _compute_metric_series
+    if risk_free_override is not None and _metric_fn_accepts_risk_free_override(fn):
+        return fn(
+            in_sample_df,
+            metric_name,
+            stats_cfg,
+            risk_free_override=risk_free_override,
+        )
+    return fn(in_sample_df, metric_name, stats_cfg)
+
+
 def _ensure_cov_payload(
     in_sample_df: pd.DataFrame, bundle: WindowMetricBundle | None
 ) -> "CovPayload":
@@ -797,7 +835,7 @@ def compute_metric_series_with_cache(
     path without altering existing registry semantics.
     """
     if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _compute_metric_series(
+        return _call_metric_series(
             in_sample_df,
             metric_name,
             stats_cfg,
@@ -891,14 +929,11 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
-            metric_kwargs: dict[str, Any] = {}
-            if risk_free_override is not None:
-                metric_kwargs["risk_free_override"] = risk_free_override
-            raw = _compute_metric_series(
+            raw = _call_metric_series(
                 in_sample_df,
                 metric,
                 stats_cfg,
-                **metric_kwargs,
+                risk_free_override=risk_free_override,
             )
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score
@@ -1323,6 +1358,7 @@ __all__ = [
     "selector_cache_hits",
     "selector_cache_misses",
     "blended_score",
+    "_call_metric_series",
     "compute_metric_series_with_cache",
     "rank_select_funds",
     "selector_cache_stats",

@@ -29,7 +29,9 @@ from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
-from ..pipeline import _run_analysis
+from trend.diagnostics import DiagnosticResult
+
+from ..pipeline import _run_analysis as _pipeline_run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -57,6 +59,20 @@ SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
 
 logger = logging.getLogger(__name__)
+
+# Backwards compatible alias so tests can monkeypatch ``engine._run_analysis``.
+_run_analysis = _pipeline_run_analysis
+
+
+def _call_pipeline_with_diag(
+    *args: Any, **kwargs: Any
+) -> DiagnosticResult[dict[str, object]]:
+    """Invoke the single-period pipeline and always return a DiagnosticResult."""
+
+    result = _run_analysis(*args, **kwargs)
+    if isinstance(result, DiagnosticResult):
+        return result
+    return DiagnosticResult(value=result, diagnostic=None)
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
@@ -585,7 +601,7 @@ def run(
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
     risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
-    allow_risk_free_fallback = data_settings.get("allow_risk_free_fallback")
+    allow_risk_free_fallback = bool(data_settings.get("allow_risk_free_fallback"))
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -700,7 +716,7 @@ def run(
         prev_in_df = None
 
         for pt in periods:
-            res = _run_analysis(
+            diag_res = _call_pipeline_with_diag(
                 df,
                 pt.in_start[:7],
                 pt.in_end[:7],
@@ -726,9 +742,12 @@ def run(
                 risk_free_column=risk_free_column,
                 allow_risk_free_fallback=allow_risk_free_fallback,
             )
-            if res is None:
+            res_payload = diag_res.value
+            if res_payload is None:
                 continue
-            res = dict(res)
+            res = dict(res_payload)
+            if diag_res.diagnostic and "diagnostic" not in res:
+                res["diagnostic"] = diag_res.diagnostic
             res["period"] = (
                 pt.in_start,
                 pt.in_end,
@@ -851,7 +870,7 @@ def run(
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
     risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
-    allow_risk_free_fallback = cfg.data.get("allow_risk_free_fallback")
+    allow_risk_free_fallback = bool(cfg.data.get("allow_risk_free_fallback"))
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
@@ -898,9 +917,7 @@ def run(
                 )
             rf_col = configured_rf
         else:
-            fallback_enabled = (
-                allow_risk_free_fallback is True or allow_risk_free_fallback is None
-            )
+            fallback_enabled = allow_risk_free_fallback is True
             if not fallback_enabled:
                 raise ValueError(
                     "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
@@ -1371,7 +1388,7 @@ def run(
             str(k): float(v) * 100.0 for k, v in prev_weights.items()
         }
 
-        res = _run_analysis(
+        diag_res = _call_pipeline_with_diag(
             df,
             pt.in_start[:7],
             pt.in_end[:7],
@@ -1393,9 +1410,12 @@ def run(
             risk_free_column=risk_free_column,
             allow_risk_free_fallback=allow_risk_free_fallback,
         )
-        if res is None:
+        payload = diag_res.value
+        if payload is None:
             continue
-        res = dict(res)
+        res = dict(payload)
+        if diag_res.diagnostic and "diagnostic" not in res:
+            res["diagnostic"] = diag_res.diagnostic
         res["period"] = (
             pt.in_start,
             pt.in_end,
