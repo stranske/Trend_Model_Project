@@ -34,6 +34,9 @@ from trend_analysis.util.missing import MissingPolicyResult
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 class DummyMapping(Mapping[str, Any]):
     """Mapping-like object exposing a ``get`` method with optional default."""
 

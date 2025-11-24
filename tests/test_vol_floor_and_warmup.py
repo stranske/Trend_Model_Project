@@ -9,6 +9,9 @@ from trend_analysis.pipeline import _run_analysis
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def _constant_df(include_nan: bool = False) -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     df = pd.DataFrame(

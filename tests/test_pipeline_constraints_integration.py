@@ -7,6 +7,9 @@ from trend_analysis.pipeline import _run_analysis
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
     dates = pd.date_range("2022-01-31", periods=n_months, freq="ME")
     rng = np.random.default_rng(42)

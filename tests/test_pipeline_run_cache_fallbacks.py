@@ -9,6 +9,9 @@ import trend_analysis.pipeline as pipeline
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 class DummyCache:
     def __init__(self) -> None:
         self.calls: list[tuple[object, ...]] = []

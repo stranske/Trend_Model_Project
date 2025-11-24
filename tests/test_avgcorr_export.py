@@ -10,6 +10,9 @@ from trend_analysis.pipeline import _run_analysis  # type: ignore
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def _make_dataset(tmp_path: Path) -> Path:
     dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     f1_in = np.array([0.01, 0.02, 0.03])
