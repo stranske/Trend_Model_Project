@@ -1642,7 +1642,7 @@ cw_res = pipeline._run_analysis(
     selection_mode="all",
     custom_weights={"Mgr_01": 60, "Mgr_02": 40},
 )
-fw = cw_res.get("fund_weights")
+fw = cw_res.value.get("fund_weights") if cw_res.value else None
 if fw is None:
     diag = cw_res.diagnostic
     if diag is not None:
