@@ -25,12 +25,12 @@ from typing import Any, Dict, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
+from trend.diagnostics import DiagnosticResult
+
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
-from trend.diagnostics import DiagnosticResult
-
 from ..pipeline import _run_analysis as _pipeline_run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
