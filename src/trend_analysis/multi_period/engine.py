@@ -35,6 +35,8 @@ from ..data import identify_risk_free_fund, load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
 from ..pipeline import (
     _invoke_analysis_with_diag,
+)
+from ..pipeline import (
     _run_analysis as _pipeline_run_analysis,
 )
 from ..portfolio import apply_weight_policy

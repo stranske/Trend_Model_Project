@@ -8,7 +8,6 @@ import pytest
 
 from trend_analysis.pipeline import _run_analysis, run_analysis
 
-
 RUN_KWARGS = {"risk_free_column": "Rf", "allow_risk_free_fallback": False}
 
 EXPECTED_IN_SAMPLE_ROWS = 3

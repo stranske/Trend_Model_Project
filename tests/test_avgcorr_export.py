@@ -7,7 +7,6 @@ from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.export import summary_frame_from_result
 from trend_analysis.pipeline import _run_analysis  # type: ignore
 
-
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 

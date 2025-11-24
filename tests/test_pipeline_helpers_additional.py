@@ -31,7 +31,6 @@ from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
 
-
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 

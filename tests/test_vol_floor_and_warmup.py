@@ -6,7 +6,6 @@ import pandas as pd
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.pipeline import _run_analysis
 
-
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 

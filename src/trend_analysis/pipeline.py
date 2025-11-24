@@ -12,13 +12,6 @@ from numpy.typing import NDArray
 from analysis.results import build_metadata
 from trend.diagnostics import DiagnosticResult
 
-from .diagnostics import (
-    AnalysisResult,
-    PipelineReasonCode,
-    PipelineResult,
-    coerce_pipeline_result,
-    pipeline_failure,
-)
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -26,6 +19,13 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
+from .diagnostics import (
+    AnalysisResult,
+    PipelineReasonCode,
+    PipelineResult,
+    coerce_pipeline_result,
+    pipeline_failure,
+)
 from .metrics import (
     annual_return,
     information_ratio,

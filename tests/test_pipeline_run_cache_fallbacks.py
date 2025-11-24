@@ -6,7 +6,6 @@ import pytest
 
 import trend_analysis.pipeline as pipeline
 
-
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
