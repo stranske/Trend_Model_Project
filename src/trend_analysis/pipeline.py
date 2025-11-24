@@ -10,8 +10,6 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from analysis.results import build_metadata
-from trend.diagnostics import DiagnosticResult
-
 from .core.rank_selection import (
     RiskStatsConfig,
     get_window_metric_bundle,
@@ -1405,7 +1403,7 @@ def _run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> PipelineResult | dict[str, object] | None:
+) -> dict[str, object] | None:
     """Compatibility shim that exposes the legacy private entry point."""
     result = _run_analysis_with_diagnostics(
         df,
@@ -1441,9 +1439,8 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if isinstance(result, DiagnosticResult):
-        return result.value
-    return result
+    payload, _diag = coerce_pipeline_result(result)
+    return payload
 
 
 _ORIGINAL_RUN_ANALYSIS = _run_analysis

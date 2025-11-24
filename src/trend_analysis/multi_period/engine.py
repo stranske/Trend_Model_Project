@@ -33,12 +33,7 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
-from ..pipeline import (
-    _invoke_analysis_with_diag,
-)
-from ..pipeline import (
-    _run_analysis as _pipeline_run_analysis,
-)
+from ..pipeline import _invoke_analysis_with_diag
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -73,7 +68,7 @@ def _call_pipeline_with_diag(
 ) -> DiagnosticResult[dict[str, object] | None]:
     """Invoke the single-period pipeline and always return a DiagnosticResult."""
 
-    result = _pipeline_run_analysis(*args, **kwargs)
+    result = _run_analysis(*args, **kwargs)
     if isinstance(result, DiagnosticResult):
         return result
     payload, diag = coerce_pipeline_result(result)
@@ -85,6 +80,29 @@ def _call_pipeline_with_diag(
 # pipeline entry point.
 def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
+
+
+def _derive_risk_free_preferences(
+    data_settings: Mapping[str, Any] | None,
+) -> tuple[str | None, bool]:
+    """Return the configured risk-free column and fallback flag.
+
+    When neither ``risk_free_column`` nor ``allow_risk_free_fallback`` are
+    provided this helper enables the fallback path by default so the multi-period
+    engine can continue selecting a cash proxy heuristically.
+    """
+
+    if not data_settings:
+        return None, True
+
+    raw_rf = data_settings.get("risk_free_column")
+    rf_col = raw_rf.strip() if isinstance(raw_rf, str) else None
+
+    flag = data_settings.get("allow_risk_free_fallback")
+    if flag is None:
+        return rf_col, rf_col is None
+
+    return rf_col, bool(flag)
 
 
 def _coerce_analysis_result(
@@ -641,8 +659,9 @@ def run(
     missing_limit_cfg = data_settings.get("missing_limit")
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
-    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
-    allow_risk_free_fallback = bool(data_settings.get("allow_risk_free_fallback"))
+    risk_free_column, allow_risk_free_fallback = _derive_risk_free_preferences(
+        cast(Mapping[str, Any] | None, data_settings)
+    )
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -910,8 +929,9 @@ def run(
 
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
-    risk_free_column_cfg = cast(str | None, cfg.data.get("risk_free_column"))
-    allow_risk_free_fallback = bool(cfg.data.get("allow_risk_free_fallback"))
+    risk_free_column_cfg, allow_risk_free_fallback = _derive_risk_free_preferences(
+        cast(Mapping[str, Any] | None, getattr(cfg, "data", {}) or {})
+    )
 
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:

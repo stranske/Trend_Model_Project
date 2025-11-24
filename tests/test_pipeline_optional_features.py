@@ -155,7 +155,7 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
         **RUN_KWARGS,
     )
 
-    assert result is None or "FundA" not in (result or {}).get("selected_funds", [])
+    assert result is None or "FundA" not in result.get("selected_funds", [])
 
 
 def test_run_analysis_avg_corr_metrics_populate_stats() -> None:

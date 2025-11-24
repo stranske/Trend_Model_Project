@@ -36,7 +36,7 @@ def test_strict_mode_drops_funds_with_nans():
         **RUN_KWARGS,
     )
     # A has NaN in IS, B has NaN in OOS => both dropped => None
-    assert res is None or len(res.get("selected_funds", [])) == 0
+    assert res is None
 
 
 def test_na_as_zero_retains_and_fills():
