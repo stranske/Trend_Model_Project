@@ -21,8 +21,8 @@ from .api import run_simulation
 from .config import load_config
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .data import load_csv
-from .io.market_data import MarketDataValidationError
 from .diagnostics import coerce_pipeline_result
+from .io.market_data import MarketDataValidationError
 from .logging_setup import setup_logging
 from .perf.rolling_cache import set_cache_enabled
 from .presets import apply_trend_preset, get_trend_preset, list_preset_slugs
