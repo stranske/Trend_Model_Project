@@ -14,6 +14,7 @@ from IPython.display import FileLink, Javascript, display
 
 from ..config import Config
 from ..config.models import DEFAULTS
+from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
 from .utils import _find_config_directory, debounce, list_builtin_cfgs
@@ -584,7 +585,14 @@ def launch() -> widgets.Widget:
         path = out.get("path", "gui_output")
         data = {"metrics": metrics}
         if fmt in {"excel", "xlsx"}:
-            res = pipeline.run_full(cfg)
+            full_result = pipeline.run_full(cfg)
+            res, diag = coerce_pipeline_result(full_result)
+            if not res:
+                if diag:
+                    warnings.warn(
+                        f"Pipeline aborted ({diag.reason_code}): {diag.message}"
+                    )
+                return
             split = cfg.sample_split
             sheet_fmt = export.make_summary_formatter(
                 res,

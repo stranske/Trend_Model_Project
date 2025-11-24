@@ -1249,18 +1249,23 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
                     indices_list=list(idx_select.value),
                     benchmarks={b: b for b in bench_select.value},
                 )
-                if res is None:
-                    print("No results")
+                if not res:
+                    diag = res.diagnostic
+                    if diag:
+                        print(f"No results ({diag.reason_code}: {diag.message})")
+                    else:
+                        print("No results")
                 else:
+                    payload = res.value or {}
                     sheet_formatter = export.make_summary_formatter(
-                        res,
+                        payload,
                         in_start.value,
                         in_end.value,
                         out_start.value,
                         out_end.value,
                     )
                     text = export.format_summary_text(
-                        res,
+                        payload,
                         in_start.value,
                         in_end.value,
                         out_start.value,

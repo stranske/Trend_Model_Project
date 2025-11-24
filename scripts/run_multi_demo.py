@@ -49,6 +49,7 @@ try:
     from trend_analysis.core import rank_selection as rs
     from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
     from trend_analysis.data import ensure_datetime, identify_risk_free_fund, load_csv
+    from trend_analysis.diagnostics import coerce_pipeline_result
     from trend_analysis.multi_period import run as run_core
     from trend_analysis.multi_period import run_from_config as run_mp
     from trend_analysis.multi_period import run_schedule, scheduler
@@ -1428,7 +1429,12 @@ direct_res = pipeline._run_analysis(
     selection_mode="rank",
     rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
 )
-if direct_res is None or "score_frame" not in direct_res:
+if direct_res.value is None or direct_res.value.get("score_frame") is None:
+    diag = direct_res.diagnostic
+    if diag is not None:
+        raise SystemExit(
+            "_run_analysis direct call failed " f"({diag.reason_code}): {diag.message}"
+        )
     raise SystemExit("_run_analysis direct call failed")
 
 abw = AdaptiveBayesWeighting(max_w=None)
@@ -1482,9 +1488,14 @@ _check_schedule(
 
 # Exercise the single-period pipeline and export helpers - using run_full
 # to avoid redundant computation
-full_res = pipeline.run_full(cfg)
-if not isinstance(full_res, dict):
-    raise SystemExit("pipeline.run_full did not return a dict")
+full_result = pipeline.run_full(cfg)
+full_res, diag_payload = coerce_pipeline_result(full_result)
+if not full_res:
+    if diag_payload is not None:
+        raise SystemExit(
+            f"pipeline.run_full failed ({diag_payload.reason_code}): {diag_payload.message}"
+        )
+    raise SystemExit("pipeline.run_full did not return a payload")
 
 
 # Extract metrics DataFrame from full results using helper to avoid code duplication
@@ -1582,7 +1593,12 @@ analysis_res = pipeline.run_analysis(
     rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
     regime_cfg=regime_cfg,
 )
-if analysis_res is None or analysis_res.get("score_frame") is None:
+if not analysis_res or analysis_res.get("score_frame") is None:
+    diag = analysis_res.diagnostic
+    if diag is not None:
+        raise SystemExit(
+            f"pipeline.run_analysis failed ({diag.reason_code}): {diag.message}"
+        )
     raise SystemExit("pipeline.run_analysis failed")
 analysis_regime_table = analysis_res.get("performance_by_regime")
 if not isinstance(analysis_regime_table, pd.DataFrame) or analysis_regime_table.empty:
@@ -1602,7 +1618,13 @@ analysis_idx = pipeline.run_analysis(
     indices_list=["Mgr_01", "Mgr_02"],
     regime_cfg=regime_cfg,
 )
-if analysis_idx is None or not analysis_idx.get("benchmark_stats"):
+if analysis_idx.value is None or not analysis_idx.value.get("benchmark_stats"):
+    diag = analysis_idx.diagnostic
+    if diag is not None:
+        raise SystemExit(
+            "pipeline.run_analysis with indices_list failed "
+            f"({diag.reason_code}): {diag.message}"
+        )
     raise SystemExit("pipeline.run_analysis with indices_list failed")
 
 # Verify custom_weights behaviour using a direct _run_analysis call
@@ -1620,7 +1642,15 @@ cw_res = pipeline._run_analysis(
     selection_mode="all",
     custom_weights={"Mgr_01": 60, "Mgr_02": 40},
 )
-fw = cw_res.get("fund_weights", {})
+fw = cw_res.value.get("fund_weights") if cw_res.value else None
+if fw is None:
+    diag = cw_res.diagnostic
+    if diag is not None:
+        raise SystemExit(
+            "_run_analysis custom_weights failed "
+            f"({diag.reason_code}): {diag.message}"
+        )
+    raise SystemExit("_run_analysis custom_weights missing fund_weights")
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
 for key, val in expected.items():
     if key in fw and not np.isclose(fw[key], val, atol=0.05):
@@ -1785,8 +1815,13 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     )
-    if res is not None:
-        raise SystemExit("_run_analysis did not return None on missing df")
+    if res.value is not None:
+        raise SystemExit("_run_analysis returned a payload on missing df")
+    diag = res.diagnostic
+    if diag is None:
+        raise SystemExit("_run_analysis missing diagnostic for None df")
+    if diag.reason_code != "PIPELINE_INPUT_NONE":
+        raise SystemExit("Unexpected diagnostic on None df")
 
     try:
         pipeline._run_analysis(
@@ -1967,6 +2002,13 @@ def _check_run_full_outputs(cfg: Config) -> None:
     """Validate keys returned by ``pipeline.run_full``."""
 
     res = pipeline.run_full(cfg)
+    if not res.value:
+        diag = res.diagnostic
+        if diag is not None:
+            raise SystemExit(
+                f"run_full diagnostic failure ({diag.reason_code}): {diag.message}"
+            )
+        raise SystemExit("run_full returned no payload")
     required = {
         "selected_funds",
         "score_frame",

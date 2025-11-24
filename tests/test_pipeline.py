@@ -173,7 +173,7 @@ def test_run_analysis_none():
     res = pipeline.run_analysis(
         None, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0
     )
-    assert res is None
+    assert res.unwrap() is None
 
 
 def test_run_analysis_missing_date():
@@ -198,7 +198,7 @@ def test_run_analysis_no_funds():
     res = pipeline.run_analysis(
         df, "2020-01", "2020-02", "2020-03", "2020-03", 1.0, 0.0
     )
-    assert res is None
+    assert res.unwrap() is None
 
 
 def test_run_analysis_returns_none_when_window_missing():
@@ -208,13 +208,13 @@ def test_run_analysis_returns_none_when_window_missing():
     res_in_empty = pipeline.run_analysis(
         df, "2019-01", "2019-03", "2020-04", "2020-06", 1.0, 0.0
     )
-    assert res_in_empty is None
+    assert res_in_empty.unwrap() is None
 
     # Out-of-sample window after available data.
     res_out_empty = pipeline.run_analysis(
         df, "2020-01", "2020-03", "2021-01", "2021-03", 1.0, 0.0
     )
-    assert res_out_empty is None
+    assert res_out_empty.unwrap() is None
 
 
 def test_run_missing_csv_key(tmp_path):

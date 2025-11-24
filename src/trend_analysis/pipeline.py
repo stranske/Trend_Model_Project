@@ -20,6 +20,7 @@ from .core.rank_selection import (
 )
 from .data import identify_risk_free_fund, load_csv
 from .diagnostics import (
+    AnalysisResult,
     PipelineReasonCode,
     PipelineResult,
     pipeline_failure,
@@ -1401,16 +1402,8 @@ def _run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
-    """
-    Backward-compatible wrapper returning the raw analysis payload.
-
-    Returns
-    -------
-    dict[str, object] or None
-        Returns a dictionary containing the analysis results on success,
-        or None if the pipeline exits early (e.g., due to a failure or unmet precondition).
-    """
+) -> AnalysisResult | None:
+    """Backward-compatible wrapper returning raw payloads for tests."""
     result = _run_analysis_with_diagnostics(
         df,
         in_start,
@@ -1445,8 +1438,7 @@ def _run_analysis(
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    value = result.value
-    return value
+    return result.unwrap()
 
 
 _DEFAULT_RUN_ANALYSIS = _run_analysis
@@ -1458,9 +1450,14 @@ def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
     if _run_analysis is _DEFAULT_RUN_ANALYSIS:
         return _run_analysis_with_diagnostics(*args, **kwargs)
     patched_result = _run_analysis(*args, **kwargs)
-    if isinstance(patched_result, DiagnosticResult):
+    if isinstance(patched_result, PipelineResult):
         return patched_result
-    return DiagnosticResult(value=patched_result, diagnostic=None)
+    if isinstance(patched_result, DiagnosticResult):
+        return PipelineResult(
+            value=patched_result.value,
+            diagnostic=patched_result.diagnostic,
+        )
+    return PipelineResult(value=patched_result, diagnostic=None)
 
 
 def run_analysis(
@@ -1500,8 +1497,8 @@ def run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
-    """Backward-compatible wrapper around ``_run_analysis``."""
+) -> PipelineResult:
+    """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
         value is not None
         for value in (calendar_frequency, calendar_timezone, holiday_calendar)
@@ -1515,7 +1512,7 @@ def run_analysis(
         if holiday_calendar is not None:
             calendar_settings["holiday_calendar"] = holiday_calendar
         df.attrs["calendar_settings"] = calendar_settings
-    return _run_analysis(
+    return _invoke_analysis_with_diag(
         df,
         in_start,
         in_end,
@@ -1682,8 +1679,8 @@ def run(cfg: Config) -> pd.DataFrame:
     return df
 
 
-def run_full(cfg: Config) -> dict[str, object]:
-    """Return the full analysis results based on ``cfg``."""
+def run_full(cfg: Config) -> PipelineResult:
+    """Return the full analysis results (with diagnostics) based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
     preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
@@ -1771,16 +1768,16 @@ def run_full(cfg: Config) -> dict[str, object]:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    value = diag_res.value
-    if value is None:
+    if diag_res.value is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",
                 diag.reason_code,
                 diag.message,
             )
-        return {}
-    return value
+        else:
+            logger.warning("pipeline.run_full aborted with no diagnostic context")
+    return diag_res
 
 
 # --- Shift-safe helpers ----------------------------------------------------
