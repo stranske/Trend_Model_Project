@@ -2,13 +2,61 @@
 
 from __future__ import annotations
 
+from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
 from enum import Enum
-from typing import Mapping, TypeAlias
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
-AnalysisResult: TypeAlias = dict[str, object]
-PipelineResult: TypeAlias = DiagnosticResult[AnalysisResult]
+AnalysisResult = dict[str, object]
+
+
+class PipelineResult(DiagnosticResult[AnalysisResult], Mapping[str, object]):
+    """Dictionary-like DiagnosticResult specialised for pipeline payloads."""
+
+    def _require_value(self) -> AnalysisResult:
+        if self.value is None:
+            raise KeyError("Pipeline result does not contain a payload")
+        return self.value
+
+    def __getitem__(self, key: str) -> object:
+        return self._require_value()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        data = self.value or {}
+        return iter(data)
+
+    def __len__(self) -> int:
+        data = self.value or {}
+        return len(data)
+
+    def __bool__(self) -> bool:  # pragma: no cover - trivial
+        return bool(self.value)
+
+    def get(self, key: str, default: object | None = None) -> object | None:
+        if self.value is None:
+            return default
+        return self.value.get(key, default)
+
+    def keys(self) -> KeysView[str]:
+        data = self.value or {}
+        return data.keys()
+
+    def items(self) -> ItemsView[str, object]:
+        data = self.value or {}
+        return data.items()
+
+    def values(self) -> ValuesView[object]:
+        data = self.value or {}
+        return data.values()
+
+    def copy(self) -> AnalysisResult:
+        data = self.value or {}
+        return dict(data)
+
+    def unwrap(self) -> AnalysisResult | None:
+        """Return the underlying analysis payload without copying."""
+
+        return self.value
 
 
 class PipelineReasonCode(str, Enum):
@@ -39,7 +87,7 @@ _DEFAULT_MESSAGES: Mapping[PipelineReasonCode, str] = {
 def pipeline_success(value: AnalysisResult) -> PipelineResult:
     """Return a successful pipeline diagnostic wrapper."""
 
-    return DiagnosticResult.success(value)
+    return PipelineResult(value=value, diagnostic=None)
 
 
 def pipeline_failure(
@@ -63,7 +111,7 @@ def pipeline_failure(
         message=payload_message,
         context=dict(context) if context else None,
     )
-    return DiagnosticResult(value=None, diagnostic=payload)
+    return PipelineResult(value=None, diagnostic=payload)
 
 
 __all__ = [

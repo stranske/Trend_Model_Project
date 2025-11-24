@@ -584,7 +584,15 @@ def launch() -> widgets.Widget:
         path = out.get("path", "gui_output")
         data = {"metrics": metrics}
         if fmt in {"excel", "xlsx"}:
-            res = pipeline.run_full(cfg)
+            full_result = pipeline.run_full(cfg)
+            res = full_result.value
+            if res is None:
+                diag = full_result.diagnostic
+                if diag:
+                    warnings.warn(
+                        f"Pipeline aborted ({diag.reason_code}): {diag.message}"
+                    )
+                return
             split = cfg.sample_split
             sheet_fmt = export.make_summary_formatter(
                 res,

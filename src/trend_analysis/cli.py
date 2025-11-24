@@ -520,9 +520,10 @@ def main(argv: list[str] | None = None) -> int:
                     setattr(run_result, "weights", weights_user)
         else:  # pragma: no cover - legacy fallback
             metrics_df = pipeline.run(cfg)
-            res = pipeline.run_full(cfg)
+            full_result = pipeline.run_full(cfg)
+            res = full_result.value
             run_seed = getattr(cfg, "seed", 42)
-            pipeline_diagnostic = cast(
+            pipeline_diagnostic = full_result.diagnostic or cast(
                 DiagnosticPayload | None, metrics_df.attrs.get("diagnostic")
             )
         if not res:

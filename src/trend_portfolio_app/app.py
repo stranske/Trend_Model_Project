@@ -454,14 +454,19 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
             except Exception:  # pragma: no cover - UI fallthrough
                 summary_frame = None
             run_full_error: Exception | None = None
+            full_result_payload: dict[str, Any] | None = None
+            full_result_diag = None
             try:
                 full_result = pipeline.run_full(cfg_obj)
             except (FileNotFoundError, KeyError) as exc:
                 run_full_error = exc
-                full_result = {}
+                full_result = None
             except Exception as exc:  # pragma: no cover - defensive logging
                 run_full_error = exc
-                full_result = {}
+                full_result = None
+            if full_result is not None:
+                full_result_payload = full_result.value
+                full_result_diag = full_result.diagnostic
 
         summary = _summarise_run_df(
             summary_frame if isinstance(summary_frame, pd.DataFrame) else None
@@ -469,14 +474,19 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
         has_summary = isinstance(summary, pd.DataFrame)
         summary_rows = len(summary) if has_summary else 0
 
-        if not full_result and not has_summary:
+        if not full_result_payload and not has_summary:
             message = "Analysis failed for the configured period. Please check your data and configuration settings."
-            if run_full_error is not None:
+            if full_result_diag is not None:
+                message = (
+                    f"{message} ({full_result_diag.reason_code}: "
+                    f"{full_result_diag.message})"
+                )
+            elif run_full_error is not None:
                 message = f"{message} ({run_full_error})"
             st.warning(message)
         else:
-            if summary.empty and full_result:
-                summary_raw = _build_summary_from_result(full_result)
+            if summary.empty and full_result_payload:
+                summary_raw = _build_summary_from_result(full_result_payload)
                 summary = _summarise_run_df(summary_raw)
                 summary_rows = len(summary)
             st.success(f"Completed. {summary_rows} rows.")
@@ -490,8 +500,8 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                     mime="text/csv",
                 )
 
-            if full_result:
-                risk_diag = full_result.get("risk_diagnostics")
+            if full_result_payload:
+                risk_diag = full_result_payload.get("risk_diagnostics")
                 if isinstance(risk_diag, Mapping) and risk_diag:
                     st.subheader("Risk diagnostics")
                     line_chart = getattr(st, "line_chart", None)
@@ -529,10 +539,15 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                     turnover_value = risk_diag.get("turnover_value")
                     if isinstance(turnover_value, (float, int)):
                         st.caption(f"Turnover applied: {turnover_value:.4f}")
-            elif run_full_error is not None:
+            elif run_full_error is not None or full_result_diag is not None:
+                detail = (
+                    f"{full_result_diag.reason_code}: {full_result_diag.message}"
+                    if full_result_diag is not None
+                    else str(run_full_error)
+                )
                 st.info(
                     "Partial results shown. Full diagnostics are unavailable because the detailed analysis failed: "
-                    f"{run_full_error}"
+                    f"{detail}"
                 )
 
     if go_multi and cfg_obj is not None:
