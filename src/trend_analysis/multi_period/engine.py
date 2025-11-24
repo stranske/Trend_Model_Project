@@ -98,6 +98,23 @@ def _coerce_analysis_result(
     )  # pragma: no cover - defensive
     return None, cast(DiagnosticPayload | None, diag)
 
+
+def _get_missing_policy_settings(
+    data_settings: Mapping[str, Any] | None,
+) -> tuple[Any, Any]:
+    """Return missing-data policy/limit configs with legacy fallbacks."""
+
+    if not data_settings:
+        return None, None
+    missing_policy_cfg = data_settings.get("missing_policy")
+    if missing_policy_cfg is None:
+        missing_policy_cfg = data_settings.get("nan_policy")
+    missing_limit_cfg = data_settings.get("missing_limit")
+    if missing_limit_cfg is None:
+        missing_limit_cfg = data_settings.get("nan_limit")
+    return missing_policy_cfg, missing_limit_cfg
+
+
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
 
@@ -617,9 +634,7 @@ def run(
             raise ValueError("price_frames is empty - no data to process")
 
     data_settings = getattr(cfg, "data", {}) or {}
-    missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(
-        data_settings
-    )
+    missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(data_settings)
     risk_free_column_cfg = cast(str | None, data_settings.get("risk_free_column"))
     allow_risk_free_fallback_cfg = data_settings.get("allow_risk_free_fallback")
 
@@ -929,7 +944,9 @@ def run(
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
         )
         idx_set = {str(c) for c in indices_list}
-        fund_cols = [c for c in candidate_cols if c in numeric_cols and c not in idx_set]
+        fund_cols = [
+            c for c in candidate_cols if c in numeric_cols and c not in idx_set
+        ]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
         out_ok = ~out_df[fund_cols].isna().any()
