@@ -1815,7 +1815,7 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         cfg.vol_adjust.get("target_vol", 1.0),
         getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     )
-    if res.unwrap() is not None:
+    if res.value is not None:
         raise SystemExit("_run_analysis returned a payload on missing df")
     diag = res.diagnostic
     if diag is None:
