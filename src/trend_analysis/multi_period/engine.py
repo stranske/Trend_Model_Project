@@ -19,6 +19,7 @@ from __future__ import annotations  # mypy: ignore-errors
 
 import logging
 import os
+from collections.abc import Mapping as _MappingABC
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Protocol, cast
 
@@ -73,6 +74,42 @@ def _call_pipeline_with_diag(
     if isinstance(result, DiagnosticResult):
         return result
     return DiagnosticResult(value=result, diagnostic=None)
+
+
+# Back-compat shim so legacy tests can patch ``engine._run_analysis`` while the
+# default implementation continues to funnel through the diagnostics-aware
+# pipeline entry point.
+def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
+    return _invoke_analysis_with_diag(*args, **kwargs)
+
+
+def _coerce_analysis_result(
+    result: object,
+) -> tuple[dict[str, Any] | None, DiagnosticPayload | None]:
+    """Normalise pipeline outputs regardless of legacy or diagnostic wrappers."""
+
+    diag = getattr(result, "diagnostic", None)
+    if hasattr(result, "unwrap"):
+        unwrap = getattr(result, "unwrap", None)
+        if callable(unwrap):
+            try:
+                payload = unwrap()
+            except Exception:  # pragma: no cover - defensive guard
+                payload = None
+        else:  # pragma: no cover - defensive guard
+            payload = None
+    else:
+        payload = result
+
+    if payload is None:
+        return None, cast(DiagnosticPayload | None, diag)
+    if isinstance(payload, _MappingABC):
+        return dict(payload), cast(DiagnosticPayload | None, diag)
+
+    logger.warning(
+        "Unexpected analysis payload type: %%s", type(payload)
+    )  # pragma: no cover - defensive
+    return None, cast(DiagnosticPayload | None, diag)
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
@@ -860,11 +897,11 @@ def run(
                         in_df_prepared, materialise_aggregates=incremental_cov
                     )
                 prev_in_df = in_df_prepared
-                res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
+                res_dict["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
-                    res.setdefault("cache_stats", cov_cache_obj.stats())
-            out_results.append(cast(MultiPeriodPeriodResult, res))
+                    res_dict.setdefault("cache_stats", cov_cache_obj.stats())
+            out_results.append(res_dict)
         return out_results
 
     # Threshold-hold path with Bayesian weighting
@@ -1423,11 +1460,11 @@ def run(
             pt.out_end,
         )
         # Attach per-period manager change log and execution stats
-        res["manager_changes"] = events
-        res["turnover"] = period_turnover
-        res["transaction_cost"] = float(period_cost)
+        res_dict["manager_changes"] = events
+        res_dict["turnover"] = period_turnover
+        res_dict["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
-        results.append(cast(MultiPeriodPeriodResult, res))
+        results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
 
     return results

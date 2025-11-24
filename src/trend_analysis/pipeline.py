@@ -1514,7 +1514,7 @@ def run_analysis(
         if holiday_calendar is not None:
             calendar_settings["holiday_calendar"] = holiday_calendar
         df.attrs["calendar_settings"] = calendar_settings
-    return _run_analysis(
+    return _invoke_analysis_with_diag(
         df,
         in_start,
         in_end,
@@ -1683,8 +1683,8 @@ def run(cfg: Config) -> pd.DataFrame:
     return df
 
 
-def run_full(cfg: Config) -> dict[str, object]:
-    """Return the full analysis results based on ``cfg``."""
+def run_full(cfg: Config) -> PipelineResult:
+    """Return the full analysis results (with diagnostics) based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
     preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
@@ -1774,16 +1774,16 @@ def run_full(cfg: Config) -> dict[str, object]:
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
     diag = diag_res.diagnostic
-    value = diag_res.value
-    if value is None:
+    if diag_res.value is None:
         if diag:
             logger.warning(
                 "pipeline.run_full aborted (%s): %s",
                 diag.reason_code,
                 diag.message,
             )
-        return {}
-    return value
+        else:
+            logger.warning("pipeline.run_full aborted with no diagnostic context")
+    return diag_res
 
 
 # --- Shift-safe helpers ----------------------------------------------------

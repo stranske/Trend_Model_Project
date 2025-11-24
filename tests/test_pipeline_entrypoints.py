@@ -155,7 +155,7 @@ def test_run_full_propagates_analysis_payload(
     monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: payload)
 
     result = pipeline.run_full(base_config)
-    assert result is payload
+    assert result.unwrap() is payload
 
 
 def test_run_full_returns_empty_when_analysis_none(
@@ -174,7 +174,7 @@ def test_run_full_returns_empty_when_analysis_none(
     monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
 
     result = pipeline.run_full(base_config)
-    assert result == {}
+    assert result.unwrap() is None
 
 
 def test_empty_run_full_result_template() -> None:

@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from analysis import Results
-from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.diagnostics import DiagnosticPayload
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as ConfigType
@@ -24,6 +24,7 @@ from trend.validation import (
     validate_prices_frame,
 )
 
+from .diagnostics import coerce_pipeline_result
 from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (
     _policy_from_config,
@@ -194,12 +195,18 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if isinstance(pipeline_output, DiagnosticResult):
-        diag_res = pipeline_output
-    else:
-        diag_res = DiagnosticResult(value=pipeline_output, diagnostic=None)
-    diag = diag_res.diagnostic
-    if diag_res.value is None:
+    diag_hint = cast(
+        DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None)
+    )
+    try:
+        payload, diag = coerce_pipeline_result(pipeline_output)
+    except TypeError as exc:
+        logger.warning(
+            "Unexpected pipeline result type (%s); returning empty payload",
+            exc,
+        )
+        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint)
+    if payload is None:
         if diag:
             logger.warning(
                 "run_simulation produced no result (%s): %s",
@@ -209,17 +216,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         else:
             logger.warning("run_simulation produced no result (unknown reason)")
         return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
-
-    payload = diag_res.value
-    if isinstance(payload, dict):
-        res_dict: dict[str, Any] = payload
-    elif isinstance(payload, Mapping):
-        res_dict = dict(payload)
-    else:
-        logger.warning(
-            "Unexpected result type from pipeline diagnostics: %s", type(payload)
-        )
-        return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
+    res_dict = payload
 
     _log_step(run_id, "metrics_build", "Building metrics dataframe")
     stats_obj = res_dict.get("out_sample_stats")
