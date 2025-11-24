@@ -1428,7 +1428,7 @@ direct_res = pipeline._run_analysis(
     selection_mode="rank",
     rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
 )
-if direct_res.get("score_frame") is None:
+if direct_res.value is None or direct_res.value.get("score_frame") is None:
     diag = direct_res.diagnostic
     if diag is not None:
         raise SystemExit(
