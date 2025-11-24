@@ -1623,7 +1623,7 @@ if analysis_idx.value is None or not analysis_idx.value.get("benchmark_stats"):
     if diag is not None:
         raise SystemExit(
             "pipeline.run_analysis with indices_list failed "
-            f"({diag.reason_code}: {diag.message})"
+            f"({diag.reason_code}): {diag.message}"
         )
     raise SystemExit("pipeline.run_analysis with indices_list failed")
 
