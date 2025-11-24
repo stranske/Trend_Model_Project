@@ -7,8 +7,8 @@ from typing import Any
 
 import pandas as pd
 import pytest
-from trend.diagnostics import DiagnosticResult
 
+from trend.diagnostics import DiagnosticResult
 from trend_analysis.multi_period import engine as mp_engine
 
 
