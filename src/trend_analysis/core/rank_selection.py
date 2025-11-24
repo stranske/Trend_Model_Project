@@ -550,55 +550,6 @@ def rank_select_funds(
         raise ValueError("Unknown inclusion_approach")
 
 
-def some_function_missing_annotation(
-    scores: pd.Series,
-    inclusion_approach: str,
-    n: int | None = None,
-    pct: float | None = None,
-    threshold: float | None = None,
-    ascending: bool = True,
-) -> list[str]:
-    scores = scores.sort_values(ascending=ascending)
-    if inclusion_approach == "top_n":
-        if n is None:
-            raise ValueError("top_n requires parameter n")
-        return cast(list[str], scores.head(n).index.tolist())
-    if inclusion_approach == "top_pct":
-        if pct is None or not 0 < pct <= 1:
-            raise ValueError("top_pct requires 0 < pct ≤ 1")
-        k = max(1, int(round(len(scores) * pct)))
-        return cast(list[str], scores.head(k).index.tolist())
-    if inclusion_approach == "threshold":
-        if threshold is None:
-            raise ValueError("threshold approach requires a threshold value")
-        mask = scores <= threshold if ascending else scores >= threshold
-        return cast(list[str], scores[mask].index.tolist())
-    return []  # Ensure function always returns a list
-
-
-@dataclass
-class FundSelectionConfig:
-    """Simple quality-gate configuration."""
-
-    max_missing_months: int = 3
-    max_consecutive_month_gap: int = 6
-    implausible_value_limit: float = 1.0
-    outlier_threshold: float = 0.5
-    zero_return_threshold: float = 0.2
-    enforce_monotonic_index: bool = True
-    allow_duplicate_dates: bool = False
-    max_missing_ratio: float = 0.05
-    max_drawdown: float = 0.3
-    min_volatility: float = 0.05
-    max_volatility: float = 1.0
-    min_avg_return: float = 0.0
-    max_skewness: float = 3.0
-    max_kurtosis: float = 10.0
-    expected_freq: str = "B"
-    max_gap_days: int = 3
-    min_aum_usd: float = 1e7
-
-
 @dataclass
 class RiskStatsConfig:
     """Metrics and risk free configuration."""
@@ -668,67 +619,6 @@ def _get_metric_context() -> dict[str, Any]:
     if ctx is None:
         raise RuntimeError("Metric context is unavailable for frame-aware metrics")
     return ctx
-
-
-def quality_filter(df: pd.DataFrame, cfg: FundSelectionConfig) -> List[str]:
-    """Public interface for quality filtering funds based on data quality
-    gates.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with fund data
-    cfg : FundSelectionConfig
-        Configuration for quality filtering
-
-    Returns
-    -------
-    List[str]
-        List of fund columns that pass quality filters
-    """
-    # Get all non-Date columns as fund columns
-    fund_columns = [col for col in df.columns if col != "Date"]
-
-    eligible: List[str] = []
-    for col in fund_columns:
-        series = df[col]
-        missing = series.isna().sum()
-        if missing > cfg.max_missing_months:
-            continue
-        if len(series) > 0 and missing / len(series) > cfg.max_missing_ratio:
-            continue
-        if series.abs().max() > cfg.implausible_value_limit:
-            continue
-        eligible.append(col)
-    return eligible
-
-
-def _quality_filter(
-    df: pd.DataFrame,
-    fund_columns: List[str],
-    in_sdate: str,
-    out_edate: str,
-    cfg: FundSelectionConfig,
-) -> List[str]:
-    """Return funds passing very basic data-quality gates."""
-
-    mask = df["Date"].between(
-        pd.Period(in_sdate, "M").to_timestamp("M"),
-        pd.Period(out_edate, "M").to_timestamp("M"),
-    )
-    sub = df.loc[mask, fund_columns]
-    eligible: List[str] = []
-    for col in fund_columns:
-        series = sub[col]
-        missing = series.isna().sum()
-        if missing > cfg.max_missing_months:
-            continue
-        if len(series) > 0 and missing / len(series) > cfg.max_missing_ratio:
-            continue
-        if series.abs().max() > cfg.implausible_value_limit:
-            continue
-        eligible.append(col)
-    return eligible
 
 
 # Register basic metrics from the public ``metrics`` module
@@ -1016,159 +906,6 @@ def blended_score(
             z *= -1
         combo += w * z
     return combo
-
-
-# ===============================================================
-#  WIRES INTO EXISTING PIPELINE
-# ===============================================================
-
-
-def select_funds(
-    df: pd.DataFrame,
-    rf_col: str,
-    *args: Any,
-    mode: str | None = None,
-    selection_mode: str | None = None,
-    n: int | None = None,
-    quality_cfg: FundSelectionConfig | None = None,
-    random_n: int | None = None,
-    rank_kwargs: dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> list[str]:
-    """Flexible interface for fund selection that handles both test patterns.
-
-    Two calling patterns:
-    1. Simple: select_funds(df, rf_col, mode="random", n=2, ...)
-    2. Extended: select_funds(
-        df, rf_col, fund_columns, in_sdate, in_edate,
-        out_sdate, out_edate, cfg, selection_mode, ...
-    )
-    """
-    # Determine which calling pattern is being used
-    if len(args) >= 5:  # Extended calling pattern
-        fund_columns, in_sdate, in_edate, out_sdate, out_edate, cfg = args[:6]
-        # break long line for flake8 compliance
-        if len(args) > 6:
-            selection_mode = args[6]
-        if len(args) > 7:
-            random_n = args[7]
-
-        # Call the extended function
-        return select_funds_extended(
-            df,
-            rf_col,
-            fund_columns,
-            in_sdate,
-            in_edate,
-            out_sdate,
-            out_edate,
-            cfg,
-            selection_mode or "all",
-            random_n,
-            rank_kwargs,
-        )
-
-    # Simple calling pattern
-    mode = mode or selection_mode or "all"
-    if quality_cfg is None:
-        quality_cfg = FundSelectionConfig()
-
-    # Get fund columns (exclude Date and rf_col) for simple path
-    simple_fund_columns: list[str] = [
-        str(col) for col in df.columns if col not in ["Date", rf_col]
-    ]
-
-    if mode == "all":
-        return list(simple_fund_columns)
-    elif mode == "random":
-        eligible = quality_filter(df, quality_cfg)
-        if n is None and random_n is None:
-            return eligible
-        n = n or random_n
-        if n is None:
-            raise ValueError("random_n must be provided for random mode")
-        import numpy as np
-
-        return [
-            str(x)
-            for x in np.random.choice(
-                eligible, min(n, len(eligible)), replace=False
-            ).tolist()
-        ]
-    elif mode == "rank":
-        # Basic rank mode: order eligible funds by descending in-sample CAGR (annual_return)
-        # NOTE: This is a minimal improvement over the previous slice-by-order behavior.
-        # A fuller implementation should reuse the unified ranking logic used in
-        # select_funds_extended / rank_select_funds, but here we avoid importing
-        # additional heavy helpers to keep simple pathway light.
-        eligible = quality_filter(df, quality_cfg)
-        if n is None:
-            n = len(eligible)
-        in_sample = df.loc[:, eligible]
-        # Compute simple performance proxy: cumulative return over entire frame
-        perf = (1 + in_sample).prod() - 1.0
-        ordered = list(perf.sort_values(ascending=False).index[:n])
-        return ordered
-    else:
-        raise ValueError(f"Unsupported mode '{mode}'")
-
-
-def select_funds_extended(
-    df: pd.DataFrame,
-    rf_col: str,
-    fund_columns: list[str],
-    in_sdate: str,
-    in_edate: str,
-    out_sdate: str,
-    out_edate: str,
-    cfg: FundSelectionConfig,
-    selection_mode: str = "all",
-    random_n: int | None = None,
-    rank_kwargs: dict[str, Any] | None = None,
-) -> list[str]:
-    """Extended to honour 'rank' mode.
-
-    Existing modes unchanged.
-    """
-    # -- existing quality gate logic (unchanged) ------------------
-    eligible = _quality_filter(  # pseudo‑factorised
-        df, fund_columns, in_sdate, out_edate, cfg
-    )
-
-    # Fast‑exit for legacy modes
-    if selection_mode == "all":
-        return eligible
-
-    if selection_mode == "random":
-        if random_n is None:
-            raise ValueError("random_n must be provided for random mode")
-        return list(np.random.choice(eligible, random_n, replace=False))
-
-    # >>> NEW  rank‑based mode
-    if selection_mode == "rank":
-        if rank_kwargs is None:
-            raise ValueError("rank mode requires rank_kwargs")
-        # carve out the in‑sample sub‑frame
-        mask = df["Date"].between(
-            pd.Period(in_sdate, "M").to_timestamp("M"),
-            pd.Period(in_edate, "M").to_timestamp("M"),
-        )
-        stats_cfg = RiskStatsConfig(risk_free=0.0)
-        window_df = pd.DataFrame(df.loc[mask, eligible])
-        rank_args = dict(rank_kwargs)
-        if "window_key" not in rank_args:
-            rank_args["window_key"] = make_window_key(
-                in_sdate, in_edate, eligible, stats_cfg
-            )
-        if "bundle" not in rank_args:
-            rank_args["bundle"] = get_window_metric_bundle(rank_args["window_key"])
-        return rank_select_funds(
-            window_df,
-            stats_cfg,
-            **rank_args,
-        )
-
-    raise ValueError(f"Unsupported selection_mode '{selection_mode}'")
 
 
 # ===============================================================
@@ -1512,18 +1249,23 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
                     indices_list=list(idx_select.value),
                     benchmarks={b: b for b in bench_select.value},
                 )
-                if res is None:
-                    print("No results")
+                if not res:
+                    diag = res.diagnostic
+                    if diag:
+                        print(f"No results ({diag.reason_code}: {diag.message})")
+                    else:
+                        print("No results")
                 else:
+                    payload = res.value or {}
                     sheet_formatter = export.make_summary_formatter(
-                        res,
+                        payload,
                         in_start.value,
                         in_end.value,
                         out_start.value,
                         out_end.value,
                     )
                     text = export.format_summary_text(
-                        res,
+                        payload,
                         in_start.value,
                         in_end.value,
                         out_start.value,
@@ -1576,7 +1318,6 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
 
 
 __all__ = [
-    "FundSelectionConfig",
     "RiskStatsConfig",
     "register_metric",
     "METRIC_REGISTRY",
@@ -1591,7 +1332,6 @@ __all__ = [
     "rank_select_funds",
     "selector_cache_stats",
     "clear_window_metric_cache",
-    "select_funds",
     "build_ui",
     "canonical_metric_list",
 ]

@@ -1,18 +1,8 @@
-archives/generated/2025/2025-11-22_keepalive_status.md
+# Keepalive status index
 
-## Scope
-- [x] `analysis/tearsheet.py::render(results, out="reports/tearsheet.md")` with headline stats and run metadata.
-- [x] Plots for equity curve, rolling Sharpe/vol, drawdown, and turnover.
-- [x] CLI wiring: `python -m src.cli report --last-run`.
-- [x] Reference the new report from `Portfolio_Test_Results_Summary.md`.
+To avoid PR conflicts between concurrent keepalive runs, place each run's checklist in its own file under `docs/keepalive/status/`.
 
-## Tasks
-- [x] Implement renderer and basic plots.
-- [x] Minimal CLI and example run command in README.
-- [x] Test that the file is written and includes expected sections.
+Active/most recent entries:
+- Diagnostics scope: [docs/keepalive/status/diagnostics.md](docs/keepalive/status/diagnostics.md)
 
-## Acceptance criteria
-- [x] Running the CLI produces a tearsheet file with stats and plots using the latest `Results`.
-- [x] CI artifact (optional) or repo file present after a demo run.
-
-Status auto-updates as tasks complete on this branch.
+Add new bullet points here only to register additional keepalive runs; do not reuse or overwrite existing status files.

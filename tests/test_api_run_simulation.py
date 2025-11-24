@@ -5,6 +5,7 @@ import pandas as pd
 
 from trend_analysis import api, pipeline
 from trend_analysis.config import Config
+from trend_analysis.diagnostics import PipelineReasonCode
 
 
 def make_df():
@@ -46,7 +47,8 @@ def test_run_simulation_matches_pipeline(tmp_path):
     df.to_csv(csv, index=False)
     cfg = make_cfg(str(csv))
 
-    expected_details = pipeline.run_full(cfg)
+    expected_details = pipeline.run_full(cfg).unwrap()
+    assert expected_details is not None
     expected_metrics = pipeline.run(cfg)
 
     result = api.run_simulation(cfg, df)
@@ -290,3 +292,20 @@ def test_run_simulation_deterministic_with_random_selection(tmp_path):
     assert (
         hash1 == hash2
     ), f"Results are not deterministic with random selection: {hash1} != {hash2}"
+
+
+def test_run_simulation_returns_diagnostic_for_empty_universe():
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
+            "RF": 0.0,
+        }
+    )
+    cfg = make_cfg()
+
+    result = api.run_simulation(cfg, df)
+
+    assert result.metrics.empty
+    assert result.details == {}
+    assert result.diagnostic is not None
+    assert result.diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value

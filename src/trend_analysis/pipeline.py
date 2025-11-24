@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from analysis.results import build_metadata
+from trend.diagnostics import DiagnosticResult
 
 from .core.rank_selection import (
     RiskStatsConfig,
@@ -18,6 +19,13 @@ from .core.rank_selection import (
     rank_select_funds,
 )
 from .data import identify_risk_free_fund, load_csv
+from .diagnostics import (
+    AnalysisResult,
+    PipelineReasonCode,
+    PipelineResult,
+    pipeline_failure,
+    pipeline_success,
+)
 from .metrics import (
     annual_return,
     information_ratio,
@@ -609,7 +617,7 @@ def _compute_stats(
     return stats
 
 
-def _run_analysis(
+def _run_analysis_with_diagnostics(
     df: pd.DataFrame,
     in_start: str,
     in_end: str,
@@ -643,29 +651,34 @@ def _run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
+) -> PipelineResult:
     if df is None:
-        return None
+        return pipeline_failure(PipelineReasonCode.INPUT_NONE)
+
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    if attrs_copy:
+        df.attrs = attrs_copy
 
     date_col = "Date"
     if date_col not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
-    attrs_copy = dict(getattr(df, "attrs", {}))
     calendar_settings = attrs_copy.get("calendar_settings", {})
 
     # Fast-fail when no usable timestamps exist so tests that simulate
     # pathological DataFrame subclasses continue to short-circuit.
     date_probe = pd.to_datetime(df[date_col], errors="coerce")
     if not date_probe.notna().any():
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.NO_VALID_DATES,
+            context={"date_column": date_col},
+        )
 
-    # Normalise potentially exotic DataFrame subclasses into a vanilla
-    # ``pd.DataFrame`` so pandas internals do not trip over overridden
-    # properties (Issue #3633 regression).
-    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
-        df = pd.DataFrame(df)
-    df.attrs = attrs_copy
+    # ``df`` is now a vanilla ``pd.DataFrame`` so pandas internals do not
+    # trip over overridden properties (Issue #3633 regression). Align the
+    # calendar next so downstream stages operate on consistent timestamps.
     try:
         df = align_calendar(
             df,
@@ -680,7 +693,10 @@ def _run_analysis(
             "contains no valid timestamps" in message
             or "All rows were removed" in message
         ):
-            return None
+            return pipeline_failure(
+                PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
+                context={"error": message},
+            )
         raise
     alignment_info = df.attrs.get("calendar_alignment", {})
 
@@ -711,15 +727,45 @@ def _run_analysis(
         enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.PREPARED_FRAME_EMPTY,
+            context={
+                "missing_summary": getattr(missing_result, "summary", None),
+                "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
+            },
+        )
+    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
+    df_original = df_prepared.copy()
+    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
 
-    df = df_prepared.copy()
-    value_cols_all = [c for c in df.columns if c != date_col]
-    if not value_cols_all:
-        return None
+    if not initial_value_cols or not value_cols_all:
+        reason = (
+            PipelineReasonCode.NO_VALUE_COLUMNS
+            if not initial_value_cols
+            else PipelineReasonCode.INSUFFICIENT_COLUMNS
+        )
+        return pipeline_failure(
+            reason,
+            context={
+                "stage": "post-prep-column-check",
+                "initial_value_cols": len(initial_value_cols),
+                "post_probe_value_cols": len(value_cols_all),
+            },
+        )
+
+    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+        df = pd.DataFrame(df_original)
+    else:
+        df = df_original
+    if prepared_attrs:
+        df.attrs = prepared_attrs
 
     if df.empty or df.shape[1] <= 1:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.INSUFFICIENT_COLUMNS,
+            context={"columns": df.shape[1], "rows": df.shape[0]},
+        )
 
     freq_code = freq_summary.code
     missing_meta = missing_result
@@ -790,7 +836,13 @@ def _run_analysis(
     )
 
     if in_df.empty or out_df.empty:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.SAMPLE_WINDOW_EMPTY,
+            context={
+                "in_rows": int(in_df.shape[0]),
+                "out_rows": int(out_df.shape[0]),
+            },
+        )
 
     if indices_list is None:
         indices_list = []
@@ -882,7 +934,13 @@ def _run_analysis(
             fund_cols = []  # pragma: no cover
 
     if not fund_cols:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.NO_FUNDS_SELECTED,
+            context={
+                "selection_mode": selection_mode,
+                "universe_size": len(value_cols_all),
+            },
+        )
     score_frame = single_period_run(
         df[[date_col] + fund_cols],
         in_start,
@@ -998,8 +1056,9 @@ def _run_analysis(
         vol_target=None,
         zscore=False,
     )
+    signal_source = df_original
     signal_inputs = (
-        df.set_index(date_col)[fund_cols].astype(float)
+        signal_source.set_index(date_col)[fund_cols].astype(float)
         if fund_cols
         else pd.DataFrame(dtype=float)
     )
@@ -1269,42 +1328,136 @@ def _run_analysis(
     metadata["missing_data"] = missing_payload
     metadata["risk_free_column"] = rf_col
 
-    return {
-        "selected_funds": fund_cols,
-        "risk_free_column": rf_col,
-        "risk_free_source": rf_source,
-        "in_sample_scaled": in_scaled,
-        "out_sample_scaled": out_scaled,
-        "in_sample_stats": in_stats,
-        "out_sample_stats": out_stats,
-        "out_sample_stats_raw": out_stats_raw,
-        "in_ew_stats": in_ew_stats,
-        "out_ew_stats": out_ew_stats,
-        "out_ew_stats_raw": out_ew_stats_raw,
-        "in_user_stats": in_user_stats,
-        "out_user_stats": out_user_stats,
-        "out_user_stats_raw": out_user_stats_raw,
-        "ew_weights": ew_w_dict,
-        "fund_weights": user_w_dict,
-        "benchmark_stats": benchmark_stats,
-        "benchmark_ir": benchmark_ir,
-        "score_frame": score_frame,
-        "weight_engine_fallback": weight_engine_fallback,
-        "preprocessing": preprocess_info,
-        "preprocessing_summary": preprocess_info.get("summary"),
-        "risk_diagnostics": risk_payload,
-        "signal_frame": signal_frame,
-        "signal_spec": effective_signal_spec,
-        "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
-        "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
-        "regime_labels_out": regime_payload.get(
-            "out_labels", pd.Series(dtype="string")
-        ),
-        "regime_notes": regime_payload.get("notes", []),
-        "regime_settings": regime_payload.get("settings", {}),
-        "regime_summary": regime_payload.get("summary"),
-        "metadata": metadata,
-    }
+    return pipeline_success(
+        {
+            "selected_funds": fund_cols,
+            "risk_free_column": rf_col,
+            "risk_free_source": rf_source,
+            "in_sample_scaled": in_scaled,
+            "out_sample_scaled": out_scaled,
+            "in_sample_stats": in_stats,
+            "out_sample_stats": out_stats,
+            "out_sample_stats_raw": out_stats_raw,
+            "in_ew_stats": in_ew_stats,
+            "out_ew_stats": out_ew_stats,
+            "out_ew_stats_raw": out_ew_stats_raw,
+            "in_user_stats": in_user_stats,
+            "out_user_stats": out_user_stats,
+            "out_user_stats_raw": out_user_stats_raw,
+            "ew_weights": ew_w_dict,
+            "fund_weights": user_w_dict,
+            "benchmark_stats": benchmark_stats,
+            "benchmark_ir": benchmark_ir,
+            "score_frame": score_frame,
+            "weight_engine_fallback": weight_engine_fallback,
+            "preprocessing": preprocess_info,
+            "preprocessing_summary": preprocess_info.get("summary"),
+            "risk_diagnostics": risk_payload,
+            "signal_frame": signal_frame,
+            "signal_spec": effective_signal_spec,
+            "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
+            "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
+            "regime_labels_out": regime_payload.get(
+                "out_labels", pd.Series(dtype="string")
+            ),
+            "regime_notes": regime_payload.get("notes", []),
+            "regime_settings": regime_payload.get("settings", {}),
+            "regime_summary": regime_payload.get("summary"),
+            "metadata": metadata,
+        }
+    )
+
+
+def _run_analysis(
+    df: pd.DataFrame,
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+    target_vol: float,
+    monthly_cost: float,
+    *,
+    floor_vol: float | None = None,
+    warmup_periods: int = 0,
+    selection_mode: str = "all",
+    random_n: int = 8,
+    custom_weights: dict[str, float] | None = None,
+    rank_kwargs: Mapping[str, Any] | None = None,
+    manual_funds: list[str] | None = None,
+    indices_list: list[str] | None = None,
+    benchmarks: dict[str, str] | None = None,
+    seed: int = 42,
+    stats_cfg: RiskStatsConfig | None = None,
+    weighting_scheme: str | None = None,
+    constraints: dict[str, Any] | None = None,
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: int | Mapping[str, int | None] | None = None,
+    risk_window: Mapping[str, Any] | None = None,
+    periods_per_year_override: float | None = None,
+    previous_weights: Mapping[str, float] | None = None,
+    lambda_tc: float | None = None,
+    max_turnover: float | None = None,
+    signal_spec: TrendSpec | None = None,
+    regime_cfg: Mapping[str, Any] | None = None,
+    weight_policy: Mapping[str, Any] | None = None,
+    risk_free_column: str | None = None,
+    allow_risk_free_fallback: bool | None = None,
+) -> AnalysisResult | None:
+    """Backward-compatible wrapper returning raw payloads for tests."""
+    result = _run_analysis_with_diagnostics(
+        df,
+        in_start,
+        in_end,
+        out_start,
+        out_end,
+        target_vol,
+        monthly_cost,
+        floor_vol=floor_vol,
+        warmup_periods=warmup_periods,
+        selection_mode=selection_mode,
+        random_n=random_n,
+        custom_weights=custom_weights,
+        rank_kwargs=rank_kwargs,
+        manual_funds=manual_funds,
+        indices_list=indices_list,
+        benchmarks=benchmarks,
+        seed=seed,
+        stats_cfg=stats_cfg,
+        weighting_scheme=weighting_scheme,
+        constraints=constraints,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+        risk_window=risk_window,
+        periods_per_year_override=periods_per_year_override,
+        previous_weights=previous_weights,
+        lambda_tc=lambda_tc,
+        max_turnover=max_turnover,
+        signal_spec=signal_spec,
+        regime_cfg=regime_cfg,
+        weight_policy=weight_policy,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
+    )
+    return result.unwrap()
+
+
+_DEFAULT_RUN_ANALYSIS = _run_analysis
+
+
+def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
+    """Call the patched analysis hook and normalise into a PipelineResult."""
+
+    if _run_analysis is _DEFAULT_RUN_ANALYSIS:
+        return _run_analysis_with_diagnostics(*args, **kwargs)
+    patched_result = _run_analysis(*args, **kwargs)
+    if isinstance(patched_result, PipelineResult):
+        return patched_result
+    if isinstance(patched_result, DiagnosticResult):
+        return PipelineResult(
+            value=patched_result.value,
+            diagnostic=patched_result.diagnostic,
+        )
+    return PipelineResult(value=patched_result, diagnostic=None)
 
 
 def run_analysis(
@@ -1344,8 +1497,8 @@ def run_analysis(
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
-    """Backward-compatible wrapper around ``_run_analysis``."""
+) -> PipelineResult:
+    """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
         value is not None
         for value in (calendar_frequency, calendar_timezone, holiday_calendar)
@@ -1359,7 +1512,7 @@ def run_analysis(
         if holiday_calendar is not None:
             calendar_settings["holiday_calendar"] = holiday_calendar
         df.attrs["calendar_settings"] = calendar_settings
-    return _run_analysis(
+    return _invoke_analysis_with_diag(
         df,
         in_start,
         in_end,
@@ -1462,7 +1615,7 @@ def run(cfg: Config) -> pd.DataFrame:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    res = _run_analysis(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -1494,8 +1647,20 @@ def run(cfg: Config) -> pd.DataFrame:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if res is None:
-        return pd.DataFrame()
+    diag = diag_res.diagnostic
+    if diag_res.value is None:
+        if diag:
+            logger.warning(
+                "pipeline.run aborted (%s): %s",
+                diag.reason_code,
+                diag.message,
+            )
+        empty = pd.DataFrame()
+        if diag:
+            empty.attrs["diagnostic"] = diag
+        return empty
+
+    res = diag_res.value
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
@@ -1509,11 +1674,13 @@ def run(cfg: Config) -> pd.DataFrame:
                 if k not in {"equal_weight", "user_weight"}
             }
         )
+    if diag:
+        df.attrs["diagnostic"] = diag
     return df
 
 
-def run_full(cfg: Config) -> dict[str, object]:
-    """Return the full analysis results based on ``cfg``."""
+def run_full(cfg: Config) -> PipelineResult:
+    """Return the full analysis results (with diagnostics) based on ``cfg``."""
     cfg = _unwrap_cfg(cfg)
     preprocessing_section = _cfg_section(cfg, "preprocessing")
     data_settings = _cfg_section(cfg, "data")
@@ -1567,7 +1734,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    res = _run_analysis(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -1600,7 +1767,17 @@ def run_full(cfg: Config) -> dict[str, object]:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return {} if res is None else res
+    diag = diag_res.diagnostic
+    if diag_res.value is None:
+        if diag:
+            logger.warning(
+                "pipeline.run_full aborted (%s): %s",
+                diag.reason_code,
+                diag.message,
+            )
+        else:
+            logger.warning("pipeline.run_full aborted with no diagnostic context")
+    return diag_res
 
 
 # --- Shift-safe helpers ----------------------------------------------------

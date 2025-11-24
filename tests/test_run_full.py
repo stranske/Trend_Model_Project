@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.config import Config
+from trend_analysis.diagnostics import PipelineResult
 from trend_analysis.pipeline import run, run_full
 
 
@@ -36,7 +37,7 @@ def test_run_full_matches_run(tmp_path):
     cfg = make_cfg(tmp_path, make_df())
     detailed = run_full(cfg)
     summary = run(cfg)
-    assert isinstance(detailed, dict)
+    assert isinstance(detailed, PipelineResult)
     assert not summary.empty
     stats = detailed["out_sample_stats"]
     assert set(summary.index) == set(stats.keys())
