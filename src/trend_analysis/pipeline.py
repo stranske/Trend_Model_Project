@@ -127,7 +127,7 @@ class _PreprocessStage:
     missing_result: MissingPolicyResult
     preprocess_info: dict[str, object]
     frequency_payload: dict[str, object]
-    missing_payload: dict[str, object]
+    missing_payload: Mapping[str, object]
     alignment_info: Mapping[str, Any]
     min_floor: float
     warmup: int
@@ -465,7 +465,39 @@ def _select_universe(
         else:
             custom_weights = None
 
-    if selection_mode != "all":
+    # keep only funds that satisfy missing-data policy in both windows. The
+    # default behaviour enforces strict completeness, while ``na_as_zero`` can
+    # provide tolerances for total and consecutive gaps (Issue #3633).
+    def _max_consecutive_nans(series: pd.Series) -> int:
+        if not series.isna().any():
+            return 0
+        is_na = series.isna().astype(int)
+        groups = (is_na != is_na.shift()).cumsum()
+        runs = is_na.groupby(groups).cumsum() * is_na
+        return int(runs.max()) if not runs.empty else 0
+
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
+    if na_cfg and bool(na_cfg.get("enabled", False)):
+        max_missing = int(na_cfg.get("max_missing_per_window", 0) or 0)
+        max_gap = int(na_cfg.get("max_consecutive_gap", 0) or 0)
+
+        def _window_ok(window_df: pd.DataFrame, column: str) -> bool:
+            series = window_df[column]
+            missing = int(series.isna().sum())
+            if missing == 0:
+                return True
+            if missing > max_missing:
+                return False
+            if max_gap <= 0:
+                return True
+            return _max_consecutive_nans(series) <= max_gap
+
+        fund_cols = [
+            col
+            for col in fund_cols
+            if _window_ok(window.in_df, col) and _window_ok(window.out_df, col)
+        ]
+    else:
         in_ok = ~window.in_df[fund_cols].isna().any()
         out_ok = ~window.out_df[fund_cols].isna().any()
         fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
