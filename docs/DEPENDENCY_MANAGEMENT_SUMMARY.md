@@ -446,7 +446,7 @@ Potential improvements for future consideration:
 
 ## Related Documentation
 
-- [Testing Guide](TESTING_SUMMARY.md) - Overview of test infrastructure
+- [Testing Guide](../archives/reports/2025-11-22_TESTING_SUMMARY.md) - Overview of test infrastructure (archived ledger)
 - [Coverage Guide](coverage-summary.md) - Coverage tracking and thresholds
 - [GitHub Copilot Instructions](../.github/copilot-instructions.md) - Development workflow
 - [Dependency Management Guide](DEPENDENCY_MANAGEMENT.md) - Complete dependency reference

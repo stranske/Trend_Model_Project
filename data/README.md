@@ -5,7 +5,7 @@ Only active reference inputs remain in the root or `data/` directories. Demo out
 | Dataset | Location | Size | Schema | Owner | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | Trend Universe total returns | `Trend Universe Data.csv` | 136 KB | [Schema](#trend-universe-data) | Demo data maintainers (Research Ops) | Primary monthly total return matrix for Trend universe configs and tests. |
-| Trend Universe membership ledger | `Trend Universe Membership.csv` | 4 KB | [Schema](#trend-universe-membership) | Demo data maintainers (Research Ops) | Effective-date windows for each Trend universe column used by loaders and configs. |
+| Trend Universe membership ledger | `Trend Universe Membership.csv` | 4 KB | [Schema](#trend-universe-membership) | Demo data maintainers (Research Ops) | Effective-date windows for each Trend universe column used by loaders and configs. See `docs/data/Trend_Universe_Data.md` for stewardship notes. |
 | Hedge fund returns with benchmarks | `hedge_fund_returns_with_indexes.csv` | 140 KB | [Schema](#hedge-fund-returns-with-indexes) | Demo data maintainers (Research Ops) | Input for long backtest and rolling-hold configs plus legacy demo notebooks. |
 | Sample manager returns | `data/raw/managers/sample_manager.csv` | 4 KB | [Schema](#sample-manager-returns) | Demo data maintainers (Research Ops) | Minimal fixture used by CLI preset tests. |
 | Sample benchmark index | `data/raw/indices/sample_index.csv` | 4 KB | [Schema](#sample-benchmark-index) | Demo data maintainers (Research Ops) | Lightweight index series kept for parity with sample manager inputs. |

@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from analysis.results import build_metadata
+from trend.diagnostics import DiagnosticResult
 
 from .core.rank_selection import (
     RiskStatsConfig,
@@ -609,7 +610,7 @@ def _compute_stats(
     return stats
 
 
-def _run_analysis(
+def _run_analysis_with_diagnostics(
     df: pd.DataFrame,
     in_start: str,
     in_end: str,
@@ -645,27 +646,32 @@ def _run_analysis(
     allow_risk_free_fallback: bool | None = None,
 ) -> dict[str, object] | None:
     if df is None:
-        return None
+        return pipeline_failure(PipelineReasonCode.INPUT_NONE)
+
+    attrs_copy = dict(getattr(df, "attrs", {}))
+    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+        df = pd.DataFrame(df)
+    if attrs_copy:
+        df.attrs = attrs_copy
 
     date_col = "Date"
     if date_col not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column")
 
-    attrs_copy = dict(getattr(df, "attrs", {}))
     calendar_settings = attrs_copy.get("calendar_settings", {})
 
     # Fast-fail when no usable timestamps exist so tests that simulate
     # pathological DataFrame subclasses continue to short-circuit.
     date_probe = pd.to_datetime(df[date_col], errors="coerce")
     if not date_probe.notna().any():
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.NO_VALID_DATES,
+            context={"date_column": date_col},
+        )
 
-    # Normalise potentially exotic DataFrame subclasses into a vanilla
-    # ``pd.DataFrame`` so pandas internals do not trip over overridden
-    # properties (Issue #3633 regression).
-    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
-        df = pd.DataFrame(df)
-    df.attrs = attrs_copy
+    # ``df`` is now a vanilla ``pd.DataFrame`` so pandas internals do not
+    # trip over overridden properties (Issue #3633 regression). Align the
+    # calendar next so downstream stages operate on consistent timestamps.
     try:
         df = align_calendar(
             df,
@@ -680,7 +686,10 @@ def _run_analysis(
             "contains no valid timestamps" in message
             or "All rows were removed" in message
         ):
-            return None
+            return pipeline_failure(
+                PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
+                context={"error": message},
+            )
         raise
     alignment_info = df.attrs.get("calendar_alignment", {})
 
@@ -711,15 +720,45 @@ def _run_analysis(
         enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.PREPARED_FRAME_EMPTY,
+            context={
+                "missing_summary": getattr(missing_result, "summary", None),
+                "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
+            },
+        )
+    initial_value_cols = [c for c in df_prepared.columns if c != date_col]
+    df_original = df_prepared.copy()
+    prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
+    value_cols_all = [c for c in df_prepared.columns if c != date_col]
 
-    df = df_prepared.copy()
-    value_cols_all = [c for c in df.columns if c != date_col]
-    if not value_cols_all:
-        return None
+    if not initial_value_cols or not value_cols_all:
+        reason = (
+            PipelineReasonCode.NO_VALUE_COLUMNS
+            if not initial_value_cols
+            else PipelineReasonCode.INSUFFICIENT_COLUMNS
+        )
+        return pipeline_failure(
+            reason,
+            context={
+                "stage": "post-prep-column-check",
+                "initial_value_cols": len(initial_value_cols),
+                "post_probe_value_cols": len(value_cols_all),
+            },
+        )
+
+    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+        df = pd.DataFrame(df_original)
+    else:
+        df = df_original
+    if prepared_attrs:
+        df.attrs = prepared_attrs
 
     if df.empty or df.shape[1] <= 1:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.INSUFFICIENT_COLUMNS,
+            context={"columns": df.shape[1], "rows": df.shape[0]},
+        )
 
     freq_code = freq_summary.code
     missing_meta = missing_result
@@ -790,7 +829,13 @@ def _run_analysis(
     )
 
     if in_df.empty or out_df.empty:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.SAMPLE_WINDOW_EMPTY,
+            context={
+                "in_rows": int(in_df.shape[0]),
+                "out_rows": int(out_df.shape[0]),
+            },
+        )
 
     if indices_list is None:
         indices_list = []
@@ -882,7 +927,13 @@ def _run_analysis(
             fund_cols = []  # pragma: no cover
 
     if not fund_cols:
-        return None
+        return pipeline_failure(
+            PipelineReasonCode.NO_FUNDS_SELECTED,
+            context={
+                "selection_mode": selection_mode,
+                "universe_size": len(value_cols_all),
+            },
+        )
     score_frame = single_period_run(
         df[[date_col] + fund_cols],
         in_start,
@@ -998,8 +1049,9 @@ def _run_analysis(
         vol_target=None,
         zscore=False,
     )
+    signal_source = df_original
     signal_inputs = (
-        df.set_index(date_col)[fund_cols].astype(float)
+        signal_source.set_index(date_col)[fund_cols].astype(float)
         if fund_cols
         else pd.DataFrame(dtype=float)
     )
@@ -1462,7 +1514,7 @@ def run(cfg: Config) -> pd.DataFrame:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    res = _run_analysis(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -1494,8 +1546,20 @@ def run(cfg: Config) -> pd.DataFrame:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if res is None:
-        return pd.DataFrame()
+    diag = diag_res.diagnostic
+    if diag_res.value is None:
+        if diag:
+            logger.warning(
+                "pipeline.run aborted (%s): %s",
+                diag.reason_code,
+                diag.message,
+            )
+        empty = pd.DataFrame()
+        if diag:
+            empty.attrs["diagnostic"] = diag
+        return empty
+
+    res = diag_res.value
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
@@ -1509,6 +1573,8 @@ def run(cfg: Config) -> pd.DataFrame:
                 if k not in {"equal_weight", "user_weight"}
             }
         )
+    if diag:
+        df.attrs["diagnostic"] = diag
     return df
 
 
@@ -1567,7 +1633,7 @@ def run_full(cfg: Config) -> dict[str, object]:
     risk_free_column = _section_get(data_settings, "risk_free_column")
     allow_risk_free_fallback = _section_get(data_settings, "allow_risk_free_fallback")
 
-    res = _run_analysis(
+    diag_res = _invoke_analysis_with_diag(
         df,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -1600,7 +1666,17 @@ def run_full(cfg: Config) -> dict[str, object]:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return {} if res is None else res
+    diag = diag_res.diagnostic
+    value = diag_res.value
+    if value is None:
+        if diag:
+            logger.warning(
+                "pipeline.run_full aborted (%s): %s",
+                diag.reason_code,
+                diag.message,
+            )
+        return {}
+    return value
 
 
 # --- Shift-safe helpers ----------------------------------------------------
