@@ -185,12 +185,11 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if res is None:
-        logger.warning("run_simulation produced no result")
-        return RunResult(pd.DataFrame(), {}, seed, env)
-
-    if isinstance(res, dict):
-        res_dict: dict[str, Any] = res
+    if isinstance(res, AnalysisResult):
+        if not res.success:
+            logger.warning("run_simulation produced no result")
+            return RunResult(pd.DataFrame(), {}, seed, env, details=res.diagnostics)
+        res_dict: dict[str, Any] = res.payload or {}
     elif isinstance(res, Mapping):
         res_dict = dict(res)
     else:

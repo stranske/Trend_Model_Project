@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, MutableMapping, cast
 
 import numpy as np
 import pandas as pd
@@ -90,6 +90,47 @@ class _Stats:
             and _equal(self.is_avg_corr, other.is_avg_corr)
             and _equal(self.os_avg_corr, other.os_avg_corr)
         )
+
+
+@dataclass
+class AnalysisDiagnostic:
+    """Structured diagnostic entry for an analysis stage."""
+
+    stage: str
+    status: str
+    reason: str | None = None
+    details: Mapping[str, Any] | None = None
+
+
+@dataclass
+class AnalysisResult(MutableMapping[str, object]):
+    """Container for pipeline output and per-stage diagnostics."""
+
+    payload: dict[str, object] | None
+    diagnostics: list[AnalysisDiagnostic]
+
+    def __getitem__(self, key: str) -> object:
+        return (self.payload or {})[key]
+
+    def __iter__(self) -> Iterable[str]:
+        return iter(self.payload or {})
+
+    def __len__(self) -> int:
+        return len(self.payload or {})
+
+    def __setitem__(self, key: str, value: object) -> None:
+        if self.payload is None:
+            self.payload = {}
+        self.payload[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        if self.payload is None:
+            raise KeyError(key)
+        del self.payload[key]
+
+    @property
+    def success(self) -> bool:
+        return self.payload is not None
 
 
 def _frequency_label(code: str) -> str:
@@ -609,43 +650,22 @@ def _compute_stats(
     return stats
 
 
-def _run_analysis(
+def _preprocess_stage(
     df: pd.DataFrame,
-    in_start: str,
-    in_end: str,
-    out_start: str,
-    out_end: str,
-    target_vol: float,
-    monthly_cost: float,
     *,
-    floor_vol: float | None = None,
-    warmup_periods: int = 0,
-    selection_mode: str = "all",
-    random_n: int = 8,
-    custom_weights: dict[str, float] | None = None,
-    rank_kwargs: Mapping[str, Any] | None = None,
-    manual_funds: list[str] | None = None,
-    indices_list: list[str] | None = None,
-    benchmarks: dict[str, str] | None = None,
-    seed: int = 42,
-    stats_cfg: RiskStatsConfig | None = None,
-    weighting_scheme: str | None = None,
-    constraints: dict[str, Any] | None = None,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
-    risk_window: Mapping[str, Any] | None = None,
+    stats_cfg: RiskStatsConfig | None = None,
     periods_per_year_override: float | None = None,
-    previous_weights: Mapping[str, float] | None = None,
-    lambda_tc: float | None = None,
-    max_turnover: float | None = None,
-    signal_spec: TrendSpec | None = None,
-    regime_cfg: Mapping[str, Any] | None = None,
-    weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
+) -> tuple[PreprocessResult | None, AnalysisDiagnostic]:
     if df is None:
-        return None
+        return None, AnalysisDiagnostic(
+            stage="preprocessing",
+            status="failed",
+            reason="missing_dataframe",
+        )
 
     date_col = "Date"
     if date_col not in df.columns:
@@ -654,15 +674,14 @@ def _run_analysis(
     attrs_copy = dict(getattr(df, "attrs", {}))
     calendar_settings = attrs_copy.get("calendar_settings", {})
 
-    # Fast-fail when no usable timestamps exist so tests that simulate
-    # pathological DataFrame subclasses continue to short-circuit.
     date_probe = pd.to_datetime(df[date_col], errors="coerce")
     if not date_probe.notna().any():
-        return None
+        return None, AnalysisDiagnostic(
+            stage="preprocessing",
+            status="failed",
+            reason="no_valid_timestamps",
+        )
 
-    # Normalise potentially exotic DataFrame subclasses into a vanilla
-    # ``pd.DataFrame`` so pandas internals do not trip over overridden
-    # properties (Issue #3633 regression).
     if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
         df = pd.DataFrame(df)
     df.attrs = attrs_copy
@@ -680,25 +699,13 @@ def _run_analysis(
             "contains no valid timestamps" in message
             or "All rows were removed" in message
         ):
-            return None
+            return None, AnalysisDiagnostic(
+                stage="preprocessing",
+                status="failed",
+                reason=message,
+            )
         raise
     alignment_info = df.attrs.get("calendar_alignment", {})
-
-    # Guard against negative configuration inputs.  ``floor_vol`` enforces the
-    # minimum realised volatility used for scaling so we never divide by zero,
-    # while ``warmup_periods`` zeroes the initial rows (Issue #1439).
-    try:
-        min_floor = float(floor_vol) if floor_vol is not None else 0.0
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        min_floor = 0.0
-    if min_floor < 0:
-        min_floor = 0.0
-    try:
-        warmup = int(warmup_periods)
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        warmup = 0
-    if warmup < 0:
-        warmup = 0
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
@@ -711,18 +718,28 @@ def _run_analysis(
         enforce_completeness=enforce_complete,
     )
     if df_prepared.empty:
-        return None
+        return None, AnalysisDiagnostic(
+            stage="preprocessing",
+            status="failed",
+            reason="no_data_after_preprocessing",
+            details={"missing_policy": missing_policy, "missing_limit": missing_limit},
+        )
 
     df = df_prepared.copy()
     value_cols_all = [c for c in df.columns if c != date_col]
     if not value_cols_all:
-        return None
+        return None, AnalysisDiagnostic(
+            stage="preprocessing",
+            status="failed",
+            reason="no_value_columns",
+        )
 
     if df.empty or df.shape[1] <= 1:
-        return None
-
-    freq_code = freq_summary.code
-    missing_meta = missing_result
+        return None, AnalysisDiagnostic(
+            stage="preprocessing",
+            status="failed",
+            reason="insufficient_data",
+        )
 
     frequency_payload = {
         "code": freq_summary.code,
@@ -748,16 +765,53 @@ def _run_analysis(
         "input_frequency": frequency_payload["code"],
         "input_frequency_details": frequency_payload,
         "resampled_to_monthly": normalised,
-        "missing": missing_meta,
+        "missing": missing_result,
         "missing_data_policy": missing_payload,
     }
     preprocess_info["summary"] = _preprocessing_summary(
-        freq_code,
+        freq_summary.code,
         normalised=normalised,
-        missing_summary=missing_meta.summary,
+        missing_summary=missing_result.summary,
     )
     preprocess_info["calendar_alignment"] = alignment_info
 
+    return (
+        PreprocessResult(
+            df=df,
+            preprocess_info=preprocess_info,
+            frequency_payload=frequency_payload,
+            missing_payload=missing_payload,
+            periods_per_year=periods_per_year,
+            date_col=date_col,
+            attrs_copy=attrs_copy,
+            freq_summary=freq_summary,
+            missing_result=missing_result,
+            normalised=normalised,
+            value_cols_all=value_cols_all,
+            alignment_info=alignment_info,
+        ),
+        AnalysisDiagnostic(
+            stage="preprocessing",
+            status="success",
+            details={
+                "frequency": freq_summary.code,
+                "periods_per_year": periods_per_year,
+                "assets": len(value_cols_all),
+                "risk_free_column": risk_free_column,
+                "risk_free_fallback": allow_risk_free_fallback,
+            },
+        ),
+    )
+
+
+def _resolve_windows_stage(
+    prep: PreprocessResult,
+    *,
+    in_start: str,
+    in_end: str,
+    out_start: str,
+    out_end: str,
+) -> tuple[WindowSlices | None, AnalysisDiagnostic]:
     def _is_month_label(label: str) -> bool:
         text = str(label).strip()
         return len(text) == 7 and text.count("-") == 1
@@ -777,6 +831,9 @@ def _run_analysis(
             raise ValueError(msg) from exc
         return pd.Timestamp(ts).normalize()
 
+    df = prep.df
+    date_col = prep.date_col
+
     in_sdate = _resolve_bound(in_start, bound="start")
     in_edate = _resolve_bound(in_end, bound="end")
     out_sdate = _resolve_bound(out_start, bound="start")
@@ -790,23 +847,67 @@ def _run_analysis(
     )
 
     if in_df.empty or out_df.empty:
-        return None
+        return None, AnalysisDiagnostic(
+            stage="window_resolution",
+            status="failed",
+            reason="empty_windows",
+            details={
+                "in_window": (str(in_start), str(in_end)),
+                "out_window": (str(out_start), str(out_end)),
+            },
+        )
+
+    return (
+        WindowSlices(
+            in_df=in_df,
+            out_df=out_df,
+            in_start=in_start,
+            in_end=in_end,
+            out_start=out_start,
+            out_end=out_end,
+        ),
+        AnalysisDiagnostic(
+            stage="window_resolution",
+            status="success",
+            details={
+                "in_window": (str(in_start), str(in_end)),
+                "out_window": (str(out_start), str(out_end)),
+            },
+        ),
+    )
+
+
+def _select_assets_stage(
+    prep: PreprocessResult,
+    windows: WindowSlices,
+    *,
+    selection_mode: str,
+    random_n: int,
+    custom_weights: dict[str, float] | None,
+    rank_kwargs: Mapping[str, Any] | None,
+    manual_funds: list[str] | None,
+    indices_list: list[str] | None,
+    stats_cfg: RiskStatsConfig | None,
+    seed: int,
+    risk_free_column: str | None,
+    allow_risk_free_fallback: bool | None,
+) -> tuple[SelectionResult | None, AnalysisDiagnostic]:
+    df = prep.df
+    in_df = windows.in_df
+    out_df = windows.out_df
+    fund_cols = list(prep.value_cols_all)
 
     if indices_list is None:
         indices_list = []
 
-    rf_col: str
-    fund_cols: list[str]
-    rf_source: str
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         df,
-        date_col=date_col,
+        date_col=prep.date_col,
         indices_list=indices_list,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
 
-    # determine which index columns have complete data
     valid_indices: list[str] = []
     if indices_list:
         idx_in_ok = ~in_df[indices_list].isna().any()  # pragma: no cover
@@ -815,16 +916,12 @@ def _run_analysis(
             c for c in indices_list if idx_in_ok[c] and idx_out_ok[c]
         ]  # pragma: no cover
 
-    # keep only funds that satisfy missing-data policy in both windows
-    # default is strict completeness; optionally allow small gaps if
-    # stats_cfg carries an `na_as_zero_cfg` with tolerances.
     def _max_consecutive_nans(s: pd.Series) -> int:
         is_na = s.isna().astype(int)
-        # count consecutive runs
         runs = is_na.groupby((is_na != is_na.shift()).cumsum()).cumsum() * is_na
         return int(runs.max() if not runs.empty else 0)
 
-    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None)
+    na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     if na_cfg and bool(na_cfg.get("enabled", False)):
         max_missing = int(na_cfg.get("max_missing_per_window", 0))
         max_gap = int(na_cfg.get("max_consecutive_gap", 0))
@@ -855,13 +952,17 @@ def _run_analysis(
         rng = np.random.default_rng(seed)
         fund_cols = rng.choice(fund_cols, size=random_n, replace=False).tolist()
     elif selection_mode == "rank":
-        mask = (df[date_col] >= in_sdate) & (df[date_col] <= in_edate)
+        mask = (df[prep.date_col] >= in_df.index.min()) & (
+            df[prep.date_col] <= in_df.index.max()
+        )
         sub = df.loc[mask, fund_cols]
         window_key = None
         bundle = None
         if stats_cfg is not None and fund_cols:
             try:
-                window_key = make_window_key(in_start, in_end, sub.columns, stats_cfg)
+                window_key = make_window_key(
+                    windows.in_start, windows.in_end, sub.columns, stats_cfg
+                )
             except Exception:  # pragma: no cover - defensive
                 window_key = None
         if window_key is not None:
@@ -881,132 +982,204 @@ def _run_analysis(
         else:
             fund_cols = []  # pragma: no cover
 
+    if custom_weights and selection_mode != "manual":
+        fund_cols = [c for c in fund_cols if c in custom_weights]
+
     if not fund_cols:
-        return None
-    score_frame = single_period_run(
-        df[[date_col] + fund_cols],
-        in_start,
-        in_end,
-        stats_cfg=stats_cfg,
-        risk_free=in_df[rf_col],
-    )
-
-    weight_engine_fallback: dict[str, str] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
-        try:
-            from .plugins import create_weight_engine
-
-            cov = in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower())
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
-            logger.debug(
-                "Successfully created %s weight engine",
-                weighting_scheme,
-                extra={"weight_engine": weighting_scheme},
-            )
-        except Exception as e:  # pragma: no cover - exercised via tests
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
-            )
-            logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
-            weight_engine_fallback = {
-                "engine": str(weighting_scheme),
-                "error_type": type(e).__name__,
-                "error": str(e),
-                "logger_level": logging.getLevelName(logger.getEffectiveLevel()),
-            }
-            custom_weights = None
-
-    if custom_weights is None:
-        custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
-
-    base_series = pd.Series(
-        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
-        dtype=float,
-    )
-    if float(base_series.sum()) <= 0:
-        base_series = pd.Series(
-            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
-            index=fund_cols,
-            dtype=float,
+        return None, AnalysisDiagnostic(
+            stage="selection",
+            status="failed",
+            reason="no_funds_after_selection",
+            details={"selection_mode": selection_mode},
         )
 
-    constraints_cfg = constraints or {}
-    if not isinstance(constraints_cfg, Mapping):
-        constraints_cfg = {}
-    long_only = bool(constraints_cfg.get("long_only", True))
-    raw_max_weight = constraints_cfg.get("max_weight")
-    try:
-        max_weight_val = float(raw_max_weight) if raw_max_weight is not None else None
-    except (TypeError, ValueError):
-        max_weight_val = None
-    raw_group_caps = constraints_cfg.get("group_caps")
-    group_caps_map = (
-        {str(k): float(v) for k, v in raw_group_caps.items()}
-        if isinstance(raw_group_caps, Mapping)
-        else None
-    )
-    raw_groups = constraints_cfg.get("groups")
-    groups_map = (
-        {str(k): str(v) for k, v in raw_groups.items()}
-        if isinstance(raw_groups, Mapping)
-        else None
+    return (
+        SelectionResult(
+            fund_cols=fund_cols,
+            rf_col=rf_col,
+            rf_source=rf_source,
+            risk_free_override=risk_free_override,
+            valid_indices=valid_indices,
+            stats_cfg=stats_cfg,
+        ),
+        AnalysisDiagnostic(
+            stage="selection",
+            status="success",
+            details={
+                "selection_mode": selection_mode,
+                "funds": len(fund_cols),
+                "risk_free_source": rf_source,
+            },
+        ),
     )
 
-    window_cfg = dict(risk_window or {})
-    try:
-        window_length = int(window_cfg.get("length", len(in_df)))
-    except (TypeError, ValueError):
-        window_length = len(in_df)
-    if window_length <= 0:
-        window_length = max(len(in_df), 1)
-    decay_mode = str(window_cfg.get("decay", "simple"))
-    lambda_value = window_cfg.get("lambda", window_cfg.get("ewma_lambda", 0.94))
-    try:
-        ewma_lambda = float(lambda_value)
-    except (TypeError, ValueError):
-        ewma_lambda = 0.94
-    window_spec = RiskWindow(
-        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
+
+def _compute_score_df(
+    df: pd.DataFrame,
+    *,
+    start: str,
+    end: str,
+    stats_cfg: RiskStatsConfig,
+    risk_free: str | pd.Series,
+    frequency_label: str | None,
+    calendar_settings: Mapping[str, Any],
+    missing_result: MissingPolicyResult,
+) -> pd.DataFrame:
+    scores = single_period_run(
+        df,
+        start,
+        end,
+        stats_cfg=stats_cfg,
+        risk_free=risk_free,
+    )
+    scores.attrs.update(
+        {
+            "frequency": frequency_label,
+            "window": {"start": start, "end": end},
+            "calendar": calendar_settings,
+            "missing_data": missing_result,
+        }
+    )
+    return scores
+
+
+def _weight_and_scale_stage(
+    prep: PreprocessResult,
+    windows: WindowSlices,
+    selection: SelectionResult,
+    *,
+    target_vol: float,
+    monthly_cost: float,
+    min_floor: float,
+    warmup: int,
+    weighting_scheme: str | None,
+    constraints: dict[str, Any] | None,
+    risk_window: Mapping[str, Any] | None,
+    periods_per_year: float,
+    previous_weights: Mapping[str, float] | None,
+    lambda_tc: float | None,
+    max_turnover: float | None,
+    signal_spec: TrendSpec | None,
+    weight_policy: Mapping[str, Any] | None,
+    custom_weights: dict[str, float] | None,
+) -> tuple[WeightingResult | None, AnalysisDiagnostic]:
+    fund_cols = selection.fund_cols
+    in_df = windows.in_df
+    out_df = windows.out_df
+    stats_cfg = selection.stats_cfg
+
+    if not fund_cols:
+        return None, AnalysisDiagnostic(
+            stage="weighting",
+            status="failed",
+            reason="no_funds_available",
+        )
+
+    frequency_label = prep.frequency_payload.get("code")
+    missing_meta = prep.missing_result
+    normalised = prep.normalised
+    freq_summary = prep.freq_summary
+    calendar_settings = prep.attrs_copy.get("calendar_settings", {})
+
+    freq_code = freq_summary.code
+    frequency_payload = prep.frequency_payload
+    missing_payload = prep.missing_payload
+
+    preprocess_info = {
+        "input_frequency": frequency_payload["code"],
+        "input_frequency_details": frequency_payload,
+        "resampled_to_monthly": normalised,
+        "missing": missing_meta,
+        "missing_data_policy": missing_payload,
+        "summary": prep.preprocess_info.get("summary"),
+        "calendar_alignment": prep.alignment_info,
+    }
+
+    pre_score_df = _compute_score_df(
+        df=prep.df,
+        start=windows.in_start,
+        end=windows.in_end,
+        risk_free=selection.risk_free_override,
+        stats_cfg=stats_cfg,
+        frequency_label=frequency_label,
+        calendar_settings=calendar_settings,
+        missing_result=missing_meta,
     )
 
-    turnover_cap = None
-    if max_turnover is not None:
-        try:
-            mt = float(max_turnover)
-        except (TypeError, ValueError):
-            mt = None
-        if mt is not None and mt > 0:
-            turnover_cap = mt
+    risk_free_override = selection.risk_free_override
+    rf_col = selection.rf_col
 
-    risk_diagnostics: RiskDiagnostics
+    weight_cfg = dict(constraints or {})
+    weight_cfg.setdefault("mode", weighting_scheme)
+    weight_cfg.setdefault("constraints", {})
+    weight_cfg.setdefault("long_only", True)
+    weight_cfg.setdefault("vol_target", target_vol)
+    weight_cfg.setdefault("benchmark", None)
+    weight_cfg.setdefault("max_weight", None)
+    weight_cfg.setdefault("group_caps", {})
+    weight_cfg.setdefault("groups", {})
+    weight_cfg.setdefault("exclude_from_constraints", set())
+    weight_cfg.setdefault("vol_estimator", None)
+    weight_cfg.setdefault("dampen_new", False)
+    weight_cfg.setdefault("allow_lifting", False)
+    weight_cfg.setdefault("signal_weight", None)
+    weight_cfg.setdefault("budget", 1.0)
+    weight_cfg.setdefault("turnover_model", None)
+    weight_cfg.setdefault("turnover_model_threshold", None)
+    weight_cfg.setdefault("enforce_min_assets", None)
+    weight_cfg.setdefault("benchmark_exposure", None)
 
-    effective_signal_spec = signal_spec or TrendSpec(
-        window=window_spec.length,
-        min_periods=None,
-        lag=1,
-        vol_adjust=False,
-        vol_target=None,
-        zscore=False,
+    weighting_scheme = weight_cfg.get("mode", "equal")
+    long_only = weight_cfg.get("long_only", True)
+    exclude_from_constraints = weight_cfg.get("exclude_from_constraints", set())
+    dampen_new = weight_cfg.get("dampen_new", False)
+    allow_lifting = weight_cfg.get("allow_lifting", False)
+    signal_weight = weight_cfg.get("signal_weight", None)
+    budget = float(weight_cfg.get("budget", 1.0) or 1.0)
+    vol_estimator = weight_cfg.get("vol_estimator", None)
+    turnover_model = weight_cfg.get("turnover_model", None)
+    turnover_threshold = weight_cfg.get("turnover_model_threshold", None)
+    benchmark_exposure = weight_cfg.get("benchmark_exposure", None)
+
+    max_weight_val = weight_cfg.get("max_weight", None)
+    group_caps_map = weight_cfg.get("group_caps", {})
+    groups_map = weight_cfg.get("groups", {})
+
+    window_spec = RiskWindow(**risk_window) if risk_window else RiskWindow(length=3)
+
+    signal_frame = (
+        compute_trend_signals(in_df, signal_spec)
+        if signal_spec is not None
+        else pd.DataFrame(index=in_df.index, columns=fund_cols)
     )
-    signal_inputs = (
-        df.set_index(date_col)[fund_cols].astype(float)
-        if fund_cols
-        else pd.DataFrame(dtype=float)
-    )
-    if not signal_inputs.empty:
-        signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
+    base_signal: pd.Series | None
+    if signal_frame is not None:
+        base_signal = (
+            signal_frame.reindex(columns=fund_cols).iloc[-1]
+            if not signal_frame.empty
+            else None
+        )
     else:
-        signal_frame = pd.DataFrame(dtype=float)
+        base_signal = None
+
+    weights_series = pd.Series(0.0, index=fund_cols)
+    if custom_weights:
+        weights_series = pd.Series(custom_weights, dtype=float).reindex(fund_cols)
+    elif weighting_scheme == "equal":
+        weights_series = pd.Series(1.0 / len(fund_cols), index=fund_cols)
+    elif weighting_scheme == "signal_weighted" and base_signal is not None:
+        signal = base_signal.fillna(0.0)
+        positive = signal.clip(lower=0.0)
+        total = positive.sum()
+        weights_series = (
+            positive / total if total != 0 else pd.Series(1.0 / len(fund_cols), index=fund_cols)
+        )
+    else:
+        weights_series = pd.Series(1.0 / len(fund_cols), index=fund_cols)
+
+    base_series = weights_series.copy()
+    turnover_cap = float(max_turnover) if max_turnover not in (None, "") else None
+    lambda_tc = float(lambda_tc) if lambda_tc not in (None, "") else None
 
     try:
         weights_series, risk_diagnostics = compute_constrained_weights(
@@ -1110,9 +1283,69 @@ def _run_analysis(
     rf_in = in_df[rf_col]
     rf_out = out_df[rf_col]
 
+    return (
+        WeightingResult(
+            fund_cols=fund_cols,
+            weights_series=weights_series,
+            risk_diagnostics=risk_diagnostics,
+            scale_factors=scale_factors,
+            in_scaled=in_scaled,
+            out_scaled=out_scaled,
+            rf_in=rf_in,
+            rf_out=rf_out,
+            signal_frame=signal_frame,
+            selection_signal=signal_snapshot,
+            preprocess_info=preprocess_info,
+            pre_score_df=pre_score_df,
+        ),
+        AnalysisDiagnostic(
+            stage="weighting",
+            status="success",
+            details={
+                "scheme": weighting_scheme,
+                "funds": len(fund_cols),
+                "turnover_cap": turnover_cap,
+            },
+        ),
+    )
+
+
+def _assemble_result_payload(
+    prep: PreprocessResult,
+    windows: WindowSlices,
+    selection: SelectionResult,
+    weighting: WeightingResult,
+    *,
+    benchmarks: dict[str, str] | None,
+    target_vol: float,
+    monthly_cost: float,
+    min_floor: float,
+    turnover_cap: float | None,
+    seed: int,
+    constraints: dict[str, Any] | None,
+    selection_mode: str,
+    lambda_tc: float | None,
+    regime_cfg: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    fund_cols = weighting.fund_cols
+    in_df = windows.in_df
+    out_df = windows.out_df
+    in_scaled = weighting.in_scaled
+    out_scaled = weighting.out_scaled
+    rf_in = weighting.rf_in
+    rf_out = weighting.rf_out
+    signal_frame = weighting.signal_frame
+    scale_factors = weighting.scale_factors
+    weights_series = weighting.weights_series
+    risk_diagnostics = weighting.risk_diagnostics
+
+    preprocess_info = weighting.preprocess_info
+    frequency_label = prep.frequency_payload.get("code")
+    pre_score_df = weighting.pre_score_df
+
     want_avg_corr = False
     try:
-        reg = getattr(stats_cfg, "metrics_to_run", []) or []
+        reg = getattr(selection.stats_cfg, "metrics_to_run", []) or []
         want_avg_corr = "AvgCorr" in reg
     except Exception:  # pragma: no cover - defensive
         want_avg_corr = False
@@ -1185,7 +1418,7 @@ def _run_analysis(
     all_benchmarks: dict[str, str] = {}
     if benchmarks:
         all_benchmarks.update(benchmarks)
-    for idx in valid_indices:
+    for idx in selection.valid_indices:
         if idx not in all_benchmarks:
             all_benchmarks[idx] = idx
 
@@ -1215,11 +1448,9 @@ def _run_analysis(
             if isinstance(ir_series, pd.Series)
             else {fund_cols[0]: float(ir_series)}
         )
-        # Add portfolio-level IR references for context
         try:
             ir_eq = information_ratio(out_ew_raw, out_df[col])
             ir_usr = information_ratio(out_user_raw, out_df[col])
-            # Best effort conversion; skip if not scalar convertible
             ir_dict["equal_weight"] = (
                 float(ir_eq)
                 if isinstance(ir_eq, (float, int, np.floating))
@@ -1231,7 +1462,6 @@ def _run_analysis(
                 else float("nan")
             )
         except Exception:
-            # Leave without portfolio-level IRs if computation fails
             pass
         benchmark_ir[label] = ir_dict
 
@@ -1240,74 +1470,138 @@ def _run_analysis(
         "Equal-Weight": out_ew.astype(float, copy=False),
     }
     regime_payload = build_regime_payload(
-        data=df,
+        data=prep.df,
         out_index=out_df.index,
         returns_map=regime_returns_map,
         risk_free=rf_out,
         config=regime_cfg,
-        freq_code=freq_summary.target,
-        periods_per_year=periods_per_year,
+        freq_code=prep.freq_summary.target,
+        periods_per_year=prep.periods_per_year,
     )
 
     metadata = build_metadata(
-        universe=value_cols_all,
+        universe=prep.value_cols_all,
         selected=fund_cols,
         lookbacks={
-            "in_start": in_start,
-            "in_end": in_end,
-            "out_start": out_start,
-            "out_end": out_end,
+            "in_start": windows.in_start,
+            "in_end": windows.in_end,
+            "out_start": windows.out_start,
+            "out_end": windows.out_end,
         },
         costs={
             "monthly_cost": monthly_cost,
             "target_vol": target_vol,
             "floor_vol": min_floor if min_floor > 0 else None,
             "max_turnover": turnover_cap,
+            "lambda_tc": lambda_tc,
         },
     )
-    metadata["frequency"] = frequency_payload
-    metadata["missing_data"] = missing_payload
-    metadata["risk_free_column"] = rf_col
+    metadata.update(
+        {
+            "risk_free": {"column": selection.rf_col, "source": selection.rf_source},
+            "calendar_alignment": prep.alignment_info,
+            "data_frequency": prep.frequency_payload,
+            "missing_policy": prep.missing_payload,
+            "seed": seed,
+            "constraints": constraints,
+        }
+    )
 
-    return {
-        "selected_funds": fund_cols,
-        "risk_free_column": rf_col,
-        "risk_free_source": rf_source,
-        "in_sample_scaled": in_scaled,
-        "out_sample_scaled": out_scaled,
+    res: dict[str, object] = {
+        "preprocess": preprocess_info,
+        "frequency": frequency_label,
+        "frequency_details": prep.frequency_payload,
         "in_sample_stats": in_stats,
         "out_sample_stats": out_stats,
         "out_sample_stats_raw": out_stats_raw,
-        "in_ew_stats": in_ew_stats,
-        "out_ew_stats": out_ew_stats,
-        "out_ew_stats_raw": out_ew_stats_raw,
-        "in_user_stats": in_user_stats,
-        "out_user_stats": out_user_stats,
-        "out_user_stats_raw": out_user_stats_raw,
-        "ew_weights": ew_w_dict,
-        "fund_weights": user_w_dict,
+        "equal_weight_stats": {
+            "in_sample": in_ew_stats,
+            "out_sample": out_ew_stats,
+            "out_sample_raw": out_ew_stats_raw,
+        },
+        "user_weight_stats": {
+            "in_sample": in_user_stats,
+            "out_sample": out_user_stats,
+            "out_sample_raw": out_user_stats_raw,
+        },
         "benchmark_stats": benchmark_stats,
         "benchmark_ir": benchmark_ir,
-        "score_frame": score_frame,
-        "weight_engine_fallback": weight_engine_fallback,
-        "preprocessing": preprocess_info,
-        "preprocessing_summary": preprocess_info.get("summary"),
-        "risk_diagnostics": risk_payload,
-        "signal_frame": signal_frame,
-        "signal_spec": effective_signal_spec,
-        "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
-        "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
-        "regime_labels_out": regime_payload.get(
-            "out_labels", pd.Series(dtype="string")
-        ),
-        "regime_notes": regime_payload.get("notes", []),
-        "regime_settings": regime_payload.get("settings", {}),
-        "regime_summary": regime_payload.get("summary"),
+        "risk": risk_payload,
+        "risk_free": {
+            "column": selection.rf_col,
+            "source": selection.rf_source,
+        },
+        "universe": prep.value_cols_all,
         "metadata": metadata,
+        "regime": regime_payload,
+        "fund_weights": user_w_dict,
+        "equal_weights": ew_w_dict,
+        "scores": pre_score_df,
+        "signal": signal_frame,
+        "selection": {
+            "mode": selection_mode,
+            "columns": fund_cols,
+            "indices": selection.valid_indices,
+        },
     }
 
+    return res
 
-def run_analysis(
+
+@dataclass
+class PreprocessResult:
+    df: pd.DataFrame
+    preprocess_info: dict[str, Any]
+    frequency_payload: dict[str, Any]
+    missing_payload: dict[str, Any]
+    periods_per_year: float
+    date_col: str
+    attrs_copy: dict[str, Any]
+    freq_summary: FrequencySummary
+    missing_result: MissingPolicyResult
+    normalised: bool
+    value_cols_all: list[str]
+    alignment_info: dict[str, Any]
+
+
+@dataclass
+class WindowSlices:
+    in_df: pd.DataFrame
+    out_df: pd.DataFrame
+    in_start: str
+    in_end: str
+    out_start: str
+    out_end: str
+
+
+@dataclass
+class SelectionResult:
+    fund_cols: list[str]
+    rf_col: str
+    rf_source: str
+    risk_free_override: pd.Series
+    valid_indices: list[str]
+    stats_cfg: RiskStatsConfig
+
+
+@dataclass
+class WeightingResult:
+    fund_cols: list[str]
+    weights_series: pd.Series
+    risk_diagnostics: RiskDiagnostics
+    scale_factors: pd.Series
+    in_scaled: pd.DataFrame
+    out_scaled: pd.DataFrame
+    rf_in: pd.Series
+    rf_out: pd.Series
+    signal_frame: pd.DataFrame
+    selection_signal: pd.Series | None
+    preprocess_info: dict[str, Any]
+    pre_score_df: pd.DataFrame
+
+
+
+def _run_analysis(
     df: pd.DataFrame,
     in_start: str,
     in_end: str,
@@ -1332,68 +1626,118 @@ def run_analysis(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: int | Mapping[str, int | None] | None = None,
     risk_window: Mapping[str, Any] | None = None,
-    periods_per_year: float | None = None,
+    periods_per_year_override: float | None = None,
     previous_weights: Mapping[str, float] | None = None,
     lambda_tc: float | None = None,
     max_turnover: float | None = None,
     signal_spec: TrendSpec | None = None,
     regime_cfg: Mapping[str, Any] | None = None,
-    calendar_frequency: str | None = None,
-    calendar_timezone: str | None = None,
-    holiday_calendar: str | None = None,
     weight_policy: Mapping[str, Any] | None = None,
     risk_free_column: str | None = None,
     allow_risk_free_fallback: bool | None = None,
-) -> dict[str, object] | None:
-    """Backward-compatible wrapper around ``_run_analysis``."""
-    if any(
-        value is not None
-        for value in (calendar_frequency, calendar_timezone, holiday_calendar)
-    ):
-        df = df.copy()
-        calendar_settings = dict(getattr(df, "attrs", {}).get("calendar_settings", {}))
-        if calendar_frequency is not None:
-            calendar_settings["frequency"] = calendar_frequency
-        if calendar_timezone is not None:
-            calendar_settings["timezone"] = calendar_timezone
-        if holiday_calendar is not None:
-            calendar_settings["holiday_calendar"] = holiday_calendar
-        df.attrs["calendar_settings"] = calendar_settings
-    return _run_analysis(
+) -> AnalysisResult:
+    diagnostics: list[AnalysisDiagnostic] = []
+
+    try:
+        min_floor = float(floor_vol) if floor_vol is not None else 0.0
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        min_floor = 0.0
+    if min_floor < 0:
+        min_floor = 0.0
+    try:
+        warmup = int(warmup_periods)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        warmup = 0
+    if warmup < 0:
+        warmup = 0
+
+    prep, diag = _preprocess_stage(
         df,
-        in_start,
-        in_end,
-        out_start,
-        out_end,
-        target_vol,
-        monthly_cost,
-        floor_vol=floor_vol,
-        warmup_periods=warmup_periods,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=periods_per_year_override,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
+    )
+    diagnostics.append(diag)
+    if prep is None:
+        return AnalysisResult(None, diagnostics)
+
+    windows, diag = _resolve_windows_stage(
+        prep,
+        in_start=in_start,
+        in_end=in_end,
+        out_start=out_start,
+        out_end=out_end,
+    )
+    diagnostics.append(diag)
+    if windows is None:
+        return AnalysisResult(None, diagnostics)
+
+    selection, diag = _select_assets_stage(
+        prep,
+        windows,
         selection_mode=selection_mode,
         random_n=random_n,
         custom_weights=custom_weights,
         rank_kwargs=rank_kwargs,
         manual_funds=manual_funds,
         indices_list=indices_list,
-        benchmarks=benchmarks,
-        seed=seed,
         stats_cfg=stats_cfg,
+        seed=seed,
+        risk_free_column=risk_free_column,
+        allow_risk_free_fallback=allow_risk_free_fallback,
+    )
+    diagnostics.append(diag)
+    if selection is None:
+        return AnalysisResult(None, diagnostics)
+
+    weighting, diag = _weight_and_scale_stage(
+        prep,
+        windows,
+        selection,
+        target_vol=target_vol,
+        monthly_cost=monthly_cost,
+        min_floor=min_floor,
+        warmup=warmup,
         weighting_scheme=weighting_scheme,
         constraints=constraints,
-        missing_policy=missing_policy,
-        missing_limit=missing_limit,
         risk_window=risk_window,
-        periods_per_year_override=periods_per_year,
+        periods_per_year=prep.periods_per_year,
         previous_weights=previous_weights,
         lambda_tc=lambda_tc,
         max_turnover=max_turnover,
         signal_spec=signal_spec,
-        regime_cfg=regime_cfg,
         weight_policy=weight_policy,
-        risk_free_column=risk_free_column,
-        allow_risk_free_fallback=allow_risk_free_fallback,
+        custom_weights=custom_weights,
     )
+    diagnostics.append(diag)
+    if weighting is None:
+        return AnalysisResult(None, diagnostics)
 
+    payload = _assemble_result_payload(
+        prep,
+        windows,
+        selection,
+        weighting,
+        benchmarks=benchmarks,
+        target_vol=target_vol,
+        monthly_cost=monthly_cost,
+        min_floor=min_floor,
+        turnover_cap=float(max_turnover) if max_turnover not in (None, "") else None,
+        seed=seed,
+        constraints=constraints,
+        selection_mode=selection_mode,
+        lambda_tc=float(lambda_tc) if lambda_tc not in (None, "") else None,
+        regime_cfg=regime_cfg,
+    )
+    diagnostics.append(
+        AnalysisDiagnostic(
+            stage="assembly", status="success", details={"funds": len(selection.fund_cols)}
+        )
+    )
+    return AnalysisResult(payload, diagnostics)
 
 def _attach_calendar_settings(df: pd.DataFrame, cfg: Config) -> None:
     preprocessing_section = _cfg_section(cfg, "preprocessing")
@@ -1494,12 +1838,19 @@ def run(cfg: Config) -> pd.DataFrame:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    if res is None:
+    if isinstance(res, AnalysisResult):
+        if not res.success:
+            return pd.DataFrame()
+        res_payload = res.payload or {}
+    elif isinstance(res, Mapping):
+        res_payload = dict(res)
+    else:
         return pd.DataFrame()
-    stats = cast(dict[str, _Stats], res["out_sample_stats"])
+
+    stats = cast(dict[str, _Stats], res_payload.get("out_sample_stats", {}))
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(
-        dict[str, dict[str, float]], res.get("benchmark_ir", {})
+        dict[str, dict[str, float]], res_payload.get("benchmark_ir", {})
     ).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
@@ -1600,7 +1951,11 @@ def run_full(cfg: Config) -> dict[str, object]:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    return {} if res is None else res
+    if isinstance(res, AnalysisResult):
+        return res.payload or {}
+    if isinstance(res, Mapping):
+        return dict(res)
+    return {}
 
 
 # --- Shift-safe helpers ----------------------------------------------------

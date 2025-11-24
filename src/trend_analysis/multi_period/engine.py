@@ -29,7 +29,7 @@ from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import identify_risk_free_fund, load_csv
-from ..pipeline import _run_analysis
+from ..pipeline import AnalysisResult, _run_analysis
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..universe import (
@@ -726,10 +726,15 @@ def run(
                 risk_free_column=risk_free_column,
                 allow_risk_free_fallback=allow_risk_free_fallback,
             )
-            if res is None:
+            if isinstance(res, AnalysisResult):
+                if not res.success:
+                    continue
+                res_payload = res.payload or {}
+            elif isinstance(res, Mapping):
+                res_payload = dict(res)
+            else:
                 continue
-            res = dict(res)
-            res["period"] = (
+            res_payload["period"] = (
                 pt.in_start,
                 pt.in_end,
                 pt.out_start,
@@ -841,11 +846,11 @@ def run(
                         in_df_prepared, materialise_aggregates=incremental_cov
                     )
                 prev_in_df = in_df_prepared
-                res["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
+                res_payload["cov_diag"] = prev_cov_payload.cov.diagonal().tolist()
                 if cov_cache_obj is not None:
                     # attach cache stats for observability (does not alter existing keys)
-                    res.setdefault("cache_stats", cov_cache_obj.stats())
-            out_results.append(cast(MultiPeriodPeriodResult, res))
+                    res_payload.setdefault("cache_stats", cov_cache_obj.stats())
+            out_results.append(cast(MultiPeriodPeriodResult, res_payload))
         return out_results
 
     # Threshold-hold path with Bayesian weighting
@@ -1393,21 +1398,26 @@ def run(
             risk_free_column=risk_free_column,
             allow_risk_free_fallback=allow_risk_free_fallback,
         )
-        if res is None:
+        if isinstance(res, AnalysisResult):
+            if not res.success:
+                continue
+            res_payload = res.payload or {}
+        elif isinstance(res, Mapping):
+            res_payload = dict(res)
+        else:
             continue
-        res = dict(res)
-        res["period"] = (
+        res_payload["period"] = (
             pt.in_start,
             pt.in_end,
             pt.out_start,
             pt.out_end,
         )
         # Attach per-period manager change log and execution stats
-        res["manager_changes"] = events
-        res["turnover"] = period_turnover
-        res["transaction_cost"] = float(period_cost)
+        res_payload["manager_changes"] = events
+        res_payload["turnover"] = period_turnover
+        res_payload["transaction_cost"] = float(period_cost)
         # Append this period's result (was incorrectly outside loop causing only last period kept)
-        results.append(cast(MultiPeriodPeriodResult, res))
+        results.append(cast(MultiPeriodPeriodResult, res_payload))
     # Update complete for this period; next loop will use prev_weights
 
     return results
