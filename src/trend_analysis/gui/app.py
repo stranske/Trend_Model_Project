@@ -4,13 +4,13 @@ import asyncio
 import pickle
 import sys
 import warnings
+import importlib
+import importlib.util
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, cast
 
-import ipywidgets as widgets
 import pandas as pd
 import yaml
-from IPython.display import FileLink, Javascript, display
 
 from ..config import Config
 from ..config.models import DEFAULTS
@@ -29,17 +29,45 @@ else:
 
 from .. import export, pipeline, weighting
 
-# Try to import DataGrid at module level for test patching
-try:
-    from ipydatagrid import DataGrid
-
-    HAS_DATAGRID = True
-except ImportError:
-    DataGrid = None
-    HAS_DATAGRID = False
+widgets: Any | None = None
+FileLink: Any | None = None
+Javascript: Any | None = None
+display: Any | None = None
+DataGrid: Any | None = None
+HAS_DATAGRID = False
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
+
+
+def _load_notebook_deps() -> None:
+    """Load optional notebook dependencies on demand."""
+
+    global widgets, FileLink, Javascript, display, DataGrid, HAS_DATAGRID
+
+    if widgets is not None and FileLink is not None and Javascript is not None and display is not None:
+        return
+
+    missing = [
+        mod for mod in ("ipywidgets", "IPython.display") if importlib.util.find_spec(mod) is None
+    ]
+    if missing:
+        joined = ", ".join(missing)
+        raise ImportError(f"Notebook UI requires {joined} to be installed.")
+
+    widgets = importlib.import_module("ipywidgets")
+    display_mod = importlib.import_module("IPython.display")
+    FileLink = display_mod.FileLink
+    Javascript = display_mod.Javascript
+    display = display_mod.display
+
+    datagrid_spec = importlib.util.find_spec("ipydatagrid")
+    if datagrid_spec is not None:
+        DataGrid = importlib.import_module("ipydatagrid").DataGrid
+        HAS_DATAGRID = True
+    else:
+        DataGrid = None
+        HAS_DATAGRID = False
 
 
 def load_state() -> ParamStore:
@@ -143,6 +171,9 @@ def build_config_from_store(store: ParamStore) -> ConfigType:
 def _build_step0(store: ParamStore) -> widgets.Widget:
     """Return widgets for Step 0 (config loader/editor)."""
 
+    _load_notebook_deps()
+    assert widgets is not None and FileLink is not None and display is not None
+
     upload = widgets.FileUpload(accept=".yml", multiple=False)
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
     if HAS_DATAGRID and DataGrid is not None:
@@ -237,6 +268,9 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
 def _build_rank_options(store: ParamStore) -> widgets.Widget:
     """Return widgets for ranking configuration (Step 2)."""
+
+    _load_notebook_deps()
+    assert widgets is not None
     from ..core.rank_selection import METRIC_REGISTRY
 
     rank_cfg = store.cfg.setdefault("rank", {})
@@ -343,30 +377,22 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
 
 def _build_manual_override(store: ParamStore) -> widgets.Widget:
     """Return manual-selection grid or fallback."""
+
+    _load_notebook_deps()
+    assert widgets is not None
     port = store.cfg.setdefault("portfolio", {})
     weights = port.setdefault("custom_weights", {})
     manual = port.setdefault("manual_list", list(weights))
 
-    # Check dynamically if ipydatagrid is available
-    datagrid_available = False
-    try:
-        # Check if ipydatagrid module is available and not None
-        if sys.modules.get("ipydatagrid") is not None:
-            from ipydatagrid import DataGrid as DynamicDataGrid
+    datagrid_available = HAS_DATAGRID and DataGrid is not None
 
-            datagrid_available = True
-        else:
-            DynamicDataGrid = None
-    except (ImportError, AttributeError):
-        datagrid_available = False
-
-    if datagrid_available and DynamicDataGrid is not None:
+    if datagrid_available:
         rows = [
             {"Fund": f, "Include": f in manual, "Weight": float(weights.get(f, 0))}
             for f in sorted(set(manual) | set(weights))
         ]
         df = pd.DataFrame(rows, columns=["Fund", "Include", "Weight"])
-        grid = DynamicDataGrid(df, editable=True)
+        grid = DataGrid(df, editable=True)
 
         def _on_edit(event: dict[str, Any], *, store: ParamStore) -> None:
             fund = df.loc[event["row"], "Fund"]
@@ -438,6 +464,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
 def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     """Return weighting method dropdown and param sliders."""
+    _load_notebook_deps()
+    assert widgets is not None
     weight_cfg = store.cfg.setdefault("portfolio", {}).setdefault(
         "weighting", {"name": "equal", "params": {}}
     )
@@ -513,6 +541,8 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
 
 def launch() -> widgets.Widget:
     """Return the root widget for the Trend Model GUI."""
+    _load_notebook_deps()
+    assert widgets is not None and Javascript is not None
     store = load_state()
     discover_plugins()
 
