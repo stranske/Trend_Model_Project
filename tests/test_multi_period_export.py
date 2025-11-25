@@ -23,7 +23,7 @@ from trend_analysis.multi_period import run as run_mp
 
 def make_df():
     dates = pd.date_range("1990-01-31", periods=12, freq="ME")
-    return pd.DataFrame({"Date": dates, "A": 0.01, "B": 0.02})
+    return pd.DataFrame({"Date": dates, "A": 0.01, "B": 0.02, "RF": 0.0005})
 
 
 def make_cfg():
@@ -35,6 +35,7 @@ def make_cfg():
         "start": "1990-01",
         "end": "1990-04",
     }
+    cfg_data.setdefault("data", {})["risk_free_column"] = "RF"
     return Config(**cfg_data)
 
 

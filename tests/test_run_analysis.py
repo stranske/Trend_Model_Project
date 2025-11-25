@@ -64,7 +64,9 @@ def test_metrics_roundtrip():
 
 def test_run_analysis_basic():
     df = make_df()
-    res = run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0)
+    res = run_analysis(
+        df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0, risk_free_column="RF"
+    )
     assert res is not None
     assert set(res["selected_funds"]) == {"A", "B"}
     assert "in_sample_stats" in res
@@ -84,13 +86,16 @@ def test_run_analysis_random_selection():
         selection_mode="random",
         random_n=1,
         seed=1,
+        risk_free_column="RF",
     )
     assert len(res["selected_funds"]) == 1
 
 
 def test_run_analysis_returns_score_frame():
     df = make_df()
-    res = run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0)
+    res = run_analysis(
+        df, "2020-01", "2020-03", "2020-04", "2020-06", 0.1, 0.0, risk_free_column="RF"
+    )
     sf = res.get("score_frame")
     assert isinstance(sf, pd.DataFrame)
     cfg = RiskStatsConfig()
@@ -127,6 +132,7 @@ def test_run_analysis_detects_daily_frequency():
         "2020-06",
         0.1,
         0.0,
+        risk_free_column="RF",
     )
     assert res is not None
     preprocess = res.get("preprocessing", {})
@@ -148,6 +154,7 @@ def test_run_analysis_missing_policy_zero_keeps_asset():
         "2020-06",
         0.1,
         0.0,
+        risk_free_column="RF",
     )
     assert dropped is not None
     assert set(dropped["selected_funds"]) == {"A"}
@@ -161,6 +168,7 @@ def test_run_analysis_missing_policy_zero_keeps_asset():
         0.1,
         0.0,
         missing_policy={"default": "zero"},
+        risk_free_column="RF",
     )
     assert filled is not None
     assert set(filled["selected_funds"]) == {"A", "B"}
@@ -187,6 +195,7 @@ def test_run_analysis_includes_regime_breakdown() -> None:
             "smoothing": 1,
             "min_observations": 1,
         },
+        risk_free_column="RF",
     )
     assert res is not None
     table = res.get("performance_by_regime")

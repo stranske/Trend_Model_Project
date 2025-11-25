@@ -6,6 +6,11 @@ import pytest
 
 import trend_analysis.pipeline as pipeline
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 class DummyCache:
     def __init__(self) -> None:
@@ -486,6 +491,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
         risk_window={"length": "bad", "lambda": "oops"},
         max_turnover="oops",
         warmup_periods=2,
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -554,6 +560,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         0.0,
         risk_window={"length": 0},
         constraints={"max_weight": "oops"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -614,6 +621,7 @@ def test_run_analysis_returns_none_when_no_value_columns(
         "2020-02",
         0.1,
         0.0,
+        allow_risk_free_fallback=False,
     )
 
     assert result is None

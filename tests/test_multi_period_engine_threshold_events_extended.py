@@ -21,7 +21,12 @@ class ThresholdConfig:
             "end": "2020-06",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    data: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "csv_path": "unused.csv",
+            "risk_free_column": "RF",
+        }
+    )
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
@@ -69,7 +74,12 @@ class ShortConfig:
             "end": "2020-04",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    data: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "csv_path": "unused.csv",
+            "risk_free_column": "RF",
+        }
+    )
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",

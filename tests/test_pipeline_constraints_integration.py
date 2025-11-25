@@ -4,6 +4,11 @@ import pandas as pd
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.pipeline import _run_analysis
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
     dates = pd.date_range("2022-01-31", periods=n_months, freq="ME")
@@ -14,6 +19,7 @@ def make_dummy_returns(n_months: int = 24) -> pd.DataFrame:
         "FundB": rng.normal(0.008, 0.02, size=n_months),
         "FundC": rng.normal(0.011, 0.02, size=n_months),
         "FundD": rng.normal(0.009, 0.02, size=n_months),
+        "RF": np.zeros(n_months),
     }
     return pd.DataFrame(data)
 
@@ -35,6 +41,7 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
             "max_weight": 0.4,
             "cash_weight": 0.1,
         },
+        **RUN_KWARGS,
     )
     assert res is not None
     weights = res["fund_weights"]  # mapping fund->weight (excludes CASH synthetic line)

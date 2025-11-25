@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 
 import pandas as pd
 import pytest
 
+from trend.diagnostics import DiagnosticResult
 from trend_analysis.multi_period import engine as mp_engine
 
 
@@ -96,6 +98,11 @@ def _base_config() -> DummyConfig:
         run={"monthly_cost": 0.0},
         seed=123,
     )
+
+
+def _simple_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    return pd.DataFrame({"Date": dates, "Alpha": [0.01, 0.02, 0.03]})
 
 
 def test_run_schedule_debug_turnover_validation(
@@ -229,3 +236,90 @@ def test_run_combines_price_frames_and_returns_period_results(
         "2020-03-31",
         "2020-04-30",
     )
+
+
+def test_call_pipeline_with_diag_honors_monkeypatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def fake_run(*args: Any, **kwargs: Any) -> dict[str, object]:
+        calls.append((args, kwargs))
+        return {"summary": "ok"}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    diag = mp_engine._call_pipeline_with_diag(
+        pd.DataFrame({"Date": pd.to_datetime([])}),
+        "2020-01",
+        "2020-01",
+        "2020-02",
+        "2020-02",
+        0.1,
+        0.0,
+    )
+
+    assert diag.value == {"summary": "ok"}
+    assert calls, "patched _run_analysis should be invoked"
+
+
+def test_run_defaults_to_risk_free_fallback_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg.portfolio["policy"] = "all"
+    captured: dict[str, Any] = {}
+
+    def fake_call(
+        *args: Any, **kwargs: Any
+    ) -> DiagnosticResult[dict[str, object] | None]:
+        captured.update(kwargs)
+        return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
+
+    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", fake_call)
+    mp_engine.run(cfg, df=_simple_df(), price_frames=None)
+
+    assert captured["risk_free_column"] is None
+    assert captured["allow_risk_free_fallback"] is True
+
+
+def test_run_respects_explicit_risk_free_preferences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg.portfolio["policy"] = "all"
+    cfg.data["allow_risk_free_fallback"] = False
+    cfg.data["risk_free_column"] = "RF"
+    captured: dict[str, Any] = {}
+
+    def fake_call(
+        *args: Any, **kwargs: Any
+    ) -> DiagnosticResult[dict[str, object] | None]:
+        captured.update(kwargs)
+        return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
+
+    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", fake_call)
+    mp_engine.run(cfg, df=_simple_df(), price_frames=None)
+
+    assert captured["risk_free_column"] == "RF"
+    assert captured["allow_risk_free_fallback"] is False
+
+
+def test_run_disables_fallback_when_risk_free_column_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _base_config()
+    cfg.portfolio["policy"] = "all"
+    cfg.data["risk_free_column"] = "RF"
+    captured: dict[str, Any] = {}
+
+    def fake_call(
+        *args: Any, **kwargs: Any
+    ) -> DiagnosticResult[dict[str, object] | None]:
+        captured.update(kwargs)
+        return DiagnosticResult(value={"selected_funds": ["Alpha"]}, diagnostic=None)
+
+    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", fake_call)
+    mp_engine.run(cfg, df=_simple_df(), price_frames=None)
+
+    assert captured["risk_free_column"] == "RF"
+    assert captured["allow_risk_free_fallback"] is False

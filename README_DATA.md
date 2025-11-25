@@ -83,6 +83,8 @@ Configure the risk-free series explicitly when running the demos:
 - `data.allow_risk_free_fallback` must be set to `true` when you want the
   lowest-volatility column heuristic. The fallback path is now logged so you can
   tell when the heuristic is being used instead of an explicitly named column.
+  The flag now defaults to `false`, so omitting it will raise a validation error
+  whenever the configured CSV lacks a risk-free column.
 
 Runs fail fast when a configured risk-free column is missing, helping catch
 mislabelled or truncated demo inputs early.

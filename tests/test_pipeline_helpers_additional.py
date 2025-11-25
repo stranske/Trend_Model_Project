@@ -31,6 +31,11 @@ from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 class DummyMapping(Mapping[str, Any]):
     """Mapping-like object exposing a ``get`` method with optional default."""
@@ -510,6 +515,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
             "2020-04",
             0.1,
             0.0,
+            allow_risk_free_fallback=False,
         )
         is None
     )
@@ -533,6 +539,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
             "2020-04",
             0.1,
             0.0,
+            allow_risk_free_fallback=False,
         )
         is None
     )
@@ -642,6 +649,7 @@ def test_run_analysis_rank_selection_with_fallbacks(
                 zscore=False,
             ),
             regime_cfg={},
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -721,6 +729,7 @@ def test_run_analysis_zero_weight_custom(monkeypatch: pytest.MonkeyPatch) -> Non
                 zscore=False,
             ),
             regime_cfg={},
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1067,6 +1076,7 @@ def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
                 zscore=False,
             ),
             regime_cfg={},
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1115,6 +1125,7 @@ def test_run_analysis_returns_none_when_copy_becomes_empty(
             "2020-04",
             target_vol=0.1,
             monthly_cost=0.0,
+            allow_risk_free_fallback=False,
         )
 
     assert result is None
@@ -1182,6 +1193,7 @@ def test_run_analysis_returns_none_when_ret_cols_consumed(
             "2020-03",
             target_vol=0.1,
             monthly_cost=0.0,
+            allow_risk_free_fallback=False,
         )
 
     assert result is None
@@ -1268,6 +1280,7 @@ def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> 
             target_vol=0.1,
             monthly_cost=0.0,
             weighting_scheme="custom",
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1369,6 +1382,7 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
             "2020-02",
             target_vol=0.1,
             monthly_cost=0.0,
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1452,6 +1466,7 @@ def test_run_analysis_warmup_zeroes_initial_rows(
             target_vol=0.1,
             monthly_cost=0.0,
             warmup_periods=2,
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1538,6 +1553,7 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
             monthly_cost=0.0,
             indices_list=["Index"],
             benchmarks={"Missing": "Missing"},
+            **RUN_KWARGS,
         )
 
     assert result is not None
@@ -1622,6 +1638,7 @@ def test_run_analysis_handles_benchmark_overrides(
             monthly_cost=0.0,
             indices_list=["Index"],
             benchmarks={"Index": "Index"},
+            **RUN_KWARGS,
         )
 
     assert result is not None

@@ -1432,9 +1432,7 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
-        fallback_enabled = (
-            allow_risk_free_fallback is True or allow_risk_free_fallback is None
-        )
+        fallback_enabled = allow_risk_free_fallback is True
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."

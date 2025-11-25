@@ -6,6 +6,11 @@ import pandas as pd
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.pipeline import _run_analysis
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 def _constant_df(include_nan: bool = False) -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
@@ -34,6 +39,7 @@ def test_floor_vol_limits_scaling() -> None:
         target_vol=0.10,
         monthly_cost=0.0,
         floor_vol=0.05,
+        **RUN_KWARGS,
     )
     assert res is not None
     in_scaled = res["in_sample_scaled"]
@@ -52,6 +58,7 @@ def test_warmup_zeroes_initial_rows() -> None:
         target_vol=0.10,
         monthly_cost=0.0,
         warmup_periods=2,
+        **RUN_KWARGS,
     )
     assert res is not None
     out_scaled = res["out_sample_scaled"].iloc[:2]
@@ -78,6 +85,7 @@ def test_nan_returns_become_zero_weight() -> None:
         target_vol=0.10,
         monthly_cost=0.0,
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
     assert res is not None
     out_scaled = res["out_sample_scaled"]
@@ -98,6 +106,7 @@ def test_negative_floor_and_warmup_inputs_are_clamped() -> None:
         "2020-06",
         target_vol=0.10,
         monthly_cost=0.0,
+        **RUN_KWARGS,
     )
     assert baseline is not None
 
@@ -111,6 +120,7 @@ def test_negative_floor_and_warmup_inputs_are_clamped() -> None:
         monthly_cost=0.0,
         floor_vol=-0.25,  # should clamp to zero instead of affecting scaling
         warmup_periods=-5,
+        **RUN_KWARGS,
     )
     assert clamped is not None
 

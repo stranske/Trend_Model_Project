@@ -15,6 +15,10 @@ def make_df():
 
 def make_cfg():
     cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    data_cfg = cfg_data.setdefault("data", {})
+    data_cfg.setdefault("date_column", "Date")
+    data_cfg.setdefault("frequency", "M")
+    data_cfg["allow_risk_free_fallback"] = True
     cfg_data["multi_period"] = {
         "frequency": "M",
         "in_sample_len": 2,

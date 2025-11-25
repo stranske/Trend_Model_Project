@@ -20,6 +20,7 @@ def _make_df():
             "Fund_B": 0.012,
             "Fund_C": 0.009,
             "SPX": 0.011,
+            "RF": 0.001,
         }
     )
 
@@ -27,7 +28,7 @@ def _make_df():
 def _make_cfg():
     return Config(
         version="1",
-        data={},
+        data={"risk_free_column": "RF"},
         preprocessing={},
         vol_adjust={"target_vol": 1.0},
         sample_split={

@@ -99,11 +99,15 @@ def _render_error_details(error: Exception) -> None:
         f"Exception Message:\n{error}\n\n"
         f"Full Traceback:\n{traceback.format_exc()}"
     )
-    expander = st.expander("🔍 Show Technical Details", expanded=False)
-    try:
-        expander.code(details)
-    except Exception:  # pragma: no cover - Mock fallback
-        st.code(details)
+    expander_fn = getattr(st, "expander", None)
+    if callable(expander_fn):
+        try:
+            expander = expander_fn("🔍 Show Technical Details", expanded=False)
+            expander.code(details)
+            return
+        except Exception:  # pragma: no cover - Mock fallback
+            pass
+    st.code(details)
 
 
 def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
@@ -126,6 +130,27 @@ def _infer_date_bounds(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
         raise ValueError("Unable to derive analysis period from dataset index.")
     ordered = pd.DatetimeIndex(valid).sort_values()
     return pd.Timestamp(ordered.min()), pd.Timestamp(ordered.max())
+
+
+def _detect_risk_free_column(df: pd.DataFrame, *, date_col: str) -> str | None:
+    """Best-effort detection for risk-free columns in uploaded data."""
+
+    aliases = {
+        "rf",
+        "risk_free",
+        "riskfree",
+        "risk_free_rate",
+        "riskfreerate",
+        "rfr",
+        "risk_free_returns",
+    }
+    for col in df.columns:
+        if str(col) == date_col:
+            continue
+        normalized = str(col).strip().lower()
+        if normalized in aliases:
+            return str(col)
+    return None
 
 
 def _config_from_model_state(
@@ -227,7 +252,8 @@ def main() -> None:
     for warn in getattr(estimate, "warnings", ()):  # type: ignore[arg-type]
         st.warning(warn)
 
-    returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+    date_col = "Date"
+    returns = df.reset_index().rename(columns={df.index.name or "index": date_col})
 
     def cfg_get(d, key, default=None):
         try:
@@ -275,9 +301,26 @@ def main() -> None:
         signals_input = cfg_get(cfg, "trend_spec", {})
     signals_cfg = _build_signals_config(signals_input)
 
+    existing_data_cfg = cfg_get(cfg, "data", {}) or {}
+    data_cfg: dict[str, Any] = dict(existing_data_cfg)
+    data_cfg.setdefault("date_column", date_col)
+    freq = cfg_get(cfg, "frequency", data_cfg.get("frequency", "M"))
+    if freq:
+        data_cfg["frequency"] = freq
+    rf_column = (
+        cfg_get(cfg, "risk_free_column")
+        or data_cfg.get("risk_free_column")
+        or _detect_risk_free_column(returns, date_col=date_col)
+    )
+    if rf_column:
+        data_cfg["risk_free_column"] = rf_column
+        data_cfg.pop("allow_risk_free_fallback", None)
+    else:
+        data_cfg.setdefault("allow_risk_free_fallback", True)
+
     config_data = {
         "version": "1",
-        "data": {},
+        "data": data_cfg,
         "preprocessing": {},
         "vol_adjust": {"target_vol": cfg_get(cfg, "risk_target", 1.0)},
         "sample_split": {

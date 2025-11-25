@@ -38,6 +38,9 @@ def _clean_returns_frame() -> pd.DataFrame:
     return frame
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def test_single_period_run_injects_avg_corr_metric() -> None:
     df = pd.DataFrame(
         {
@@ -118,6 +121,7 @@ def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -148,9 +152,10 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
-    assert result is None or "FundA" not in (result or {}).get("selected_funds", [])
+    assert result is None or "FundA" not in result.get("selected_funds", [])
 
 
 def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
@@ -170,6 +175,7 @@ def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -199,6 +205,7 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -237,6 +244,7 @@ def test_run_analysis_does_not_duplicate_existing_avg_corr(
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -272,6 +280,7 @@ def test_run_analysis_avg_corr_corr_failure(monkeypatch: pytest.MonkeyPatch) -> 
         stats_cfg=stats_cfg,
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -306,6 +315,7 @@ def test_run_analysis_constraint_failure_falls_back(
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
         constraints={"max_weight": 0.5},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -342,6 +352,7 @@ def test_run_analysis_applies_constraints_on_success(
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
         constraints={"max_weight": 0.8},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -376,6 +387,7 @@ def test_run_analysis_constraint_violation_fallback(
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
         constraints={"max_weight": 0.4},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -409,6 +421,7 @@ def test_run_analysis_constraint_missing_groups_fallback(
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
         constraints={"group_caps": {"Tech": 0.6}},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -453,6 +466,7 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
         custom_weights={"FundA": 55.0, "FundB": 45.0},
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -485,6 +499,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_output(
         custom_weights={"FundA": 55.0, "FundB": 45.0},
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -510,6 +525,7 @@ def test_run_analysis_benchmark_ir_populates_portfolio_entries() -> None:
         custom_weights={"FundA": 60.0, "FundB": 40.0},
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     payload = result["benchmark_ir"].get("SPX")
@@ -549,6 +565,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
         custom_weights={"FundA": 60.0, "FundB": 40.0},
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -579,6 +596,7 @@ def test_run_analysis_constraints_missing_groups_fallbacks() -> None:
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
         constraints={"group_caps": {"GroupA": 0.5}},
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -627,6 +645,7 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
         custom_weights={"FundA": 60.0, "FundB": 40.0},
         indices_list=["Benchmark"],
         benchmarks={"SPX": "Benchmark"},
+        **RUN_KWARGS,
     )
 
     assert result is not None

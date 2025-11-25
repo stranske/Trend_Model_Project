@@ -32,6 +32,7 @@ def test_pipeline_respects_lowest_vol_exclusion_as_rf():
         monthly_cost=0.0,
         selection_mode="all",
         stats_cfg=RiskStatsConfig(),
+        allow_risk_free_fallback=True,
     )
     assert res is not None
     funds = set(res["selected_funds"])  # type: ignore[index]
@@ -57,6 +58,7 @@ def test_pipeline_constant_rf_via_stats_cfg_executes():
         monthly_cost=0.0,
         selection_mode="all",
         stats_cfg=RiskStatsConfig(risk_free=0.0),
+        allow_risk_free_fallback=True,
     )
     assert res is not None
     # Out-of-sample stats should exist for non-RF funds.
@@ -107,6 +109,28 @@ def test_pipeline_requires_flag_for_fallback_when_missing_rf():
             selection_mode="all",
             stats_cfg=RiskStatsConfig(),
             allow_risk_free_fallback=False,
+        )
+
+
+def test_pipeline_implicit_fallback_disabled_by_default():
+    df = _mini_df().drop(columns=["RF"])
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    kwargs = dict(
+        df=df,
+        in_start="2020-01",
+        in_end="2020-03",
+        out_start="2020-04",
+        out_end="2020-06",
+        target_vol=0.10,
+        monthly_cost=0.0,
+        selection_mode="all",
+        stats_cfg=RiskStatsConfig(),
+    )
+    with pytest.raises(ValueError, match="allow_risk_free_fallback"):
+        pipeline._run_analysis(  # type: ignore[attr-defined]
+            **kwargs,
         )
 
 

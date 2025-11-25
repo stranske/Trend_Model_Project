@@ -67,6 +67,7 @@ def test_run_analysis_rank_mode():
         0.0,
         selection_mode="rank",
         rank_kwargs={"inclusion_approach": "top_n", "n": 1, "score_by": "AnnualReturn"},
+        risk_free_column="RF",
     )
     assert res is not None
     assert res["selected_funds"] == ["A"]

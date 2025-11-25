@@ -25,6 +25,9 @@ def _sample_frame() -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
 def _stub_diagnostics(columns: Iterator[str]) -> RiskDiagnostics:
     cols = list(columns)
     index = pd.date_range("2024-01-31", periods=6, freq="M")
@@ -93,6 +96,7 @@ def test_run_analysis_df_none_returns_none() -> None:
             "2024-04",
             target_vol=0.1,
             monthly_cost=0.0,
+            allow_risk_free_fallback=False,
         )
         is None
     )
@@ -109,6 +113,7 @@ def test_run_analysis_requires_date_column() -> None:
             "2024-04",
             target_vol=0.1,
             monthly_cost=0.0,
+            allow_risk_free_fallback=False,
         )
 
 
@@ -147,6 +152,7 @@ def test_run_analysis_returns_none_when_windows_empty(
         "2025-04",
         target_vol=0.1,
         monthly_cost=0.0,
+        **RUN_KWARGS,
     )
     assert result is None
 
@@ -222,6 +228,7 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         monthly_cost=0.0,
         warmup_periods=1,
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
 
     assert result is not None
@@ -310,6 +317,7 @@ def test_run_analysis_information_ratio_fallback(
         target_vol=0.1,
         monthly_cost=0.0,
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
 
     assert result is not None

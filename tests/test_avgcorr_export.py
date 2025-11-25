@@ -7,6 +7,11 @@ from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.export import summary_frame_from_result
 from trend_analysis.pipeline import _run_analysis  # type: ignore
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 def _make_dataset(tmp_path: Path) -> Path:
     dates = pd.date_range("2024-01-31", periods=6, freq="ME")
@@ -55,6 +60,7 @@ def test_avgcorr_present_when_requested(tmp_path):
         monthly_cost=0.0,
         selection_mode="all",
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
     assert res is not None
     frame = summary_frame_from_result(res)
@@ -96,6 +102,7 @@ def test_avgcorr_absent_when_not_requested(tmp_path):
         monthly_cost=0.0,
         selection_mode="all",
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
     assert res is not None
     frame = summary_frame_from_result(res)

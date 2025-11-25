@@ -4,6 +4,11 @@ import pandas as pd
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.pipeline import _run_analysis
 
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
 
 def make_df():
     dates = pd.date_range("2020-01-31", periods=12, freq="ME")
@@ -31,9 +36,10 @@ def test_strict_mode_drops_funds_with_nans():
         "2020-12",
         1.0,
         0.0,
+        **RUN_KWARGS,
     )
     # A has NaN in IS, B has NaN in OOS => both dropped => None
-    assert res is None or len(res.get("selected_funds", [])) == 0
+    assert res is None
 
 
 def test_na_as_zero_retains_and_fills():
@@ -57,6 +63,7 @@ def test_na_as_zero_retains_and_fills():
         1.0,
         0.0,
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
     assert res is not None
     funds = res["selected_funds"]
@@ -89,6 +96,7 @@ def test_na_as_zero_rejects_large_consecutive_gap():
         1.0,
         0.0,
         stats_cfg=stats_cfg,
+        **RUN_KWARGS,
     )
 
     assert res is not None
