@@ -301,8 +301,8 @@ jobs:
           if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
             {
               printf '## Dependency installation timing\n'
-              printf '- Duration: %ss\n' "$duration"
-              printf '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ matrix.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d" " -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d" " -f1 || echo none)"
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ matrix.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d" " -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d" " -f1 || echo none)"
             } >>"${GITHUB_STEP_SUMMARY}"
           fi
 
