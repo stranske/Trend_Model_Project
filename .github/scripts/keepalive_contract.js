@@ -50,9 +50,9 @@ function renderInstruction({ round, trace, body, agent }) {
   }
   const instructionBody = ensureAgentPreface(String(body ?? ''), agent);
   const lines = [
-    `<!-- keepalive-round: ${parsedRound} -->`,
     '<!-- codex-keepalive-marker -->',
-    `<!-- keepalive-trace: ${normalisedTrace} -->`,
+    `<!-- codex-keepalive-round: ${parsedRound} -->`,
+    `<!-- codex-keepalive-trace: ${normalisedTrace} -->`,
     instructionBody,
   ];
   return `${lines.join('\n')}\n`;
