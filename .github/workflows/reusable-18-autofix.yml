@@ -148,7 +148,6 @@ jobs:
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
       - name: Determine auth path
-        if: steps.guard.outputs.skip != 'true'
         id: auth_path
         env:
           SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
@@ -1176,8 +1175,6 @@ jobs:
           REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
           NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
-          SAME_REPO: ${{ steps.same_repo.outputs.same }}
-          DRY_RUN: ${{ inputs.dry_run }}
           AUTOFIX_DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
           AUTOFIX_DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
           AUTOFIX_PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
@@ -1197,8 +1194,6 @@ jobs:
           new_issues="${NEW_ISSUES:-0}"
           mode_value="${MODE:-standard}"
           file_list="${FILE_LIST:-}"
-          same_repo="${SAME_REPO:-false}"
-          dry_run="${DRY_RUN:-false}"
           delivery_mode="${AUTOFIX_DELIVERY_MODE:-fallback}"
           delivery_reason="${AUTOFIX_DELIVERY_REASON:-}"
           patch="${AUTOFIX_PATCH_AVAILABLE:-false}"
