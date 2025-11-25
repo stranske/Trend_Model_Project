@@ -124,6 +124,26 @@ def _get_missing_policy_settings(
     return missing_policy_cfg, missing_limit_cfg
 
 
+def _resolve_risk_free_settings(
+    data_settings: Mapping[str, Any] | None,
+) -> tuple[str | None, bool]:
+    """Determine risk-free column selection and fallback policy."""
+
+    if not data_settings:
+        return None, True
+
+    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
+    allow_cfg = data_settings.get("allow_risk_free_fallback")
+
+    if risk_free_column:
+        return risk_free_column, False
+
+    if isinstance(allow_cfg, bool):
+        return risk_free_column, allow_cfg
+
+    return risk_free_column, True
+
+
 class MissingPriceDataError(FileNotFoundError, ValueError):
     """Raised when CSV fallback loading fails in ``run``."""
 
@@ -644,8 +664,10 @@ def run(
 
     data_settings = getattr(cfg, "data", {}) or {}
     missing_policy_cfg, missing_limit_cfg = _get_missing_policy_settings(data_settings)
-    risk_free_column_cfg = cast(str | None, data_settings.get("risk_free_column"))
-    allow_risk_free_fallback_cfg = data_settings.get("allow_risk_free_fallback")
+    (
+        risk_free_column_cfg,
+        allow_risk_free_fallback_cfg,
+    ) = _resolve_risk_free_settings(data_settings)
 
     if df is None:
         csv_path = data_settings.get("csv_path")
