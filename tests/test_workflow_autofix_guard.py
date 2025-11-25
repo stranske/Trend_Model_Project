@@ -72,8 +72,12 @@ def test_reusable_autofix_allows_patless_fallback() -> None:
 def test_reusable_autofix_splits_pat_and_patch_paths() -> None:
     data = _load_yaml("reusable-18-autofix.yml")
     steps: List[Dict[str, Any]] = data["jobs"]["autofix"]["steps"]
-    commit_step = next(step for step in steps if step.get("name") == "Commit changes (PAT path)")
-    patch_step = next(step for step in steps if step.get("name") == "Create patch artifact (fallback)")
+    commit_step = next(
+        step for step in steps if step.get("name") == "Commit changes (PAT path)"
+    )
+    patch_step = next(
+        step for step in steps if step.get("name") == "Create patch artifact (fallback)"
+    )
 
     assert "env.AUTOFIX_AUTH_MODE == 'pat'" in (commit_step.get("if") or "")
     assert "env.AUTOFIX_AUTH_MODE != 'pat'" in (patch_step.get("if") or "")
