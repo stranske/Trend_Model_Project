@@ -882,8 +882,39 @@ jobs:
       token_login: ${{ steps.identify_token_gate.outputs.login }}
       dispatch_run_id: ${{ steps.confirm_dispatch_gate.outputs.run_id }}
     steps:
+      - name: Bootstrap checkout resolver
+        uses: actions/checkout@v4
+        with:
+          path: helpers
+          sparse-checkout: |
+            .github/scripts/checkout_source.js
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Resolve workflow_run checkout source
+        id: checkout_source
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { resolveCheckoutSource } = require('./helpers/.github/scripts/checkout_source.js');
+            const fallbackRepo = process.env.GITHUB_REPOSITORY || '';
+            const fallbackRef = context.sha || process.env.GITHUB_SHA || '';
+            const { repository, ref, warnings } = resolveCheckoutSource({
+              core,
+              context,
+              fallbackRepo,
+              fallbackRef,
+            });
+
+            core.setOutput('repository', repository);
+            core.setOutput('ref', ref);
+            warnings.forEach((warning) => core.warning(warning));
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.checkout_source.outputs.repository || github.repository }}
+          ref: ${{ steps.checkout_source.outputs.ref || github.sha }}
 
       - name: Evaluate keepalive gate after workflow_run
         id: gate
