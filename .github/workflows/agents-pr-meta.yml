@@ -823,9 +823,7 @@ jobs:
     if: >-
       ${{ github.event_name == 'workflow_run'
           && github.event.workflow_run.name == 'Gate'
-          && github.event.workflow_run.conclusion == 'success'
-          && github.event.workflow_run.pull_requests
-          && github.event.workflow_run.pull_requests[0].number }}
+          && github.event.workflow_run.conclusion == 'success' }}
     name: Resume keepalive after Gate
     concurrency:
       group: >-
@@ -909,6 +907,14 @@ jobs:
             core.setOutput('repository', repository);
             core.setOutput('ref', ref);
             warnings.forEach((warning) => core.warning(warning));
+
+      - name: Warn when workflow_run lacks PR metadata
+        if: needs.gate_event_context.outputs.has_pr != 'true'
+        run: |
+          set -euo pipefail
+          repo="${{ steps.checkout_source.outputs.repository || github.repository }}"
+          ref_value="${{ steps.checkout_source.outputs.ref || github.sha }}"
+          echo "::warning::Gate workflow_run omitted pull_requests context; defaulting to ${repo}@${ref_value}."
 
       - name: Checkout repository
         uses: actions/checkout@v4
