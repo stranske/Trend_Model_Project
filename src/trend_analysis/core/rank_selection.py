@@ -14,18 +14,17 @@ from __future__ import annotations
 import hashlib
 import importlib
 import inspect
-import io
 import json
 import re
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List
+
 import numpy as np
 import pandas as pd
 
 from .. import metrics as _metrics
-from ..data import ensure_datetime, load_csv
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..perf.cache import CovCache, CovPayload
@@ -940,14 +939,14 @@ def blended_score(
         combo += w * z
     return combo
 
+
 # ===============================================================
 #  UI SCAFFOLD (lazy-loaded to keep optional widget deps)
 # ===============================================================
 
+
 def build_ui() -> Any:
     """Load the optional notebook UI helpers for ranking workflows."""
-
-    import importlib
 
     if importlib.util.find_spec("ipywidgets") is None:
         raise ImportError("ipywidgets is required for the ranking UI helpers.")

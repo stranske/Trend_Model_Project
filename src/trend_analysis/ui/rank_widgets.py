@@ -1,5 +1,4 @@
 from __future__ import annotations
-from __future__ import annotations
 
 import io
 from typing import Any, cast
@@ -11,7 +10,6 @@ from .. import export, pipeline
 from ..core.rank_selection import METRIC_REGISTRY
 from ..data import ensure_datetime, load_csv
 from ..export import Formatter
-
 
 # ===============================================================
 #  UI SCAFFOLD (very condensed – Codex expands)
@@ -148,12 +146,14 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     )
 
     blended_box = widgets.VBox([m1_dd, w1_sl, m2_dd, w2_sl, m3_dd, w3_sl])
-    rank_box = widgets.VBox([
-        widgets.HTML("<h4>Ranking</h4>"),
-        widgets.HBox([incl_dd, metric_dd]),
-        widgets.HBox([topn_int, pct_flt, thresh_f]),
-        blended_box,
-    ])
+    rank_box = widgets.VBox(
+        [
+            widgets.HTML("<h4>Ranking</h4>"),
+            widgets.HBox([incl_dd, metric_dd]),
+            widgets.HBox([topn_int, pct_flt, thresh_f]),
+            blended_box,
+        ]
+    )
 
     def _update_rank_vis(*_: Any) -> None:
         blended_box.layout.display = "flex" if metric_dd.value == "blended" else "none"
@@ -244,7 +244,9 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     def _on_mode(change: dict[str, Any]) -> None:
         _update_random_vis()
         _update_rank_vis()
-        manual_scores_html.layout.display = "flex" if change["new"] == "manual" else "none"
+        manual_scores_html.layout.display = (
+            "flex" if change["new"] == "manual" else "none"
+        )
         manual_box.layout.display = "flex" if change["new"] == "manual" else "none"
 
     mode_dd.observe(_on_mode, names="value")

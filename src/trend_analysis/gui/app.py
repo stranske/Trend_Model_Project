@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import pickle
-import sys
-import warnings
 import importlib
 import importlib.util
+import pickle
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, cast
 
@@ -45,11 +44,18 @@ def _load_notebook_deps() -> None:
 
     global widgets, FileLink, Javascript, display, DataGrid, HAS_DATAGRID
 
-    if widgets is not None and FileLink is not None and Javascript is not None and display is not None:
+    if (
+        widgets is not None
+        and FileLink is not None
+        and Javascript is not None
+        and display is not None
+    ):
         return
 
     missing = [
-        mod for mod in ("ipywidgets", "IPython.display") if importlib.util.find_spec(mod) is None
+        mod
+        for mod in ("ipywidgets", "IPython.display")
+        if importlib.util.find_spec(mod) is None
     ]
     if missing:
         joined = ", ".join(missing)
