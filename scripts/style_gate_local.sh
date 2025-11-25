@@ -40,7 +40,24 @@ fi
 # Run mypy using pinned version if available
 if [[ -n "${MYPY_VERSION:-}" ]]; then
   echo "Ensuring pinned mypy==${MYPY_VERSION}" >&2
-  python -m pip install -q "mypy==${MYPY_VERSION}" pydantic streamlit >/dev/null || {
+  TYPES_REQUESTS_SPEC=$(python - <<'PY'
+import tomllib
+from pathlib import Path
+
+data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+dev_requirements = data.get("project", {}).get("optional-dependencies", {}).get(
+    "dev", []
+)
+for entry in dev_requirements:
+    if entry.startswith("types-requests=="):
+        print(entry)
+        break
+PY
+)
+  if [[ -z "${TYPES_REQUESTS_SPEC}" ]]; then
+    TYPES_REQUESTS_SPEC="types-requests"
+  fi
+  python -m pip install -q "mypy==${MYPY_VERSION}" "${TYPES_REQUESTS_SPEC}" pydantic streamlit >/dev/null || {
     echo "Failed to install mypy ${MYPY_VERSION}" >&2
     exit 1
   }

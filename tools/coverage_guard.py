@@ -155,7 +155,7 @@ def github_request(
         query = parse.urlencode(params, doseq=True)
         separator = "&" if parse.urlparse(url).query else "?"
         url = f"{url}{separator}{query}"
-    data_bytes = None
+    data_bytes: bytes | None = None
     if payload is not None:
         data_bytes = json.dumps(payload).encode("utf-8")
     req = request.Request(url, data=data_bytes, method=method.upper())
@@ -166,10 +166,10 @@ def github_request(
         req.add_header("Content-Type", "application/json")
     try:
         with request.urlopen(req) as resp:
-            payload = resp.read()
-            text = payload.decode("utf-8", "replace") if payload else ""
+            body_bytes = resp.read()
+            text = body_bytes.decode("utf-8", "replace") if body_bytes else ""
             if not text:
-                return None, resp.headers
+                return None, dict(resp.headers.items())
             try:
                 body = json.loads(text)
             except json.JSONDecodeError as exc:  # pragma: no cover - defensive
@@ -178,7 +178,7 @@ def github_request(
                     file=sys.stderr,
                 )
                 raise CoverageGuardError("GitHub API returned invalid JSON") from exc
-            return body, resp.headers
+            return body, dict(resp.headers.items())
     except error.HTTPError as exc:  # pragma: no cover - network failure
         details = exc.read().decode("utf-8", "ignore")
         print(
@@ -196,8 +196,8 @@ def github_request(
 
 def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
-    url = f"/repos/{repo}/issues"
-    params = {
+    url: str | None = f"/repos/{repo}/issues"
+    params: Optional[dict[str, object]] = {
         "state": "all",
         "labels": label,
         "per_page": 100,
@@ -208,7 +208,9 @@ def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
         body, headers = github_request("GET", url, token, params=params)
         params = None
         if isinstance(body, list):
-            issues.extend(item for item in body if isinstance(item, Mapping))
+            issues.extend(
+                dict(item) for item in body if isinstance(item, Mapping)
+            )
         links = parse_links(headers.get("Link"))
         url = links.get("next")
     return issues
