@@ -18,6 +18,9 @@ on:
       head_sha:
         description: PR head SHA at time of dispatch
         required: true
+      head_repository:
+        description: Full name of the head repository
+        required: false
       agent:
         description: Agent alias requesting the sync
         required: false
@@ -44,9 +47,15 @@ jobs:
     env:
       PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
+      - name: Warn when head repository is missing
+        run: |
+          if [ -z "${{ inputs.head_repository }}" ]; then
+            echo "::warning::Head repository missing; defaulting to base repository for checkout."
+          fi
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.head_repository || github.repository }}
           ref: ${{ inputs.head_sha }}
           fetch-depth: 0
           token: ${{ env.PREFERRED_TOKEN }}
