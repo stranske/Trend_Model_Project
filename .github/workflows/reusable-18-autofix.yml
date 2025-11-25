@@ -90,7 +90,7 @@ on:
     secrets:
       service_bot_pat:
         description: 'PAT for SERVICE_BOT to trigger workflows on autofix commits'
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -114,6 +114,8 @@ jobs:
       new: ${{ steps.finalize.outputs.new }}
       mode: ${{ steps.finalize.outputs.mode }}
       patch_available: ${{ steps.finalize.outputs.patch_available }}
+      delivery_mode: ${{ steps.finalize.outputs.delivery_mode }}
+      delivery_reason: ${{ steps.finalize.outputs.delivery_reason }}
       skip_reason: ${{ steps.finalize.outputs.skip_reason }}
       trigger_conclusion: ${{ steps.finalize.outputs.trigger_conclusion }}
       trigger_class: ${{ steps.finalize.outputs.trigger_class }}
@@ -145,13 +147,54 @@ jobs:
         run: |
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
+      - name: Determine auth path
+        if: steps.guard.outputs.skip != 'true'
+        id: auth_path
+        env:
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+        run: |
+          set -euo pipefail
+          pat="${SERVICE_BOT_PAT:-}"
+          same_repo="${SAME_REPO:-false}"
+          dry_run="${DRY_RUN:-false}"
+          mode="fallback"
+          reason="missing-pat"
+          token="${GITHUB_TOKEN:-${{ github.token }}}"
+
+          if [ -n "$pat" ]; then
+            token="$pat"
+            reason="fork-context"
+            if [ "$same_repo" = "true" ]; then
+              mode="pat"
+              reason="pat-available"
+            fi
+          elif [ "$same_repo" = "true" ]; then
+            reason="pat-unavailable-same-repo"
+          fi
+
+          if [ "$dry_run" = "true" ]; then
+            mode="fallback"
+            reason="dry-run"
+          fi
+
+          echo "[autofix] Delivery path: ${mode} (${reason})"
+
+          {
+            echo "AUTOFIX_TOKEN=$token"
+            echo "AUTOFIX_AUTH_MODE=$mode"
+            echo "AUTOFIX_AUTH_REASON=$reason"
+          } >> "$GITHUB_ENV"
+          {
+            echo "mode=${mode}"
+            echo "reason=${reason}"
+          } >> "$GITHUB_OUTPUT"
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
           ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
-          token: ${{ secrets.service_bot_pat }}
-          persist-credentials: true
+          token: ${{ env.AUTOFIX_TOKEN || github.token }}
+          persist-credentials: ${{ env.AUTOFIX_AUTH_MODE == 'pat' }}
       - name: Guard against loops (Issue #1347)
         id: guard
         shell: bash
@@ -496,8 +539,8 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit changes (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
+      - name: Commit changes (PAT path)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -507,7 +550,7 @@ jobs:
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
         shell: bash
         run: |
           set -euo pipefail
@@ -567,8 +610,8 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
 
-      - name: Create patch artifact (fork PR)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+      - name: Create patch artifact (fallback)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -578,14 +621,14 @@ jobs:
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
 
       - name: Label PR (autofix patch available)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -613,8 +656,8 @@ jobs:
             }
 
 
-      - name: Prepare patch summary (fork PR)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same != 'true'
+      - name: Prepare patch summary (fallback)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
@@ -693,6 +736,7 @@ jobs:
         env:
           AUTO_CHANGED: ${{ steps.fix_results.outputs.changed }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
+          AUTH_MODE: ${{ env.AUTOFIX_AUTH_MODE }}
           REMAINING_ISSUES: ${{ steps.fix_results.outputs.remaining_issues }}
           MODE: ${{ steps.fix_results.outputs.mode }}
           CLEAN_INPUT_LABEL: ${{ inputs.clean_label }}
@@ -708,6 +752,7 @@ jobs:
             }
             const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
             const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
+            const authMode = (process.env.AUTH_MODE || '').toLowerCase();
             const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
             const appliedLabel = (process.env.APPLIED_LABEL || 'autofix:applied').trim() || 'autofix:applied';
             const debtLabel = 'autofix:debt';
@@ -769,10 +814,10 @@ jobs:
             if (remaining > 0) {
               desired.add(debtLabel);
             }
-            if (changed && sameRepo) {
+            if (changed && sameRepo && authMode === 'pat') {
               desired.add(appliedLabel);
             }
-            if (changed && !sameRepo) {
+            if (changed && (!sameRepo || authMode !== 'pat')) {
               desired.add(patchLabel);
             }
             if (!changed) {
@@ -874,6 +919,41 @@ jobs:
         run: |
           if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
           if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Record delivery metadata
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          AUTH_MODE: ${{ env.AUTOFIX_AUTH_MODE }}
+          AUTH_REASON: ${{ env.AUTOFIX_AUTH_REASON }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          CHANGED: ${{ steps.fix_results.outputs.changed }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${AUTH_MODE:-fallback}"
+          reason="${AUTH_REASON:-}"
+          patch="false"
+          if [ "${CHANGED:-false}" = "true" ] && [ "$mode" != "pat" ]; then
+            patch="true"
+          fi
+
+          {
+            echo "AUTOFIX_DELIVERY_MODE=$mode"
+            echo "AUTOFIX_DELIVERY_REASON=$reason"
+            echo "AUTOFIX_PATCH_AVAILABLE=$patch"
+          } >> "$GITHUB_ENV"
+
+          if [ "$patch" = "true" ]; then
+            artifact="autofix-patch-pr-${PR_NUMBER:-}"
+            url="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}#artifacts"
+            {
+              echo "AUTOFIX_PATCH_ARTIFACT=$artifact"
+              echo "AUTOFIX_PATCH_URL=$url"
+            } >> "$GITHUB_ENV"
+          fi
 
       - name: Build consolidated PR comment
         if: steps.guard.outputs.skip != 'true'
@@ -1043,6 +1123,9 @@ jobs:
           NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
           PATCH_PR_NUMBER: ${{ inputs.pr_number }}
           GUARD_SKIP: ${{ steps.guard.outputs.skip }}
+          DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
+          DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
+          PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
         run: |
           set -euo pipefail
 
@@ -1050,6 +1133,9 @@ jobs:
           guard_value="${GUARD_SKIP:-false}"
           remaining_value="${REMAINING:-0}"
           new_value="${NEW_ISSUES:-0}"
+          delivery_mode="${DELIVERY_MODE:-unknown}"
+          delivery_reason="${DELIVERY_REASON:-}"
+          patch_flag="${PATCH_AVAILABLE:-false}"
 
           {
             echo "### Reusable Autofix Summary"
@@ -1057,11 +1143,15 @@ jobs:
             echo "Mode: ${mode_value}"
             echo "Applied changes: ${CHANGED:-false}"
             echo "Same repo: ${SAME_REPO:-false}"
+            echo "Delivery path: ${delivery_mode}"
+            if [ -n "${delivery_reason}" ]; then
+              echo "Delivery note: ${delivery_reason}"
+            fi
             echo "Remaining ruff issues: ${remaining_value}"
             echo "New (non-allowlisted) ruff issues: ${new_value}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${CHANGED:-false}" = "true" ] && [ "${SAME_REPO:-false}" != "true" ]; then
+          if [ "${patch_flag}" = "true" ]; then
             echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -1088,6 +1178,9 @@ jobs:
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
           DRY_RUN: ${{ inputs.dry_run }}
+          AUTOFIX_DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
+          AUTOFIX_DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
+          AUTOFIX_PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
           TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
           TRIGGER_CLASS: ${{ inputs.trigger_class }}
           TRIGGER_REASON: ${{ inputs.trigger_reason }}
@@ -1106,11 +1199,11 @@ jobs:
           file_list="${FILE_LIST:-}"
           same_repo="${SAME_REPO:-false}"
           dry_run="${DRY_RUN:-false}"
-          patch="false"
-          if [ "$changed" = "true" ]; then
-            if [ "$same_repo" != "true" ] || [ "$dry_run" = "true" ]; then
-              patch="true"
-            fi
+          delivery_mode="${AUTOFIX_DELIVERY_MODE:-fallback}"
+          delivery_reason="${AUTOFIX_DELIVERY_REASON:-}"
+          patch="${AUTOFIX_PATCH_AVAILABLE:-false}"
+          if [ "$patch" != "true" ] && [ "$changed" = "true" ] && [ "$delivery_mode" != "pat" ]; then
+            patch="true"
           fi
           skip_reason=""
           if [ "$skip_flag" = "true" ]; then
@@ -1123,6 +1216,8 @@ jobs:
             echo "new=${new_issues}"
             echo "mode=${mode_value}"
             echo "patch_available=${patch}"
+            echo "delivery_mode=${delivery_mode}"
+            echo "delivery_reason=${delivery_reason}"
             echo "skip_reason=${skip_reason}"
             echo "trigger_conclusion=${TRIGGER_CONCLUSION}"
             echo "trigger_class=${TRIGGER_CLASS}"
