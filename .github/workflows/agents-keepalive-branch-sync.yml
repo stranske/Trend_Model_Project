@@ -27,11 +27,8 @@ on:
       round:
         description: Keepalive round number
         required: false
-      comment_id:
-        description: Update-branch command comment id
-        required: false
-      comment_url:
-        description: Update-branch command URL
+      comment_context:
+        description: JSON blob containing optional comment metadata (id, url)
         required: false
       idempotency_key:
         description: Sync attempt idempotency key
