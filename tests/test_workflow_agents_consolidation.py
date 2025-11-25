@@ -502,6 +502,43 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
         ), f"Job {job_name} must warn against removing the checkout guard"
 
 
+def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
+    data = _load_workflow_yaml("pr-00-gate.yml")
+    jobs = data.get("jobs", {})
+
+    scripts_job = jobs.get("github-scripts-tests") or {}
+    scripts_steps = scripts_job.get("steps") or []
+    assert scripts_steps, "github-scripts-tests job must define steps"
+    checkout_step = scripts_steps[0]
+    checkout_with = checkout_step.get("with") or {}
+    expected_repo_expr = (
+        "${{ github.event.pull_request.head.repo.full_name || github.repository }}"
+    )
+    expected_ref_expr = "${{ github.event.pull_request.head.sha || github.sha }}"
+    assert (
+        checkout_with.get("repository") == expected_repo_expr
+    ), "github-scripts-tests checkout must pull the contributor head repository"
+    assert (
+        checkout_with.get("ref") == expected_ref_expr
+    ), "github-scripts-tests checkout must use the contributor head commit"
+
+    ledger_job = jobs.get("ledger-validation") or {}
+    ledger_steps = ledger_job.get("steps") or []
+    assert ledger_steps, "ledger-validation job must define steps"
+    ledger_checkout = next(
+        (step for step in ledger_steps if step.get("name") == "Checkout repository"),
+        None,
+    )
+    assert ledger_checkout, "ledger-validation job must checkout the repository"
+    ledger_with = ledger_checkout.get("with") or {}
+    assert (
+        ledger_with.get("repository") == expected_repo_expr
+    ), "Ledger validation checkout must pull the contributor head repository"
+    assert (
+        ledger_with.get("ref") == expected_ref_expr
+    ), "Ledger validation checkout must use the contributor head commit"
+
+
 def test_bootstrap_step_defaults_label_when_missing():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
@@ -671,3 +708,30 @@ def test_orchestrator_forwards_enable_watchdog_flag():
         with_section.get("enable_watchdog")
         == "${{ needs.resolve-params.outputs.enable_watchdog }}"
     ), "Orchestrator must forward enable_watchdog to the reusable workflow"
+
+
+def test_keepalive_gate_job_handles_missing_pull_request_metadata():
+    data = _load_workflow_yaml("agents-pr-meta.yml")
+    jobs = data.get("jobs", {})
+    keepalive_job = jobs.get("keepalive_from_gate") or {}
+    job_if = str(keepalive_job.get("if") or "")
+    assert (
+        "pull_requests" not in job_if
+    ), "keepalive_from_gate must not require pull_requests metadata in its job condition"
+    steps = keepalive_job.get("steps") or []
+    warning_step = next(
+        (
+            step
+            for step in steps
+            if step.get("name") == "Warn when workflow_run lacks PR metadata"
+        ),
+        None,
+    )
+    assert (
+        warning_step
+    ), "keepalive_from_gate job must emit a warning when PR metadata is missing"
+    assert (
+        warning_step.get("if") == "needs.gate_event_context.outputs.has_pr != 'true'"
+    ), "Warning step must only run when PR metadata is absent"
+    warning_run = warning_step.get("run", "")
+    assert "Gate workflow_run omitted pull_requests context" in warning_run
