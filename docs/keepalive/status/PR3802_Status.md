@@ -4,6 +4,7 @@
 
 ## Progress updates
 - Round 1: Registered scope, tasks, and acceptance criteria from the keepalive instruction; awaiting implementation before checking any items off.
+- Round 2: No acceptance criteria satisfied yet; scope, tasks, and acceptance criteria remain open while implementation proceeds.
 
 ## Scope
 - [ ] Keep notebook-specific widget imports optional so ranking modules remain import-safe in non-notebook contexts.
