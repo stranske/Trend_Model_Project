@@ -208,9 +208,7 @@ def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
         body, headers = github_request("GET", url, token, params=params)
         params = None
         if isinstance(body, list):
-            issues.extend(
-                dict(item) for item in body if isinstance(item, Mapping)
-            )
+            issues.extend(dict(item) for item in body if isinstance(item, Mapping))
         links = parse_links(headers.get("Link"))
         url = links.get("next")
     return issues
