@@ -140,6 +140,14 @@ def build_comment(
     trend = _ensure_mapping(trend_obj)
     classification = _ensure_mapping(report.get("classification"))
 
+    delivery_mode_env = (os.environ.get("AUTOFIX_DELIVERY_MODE") or "").strip().lower()
+    delivery_reason = os.environ.get("AUTOFIX_DELIVERY_REASON") or ""
+    patch_available = coerce_bool(os.environ.get("AUTOFIX_PATCH_AVAILABLE", False))
+    patch_artifact = os.environ.get("AUTOFIX_PATCH_ARTIFACT")
+    patch_url = os.environ.get("AUTOFIX_PATCH_URL")
+    if not patch_artifact and patch_available and pr_number:
+        patch_artifact = f"autofix-patch-pr-{pr_number}"
+
     changed = coerce_bool(report.get("changed"))
     changed_text = "True" if changed else "False"
     remaining = coerce_int(classification.get("total"))
@@ -191,16 +199,28 @@ def build_comment(
     else:
         mode_display = "Standard"
 
+    if delivery_mode_env == "pat":
+        delivery_display = "PAT push"
+    elif patch_available:
+        delivery_display = "Patch artifact (fallback)"
+    elif delivery_mode_env:
+        delivery_display = delivery_mode_env.replace("_", " ").title()
+    else:
+        delivery_display = "Standard"
+
     metrics_rows = [
         "| Metric | Value |",
         "|--------|-------|",
         f"| Status | {status_value} |",
         f"| Mode | {mode_display} |",
+        f"| Delivery | {delivery_display} |",
         f"| Changed files | {changed_text} |",
         f"| Remaining issues | {remaining} |",
         f"| New issues | {new} |",
         f"| Allowed (legacy) | {allowed} |",
     ]
+    if delivery_reason:
+        metrics_rows.append(f"| Delivery note | {delivery_reason} |")
     if trigger_conclusion:
         trigger_display = trigger_conclusion
         if trigger_class and trigger_class != trigger_conclusion:
@@ -220,6 +240,11 @@ def build_comment(
     snapshot_section = _snapshot_code_lines(classification.get("by_code"))
 
     artifacts: list[str] = []
+    if patch_available and patch_artifact:
+        if patch_url:
+            artifacts.append(f"- Patch artifact: [{patch_artifact}]({patch_url})")
+        else:
+            artifacts.append(f"- Patch artifact: `{patch_artifact}`")
     if pr_number:
         artifacts.append(f"- JSON report: `autofix-report-pr-{pr_number}`")
         if history_points:

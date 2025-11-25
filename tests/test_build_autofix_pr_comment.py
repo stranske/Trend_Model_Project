@@ -47,6 +47,7 @@ def test_build_comment_includes_metrics(tmp_path: pathlib.Path) -> None:
     assert comment.startswith(comment_builder.MARKER)
     assert "# Autofix Status" in comment
     assert "| Status |" in comment
+    assert "| Delivery | Standard |" in comment
     assert "| History points | 2 |" in comment
     assert "Remaining: **5**" in comment
     assert "### Top residual codes" in comment
@@ -106,6 +107,40 @@ def test_build_comment_includes_result_block(
     assert "## Autofix result" in comment
     assert "Autofix commit: [deadbeef](https://example.test)" in comment
     assert "Labels: `autofix:applied`" in comment
+
+
+def test_build_comment_reports_fallback_patch(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({"changed": True}))
+
+    monkeypatch.setenv("AUTOFIX_DELIVERY_MODE", "fallback")
+    monkeypatch.setenv("AUTOFIX_DELIVERY_REASON", "missing-pat")
+    monkeypatch.setenv("AUTOFIX_PATCH_AVAILABLE", "true")
+    monkeypatch.setenv("AUTOFIX_PATCH_ARTIFACT", "autofix-patch-pr-99")
+    monkeypatch.setenv(
+        "AUTOFIX_PATCH_URL", "https://example.test/artifacts/autofix-patch-pr-99"
+    )
+
+    try:
+        comment = comment_builder.build_comment(
+            report_path=report_path,
+            pr_number="99",
+        )
+    finally:
+        monkeypatch.delenv("AUTOFIX_DELIVERY_MODE", raising=False)
+        monkeypatch.delenv("AUTOFIX_DELIVERY_REASON", raising=False)
+        monkeypatch.delenv("AUTOFIX_PATCH_AVAILABLE", raising=False)
+        monkeypatch.delenv("AUTOFIX_PATCH_ARTIFACT", raising=False)
+        monkeypatch.delenv("AUTOFIX_PATCH_URL", raising=False)
+
+    assert "| Delivery | Patch artifact (fallback) |" in comment
+    assert "| Delivery note | missing-pat |" in comment
+    assert (
+        "- Patch artifact: [autofix-patch-pr-99](https://example.test/artifacts/autofix-patch-pr-99)"
+        in comment
+    )
 
 
 def test_build_comment_includes_trigger_metadata(

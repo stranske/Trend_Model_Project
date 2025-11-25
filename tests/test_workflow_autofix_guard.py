@@ -58,6 +58,31 @@ def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     assert not missing, f"Reusable autofix steps missing guard condition: {missing}"
 
 
+def test_reusable_autofix_allows_patless_fallback() -> None:
+    data = _load_yaml("reusable-18-autofix.yml")
+    triggers = data.get("on") or data.get(True) or {}
+    secrets = triggers["workflow_call"]["secrets"]["service_bot_pat"]
+    assert secrets.get("required") is False
+
+    steps: List[Dict[str, Any]] = data["jobs"]["autofix"]["steps"]
+    checkout = next(step for step in steps if step.get("name") == "Checkout PR HEAD")
+    assert "AUTOFIX_TOKEN" in checkout.get("with", {}).get("token", ""), checkout
+
+
+def test_reusable_autofix_splits_pat_and_patch_paths() -> None:
+    data = _load_yaml("reusable-18-autofix.yml")
+    steps: List[Dict[str, Any]] = data["jobs"]["autofix"]["steps"]
+    commit_step = next(
+        step for step in steps if step.get("name") == "Commit changes (PAT path)"
+    )
+    patch_step = next(
+        step for step in steps if step.get("name") == "Create patch artifact (fallback)"
+    )
+
+    assert "env.AUTOFIX_AUTH_MODE == 'pat'" in (commit_step.get("if") or "")
+    assert "env.AUTOFIX_AUTH_MODE != 'pat'" in (patch_step.get("if") or "")
+
+
 def _load_helper(name: str) -> str:
     helper_path = GITHUB_SCRIPTS / name
     assert helper_path.exists(), f"Expected helper script to exist: {name}"

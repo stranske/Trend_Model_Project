@@ -120,6 +120,11 @@ Autofix commits use the configurable prefix (default `chore(autofix):`). Set the
 consolidated Gate workflow consumes the same reusable entry points, so any new repository can call
 `reusable-10-ci-python.yml` and `reusable-12-ci-docker.yml` directly without needing an intermediate wrapper.
 
+When `ACTIONS_BOT_PAT` is unavailable or the pull request originates from a fork, the reusable
+autofix workflow automatically switches to a patch-only fallback that relies on `GITHUB_TOKEN`,
+uploads `autofix-patch-pr-<PR>` artifacts, and records the delivery path in the PR status comment
+so maintainers know where to fetch the fix.
+
 ```yaml
 name: Agents utilities
 on:
