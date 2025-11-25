@@ -17,7 +17,7 @@ if [[ -f ".github/workflows/autofix-versions.env" ]]; then
     # shellcheck disable=SC1091
     source .github/workflows/autofix-versions.env
 fi
-BLACK_VERSION=${BLACK_VERSION:-24.8.0}
+BLACK_VERSION=${BLACK_VERSION:-25.11.0}
 
 ensure_package_version() {
     local package_name="$1"

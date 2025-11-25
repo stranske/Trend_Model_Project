@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Iterable
 
 
-def _load_entries(path: Path) -> Iterable[dict]:
+def _load_entries(path: Path) -> Iterable[dict[str, object]]:
     if not path.exists():
         return []
-    entries: list[dict] = []
+    entries: list[dict[str, object]] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
         text = raw.strip()
         if not text:

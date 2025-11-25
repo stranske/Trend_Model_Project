@@ -104,7 +104,7 @@ Checking uv...
   Install from: https://github.com/astral-sh/uv
 
 Checking coverage CLI...
-✓ coverage (Coverage.py, version 7.11.0 with C extension)
+✓ coverage (Coverage.py, version 7.12.0 with C extension)
 
 === Summary ===
 All required dependencies are available!
