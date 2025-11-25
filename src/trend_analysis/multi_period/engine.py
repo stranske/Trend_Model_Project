@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Mapping, Protocol, cast
 import numpy as np
 import pandas as pd
 
-from trend.diagnostics import DiagnosticPayload
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
 from .._typing import FloatArray
 from ..constants import NUMERICAL_TOLERANCE_HIGH
@@ -68,6 +68,15 @@ logger = logging.getLogger(__name__)
 # pipeline entry point.
 def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
     return _invoke_analysis_with_diag(*args, **kwargs)
+
+
+def _call_pipeline_with_diag(
+    *args: Any, **kwargs: Any
+) -> DiagnosticResult[dict[str, Any] | None]:
+    """Execute ``_run_analysis`` and normalise into a DiagnosticResult."""
+
+    payload, diag = _coerce_analysis_result(_run_analysis(*args, **kwargs))
+    return DiagnosticResult(value=payload, diagnostic=diag)
 
 
 def _coerce_analysis_result(
@@ -751,7 +760,7 @@ def run(
         prev_in_df = None
 
         for pt in periods:
-            analysis_res = _run_analysis(
+            analysis_res = _call_pipeline_with_diag(
                 df,
                 pt.in_start[:7],
                 pt.in_end[:7],
@@ -777,7 +786,8 @@ def run(
                 risk_free_column=risk_free_column_cfg,
                 allow_risk_free_fallback=allow_risk_free_fallback_cfg,
             )
-            payload, diag = _coerce_analysis_result(analysis_res)
+            payload = analysis_res.value
+            diag = analysis_res.diagnostic
             if payload is None:
                 if diag is not None:
                     logger.warning(
@@ -1401,7 +1411,7 @@ def run(
             str(k): float(v) * 100.0 for k, v in prev_weights.items()
         }
 
-        res = _run_analysis(
+        res = _call_pipeline_with_diag(
             df,
             pt.in_start[:7],
             pt.in_end[:7],
@@ -1423,7 +1433,8 @@ def run(
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
         )
-        payload, diag = _coerce_analysis_result(res)
+        payload = res.value
+        diag = res.diagnostic
         if payload is None:
             if diag is not None:
                 logger.warning(
