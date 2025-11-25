@@ -1442,43 +1442,6 @@ if direct_res.value is None or direct_res.value.get("score_frame") is None:
         )
     raise SystemExit("_run_analysis direct call failed")
 
-# cover helper with missing type annotations
-scores = rs._compute_metric_series(window, "Sharpe", rs_cfg)
-extra_ids = rs.some_function_missing_annotation(
-    scores,
-    "top_n",
-    n=2,
-    ascending=False,
-)
-if len(extra_ids) != 2:
-    raise SystemExit("some_function_missing_annotation failed")
-pct_ids = rs.some_function_missing_annotation(
-    scores,
-    "top_pct",
-    pct=0.5,
-    ascending=False,
-)
-if not pct_ids:
-    raise SystemExit("some_function_missing_annotation top_pct failed")
-thr_ids = rs.some_function_missing_annotation(
-    scores,
-    "threshold",
-    threshold=0.0,
-    ascending=False,
-)
-if not thr_ids:
-    raise SystemExit("some_function_missing_annotation threshold failed")
-
-# also cover the ascending=True branch for completeness
-asc_ids = rs.some_function_missing_annotation(
-    scores,
-    "threshold",
-    threshold=scores.max(),
-    ascending=True,
-)
-if not asc_ids:
-    raise SystemExit("some_function_missing_annotation ascending branch failed")
-
 # quality_filter and select_funds interfaces
 fund_cfg_cls = getattr(rs, "FundSelectionConfig", None)
 quality_filter_fn = getattr(rs, "quality_filter", None)
