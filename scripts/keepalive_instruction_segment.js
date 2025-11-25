@@ -6,6 +6,7 @@ function normaliseNewlines(value) {
 
 function findInstructionStart(body) {
   const markers = [
+    /<!--\s*codex-keepalive-round[^>]*-->/i,
     /<!--\s*keepalive-round[^>]*-->/i,
     /<!--\s*keepalive-attempt[^>]*-->/i,
     /<!--\s*codex-keepalive-marker\s*-->/i,

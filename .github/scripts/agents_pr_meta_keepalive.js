@@ -98,10 +98,17 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     canonicalMarkerPatterns.push(new RegExp(escapeRegExp(keepaliveMarker), 'i'));
   }
   canonicalMarkerPatterns.push(/<!--\s*codex-keepalive-marker\s*-->/i);
+  canonicalMarkerPatterns.push(/<!--\s*keepalive-marker\s*-->/i);
 
-  const canonicalRoundPatterns = [/<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i];
+  const canonicalRoundPatterns = [
+    /<!--\s*codex-keepalive-round\s*:?#?\s*(\d+)\s*-->/i,
+    /<!--\s*keepalive-round\s*:?#?\s*(\d+)\s*-->/i,
+  ];
 
-  const canonicalTracePatterns = [/<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i];
+  const canonicalTracePatterns = [
+    /<!--\s*codex-keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i,
+    /<!--\s*keepalive-trace\s*:?#?\s*([^>]+?)\s*-->/i,
+  ];
 
   const outputs = {
     dispatch: 'false',

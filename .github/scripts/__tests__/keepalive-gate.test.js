@@ -79,23 +79,23 @@ test('countActive optionally includes worker runs when requested', async () => {
     ],
   };
   const github = makeGithubStub(registry);
-  const withoutWorker = await countActive({
+  const defaultOrchestratorOnly = await countActive({
     github,
     owner: 'stranske',
     repo: 'Trend_Model_Project',
     prNumber: 7,
-    includeWorker: false,
   });
 
-  assert.equal(withoutWorker.active, 1);
-  assert.equal(withoutWorker.breakdown.get('orchestrator'), 1);
-  assert.equal(withoutWorker.breakdown.get('worker'), undefined);
+  assert.equal(defaultOrchestratorOnly.active, 1);
+  assert.equal(defaultOrchestratorOnly.breakdown.get('orchestrator'), 1);
+  assert.equal(defaultOrchestratorOnly.breakdown.get('worker'), undefined);
 
   const withWorker = await countActive({
     github,
     owner: 'stranske',
     repo: 'Trend_Model_Project',
     prNumber: 7,
+    includeWorker: true,
   });
 
   assert.equal(withWorker.active, 2);

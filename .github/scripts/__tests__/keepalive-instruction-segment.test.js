@@ -10,10 +10,10 @@ const {
 
 test('extractInstructionSegment strips status bundle and reports bytes', () => {
   const body = [
-    '<!-- keepalive-round: 1 -->',
+    '<!-- codex-keepalive-round: 1 -->',
     '<!-- keepalive-attempt: 1 -->',
     '<!-- codex-keepalive-marker -->',
-    '<!-- keepalive-trace: trace-123 -->',
+    '<!-- codex-keepalive-trace: trace-123 -->',
     '@codex Continue working the checklist.',
     '',
     '## Automated Status Summary',

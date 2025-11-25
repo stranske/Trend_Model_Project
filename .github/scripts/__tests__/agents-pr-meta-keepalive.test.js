@@ -21,7 +21,7 @@ test('automation summary comment is upgraded to next keepalive round', async () 
   const reactionCalls = [];
   const existingComments = [
     {
-      body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
+      body: '<!-- codex-keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
       id: 123,
     },
   ];
@@ -171,7 +171,7 @@ test('automation summary with round but no marker is ignored', async () => {
       comment: {
         id: 789,
         html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3419#issuecomment-789',
-        body: '<!-- keepalive-round: 4 -->\nAutofix attempt 1/1 complete.',
+        body: '<!-- codex-keepalive-round: 4 -->\nAutofix attempt 1/1 complete.',
         user: { login: 'chatgpt-codex-connector[bot]' },
       },
       issue: { number: 3419 },
@@ -196,7 +196,7 @@ test('manual restated instructions are autopatched to the next round', async () 
   const reactionCalls = [];
   const existingComments = [
     {
-      body: '<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
+      body: '<!-- codex-keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->',
       id: 123,
     },
   ];
@@ -292,9 +292,9 @@ test('keepalive detection captures instruction body without status bundle', asyn
   const outputs = {};
   const reactionCalls = [];
   const scopeBlock = [
-    '<!-- keepalive-round: 3 -->',
+    '<!-- codex-keepalive-round: 3 -->',
     '<!-- codex-keepalive-marker -->',
-    '<!-- keepalive-trace: trace-456 -->',
+    '<!-- codex-keepalive-trace: trace-456 -->',
     '@codex Continue working.',
     '',
     '## Automated Status Summary',
