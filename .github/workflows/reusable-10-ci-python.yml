@@ -248,30 +248,62 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-
+            uv-${{ runner.os }}-
+
       - name: Install dependencies
         env:
           PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
         run: |
           set -euo pipefail
+          start_ts=$(date +%s)
+
           if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
-          python -m pip install --upgrade pip
+          specs=()
+
           if [ -f requirements.lock ]; then
-            uv pip sync --system requirements.lock
+            specs+=('-r' 'requirements.lock')
           fi
+
           if [ -f pyproject.toml ]; then
-            pip install -e '.[app,dev]' || pip install -e . || pip install .
+            specs+=('-e' '.[app,dev]')
           elif [ -f setup.cfg ] || [ -f setup.py ]; then
-            pip install -e . || pip install .
+            specs+=('-e' '.' )
           fi
-          # Source version pins from shared config to stay consistent with autofix
+
           if [ -f .github/workflows/autofix-versions.env ]; then
+            # Source version pins from shared config to stay consistent with autofix
             source .github/workflows/autofix-versions.env
-            pip install "black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}"
+            specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}")
           else
             echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
-            pip install black ruff isort docformatter mypy pytest pytest-cov
+            specs+=(black ruff isort docformatter mypy pytest pytest-cov)
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              printf '## Dependency installation timing\n'
+              printf '- Duration: %ss\n' "$duration"
+              printf '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ matrix.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d" " -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d" " -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
           fi
 
       - name: Validate test dependencies
