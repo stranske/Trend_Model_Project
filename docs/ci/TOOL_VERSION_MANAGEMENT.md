@@ -15,14 +15,14 @@ All CI and autofix workflows use tool versions defined in a single source of tru
 This file contains pinned versions for all formatting, linting, and testing tools:
 
 ```bash
-BLACK_VERSION=24.8.0
-RUFF_VERSION=0.6.3
-ISORT_VERSION=5.12.0
-DOCFORMATTER_VERSION=1.7.4
-MYPY_VERSION=1.8.0
-PYTEST_VERSION=8.3.2
-PYTEST_COV_VERSION=5.0.0
-COVERAGE_VERSION=7.6.1
+BLACK_VERSION=25.11.0
+RUFF_VERSION=0.14.6
+ISORT_VERSION=7.0.0
+DOCFORMATTER_VERSION=1.7.7
+MYPY_VERSION=1.18.2
+PYTEST_VERSION=9.0.1
+PYTEST_COV_VERSION=7.0.0
+COVERAGE_VERSION=7.12.0
 ```
 
 ## Workflows Using Version File
@@ -70,8 +70,8 @@ When an update issue is created:
    # Edit .github/workflows/autofix-versions.env
    vim .github/workflows/autofix-versions.env
    
-   # Example: Update Black from 24.8.0 to 24.10.0
-   BLACK_VERSION=24.10.0
+   # Example: Update Black from 25.9.0 to 25.11.0
+   BLACK_VERSION=25.11.0
    ```
 
 3. **Test locally**:
