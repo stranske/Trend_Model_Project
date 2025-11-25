@@ -10,8 +10,8 @@ function buildInstructionComment({ id, trace, createdAt }) {
     '@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete.',
     '',
     '<!-- codex-keepalive-marker -->',
-    '<!-- keepalive-round: 5 -->',
-    `<!-- keepalive-trace: ${trace} -->`,
+    '<!-- codex-keepalive-round: 5 -->',
+    `<!-- codex-keepalive-trace: ${trace} -->`,
   ];
   return {
     id,

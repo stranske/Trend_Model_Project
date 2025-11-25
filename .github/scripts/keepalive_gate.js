@@ -481,7 +481,7 @@ async function countActive({
   headSha,
   headRef,
   currentRunId,
-  includeWorker = true,
+  includeWorker = false,
   workflows,
   completedLookbackSeconds = 0,
 }) {
@@ -702,7 +702,7 @@ async function evaluateRunCapForPr({
   prNumber,
   headSha = '',
   headRef = '',
-  includeWorker = true,
+  includeWorker = false,
   currentRunId,
 } = {}) {
   const number = Number(prNumber);
