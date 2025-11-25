@@ -129,7 +129,7 @@ Build configuration with optional dev dependencies:
 ```toml
 [project.optional-dependencies]
 dev = [
-    "pytest==8.4.2",
+    "pytest==9.0.1",
     "pytest-cov==7.0.0",
     "pytest-rerunfailures>=13.0",
     "pytest-xdist",  # parallel test execution
