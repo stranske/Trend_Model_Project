@@ -6,7 +6,8 @@ import importlib.util
 import pickle
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, cast
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, Callable, Dict, cast
 
 import pandas as pd
 import yaml
@@ -28,12 +29,147 @@ else:
 
 from .. import export, pipeline, weighting
 
-widgets: Any | None = None
-FileLink: Any | None = None
-Javascript: Any | None = None
-display: Any | None = None
+_NOTEBOOK_DEP_MESSAGE = (
+    "Notebook UI requires optional dependencies (ipywidgets and IPython.display). "
+    "Install the 'notebook' extra or add the packages manually to enable the GUI."
+)
+
+
+class _WidgetModuleProxy:
+    """Proxy that tolerates optional ipywidgets imports."""
+
+    __slots__ = ("_module", "_overrides", "_error")
+
+    def __init__(self, error_message: str) -> None:
+        object.__setattr__(self, "_module", None)
+        object.__setattr__(self, "_overrides", {})
+        object.__setattr__(self, "_error", error_message)
+
+    def bind(self, module: Any) -> None:
+        object.__setattr__(self, "_module", module)
+
+    @property
+    def is_bound(self) -> bool:
+        return object.__getattribute__(self, "_module") is not None
+
+    def __getattr__(self, name: str) -> Any:
+        overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
+        if name in overrides:
+            return overrides[name]
+        module = object.__getattribute__(self, "_module")
+        if module is None:
+            if name.startswith("__"):
+                raise AttributeError(name)
+            fallback = _WIDGET_FALLBACKS.get(name)
+            if fallback is not None:
+                return fallback
+            return _MissingWidgetAttr(name, object.__getattribute__(self, "_error"))
+        return getattr(module, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
+        overrides[name] = value
+
+
+def _make_missing_callable(target: str) -> Callable[..., Any]:
+    def _raiser(*_: Any, **__: Any) -> None:
+        raise ImportError(
+            f"Notebook UI requires {target} from IPython.display; {_NOTEBOOK_DEP_MESSAGE}"
+        )
+
+    setattr(_raiser, "__trend_stub__", True)
+    return _raiser
+
+
+class _MissingWidgetAttr:
+    """Callable placeholder that raises when optional deps are absent."""
+
+    __slots__ = ("_name", "_message")
+
+    def __init__(self, name: str, message: str) -> None:
+        self._name = name
+        self._message = message
+
+    def _raise(self) -> None:
+        raise ImportError(f"{self._message} (missing '{self._name}')")
+
+    def __call__(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401 - simple raiser
+        self._raise()
+
+    def __getattr__(self, _: str) -> Any:  # pragma: no cover - passthrough
+        self._raise()
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<_MissingWidgetAttr {self._name}>"
+
+
+class _GenericWidgetStub:
+    """Minimal widget stand-in that satisfies observe/click APIs."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401 - simple shim
+        value = kwargs.get("value")
+        if value is None and args and not isinstance(args[0], (list, tuple)):
+            value = args[0]
+        children = kwargs.get("children")
+        if children is None and args and isinstance(args[0], (list, tuple)):
+            children = args[0]
+        self.value = value
+        self.options = list(kwargs.get("options", []))
+        self.description = kwargs.get("description", "")
+        self.children = tuple(children or ())
+        self.layout = SimpleNamespace(display="", border="")
+        self._observers: list[Callable[[dict[str, Any]], None]] = []
+        self._click_handlers: list[Callable[[Any], None]] = []
+        for key, val in kwargs.items():  # expose any additional traits
+            setattr(self, key, val)
+
+    def observe(
+        self, callback: Callable[[dict[str, Any]], None], names: Any | None = None
+    ) -> None:  # pragma: no cover - trivial list append
+        self._observers.append(callback)
+
+    def on_click(self, callback: Callable[[Any], None]) -> None:  # pragma: no cover
+        self._click_handlers.append(callback)
+
+    def trigger(self, value: Any) -> None:  # pragma: no cover - helper for tests
+        self.value = value
+        change = {"new": value}
+        for cb in list(self._observers):
+            cb(change)
+
+    def click(self) -> None:  # pragma: no cover - helper for tests
+        for cb in list(self._click_handlers):
+            cb(self)
+
+
+_WIDGET_FALLBACK_NAMES = {
+    "FileUpload",
+    "Dropdown",
+    "Label",
+    "Button",
+    "VBox",
+    "HBox",
+    "BoundedIntText",
+    "BoundedFloatText",
+    "FloatText",
+    "FloatSlider",
+    "SelectMultiple",
+    "Checkbox",
+    "ToggleButtons",
+    "IntSlider",
+}
+_WIDGET_FALLBACKS: Dict[str, type[_GenericWidgetStub]] = {
+    name: _GenericWidgetStub for name in _WIDGET_FALLBACK_NAMES
+}
+
+
+widgets: Any = _WidgetModuleProxy(_NOTEBOOK_DEP_MESSAGE)
+FileLink: Any = _make_missing_callable("FileLink")
+Javascript: Any = _make_missing_callable("Javascript")
+display: Any = _make_missing_callable("display")
 DataGrid: Any | None = None
 HAS_DATAGRID = False
+_NOTEBOOK_IMPORT_FAILED = False
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
@@ -42,38 +178,61 @@ WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
 def _load_notebook_deps() -> None:
     """Load optional notebook dependencies on demand."""
 
-    global widgets, FileLink, Javascript, display, DataGrid, HAS_DATAGRID
+    global FileLink, Javascript, display, _NOTEBOOK_IMPORT_FAILED
 
-    if (
-        widgets is not None
-        and FileLink is not None
-        and Javascript is not None
-        and display is not None
-    ):
+    widgets_ready = not isinstance(widgets, _WidgetModuleProxy) or widgets.is_bound
+    callables_ready = all(
+        not getattr(obj, "__trend_stub__", False)
+        for obj in (FileLink, Javascript, display)
+    )
+    if widgets_ready and callables_ready:
+        _ensure_datagrid_available()
         return
 
-    missing = [
-        mod
-        for mod in ("ipywidgets", "IPython.display")
-        if importlib.util.find_spec(mod) is None
-    ]
-    if missing:
-        joined = ", ".join(missing)
-        raise ImportError(f"Notebook UI requires {joined} to be installed.")
+    if not _NOTEBOOK_IMPORT_FAILED:
+        missing = [
+            mod
+            for mod in ("ipywidgets", "IPython.display")
+            if importlib.util.find_spec(mod) is None
+        ]
+        if missing:
+            _NOTEBOOK_IMPORT_FAILED = True
+            warnings.warn(
+                f"Notebook UI requires {', '.join(missing)}. {_NOTEBOOK_DEP_MESSAGE}",
+                RuntimeWarning,
+            )
+        else:
+            widgets_mod = importlib.import_module("ipywidgets")
+            if isinstance(widgets, _WidgetModuleProxy):
+                widgets.bind(widgets_mod)
+            elif globals().get("widgets") is None:  # pragma: no cover - edge overrides
+                globals()["widgets"] = widgets_mod
 
-    widgets = importlib.import_module("ipywidgets")
-    display_mod = importlib.import_module("IPython.display")
-    FileLink = display_mod.FileLink
-    Javascript = display_mod.Javascript
-    display = display_mod.display
+            display_mod = importlib.import_module("IPython.display")
+            if getattr(FileLink, "__trend_stub__", False):
+                FileLink = display_mod.FileLink
+            if getattr(Javascript, "__trend_stub__", False):
+                Javascript = display_mod.Javascript
+            if getattr(display, "__trend_stub__", False):
+                display = display_mod.display
 
-    datagrid_spec = importlib.util.find_spec("ipydatagrid")
-    if datagrid_spec is not None:
-        DataGrid = importlib.import_module("ipydatagrid").DataGrid
-        HAS_DATAGRID = True
+    _ensure_datagrid_available()
+
+
+def _ensure_datagrid_available() -> None:
+    """Best-effort import for optional ipydatagrid dependency."""
+
+    global DataGrid, HAS_DATAGRID
+
+    try:
+        datagrid_mod = importlib.import_module("ipydatagrid")
+    except ImportError:
+        if DataGrid is None:
+            HAS_DATAGRID = False
     else:
-        DataGrid = None
-        HAS_DATAGRID = False
+        if DataGrid is None:
+            DataGrid = datagrid_mod.DataGrid
+        HAS_DATAGRID = True
 
 
 def load_state() -> ParamStore:
@@ -393,6 +552,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
     datagrid_available = HAS_DATAGRID and DataGrid is not None
 
     if datagrid_available:
+        assert DataGrid is not None  # mypy: guarded by datagrid_available
         rows = [
             {"Fund": f, "Include": f in manual, "Weight": float(weights.get(f, 0))}
             for f in sorted(set(manual) | set(weights))

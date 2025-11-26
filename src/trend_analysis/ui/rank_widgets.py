@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 import ipywidgets as widgets
 import pandas as pd
@@ -258,7 +258,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
     custom_weights: dict[str, float] = {}
     manual_funds: list[str] = []
 
-    rank_kwargs = {
+    rank_kwargs: dict[str, Callable[[], Any]] = {
         "use_ranking": lambda: use_rank_ck.value or mode_dd.value == "rank",
         "inclusion_approach": lambda: incl_dd.value,
         "n": lambda: int(topn_int.value),
