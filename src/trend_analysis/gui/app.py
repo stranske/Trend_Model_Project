@@ -70,6 +70,19 @@ class _WidgetModuleProxy:
         overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
         overrides[name] = value
 
+    def clear_overrides(
+        self, predicate: Callable[[str, Any], bool] | None = None
+    ) -> None:
+        overrides: Dict[str, Any] = object.__getattribute__(self, "_overrides")
+        if not overrides:
+            return
+        if predicate is None:
+            overrides.clear()
+            return
+        for key in list(overrides):
+            if predicate(key, overrides[key]):
+                overrides.pop(key, None)
+
 
 def _make_missing_callable(target: str) -> Callable[..., Any]:
     def _raiser(*_: Any, **__: Any) -> None:
@@ -170,6 +183,7 @@ display: Any = _make_missing_callable("display")
 DataGrid: Any | None = None
 HAS_DATAGRID = False
 _NOTEBOOK_IMPORT_FAILED = False
+_AUTOLOADED_DATAGRID: Any | None = None
 
 STATE_FILE = Path.home() / ".trend_gui_state.yml"
 WEIGHT_STATE_FILE = STATE_FILE.with_suffix(".pkl")
@@ -186,35 +200,55 @@ def _load_notebook_deps() -> None:
         for obj in (FileLink, Javascript, display)
     )
     if widgets_ready and callables_ready:
+        if isinstance(widgets, _WidgetModuleProxy) and widgets.is_bound:
+            widgets.clear_overrides(lambda _name, val: val is _GenericWidgetStub)
         _ensure_datagrid_available()
         return
 
-    if not _NOTEBOOK_IMPORT_FAILED:
-        missing = [
-            mod
-            for mod in ("ipywidgets", "IPython.display")
-            if importlib.util.find_spec(mod) is None
-        ]
-        if missing:
-            _NOTEBOOK_IMPORT_FAILED = True
-            warnings.warn(
-                f"Notebook UI requires {', '.join(missing)}. {_NOTEBOOK_DEP_MESSAGE}",
-                RuntimeWarning,
-            )
-        else:
+    missing: list[str] = []
+
+    if not widgets_ready:
+        try:
             widgets_mod = importlib.import_module("ipywidgets")
+        except ImportError:
+            missing.append("ipywidgets")
+        else:
             if isinstance(widgets, _WidgetModuleProxy):
                 widgets.bind(widgets_mod)
+                widgets.clear_overrides(lambda _name, val: val is _GenericWidgetStub)
             elif globals().get("widgets") is None:  # pragma: no cover - edge overrides
                 globals()["widgets"] = widgets_mod
+            widgets_ready = True
 
+    if not callables_ready:
+        try:
             display_mod = importlib.import_module("IPython.display")
+        except ImportError:
+            missing.append("IPython.display")
+        else:
             if getattr(FileLink, "__trend_stub__", False):
                 FileLink = display_mod.FileLink
             if getattr(Javascript, "__trend_stub__", False):
                 Javascript = display_mod.Javascript
             if getattr(display, "__trend_stub__", False):
                 display = display_mod.display
+            callables_ready = True
+
+    if missing:
+        if not _NOTEBOOK_IMPORT_FAILED:
+            _NOTEBOOK_IMPORT_FAILED = True
+            warnings.warn(
+                f"Notebook UI requires {', '.join(missing)}. {_NOTEBOOK_DEP_MESSAGE}",
+                RuntimeWarning,
+            )
+    else:
+        _NOTEBOOK_IMPORT_FAILED = False
+
+    if widgets_ready and callables_ready:
+        if isinstance(widgets, _WidgetModuleProxy) and widgets.is_bound:
+            widgets.clear_overrides(lambda _name, val: val is _GenericWidgetStub)
+        _ensure_datagrid_available()
+        return
 
     _ensure_datagrid_available()
 
@@ -222,17 +256,66 @@ def _load_notebook_deps() -> None:
 def _ensure_datagrid_available() -> None:
     """Best-effort import for optional ipydatagrid dependency."""
 
-    global DataGrid, HAS_DATAGRID
+    global DataGrid, HAS_DATAGRID, _AUTOLOADED_DATAGRID
 
     try:
         datagrid_mod = importlib.import_module("ipydatagrid")
     except ImportError:
         if DataGrid is None:
             HAS_DATAGRID = False
-    else:
-        if DataGrid is None:
-            DataGrid = datagrid_mod.DataGrid
-        HAS_DATAGRID = True
+            _AUTOLOADED_DATAGRID = None
+        return
+
+    candidate = getattr(datagrid_mod, "DataGrid", None)
+    if candidate is None:
+        if DataGrid is None or DataGrid is _AUTOLOADED_DATAGRID:
+            DataGrid = None
+            HAS_DATAGRID = False
+            _AUTOLOADED_DATAGRID = None
+        return
+
+    should_replace = DataGrid is None or DataGrid is _AUTOLOADED_DATAGRID
+    if should_replace:
+        DataGrid = candidate
+        _AUTOLOADED_DATAGRID = candidate
+        try:
+            setattr(DataGrid, "__trend_autoload__", True)
+        except Exception:  # pragma: no cover - not all classes allow attribute set
+            pass
+    HAS_DATAGRID = True
+
+
+def _datagrid_can_mount() -> bool:
+    """Return True if ``DataGrid`` is compatible with the current widgets stack."""
+
+    if DataGrid is None:
+        return False
+    widget_base = getattr(widgets, "Widget", None)
+    if widget_base is None or isinstance(widget_base, _MissingWidgetAttr):
+        # Either widgets are stubbed out or ipywidgets is unavailable. In those
+        # environments ``widgets.VBox`` resolves to our lightweight stub, so
+        # any DataGrid stand-in is acceptable.
+        return True
+    vbox_cls = getattr(widgets, "VBox", None)
+    container_is_real = False
+    if isinstance(vbox_cls, type):
+        try:
+            container_is_real = issubclass(vbox_cls, widget_base)
+        except TypeError:
+            container_is_real = False
+    if not container_is_real:
+        # Tests frequently patch ``widgets.VBox`` with a simple stub even when a
+        # genuine ipywidgets module is available. Treat those scenarios like the
+        # stubbed environment above so FakeDataGrid instances remain valid.
+        return True
+    try:
+        return isinstance(DataGrid, type) and issubclass(DataGrid, widget_base)
+    except TypeError:
+        return False
+
+
+# Probe availability once at import so downstream tests detect the flag.
+_ensure_datagrid_available()
 
 
 def load_state() -> ParamStore:
@@ -341,7 +424,7 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     upload = widgets.FileUpload(accept=".yml", multiple=False)
     template = widgets.Dropdown(options=list_builtin_cfgs(), description="Template")
-    if HAS_DATAGRID and DataGrid is not None:
+    if HAS_DATAGRID and DataGrid is not None and _datagrid_can_mount():
         grid_df = pd.DataFrame(list(store.cfg.items()), columns=["Key", "Value"])
         # ``Value`` may contain scalars of varying dtypes; keep it as ``object`` so
         # edits with strings, ints or floats don't trigger pandas' incompatible
@@ -549,7 +632,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
     weights = port.setdefault("custom_weights", {})
     manual = port.setdefault("manual_list", list(weights))
 
-    datagrid_available = HAS_DATAGRID and DataGrid is not None
+    datagrid_available = HAS_DATAGRID and DataGrid is not None and _datagrid_can_mount()
 
     if datagrid_available:
         assert DataGrid is not None  # mypy: guarded by datagrid_available
