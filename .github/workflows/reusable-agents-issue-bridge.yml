@@ -727,6 +727,12 @@ jobs:
               core.setOutput('scope_block', scopeBlock || '');
               core.setOutput('issue_body', issueBody || '');
               core.setOutput('issue_title', issueTitle || '');
+            } else {
+              // Explicitly set default outputs when PR already exists
+              core.setOutput('created', 'false');
+              core.setOutput('scope_block', '');
+              core.setOutput('issue_body', '');
+              core.setOutput('issue_title', '');
             }
 
             core.setOutput('number', String(pr.number));
