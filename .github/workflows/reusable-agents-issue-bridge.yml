@@ -617,7 +617,7 @@ jobs:
                 const canonicalTitle = titles[index];
                 const header = headings.find((entry) => entry.title === titleKey);
                 if (!header) {
-                  return '';
+                  continue; // Skip missing sections instead of failing
                 }
 
                 const nextHeader = headings
