@@ -1923,7 +1923,7 @@ jobs:
               if (!body || !heading) {
                 return '';
               }
-              const pattern = new RegExp(`^\s*${heading}\s*\n+([\\s\\S]*?)(?=^\s*\S|\Z)`, 'im');
+              const pattern = new RegExp(`^\s*${heading}\s*\n+([\\s\\S]*?)(?=^\s*\S|$)`, 'im');
               const match = String(body || '').match(pattern);
               return match && match[1] ? match[1].trim() : '';
             }
@@ -2030,7 +2030,7 @@ jobs:
 
                 const headSha = run.head_sha || '';
                 const directMatch = Array.isArray(run.pull_requests)
-                  ? run.pull_requests.find((item) => item && (item.head_sha === headSha || item.head_sha))
+                  ? run.pull_requests.find((item) => item && item.head_sha === headSha) || run.pull_requests.find((item) => item && item.head_sha)
                   : null;
 
                 if (directMatch) {
