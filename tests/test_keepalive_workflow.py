@@ -94,7 +94,7 @@ def _assert_scope_block(body: str) -> None:
         "- [ ] Write Round = N and TRACE = … into the step summary for correlation."
         in body
     )
-    assert "#### Acceptance criteria" in body
+    assert "#### Acceptance Criteria" in body
     assert (
         "- [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers"
         in body
