@@ -34,6 +34,11 @@ Functional spec
 4.  Config file (YAML) drives everything – sample below.
 
 5.  UI flow (ipywidgets, no external deps):
+  > Notebook widgets now live in the optional module
+  > `trend_analysis.ui.rank_widgets`. Import `build_ui()` from that module (or
+  > call the thin wrapper `trend_analysis.core.rank_selection.build_ui()`)
+  > inside notebook sessions where `ipywidgets` is installed. Core pipeline
+  > modules remain import-safe even when those extras are missing.
 <!-- STEP 0 START -->
 ### Step 0 – Config Loader & Editor  📝
 
