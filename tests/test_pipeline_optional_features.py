@@ -66,7 +66,7 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
     assert score_frame["AvgCorr"].notna().all()
 
 
-def test_single_period_run_swallows_avg_corr_failure(
+def test_single_period_run_surfaces_avg_corr_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     df = pd.DataFrame(
@@ -89,12 +89,8 @@ def test_single_period_run_swallows_avg_corr_failure(
 
     monkeypatch.setattr(rank_selection_mod, "compute_metric_series_with_cache", boom)
 
-    score_frame = pipeline.single_period_run(
-        df, "2020-01", "2020-03", stats_cfg=stats_cfg
-    )
-
-    # Failure of the optional metric should not prevent the base metrics from materialising.
-    assert set(score_frame.columns) == set(stats_cfg.metrics_to_run)
+    with pytest.raises(RuntimeError, match="AvgCorr"):
+        pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
 
 def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
