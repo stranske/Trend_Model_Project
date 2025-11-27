@@ -652,10 +652,24 @@ jobs:
             lines.push(`<!-- autofix-loop:${JSON.stringify(markerPayload)} -->`);
             const body = lines.join('\n');
 
-            if (commentId) {
-              await github.rest.issues.updateComment({ owner, repo, comment_id: commentId, body });
-            } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            const postComment = async () => {
+              if (commentId) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: commentId, body });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              }
+            };
+
+            try {
+              await postComment();
+            } catch (error) {
+              const status = error?.status ?? error?.response?.status;
+              const message = String(error?.message || error?.response?.data?.message || '');
+              if (status === 403 && /API rate limit exceeded/i.test(message)) {
+                core.warning('Rate limit hit while posting autofix comment; skipping comment update for this attempt.');
+              } else {
+                throw error;
+              }
             }
 
       # Label removal disabled to support iterative workflows with keepalive.
