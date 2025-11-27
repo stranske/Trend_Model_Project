@@ -235,7 +235,7 @@ function extractScopeTasksAcceptanceSections(source) {
     .map((title) => escapeRegExp(title))
     .join('|');
   const headingRegex = new RegExp(
-    `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*\\s*(${headingLabelPattern})\\s*\\*\\*)\\s*$`,
+    `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*(${headingLabelPattern})\\*\\*)\\s*$`,
     'gim'
   );
 
