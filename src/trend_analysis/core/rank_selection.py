@@ -247,7 +247,9 @@ class WindowMetricCache:
         }
 
 
-_CACHE_SCOPE: ContextVar[str] = ContextVar("RANK_SELECTOR_CACHE_SCOPE", default="default")
+_CACHE_SCOPE: ContextVar[str] = ContextVar(
+    "RANK_SELECTOR_CACHE_SCOPE", default="default"
+)
 _WINDOW_METRIC_CACHE = WindowMetricCache()
 
 # Backwards compatibility counters exposed in tests.

@@ -111,7 +111,10 @@ def test_selector_cache_scope_isolation() -> None:
     cfg = RiskStatsConfig()
     idx = pd.date_range("2020-01-31", periods=4, freq="ME")
     data = pd.DataFrame(
-        {"Fund A": np.linspace(0.01, 0.04, len(idx)), "Fund B": np.linspace(0.02, 0.05, len(idx))},
+        {
+            "Fund A": np.linspace(0.01, 0.04, len(idx)),
+            "Fund B": np.linspace(0.02, 0.05, len(idx)),
+        },
         index=idx,
     )
 
