@@ -1888,7 +1888,9 @@ jobs:
           printf 'GATE: ok=false reason=no-linked-pr pr=%s head=unknown\n' "$(pr_value "${PR_NUMBER}")"
 
   update_body:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request'
+      || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate')
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
@@ -1899,8 +1901,45 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const { extractIssueNumberFromPull } = require('./.github/scripts/agents_pr_meta_keepalive.js');
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            function extractIssueNumber(pull) {
+              return extractIssueNumberFromPull(pull);
+            }
+
+            function normalizeWhitespace(text) {
+              return String(text || '')
+                .replace(/\r\n/g, '\n')
+                .split('\n')
+                .map((line) => line.trim())
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            }
+
+            function extractSection(body, heading) {
+              if (!body || !heading) {
+                return '';
+              }
+              const pattern = new RegExp(`^\s*${heading}\s*\n+([\\s\\S]*?)(?=^\s*\S|$)`, 'im');
+              const match = String(body || '').match(pattern);
+              return match && match[1] ? match[1].trim() : '';
+            }
+
+            function ensureChecklist(text) {
+              const lines = String(text || '')
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean);
+              if (!lines.length) {
+                return '- [ ] —';
+              }
+              return lines
+                .map((line) => (line.startsWith('- [') ? line : `- [ ] ${line}`))
+                .join('\n');
+            }
 
             async function withRetries(fn, options = {}) {
               const attempts = Number(options.attempts) || 3;
@@ -1989,144 +2028,165 @@ jobs:
                   return null;
                 }
 
-                const headSha = run.head_sha;
-                if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
-                  const directMatch = run.pull_requests.find((item) => item && item.head_sha === headSha);
+                const headSha = run.head_sha || '';
+                const directMatch = Array.isArray(run.pull_requests)
+                  ? run.pull_requests.find((item) => item && item.head_sha === headSha) || run.pull_requests.find((item) => item && item.head_sha)
+                  : null;
+
+                if (directMatch) {
+                  return { number: Number(directMatch.number), headSha: directMatch.head_sha || headSha };
+                }
+
+                if (headSha) {
                   try {
-                    const prInfo = await discoverPr();
-                    if (!prInfo) {
-                      return 'No pull request context detected; skipping update.';
-                    }
-
-                    const prResponse = await withRetries(
-                      () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
-                      {description: `pulls.get #${prInfo.number}`},
+                    const { data } = await withRetries(
+                      () => github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: headSha }),
+                      { description: `list pull requests for ${headSha.slice(0, 7)}` },
                     );
-                    const pr = prResponse.data;
-                    if (pr.state === 'closed') {
-                      return `Pull request #${pr.number} is closed; skipping update.`;
+
+                    const pr = Array.isArray(data) ? data.find((entry) => entry && entry.number) : null;
+                    if (pr) {
+                      return { number: pr.number, headSha };
                     }
-
-                    if (prInfo.headSha && pr.head && pr.head.sha && pr.head.sha !== prInfo.headSha) {
-                      return `Skipping update for PR #${pr.number} because workflow run head ${prInfo.headSha} does not match current head ${pr.head.sha}.`;
-                    }
-
-                    const issueNumber = extractIssueNumber(pr);
-                    if (!issueNumber) {
-                      return `Unable to determine source issue for PR #${pr.number}; skipping.`;
-                    }
-
-                    core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
-                    const issueResponse = await withRetries(
-                      () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-                      {description: `issues.get #${issueNumber}`},
-                    );
-                    const issueBody = issueResponse.data.body || '';
-
-                    if (!issueBody) {
-                      core.warning(`Issue #${issueNumber} has no body content`);
-                    } else {
-                      core.debug(`Issue body length: ${issueBody.length} characters`);
-                      core.debug(`Issue body preview: ${issueBody.slice(0, 300).replace(/\n/g, '\\n')}`);
-                    }
-
-                    function extractWithAliases(body, aliases) {
-                      for (const alias of aliases) {
-                        const content = extractSection(body, alias);
-                        if (content) return content;
-                      }
-                      return '';
-                    }
-
-                    function buildRichSummary(body) {
-                      core.info('Building rich summary from issue sections...');
-                      const why = normalizeWhitespace(extractSection(body, 'Why'));
-                      const scopeRaw = normalizeWhitespace(extractSection(body, 'Scope'));
-                      const nonGoals = normalizeWhitespace(extractSection(body, 'Non-Goals'));
-                      const goal = normalizeWhitespace(extractSection(body, 'Goal'));
-
-                      core.info(`  Why: ${why ? `${why.length} chars` : 'NOT FOUND'}`);
-                      core.info(`  Scope: ${scopeRaw ? `${scopeRaw.length} chars` : 'NOT FOUND'}`);
-                      core.info(`  Non-Goals: ${nonGoals ? `${nonGoals.length} chars` : 'NOT FOUND'}`);
-                      core.info(`  Goal: ${goal ? `${goal.length} chars` : 'NOT FOUND'}`);
-
-                      const parts = [];
-                      if (why) parts.push(why);
-                      if (goal) parts.push(goal);
-                      if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
-                      if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
-
-                      const result = parts.join('\n\n');
-                      core.info(`Rich summary result: ${result ? `${result.length} chars` : 'EMPTY'}`);
-                      return result;
-                    }
-
-                    const summaryRich = buildRichSummary(issueBody);
-                    const summary = summaryRich || normalizeWhitespace(extractWithAliases(issueBody, ['Summary', 'Description', 'Overview']));
-                    const testing = normalizeWhitespace(extractWithAliases(issueBody, ['Testing', 'Test Plan', 'Validation']));
-                    const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
-
-                    core.info(`Final sections - Summary: ${summary ? 'OK' : 'EMPTY'}, Testing: ${testing ? 'OK' : 'EMPTY'}, CI: ${ci ? 'OK' : 'EMPTY'}`);
-                    const scope = extractSection(issueBody, 'Scope') || '';
-                    const tasks = extractSection(issueBody, 'Tasks') || '';
-                    const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
-
-                    core.info(`Status block sections - Scope: ${scope ? 'OK' : 'EMPTY'}, Tasks: ${tasks ? 'OK' : 'EMPTY'}, Acceptance: ${acceptance ? 'OK' : 'EMPTY'}`);
-                    const preamble = buildPreamble({summary, testing, ci});
-
-                    const workflowRunResponse = await withRetries(
-                      () => github.rest.actions.listWorkflowRunsForRepo({
-                        owner,
-                        repo,
-                        head_sha: pr.head.sha,
-                        per_page: 100,
-                      }),
-                      {description: 'list workflow runs'},
-                    );
-                    const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
-
-                    const requiredChecks = await fetchRequiredChecks(pr.base.ref);
-                    if (!requiredChecks.includes('gate') && pr.base.ref) {
-                      requiredChecks.push('gate');
-                    }
-
-                    const statusBlock = buildStatusBlock({
-                      scope,
-                      tasks,
-                      acceptance,
-                      headSha: prInfo.headSha,
-                      workflowRuns,
-                      requiredChecks,
-                    });
-
-                    const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
-                    const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
-
-                    if (newBody !== (pr.body || '')) {
-                      await withRetries(
-                        () => github.rest.pulls.update({
-                          owner,
-                          repo,
-                          pull_number: pr.number,
-                          body: newBody,
-                        }),
-                        {description: `pulls.update #${pr.number}`, delayMs: 1500},
-                      );
-                      return `Updated PR #${pr.number} body with synchronized sections from issue #${issueNumber}.`;
-                    }
-
-                    return 'PR body already up to date; no changes required.';
                   } catch (error) {
-                    if (isRateLimitError(error)) {
-                      core.warning('GitHub API rate limit exceeded while updating PR body; skipping this run.');
-                      return 'Skipped PR body update due to GitHub API rate limit.';
-                    }
-                    throw error;
+                    core.warning(`Failed to resolve PR for head ${headSha}: ${error.message}`);
                   }
-                  return `${indent}- [ ] ${content}`;
-                })
-                .join('\n');
+                }
+
+                core.info('Unable to match workflow_run payload to a PR.');
+                return null;
+              }
+
+              return null;
             }
+
+            const prInfo = await discoverPr();
+            if (!prInfo) {
+              core.info('No pull request context detected; skipping update.');
+              return;
+            }
+
+            const prResponse = await withRetries(
+              () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
+              {description: `pulls.get #${prInfo.number}`},
+            );
+            const pr = prResponse.data;
+            if (pr.state === 'closed') {
+              core.info(`Pull request #${pr.number} is closed; skipping update.`);
+              return;
+            }
+
+            if (prInfo.headSha && pr.head && pr.head.sha && pr.head.sha !== prInfo.headSha) {
+              core.info(`Skipping update for PR #${pr.number} because workflow run head ${prInfo.headSha} does not match current head ${pr.head.sha}.`);
+              return;
+            }
+
+            const issueNumber = extractIssueNumber(pr);
+            if (!issueNumber) {
+              core.info(`Unable to determine source issue for PR #${pr.number}; skipping.`);
+              return;
+            }
+
+            core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
+            const issueResponse = await withRetries(
+              () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+              {description: `issues.get #${issueNumber}`},
+            );
+            const issueBody = issueResponse.data.body || '';
+
+            if (!issueBody) {
+              core.warning(`Issue #${issueNumber} has no body content`);
+            } else {
+              core.debug(`Issue body length: ${issueBody.length} characters`);
+              core.debug(`Issue body preview: ${issueBody.slice(0, 300).replace(/\n/g, '\\n')}`);
+            }
+
+            function extractWithAliases(body, aliases) {
+              for (const alias of aliases) {
+                const content = extractSection(body, alias);
+                if (content) return content;
+              }
+              return '';
+            }
+
+            function buildRichSummary(body) {
+              core.info('Building rich summary from issue sections...');
+              const why = normalizeWhitespace(extractSection(body, 'Why'));
+              const scopeRaw = normalizeWhitespace(extractSection(body, 'Scope'));
+              const nonGoals = normalizeWhitespace(extractSection(body, 'Non-Goals'));
+              const goal = normalizeWhitespace(extractSection(body, 'Goal'));
+
+              core.info(`  Why: ${why ? `${why.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Scope: ${scopeRaw ? `${scopeRaw.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Non-Goals: ${nonGoals ? `${nonGoals.length} chars` : 'NOT FOUND'}`);
+              core.info(`  Goal: ${goal ? `${goal.length} chars` : 'NOT FOUND'}`);
+
+              const parts = [];
+              if (why) parts.push(why);
+              if (goal) parts.push(goal);
+              if (scopeRaw) parts.push(`\n**Scope:** ${scopeRaw}`);
+              if (nonGoals) parts.push(`**Non-Goals:** ${nonGoals}`);
+
+              const result = parts.join('\n\n');
+              core.info(`Rich summary result: ${result ? `${result.length} chars` : 'EMPTY'}`);
+              return result;
+            }
+
+            const summaryRich = buildRichSummary(issueBody);
+            const summary = summaryRich || normalizeWhitespace(extractWithAliases(issueBody, ['Summary', 'Description', 'Overview']));
+            const testing = normalizeWhitespace(extractWithAliases(issueBody, ['Testing', 'Test Plan', 'Validation']));
+            const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
+
+            core.info(`Final sections - Summary: ${summary ? 'OK' : 'EMPTY'}, Testing: ${testing ? 'OK' : 'EMPTY'}, CI: ${ci ? 'OK' : 'EMPTY'}`);
+            const scope = extractSection(issueBody, 'Scope') || '';
+            const tasks = extractSection(issueBody, 'Tasks') || '';
+            const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
+
+            core.info(`Status block sections - Scope: ${scope ? 'OK' : 'EMPTY'}, Tasks: ${tasks ? 'OK' : 'EMPTY'}, Acceptance: ${acceptance ? 'OK' : 'EMPTY'}`);
+            const preamble = buildPreamble({summary, testing, ci});
+
+            const workflowRunResponse = await withRetries(
+              () => github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: pr.head.sha,
+                per_page: 100,
+              }),
+              {description: 'list workflow runs'},
+            );
+            const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
+
+            const requiredChecks = await fetchRequiredChecks(pr.base.ref);
+            if (!requiredChecks.includes('gate') && pr.base.ref) {
+              requiredChecks.push('gate');
+            }
+
+            const statusBlock = buildStatusBlock({
+              scope,
+              tasks,
+              acceptance,
+              headSha: prInfo.headSha,
+              workflowRuns,
+              requiredChecks,
+            });
+
+            const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
+            const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
+
+            if (newBody !== (pr.body || '')) {
+              await withRetries(
+                () => github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  body: newBody,
+                }),
+                {description: `pulls.update #${pr.number}`, delayMs: 1500},
+              );
+              return `Updated PR #${pr.number} body with synchronized sections from issue #${issueNumber}.`;
+            }
+
+            return 'PR body already up to date; no changes required.';
 
             function fallbackChecklist(message) {
               return `- [ ] ${message}`;
