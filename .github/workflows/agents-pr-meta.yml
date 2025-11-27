@@ -2030,7 +2030,7 @@ jobs:
 
                 const headSha = run.head_sha || '';
                 const directMatch = Array.isArray(run.pull_requests)
-                  ? run.pull_requests.find((item) => item && (item.head_sha === headSha || item.head_sha))
+                  ? run.pull_requests.find((item) => item && item.head_sha === headSha) || run.pull_requests.find((item) => item && item.head_sha)
                   : null;
 
                 if (directMatch) {
