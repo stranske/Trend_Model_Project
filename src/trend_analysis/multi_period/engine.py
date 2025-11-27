@@ -968,12 +968,14 @@ def run(
             return in_df, out_df, [], ""
         numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
         indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
+        fallback_window = in_df.reset_index()
         rf_col, candidate_cols, _ = _resolve_risk_free_column(
             sub,
             date_col=date_col,
             indices_list=indices_list,
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+            fallback_window=fallback_window,
         )
         idx_set = {str(c) for c in indices_list}
         fund_cols = [

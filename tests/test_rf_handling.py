@@ -42,6 +42,39 @@ def test_pipeline_respects_lowest_vol_exclusion_as_rf():
     assert res.get("risk_free_source") == "fallback"
 
 
+def test_risk_free_fallback_uses_in_sample_window_alignment():
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            # Only populated after the in-sample window; should not be picked as RF
+            "FutureRF": [pd.NA, pd.NA, pd.NA, 0.0005, 0.0005, 0.0005],
+            "Stable": [0.001] * 6,
+            "Fund": [0.02, 0.01, -0.005, 0.003, 0.002, 0.004],
+        }
+    )
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+        df,
+        in_start="2020-01",
+        in_end="2020-03",
+        out_start="2020-04",
+        out_end="2020-06",
+        target_vol=0.10,
+        monthly_cost=0.0,
+        selection_mode="all",
+        stats_cfg=RiskStatsConfig(),
+        allow_risk_free_fallback=True,
+    )
+
+    assert res is not None
+    assert res.get("risk_free_column") == "Stable"
+    assert res.get("risk_free_source") == "fallback"
+    assert set(res.get("selected_funds", [])) == {"Fund"}
+
+
 def test_pipeline_constant_rf_via_stats_cfg_executes():
     df = _mini_df().drop(columns=["RF"])  # no RF column available
     from trend_analysis import pipeline
