@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import importlib.util
 import inspect
 import json
 import re
@@ -21,7 +22,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List
 
 import numpy as np
 import pandas as pd
@@ -258,7 +259,7 @@ selector_cache_misses = 0
 
 
 @contextmanager
-def selector_cache_scope(scope: str):
+def selector_cache_scope(scope: str) -> Iterator[None]:
     """Context manager to isolate cache entries per run or request."""
 
     token = _CACHE_SCOPE.set(scope)
