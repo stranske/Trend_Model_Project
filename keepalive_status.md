@@ -10,5 +10,6 @@ Active/most recent entries:
 - Diagnostics scope: [docs/keepalive/status/diagnostics.md](docs/keepalive/status/diagnostics.md)
 - PR #3787 (fork-safe autofix fallback): [docs/keepalive/status/PR3787_Status.md](docs/keepalive/status/PR3787_Status.md)
 - PR #3790 (fork-safe head checkout hardening): [docs/keepalive/status/PR3790_Status.md](docs/keepalive/status/PR3790_Status.md)
+- PR #3809 (single-period guardrails and correlation surfacing): [docs/keepalive/status/PR3809_Status.md](docs/keepalive/status/PR3809_Status.md)
 
 Add new bullet points here only to register additional keepalive runs; do not reuse or overwrite existing status files.
