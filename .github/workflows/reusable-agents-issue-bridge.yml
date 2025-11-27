@@ -242,9 +242,15 @@ jobs:
             if (ev === 'issues') {
               const labels = (context.payload.issue && Array.isArray(context.payload.issue.labels)) ? context.payload.issue.labels : [];
               const hasInvite = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-invite`);
+              const hasBase = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}`);
+
               if (hasInvite) {
                 mode = 'invite';
                 reason = 'issue-label-override';
+              } else if (hasBase && mode !== 'invite') {
+                // Issue-triggered runs should stay in invite mode so the human post lands on the issue
+                mode = 'invite';
+                reason = 'issue-default-invite';
               }
             }
             
