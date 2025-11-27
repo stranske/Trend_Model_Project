@@ -247,7 +247,7 @@ jobs:
               if (hasInvite) {
                 mode = 'invite';
                 reason = 'issue-label-override';
-              } else if (hasBase && mode !== 'invite') {
+              } else if (hasBase) {
                 // Issue-triggered runs should stay in invite mode so the human post lands on the issue
                 mode = 'invite';
                 reason = 'issue-default-invite';
