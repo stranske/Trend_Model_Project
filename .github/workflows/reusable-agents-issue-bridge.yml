@@ -588,15 +588,14 @@ jobs:
                 .map((title) => escapeRegExp(title))
                 .join('|');
               const headingRegex = new RegExp(
-                `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*(${headingLabelPattern})\\*\\*)\\s*$`,
+                `^\\s*(?:#{1,6}\\s+|\\*\\*)(${headingLabelPattern})(?:\\s*|\\*\\*)\\s*$`,
                 'gim'
               );
 
               const headings = [];
               let match;
               while ((match = headingRegex.exec(segment)) !== null) {
-                const [, hashTitle, boldTitle] = match;
-                const title = (hashTitle || boldTitle || '').toLowerCase();
+                const title = (match[1] || '').toLowerCase();
                 if (!title) {
                   continue;
                 }
