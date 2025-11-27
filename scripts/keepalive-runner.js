@@ -228,18 +228,59 @@ function extractScopeTasksAcceptanceSections(source) {
     segment = normalised.slice(startIndex + startMarker.length, endIndex);
   }
 
-  const titles = ['Scope', 'Tasks', 'Acceptance criteria'];
-  const sections = [];
+  const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
+  const titleKeys = titles.map((title) => title.toLowerCase());
 
-  for (const title of titles) {
-    const pattern = new RegExp(`^####\\s+${escapeRegExp(title)}\\s*\\n([\\s\\S]*?)(?=^####\\s+|(?![\\s\\S]))`, 'im');
-    const match = segment.match(pattern);
-    if (!match) {
+  const headingLabelPattern = titles
+    .map((title) => escapeRegExp(title))
+    .join('|');
+  const headingRegex = new RegExp(
+    `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*(${headingLabelPattern})\\*\\*)\\s*$`,
+    'gim'
+  );
+
+  const headings = [];
+  let match;
+  while ((match = headingRegex.exec(segment)) !== null) {
+    const [, hashTitle, boldTitle] = match;
+    const title = (hashTitle || boldTitle || '').toLowerCase();
+    if (!title) {
+      continue;
+    }
+    headings.push({
+      title,
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  if (headings.length === 0) {
+    return '';
+  }
+
+  const sections = [];
+  for (let index = 0; index < titleKeys.length; index += 1) {
+    const titleKey = titleKeys[index];
+    const canonicalTitle = titles[index];
+    const header = headings.find((entry) => entry.title === titleKey);
+    if (!header) {
       return '';
     }
 
-    const headerLine = `#### ${title}`;
-    const content = normaliseNewlines(match[1] || '').trim();
+    const nextHeader = headings.find((entry) => entry.index > header.index);
+    const contentStart = (() => {
+      const start = header.index + header.length;
+      if (segment[start] === '\r' && segment[start + 1] === '\n') {
+        return start + 2;
+      }
+      if (segment[start] === '\n') {
+        return start + 1;
+      }
+      return start;
+    })();
+    const contentEnd = nextHeader ? nextHeader.index : segment.length;
+    const content = normaliseNewlines(segment.slice(contentStart, contentEnd)).trim();
+    const headerLine = `#### ${canonicalTitle}`;
     sections.push(content ? `${headerLine}\n${content}` : headerLine);
   }
 
@@ -268,7 +309,7 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
 
     if (
       body.includes('auto-status-summary') ||
-      /####\s+(Scope|Tasks|Acceptance criteria)/i.test(body)
+      /####\s+(Scope|Tasks|Acceptance Criteria)/i.test(body)
     ) {
       sources.push(body);
     }
@@ -1064,4 +1105,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   await summary.write();
 }
 
-module.exports = { runKeepalive, dispatchKeepaliveCommand, buildOctokitInstance };
+module.exports = {
+  runKeepalive,
+  dispatchKeepaliveCommand,
+  buildOctokitInstance,
+  extractScopeTasksAcceptanceSections,
+  findScopeTasksAcceptanceBlock,
+};
