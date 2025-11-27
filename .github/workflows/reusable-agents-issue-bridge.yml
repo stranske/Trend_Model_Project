@@ -566,19 +566,19 @@ jobs:
             const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
             const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
             const extractScopeTasksAcceptanceSections = (source) => {
-              const normalised = normalizeNewlines(source);
-              if (!normalised.trim()) {
+              const normalized = normalizeNewlines(source);
+              if (!normalized.trim()) {
                 return '';
               }
 
               const startMarker = '<!-- auto-status-summary:start -->';
               const endMarker = '<!-- auto-status-summary:end -->';
-              const startIndex = normalised.indexOf(startMarker);
-              const endIndex = normalised.indexOf(endMarker);
+              const startIndex = normalized.indexOf(startMarker);
+              const endIndex = normalized.indexOf(endMarker);
 
-              let segment = normalised;
+              let segment = normalized;
               if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-                segment = normalised.slice(startIndex + startMarker.length, endIndex);
+                segment = normalized.slice(startIndex + startMarker.length, endIndex);
               }
 
               const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
