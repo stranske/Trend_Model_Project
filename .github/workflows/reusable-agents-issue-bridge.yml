@@ -795,7 +795,8 @@ jobs:
               return;
             }
 
-            const header = `### Issue #${issueNumber || '?'}: ${issueTitle || 'Details'}`.trim();
+            const titlePart = issueTitle ? `: ${issueTitle}` : '';
+            const header = `### Issue #${issueNumber || '?'}${titlePart}`;
             const parts = [header];
             if (scopeBlock) {
               parts.push('', scopeBlock);
