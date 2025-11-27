@@ -29,9 +29,7 @@ def test_rank_select_funds_warns_and_reports_on_empty_scores():
     assert diagnostics.reason == "No candidate columns available for ranking"
     assert diagnostics.non_null_scores == 0
     assert diagnostics.total_candidates == 0
-    assert any(
-        diagnostics.reason in str(warning.message) for warning in caught.list
-    )
+    assert any(diagnostics.reason in str(warning.message) for warning in caught.list)
 
 
 def test_rank_select_funds_reports_threshold_filtering():

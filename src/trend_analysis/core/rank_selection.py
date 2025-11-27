@@ -516,7 +516,9 @@ def rank_select_funds(
             transform=transform,
             inclusion_approach=inclusion_approach,
             total_candidates=len(universe),
-            non_null_scores=len(scores) if non_null_override is None else non_null_override,
+            non_null_scores=(
+                len(scores) if non_null_override is None else non_null_override
+            ),
             threshold=threshold_value,
         )
         warnings.warn(diagnostics.message(), RuntimeWarning)
