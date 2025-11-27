@@ -121,7 +121,7 @@ Modifying the separate status/checklist updater (it may continue to edit the sta
   <!-- keepalive-attempt: {N} -->
   <!-- codex-keepalive-marker -->
   <!-- keepalive-trace: {TRACE} -->
-  @codex Use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied. During each comment implementation, check off tasks and acceptance criteria that have been satisfied and re-post the current version of the initial scope, task list, and acceptance criteria whenever any new items are completed.
+  @codex Use the scope, acceptance criteria, and task list to ship code and tests each round. Start implementing the next coding task instead of only reposting checklists, and update checkboxes only after real work and verification are done. Re-post the refreshed scope/tasks/acceptance once you've completed work.
 
   <Scope/Tasks/Acceptance…>
 - [ ] Authenticate with the PAT that posts as stranske (ACTIONS_BOT_PAT).
