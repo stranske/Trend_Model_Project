@@ -445,12 +445,14 @@ def _select_universe(
     rf_col: str
     fund_cols: list[str]
     rf_source: str
+    fallback_window = window.in_df.reset_index()
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         preprocess.df,
         date_col=preprocess.date_col,
         indices_list=indices_list,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
+        fallback_window=fallback_window,
     )
 
     valid_indices: list[str] = []
@@ -1395,6 +1397,7 @@ def _resolve_risk_free_column(
     indices_list: list[str] | None,
     risk_free_column: str | None,
     allow_risk_free_fallback: bool | None,
+    fallback_window: pd.DataFrame | None = None,
 ) -> tuple[str, list[str], str]:
     """Select the risk-free column and investable funds.
 
@@ -1403,12 +1406,26 @@ def _resolve_risk_free_column(
     tuple[str, list[str], str]
         ``(risk_free_column, fund_columns, source)`` where ``source`` is
         ``"configured"`` when explicitly provided or ``"fallback"`` when the
-        column is inferred.
+        column is inferred. When ``fallback_window`` is supplied, the
+        candidate scan is restricted to that window to avoid picking columns
+        that lack data for the requested analysis period.
     """
 
     idx_set = {str(c) for c in indices_list or []}
-    numeric_cols = [c for c in df.select_dtypes("number").columns if c != date_col]
-    ret_cols = [c for c in numeric_cols if c not in idx_set]
+    candidate_df = fallback_window if fallback_window is not None else df
+    if date_col not in candidate_df.columns:
+        candidate_df = candidate_df.copy()
+        candidate_df[date_col] = candidate_df.index
+
+    numeric_cols = [
+        c for c in candidate_df.select_dtypes("number").columns if c != date_col
+    ]
+    # Restrict candidates to columns with at least one non-null value within the
+    # requested window. This keeps the fallback selection aligned with the
+    # analysis slice rather than the full dataset.
+    ret_cols = [
+        c for c in numeric_cols if c not in idx_set and candidate_df[c].notna().any()
+    ]
 
     if not ret_cols:
         raise ValueError("No numeric return columns available to process")
@@ -1421,13 +1438,17 @@ def _resolve_risk_free_column(
             raise ValueError(
                 f"Configured risk-free column '{configured_rf}' was not found in the dataset"
             )
-        if configured_rf not in numeric_cols:
+        if configured_rf not in candidate_df.select_dtypes("number").columns:
             raise ValueError(
                 f"Configured risk-free column '{configured_rf}' must be numeric"
             )
         if configured_rf in idx_set:
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
+            )
+        if not candidate_df[configured_rf].notna().any():
+            raise ValueError(
+                f"Configured risk-free column '{configured_rf}' has no data in the requested window"
             )
         rf_col = configured_rf
         source = "configured"
@@ -1437,11 +1458,13 @@ def _resolve_risk_free_column(
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
-        probe_cols = [date_col, *ret_cols] if date_col in df.columns else ret_cols
-        detected = identify_risk_free_fund(df[probe_cols])
+        probe_cols = (
+            [date_col, *ret_cols] if date_col in candidate_df.columns else ret_cols
+        )
+        detected = identify_risk_free_fund(candidate_df[probe_cols])
         if detected is None:
             raise ValueError(
-                "Risk-free fallback could not find a numeric return series"
+                "Risk-free fallback could not find a numeric return series in the requested window"
             )
         rf_col = detected
         source = "fallback"
