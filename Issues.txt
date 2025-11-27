@@ -1,74 +1,29 @@
-1) Guard widget imports and isolate notebook UI helpers
-Labels: agent:codex, enhancement, ui
+1) Add codex-pr-comment-command handler for branch sync
+Labels: agent:codex, automation, bug
 Why
-Notebook-specific widget imports in core modules break non-notebook environments and entangle UI scaffolding with ranking utilities.
+Keepalive emits `codex-pr-comment-command` repository_dispatch events for "Update Branch"/"Create PR" remediation, but no workflow listens for that event type, so the commands are dropped and head advancement never happens on unattended rounds.
 Tasks
-- Make ipywidgets imports lazy or optional so pure pipeline consumers can import ranking modules without notebook dependencies.
-- Split the notebook UI helpers into a dedicated module guarded by availability checks, keeping core computation import-safe.
-- Update any callers or docs to point at the optional UI module and verify the pipeline still runs headless.
+- Add a small `.github/workflows` listener for `repository_dispatch` (event_type `codex-pr-comment-command`) that calls `pulls.updateBranch` with polling and, when needed, dispatches `agents-keepalive-branch-sync.yml` using the payload context instead of silently exiting.
+- Ensure the handler logs or summarizes each remediation attempt (update-branch success/failure, branch-sync dispatch URL) so PR-meta can observe what happened.
+- Update any keepalive tests/fixtures that assert the dispatch path to cover the new handler (e.g., `tests/fixtures/keepalive_post_work` harness expectations).
 Acceptance criteria
-- Importing the ranking core modules succeeds when ipywidgets is absent, and UI helpers only load when explicitly requested.
-- Automated or manual smoke tests confirm the analytical pipeline works in a non-notebook environment.
-- Any remaining widget usage is isolated to clearly optional entrypoints.
+- A repository_dispatch with `event_type: codex-pr-comment-command` triggers the automated update-branch/create-pr remediation without manual clicks and records a summary line.
+- When update-branch polling fails, the same handler launches `agents-keepalive-branch-sync.yml` with the request context and surfaces the dispatched run URL.
+- Keepalive post-work tests cover both the direct update-branch path and the branch-sync fallback.
 Implementation notes
-- Focus on src/trend_analysis/core/rank_selection.py and gui/app.py; keep computation paths free of hard widget dependencies.
+- Touch the keepalive post-work plumbing in `scripts/keepalive-runner.js` and add a dedicated workflow file alongside `agents-keepalive-branch-sync.yml` to process the repository_dispatch payload.
 
-2) Add lifecycle controls for window metric cache
-Labels: agent:codex, enhancement, performance
+2) Pass head repository into branch-sync fallback for forks
+Labels: agent:codex, automation, bug
 Why
-The rank selection module uses global dictionaries for window metric caching with no size limits, eviction, or reset hooks, risking stale data and memory growth in long-lived or concurrent runs.
+The branch-sync helper accepts a `head_repository` input so it can fetch fork heads, but keepalive never forwards the PR head repo into the fallback dispatch, causing branch-sync to default to the base repo and fail to fetch forked heads.
 Tasks
-- Encapsulate the window metric cache behind a small helper with explicit reset/eviction and optional size bounds.
-- Ensure cache state can be scoped per run or cleared between analyses to avoid cross-request pollution.
-- Add lightweight tests covering cache hits, evictions, and reset behavior.
+- Export the PR head repository from `keepalive-prep` (or equivalent) and thread it into the keepalive post-work environment so branch-sync dispatches include `head_repository` alongside base/head refs and trace data.
+- Update the branch-sync workflow invocation to honour the head repo input and bail early with a clear summary when the head repo is missing for a forked PR.
+- Add tests/fixtures that exercise forked-PR branch-sync dispatches to confirm head repo propagation and checkout succeed.
 Acceptance criteria
-- Ranking functions can reset or scope cache state, preventing stale metrics from influencing subsequent runs.
-- Cache size does not grow unbounded during repeated executions in tests.
-- New tests cover cache lifecycle behaviors.
+- Keepalive branch-sync dispatches include head repository metadata for forked PRs and successfully fetch the fork head during remediation.
+- When head repo data is absent on a fork, the workflow emits a clear skip/failure summary instead of silently continuing with the base repo.
+- Test coverage exercises the forked-PR path and asserts that the branch-sync helper clones or checks out the fork head using the forwarded repository info.
 Implementation notes
-- Target the cache dictionaries and counters in src/trend_analysis/core/rank_selection.py; keep changes minimal to public APIs.
-
-3) Harden risk-free series detection and defaults
-Labels: agent:codex, bug, selection
-Why
-Risk-free column detection raises when a column is unspecified and fallback is disabled, and the fallback selects the lowest-volatility series without aligning to the analysis window, producing brittle or incorrect defaults.
-Tasks
-- Document and enable a safe default behavior when no risk-free column is supplied, with an explicit configuration flag.
-- Align fallback detection with the requested analysis window so volatility comparisons use the same slice as downstream metrics.
-- Add tests that cover missing columns, fallback paths, and window alignment to ensure deterministic selection.
-Acceptance criteria
-- rank_select_funds no longer hard-fails by default when the risk-free column is omitted but follows a documented fallback when enabled.
-- Fallback selection uses window-aligned data and produces deterministic results in tests.
-- Unit tests cover both explicit column selection and fallback scenarios.
-Implementation notes
-- Focus on _resolve_risk_free_column logic in src/trend_analysis/core/rank_selection.py; avoid altering metric definitions.
-
-4) Handle empty or all-NaN windows in single_period_run
-Labels: agent:codex, bug, testing
-Why
-single_period_run computes metrics on sliced windows without checking for empty or all-NaN data and swallows correlation errors, leading to silent NaNs and masking data-quality problems.
-Tasks
-- Add guards that detect empty or all-NaN window slices and emit a clear error or warning instead of propagating NaN metrics.
-- Tighten error handling around optional metrics (e.g., correlations) to log or raise informative exceptions instead of silent pass-through.
-- Expand tests to cover empty-window and all-NaN scenarios, asserting clear failure modes.
-Acceptance criteria
-- Running single_period_run on empty or all-NaN windows produces explicit diagnostics and avoids silent NaNs in outputs.
-- Correlation metric failures are surfaced with actionable messages.
-- New tests validate the guarded behaviors.
-Implementation notes
-- Changes live in src/trend_analysis/pipeline/single_period.py (or equivalent) and any correlation helpers it invokes; keep metric defaults intact.
-
-5) Surface empty selection outcomes in rank_select_funds
-Labels: agent:codex, bug, selection
-Why
-When all candidates are filtered out or scores are empty, rank_select_funds returns an empty selection silently, obscuring upstream data issues.
-Tasks
-- Detect empty score sets after filtering and emit a clear warning or error indicating why selection failed.
-- Optionally allow a configurable fallback behavior (e.g., return metadata explaining the failure) without altering normal successful flows.
-- Add tests that simulate fully filtered inputs and assert the new diagnostics.
-Acceptance criteria
-- Empty selections are accompanied by explicit diagnostics describing the filter condition that led to zero candidates.
-- Default successful paths remain unchanged, and tests cover both empty and non-empty cases.
-- Diagnostics are accessible to callers (e.g., via return metadata or logged warnings).
-Implementation notes
-- Implement checks near the sorting/selection branch in src/trend_analysis/core/rank_selection.py; avoid breaking existing selection outputs.
+- Focus on keepalive prep/post-work steps in `scripts/keepalive-runner.js` and the inputs consumed by `.github/workflows/agents-keepalive-branch-sync.yml`; avoid altering unrelated orchestrator flows.
