@@ -699,10 +699,9 @@ jobs:
                 }
                 if (issueBody && issueBody.trim()) {
                   sections.push('### Issue Details');
-                  sections.push('');
                   sections.push(issueBody.trim());
                 }
-                return sections.filter(Boolean).join('\n');
+                return sections.join('\n\n');
               })();
 
               const prBody = [
