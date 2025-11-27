@@ -623,6 +623,8 @@ def run(
         for reference.
     """
 
+    user_supplied_df = df is not None
+
     # Validate price_frames parameter
     if price_frames is not None:
         if not isinstance(price_frames, dict):
@@ -659,6 +661,7 @@ def run(
             df = df.sort_values("Date").reset_index(drop=True)
             # Remove any duplicates created during concatenation
             df = df.drop_duplicates(subset=["Date"], keep="last").reset_index(drop=True)
+            user_supplied_df = True
         else:
             raise ValueError("price_frames is empty - no data to process")
 
@@ -687,6 +690,7 @@ def run(
             ) from exc
         if df is None:
             raise ValueError(f"Failed to load CSV data from '{csv_path}'")
+        user_supplied_df = False
 
     if "Date" not in df.columns:
         raise ValueError("Input DataFrame must contain a 'Date' column")
@@ -698,7 +702,7 @@ def run(
 
     original_returns = df.set_index("Date")
     skip_missing_policy = (
-        price_frames is not None
+        (price_frames is not None or user_supplied_df)
         and missing_policy_cfg is None
         and missing_limit_cfg is None
     )
@@ -943,6 +947,17 @@ def run(
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
 
+    indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
+    resolved_rf_col, resolved_fund_candidates, _resolved_rf_source = (
+        _resolve_risk_free_column(
+            df,
+            date_col="Date",
+            indices_list=indices_list,
+            risk_free_column=risk_free_column_cfg,
+            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+        )
+    )
+
     # --- helpers --------------------------------------------------------
     def _parse_month(s: str) -> pd.Timestamp:
         return pd.to_datetime(f"{s}-01", utc=True).tz_localize(
@@ -967,25 +982,17 @@ def run(
         if in_df.empty or out_df.empty:
             return in_df, out_df, [], ""
         numeric_cols = [c for c in sub.select_dtypes("number").columns if c != date_col]
-        indices_list = cast(list[str] | None, cfg.portfolio.get("indices_list")) or []
-        fallback_window = in_df.reset_index()
-        rf_col, candidate_cols, _ = _resolve_risk_free_column(
-            sub,
-            date_col=date_col,
-            indices_list=indices_list,
-            risk_free_column=risk_free_column_cfg,
-            allow_risk_free_fallback=allow_risk_free_fallback_cfg,
-            fallback_window=fallback_window,
-        )
         idx_set = {str(c) for c in indices_list}
         fund_cols = [
-            c for c in candidate_cols if c in numeric_cols and c not in idx_set
+            c
+            for c in resolved_fund_candidates
+            if c in numeric_cols and c not in idx_set
         ]
         # Keep only funds with complete data in both windows
         in_ok = ~in_df[fund_cols].isna().any()
         out_ok = ~out_df[fund_cols].isna().any()
         fund_cols = [c for c in fund_cols if in_ok[c] and out_ok[c]]
-        return in_df, out_df, fund_cols, rf_col
+        return in_df, out_df, fund_cols, resolved_rf_col
 
     def _score_frame(in_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)
@@ -1214,6 +1221,7 @@ def run(
                         break
                 holdings = keep
             weights_df = weighting.weight(sf.loc[holdings], period_ts)
+            raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
             weights_df = weight_series.to_frame("weight")
@@ -1319,13 +1327,14 @@ def run(
                         }
                     )
             weights_df = weighting.weight(sf.loc[holdings], period_ts)
+            raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
             weights_df = weight_series.to_frame("weight")
             prev_weights = weight_series.astype(float)
 
         # Natural weights (pre-bounds) for strikes on min threshold
-        nat_w = prev_weights.copy()
+        nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Low-weight replacement rule: if a fund naturally < min for N consecutive
         # periods, replace it this period before finalising weights.
@@ -1382,13 +1391,14 @@ def run(
                     )
             if holdings:
                 weights_df = weighting.weight(sf.loc[holdings], period_ts)
+                raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = (
                     sf.loc[holdings, metric] if metric in sf.columns else None
                 )
                 weight_series = _apply_policy_to_weights(weights_df, signal_slice)
                 weights_df = weight_series.to_frame("weight")
-                nat_w = weight_series.astype(float)
-                prev_weights = nat_w.copy()
+                prev_weights = weight_series.astype(float)
+                nat_w = raw_weight_series.reindex(prev_weights.index).fillna(0.0)
 
         # Apply weight bounds and renormalise
         bounded_w = _apply_weight_bounds(prev_weights, min_w_bound, max_w_bound)
