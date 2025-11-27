@@ -68,6 +68,7 @@ jobs:
       base: ${{ steps.refs.outputs.base }}
       head: ${{ steps.mk.outputs.branch || steps.refs.outputs.head || '' }}
       mode: ${{ steps.mode.outputs.mode }}
+      pr_created: ${{ steps.pr.outputs.created }}
     env:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
       AGENT: ${{ inputs.agent }}
@@ -562,6 +563,82 @@ jobs:
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
+            const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+            const extractScopeTasksAcceptanceSections = (source) => {
+              const normalised = normalizeNewlines(source);
+              if (!normalised.trim()) {
+                return '';
+              }
+
+              const startMarker = '<!-- auto-status-summary:start -->';
+              const endMarker = '<!-- auto-status-summary:end -->';
+              const startIndex = normalised.indexOf(startMarker);
+              const endIndex = normalised.indexOf(endMarker);
+
+              let segment = normalised;
+              if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                segment = normalised.slice(startIndex + startMarker.length, endIndex);
+              }
+
+              const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
+              const titleKeys = titles.map((title) => title.toLowerCase());
+
+              const headingLabelPattern = titles
+                .map((title) => escapeRegExp(title))
+                .join('|');
+              const headingRegex = new RegExp(
+                `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*(${headingLabelPattern})\\*\\*)\\s*$`,
+                'gim'
+              );
+
+              const headings = [];
+              let match;
+              while ((match = headingRegex.exec(segment)) !== null) {
+                const [, hashTitle, boldTitle] = match;
+                const title = (hashTitle || boldTitle || '').toLowerCase();
+                if (!title) {
+                  continue;
+                }
+                headings.push({
+                  title,
+                  index: match.index,
+                  length: match[0].length,
+                });
+              }
+
+              if (headings.length === 0) {
+                return '';
+              }
+
+              const sections = [];
+              for (let index = 0; index < titleKeys.length; index += 1) {
+                const titleKey = titleKeys[index];
+                const canonicalTitle = titles[index];
+                const header = headings.find((entry) => entry.title === titleKey);
+                if (!header) {
+                  return '';
+                }
+
+                const nextHeader = headings.find((entry) => entry.index > header.index);
+                const contentStart = (() => {
+                  const start = header.index + header.length;
+                  if (segment[start] === '\r' && segment[start + 1] === '\n') {
+                    return start + 2;
+                  }
+                  if (segment[start] === '\n') {
+                    return start + 1;
+                  }
+                  return start;
+                })();
+                const contentEnd = nextHeader ? nextHeader.index : segment.length;
+                const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
+                const headerLine = `#### ${canonicalTitle}`;
+                sections.push(content ? `${headerLine}\n${content}` : headerLine);
+              }
+
+              return sections.join('\n\n').trim();
+            };
               const agent = (process.env.AGENT || '').trim();
               if (!agent || agent === 'unknown') {
                 core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
@@ -601,6 +678,22 @@ jobs:
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
               const baseLine = base ? `Base: ${base}` : '';
               const headLine = head ? `Head: ${head}` : '';
+              const scopeBlock = extractScopeTasksAcceptanceSections(issueBody);
+              const issueDetailsBlock = (() => {
+                const sections = [];
+                if (scopeBlock) {
+                  sections.push('<!-- auto-status-summary:start -->');
+                  sections.push('## Automated Status Summary');
+                  sections.push(scopeBlock);
+                  sections.push('<!-- auto-status-summary:end -->');
+                }
+                if (issueBody && issueBody.trim()) {
+                  sections.push('### Issue Details');
+                  sections.push('');
+                  sections.push(issueBody.trim());
+                }
+                return sections.filter(Boolean).join('\n');
+              })();
 
               const prBody = [
                 keepaliveHeader,
@@ -612,35 +705,40 @@ jobs:
                 '',
                 `Source: ${issueUrl}`,
                 '',
-                quoted,
+                issueDetailsBlock || quoted,
                 '',
                 '—',
                 `PR created automatically to engage ${agentTitle}.`
               ].join('\n');
-              
-              ({ data: pr } = await github.rest.pulls.create({ 
-                owner, 
-                repo, 
-                head, 
-                base, 
-                draft: draftFlag, 
-                title: `${agentTitle} bootstrap for #${issue_number}`, 
-                body: prBody 
+
+              ({ data: pr } = await github.rest.pulls.create({
+                owner,
+                repo,
+                head,
+                base,
+                draft: draftFlag,
+                title: `${agentTitle} bootstrap for #${issue_number}`,
+                body: prBody
               }));
+
+              core.setOutput('created', 'true');
+              core.setOutput('scope_block', scopeBlock || '');
+              core.setOutput('issue_body', issueBody || '');
+              core.setOutput('issue_title', issueTitle || '');
             }
-            
+
             core.setOutput('number', String(pr.number));
             
             const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
-            try { 
-              await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees }); 
-            } catch (e) { 
-              core.warning(`PR assign failed: ${e.message}`); 
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees });
+            } catch (e) {
+              core.warning(`PR assign failed: ${e.message}`);
             }
-            try { 
-              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); 
-            } catch (e) { 
-              core.warning(`Issue assign failed: ${e.message}`); 
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees });
+            } catch (e) {
+              core.warning(`Issue assign failed: ${e.message}`);
             }
 
       - name: Label PR with agent
@@ -659,6 +757,45 @@ jobs:
               return;
             }
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
+
+      - name: Post issue context on PR
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.created == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
+          ISSUE_TITLE: ${{ steps.pr.outputs.issue_title }}
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+          SCOPE_BLOCK: ${{ steps.pr.outputs.scope_block }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const issueNumber = Number(process.env.ISSUE_NUMBER || 0);
+            const issueTitle = process.env.ISSUE_TITLE || '';
+            const scopeBlock = (process.env.SCOPE_BLOCK || '').trim();
+            const issueBody = (process.env.ISSUE_BODY || '').trim();
+
+            if (!prNumber) {
+              core.setFailed('PR number missing; cannot post issue context.');
+              return;
+            }
+
+            const header = `### Issue #${issueNumber || '?'}: ${issueTitle || 'Details'}`.trim();
+            const parts = [header];
+            if (scopeBlock) {
+              parts.push('', scopeBlock);
+            }
+            if (issueBody) {
+              parts.push('', '#### Full Issue Text', '', issueBody);
+            }
+
+            const body = parts.join('\n').trim();
+            if (!body) {
+              core.info('No issue details available for comment; skipping.');
+              return;
+            }
+
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
 
       - name: Post agent command as service user
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
