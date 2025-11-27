@@ -565,6 +565,15 @@ jobs:
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
             const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
             const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+            /**
+             * Extracts Scope, Tasks, and Acceptance Criteria sections from issue text.
+             * 
+             * Searches for sections within auto-status-summary markers (if present) or the entire source.
+             * Expects markdown headings (## or **bold**) matching exact titles: "Scope", "Tasks", "Acceptance Criteria".
+             * 
+             * @param {string} source - The issue body text to parse
+             * @returns {string} Formatted sections with #### headings, or empty string if extraction fails
+             */
             const extractScopeTasksAcceptanceSections = (source) => {
               const normalized = normalizeNewlines(source);
               if (!normalized.trim()) {
