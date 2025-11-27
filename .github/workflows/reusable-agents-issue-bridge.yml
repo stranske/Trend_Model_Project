@@ -784,7 +784,7 @@ jobs:
             const issueBody = (process.env.ISSUE_BODY || '').trim();
 
             if (!prNumber) {
-              core.setFailed('PR number missing; cannot post issue context.');
+              core.warning('PR number missing; skipping issue context comment.');
               return;
             }
 
