@@ -86,6 +86,11 @@ Functional spec
 4.  Config file (YAML) drives everything – sample below.
 
 5.  UI flow (ipywidgets, no external deps):
+  > Notebook widgets live in the optional module
+  > `trend_analysis.ui.rank_widgets`. Import `build_ui()` from there (or use
+  > the compatibility wrapper `trend_analysis.core.rank_selection.build_ui()`)
+  > only when `ipywidgets` is available so that pipeline consumers stay
+  > headless-friendly by default.
     Step 1  – Mode (‘all’, ‘random’, ‘manual’, **‘rank’**),
                checkboxes for “vol‑adj” and “use ranking”.
     Step 2  – If mode == 'rank' **or** user ticked “use ranking”
