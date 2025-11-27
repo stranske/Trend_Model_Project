@@ -16,6 +16,8 @@ import importlib
 import inspect
 import json
 import re
+from collections import OrderedDict
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
@@ -137,10 +139,9 @@ class WindowMetricBundle:
     ) -> pd.Series:
         """Ensure *metric_name* exists in the cached frame and return it."""
 
-        global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
         canonical = _METRIC_ALIASES.get(metric_name, metric_name)
         if canonical in self._metrics.columns:
-            _SELECTOR_CACHE_HITS += 1
+            _WINDOW_METRIC_CACHE.record_hit()
             _sync_cache_counters()
             return self._metrics[canonical]
         if canonical in {"AvgCorr", "__COV_VAR__"}:
@@ -175,9 +176,102 @@ class WindowMetricBundle:
             )
         series = series.astype(float)
         self._metrics[canonical] = series
-        _SELECTOR_CACHE_MISSES += 1
+        _WINDOW_METRIC_CACHE.record_miss()
         _sync_cache_counters()
         return self._metrics[canonical]
+
+
+class WindowMetricCache:
+    """Cache for selector window metric bundles with optional scoping."""
+
+    def __init__(self, max_entries: int | None = None):
+        self._max_entries = max_entries
+        self._scoped: dict[str, OrderedDict[WindowKey, WindowMetricBundle]] = {}
+        self._hits = 0
+        self._misses = 0
+
+    def _bucket(self) -> OrderedDict[WindowKey, WindowMetricBundle]:
+        scope = _CACHE_SCOPE.get()
+        return self._scoped.setdefault(scope, OrderedDict())
+
+    def get(self, key: WindowKey) -> WindowMetricBundle | None:
+        bucket = self._bucket()
+        bundle = bucket.get(key)
+        if bundle is not None:
+            self._hits += 1
+        return bundle
+
+    def put(self, key: WindowKey | None, bundle: WindowMetricBundle) -> None:
+        if key is None:
+            return
+        bucket = self._bucket()
+        bucket[key] = bundle
+        bucket.move_to_end(key)
+        self._evict(bucket)
+
+    def _evict(self, bucket: OrderedDict[WindowKey, WindowMetricBundle]) -> None:
+        if self._max_entries is None:
+            return
+        while len(bucket) > self._max_entries:
+            bucket.popitem(last=False)
+
+    def set_limit(self, max_entries: int | None) -> int | None:
+        previous = self._max_entries
+        self._max_entries = max_entries
+        if max_entries is None:
+            return previous
+        for bucket in self._scoped.values():
+            self._evict(bucket)
+        return previous
+
+    def clear(self, scope: str | None = None) -> None:
+        if scope is None:
+            self._scoped.clear()
+        else:
+            self._scoped.pop(scope, None)
+        self._hits = 0
+        self._misses = 0
+
+    def record_hit(self) -> None:
+        self._hits += 1
+
+    def record_miss(self) -> None:
+        self._misses += 1
+
+    def stats(self) -> dict[str, int]:
+        bucket = self._bucket()
+        return {
+            "entries": len(bucket),
+            "selector_cache_hits": self._hits,
+            "selector_cache_misses": self._misses,
+        }
+
+
+_CACHE_SCOPE: ContextVar[str] = ContextVar("RANK_SELECTOR_CACHE_SCOPE", default="default")
+_WINDOW_METRIC_CACHE = WindowMetricCache()
+
+# Backwards compatibility counters exposed in tests.
+selector_cache_hits = 0
+selector_cache_misses = 0
+
+
+@contextmanager
+def selector_cache_scope(scope: str):
+    """Context manager to isolate cache entries per run or request."""
+
+    token = _CACHE_SCOPE.set(scope)
+    try:
+        yield
+    finally:
+        _CACHE_SCOPE.reset(token)
+
+
+def set_window_metric_cache_limit(max_entries: int | None) -> int | None:
+    """Set the selector cache size limit, returning the previous value."""
+
+    previous = _WINDOW_METRIC_CACHE.set_limit(max_entries)
+    _sync_cache_counters()
+    return previous
 
 
 def _cov_metric_from_payload(
@@ -225,21 +319,20 @@ def _compute_covariance_payload(
     )
 
 
-_WINDOW_METRIC_BUNDLES: dict[WindowKey, WindowMetricBundle] = {}
 _SELECTOR_CACHE_HITS = 0
 _SELECTOR_CACHE_MISSES = 0
-
-# Backwards compatibility counters exposed in tests.
-selector_cache_hits = 0
-selector_cache_misses = 0
 
 
 def _sync_cache_counters() -> None:
     """Mirror internal cache counters to public module attributes."""
 
     global selector_cache_hits, selector_cache_misses
-    selector_cache_hits = _SELECTOR_CACHE_HITS
-    selector_cache_misses = _SELECTOR_CACHE_MISSES
+    stats = _WINDOW_METRIC_CACHE.stats()
+    selector_cache_hits = stats["selector_cache_hits"]
+    selector_cache_misses = stats["selector_cache_misses"]
+    _globals = globals()
+    _globals["_SELECTOR_CACHE_HITS"] = selector_cache_hits
+    _globals["_SELECTOR_CACHE_MISSES"] = selector_cache_misses
 
 
 def make_window_key(
@@ -259,12 +352,11 @@ def make_window_key(
 def get_window_metric_bundle(window_key: WindowKey) -> WindowMetricBundle | None:
     """Return the cached bundle for *window_key* if present."""
     # Declare globals because we mutate (_SELECTOR_CACHE_HITS += 1) below.
-    global _SELECTOR_CACHE_HITS
 
-    bundle = _WINDOW_METRIC_BUNDLES.get(window_key)
+    bundle = _WINDOW_METRIC_CACHE.get(window_key)
     if bundle is None:
+        _sync_cache_counters()
         return None
-    _SELECTOR_CACHE_HITS += 1
     _sync_cache_counters()
     return bundle
 
@@ -274,36 +366,33 @@ def store_window_metric_bundle(
 ) -> None:
     """Store *bundle* under *window_key* when provided."""
 
-    if window_key is None:
-        return
-    _WINDOW_METRIC_BUNDLES[window_key] = bundle
+    _WINDOW_METRIC_CACHE.put(window_key, bundle)
 
 
-def clear_window_metric_cache() -> None:
-    """Reset the selector window cache and counters."""
+def clear_window_metric_cache(scope: str | None = None) -> None:
+    """Reset the selector window cache and counters.
 
-    global _SELECTOR_CACHE_HITS, _SELECTOR_CACHE_MISSES
+    When *scope* is provided, only the scoped cache entries are cleared. The
+    instrumentation counters are reset in all cases.
+    """
 
-    _WINDOW_METRIC_BUNDLES.clear()
-    _SELECTOR_CACHE_HITS = 0
-    _SELECTOR_CACHE_MISSES = 0
+    _WINDOW_METRIC_CACHE.clear(scope)
     _sync_cache_counters()
 
 
-def reset_selector_cache() -> None:
+def reset_selector_cache(scope: str | None = None) -> None:
     """Compatibility alias for :func:`clear_window_metric_cache`."""
 
-    clear_window_metric_cache()
+    clear_window_metric_cache(scope)
 
 
 def selector_cache_stats() -> dict[str, int]:
     """Return selector cache instrumentation counters."""
 
-    return {
-        "entries": len(_WINDOW_METRIC_BUNDLES),
-        "selector_cache_hits": _SELECTOR_CACHE_HITS,
-        "selector_cache_misses": _SELECTOR_CACHE_MISSES,
-    }
+    stats = _WINDOW_METRIC_CACHE.stats()
+    stats["selector_cache_hits"] = _SELECTOR_CACHE_HITS
+    stats["selector_cache_misses"] = _SELECTOR_CACHE_MISSES
+    return stats
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -970,6 +1059,8 @@ __all__ = [
     "rank_select_funds",
     "selector_cache_stats",
     "clear_window_metric_cache",
+    "selector_cache_scope",
+    "set_window_metric_cache_limit",
     "build_ui",
     "canonical_metric_list",
 ]
