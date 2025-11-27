@@ -228,7 +228,7 @@ function extractScopeTasksAcceptanceSections(source) {
     segment = normalised.slice(startIndex + startMarker.length, endIndex);
   }
 
-  const titles = ['Scope', 'Tasks', 'Acceptance criteria'];
+  const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
   const titleKeys = titles.map((title) => title.toLowerCase());
 
   const headingLabelPattern = titles
@@ -309,7 +309,7 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
 
     if (
       body.includes('auto-status-summary') ||
-      /####\s+(Scope|Tasks|Acceptance criteria)/i.test(body)
+      /####\s+(Scope|Tasks|Acceptance Criteria)/i.test(body)
     ) {
       sources.push(body);
     }
