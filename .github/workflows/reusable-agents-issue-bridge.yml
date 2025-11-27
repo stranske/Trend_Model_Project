@@ -620,7 +620,9 @@ jobs:
                   return '';
                 }
 
-                const nextHeader = headings.find((entry) => entry.index > header.index);
+                const nextHeader = headings
+                  .filter((entry) => entry.index > header.index)
+                  .sort((a, b) => a.index - b.index)[0];
                 const contentStart = (() => {
                   const start = header.index + header.length;
                   if (segment[start] === '\r' && segment[start + 1] === '\n') {
