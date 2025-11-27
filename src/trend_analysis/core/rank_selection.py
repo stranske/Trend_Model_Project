@@ -17,6 +17,7 @@ import importlib.util
 import inspect
 import json
 import re
+import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -38,6 +39,31 @@ _FIRM_NAME_TOKENIZER = re.compile(r"[^A-Za-z]+")
 DEFAULT_METRIC = "annual_return"
 
 WindowKey = tuple[str, str, str, str]
+
+
+@dataclass
+class RankSelectionDiagnostics:
+    """Diagnostics for empty or failed rank selections."""
+
+    reason: str
+    metric: str
+    transform: str
+    inclusion_approach: str
+    total_candidates: int
+    non_null_scores: int
+    threshold: float | None = None
+
+    def message(self) -> str:
+        details: list[str] = [
+            f"metric={self.metric}",
+            f"transform={self.transform}",
+            f"approach={self.inclusion_approach}",
+            f"total_candidates={self.total_candidates}",
+            f"non_null_scores={self.non_null_scores}",
+        ]
+        if self.threshold is not None:
+            details.append(f"threshold={self.threshold}")
+        return f"{self.reason} ({', '.join(details)})"
 
 
 def _json_default(value: Any) -> Any:
@@ -471,8 +497,29 @@ def rank_select_funds(
     incremental_cov: bool = False,
     store_bundle: bool = True,
     risk_free: float | pd.Series | None = None,
-) -> list[str]:
+    return_diagnostics: bool = False,
+) -> list[str] | tuple[list[str], RankSelectionDiagnostics | None]:
     """Select funds based on ranking by a specified metric."""
+
+    diagnostics: RankSelectionDiagnostics | None = None
+
+    def _record_diagnostics(
+        reason: str,
+        *,
+        threshold_value: float | None = None,
+        non_null_override: int | None = None,
+    ) -> None:
+        nonlocal diagnostics
+        diagnostics = RankSelectionDiagnostics(
+            reason=reason,
+            metric=metric_name,
+            transform=transform,
+            inclusion_approach=inclusion_approach,
+            total_candidates=len(universe),
+            non_null_scores=len(scores) if non_null_override is None else non_null_override,
+            threshold=threshold_value,
+        )
+        warnings.warn(diagnostics.message(), RuntimeWarning)
 
     # Handle transform_mode alias
     if transform_mode is not None:
@@ -483,6 +530,16 @@ def rank_select_funds(
     df = _ensure_canonical_columns(df)
     universe = tuple(df.columns)
     cfg_hash = _stats_cfg_hash(cfg)
+    scores = pd.Series(dtype=float)
+
+    if len(universe) == 0:
+        _record_diagnostics(
+            "No candidate columns available for ranking",
+            non_null_override=0,
+        )
+        if return_diagnostics:
+            return [], diagnostics
+        return []
 
     if risk_free is not None:
         bundle = None
@@ -566,6 +623,13 @@ def rank_select_funds(
 
     # Drop NaNs (e.g., from percentile masking) before sorting
     scores = scores.dropna()
+    if scores.empty:
+        _record_diagnostics(
+            "No candidate scores available after filtering and transform",
+        )
+        if return_diagnostics:
+            return [], diagnostics
+        return []
     scores = scores.sort_values(ascending=ascending)
 
     def _firm_key(name: str) -> str:
@@ -622,23 +686,37 @@ def rank_select_funds(
         if n is None:
             raise ValueError("top_n requires parameter n")
         ordered_top_n: list[str] = [str(x) for x in scores.index.tolist()]
-        return _dedupe_by_firm(ordered_top_n, k=n)
+        selection = _dedupe_by_firm(ordered_top_n, k=n)
     elif inclusion_approach == "top_pct":
         if pct is None or not 0 < pct <= 1:
             raise ValueError("top_pct requires 0 < pct <= 1")
         k = max(1, int(round(len(scores) * pct)))
         ordered_top_pct: list[str] = [str(x) for x in scores.index.tolist()]
-        return _dedupe_by_firm(ordered_top_pct, k=k)
+        selection = _dedupe_by_firm(ordered_top_pct, k=k)
     elif inclusion_approach == "threshold":
         if threshold is None:
             raise ValueError("threshold approach requires parameter threshold")
         # For ascending=True (smaller is better), keep scores <= threshold
         # else keep scores >= threshold
         mask = scores <= threshold if ascending else scores >= threshold
-        ordered_threshold: list[str] = [str(x) for x in scores[mask].index.tolist()]
-        return _dedupe_by_firm(ordered_threshold)
+        filtered_scores = scores[mask]
+        if filtered_scores.empty:
+            _record_diagnostics(
+                "All candidate scores filtered out by threshold",
+                threshold_value=threshold,
+                non_null_override=0,
+            )
+            if return_diagnostics:
+                return [], diagnostics
+            return []
+        ordered_threshold: list[str] = [str(x) for x in filtered_scores.index.tolist()]
+        selection = _dedupe_by_firm(ordered_threshold)
     else:
         raise ValueError("Unknown inclusion_approach")
+
+    if return_diagnostics:
+        return selection, diagnostics
+    return selection
 
 
 @dataclass
