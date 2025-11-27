@@ -229,17 +229,56 @@ function extractScopeTasksAcceptanceSections(source) {
   }
 
   const titles = ['Scope', 'Tasks', 'Acceptance criteria'];
-  const sections = [];
+  const titleKeys = titles.map((title) => title.toLowerCase());
 
-  for (const title of titles) {
-    const pattern = new RegExp(`^####\\s+${escapeRegExp(title)}\\s*\\n([\\s\\S]*?)(?=^####\\s+|(?![\\s\\S]))`, 'im');
-    const match = segment.match(pattern);
-    if (!match) {
+  const headingLabelPattern = titles
+    .map((title) => escapeRegExp(title))
+    .join('|');
+  const headingRegex = new RegExp(
+    `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*\\s*(${headingLabelPattern})\\s*\\*\\*)\\s*$`,
+    'gim'
+  );
+
+  const headings = [];
+  let match;
+  while ((match = headingRegex.exec(segment)) !== null) {
+    const [, hashTitle, boldTitle] = match;
+    const title = (hashTitle || boldTitle || '').toLowerCase();
+    if (!title) {
+      continue;
+    }
+    headings.push({
+      title,
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  if (headings.length === 0) {
+    return '';
+  }
+
+  const sections = [];
+  for (const title of titleKeys) {
+    const header = headings.find((entry) => entry.title === title);
+    if (!header) {
       return '';
     }
 
-    const headerLine = `#### ${title}`;
-    const content = normaliseNewlines(match[1] || '').trim();
+    const nextHeader = headings.find((entry) => entry.index > header.index);
+    const contentStart = (() => {
+      const start = header.index + header.length;
+      if (segment[start] === '\r' && segment[start + 1] === '\n') {
+        return start + 2;
+      }
+      if (segment[start] === '\n') {
+        return start + 1;
+      }
+      return start;
+    })();
+    const contentEnd = nextHeader ? nextHeader.index : segment.length;
+    const content = normaliseNewlines(segment.slice(contentStart, contentEnd)).trim();
+    const headerLine = `#### ${title.replace(/\b\w/g, (ch) => ch.toUpperCase())}`;
     sections.push(content ? `${headerLine}\n${content}` : headerLine);
   }
 
@@ -1064,4 +1103,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   await summary.write();
 }
 
-module.exports = { runKeepalive, dispatchKeepaliveCommand, buildOctokitInstance };
+module.exports = {
+  runKeepalive,
+  dispatchKeepaliveCommand,
+  buildOctokitInstance,
+  extractScopeTasksAcceptanceSections,
+  findScopeTasksAcceptanceBlock,
+};
