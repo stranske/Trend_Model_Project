@@ -83,7 +83,7 @@ jobs:
   python-ci:
     name: python ci
     needs: detect
-    if: ${{ needs.detect.outputs.doc_only != 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
+    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
       primary-python-version: '3.11'
@@ -124,7 +124,7 @@ jobs:
   docker-smoke:
     name: docker smoke
     needs: detect
-    if: ${{ needs.detect.outputs.doc_only != 'true' && fromJSON(needs.detect.outputs.run_core || 'true') && fromJSON(needs.detect.outputs.docker_changed || 'false') }}
+    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') && fromJSON(needs.detect.outputs.docker_changed || 'false') }}
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   ledger-validation:
