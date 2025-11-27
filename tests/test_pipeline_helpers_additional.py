@@ -913,6 +913,31 @@ def test_single_period_run_rejects_empty_metrics() -> None:
         single_period_run(df, "2020-01", "2020-02", stats_cfg=EmptyConfig())
 
 
+def test_single_period_run_rejects_empty_window() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=2, freq="M"),
+            "FundA": [0.01, 0.02],
+        }
+    )
+
+    with pytest.raises(ValueError, match="no rows"):
+        single_period_run(df, "2021-01", "2021-02")
+
+
+def test_single_period_run_rejects_all_nan_window() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "FundA": [np.nan, np.nan, np.nan],
+            "FundB": [np.nan, np.nan, np.nan],
+        }
+    )
+
+    with pytest.raises(ValueError, match="empty return columns"):
+        single_period_run(df, "2020-01", "2020-03")
+
+
 def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     class RaisingIndex(pd.DatetimeIndex):
         @property

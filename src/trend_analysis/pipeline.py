@@ -1521,13 +1521,26 @@ def single_period_run(
     sdate, edate = _parse_month(start), _parse_month(end)
     window = df[(df["Date"] >= sdate) & (df["Date"] <= edate)].set_index("Date")
 
+    if window.empty:
+        raise ValueError(
+            "single_period_run found no rows in the requested period"
+            f" {start} to {end}; check the date filter or input data."
+        )
+
+    window_no_all_nan = window.dropna(axis=1, how="all")
+    if window_no_all_nan.empty:
+        raise ValueError(
+            "single_period_run found only empty return columns in the requested"
+            f" period {start} to {end}; verify the input contains non-NaN returns."
+        )
+
     metrics = stats_cfg.metrics_to_run
     if not metrics:
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
     parts = [
         _compute_metric_series(
-            window.dropna(axis=1, how="all"), m, stats_cfg, risk_free_override=risk_free
+            window_no_all_nan, m, stats_cfg, risk_free_override=risk_free
         )
         for m in metrics
     ]
@@ -1536,26 +1549,32 @@ def single_period_run(
     score_frame.attrs["insample_len"] = len(window)
     score_frame.attrs["period"] = (start, end)
     # Optional derived correlation metric (opt-in via stats_cfg.extra_metrics)
-    try:
-        extra = getattr(stats_cfg, "extra_metrics", [])
-        if (
-            "AvgCorr" in extra
-            and score_frame.shape[1] > 0
-            and window.shape[1] > 1
-            and "AvgCorr" not in score_frame.columns
-        ):
-            from .core.rank_selection import compute_metric_series_with_cache
+    extra = getattr(stats_cfg, "extra_metrics", [])
+    if (
+        "AvgCorr" in extra
+        and score_frame.shape[1] > 0
+        and window_no_all_nan.shape[1] > 1
+        and "AvgCorr" not in score_frame.columns
+    ):
+        from .core.rank_selection import compute_metric_series_with_cache
 
+        try:
             avg_corr_series = compute_metric_series_with_cache(
-                window.dropna(axis=1, how="all"),
+                window_no_all_nan,
                 "AvgCorr",
                 stats_cfg,
                 risk_free_override=risk_free,
                 enable_cache=False,
             )
-            score_frame = pd.concat([score_frame, avg_corr_series], axis=1)
-    except Exception:  # pragma: no cover - defensive
-        pass
+        except Exception as exc:  # pragma: no cover - defensive
+            msg = (
+                "Failed to compute AvgCorr for single_period_run"
+                f" window {start} to {end}: {exc}"
+            )
+            logger.error(msg)
+            raise RuntimeError(msg) from exc
+
+        score_frame = pd.concat([score_frame, avg_corr_series], axis=1)
     return score_frame.astype(float)
 
 
