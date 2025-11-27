@@ -531,12 +531,16 @@ def _select_universe(
         rank_options: dict[str, Any] = dict(rank_kwargs or {})
         rank_options.setdefault("window_key", window_key)
         rank_options.setdefault("bundle", bundle)
-        fund_cols = rank_select_funds(
+        rank_result = rank_select_funds(
             sub,
             stats_cfg,
             **rank_options,
             risk_free=risk_free_override,
         )
+        if isinstance(rank_result, tuple):
+            fund_cols = rank_result[0]
+        else:
+            fund_cols = rank_result
     elif selection_mode == "manual":
         if manual_funds:  # pragma: no cover - rarely hit
             fund_cols = [c for c in fund_cols if c in manual_funds]
