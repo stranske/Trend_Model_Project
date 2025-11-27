@@ -259,8 +259,10 @@ function extractScopeTasksAcceptanceSections(source) {
   }
 
   const sections = [];
-  for (const title of titleKeys) {
-    const header = headings.find((entry) => entry.title === title);
+  for (let index = 0; index < titleKeys.length; index += 1) {
+    const titleKey = titleKeys[index];
+    const canonicalTitle = titles[index];
+    const header = headings.find((entry) => entry.title === titleKey);
     if (!header) {
       return '';
     }
@@ -278,7 +280,7 @@ function extractScopeTasksAcceptanceSections(source) {
     })();
     const contentEnd = nextHeader ? nextHeader.index : segment.length;
     const content = normaliseNewlines(segment.slice(contentStart, contentEnd)).trim();
-    const headerLine = `#### ${title.replace(/\b\w/g, (ch) => ch.toUpperCase())}`;
+    const headerLine = `#### ${canonicalTitle}`;
     sections.push(content ? `${headerLine}\n${content}` : headerLine);
   }
 
