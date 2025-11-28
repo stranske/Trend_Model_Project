@@ -55,9 +55,9 @@ Review the last ~8 merges touching keepalive / intake automation to avoid reappl
 - _(add more entries as steps complete)_
 
 ## Validation Checklist (to run after fixes)
-- [x] `scripts/dev_check.sh --changed --fix`
-- [x] `./scripts/validate_fast.sh --fix`
-- [x] `./scripts/check_branch.sh --fast --fix`
+- [ ] `scripts/dev_check.sh --changed --fix`
+- [ ] `./scripts/validate_fast.sh --fix`
+- [ ] `./scripts/check_branch.sh --fast --fix`
 - [ ] Re-run Agents 63 intake in dry-run mode; confirm first PR comment copies Tasks + Acceptance.
 - [ ] Trigger keepalive workflow (dry-run + live) and verify instructions post even without Scope section.
 - [ ] Confirm Codex responds to keepalive comment on PR #3827.
