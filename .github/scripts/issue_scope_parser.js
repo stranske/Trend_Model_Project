@@ -47,7 +47,7 @@ const extractScopeTasksAcceptanceSections = (source) => {
 
   // Match headings that may be markdown headers (# H), bold (**H**), or plain text (with optional colon).
   const headingRegex = new RegExp(
-    `^\\s*(?:#{1,6}\\s*|\\*\\*\\s*)?(${headingLabelPattern})(?:\\s*\\*\\*\\s*|\\s*:)??\\s*$`,
+    `^\\s*(?:#{1,6}\\s+|\\*\\*)(${headingLabelPattern})(?:\\*\\*|:)?\\s*$`,
     'gim'
   );
 
