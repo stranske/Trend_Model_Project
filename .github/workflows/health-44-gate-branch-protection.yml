@@ -22,6 +22,7 @@ env:
 jobs:
   enforce:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -148,13 +149,15 @@ jobs:
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
 
       - name: Verify gate branch protection is required (admin scope)
+        id: verify-admin
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         if: env.ENFORCE_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH_NAME }}
         run: |
-          python tools/enforce_gate_branch_protection.py \
+          timeout 5m python tools/enforce_gate_branch_protection.py \
             --check \
             --require-strict \
             --config .github/config/required-contexts.json \
@@ -162,7 +165,7 @@ jobs:
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
       - name: Verify gate branch protection is required (read-only)
-        if: env.ENFORCE_TOKEN == ''
+        if: env.ENFORCE_TOKEN == '' || (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
