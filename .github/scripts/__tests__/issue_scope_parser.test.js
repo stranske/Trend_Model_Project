@@ -3,7 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { extractScopeTasksAcceptanceSections } = require('../issue_scope_parser');
+const {
+  extractScopeTasksAcceptanceSections,
+  parseScopeTasksAcceptanceSections,
+} = require('../issue_scope_parser');
 
 test('extracts sections inside auto-status markers', () => {
   const issue = [
@@ -45,6 +48,27 @@ test('parses plain headings without markdown hashes', () => {
     result,
     ['#### Scope', '- summary', '', '#### Task List', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
   );
+});
+
+test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
+  const issue = [
+    '## Issue Scope',
+    '- overview line',
+    '',
+    '**Task List**',
+    '- [ ] do one',
+    '- [x] done two',
+    '',
+    'Acceptance criteria:',
+    '- ✅ verified',
+  ].join('\n');
+
+  const parsed = parseScopeTasksAcceptanceSections(issue);
+  assert.deepEqual(parsed, {
+    scope: '- overview line',
+    tasks: ['- [ ] do one', '- [x] done two'].join('\n'),
+    acceptance: '- ✅ verified',
+  });
 });
 
 test('returns empty string when no headings present', () => {
