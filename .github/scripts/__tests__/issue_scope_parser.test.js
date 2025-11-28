@@ -27,7 +27,7 @@ test('extracts sections inside auto-status markers', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- item a', '', '#### Task List', '- [ ] first', '', '#### Acceptance Criteria', '- pass'].join('\n')
+    ['#### Scope', '- item a', '', '#### Tasks', '- [ ] first', '', '#### Acceptance Criteria', '- pass'].join('\n')
   );
 });
 
@@ -46,7 +46,7 @@ test('parses plain headings without markdown hashes', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- summary', '', '#### Task List', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
+    ['#### Scope', '- summary', '', '#### Tasks', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
   );
 });
 
