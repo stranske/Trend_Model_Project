@@ -199,7 +199,7 @@ def _prepare_preprocess_stage(
         return pipeline_failure(PipelineReasonCode.INPUT_NONE)
 
     attrs_copy = dict(getattr(df, "attrs", {}))
-    if type(df) is not pd.DataFrame:  # noqa: E721 - type check intentional
+    if type(df) is not pd.DataFrame:  # noqa: E721 - intentional exact type check
         df = pd.DataFrame(df)
     if attrs_copy:
         df.attrs = attrs_copy
@@ -289,7 +289,7 @@ def _prepare_preprocess_stage(
             },
         )
 
-    if type(df_original) is not pd.DataFrame:  # noqa: E721 - intentional type check
+    if not isinstance(df_original, pd.DataFrame):
         df = pd.DataFrame(df_original)
     else:
         df = df_original
@@ -392,14 +392,14 @@ def _build_sample_windows(
         out_sdate = out_sdate.tz_localize(tz)
         out_edate = out_edate.tz_localize(tz)
 
-    in_df = preprocess.df[
-        (preprocess.df[preprocess.date_col] >= in_sdate)
-        & (preprocess.df[preprocess.date_col] <= in_edate)
-    ].set_index(preprocess.date_col)
-    out_df = preprocess.df[
-        (preprocess.df[preprocess.date_col] >= out_sdate)
-        & (preprocess.df[preprocess.date_col] <= out_edate)
-    ].set_index(preprocess.date_col)
+    in_mask = (preprocess.df[preprocess.date_col] >= in_sdate) & (
+        preprocess.df[preprocess.date_col] <= in_edate
+    )
+    out_mask = (preprocess.df[preprocess.date_col] >= out_sdate) & (
+        preprocess.df[preprocess.date_col] <= out_edate
+    )
+    in_df = preprocess.df.loc[in_mask].set_index(preprocess.date_col)
+    out_df = preprocess.df.loc[out_mask].set_index(preprocess.date_col)
 
     if in_df.empty or out_df.empty:
         return pipeline_failure(
@@ -602,28 +602,30 @@ def _compute_weights_and_stats(
 
         allowed_start = window.in_start
         allowed_end = window.out_end
-        window_frame = (
-            pd.concat([window.in_df, window.out_df])
-            .sort_index()
-            .reindex(columns=fund_cols)
+        mask = (preprocess.df[preprocess.date_col] >= allowed_start) & (
+            preprocess.df[preprocess.date_col] <= allowed_end
         )
-        outside_mask = (window_frame.index < allowed_start) | (
-            window_frame.index > allowed_end
-        )
+        scoped = preprocess.df.loc[mask, [preprocess.date_col] + fund_cols]
+        if scoped.empty:
+            return pd.DataFrame(dtype=float)
+
+        scoped = scoped.copy().set_index(preprocess.date_col).reindex(columns=fund_cols)
+        scoped = scoped.loc[:, ~scoped.columns.duplicated()]
+
+        if not scoped.index.is_monotonic_increasing:
+            scoped = scoped.sort_index()
+
+        outside_mask = (scoped.index < allowed_start) | (scoped.index > allowed_end)
         if bool(outside_mask.any()):
-            first = pd.Timestamp(window_frame.index[outside_mask].min())
-            last = pd.Timestamp(window_frame.index[outside_mask].max())
+            first = pd.Timestamp(scoped.index[outside_mask].min())
+            last = pd.Timestamp(scoped.index[outside_mask].max())
             msg = (
                 "Signal inputs contain dates outside the active analysis window: "
                 f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
             )
             raise ValueError(msg)
 
-        scoped = window_frame.loc[
-            (window_frame.index >= allowed_start) & (window_frame.index <= allowed_end)
-        ]
-        scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
-        return scoped
+        return scoped.astype(float)
 
     weight_engine_fallback: dict[str, str] | None = None
     if (
