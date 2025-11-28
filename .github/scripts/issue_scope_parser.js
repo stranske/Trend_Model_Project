@@ -214,7 +214,26 @@ const parseScopeTasksAcceptanceSections = (source) => {
   return sections;
 };
 
+const analyzeSectionPresence = (source) => {
+  const { sections } = collectSections(source);
+  const entries = SECTION_DEFS.map((section) => {
+    const content = (sections[section.key] || '').trim();
+    return {
+      key: section.key,
+      label: section.label,
+      present: Boolean(content),
+    };
+  });
+  const missing = entries.filter((entry) => !entry.present).map((entry) => entry.label);
+  return {
+    entries,
+    missing,
+    hasAllRequired: missing.length === 0,
+  };
+};
+
 module.exports = {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
+  analyzeSectionPresence,
 };
