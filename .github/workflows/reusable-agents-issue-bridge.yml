@@ -595,7 +595,7 @@ jobs:
               core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
             }
 
-            const scopeBlock = extractScopeTasksAcceptanceSections(issueBody);
+            const scopeBlock = extractScopeTasksAcceptanceSections(issueBody, { includePlaceholders: true });
             const statusSummaryBlock = scopeBlock
               ? ['<!-- auto-status-summary:start -->', '## Automated Status Summary', scopeBlock, '<!-- auto-status-summary:end -->'].join('\n')
               : '';
@@ -653,6 +653,25 @@ jobs:
               core.setOutput('created', 'false');
             }
 
+            if (pr && statusSummaryBlock) {
+              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(pr.body || '');
+              if (!bodyHasSummary) {
+                const existingBody = (pr.body || '').trim();
+                const segments = [statusSummaryBlock];
+                if (existingBody) {
+                  segments.push('', existingBody);
+                }
+                const mergedBody = segments.join('\n').trim();
+                try {
+                  await github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: mergedBody });
+                  pr.body = mergedBody;
+                  core.info(`Inserted auto-status summary into PR #${pr.number} body.`);
+                } catch (error) {
+                  core.warning(`Failed to insert auto-status summary into PR #${pr.number}: ${error.message}`);
+                }
+              }
+            }
+
             core.setOutput('scope_block', scopeBlock || '');
             core.setOutput('status_summary_block', statusSummaryBlock || '');
             core.setOutput('issue_body', issueBody || '');
@@ -690,7 +709,7 @@ jobs:
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
 
       - name: Post issue context on PR
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         uses: actions/github-script@v7
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}

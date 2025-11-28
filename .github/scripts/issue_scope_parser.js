@@ -7,13 +7,49 @@ const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/
 
 const SECTION_DEFS = [
   { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope'] },
-  { key: 'tasks', label: 'Task List', aliases: ['Tasks', 'Task List'] },
+  { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List'] },
   {
     key: 'acceptance',
     label: 'Acceptance Criteria',
     aliases: ['Acceptance Criteria', 'Acceptance', 'Acceptance criteria'],
   },
 ];
+
+const PLACEHOLDERS = {
+  scope: '_No scope information provided_',
+  tasks: '- [ ] _No tasks defined_',
+  acceptance: '- [ ] _No acceptance criteria defined_',
+};
+
+const CHECKBOX_SECTIONS = new Set(['tasks', 'acceptance']);
+
+function normaliseChecklist(content) {
+  const raw = String(content || '');
+  if (!raw.trim()) {
+    return raw;
+  }
+
+  const lines = raw.split('\n');
+  let mutated = false;
+  const updated = lines.map((line) => {
+    const match = line.match(/^(\s*)([-*])\s+(.*)$/);
+    if (!match) {
+      return line;
+    }
+    const [, indent, bullet, remainderRaw] = match;
+    const remainder = remainderRaw.trim();
+    if (!remainder) {
+      return line;
+    }
+    if (/^\[[ xX]\]/.test(remainder)) {
+      return `${indent}${bullet} ${remainder}`;
+    }
+    mutated = true;
+    return `${indent}${bullet} [ ] ${remainder}`;
+  });
+
+  return mutated ? updated.join('\n') : raw;
+}
 
 function collectSections(source) {
   const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
@@ -142,20 +178,32 @@ function resolveHeadingLabel(sectionKey, matchedLabel, canonicalTitle) {
   return canonicalTitle;
 }
 
-const extractScopeTasksAcceptanceSections = (source) => {
+const extractScopeTasksAcceptanceSections = (source, options = {}) => {
   const { sections, labels } = collectSections(source);
+  const includePlaceholders = Boolean(options.includePlaceholders);
 
   const extracted = [];
+  let started = false;
   for (const section of SECTION_DEFS) {
     const canonicalTitle = section.label;
-    const content = sections[section.key];
     const headingLabel = resolveHeadingLabel(section.key, labels?.[section.key], canonicalTitle);
-    if (!content && !extracted.length) {
-      // If the first section is empty, continue so the caller can fall back cleanly.
+    const content = (sections[section.key] || '').trim();
+    let body = content;
+    if (!body && includePlaceholders) {
+      body = PLACEHOLDERS[section.key] || '';
+    }
+    if (body && CHECKBOX_SECTIONS.has(section.key)) {
+      body = normaliseChecklist(body);
+    }
+    if (!body) {
+      if (!started && section.key === 'scope') {
+        continue;
+      }
       continue;
     }
     const headerLine = `#### ${headingLabel}`;
-    extracted.push(content ? `${headerLine}\n${content}` : headerLine);
+    extracted.push(`${headerLine}\n${body}`);
+    started = true;
   }
 
   return extracted.join('\n\n').trim();
