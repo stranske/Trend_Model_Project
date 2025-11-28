@@ -425,21 +425,6 @@ async function dispatchFallbackWorkflow({
     if (round) {
       inputs.round = String(round);
     }
-    const commentContext = {};
-    if (commentInfo?.id) {
-      commentContext.comment_id = String(commentInfo.id);
-    }
-    if (commentInfo?.url) {
-      commentContext.comment_url = commentInfo.url;
-    }
-    if (Object.keys(commentContext).length) {
-      try {
-        inputs.comment_context = JSON.stringify(commentContext);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Fallback dispatch', `failed to encode comment_context: ${message} ${roundTag}`);
-      }
-    }
     if (idempotencyKey) {
       inputs.idempotency_key = idempotencyKey;
     }

@@ -1995,9 +1995,6 @@ jobs:
           HEAD_REPO: ${{ needs.keepalive-prep.outputs.head_repo }}
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
           AGENT: ${{ needs.keepalive-prep.outputs.agent }}
-          COMMENT_ID: ''
-          COMMENT_URL: ''
-          COMMENT_CONTEXT: ''
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -2016,32 +2013,6 @@ jobs:
               return;
             }
 
-            const buildCommentContext = () => {
-              const preset = (process.env.COMMENT_CONTEXT || '').trim();
-              if (preset) {
-                return preset;
-              }
-              const context = {};
-              const commentId = (process.env.COMMENT_ID || '').trim();
-              if (commentId) {
-                context.comment_id = commentId;
-              }
-              const commentUrl = (process.env.COMMENT_URL || '').trim();
-              if (commentUrl) {
-                context.comment_url = commentUrl;
-              }
-              if (!Object.keys(context).length) {
-                return '';
-              }
-              try {
-                return JSON.stringify(context);
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                core.warning(`Unable to serialize comment context: ${message}`);
-                return '';
-              }
-            };
-
             const inputs = {
               pr_number: String(process.env.PR_NUMBER || ''),
               trace: String(process.env.TRACE || ''),
@@ -2058,11 +2029,6 @@ jobs:
             const headRepo = (process.env.HEAD_REPO || '').toLowerCase();
             if (headRepo) {
               inputs.head_is_fork = headRepo !== baseRepo ? 'true' : 'false';
-            }
-
-            const commentContext = buildCommentContext();
-            if (commentContext) {
-              inputs.comment_context = commentContext;
             }
 
             while (Date.now() < deadline) {
