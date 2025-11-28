@@ -25,7 +25,7 @@ test('buildIssueContext returns summary without warnings when sections exist', (
   assert.equal(result.warningLines.length, 0);
   assert.ok(result.statusSummaryBlock.includes('Automated Status Summary'));
   assert.ok(!result.statusSummaryBlock.includes('Summary Unavailable'));
-  assert.ok(result.scopeBlock.includes('## Scope'));
+  assert.ok(result.scopeBlock.includes('#### Scope'));
 });
 
 test('buildIssueContext flags warnings when sections missing', () => {
