@@ -659,28 +659,44 @@ def _compute_weights_and_stats(
 
         allowed_start = window.in_start
         allowed_end = window.out_end
-        window_frame = (
-            pd.concat([window.in_df, window.out_df])
-            .sort_index()
-            .reindex(columns=fund_cols)
-        )
-        outside_mask = (window_frame.index < allowed_start) | (
-            window_frame.index > allowed_end
-        )
-        if bool(outside_mask.any()):
-            first = pd.Timestamp(window_frame.index[outside_mask].min())
-            last = pd.Timestamp(window_frame.index[outside_mask].max())
-            msg = (
-                "Signal inputs contain dates outside the active analysis window: "
-                f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
-            )
-            raise ValueError(msg)
 
-        scoped = window_frame.loc[
-            (window_frame.index >= allowed_start) & (window_frame.index <= allowed_end)
-        ]
-        scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
-        return scoped
+        def _filter_window(frame: pd.DataFrame) -> pd.DataFrame:
+            outside_mask = (frame.index < allowed_start) | (frame.index > allowed_end)
+            if bool(outside_mask.any()):
+                first = pd.Timestamp(frame.index[outside_mask].min())
+                last = pd.Timestamp(frame.index[outside_mask].max())
+                msg = (
+                    "Signal inputs contain dates outside the active analysis window: "
+                    f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
+                )
+                raise ValueError(msg)
+
+            scoped = frame.loc[
+                (frame.index >= allowed_start) & (frame.index <= allowed_end)
+            ]
+            scoped = scoped.loc[:, ~scoped.columns.duplicated()]
+            scoped = scoped.reindex(columns=fund_cols)
+            return scoped.astype(float)
+
+        signal_source: pd.DataFrame | None = None
+        try:
+            scoped_cols = [preprocess.date_col, *fund_cols]
+            # Copy before ``set_index`` so DataFrame subclasses (see
+            # ``tests.test_pipeline_helpers_additional.SignalFrame``) can signal
+            # that no usable signal data are available.
+            subset = preprocess.df[scoped_cols].copy()
+            signal_source = subset.set_index(preprocess.date_col)
+        except Exception:
+            signal_source = None
+
+        if signal_source is None:
+            signal_source = (
+                pd.concat([window.in_df, window.out_df])
+                .sort_index()
+                .reindex(columns=fund_cols)
+            )
+
+        return _filter_window(signal_source)
 
     weight_engine_fallback: dict[str, str] | None = None
     if (
