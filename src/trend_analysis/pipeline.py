@@ -156,6 +156,8 @@ class _SelectionStage:
     score_frame: pd.DataFrame
     risk_free_override: pd.Series
     indices_list: list[str]
+    requested_indices: list[str]
+    missing_indices: list[str]
 
 
 @dataclass(slots=True)
@@ -439,8 +441,33 @@ def _select_universe(
     risk_free_column: str | None,
     allow_risk_free_fallback: bool | None,
 ) -> _SelectionStage | PipelineResult:
-    if indices_list is None:
-        indices_list = []
+    requested_indices = [str(idx) for idx in indices_list] if indices_list else []
+    valid_indices: list[str] = []
+    missing_indices: list[str] = []
+    if requested_indices:
+        available_cols = set(window.in_df.columns)
+        available_indices = [idx for idx in requested_indices if idx in available_cols]
+        missing_indices = [
+            idx for idx in requested_indices if idx not in available_cols
+        ]
+
+        for idx in available_indices:
+            has_data = window.in_df[idx].notnull().any()
+            if has_data:
+                valid_indices.append(idx)
+            else:
+                missing_indices.append(idx)
+
+        if not valid_indices:
+            return pipeline_failure(
+                PipelineReasonCode.INDICES_ABSENT,
+                context={
+                    "requested_indices": requested_indices,
+                    "missing_indices": missing_indices,
+                    "available_columns": sorted(available_cols),
+                },
+            )
+    indices_list = valid_indices
 
     rf_col: str
     fund_cols: list[str]
@@ -454,11 +481,6 @@ def _select_universe(
         allow_risk_free_fallback=allow_risk_free_fallback,
         fallback_window=fallback_window,
     )
-
-    valid_indices: list[str] = []
-    if indices_list:
-        index_presence = window.in_df[indices_list].notnull().any(axis=0)
-        valid_indices = list(index_presence[index_presence].index)
 
     if selection_mode == "all" and custom_weights is not None:
         fund_cols = [c for c in fund_cols if c in custom_weights]
@@ -571,6 +593,8 @@ def _select_universe(
         score_frame=score_frame,
         risk_free_override=risk_free_override,
         indices_list=valid_indices,
+        requested_indices=requested_indices,
+        missing_indices=missing_indices,
     )
 
 
@@ -1023,6 +1047,11 @@ def _assemble_analysis_output(
     metadata["frequency"] = preprocess.frequency_payload
     metadata["missing_data"] = preprocess.missing_payload
     metadata["risk_free_column"] = rf_col
+    metadata["indices"] = {
+        "requested": selection.requested_indices,
+        "accepted": selection.indices_list,
+        "missing": selection.missing_indices,
+    }
 
     return pipeline_success(
         {

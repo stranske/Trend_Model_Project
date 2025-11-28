@@ -76,6 +76,7 @@ class PipelineReasonCode(str, Enum):
     INSUFFICIENT_COLUMNS = "PIPELINE_INSUFFICIENT_COLUMNS"
     SAMPLE_WINDOW_EMPTY = "PIPELINE_SAMPLE_WINDOW_EMPTY"
     NO_FUNDS_SELECTED = "PIPELINE_NO_FUNDS_SELECTED"
+    INDICES_ABSENT = "PIPELINE_INDICES_ABSENT"
 
 
 _DEFAULT_MESSAGES: Mapping[PipelineReasonCode, str] = {
@@ -87,6 +88,7 @@ _DEFAULT_MESSAGES: Mapping[PipelineReasonCode, str] = {
     PipelineReasonCode.INSUFFICIENT_COLUMNS: "Insufficient data columns to continue the analysis.",
     PipelineReasonCode.SAMPLE_WINDOW_EMPTY: "In-sample or out-of-sample window is empty.",
     PipelineReasonCode.NO_FUNDS_SELECTED: "No investable funds satisfy the selection filters.",
+    PipelineReasonCode.INDICES_ABSENT: "Requested indices are missing from the analysis window.",
 }
 
 
