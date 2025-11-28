@@ -590,10 +590,14 @@ jobs:
                 segment = normalized.slice(startIndex + startMarker.length, endIndex);
               }
 
-              const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
-              const titleKeys = titles.map((title) => title.toLowerCase());
+              const sections = [
+                { key: 'scope', label: 'Scope', aliases: ['Scope'] },
+                { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List'] },
+                { key: 'acceptance', label: 'Acceptance Criteria', aliases: ['Acceptance Criteria'] },
+              ];
 
-              const headingLabelPattern = titles
+              const headingLabelPattern = sections
+                .flatMap((section) => section.aliases)
                 .map((title) => escapeRegExp(title))
                 .join('|');
               const headingRegex = new RegExp(
@@ -601,15 +605,24 @@ jobs:
                 'gim'
               );
 
+              const aliasLookup = sections.reduce((acc, section) => {
+                section.aliases.forEach((alias) => {
+                  acc[alias.toLowerCase()] = section;
+                });
+                return acc;
+              }, {});
+
               const headings = [];
               let match;
               while ((match = headingRegex.exec(segment)) !== null) {
                 const title = (match[1] || '').toLowerCase();
-                if (!title) {
+                if (!title || !aliasLookup[title]) {
                   continue;
                 }
+                const section = aliasLookup[title];
                 headings.push({
-                  title,
+                  title: section.key,
+                  label: section.label,
                   index: match.index,
                   length: match[0].length,
                 });
@@ -619,11 +632,10 @@ jobs:
                 return '';
               }
 
-              const sections = [];
-              for (let index = 0; index < titleKeys.length; index += 1) {
-                const titleKey = titleKeys[index];
-                const canonicalTitle = titles[index];
-                const header = headings.find((entry) => entry.title === titleKey);
+              const extracted = [];
+              for (const section of sections) {
+                const canonicalTitle = section.label;
+                const header = headings.find((entry) => entry.title === section.key);
                 if (!header) {
                   continue; // Skip missing sections instead of failing
                 }
@@ -644,10 +656,10 @@ jobs:
                 const contentEnd = nextHeader ? nextHeader.index : segment.length;
                 const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
                 const headerLine = `#### ${canonicalTitle}`;
-                sections.push(content ? `${headerLine}\n${content}` : headerLine);
+                extracted.push(content ? `${headerLine}\n${content}` : headerLine);
               }
 
-              return sections.join('\n\n').trim();
+              return extracted.join('\n\n').trim();
             };
               const agent = (process.env.AGENT || '').trim();
               if (!agent || agent === 'unknown') {
@@ -670,16 +682,19 @@ jobs:
             const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
             let pr = existing.data[0];
 
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (e) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+            }
+
+            const scopeBlock = extractScopeTasksAcceptanceSections(issueBody);
+
             if (!pr) {
-              let issueTitle = '';
-              let issueBody = '';
-              try {
-                const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
-                issueTitle = is.title || '';
-                issueBody = is.body || '';
-              } catch (e) {
-                core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
-              }
 
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
               const keepaliveStatus = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
@@ -688,7 +703,6 @@ jobs:
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
               const baseLine = base ? `Base: ${base}` : '';
               const headLine = head ? `Head: ${head}` : '';
-              const scopeBlock = extractScopeTasksAcceptanceSections(issueBody);
               const issueDetailsBlock = (() => {
                 const sections = [];
                 if (scopeBlock) {
@@ -731,16 +745,14 @@ jobs:
               }));
 
               core.setOutput('created', 'true');
-              core.setOutput('scope_block', scopeBlock || '');
-              core.setOutput('issue_body', issueBody || '');
-              core.setOutput('issue_title', issueTitle || '');
             } else {
               // Explicitly set default outputs when PR already exists
               core.setOutput('created', 'false');
-              core.setOutput('scope_block', '');
-              core.setOutput('issue_body', '');
-              core.setOutput('issue_title', '');
             }
+
+            core.setOutput('scope_block', scopeBlock || '');
+            core.setOutput('issue_body', issueBody || '');
+            core.setOutput('issue_title', issueTitle || '');
 
             core.setOutput('number', String(pr.number));
             
@@ -774,7 +786,7 @@ jobs:
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
 
       - name: Post issue context on PR
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.created == 'true' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
         uses: actions/github-script@v7
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
@@ -808,6 +820,19 @@ jobs:
             const body = parts.join('\n').trim();
             if (!body) {
               core.info('No issue details available for comment; skipping.');
+              return;
+            }
+
+            const existing = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issueNumber}\\b`, 'i');
+            const alreadyPosted = existing.some((comment) => headerRegex.test(comment?.body || ''));
+            if (alreadyPosted) {
+              core.info('Issue context comment already present; skipping.');
               return;
             }
 
