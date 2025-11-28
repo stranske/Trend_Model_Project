@@ -596,6 +596,36 @@ def _compute_weights_and_stats(
 ) -> _ComputationStage:
     fund_cols = selection.fund_cols
 
+    def _scoped_signal_inputs() -> pd.DataFrame:
+        if not fund_cols:
+            return pd.DataFrame(dtype=float)
+
+        allowed_start = window.in_start
+        allowed_end = window.out_end
+        window_frame = (
+            pd.concat([window.in_df, window.out_df])
+            .sort_index()
+            .reindex(columns=fund_cols)
+        )
+        outside_mask = (window_frame.index < allowed_start) | (
+            window_frame.index > allowed_end
+        )
+        if bool(outside_mask.any()):
+            first = pd.Timestamp(window_frame.index[outside_mask].min())
+            last = pd.Timestamp(window_frame.index[outside_mask].max())
+            msg = (
+                "Signal inputs contain dates outside the active analysis window: "
+                f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
+            )
+            raise ValueError(msg)
+
+        scoped = window_frame.loc[
+            (window_frame.index >= allowed_start)
+            & (window_frame.index <= allowed_end)
+        ]
+        scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
+        return scoped
+
     weight_engine_fallback: dict[str, str] | None = None
     if (
         custom_weights is None
@@ -701,12 +731,7 @@ def _compute_weights_and_stats(
         vol_target=None,
         zscore=False,
     )
-    signal_source = preprocess.df_original
-    signal_inputs = (
-        signal_source.set_index(window.date_col)[fund_cols].astype(float)
-        if fund_cols
-        else pd.DataFrame(dtype=float)
-    )
+    signal_inputs = _scoped_signal_inputs()
     if not signal_inputs.empty:
         signal_frame = compute_trend_signals(signal_inputs, effective_signal_spec)
     else:
