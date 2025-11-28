@@ -563,112 +563,15 @@ jobs:
             const head = process.env.BRANCH;
             const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
-            const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
-            const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
-            /**
-             * Extracts Scope, Tasks, and Acceptance Criteria sections from issue text.
-             * 
-             * Searches for sections within auto-status-summary markers (if present) or the entire source.
-             * Expects markdown headings (## or **bold**) matching exact titles: "Scope", "Tasks", "Acceptance Criteria".
-             * 
-             * @param {string} source - The issue body text to parse
-             * @returns {string} Formatted sections with #### headings, or empty string if extraction fails
-             */
-            const extractScopeTasksAcceptanceSections = (source) => {
-              const normalized = normalizeNewlines(source);
-              if (!normalized.trim()) {
-                return '';
-              }
-
-              const startMarker = '<!-- auto-status-summary:start -->';
-              const endMarker = '<!-- auto-status-summary:end -->';
-              const startIndex = normalized.indexOf(startMarker);
-              const endIndex = normalized.indexOf(endMarker);
-
-              let segment = normalized;
-              if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-                segment = normalized.slice(startIndex + startMarker.length, endIndex);
-              }
-
-              const sections = [
-                { key: 'scope', label: 'Scope', aliases: ['Scope'] },
-                { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List'] },
-                { key: 'acceptance', label: 'Acceptance Criteria', aliases: ['Acceptance Criteria'] },
-              ];
-
-              const headingLabelPattern = sections
-                .flatMap((section) => section.aliases)
-                .map((title) => escapeRegExp(title))
-                .join('|');
-              const headingRegex = new RegExp(
-                `^\\s*(?:#{1,6}\\s+|\\*\\*)(${headingLabelPattern})(?:\\s*|\\*\\*)\\s*$`,
-                'gim'
-              );
-
-              const aliasLookup = sections.reduce((acc, section) => {
-                section.aliases.forEach((alias) => {
-                  acc[alias.toLowerCase()] = section;
-                });
-                return acc;
-              }, {});
-
-              const headings = [];
-              let match;
-              while ((match = headingRegex.exec(segment)) !== null) {
-                const title = (match[1] || '').toLowerCase();
-                if (!title || !aliasLookup[title]) {
-                  continue;
-                }
-                const section = aliasLookup[title];
-                headings.push({
-                  title: section.key,
-                  label: section.label,
-                  index: match.index,
-                  length: match[0].length,
-                });
-              }
-
-              if (headings.length === 0) {
-                return '';
-              }
-
-              const extracted = [];
-              for (const section of sections) {
-                const canonicalTitle = section.label;
-                const header = headings.find((entry) => entry.title === section.key);
-                if (!header) {
-                  continue; // Skip missing sections instead of failing
-                }
-
-                const nextHeader = headings
-                  .filter((entry) => entry.index > header.index)
-                  .sort((a, b) => a.index - b.index)[0];
-                const contentStart = (() => {
-                  const start = header.index + header.length;
-                  if (segment[start] === '\r' && segment[start + 1] === '\n') {
-                    return start + 2;
-                  }
-                  if (segment[start] === '\n') {
-                    return start + 1;
-                  }
-                  return start;
-                })();
-                const contentEnd = nextHeader ? nextHeader.index : segment.length;
-                const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
-                const headerLine = `#### ${canonicalTitle}`;
-                extracted.push(content ? `${headerLine}\n${content}` : headerLine);
-              }
-
-              return extracted.join('\n\n').trim();
-            };
-              const agent = (process.env.AGENT || '').trim();
-              if (!agent || agent === 'unknown') {
-                core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
-                return;
-              }
-              const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
-              const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
-              const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
+            const { extractScopeTasksAcceptanceSections } = require('./.github/scripts/issue_scope_parser.js');
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            const instruction = `${mention} use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.`;
 
             if (!issue_number) {
               core.setFailed('Resolved issue number missing; cannot open PR.');
@@ -693,6 +596,9 @@ jobs:
             }
 
             const scopeBlock = extractScopeTasksAcceptanceSections(issueBody);
+            const statusSummaryBlock = scopeBlock
+              ? ['<!-- auto-status-summary:start -->', '## Automated Status Summary', scopeBlock, '<!-- auto-status-summary:end -->'].join('\n')
+              : '';
 
             if (!pr) {
 
@@ -705,11 +611,8 @@ jobs:
               const headLine = head ? `Head: ${head}` : '';
               const issueDetailsBlock = (() => {
                 const sections = [];
-                if (scopeBlock) {
-                  sections.push('<!-- auto-status-summary:start -->');
-                  sections.push('## Automated Status Summary');
-                  sections.push(scopeBlock);
-                  sections.push('<!-- auto-status-summary:end -->');
+                if (statusSummaryBlock) {
+                  sections.push(statusSummaryBlock);
                 }
                 if (issueBody && issueBody.trim()) {
                   sections.push('### Issue Details');
@@ -751,6 +654,7 @@ jobs:
             }
 
             core.setOutput('scope_block', scopeBlock || '');
+            core.setOutput('status_summary_block', statusSummaryBlock || '');
             core.setOutput('issue_body', issueBody || '');
             core.setOutput('issue_title', issueTitle || '');
 
@@ -793,6 +697,7 @@ jobs:
           ISSUE_TITLE: ${{ steps.pr.outputs.issue_title }}
           ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
           SCOPE_BLOCK: ${{ steps.pr.outputs.scope_block }}
+          STATUS_SUMMARY_BLOCK: ${{ steps.pr.outputs.status_summary_block }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -800,6 +705,7 @@ jobs:
             const issueNumber = Number(process.env.ISSUE_NUMBER || 0);
             const issueTitle = process.env.ISSUE_TITLE || '';
             const scopeBlock = (process.env.SCOPE_BLOCK || '').trim();
+            const statusSummaryBlock = (process.env.STATUS_SUMMARY_BLOCK || '').trim();
             const issueBody = (process.env.ISSUE_BODY || '').trim();
 
             if (!prNumber) {
@@ -810,7 +716,9 @@ jobs:
             const titlePart = issueTitle ? `: ${issueTitle}` : '';
             const header = `### Issue #${issueNumber || '?'}${titlePart}`;
             const parts = [header];
-            if (scopeBlock) {
+            if (statusSummaryBlock) {
+              parts.push('', statusSummaryBlock);
+            } else if (scopeBlock) {
               parts.push('', scopeBlock);
             }
             if (issueBody) {
