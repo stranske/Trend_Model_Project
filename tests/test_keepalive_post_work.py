@@ -197,3 +197,41 @@ def test_keepalive_sync_escalation_adds_label_and_comment() -> None:
         text.startswith("SYNC: action=escalate") and "link=" in text
         for text in raw_entries
     )
+
+
+def test_keepalive_sync_dispatches_head_repo_for_fork() -> None:
+    data = _run_scenario("fork_sync")
+    dispatches = data["events"]["workflowDispatches"]
+    outputs = data["outputs"]
+
+    assert len(dispatches) == 1
+    inputs = dispatches[0]["inputs"]
+    assert inputs["head_repository"] == "fork-owner/Trend_Model_Project"
+    assert inputs["head_is_fork"] == "true"
+
+    assert outputs["action"] == "create-pr"
+    assert outputs["mode"] == "helper-sync"
+    assert outputs["success"] == "true"
+    assert outputs["status"] == "in_sync"
+
+    table = _summary_table(data)
+    assert any(
+        row[0] == "Helper sync result" and "Branch advanced" in row[1] for row in table
+    )
+
+
+def test_keepalive_sync_skips_fork_without_head_repo() -> None:
+    data = _run_scenario("fork_missing_head_repo")
+    outputs = data["outputs"]
+
+    assert data["events"]["workflowDispatches"] == []
+    assert outputs["action"] == "skip"
+    assert outputs["mode"] == "fork-head-repo-missing"
+    assert outputs["success"] == "false"
+    assert outputs["status"] == "conflict"
+
+    table = _summary_table(data)
+    assert any(
+        row[0] == "Initialisation" and "Forked PR missing head repository" in row[1]
+        for row in table
+    )

@@ -107,6 +107,8 @@ async function loadPull({ github, owner, repo, prNumber }) {
   return {
     headSha: data?.head?.sha || '',
     headRef: data?.head?.ref || '',
+    headRepo: data?.head?.repo?.full_name || '',
+    baseRepo: data?.base?.repo?.full_name || `${owner}/${repo}`,
     baseRef: data?.base?.ref || '',
     userLogin: data?.user?.login || '',
     raw: data,
@@ -267,6 +269,16 @@ function buildSyncSummaryLabel(trace) {
 
 function isForkPull(initialInfo) {
   const forkFlag = initialInfo?.raw?.head?.repo?.fork;
+  if (typeof forkFlag === 'boolean') {
+    return forkFlag;
+  }
+
+  const headRepo = normaliseLower(initialInfo?.headRepo);
+  const baseRepo = normaliseLower(initialInfo?.baseRepo);
+  if (headRepo && baseRepo && headRepo !== baseRepo) {
+    return true;
+  }
+
   return Boolean(forkFlag);
 }
 
@@ -379,6 +391,8 @@ async function dispatchFallbackWorkflow({
   prNumber,
   headRef,
   headSha,
+  headRepo,
+  headIsFork,
   trace,
   round,
   agentAlias,
@@ -399,26 +413,17 @@ async function dispatchFallbackWorkflow({
       head_ref: headRef,
       head_sha: headSha,
     };
+    if (headRepo) {
+      inputs.head_repository = headRepo;
+    }
+    if (typeof headIsFork === 'boolean') {
+      inputs.head_is_fork = headIsFork ? 'true' : 'false';
+    }
     if (agentAlias) {
       inputs.agent = agentAlias;
     }
     if (round) {
       inputs.round = String(round);
-    }
-    const commentContext = {};
-    if (commentInfo?.id) {
-      commentContext.comment_id = String(commentInfo.id);
-    }
-    if (commentInfo?.url) {
-      commentContext.comment_url = commentInfo.url;
-    }
-    if (Object.keys(commentContext).length) {
-      try {
-        inputs.comment_context = JSON.stringify(commentContext);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Fallback dispatch', `failed to encode comment_context: ${message} ${roundTag}`);
-      }
     }
     if (idempotencyKey) {
       inputs.idempotency_key = idempotencyKey;
@@ -794,6 +799,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   const issueNumber = parseNumber(env.ISSUE_NUMBER, NaN, { min: 1 });
   const baseBranch = normalise(env.PR_BASE) || normalise(env.BASE_BRANCH) || normalise(env.PR_BASE_BRANCH);
   const headBranchEnv = normalise(env.PR_HEAD) || normalise(env.HEAD_BRANCH) || normalise(env.PR_HEAD_BRANCH);
+  const headRepoEnv = normalise(env.HEAD_REPO);
   let baselineHead =
     normalise(env.PR_HEAD_SHA_PREV) ||
     normalise(env.PREVIOUS_HEAD) ||
@@ -1153,25 +1159,31 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
 
   if (isForkPull(initialHeadInfo)) {
-    record('Initialisation', 'PR originates from a fork; skipping sync operations.');
-    setStatus('conflict');
-    applyFinalState({
-      action: 'skip',
-      success: false,
-      mode: 'skipped-fork',
-      headMoved: false,
-      status: syncStatus,
-      statusBase,
-      statusHead,
-      link: syncLink,
-    });
-    await complete();
-    return;
+    const headRepoName = headRepoEnv || initialHeadInfo.headRepo || '';
+    if (!headRepoName) {
+      record('Initialisation', 'Forked PR missing head repository; skipping sync operations.');
+      setStatus('conflict');
+      applyFinalState({
+        action: 'skip',
+        success: false,
+        mode: 'fork-head-repo-missing',
+        headMoved: false,
+        status: syncStatus,
+        statusBase,
+        statusHead,
+        link: syncLink,
+      });
+      await complete();
+      return;
+    }
   }
 
   const initialHead = initialHeadInfo.headSha || '';
   const headBranch = headBranchEnv || initialHeadInfo.headRef || '';
   const baseRef = baseBranch || initialHeadInfo.baseRef || '';
+  const baseRepoFullName = initialHeadInfo.baseRepo || `${owner}/${repo}`;
+  const headRepoFullName = headRepoEnv || initialHeadInfo.headRepo || (isForkPull(initialHeadInfo) ? '' : baseRepoFullName);
+  const headIsFork = isForkPull(initialHeadInfo);
   setStatusHead(initialHead);
   setStatusBase(baseRef);
   if (!baselineHead) {
@@ -1413,6 +1425,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
           agentAlias,
           commentInfo,
           idempotencyKey,
+          headRepo: headRepoFullName,
+          headIsFork,
           record,
         });
 
@@ -1604,6 +1618,8 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
           agentAlias,
           commentInfo,
           idempotencyKey,
+          headRepo: headRepoFullName,
+          headIsFork,
           record,
         });
 
