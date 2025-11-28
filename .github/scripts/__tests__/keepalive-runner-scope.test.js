@@ -26,7 +26,7 @@ test('extractScopeTasksAcceptanceSections accepts varied heading styles', () => 
     '#### Scope',
     '- [ ] alpha',
     '',
-    '#### Tasks',
+    '#### Task List',
     '- [ ] beta',
     '',
     '#### Acceptance Criteria',
@@ -53,11 +53,38 @@ test('findScopeTasksAcceptanceBlock falls back to bold headings in PR body', () 
     '#### Scope',
     '- [ ] keep the UI optional',
     '',
-    '#### Tasks',
+    '#### Task List',
     '- [ ] gate heavy imports behind availability checks',
     '',
     '#### Acceptance Criteria',
     '- [ ] pipeline executes without widget dependencies',
+  ].join('\n');
+
+  assert.equal(extracted, expected);
+});
+
+test('findScopeTasksAcceptanceBlock accepts plain headings with colons', () => {
+  const prBody = [
+    'Scope:',
+    '- [ ] headline summary',
+    '',
+    'Tasks',
+    '- [ ] do the actual implementation',
+    '',
+    'Acceptance criteria',
+    '- [ ] passes the regression suite',
+  ].join('\n');
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  const expected = [
+    '#### Scope',
+    '- [ ] headline summary',
+    '',
+    '#### Task List',
+    '- [ ] do the actual implementation',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] passes the regression suite',
   ].join('\n');
 
   assert.equal(extracted, expected);
