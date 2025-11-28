@@ -596,6 +596,39 @@ def _compute_weights_and_stats(
 ) -> _ComputationStage:
     fund_cols = selection.fund_cols
 
+    def _enforce_window_bounds(
+        frame: pd.DataFrame,
+        label: str,
+        allowed_start: pd.Timestamp,
+        allowed_end: pd.Timestamp,
+    ) -> None:
+        if frame.empty:
+            return
+        idx = frame.index
+        outside_mask = (idx < allowed_start) | (idx > allowed_end)
+        if bool(outside_mask.any()):
+            oob_index = idx[outside_mask]
+            first = pd.Timestamp(oob_index.min())
+            last = pd.Timestamp(oob_index.max())
+            msg = (
+                f"{label} contain dates outside the active analysis window: "
+                f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
+            )
+            raise ValueError(msg)
+
+    _enforce_window_bounds(
+        window.in_df,
+        label="In-sample returns",
+        allowed_start=window.in_start,
+        allowed_end=window.in_end,
+    )
+    _enforce_window_bounds(
+        window.out_df,
+        label="Out-of-sample returns",
+        allowed_start=window.out_start,
+        allowed_end=window.out_end,
+    )
+
     def _scoped_signal_inputs() -> pd.DataFrame:
         if not fund_cols:
             return pd.DataFrame(dtype=float)
