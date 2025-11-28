@@ -2049,9 +2049,16 @@ jobs:
               head_ref: String(process.env.HEAD_REF || ''),
               head_sha: String(process.env.HEAD_SHA || ''),
               head_repository: String(process.env.HEAD_REPO || ''),
+              head_is_fork: '',
               agent: String(process.env.AGENT || ''),
               round: String(process.env.ROUND || ''),
             };
+
+            const baseRepo = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            const headRepo = (process.env.HEAD_REPO || '').toLowerCase();
+            if (headRepo) {
+              inputs.head_is_fork = headRepo !== baseRepo ? 'true' : 'false';
+            }
 
             const commentContext = buildCommentContext();
             if (commentContext) {
@@ -2307,6 +2314,7 @@ jobs:
           PR_BASE_BRANCH: ${{ needs.keepalive-prep.outputs.base_ref }}
           HEAD_BRANCH: ${{ needs.belt-dispatch.outputs.branch }}
           PR_HEAD_BRANCH: ${{ needs.keepalive-prep.outputs.head_ref }}
+          HEAD_REPO: ${{ needs.keepalive-prep.outputs.head_repo }}
           PREVIOUS_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
           COMMENT_ID: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_id }}
           COMMENT_URL: ${{ needs.keepalive-prep.outputs.existing_instruction_comment_url }}

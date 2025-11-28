@@ -21,6 +21,9 @@ on:
       head_repository:
         description: Full name of the head repository
         required: false
+      head_is_fork:
+        description: Whether the PR originates from a fork
+        required: false
       agent:
         description: Agent alias requesting the sync
         required: false
@@ -44,6 +47,18 @@ jobs:
     env:
       PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
+      - name: Validate fork inputs
+        id: validate
+        run: |
+          if [ "${{ inputs.head_is_fork || 'false' }}" = "true" ] && [ -z "${{ inputs.head_repository }}" ]; then
+            {
+              echo "## Keepalive branch sync";
+              echo "";
+              echo "Forked PR detected but head repository missing; skipping checkout to avoid fetching the base repo.";
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Forked PR requires head_repository input; aborting sync."
+            exit 1
+          fi
       - name: Warn when head repository is missing
         run: |
           if [ -z "${{ inputs.head_repository }}" ]; then

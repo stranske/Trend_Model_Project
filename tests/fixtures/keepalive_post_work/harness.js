@@ -89,6 +89,14 @@ async function main() {
     return headSequence[headSequence.length - 1];
   };
 
+  const baseRepoFullName = scenario.baseRepo || `${repo.owner}/${repo.repo}`;
+  const headRepoFullName =
+    scenario.headRepo === null ? '' : scenario.headRepo || `${repo.owner}/${repo.repo}`;
+  const headRepoFork =
+    typeof scenario.headRepoFork === 'boolean'
+      ? scenario.headRepoFork
+      : headRepoFullName.toLowerCase() !== baseRepoFullName.toLowerCase();
+
   const defaultLabels = Array.isArray(scenario.labels)
     ? scenario.labels
     : ['agents:keepalive', 'agent:codex'];
@@ -154,6 +162,10 @@ async function main() {
                   scenario.headBranch ||
                   scenario.env?.HEAD_BRANCH ||
                   'codex/issue-1',
+                repo: {
+                  full_name: headRepoFullName || undefined,
+                  fork: headRepoFork,
+                },
               },
               base: {
                 ref:
@@ -161,6 +173,10 @@ async function main() {
                   scenario.baseBranch ||
                   scenario.env?.BASE_BRANCH ||
                   'main',
+                repo: {
+                  full_name: baseRepoFullName,
+                  fork: false,
+                },
               },
               user: { login: scenario.prUser || 'stranske-automation-bot' },
             },
