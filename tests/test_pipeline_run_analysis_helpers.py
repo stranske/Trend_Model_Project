@@ -3,6 +3,7 @@ import pytest
 
 from trend_analysis.pipeline import (
     PipelineReasonCode,
+    PipelineResult,
     RiskStatsConfig,
     _assemble_analysis_output,
     _build_sample_windows,
@@ -127,6 +128,52 @@ def test_select_universe_reports_missing_funds() -> None:
     )
 
 
+def test_select_universe_rejects_unknown_indices() -> None:
+    df = _make_simple_frame()
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="manual",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=[],
+        indices_list=["Missing"],
+        seed=1,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    assert isinstance(selection, PipelineResult)
+    assert selection.diagnostic is not None
+    assert selection.diagnostic.reason_code == PipelineReasonCode.INDICES_ABSENT.value
+    assert selection.diagnostic.context == {
+        "requested_indices": ["Missing"],
+        "missing_indices": ["Missing"],
+        "available_columns": ["A", "B", "rf"],
+    }
+
+
 def test_compute_weights_and_stats_produces_metrics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -198,6 +245,149 @@ def test_compute_weights_and_stats_produces_metrics(
     assert computation.risk_diagnostics.scale_factors.shape[0] == len(
         selection.fund_cols
     )
+
+
+def test_select_universe_tracks_partial_indices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _make_simple_frame()
+    df["Benchmark"] = 0.0
+
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
+        cols = [c for c in df.columns if c != "Date"]
+        return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
+
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="all",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=None,
+        indices_list=["Benchmark", "Missing"],
+        seed=1,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    assert not isinstance(selection, PipelineResult)
+    assert selection.indices_list == ["Benchmark"]
+    assert selection.missing_indices == ["Missing"]
+    assert selection.requested_indices == ["Benchmark", "Missing"]
+
+
+def test_assemble_analysis_output_reports_indices_feedback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _make_simple_frame()
+    df["Benchmark"] = 0.0
+    stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
+
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
+        cols = [c for c in df.columns if c != "Date"]
+        return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
+
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="all",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=None,
+        indices_list=["Benchmark", "Missing"],
+        seed=1,
+        stats_cfg=stats_cfg,
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+    assert not isinstance(selection, PipelineResult)
+    computation = _compute_weights_and_stats(
+        preprocess,
+        window,
+        selection,
+        target_vol=0.1,
+        monthly_cost=0.0,
+        custom_weights=None,
+        weighting_scheme=None,
+        constraints=None,
+        risk_window=None,
+        previous_weights=None,
+        lambda_tc=None,
+        max_turnover=None,
+        signal_spec=None,
+        weight_policy=None,
+        warmup=0,
+        min_floor=0.0,
+        stats_cfg=stats_cfg,
+    )
+    result = _assemble_analysis_output(
+        preprocess,
+        window,
+        selection,
+        computation,
+        benchmarks=None,
+        regime_cfg=None,
+        target_vol=0.1,
+        monthly_cost=0.0,
+        min_floor=0.0,
+    )
+
+    assert result.value is not None
+    assert result.value.get("metadata", {}).get("indices") == {
+        "requested": ["Benchmark", "Missing"],
+        "accepted": ["Benchmark"],
+        "missing": ["Missing"],
+    }
 
 
 def test_assemble_analysis_output_wraps_success(
