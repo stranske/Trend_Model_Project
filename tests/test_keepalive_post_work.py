@@ -114,6 +114,10 @@ def test_keepalive_sync_update_branch_success() -> None:
         for entry in data.get("summary", [])
         if entry.get("type") == "raw"
     ]
+    assert any(
+        text.startswith("Remediation:") and "update-branch:advanced" in text
+        for text in raw_entries
+    )
     assert any(text.startswith("SYNC: status=in_sync") for text in raw_entries)
     assert any(
         text.startswith("SYNC: action=update-branch") and "link=" in text
@@ -149,6 +153,12 @@ def test_keepalive_sync_create_pr_flow() -> None:
         for entry in data.get("summary", [])
         if entry.get("type") == "raw"
     ]
+    assert any(
+        text.startswith("Remediation:")
+        and "update-branch:failed:Update branch blocked" in text
+        and "branch-sync:run=https://example.test/run/987654" in text
+        for text in raw_entries
+    )
     assert any(text.startswith("SYNC: status=in_sync") for text in raw_entries)
     assert any(
         text.startswith("SYNC: action=create-pr") and "link=" in text
