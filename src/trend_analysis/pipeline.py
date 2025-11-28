@@ -676,8 +676,7 @@ def _compute_weights_and_stats(
             raise ValueError(msg)
 
         scoped = window_frame.loc[
-            (window_frame.index >= allowed_start)
-            & (window_frame.index <= allowed_end)
+            (window_frame.index >= allowed_start) & (window_frame.index <= allowed_end)
         ]
         scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
         return scoped
