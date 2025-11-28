@@ -177,6 +177,7 @@ EXPECTED_NAMES = {
     "agents-72-codex-belt-worker.yml": "Agents 72 Codex Belt Worker",
     "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
     "agents-keepalive-branch-sync.yml": "Keepalive Branch Sync",
+    "agents-keepalive-dispatch-handler.yml": "Keepalive Dispatch Handler",
     "agents-pr-meta.yml": "Agents PR meta manager",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",

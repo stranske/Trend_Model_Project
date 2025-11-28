@@ -778,6 +778,15 @@ async function attemptUpdateBranchViaApi({
 async function runKeepalivePostWork({ core, github, context, env = process.env }) {
   const summaryHelper = buildSummaryRecorder(core?.summary);
   const record = summaryHelper.record;
+  const remediationNotes = [];
+
+  const noteRemediation = (note) => {
+    const value = normalise(note);
+    if (!value) {
+      return;
+    }
+    remediationNotes.push(value);
+  };
 
   const trace = normalise(env.TRACE);
   const round = normalise(env.ROUND);
@@ -934,6 +943,10 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       const statusLabel = finalState.status || syncStatus || 'needs_update';
       const modeLabel = finalState.statusMode || statusMode;
       const linkLabel = finalState.link || syncLink || '-';
+      if (remediationNotes.length) {
+        const uniqueNotes = Array.from(new Set(remediationNotes));
+        core.summary.addRaw(`Remediation: ${uniqueNotes.join(' | ')}`).addEOL();
+      }
       core.summary
         .addRaw(`SYNC: status=${statusLabel} mode=${modeLabel} head=${shortHead} base=${baseLabel || '(unknown)'}`)
         .addEOL()
@@ -1417,6 +1430,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
           workflow: 'agents-keepalive-branch-sync.yml',
         },
       });
+      noteRemediation(`branch-sync:dispatched status=${dispatchInfo.status ?? 0}`);
     } else {
       record('Helper sync dispatch', appendRound('reuse previous dispatch record.'));
     }
@@ -1446,6 +1460,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
           },
         });
       }
+      noteRemediation(runInfo.html_url ? `branch-sync:run=${runInfo.html_url}` : `branch-sync:run-id=${runInfo.id}`);
     } else {
       record('Helper sync run', appendRound('pending discovery.'));
     }
@@ -1537,6 +1552,17 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record,
       appendRound,
     });
+    if (apiResult?.attempted) {
+      if (apiResult?.changed) {
+        noteRemediation(`update-branch:advanced:${apiResult.headSha || '(unknown)'}`);
+      } else if (apiResult?.error) {
+        noteRemediation(`update-branch:failed:${apiResult.error}`);
+      } else if (apiResult?.blocked) {
+        noteRemediation('update-branch:blocked');
+      } else {
+        noteRemediation('update-branch:unchanged');
+      }
+    }
     if (apiResult?.changed) {
       success = true;
       finalHead = apiResult.headSha || finalHead;
@@ -1590,6 +1616,7 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
           workflow: 'agents-keepalive-branch-sync.yml',
         },
       });
+      noteRemediation(`branch-sync:dispatched status=${dispatchInfo.status ?? 0}`);
     } else if (dispatchInfo.dispatched) {
       record('Fallback dispatch', appendRound('reuse previous dispatch record.'));
     }
@@ -1608,6 +1635,11 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
       record,
       appendRound,
     });
+    if (runInfo?.html_url) {
+      noteRemediation(`branch-sync:run=${runInfo.html_url}`);
+    } else if (runInfo) {
+      noteRemediation(`branch-sync:run-id=${runInfo.id}`);
+    }
     if (apiResult?.changed) {
       success = true;
       finalHead = apiResult.headSha || finalHead;

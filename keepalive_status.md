@@ -12,5 +12,6 @@ Active/most recent entries:
 - PR #3790 (fork-safe head checkout hardening): [docs/keepalive/status/PR3790_Status.md](docs/keepalive/status/PR3790_Status.md)
 - PR #3809 (single-period guardrails and correlation surfacing): [docs/keepalive/status/PR3809_Status.md](docs/keepalive/status/PR3809_Status.md)
 - PR #3813 (Codex bootstrap for issue #3801): [docs/keepalive/status/PR3813_Status.md](docs/keepalive/status/PR3813_Status.md)
+- PR #3822 (codex keepalive dispatch handler): [docs/keepalive/status/PR3822_Status.md](docs/keepalive/status/PR3822_Status.md)
 
 Add new bullet points here only to register additional keepalive runs; do not reuse or overwrite existing status files.
