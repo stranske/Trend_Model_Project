@@ -18,7 +18,7 @@
   - [ ] Poll the PR head every 5 seconds up to `TTL_short` (≈60–120s) and mark success (`mode=comment-update-branch`) if the head SHA changes.
 - [ ] Build the fallback dispatch path when the PR head remains unchanged after `TTL_short`.
   - [ ] Ensure the orchestrator job has permissions `actions: write`, `contents: read`, and `pull-requests: write`.
-  - [ ] Trigger `agents-keepalive-branch-sync.yml` via `createWorkflowDispatch`, passing `pr_number`, `trace`, `base_ref`, `head_ref`, `head_sha`, `agent`, `round`, a `comment_context` JSON blob (containing `comment_id`/`comment_url`), and an idempotency key (trace is sufficient).
+  - [ ] Trigger `agents-keepalive-branch-sync.yml` via `createWorkflowDispatch`, passing `pr_number`, `trace`, `base_ref`, `head_ref`, `head_sha`, `agent`, `round`, and an idempotency key (trace is sufficient).
   - [ ] Authenticate the dispatch with ACTIONS_BOT_PAT.
   - [ ] Log the dispatch (status code, workflow file, trace, run URL when available) to `$GITHUB_STEP_SUMMARY`.
 - [ ] Monitor for branch advancement or timeout after the fallback dispatch.
