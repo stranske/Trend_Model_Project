@@ -215,7 +215,9 @@ def test_keepalive_sync_dispatches_head_repo_for_fork() -> None:
     assert outputs["status"] == "in_sync"
 
     table = _summary_table(data)
-    assert any(row[0] == "Helper sync result" and "Branch advanced" in row[1] for row in table)
+    assert any(
+        row[0] == "Helper sync result" and "Branch advanced" in row[1] for row in table
+    )
 
 
 def test_keepalive_sync_skips_fork_without_head_repo() -> None:
