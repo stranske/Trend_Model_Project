@@ -652,6 +652,7 @@ def _compute_weights_and_stats(
         allowed_start=window.out_start,
         allowed_end=window.out_end,
     )
+
     def _scoped_signal_inputs() -> pd.DataFrame:
         if not fund_cols:
             return pd.DataFrame(dtype=float)
@@ -676,8 +677,7 @@ def _compute_weights_and_stats(
             raise ValueError(msg)
 
         scoped = window_frame.loc[
-            (window_frame.index >= allowed_start)
-            & (window_frame.index <= allowed_end)
+            (window_frame.index >= allowed_start) & (window_frame.index <= allowed_end)
         ]
         scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
         return scoped
