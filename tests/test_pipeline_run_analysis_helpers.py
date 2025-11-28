@@ -3,6 +3,7 @@ import pytest
 
 from trend_analysis.pipeline import (
     PipelineReasonCode,
+    PipelineResult,
     RiskStatsConfig,
     _assemble_analysis_output,
     _build_sample_windows,
@@ -126,6 +127,52 @@ def test_select_universe_reports_missing_funds() -> None:
     assert (
         selection.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
     )
+
+
+def test_select_universe_rejects_unknown_indices() -> None:
+    df = _make_simple_frame()
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="manual",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=[],
+        indices_list=["Missing"],
+        seed=1,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    assert isinstance(selection, PipelineResult)
+    assert selection.diagnostic is not None
+    assert selection.diagnostic.reason_code == PipelineReasonCode.INDICES_ABSENT.value
+    assert selection.diagnostic.context == {
+        "requested_indices": ["Missing"],
+        "missing_indices": ["Missing"],
+        "available_columns": ["A", "B", "rf"],
+    }
 
 
 def test_compute_weights_and_stats_produces_metrics(
