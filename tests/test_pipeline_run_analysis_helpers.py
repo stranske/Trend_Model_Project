@@ -7,6 +7,7 @@ from trend_analysis.pipeline import (
     _assemble_analysis_output,
     _build_sample_windows,
     _compute_weights_and_stats,
+    _WindowStage,
     _prepare_preprocess_stage,
     _select_universe,
 )
@@ -198,6 +199,184 @@ def test_compute_weights_and_stats_produces_metrics(
     assert computation.risk_diagnostics.scale_factors.shape[0] == len(
         selection.fund_cols
     )
+
+
+def test_compute_weights_scopes_signal_inputs_to_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = _make_simple_frame()
+    extra = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-07-31", tz="UTC")],
+            "A": [0.02],
+            "B": [0.01],
+            "rf": [0.001],
+        }
+    )
+    df = pd.concat([base, extra], ignore_index=True)
+    df.attrs["calendar_settings"] = {"timezone": None}
+    stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
+
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
+        cols = [c for c in df.columns if c != "Date"]
+        return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
+
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
+
+    observed: dict[str, pd.Timestamp] = {}
+
+    def _fake_compute_trend_signals(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
+        observed["min"] = df.index.min()
+        observed["max"] = df.index.max()
+        return pd.DataFrame(0.0, index=df.index, columns=df.columns)
+
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.compute_trend_signals", _fake_compute_trend_signals
+    )
+
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="all",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=None,
+        indices_list=None,
+        seed=1,
+        stats_cfg=stats_cfg,
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    _compute_weights_and_stats(
+        preprocess,
+        window,
+        selection,
+        target_vol=0.1,
+        monthly_cost=0.0,
+        custom_weights=None,
+        weighting_scheme=None,
+        constraints=None,
+        risk_window=None,
+        previous_weights=None,
+        lambda_tc=None,
+        max_turnover=None,
+        signal_spec=None,
+        weight_policy=None,
+        warmup=0,
+        min_floor=0.0,
+        stats_cfg=stats_cfg,
+    )
+
+    assert observed["min"] == window.in_df.index.min()
+    assert observed["max"] == window.out_df.index.max()
+
+
+def test_compute_weights_rejects_out_of_window_signal_dates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = _make_simple_frame()
+    stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
+
+    def _fake_single_period_run(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
+        cols = [c for c in df.columns if c != "Date"]
+        return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
+
+    monkeypatch.setattr(
+        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
+    )
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=None,
+    )
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01-31",
+        in_end="2020-03-31",
+        out_start="2020-04-30",
+        out_end="2020-06-30",
+    )
+    selection = _select_universe(
+        preprocess,
+        window,
+        in_label="2020-01-31",
+        in_end_label="2020-03-31",
+        selection_mode="all",
+        random_n=1,
+        custom_weights=None,
+        rank_kwargs=None,
+        manual_funds=None,
+        indices_list=None,
+        seed=1,
+        stats_cfg=stats_cfg,
+        risk_free_column="rf",
+        allow_risk_free_fallback=True,
+    )
+
+    future_row = window.out_df.iloc[[-1]].copy()
+    future_row.index = [window.out_end + pd.offsets.MonthEnd()]
+    tampered_out = pd.concat([window.out_df, future_row]).sort_index()
+    tampered_window = _WindowStage(
+        in_df=window.in_df,
+        out_df=tampered_out,
+        in_start=window.in_start,
+        in_end=window.in_end,
+        out_start=window.out_start,
+        out_end=window.out_end,
+        periods_per_year=window.periods_per_year,
+        date_col=window.date_col,
+    )
+
+    with pytest.raises(ValueError, match="active analysis window"):
+        _compute_weights_and_stats(
+            preprocess,
+            tampered_window,
+            selection,
+            target_vol=0.1,
+            monthly_cost=0.0,
+            custom_weights=None,
+            weighting_scheme=None,
+            constraints=None,
+            risk_window=None,
+            previous_weights=None,
+            lambda_tc=None,
+            max_turnover=None,
+            signal_spec=None,
+            weight_policy=None,
+            warmup=0,
+            min_floor=0.0,
+            stats_cfg=stats_cfg,
+        )
 
 
 def test_assemble_analysis_output_wraps_success(
