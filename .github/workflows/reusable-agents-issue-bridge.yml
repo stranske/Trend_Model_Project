@@ -758,6 +758,8 @@ jobs:
               .split(',')
               .map((item) => item.trim())
               .filter(Boolean);
+            const summaryNeedsWarning = missingSections.length > 0;
+            const expectsLines = missingSections.map((section) => `- ${section}`);
             const warningDetails = summaryNeedsWarning ? expectsLines : [];
             const warningLines = summaryNeedsWarning ? ['#### ⚠️ Template Warning', '', ...warningDetails] : [];
             if (summaryNeedsWarning && missingSections.length) {
