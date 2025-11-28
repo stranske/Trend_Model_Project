@@ -1,6 +1,8 @@
 'use strict';
 
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
+const stripBlockquotePrefixes = (value) =>
+  String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
 const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 
 const SECTION_DEFS = [
@@ -14,9 +16,9 @@ const SECTION_DEFS = [
 ];
 
 function collectSections(source) {
-  const normalized = normalizeNewlines(source);
+  const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
   if (!normalized.trim()) {
-    return { segment: '', sections: {} };
+    return { segment: '', sections: {}, labels: {} };
   }
 
   const startMarker = '<!-- auto-status-summary:start -->';
@@ -50,7 +52,8 @@ function collectSections(source) {
   const headings = [];
   let match;
   while ((match = headingRegex.exec(segment)) !== null) {
-    const title = (match[1] || '').toLowerCase();
+    const matchedLabel = (match[1] || '').trim();
+    const title = matchedLabel.toLowerCase();
     if (!title || !aliasLookup[title]) {
       continue;
     }
@@ -60,6 +63,7 @@ function collectSections(source) {
       label: section.label,
       index: match.index,
       length: match[0].length,
+      matchedLabel,
     });
   }
 
@@ -67,9 +71,13 @@ function collectSections(source) {
     acc[section.key] = '';
     return acc;
   }, {});
+  const labels = SECTION_DEFS.reduce((acc, section) => {
+    acc[section.key] = section.label;
+    return acc;
+  }, {});
 
   if (headings.length === 0) {
-    return { segment, sections: extracted };
+    return { segment, sections: extracted, labels };
   }
 
   for (const section of SECTION_DEFS) {
@@ -91,9 +99,10 @@ function collectSections(source) {
     const contentEnd = nextHeader ? nextHeader.index : segment.length;
     const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
     extracted[section.key] = content;
+    labels[section.key] = header.matchedLabel?.trim() || canonicalTitle;
   }
 
-  return { segment, sections: extracted };
+  return { segment, sections: extracted, labels };
 }
 
 /**
@@ -107,18 +116,45 @@ function collectSections(source) {
  * @param {string} source - The issue body text to parse.
  * @returns {string} Formatted sections with #### headings, or an empty string if none were found.
  */
+function resolveHeadingLabel(sectionKey, matchedLabel, canonicalTitle) {
+  if (sectionKey !== 'tasks') {
+    return canonicalTitle;
+  }
+
+  const raw = String(matchedLabel || '').trim();
+  if (!raw) {
+    return canonicalTitle;
+  }
+
+  const stripped = raw.replace(/:+$/, '').trim();
+  if (!stripped) {
+    return canonicalTitle;
+  }
+
+  const lowered = stripped.toLowerCase();
+  if (lowered === 'tasks') {
+    return 'Tasks';
+  }
+  if (lowered === 'task list') {
+    return 'Task List';
+  }
+
+  return canonicalTitle;
+}
+
 const extractScopeTasksAcceptanceSections = (source) => {
-  const { sections } = collectSections(source);
+  const { sections, labels } = collectSections(source);
 
   const extracted = [];
   for (const section of SECTION_DEFS) {
     const canonicalTitle = section.label;
     const content = sections[section.key];
+    const headingLabel = resolveHeadingLabel(section.key, labels?.[section.key], canonicalTitle);
     if (!content && !extracted.length) {
       // If the first section is empty, continue so the caller can fall back cleanly.
       continue;
     }
-    const headerLine = `#### ${canonicalTitle}`;
+    const headerLine = `#### ${headingLabel}`;
     extracted.push(content ? `${headerLine}\n${content}` : headerLine);
   }
 

@@ -4,6 +4,10 @@ const {
   extractInstructionSegment,
   computeInstructionByteLength,
 } = require('./keepalive_instruction_segment.js');
+const {
+  extractScopeTasksAcceptanceSections: extractScopeTasksAcceptanceSectionsFromIssue,
+  parseScopeTasksAcceptanceSections,
+} = require('../.github/scripts/issue_scope_parser.js');
 
 function parseJson(value, fallback) {
   try {
@@ -137,10 +141,6 @@ function escapeRegExp(value) {
   return String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 }
 
-function normaliseNewlines(value) {
-  return String(value ?? '').replace(/\r\n/g, '\n');
-}
-
 function safeDebug(core, message) {
   if (core && typeof core.debug === 'function') {
     core.debug(message);
@@ -212,79 +212,17 @@ function buildOctokitInstance({ core, github, token }) {
   return null;
 }
 
+function hasScopeTasksAcceptanceContent(source) {
+  const sections = parseScopeTasksAcceptanceSections(source);
+  if (!sections || typeof sections !== 'object') {
+    return false;
+  }
+
+  return Object.values(sections).some((value) => Boolean(String(value || '').trim()));
+}
+
 function extractScopeTasksAcceptanceSections(source) {
-  const normalised = normaliseNewlines(source);
-  if (!normalised.trim()) {
-    return '';
-  }
-
-  const startMarker = '<!-- auto-status-summary:start -->';
-  const endMarker = '<!-- auto-status-summary:end -->';
-  const startIndex = normalised.indexOf(startMarker);
-  const endIndex = normalised.indexOf(endMarker);
-
-  let segment = normalised;
-  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    segment = normalised.slice(startIndex + startMarker.length, endIndex);
-  }
-
-  const titles = ['Scope', 'Tasks', 'Acceptance Criteria'];
-  const titleKeys = titles.map((title) => title.toLowerCase());
-
-  const headingLabelPattern = titles
-    .map((title) => escapeRegExp(title))
-    .join('|');
-  const headingRegex = new RegExp(
-    `^\\s*(?:#{1,6}\\s*(${headingLabelPattern})\\s*|\\*\\*(${headingLabelPattern})\\*\\*)\\s*$`,
-    'gim'
-  );
-
-  const headings = [];
-  let match;
-  while ((match = headingRegex.exec(segment)) !== null) {
-    const [, hashTitle, boldTitle] = match;
-    const title = (hashTitle || boldTitle || '').toLowerCase();
-    if (!title) {
-      continue;
-    }
-    headings.push({
-      title,
-      index: match.index,
-      length: match[0].length,
-    });
-  }
-
-  if (headings.length === 0) {
-    return '';
-  }
-
-  const sections = [];
-  for (let index = 0; index < titleKeys.length; index += 1) {
-    const titleKey = titleKeys[index];
-    const canonicalTitle = titles[index];
-    const header = headings.find((entry) => entry.title === titleKey);
-    if (!header) {
-      return '';
-    }
-
-    const nextHeader = headings.find((entry) => entry.index > header.index);
-    const contentStart = (() => {
-      const start = header.index + header.length;
-      if (segment[start] === '\r' && segment[start + 1] === '\n') {
-        return start + 2;
-      }
-      if (segment[start] === '\n') {
-        return start + 1;
-      }
-      return start;
-    })();
-    const contentEnd = nextHeader ? nextHeader.index : segment.length;
-    const content = normaliseNewlines(segment.slice(contentStart, contentEnd)).trim();
-    const headerLine = `#### ${canonicalTitle}`;
-    sections.push(content ? `${headerLine}\n${content}` : headerLine);
-  }
-
-  return sections.join('\n\n').trim();
+  return extractScopeTasksAcceptanceSectionsFromIssue(source);
 }
 
 function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
@@ -297,20 +235,13 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
   }
 
   const sources = [];
-  if (prBody) {
+  if (hasScopeTasksAcceptanceContent(prBody)) {
     sources.push(prBody);
   }
 
   for (const comment of comments || []) {
     const body = comment?.body || '';
-    if (!body) {
-      continue;
-    }
-
-    if (
-      body.includes('auto-status-summary') ||
-      /####\s+(Scope|Tasks|Acceptance Criteria)/i.test(body)
-    ) {
+    if (body && hasScopeTasksAcceptanceContent(body)) {
       sources.push(body);
     }
   }
