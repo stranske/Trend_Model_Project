@@ -27,7 +27,7 @@ test('extracts sections inside auto-status markers', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- item a', '', '#### Tasks', '- [ ] first', '', '#### Acceptance Criteria', '- pass'].join('\n')
+    ['#### Scope', '- item a', '', '#### Tasks', '- [ ] first', '', '#### Acceptance Criteria', '- [ ] pass'].join('\n')
   );
 });
 
@@ -46,7 +46,7 @@ test('parses plain headings without markdown hashes', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- summary', '', '#### Tasks', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
+    ['#### Scope', '- summary', '', '#### Tasks', '- [ ] alpha', '', '#### Acceptance Criteria', '- [ ] ok'].join('\n')
   );
 });
 
@@ -96,7 +96,7 @@ test('parses blockquoted sections exported into PR bodies', () => {
       '- [ ] second task',
       '',
       '#### Acceptance Criteria',
-      '- two tasks completed',
+      '- [ ] two tasks completed',
     ].join('\n')
   );
 });
@@ -104,4 +104,55 @@ test('parses blockquoted sections exported into PR bodies', () => {
 test('returns empty string when no headings present', () => {
   const issue = 'No structured content here.';
   assert.equal(extractScopeTasksAcceptanceSections(issue), '');
+});
+
+test('includes placeholders when requested', () => {
+  const issue = [
+    'Tasks:',
+    '- [ ] implement fast path',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue, { includePlaceholders: true });
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      '_No scope information provided_',
+      '',
+      '#### Tasks',
+      '- [ ] implement fast path',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] _No acceptance criteria defined_',
+    ].join('\n')
+  );
+});
+
+test('normalises bullet lists into checkboxes for tasks and acceptance', () => {
+  const issue = [
+    'Tasks',
+    '- finish vectorisation',
+    '-  add docs',
+    '',
+    'Acceptance criteria',
+    '- confirm coverage > 90%',
+    '-  ensure no regressions',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue, { includePlaceholders: true });
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      '_No scope information provided_',
+      '',
+      '#### Tasks',
+      '- [ ] finish vectorisation',
+      '- [ ] add docs',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] confirm coverage > 90%',
+      '- [ ] ensure no regressions',
+    ].join('\n')
+  );
 });
