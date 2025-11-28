@@ -5,6 +5,7 @@
 ## Progress updates
 - Round 1: Captured the PR scope, tasks, and acceptance criteria for keepalive tracking.
 - Round 2: Confirmed keepalive tracking remains active; awaiting implementation to satisfy tasks and acceptance criteria.
+- Round 3: Reposted the scope, tasks, and acceptance criteria; all items remain open pending implementation and verification against the acceptance criteria.
 
 ## Scope
 - [ ] Signal computation must use only window-scoped data, eliminating look-ahead bias in both in-sample and out-of-sample runs.
