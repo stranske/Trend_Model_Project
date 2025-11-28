@@ -658,30 +658,29 @@ def _compute_weights_and_stats(
 
         allowed_start = window.in_start
         allowed_end = window.out_end
-        mask = (preprocess.df[preprocess.date_col] >= allowed_start) & (
-            preprocess.df[preprocess.date_col] <= allowed_end
+        window_frame = (
+            pd.concat([window.in_df, window.out_df])
+            .sort_index()
+            .reindex(columns=fund_cols)
         )
-        scoped = preprocess.df.loc[mask, [preprocess.date_col] + fund_cols]
-        if scoped.empty:
-            return pd.DataFrame(dtype=float)
-
-        scoped = scoped.copy().set_index(preprocess.date_col).reindex(columns=fund_cols)
-        scoped = scoped.loc[:, ~scoped.columns.duplicated()]
-
-        if not scoped.index.is_monotonic_increasing:
-            scoped = scoped.sort_index()
-
-        outside_mask = (scoped.index < allowed_start) | (scoped.index > allowed_end)
+        outside_mask = (window_frame.index < allowed_start) | (
+            window_frame.index > allowed_end
+        )
         if bool(outside_mask.any()):
-            first = pd.Timestamp(scoped.index[outside_mask].min())
-            last = pd.Timestamp(scoped.index[outside_mask].max())
+            first = pd.Timestamp(window_frame.index[outside_mask].min())
+            last = pd.Timestamp(window_frame.index[outside_mask].max())
             msg = (
                 "Signal inputs contain dates outside the active analysis window: "
                 f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
             )
             raise ValueError(msg)
 
-        return scoped.astype(float)
+        scoped = window_frame.loc[
+            (window_frame.index >= allowed_start)
+            & (window_frame.index <= allowed_end)
+        ]
+        scoped = scoped.loc[:, ~scoped.columns.duplicated()].astype(float)
+        return scoped
 
     weight_engine_fallback: dict[str, str] | None = None
     if (
