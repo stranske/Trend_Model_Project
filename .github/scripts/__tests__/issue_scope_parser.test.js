@@ -71,6 +71,36 @@ test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
   });
 });
 
+test('parses blockquoted sections exported into PR bodies', () => {
+  const issue = [
+    '> ## Scope',
+    '> ensure detection survives quoting',
+    '>',
+    '> ## Tasks',
+    '> - [ ] first task',
+    '> - [ ] second task',
+    '>',
+    '> ## Acceptance criteria',
+    '> - two tasks completed',
+  ].join('\n');
+
+  const extracted = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    extracted,
+    [
+      '#### Scope',
+      'ensure detection survives quoting',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '- [ ] second task',
+      '',
+      '#### Acceptance Criteria',
+      '- two tasks completed',
+    ].join('\n')
+  );
+});
+
 test('returns empty string when no headings present', () => {
   const issue = 'No structured content here.';
   assert.equal(extractScopeTasksAcceptanceSections(issue), '');

@@ -1,6 +1,8 @@
 'use strict';
 
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
+const stripBlockquotePrefixes = (value) =>
+  String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
 const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 
 const SECTION_DEFS = [
@@ -14,7 +16,7 @@ const SECTION_DEFS = [
 ];
 
 function collectSections(source) {
-  const normalized = normalizeNewlines(source);
+  const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
   if (!normalized.trim()) {
     return { segment: '', sections: {}, labels: {} };
   }

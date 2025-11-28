@@ -86,6 +86,10 @@ test('findScopeTasksAcceptanceBlock accepts plain headings with colons', () => {
     '#### Acceptance Criteria',
     '- [ ] passes the regression suite',
   ].join('\n');
+
+  assert.equal(extracted, expected);
+});
+
 test('findScopeTasksAcceptanceBlock preserves Task List label when provided', () => {
   const prBody = [
     'Task List',
@@ -102,6 +106,34 @@ test('findScopeTasksAcceptanceBlock preserves Task List label when provided', ()
   assert.match(extracted, /#### Task List/);
 });
 
+test('findScopeTasksAcceptanceBlock parses blockquoted PR bodies', () => {
+  const prBody = [
+    '### Source Issue',
+    '',
+    '> ## Scope',
+    '> - [ ] blockquoted scope item',
+    '>',
+    '> ## Tasks',
+    '> - [ ] task alpha',
+    '> - [ ] task beta',
+    '>',
+    '> ## Acceptance criteria',
+    '> - all tasks done',
+  ].join('\n');
 
-  assert.equal(extracted, expected);
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  assert.equal(
+    extracted,
+    [
+      '#### Scope',
+      '- [ ] blockquoted scope item',
+      '',
+      '#### Tasks',
+      '- [ ] task alpha',
+      '- [ ] task beta',
+      '',
+      '#### Acceptance Criteria',
+      '- all tasks done',
+    ].join('\n')
+  );
 });
