@@ -598,31 +598,33 @@ jobs:
               core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
             }
 
-            const scopeBlock = extractScopeTasksAcceptanceSections(issueBody, { includePlaceholders: true });
+            const scopeBlockWithPlaceholders = extractScopeTasksAcceptanceSections(issueBody, { includePlaceholders: true });
+            const scopeBlockStrict = extractScopeTasksAcceptanceSections(issueBody, { includePlaceholders: false });
             const presence = analyzeSectionPresence(issueBody || '');
             const missingSections = Array.isArray(presence?.missing) ? presence.missing : [];
             const expectedSections = ['Scope', 'Tasks', 'Acceptance Criteria'];
-            const trimmedScopeBlock = (scopeBlock || '').trim();
+            const summaryContentBlock = (scopeBlockStrict || '').trim();
+            const missingDescription = missingSections.length
+              ? `Problem detected: ${missingSections.join(', ')} ${missingSections.length === 1 ? 'is' : 'are'} missing or empty in the source issue.`
+              : 'Problem detected: The parser could not find any of the canonical headings in the source issue.';
+            const expectsLines = [
+              'Automated Status Summary expects the following sections in the source issue:',
+              ...expectedSections.map((section) => `- ${section}`),
+              '',
+              missingDescription,
+              '',
+              'Please edit the issue to add `## Scope`, `## Tasks`, and `## Acceptance Criteria`, then rerun the agent workflow so keepalive can parse your plan.',
+            ];
+            const summaryNeedsWarning = !summaryContentBlock || missingSections.length > 0;
             const summaryLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
-            if (trimmedScopeBlock) {
-              summaryLines.push(trimmedScopeBlock);
+            if (!summaryNeedsWarning && summaryContentBlock) {
+              summaryLines.push(summaryContentBlock);
             } else {
-              const problemLine = missingSections.length
-                ? `Problem detected: ${missingSections.join(', ')} ${missingSections.length === 1 ? 'is' : 'are'} missing or empty in the source issue.`
-                : 'Problem detected: The parser could not find the canonical headings in the source issue.';
-              summaryLines.push(
-                '#### ⚠️ Summary Unavailable',
-                '',
-                'Automated Status Summary expects the following sections in the source issue:',
-                ...expectedSections.map((section) => `- ${section}`),
-                '',
-                problemLine,
-                '',
-                'Please edit the issue to add `## Scope`, `## Tasks`, and `## Acceptance Criteria`, then rerun the agent workflow so keepalive can parse your plan.',
-              );
+              summaryLines.push('#### ⚠️ Summary Unavailable', '', ...expectsLines);
             }
             summaryLines.push('<!-- auto-status-summary:end -->');
             const statusSummaryBlock = summaryLines.join('\n');
+            const scopeBlock = (scopeBlockWithPlaceholders || '').trim();
 
             if (!pr) {
 
@@ -756,21 +758,16 @@ jobs:
               .split(',')
               .map((item) => item.trim())
               .filter(Boolean);
-            const warningDetails = missingSections.length
-              ? [
-                  'The following sections are empty or missing in the source issue:',
-                  ...missingSections.map((name) => `- ${name}`),
-                  '',
-                  'Keepalive automation expects `## Scope`, `## Tasks`, and `## Acceptance Criteria` headings. Please edit the issue to add them so automation can parse your plan.',
-                ]
-              : [];
-            const warningLines = missingSections.length ? ['#### ⚠️ Template Warning', '', ...warningDetails] : [];
-            if (missingSections.length) {
+            const summaryNeedsWarning = missingSections.length > 0;
+            const expectsLines = missingSections.map((section) => `- ${section}`);
+            const warningDetails = summaryNeedsWarning ? expectsLines : [];
+            const warningLines = summaryNeedsWarning ? ['#### ⚠️ Template Warning', '', ...warningDetails] : [];
+            if (summaryNeedsWarning && missingSections.length) {
               core.warning(`Issue template missing sections: ${missingSections.join(', ')}`);
             }
 
             if (!prNumber) {
-              if (missingSections.length && issueNumber) {
+              if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
                 const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
                 const comments = await github.paginate(github.rest.issues.listComments, {
@@ -795,7 +792,7 @@ jobs:
             } else if (scopeBlock) {
               parts.push('', scopeBlock);
             }
-            if (warningLines.length) {
+            if (summaryNeedsWarning && warningLines.length) {
               parts.push('', ...warningLines);
             }
             if (issueBody) {
