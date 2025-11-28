@@ -27,3 +27,49 @@ Acceptance criteria
 - Test coverage exercises the forked-PR path and asserts that the branch-sync helper clones or checks out the fork head using the forwarded repository info.
 Implementation notes
 - Focus on keepalive prep/post-work steps in `scripts/keepalive-runner.js` and the inputs consumed by `.github/workflows/agents-keepalive-branch-sync.yml`; avoid altering unrelated orchestrator flows.
+
+3) Prevent look-ahead bias in trend signal computation
+Labels: agent:codex, bug, modeling
+Why
+Trend signals are currently built from the full dataset and later reindexed to the in-sample or out-of-sample slices, so future
+rows can leak into historical signals and downstream weights.
+Tasks
+- Scope every signal calculation to the active analysis window before any reindexing so no future observations influence the period being scored.
+- Add guardrails/tests that fail fast when signal helpers receive dates outside the requested slice.
+- Audit each rebalance/reindex step to ensure signals and weights stay aligned to data available at the rebalance date.
+Acceptance criteria
+- Signal computation uses only window-scoped data, eliminating look-ahead bias in both in-sample and out-of-sample runs.
+- Tests cover both windows and assert failures when future data is present.
+- Rebalance outputs align strictly to window boundaries without forward-looking inputs.
+Implementation notes
+- Focus on the signal generation pipeline and the rebalance/reindex hooks that currently operate on the full dataset; keep metric definitions unchanged.
+
+4) Validate index/benchmark membership before selection
+Labels: agent:codex, enhancement, selection
+Why
+_select_universe indexes window data with the requested indices list without verifying membership, surfacing raw KeyErrors for misspelled or missing benchmarks instead of actionable feedback.
+Tasks
+- Add validation that intersects requested indices with available columns and reports absent entries before selection proceeds.
+- Emit feedback on which indices were accepted and which were ignored so misconfigurations are obvious.
+- Cover validation paths with tests for fully valid, partially missing, and fully missing index lists.
+Acceptance criteria
+- Universe selection fails gracefully with clear diagnostics when requested indices are absent from the window data.
+- Valid indices are selected without altering current behaviour; missing entries are reported deterministically.
+- Tests exercise mixed-validity scenarios and assert the reported messages.
+Implementation notes
+- Changes live around _select_universe and the helpers that build the in-sample benchmark set; avoid altering downstream weighting logic.
+
+5) Require robust coverage for risk-free fallback detection
+Labels: agent:codex, bug, selection
+Why
+The risk-free fallback chooses the lowest-volatility numeric column with any non-null value, so sparse series can be selected and later propagate NaNs when aligned to the analysis windows.
+Tasks
+- Enforce minimum coverage within the requested window before considering a column eligible for fallback selection (e.g., threshold on non-null share or span).
+- Align fallback volatility checks to the same window slice used downstream rather than the full dataset.
+- Add tests that include sparse columns and confirm only sufficiently covered, window-aligned series are selected (or a clear diagnostic is emitted).
+Acceptance criteria
+- Fallback risk-free selection ignores sparse or short series and uses window-scoped data for volatility comparison.
+- Omitted risk-free column scenarios produce deterministic, well-documented outcomes with no unexpected NaNs from missing coverage.
+- Tests cover explicit risk-free columns, eligible fallback selections, and rejection of sparse series with corresponding diagnostics.
+Implementation notes
+- Target _resolve_risk_free_column (and related fallback helpers) to apply coverage thresholds and window scoping without changing metric formulas.
