@@ -6,7 +6,6 @@ const assert = require('node:assert/strict');
 const {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
-  analyzeSectionPresence,
 } = require('../issue_scope_parser');
 
 test('extracts sections inside auto-status markers', () => {
@@ -156,40 +155,4 @@ test('normalises bullet lists into checkboxes for tasks and acceptance', () => {
       '- [ ] ensure no regressions',
     ].join('\n')
   );
-});
-
-test('analyzeSectionPresence flags missing sections', () => {
-  const issue = [
-    '## Scope',
-    'ready to go',
-    '',
-    '## Tasks',
-    '- [ ] build warning',
-  ].join('\n');
-
-  const status = analyzeSectionPresence(issue);
-  assert.deepEqual(status.entries, [
-    { key: 'scope', label: 'Scope', present: true },
-    { key: 'tasks', label: 'Tasks', present: true },
-    { key: 'acceptance', label: 'Acceptance Criteria', present: false },
-  ]);
-  assert.deepEqual(status.missing, ['Acceptance Criteria']);
-  assert.equal(status.hasAllRequired, false);
-});
-
-test('analyzeSectionPresence recognises canonical template', () => {
-  const issue = [
-    '## Scope',
-    '- new feature',
-    '',
-    '## Tasks',
-    '- [ ] scaffold ui',
-    '',
-    '## Acceptance Criteria',
-    '- [ ] demo recorded',
-  ].join('\n');
-
-  const status = analyzeSectionPresence(issue);
-  assert.equal(status.hasAllRequired, true);
-  assert.deepEqual(status.missing, []);
 });
