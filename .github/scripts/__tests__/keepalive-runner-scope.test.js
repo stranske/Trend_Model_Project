@@ -62,3 +62,78 @@ test('findScopeTasksAcceptanceBlock falls back to bold headings in PR body', () 
 
   assert.equal(extracted, expected);
 });
+
+test('findScopeTasksAcceptanceBlock accepts plain headings with colons', () => {
+  const prBody = [
+    'Scope:',
+    '- [ ] headline summary',
+    '',
+    'Tasks',
+    '- [ ] do the actual implementation',
+    '',
+    'Acceptance criteria',
+    '- [ ] passes the regression suite',
+  ].join('\n');
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  const expected = [
+    '#### Scope',
+    '- [ ] headline summary',
+    '',
+    '#### Tasks',
+    '- [ ] do the actual implementation',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] passes the regression suite',
+  ].join('\n');
+
+  assert.equal(extracted, expected);
+});
+
+test('findScopeTasksAcceptanceBlock preserves Task List label when provided', () => {
+  const prBody = [
+    'Task List',
+    '- [ ] preserve historical label',
+    '',
+    'Scope',
+    '- [ ] ensure backwards compatibility',
+    '',
+    'Acceptance Criteria',
+    '- [ ] parser returns task list heading',
+  ].join('\n');
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  assert.match(extracted, /#### Task List/);
+});
+
+test('findScopeTasksAcceptanceBlock parses blockquoted PR bodies', () => {
+  const prBody = [
+    '### Source Issue',
+    '',
+    '> ## Scope',
+    '> - [ ] blockquoted scope item',
+    '>',
+    '> ## Tasks',
+    '> - [ ] task alpha',
+    '> - [ ] task beta',
+    '>',
+    '> ## Acceptance criteria',
+    '> - all tasks done',
+  ].join('\n');
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  assert.equal(
+    extracted,
+    [
+      '#### Scope',
+      '- [ ] blockquoted scope item',
+      '',
+      '#### Tasks',
+      '- [ ] task alpha',
+      '- [ ] task beta',
+      '',
+      '#### Acceptance Criteria',
+      '- all tasks done',
+    ].join('\n')
+  );
+});

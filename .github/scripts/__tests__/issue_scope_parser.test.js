@@ -27,7 +27,7 @@ test('extracts sections inside auto-status markers', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- item a', '', '#### Task List', '- [ ] first', '', '#### Acceptance Criteria', '- pass'].join('\n')
+    ['#### Scope', '- item a', '', '#### Tasks', '- [ ] first', '', '#### Acceptance Criteria', '- pass'].join('\n')
   );
 });
 
@@ -46,7 +46,7 @@ test('parses plain headings without markdown hashes', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(
     result,
-    ['#### Scope', '- summary', '', '#### Task List', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
+    ['#### Scope', '- summary', '', '#### Tasks', '- [ ] alpha', '', '#### Acceptance Criteria', '- ok'].join('\n')
   );
 });
 
@@ -69,6 +69,36 @@ test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
     tasks: ['- [ ] do one', '- [x] done two'].join('\n'),
     acceptance: '- ✅ verified',
   });
+});
+
+test('parses blockquoted sections exported into PR bodies', () => {
+  const issue = [
+    '> ## Scope',
+    '> ensure detection survives quoting',
+    '>',
+    '> ## Tasks',
+    '> - [ ] first task',
+    '> - [ ] second task',
+    '>',
+    '> ## Acceptance criteria',
+    '> - two tasks completed',
+  ].join('\n');
+
+  const extracted = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    extracted,
+    [
+      '#### Scope',
+      'ensure detection survives quoting',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '- [ ] second task',
+      '',
+      '#### Acceptance Criteria',
+      '- two tasks completed',
+    ].join('\n')
+  );
 });
 
 test('returns empty string when no headings present', () => {
