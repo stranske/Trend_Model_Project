@@ -7,9 +7,9 @@ from trend_analysis.pipeline import (
     _assemble_analysis_output,
     _build_sample_windows,
     _compute_weights_and_stats,
-    _WindowStage,
     _prepare_preprocess_stage,
     _select_universe,
+    _WindowStage,
 )
 
 
@@ -229,7 +229,9 @@ def test_compute_weights_scopes_signal_inputs_to_window(
 
     observed: dict[str, pd.Timestamp] = {}
 
-    def _fake_compute_trend_signals(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
+    def _fake_compute_trend_signals(
+        df: pd.DataFrame, *_: object, **__: object
+    ) -> pd.DataFrame:
         observed["min"] = df.index.min()
         observed["max"] = df.index.max()
         return pd.DataFrame(0.0, index=df.index, columns=df.columns)
