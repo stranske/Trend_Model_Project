@@ -221,8 +221,12 @@ function hasScopeTasksAcceptanceContent(source) {
   return Object.values(sections).some((value) => Boolean(String(value || '').trim()));
 }
 
-function extractScopeTasksAcceptanceSections(source) {
-  return extractScopeTasksAcceptanceSectionsFromIssue(source);
+function extractScopeTasksAcceptanceSections(source, options = {}) {
+  const includePlaceholders =
+    options && Object.prototype.hasOwnProperty.call(options, 'includePlaceholders')
+      ? options.includePlaceholders
+      : true;
+  return extractScopeTasksAcceptanceSectionsFromIssue(source, { includePlaceholders });
 }
 
 function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {

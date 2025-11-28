@@ -90,6 +90,30 @@ test('findScopeTasksAcceptanceBlock accepts plain headings with colons', () => {
   assert.equal(extracted, expected);
 });
 
+test('extractScopeTasksAcceptanceSections tolerates missing scope heading', () => {
+  const prBody = [
+    'Tasks:',
+    '- [ ] add fast path',
+    '',
+    'Acceptance Criteria:',
+    '- [ ] prove it works',
+  ].join('\n');
+
+  const extracted = extractScopeTasksAcceptanceSections(prBody);
+  const expected = [
+    '#### Scope',
+    '_No scope information provided_',
+    '',
+    '#### Tasks',
+    '- [ ] add fast path',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] prove it works',
+  ].join('\n');
+
+  assert.equal(extracted, expected);
+});
+
 test('findScopeTasksAcceptanceBlock preserves Task List label when provided', () => {
   const prBody = [
     'Task List',
@@ -133,7 +157,35 @@ test('findScopeTasksAcceptanceBlock parses blockquoted PR bodies', () => {
       '- [ ] task beta',
       '',
       '#### Acceptance Criteria',
-      '- all tasks done',
+      '- [ ] all tasks done',
     ].join('\n')
   );
+});
+
+test('findScopeTasksAcceptanceBlock recognises Task List blocks without Scope', () => {
+  const comments = [
+    {
+      body: [
+        '#### Task List',
+        '- [ ] enforce guard',
+        '',
+        '#### Acceptance Criteria',
+        '- [ ] guard exercised',
+      ].join('\n'),
+    },
+  ];
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody: '', comments, override: '' });
+  const expected = [
+    '#### Scope',
+    '_No scope information provided_',
+    '',
+    '#### Task List',
+    '- [ ] enforce guard',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] guard exercised',
+  ].join('\n');
+
+  assert.equal(extracted, expected);
 });
