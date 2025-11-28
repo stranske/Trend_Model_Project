@@ -86,6 +86,22 @@ test('findScopeTasksAcceptanceBlock accepts plain headings with colons', () => {
     '#### Acceptance Criteria',
     '- [ ] passes the regression suite',
   ].join('\n');
+test('findScopeTasksAcceptanceBlock preserves Task List label when provided', () => {
+  const prBody = [
+    'Task List',
+    '- [ ] preserve historical label',
+    '',
+    'Scope',
+    '- [ ] ensure backwards compatibility',
+    '',
+    'Acceptance Criteria',
+    '- [ ] parser returns task list heading',
+  ].join('\n');
+
+  const extracted = findScopeTasksAcceptanceBlock({ prBody, comments: [], override: '' });
+  assert.match(extracted, /#### Task List/);
+});
+
 
   assert.equal(extracted, expected);
 });
