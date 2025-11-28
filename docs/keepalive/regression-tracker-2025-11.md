@@ -31,12 +31,12 @@ Review the last ~8 merges touching keepalive / intake automation to avoid reappl
 *(Fill entries with actual SHAs/PR numbers while auditing.)*
 
 ## Remediation Plan (active)
-1. **Loosen keepalive extraction** so `Tasks` + `Acceptance Criteria` alone satisfy the parser, while keeping support for legacy `Scope` blocks (still required for the Automated Status Summary when present).
-2. **Restore bootstrap comment copy** in Agents 63 intake so the entire issue body (including Scope when provided) lands in the first PR comment, guaranteeing the Task list and Acceptance Criteria are available even if the issue omitted a Scope heading.
+1. **Keep the canonical Scope / Tasks / Acceptance template working**: ensure the parser + bridge expect those headings and never regress on the long-standing issue template. If a section is missing, surface an actionable warning (in intake summary or PR comment) so the user fixes the issue before automation fails.
+2. **Restore bootstrap comment copy** in Agents 63 intake so the entire issue body (with Scope/Task List/Acceptance Criteria) lands in the first PR comment; this keeps the task checklist alive even if Scope is intentionally empty.
 3. **Manual backfill for PR #3827** to keep Codex unblocked while automation rolls out.
-4. **Regression tests**: extend the keepalive runner and intake bridge tests to cover both the Scope-optional path and the PR-comment bootstrap.
-5. **Workflow cross-check**: audit other consumers (agents-pr-meta, issue bridge, keepalive contract/gate) to ensure none still require `Scope` before shipping the change.
-6. **Documentation & runbook updates** here and in `agent_codex_troubleshooting.md` so future regessions are caught quickly.
+4. **Regression tests**: extend the keepalive runner and intake bridge tests to cover the canonical template plus the warning path when sections are missing.
+5. **Workflow cross-check**: audit other consumers (agents-pr-meta, issue bridge, keepalive contract/gate) to ensure none still require the removed headings or silently drop required sections.
+6. **Documentation & runbook updates** here and in `agent_codex_troubleshooting.md` so future regressions (missing template sections) are surfaced early with exact remediation steps.
 
 ### Completion Gate (must be true before declaring the issue fixed)
 - [ ] Agents 63 intake dry-run shows the opening PR comment populated with Tasks + Acceptance for a new issue.
@@ -49,6 +49,9 @@ Review the last ~8 merges touching keepalive / intake automation to avoid reappl
 - 2025-11-28 14:10 UTC — Logged regression details and created this tracker per user request.
 - 2025-11-28 16:05 UTC — Updated `scripts/keepalive-runner.js` so Tasks + Acceptance-only payloads are accepted, extended detection regex, added new scope parser tests, and ran `node --test .github/scripts/__tests__/keepalive-runner-scope.test.js` plus `./scripts/dev_check.sh --changed --fix`.
 - 2025-11-28 18:42 UTC — Added checklist normalization so plain bullet lists render as `- [ ]` items, injected the auto-status summary block into existing PR bodies (even in invite mode), ensured the issue-context comment always posts, and re-ran `node --test .github/scripts/__tests__/issue_scope_parser.test.js` followed by `./scripts/dev_check.sh --changed --fix`.
+- 2025-11-28 18:55 UTC — Deflaked the helper-sync harness by extending the `create_pr` TTL fixture, verified with `pytest tests/test_keepalive_post_work.py -k create_pr` (py311 + venv), and re-ran the full suite via `./scripts/run_tests.sh` (all 3,696 tests green).
+- 2025-11-28 19:10 UTC — Confirmed Issue-label → PR bootstrap works again (`agent:codex` on Issue #3821 spawned PR #3833 automatically). Keepalive state comment now renders even when scope/tasks are missing, but the completion gate remains **open** until a real issue populates Tasks + Acceptance and we observe a follow-up keepalive round.
+- 2025-11-28 20:05 UTC — Added `analyzeSectionPresence()` helper plus workflow wiring so Agents 63 surfaces warnings whenever Scope/Tasks/Acceptance are missing. Missing sections now trigger PR + issue comments **and** the Automated Status Summary now emits a human-readable explanation when it cannot populate the block, detailing which headings it expects and what failed. Validated via `node --test .github/scripts/__tests__/issue_scope_parser.test.js` and `./scripts/dev_check.sh --changed --fix`.
 - _(add more entries as steps complete)_
 
 ## Validation Checklist (to run after fixes)
