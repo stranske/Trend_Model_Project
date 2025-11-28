@@ -9,9 +9,9 @@
 - Round 4: Re-ran the signal helper tests to confirm window scoping and guardrails remain green on the latest head.
 
 ## Scope
-- [ ] Signal computation must use only window-scoped data, eliminating look-ahead bias in both in-sample and out-of-sample runs.
-- [ ] Tests must cover both windows and assert failures when future data is present.
-- [ ] Rebalance outputs must align strictly to window boundaries without forward-looking inputs.
+- [ ] Signal computation uses only window-scoped data, eliminating look-ahead bias in both in-sample and out-of-sample runs.
+- [ ] Tests cover both windows and assert failures when future data is present.
+- [ ] Rebalance outputs align strictly to window boundaries without forward-looking inputs.
 
 ## Tasks
 - [ ] Scope every signal calculation to the active analysis window before any reindexing so no future observations influence the period being scored.
