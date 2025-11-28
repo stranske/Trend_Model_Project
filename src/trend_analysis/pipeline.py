@@ -447,7 +447,9 @@ def _select_universe(
     if requested_indices:
         available_cols = set(window.in_df.columns)
         available_indices = [idx for idx in requested_indices if idx in available_cols]
-        missing_indices = [idx for idx in requested_indices if idx not in available_cols]
+        missing_indices = [
+            idx for idx in requested_indices if idx not in available_cols
+        ]
 
         for idx in available_indices:
             has_data = window.in_df[idx].notnull().any()
