@@ -1902,6 +1902,7 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const { extractIssueNumberFromPull } = require('./.github/scripts/agents_pr_meta_keepalive.js');
+            const { parseScopeTasksAcceptanceSections } = require('./.github/scripts/issue_scope_parser.js');
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -2138,9 +2139,13 @@ jobs:
             const ci = normalizeWhitespace(extractWithAliases(issueBody, ['CI readiness', 'Implementation notes', 'Technical notes']));
 
             core.info(`Final sections - Summary: ${summary ? 'OK' : 'EMPTY'}, Testing: ${testing ? 'OK' : 'EMPTY'}, CI: ${ci ? 'OK' : 'EMPTY'}`);
-            const scope = extractSection(issueBody, 'Scope') || '';
-            const tasks = extractSection(issueBody, 'Tasks') || '';
-            const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
+            const parsedSections = parseScopeTasksAcceptanceSections(issueBody);
+            const scope = parsedSections.scope || extractSection(issueBody, 'Scope') || '';
+            const tasks = parsedSections.tasks || extractSection(issueBody, 'Tasks') || '';
+            const acceptance =
+              parsedSections.acceptance
+              || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
+              || '';
 
             core.info(`Status block sections - Scope: ${scope ? 'OK' : 'EMPTY'}, Tasks: ${tasks ? 'OK' : 'EMPTY'}, Acceptance: ${acceptance ? 'OK' : 'EMPTY'}`);
             const preamble = buildPreamble({summary, testing, ci});
@@ -2458,9 +2463,13 @@ jobs:
 
             core.info(`Final sections - Summary: ${summary ? 'OK' : 'EMPTY'}, Testing: ${testing ? 'OK' : 'EMPTY'}, CI: ${ci ? 'OK' : 'EMPTY'}`);
 
-            const scope = extractSection(issueBody, 'Scope') || '';
-            const tasks = extractSection(issueBody, 'Tasks') || '';
-            const acceptance = extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done']) || '';
+            const parsedSections = parseScopeTasksAcceptanceSections(issueBody);
+            const scope = parsedSections.scope || extractSection(issueBody, 'Scope') || '';
+            const tasks = parsedSections.tasks || extractSection(issueBody, 'Tasks') || '';
+            const acceptance =
+              parsedSections.acceptance
+              || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
+              || '';
 
             core.info(`Status block sections - Scope: ${scope ? 'OK' : 'EMPTY'}, Tasks: ${tasks ? 'OK' : 'EMPTY'}, Acceptance: ${acceptance ? 'OK' : 'EMPTY'}`);
 
