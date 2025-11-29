@@ -48,13 +48,21 @@ jobs:
               pull_number: prNumber,
             });
 
-            const trace = payload.trace || payload.comment_trace || '';
-            const round = payload.round || payload.comment_round || '';
+            // Support both legacy flat payload and new nested `meta` structure.
+            // New dispatches nest comment info under `meta` to stay within GitHub's
+            // 10-property limit for repository_dispatch client_payload.
+            const meta = payload.meta || {};
+            const trace = meta.trace || payload.trace || payload.comment_trace || '';
+            const round = meta.round || payload.round || payload.comment_round || '';
+            const commentId = meta.comment_id || payload.comment_id || '';
+            const commentUrl = meta.comment_url || payload.comment_url || '';
+            const idempotencyKey = meta.idempotency_key || payload.idempotency_key || '';
+
             const headSha = pr?.head?.sha || '';
             const env = {
               ...process.env,
               TRACE: trace,
-              ROUND: round,
+              ROUND: String(round),
               PR_NUMBER: String(prNumber),
               ISSUE_NUMBER: String(prNumber),
               BASE_BRANCH: pr?.base?.ref || '',
@@ -64,10 +72,11 @@ jobs:
               PREVIOUS_HEAD: headSha,
               PR_HEAD_SHA_PREV: headSha,
               HEAD_SHA_PREV: headSha,
-              COMMENT_ID: payload.comment_id || '',
-              COMMENT_URL: payload.comment_url || '',
+              COMMENT_ID: String(commentId),
+              COMMENT_URL: commentUrl,
               COMMENT_TRACE: trace,
-              COMMENT_ROUND: round,
+              COMMENT_ROUND: String(round),
+              IDEMPOTENCY_KEY: idempotencyKey,
               AGENT_ALIAS: payload.agent || 'codex',
               DISPATCH_EVENT_TYPE: process.env.DISPATCH_EVENT_TYPE,
               SYNC_LABEL: process.env.SYNC_LABEL,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -138,6 +139,57 @@ def test_classify_frequency_detects_weekly() -> None:
     assert info["tolerance_periods"] == 1
 
 
+def test_classify_frequency_normalises_infinite_intervals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index = pd.date_range("2024-01-05", periods=5, freq="7D")
+
+    original_normalise = market_data._normalise_delta_days
+
+    def inject_infinite_delta(delta_days: pd.Series) -> pd.Series:
+        augmented = pd.concat(
+            [delta_days, pd.Series([np.inf, -np.inf], dtype=delta_days.dtype)],
+            ignore_index=True,
+        )
+        return original_normalise(augmented)
+
+    monkeypatch.setattr(market_data, "_normalise_delta_days", inject_infinite_delta)
+
+    info = market_data.classify_frequency(index)
+
+    assert info["code"] == "W"
+    assert info["max_missing_periods"] == 0
+
+
+def test_normalize_delta_days_drops_infinite_values() -> None:
+    delta_days = pd.Series([30.0, float("inf"), -float("inf"), 31.0])
+
+    cleaned = market_data._normalize_delta_days(delta_days)
+
+    assert cleaned.tolist() == [30.0, 31.0]
+
+
+def test_classify_frequency_ignores_infinite_offsets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index = pd.date_range("2024-01-31", periods=5, freq="ME")
+
+    original = market_data._normalise_delta_days
+
+    def inject_and_clean(delta_days: pd.Series) -> pd.Series:
+        polluted = delta_days.astype(float)
+        polluted.iloc[0] = float("inf")
+        polluted.iloc[-1] = -float("inf")
+        return original(polluted)
+
+    monkeypatch.setattr(market_data, "_normalise_delta_days", inject_and_clean)
+
+    info = market_data.classify_frequency(index)
+
+    assert info["code"] == "M"
+    assert info["label"] == "monthly"
+
+
 def test_classify_frequency_irregular_preview_includes_ellipsis() -> None:
     base = pd.date_range("2024-01-01", periods=8, freq="30D")
     irregular = base.insert(4, base[3] + pd.Timedelta(days=2))
@@ -151,6 +203,30 @@ def test_classify_frequency_irregular_preview_includes_ellipsis() -> None:
     message = str(exc.value)
     assert "irregular sampling intervals" in message
     assert "…" in message
+
+
+def test_classify_frequency_irregular_diagnostics_survive_infinite_gaps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = pd.date_range("2024-01-01", periods=8, freq="30D")
+    irregular = base.insert(4, base[3] + pd.Timedelta(days=2))
+
+    original_normalise = market_data._normalise_delta_days
+
+    def inject_infinite_delta(delta_days: pd.Series) -> pd.Series:
+        augmented = pd.concat(
+            [delta_days, pd.Series([np.inf], dtype=delta_days.dtype)],
+            ignore_index=True,
+        )
+        return original_normalise(augmented)
+
+    monkeypatch.setattr(market_data, "_normalise_delta_days", inject_infinite_delta)
+
+    with pytest.raises(market_data.MarketDataValidationError) as exc:
+        market_data.classify_frequency(irregular)
+
+    message = str(exc.value)
+    assert "irregular sampling intervals" in message
 
 
 def test_classify_frequency_rejects_super_sparse_data() -> None:

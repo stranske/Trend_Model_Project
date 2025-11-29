@@ -22,3 +22,24 @@
 - **Enforce the orchestrator-only run cap**
   - Change the run-cap evaluation calls for keepalive dispatch to set `includeWorker: false`, or flip the default so workers are ignored unless explicitly requested.
   - Update the summary line to report orchestrator-only counts, matching the contract’s `cap=<active>/<cap>` definition, and extend tests to prove worker runs no longer consume cap budget.
+
+3. **Repository dispatch payload property limit (RESOLVED 2025-11)**
+   - GitHub limits `repository_dispatch` `client_payload` to **10 top-level properties**.
+   - Prior implementation sent up to 14 properties, causing `Invalid request. No more than 10 properties are allowed; N were supplied` errors.
+   - **Fix:** Nested auxiliary data (`comment_id`, `comment_url`, `round`, `trace`, `idempotency_key`) under a single `meta` object.
+   - Affected files: `keepalive_post_work.js`, `agents-pr-meta.yml`, `agents-70-orchestrator.yml`, `agents-keepalive-dispatch-handler.yml`.
+   - Handler updated to support both legacy flat payloads and new nested structure for backward compatibility.
+
+4. **Rate limit resilience (RESOLVED 2025-11)**
+   - The contract did not specify retry behavior when GitHub API rate limits are hit.
+   - Prior implementation failed immediately on rate limit, causing `pr-fetch-failed` without recovery.
+   - **Fix:** Added `withRateLimitRetry()` helper with exponential backoff (3 retries, 2s base delay).
+   - Applied to PR fetch calls in `keepalive_gate.js` (`evaluateRunCapForPr`, `evaluateKeepaliveGate`).
+
+5. **Checklist progress not preserved across status updates (RESOLVED 2025-11)**
+   - The `agents-pr-meta` workflow was regenerating the Automated Status Summary entirely from the source issue on every update.
+   - This caused checked checkboxes (recording completed work) to revert to unchecked state.
+   - **Root cause:** `buildStatusBlock()` pulled scope/tasks/acceptance directly from source issue without reading existing PR body state.
+   - **Fix:** Added `extractBlock()`, `parseCheckboxStates()`, and `mergeCheckboxStates()` helpers.
+   - Before generating the status block, the workflow now extracts existing checkbox states from the PR body and merges them into the new content.
+   - Affected file: `agents-pr-meta.yml` (Upsert PR body sections job).

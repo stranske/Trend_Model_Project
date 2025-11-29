@@ -15,6 +15,70 @@ const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 
+// Rate limit retry configuration
+const RATE_LIMIT_MAX_RETRIES = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 2000;
+
+/**
+ * Sleep for a given number of milliseconds.
+ * @param {number} ms - Milliseconds to sleep
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Check if an error is a GitHub rate limit error.
+ * @param {Error|unknown} error
+ * @returns {boolean}
+ */
+function isRateLimitError(error) {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  const status = error?.status || error?.response?.status;
+  return (
+    status === 403 ||
+    status === 429 ||
+    /rate\s*limit/i.test(message) ||
+    /secondary\s*rate\s*limit/i.test(message)
+  );
+}
+
+/**
+ * Execute a GitHub API call with exponential backoff retry on rate limit errors.
+ * @template T
+ * @param {() => Promise<T>} fn - The API call to execute
+ * @param {Object} [options]
+ * @param {number} [options.maxRetries=3] - Maximum retry attempts
+ * @param {number} [options.baseDelayMs=2000] - Base delay in milliseconds
+ * @param {Object} [options.core] - GitHub Actions core for logging
+ * @returns {Promise<T>}
+ */
+async function withRateLimitRetry(fn, options = {}) {
+  const maxRetries = options.maxRetries ?? RATE_LIMIT_MAX_RETRIES;
+  const baseDelayMs = options.baseDelayMs ?? RATE_LIMIT_BASE_DELAY_MS;
+  const core = options.core;
+
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isRateLimitError(error) || attempt >= maxRetries) {
+        throw error;
+      }
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      if (core?.info) {
+        core.info(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      }
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
 function toInteger(value) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) {
@@ -723,7 +787,10 @@ async function evaluateRunCapForPr({
 
   let pull;
   try {
-    const response = await github.rest.pulls.get({ owner, repo, pull_number: number });
+    const response = await withRateLimitRetry(
+      () => github.rest.pulls.get({ owner, repo, pull_number: number }),
+      { core }
+    );
     pull = response.data;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -832,7 +899,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pr = pullRequest || null;
   if (!pr) {
     try {
-      const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+      const response = await withRateLimitRetry(
+        () => github.rest.pulls.get({ owner, repo, pull_number: prNumber }),
+        { core }
+      );
       pr = response.data;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
