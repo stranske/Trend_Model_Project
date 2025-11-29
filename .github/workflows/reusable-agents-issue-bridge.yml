@@ -278,8 +278,13 @@ jobs:
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         id: keepalive
         uses: actions/github-script@v7
+        env:
+          DEFAULT_BASE: ${{ steps.refs.outputs.base || '' }}
         with:
           script: |
+            const { findIssuePrCandidate } = require('./.github/scripts/issue_pr_locator.js');
+            let prData = null;
+            let prNumber = 0;
             const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
             const sentinel = /\[keepalive\]/i;
@@ -307,6 +312,25 @@ jobs:
               }
             }
 
+            try {
+                const headRef = '${{ steps.refs.outputs.head }}';
+                const candidate = await findIssuePrCandidate({
+                  github,
+                  core,
+                  owner,
+                  repo,
+                  issueNumber,
+                  branchCandidates: headRef ? [headRef] : [],
+                  defaultBranch: process.env.DEFAULT_BASE || '',
+                });
+                if (candidate && candidate.number) {
+                  prNumber = candidate.number;
+                  prData = candidate.pr || null;
+                }
+            } catch (error) {
+                core.warning(`Failed to resolve PR for issue #${issueNumber}: ${error.message}`);
+            }
+
             const labels = Array.isArray(issue?.labels) ? issue.labels : [];
             const labelMatch = labels.some((label) => {
               const name = typeof label === 'string' ? label : label?.name || '';
@@ -317,6 +341,15 @@ jobs:
               enabled = true;
               source = 'label';
               evidence = 'agents:keepalive label present';
+            }
+            
+            if (prNumber && !prData) {
+              try {
+                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                prData = data;
+              } catch (error) {
+                core.warning(`Unable to fetch PR #${prNumber}: ${error.message}`);
+              }
             }
 
             if (!enabled) {
@@ -784,6 +817,21 @@ jobs:
               }
               core.warning('PR number is unavailable; skipping issue context comment until a PR is opened.');
               return;
+            }
+
+            if (prData && statusSummaryBlock) {
+              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prData.body || '');
+              if (!bodyHasSummary) {
+                const existingBody = (prData.body || '').trim();
+                const mergedBody = [statusSummaryBlock, existingBody].filter(Boolean).join('\n\n').trim();
+                try {
+                  await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody });
+                  prData.body = mergedBody;
+                  core.info(`Inserted auto-status summary into PR #${prNumber} body.`);
+                } catch (error) {
+                  core.warning(`Failed to insert auto-status summary into PR #${prNumber}: ${error.message}`);
+                }
+              }
             }
 
             const titlePart = issueTitle ? `: ${issueTitle}` : '';
