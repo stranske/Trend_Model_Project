@@ -1,5 +1,7 @@
 'use strict';
 
+const { paginateWithBackoff } = require('./api-helpers.js');
+
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
 const MAX_RUNS_PREFIX = 'agents:max-runs:';
@@ -416,19 +418,19 @@ function compareWorkflowRunScores(a, b) {
   return 0;
 }
 
-async function fetchGateStatus({ github, owner, repo, headSha }) {
+async function fetchGateStatus({ github, owner, repo, headSha, core }) {
   const normalisedSha = String(headSha || '').trim();
   if (!normalisedSha) {
     return { found: false, success: false, status: '', conclusion: '' };
   }
   try {
-    const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+    const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
       owner,
       repo,
       workflow_id: GATE_WORKFLOW_FILE,
       head_sha: normalisedSha,
       per_page: 100,
-    });
+    }, { core });
 
     const scoredRuns = [];
     for (const run of runs) {
@@ -484,6 +486,7 @@ async function countActive({
   includeWorker = false,
   workflows,
   completedLookbackSeconds = 0,
+  core = null,
 }) {
   const targetPr = Number(prNumber);
   if (!Number.isFinite(targetPr) || targetPr <= 0) {
@@ -639,13 +642,13 @@ async function countActive({
     const label = workflowFile === WORKER_WORKFLOW_FILE ? 'worker' : 'orchestrator';
     for (const status of statuses) {
       try {
-        const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+        const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
           owner,
           repo,
           workflow_id: workflowFile,
           status,
           per_page: 100,
-        });
+        }, { core });
         for (const run of runs) {
           const runId = Number(run?.id || 0);
           if (!Number.isFinite(runId) || runId <= 0) {
@@ -754,6 +757,7 @@ async function evaluateRunCapForPr({
     includeWorker,
     currentRunId,
     completedLookbackSeconds: RECENT_COMPLETED_LOOKBACK_SECONDS,
+    core,
   });
 
   if (error && core?.warning) {
@@ -896,6 +900,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     owner,
     repo,
     headSha,
+    core,
   });
   if (gateStatus.error) {
     core.warning(`Gate status check failed: ${gateStatus.error}`);
@@ -920,6 +925,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     currentRunId,
     workflows: [ORCHESTRATOR_WORKFLOW_FILE],
     completedLookbackSeconds: RECENT_COMPLETED_LOOKBACK_SECONDS,
+    core,
   });
   if (runError) {
     core.warning(`Run cap evaluation encountered an error while counting runs: ${runError}`);
