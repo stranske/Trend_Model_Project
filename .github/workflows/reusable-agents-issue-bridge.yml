@@ -1045,7 +1045,7 @@ jobs:
             const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
             const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
             // Load instruction from template file
-            const { getKeepaliveInstructionWithMention } = require('./.github/scripts/keepalive_instruction_template.js');
+            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
             const instruction = getKeepaliveInstructionWithMention(agent);
             const codexPromptMsg = [
               "PR created.",
