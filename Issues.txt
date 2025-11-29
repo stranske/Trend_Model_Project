@@ -1,75 +1,69 @@
-1) Add codex-pr-comment-command handler for branch sync
-Labels: agent:codex, automation, bug
+1) Future-proof timezone dtype checks in sample window builder
+Labels: agent:codex, bug, backend
 Why
-Keepalive emits `codex-pr-comment-command` repository_dispatch events for "Update Branch"/"Create PR" remediation, but no workflow listens for that event type, so the commands are dropped and head advancement never happens on unattended rounds.
+`pipeline._build_sample_windows` still calls the deprecated `pd.api.types.is_datetime64tz_dtype`, which pandas plans to drop; timezone-aware datasets will raise before window construction once the API is removed.
 Tasks
-- Add a small `.github/workflows` listener for `repository_dispatch` (event_type `codex-pr-comment-command`) that calls `pulls.updateBranch` with polling and, when needed, dispatches `agents-keepalive-branch-sync.yml` using the payload context instead of silently exiting.
-- Ensure the handler logs or summarizes each remediation attempt (update-branch success/failure, branch-sync dispatch URL) so PR-meta can observe what happened.
-- Update any keepalive tests/fixtures that assert the dispatch path to cover the new handler (e.g., `tests/fixtures/keepalive_post_work` harness expectations).
+- Replace the dtype check with a supported alternative (e.g., `isinstance(dtype, pd.DatetimeTZDtype)` or `DatetimeTZDtype.is_dtype`) while keeping behaviour identical for tz-aware and naive indexes.
+- Add regression coverage for tz-aware datasets that verifies window construction works without deprecation warnings on current pandas.
+- Confirm downstream consumers of the window metadata remain unchanged by the updated dtype handling.
 Acceptance criteria
-- A repository_dispatch with `event_type: codex-pr-comment-command` triggers the automated update-branch/create-pr remediation without manual clicks and records a summary line.
-- When update-branch polling fails, the same handler launches `agents-keepalive-branch-sync.yml` with the request context and surfaces the dispatched run URL.
-- Keepalive post-work tests cover both the direct update-branch path and the branch-sync fallback.
+- Sample window construction succeeds for timezone-aware and naive inputs on current pandas without emitting dtype deprecation warnings.
+- Tests cover tz-aware inputs and pass without altering downstream window metadata semantics.
 Implementation notes
-- Touch the keepalive post-work plumbing in `scripts/keepalive-runner.js` and add a dedicated workflow file alongside `agents-keepalive-branch-sync.yml` to process the repository_dispatch payload.
+- Focus on `_build_sample_windows` and its dtype guard; avoid unrelated pipeline changes.
 
-2) Pass head repository into branch-sync fallback for forks
-Labels: agent:codex, automation, bug
+2) Remove deprecated `mode.use_inf_as_na` usage in cadence validation
+Labels: agent:codex, bug, data
 Why
-The branch-sync helper accepts a `head_repository` input so it can fetch fork heads, but keepalive never forwards the PR head repo into the fallback dispatch, causing branch-sync to default to the base repo and fail to fetch forked heads.
+Market data cadence validation relies on pandas' deprecated `mode.use_inf_as_na` context manager; once removed, cadence checks will raise before emitting diagnostics, and inf handling will regress.
 Tasks
-- Export the PR head repository from `keepalive-prep` (or equivalent) and thread it into the keepalive post-work environment so branch-sync dispatches include `head_repository` alongside base/head refs and trace data.
-- Update the branch-sync workflow invocation to honour the head repo input and bail early with a clear summary when the head repo is missing for a forked PR.
-- Add tests/fixtures that exercise forked-PR branch-sync dispatches to confirm head repo propagation and checkout succeed.
+- Normalize infinite values prior to cadence calculation (e.g., replace `±inf` with `NaN`) and drop reliance on the deprecated mode flag.
+- Ensure cadence validation still reports the same diagnostics for valid and invalid inputs after the inf-normalization change.
+- Add tests covering inputs with `inf`/`-inf` values to confirm the new path handles them without using `mode.use_inf_as_na`.
 Acceptance criteria
-- Keepalive branch-sync dispatches include head repository metadata for forked PRs and successfully fetch the fork head during remediation.
-- When head repo data is absent on a fork, the workflow emits a clear skip/failure summary instead of silently continuing with the base repo.
-- Test coverage exercises the forked-PR path and asserts that the branch-sync helper clones or checks out the fork head using the forwarded repository info.
+- Cadence validation runs without using deprecated pandas options and preserves current diagnostic outputs for valid/invalid data.
+- Tests demonstrate stable behaviour when `inf` values appear in market data.
 Implementation notes
-- Focus on keepalive prep/post-work steps in `scripts/keepalive-runner.js` and the inputs consumed by `.github/workflows/agents-keepalive-branch-sync.yml`; avoid altering unrelated orchestrator flows.
+- Limit edits to the cadence validation block in `io/market_data.py`; no broader refactors are needed.
 
-3) Prevent look-ahead bias in trend signal computation
-Labels: agent:codex, bug, modeling
+3) Differentiate missing data in universe fingerprinting
+Labels: agent:codex, enhancement, data
 Why
-Trend signals are currently built from the full dataset and later reindexed to the in-sample or out-of-sample slices, so future
-rows can leak into historical signals and downstream weights.
+`compute_universe_fingerprint` treats missing or unreadable membership/data files as empty byte streams, making fingerprints identical for "no files" and "empty files" and masking corrupt inputs.
 Tasks
-- Scope every signal calculation to the active analysis window before any reindexing so no future observations influence the period being scored.
-- Add guardrails/tests that fail fast when signal helpers receive dates outside the requested slice.
-- Audit each rebalance/reindex step to ensure signals and weights stay aligned to data available at the rebalance date.
+- Emit a warning or explicit marker in the hash payload when expected membership/data files are absent or unreadable.
+- Preserve deterministic fingerprints for valid inputs while differentiating missing-file scenarios.
+- Add tests covering valid files, empty files, and missing/unreadable files to assert distinct fingerprint outputs and warning behaviour.
 Acceptance criteria
-- Signal computation uses only window-scoped data, eliminating look-ahead bias in both in-sample and out-of-sample runs.
-- Tests cover both windows and assert failures when future data is present.
-- Rebalance outputs align strictly to window boundaries without forward-looking inputs.
+- Fingerprints distinguish between valid-empty inputs and missing/unreadable files, with warnings surfaced for the latter.
+- Tests cover the new cases and confirm deterministic hashes for valid inputs.
 Implementation notes
-- Focus on the signal generation pipeline and the rebalance/reindex hooks that currently operate on the full dataset; keep metric definitions unchanged.
+- Focus on `analysis/results.compute_universe_fingerprint`; avoid changing caller interfaces beyond the new diagnostics.
 
-4) Validate index/benchmark membership before selection
-Labels: agent:codex, enhancement, selection
+4) Update month-end handling to pandas "ME" aliases
+Labels: agent:codex, cleanup, backend
 Why
-_select_universe indexes window data with the requested indices list without verifying membership, surfacing raw KeyErrors for misspelled or missing benchmarks instead of actionable feedback.
+Month-end logic still uses legacy "M" aliases (e.g., `pd.date_range(..., freq="M")`, `pd.Period(text, freq="M")`), which trigger deprecation warnings and risk breaking on future pandas releases.
 Tasks
-- Add validation that intersects requested indices with available columns and reports absent entries before selection proceeds.
-- Emit feedback on which indices were accepted and which were ignored so misconfigurations are obvious.
-- Cover validation paths with tests for fully valid, partially missing, and fully missing index lists.
+- Replace month-end frequency strings with the recommended "ME" aliases in sample-window construction and related helpers.
+- Update any date-range tests or fixtures that rely on the old alias to keep expectations aligned.
+- Validate that generated window boundaries and period parsing remain unchanged after the alias update.
 Acceptance criteria
-- Universe selection fails gracefully with clear diagnostics when requested indices are absent from the window data.
-- Valid indices are selected without altering current behaviour; missing entries are reported deterministically.
-- Tests exercise mixed-validity scenarios and assert the reported messages.
+- Month-end logic runs without deprecation warnings on current pandas while preserving existing window boundaries.
+- Tests referencing month-end frequencies are updated and passing with the new aliases.
 Implementation notes
-- Changes live around _select_universe and the helpers that build the in-sample benchmark set; avoid altering downstream weighting logic.
+- Concentrate changes in `_build_sample_windows` and associated date-range helpers; avoid behavioural shifts beyond the alias swap.
 
-5) Require robust coverage for risk-free fallback detection
-Labels: agent:codex, bug, selection
+5) Surface weight fallback diagnostics when weighting fails
+Labels: agent:codex, enhancement, backend
 Why
-The risk-free fallback chooses the lowest-volatility numeric column with any non-null value, so sparse series can be selected and later propagate NaNs when aligned to the analysis windows.
+`_compute_weights_and_stats` converts weighting errors into equal-weight fallbacks with only a warning, hiding configuration or numerical issues from callers and downstream logs.
 Tasks
-- Enforce minimum coverage within the requested window before considering a column eligible for fallback selection (e.g., threshold on non-null share or span).
-- Align fallback volatility checks to the same window slice used downstream rather than the full dataset.
-- Add tests that include sparse columns and confirm only sufficiently covered, window-aligned series are selected (or a clear diagnostic is emitted).
+- Return structured diagnostics when fallbacks occur (e.g., include the failure reason and fallback type) so downstream consumers can detect the bypass.
+- Optionally propagate the diagnostic through existing payload/metadata structures without breaking current callers.
+- Add tests that trigger weighting failures to assert both the fallback behaviour and the presence of detailed diagnostics.
 Acceptance criteria
-- Fallback risk-free selection ignores sparse or short series and uses window-scoped data for volatility comparison.
-- Omitted risk-free column scenarios produce deterministic, well-documented outcomes with no unexpected NaNs from missing coverage.
-- Tests cover explicit risk-free columns, eligible fallback selections, and rejection of sparse series with corresponding diagnostics.
+- Weighting failures produce observable diagnostics alongside the fallback weights, and existing callers continue to function.
+- Tests cover failure-to-fallback paths and validate the surfaced diagnostics.
 Implementation notes
-- Target _resolve_risk_free_column (and related fallback helpers) to apply coverage thresholds and window scoping without changing metric formulas.
+- Target `_compute_weights_and_stats` and its call sites; do not alter the underlying weighting algorithms beyond surfacing diagnostics.
