@@ -15,5 +15,6 @@ Active/most recent entries:
 - PR #3822 (codex keepalive dispatch handler): [docs/keepalive/status/PR3822_Status.md](docs/keepalive/status/PR3822_Status.md)
 - PR #3827 (Codex bootstrap for issue #3819): [docs/keepalive/status/PR3827_Status.md](docs/keepalive/status/PR3827_Status.md)
 - PR #3832 (Codex bootstrap for issue #3820): [docs/keepalive/status/PR3832_Status.md](docs/keepalive/status/PR3832_Status.md)
+- PR #3875 (risk-free fallback window coverage and diagnostics): [docs/keepalive/status/PR3875_Status.md](docs/keepalive/status/PR3875_Status.md)
 
 Add new bullet points here only to register additional keepalive runs; do not reuse or overwrite existing status files.

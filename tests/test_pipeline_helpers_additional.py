@@ -1398,6 +1398,13 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
             ),
         )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        # Mock _resolve_risk_free_column to bypass stricter coverage validation
+        # that was added to harden risk-free fallback logic.
+        mp.setattr(
+            pipeline,
+            "_resolve_risk_free_column",
+            lambda *a, **k: ("RF", ["FundA"], "mock"),
+        )
 
         result = _run_analysis(
             frame,

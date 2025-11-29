@@ -52,6 +52,12 @@ from .util.missing import MissingPolicyResult, apply_missing_policy
 
 logger = logging.getLogger(__name__)
 
+# Require a minimum share of coverage within the requested windows before a
+# column is eligible for risk-free fallback selection. This prevents sparse
+# series from being chosen and later propagating NaNs when aligned to the
+# analysis windows.
+_MIN_FALLBACK_COVERAGE_RATIO = 0.6
+
 if TYPE_CHECKING:  # pragma: no cover - for static type checking only
     from .config.models import ConfigProtocol as Config
 
@@ -196,6 +202,7 @@ def _prepare_preprocess_stage(
     missing_limit: int | Mapping[str, int | None] | None,
     stats_cfg: RiskStatsConfig | None,
     periods_per_year_override: float | None,
+    allow_risk_free_fallback: bool | None,
 ) -> _PreprocessStage | PipelineResult:
     if df is None:
         return pipeline_failure(PipelineReasonCode.INPUT_NONE)
@@ -255,6 +262,8 @@ def _prepare_preprocess_stage(
 
     na_cfg = getattr(stats_cfg, "na_as_zero_cfg", None) if stats_cfg else None
     enforce_complete = not (na_cfg and bool(na_cfg.get("enabled", False)))
+    if allow_risk_free_fallback:
+        enforce_complete = False
 
     df_prepared, freq_summary, missing_result, normalised = _prepare_input_data(
         df,
@@ -472,7 +481,10 @@ def _select_universe(
     rf_col: str
     fund_cols: list[str]
     rf_source: str
-    fallback_window = window.in_df.reset_index()
+    fallback_window = pd.concat(
+        [window.in_df.reset_index(), window.out_df.reset_index()],
+        ignore_index=True,
+    )
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         preprocess.df,
         date_col=preprocess.date_col,
@@ -1525,18 +1537,46 @@ def _resolve_risk_free_column(
         candidate_df = candidate_df.copy()
         candidate_df[date_col] = candidate_df.index
 
+    candidate_df = candidate_df.copy()
+    candidate_df[date_col] = pd.to_datetime(candidate_df[date_col])
+    candidate_df.sort_values(date_col, inplace=True)
+
     numeric_cols = [
         c for c in candidate_df.select_dtypes("number").columns if c != date_col
     ]
-    # Restrict candidates to columns with at least one non-null value within the
-    # requested window. This keeps the fallback selection aligned with the
+
+    expanded_df = candidate_df.set_index(date_col)
+    if not expanded_df.index.is_monotonic_increasing:
+        expanded_df = expanded_df.sort_index()
+    if not expanded_df.empty:
+        full_index = pd.date_range(
+            expanded_df.index.min(), expanded_df.index.max(), freq=MONTHLY_DATE_FREQ
+        )
+        expanded_df = expanded_df.reindex(full_index)
+    expanded_df.index.name = date_col
+
+    total_rows = len(expanded_df)
+    if total_rows == 0:
+        raise ValueError("Requested window is empty; cannot select risk-free series")
+
+    min_non_null = max(2, math.ceil(total_rows * _MIN_FALLBACK_COVERAGE_RATIO))
+    coverage_counts = expanded_df[numeric_cols].notna().sum()
+    coverage_mask = coverage_counts >= min_non_null
+
+    # Restrict candidates to columns with sufficient non-null coverage within
+    # the requested windows. This keeps the fallback selection aligned with the
     # analysis slice rather than the full dataset.
     ret_cols = [
-        c for c in numeric_cols if c not in idx_set and candidate_df[c].notna().any()
+        c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)
     ]
 
     if not ret_cols:
-        raise ValueError("No numeric return columns available to process")
+        raise ValueError(
+            (
+                "No numeric return columns meet the coverage requirement "
+                f"({min_non_null}/{total_rows} non-null observations) in the requested window"
+            )
+        )
 
     configured_rf = (risk_free_column or "").strip()
     if configured_rf:
@@ -1554,9 +1594,14 @@ def _resolve_risk_free_column(
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
             )
-        if not candidate_df[configured_rf].notna().any():
+        configured_coverage = int(coverage_counts.get(configured_rf, 0))
+        if configured_coverage < min_non_null:
             raise ValueError(
-                f"Configured risk-free column '{configured_rf}' has no data in the requested window"
+                (
+                    f"Configured risk-free column '{configured_rf}' has insufficient coverage "
+                    f"in the requested window ({configured_coverage}/{total_rows} non-null; "
+                    f"require at least {min_non_null})"
+                )
             )
         rf_col = configured_rf
         source = "configured"
@@ -1566,10 +1611,11 @@ def _resolve_risk_free_column(
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
+        window_df = expanded_df.reset_index().rename(columns={"index": date_col})
         probe_cols = (
-            [date_col, *ret_cols] if date_col in candidate_df.columns else ret_cols
+            [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
         )
-        detected = identify_risk_free_fund(candidate_df[probe_cols])
+        detected = identify_risk_free_fund(window_df[probe_cols])
         if detected is None:
             raise ValueError(
                 "Risk-free fallback could not find a numeric return series in the requested window"
@@ -1754,6 +1800,7 @@ def _run_analysis_with_diagnostics(
         missing_limit=missing_limit,
         stats_cfg=stats_cfg,
         periods_per_year_override=periods_per_year_override,
+        allow_risk_free_fallback=allow_risk_free_fallback,
     )
     if isinstance(preprocess_stage, PipelineResult):
         return preprocess_stage
