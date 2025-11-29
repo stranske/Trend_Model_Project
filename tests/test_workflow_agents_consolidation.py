@@ -385,9 +385,14 @@ def test_run_summary_dedupes_stage_entries():
 def test_agents_orchestrator_has_concurrency_defaults():
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
+    # Top-level concurrency prevents overlapping orchestrator runs from consuming excessive API quota
+    top_concurrency = data.get("concurrency") or {}
     assert (
-        data.get("concurrency") is None
-    ), "Top-level orchestrator concurrency should be unset so the job can resolve context first"
+        top_concurrency.get("group") == "agents-70-orchestrator-singleton"
+    ), "Top-level orchestrator concurrency must prevent overlapping runs"
+    assert (
+        top_concurrency.get("cancel-in-progress") is False
+    ), "Top-level concurrency must not cancel in-progress runs"
 
     jobs = data.get("jobs", {})
     orchestrate = jobs.get("orchestrate", {})
@@ -432,9 +437,10 @@ def test_agents_orchestrator_schedule_preserved():
         for entry in schedule
         if isinstance(entry, dict) and "cron" in entry
     ]
+    # Schedule reduced from */20 to */30 to conserve API rate limit (R-3)
     assert cron_entries == [
-        "*/20 * * * *"
-    ], "Orchestrator schedule must stay on the 20-minute cadence"
+        "*/30 * * * *"
+    ], "Orchestrator schedule must stay on the 30-minute cadence to conserve API quota"
 
 
 def test_orchestrator_jobs_checkout_scripts_before_local_requires():
