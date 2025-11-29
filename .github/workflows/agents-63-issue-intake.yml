@@ -1120,7 +1120,7 @@ jobs:
             const agentLabels = labels
               .filter(name => /^agents?:[a-z0-9-]+$/.test(name));
             if (agentLabels.length !== 1) {
-              core.setFailed(`Expected exactly one agent:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
+              core.setFailed(`Expected exactly one agent:* or agents:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
               return;
             }
             const agentLabel = agentLabels[0];
