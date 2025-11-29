@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import pytest
 
@@ -89,6 +91,48 @@ def test_build_sample_windows_handles_empty_slice() -> None:
 
     assert isinstance(window.diagnostic.reason_code, str)
     assert window.diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value
+
+
+def test_build_sample_windows_retains_timezone_metadata() -> None:
+    df = _make_simple_frame()
+    stats_cfg = RiskStatsConfig(metrics_to_run=["Return"], risk_free=0.0)
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=stats_cfg,
+        periods_per_year_override=None,
+        allow_risk_free_fallback=None,
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("error", (FutureWarning, DeprecationWarning))
+        window = _build_sample_windows(
+            preprocess,
+            in_start="2020-01-31",
+            in_end="2020-03-31",
+            out_start="2020-04-30",
+            out_end="2020-06-30",
+        )
+
+    assert isinstance(window, _WindowStage)
+    assert not caught
+
+    expected = preprocess.df.set_index(preprocess.date_col)
+    expected_in = expected.loc["2020-01-31":"2020-03-31"]
+    expected_out = expected.loc["2020-04-30":"2020-06-30"]
+
+    assert df["Date"].dt.tz is not None
+    assert window.in_start == pd.Timestamp("2020-01-31")
+    assert window.in_end == pd.Timestamp("2020-03-31")
+    assert window.out_start == pd.Timestamp("2020-04-30")
+    assert window.out_end == pd.Timestamp("2020-06-30")
+    assert window.in_df.index.tz == expected.index.tz
+    assert window.out_df.index.tz == expected.index.tz
+    pd.testing.assert_frame_equal(window.in_df, expected_in)
+    pd.testing.assert_frame_equal(window.out_df, expected_out)
 
 
 def test_select_universe_reports_missing_funds() -> None:
