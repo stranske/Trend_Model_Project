@@ -24,6 +24,8 @@ from typing import (
     cast,
 )
 
+import numpy as np
+
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field, model_validator
@@ -350,6 +352,11 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
     return "; ".join(parts)
 
 
+def _normalize_delta_days(delta_days: pd.Series) -> pd.Series:
+    cleaned = delta_days.replace([np.inf, -np.inf], np.nan).dropna()
+    return cleaned.astype(float)
+
+
 def classify_frequency(
     index: pd.DatetimeIndex,
     *,
@@ -379,7 +386,18 @@ def classify_frequency(
             "tolerance_periods": 0,
         }
 
-    delta_days = diffs / pd.Timedelta(days=1)
+    delta_days = _normalize_delta_days(diffs / pd.Timedelta(days=1))
+    if delta_days.empty:
+        return {
+            "canonical": "UNKNOWN",
+            "code": "UNKNOWN",
+            "label": "unknown",
+            "median_days": 0.0,
+            "max_missing_periods": 0,
+            "total_missing_periods": 0,
+            "tolerance_periods": 0,
+        }
+
     median_days = float(delta_days.median())
 
     if median_days <= 0:
@@ -426,9 +444,8 @@ def classify_frequency(
     if max_gap_limit is not None:
         tolerance_limit = max(tolerance_default, max_gap_limit)
 
-    with pd.option_context("mode.use_inf_as_na", True):
-        raw_ratio = delta_days / base_days
-        nearest = raw_ratio.round().clip(lower=1)
+    raw_ratio = delta_days / base_days
+    nearest = raw_ratio.round().clip(lower=1)
 
     deviation = (raw_ratio - nearest).abs()
     irregular_mask = (nearest == 1) & (deviation > 0.34)
