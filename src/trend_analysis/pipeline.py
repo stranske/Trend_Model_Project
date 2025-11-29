@@ -1612,7 +1612,9 @@ def _resolve_risk_free_column(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
         window_df = expanded_df.reset_index().rename(columns={"index": date_col})
-        probe_cols = [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
+        probe_cols = (
+            [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
+        )
         detected = identify_risk_free_fund(window_df[probe_cols])
         if detected is None:
             raise ValueError(
