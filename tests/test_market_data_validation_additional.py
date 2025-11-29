@@ -139,7 +139,9 @@ def test_classify_frequency_detects_weekly() -> None:
     assert info["tolerance_periods"] == 1
 
 
-def test_classify_frequency_normalises_infinite_intervals(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_classify_frequency_normalises_infinite_intervals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     index = pd.date_range("2024-01-05", periods=5, freq="7D")
 
     original_normalise = market_data._normalise_delta_days
@@ -157,7 +159,8 @@ def test_classify_frequency_normalises_infinite_intervals(monkeypatch: pytest.Mo
 
     assert info["code"] == "W"
     assert info["max_missing_periods"] == 0
-    
+
+
 def test_normalize_delta_days_drops_infinite_values() -> None:
     delta_days = pd.Series([30.0, float("inf"), -float("inf"), 31.0])
 
