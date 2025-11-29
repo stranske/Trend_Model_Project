@@ -67,7 +67,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const core = require('@actions/core');
+            // Note: 'core' is already provided by github-script, no require needed
 
             const staleBranchDays = parseInt(process.env.STALE_BRANCH_DAYS || '30', 10);
             const stalePrDays = parseInt(process.env.STALE_PR_DAYS || '30', 10);
@@ -279,7 +279,7 @@ jobs:
           DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
         with:
           script: |
-            const core = require('@actions/core');
+            // Note: 'core' is already provided by github-script, no require needed
 
             const defaultBranch = process.env.DEFAULT_BRANCH || null;
             if (!defaultBranch) {
