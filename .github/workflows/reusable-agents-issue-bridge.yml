@@ -484,6 +484,7 @@ jobs:
 
       - name: Invite human to open PR (invite mode)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
+        id: invite
         uses: actions/github-script@v7
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
@@ -492,6 +493,7 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const base = "${{ steps.refs.outputs.base }}";
             const branch = process.env.BRANCH;
@@ -520,11 +522,31 @@ jobs:
               core.error('Failed to fetch issue: ' + err); 
             }
             
+            // Check if a PR already exists for this branch
+            let existingPr = null;
+            try {
+              const { data: pulls } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                head: `${owner}:${branch}`,
+              });
+              if (pulls.length > 0) {
+                existingPr = pulls[0];
+              }
+            } catch (err) {
+              core.warning(`Failed to check for existing PR: ${err.message}`);
+            }
+            
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
             const metaMarker = `<!-- meta:issue:${issue_number} -->`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+            
+            // Build issue context for status summary
+            const contextData = buildIssueContext(issueBody || '');
+            const statusSummaryBlock = contextData.statusSummaryBlock || '';
             
             const bodySections = [
               keepaliveHeader,
@@ -565,6 +587,99 @@ jobs:
             if (!issue_number) { 
               core.setFailed('Resolved issue number missing; cannot post invite.'); 
               return; 
+            }
+            
+            // If PR already exists with empty body, update it with issue content
+            if (existingPr) {
+              const prBody = (existingPr.body || '').trim();
+              const hasMetaMarker = prBody.includes(`<!-- meta:issue:${issue_number} -->`);
+              const hasStatusSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prBody);
+              const bodyIsEmpty = !prBody || prBody.length < 50;
+              
+              if (bodyIsEmpty || (!hasMetaMarker && !hasStatusSummary)) {
+                // Build a proper PR body with issue content
+                const prBodySections = [
+                  keepaliveHeader,
+                  metaMarker,
+                  '',
+                  statusSummaryBlock,
+                  '',
+                  header,
+                  '',
+                  `Base: ${base}`,
+                  `Head: ${branch}`,
+                  '',
+                  `Source: ${issueUrl}`,
+                  '',
+                  '### Issue Details',
+                  '',
+                  issueBody || '_(No issue body)_',
+                ];
+                
+                const newPrBody = prBodySections.join('\n').trim();
+                try {
+                  await github.rest.pulls.update({
+                    owner,
+                    repo,
+                    pull_number: existingPr.number,
+                    body: newPrBody,
+                  });
+                  core.info(`Updated PR #${existingPr.number} body with issue content and status summary.`);
+                  core.setOutput('pr_updated', 'true');
+                  core.setOutput('pr_number', String(existingPr.number));
+                } catch (err) {
+                  core.warning(`Failed to update PR #${existingPr.number} body: ${err.message}`);
+                }
+              } else {
+                core.info(`PR #${existingPr.number} already has content; skipping body update.`);
+              }
+              
+              // Post issue context comment on existing PR if not already present
+              try {
+                // Fetch all comments using pagination to avoid missing any
+                const comments = await github.paginate(
+                  github.rest.issues.listComments,
+                  {
+                    owner,
+                    repo,
+                    issue_number: existingPr.number,
+                    per_page: 100,
+                  }
+                );
+                const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issue_number}\\b`, 'i');
+                const alreadyPosted = comments.some((c) => headerRegex.test(c.body || ''));
+                
+                if (!alreadyPosted && issueBody) {
+                  const contextComment = [
+                    `### Issue #${issue_number}: ${issueTitle}`,
+                    '',
+                    statusSummaryBlock,
+                    '',
+                    '#### Full Issue Text',
+                    '',
+                    issueBody.trim(),
+                  ].join('\n');
+                  
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: existingPr.number,
+                    body: contextComment,
+                  });
+                  core.info(`Posted issue context comment on PR #${existingPr.number}.`);
+                }
+              } catch (err) {
+                core.warning(`Failed to post issue context on PR: ${err.message}`);
+              }
+              
+              // Still post on the issue for visibility
+              await github.rest.issues.createComment({ 
+                owner, 
+                repo, 
+                issue_number, 
+                body: `PR #${existingPr.number} already exists for branch \`${branch}\`. Updated PR body with issue content.\n\nPR link: ${existingPr.html_url}` 
+              });
+              return;
             }
             
             await github.rest.issues.createComment({ 
