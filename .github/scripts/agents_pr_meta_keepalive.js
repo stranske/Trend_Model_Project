@@ -33,6 +33,12 @@ function extractIssueNumberFromPull(pull) {
 
   const candidates = [];
 
+  const bodyText = pull?.body || '';
+  const metaMatch = bodyText.match(/<!--\s*meta:issue:([0-9]+)\s*-->/i);
+  if (metaMatch) {
+    candidates.push(metaMatch[1]);
+  }
+
   const branch = pull?.head?.ref || '';
   const branchMatch = branch.match(/issue-+([0-9]+)/i);
   if (branchMatch) {
@@ -45,7 +51,6 @@ function extractIssueNumberFromPull(pull) {
     candidates.push(titleMatch[1]);
   }
 
-  const bodyText = pull?.body || '';
   for (const match of bodyText.matchAll(/#([0-9]+)/g)) {
     if (match[1]) {
       candidates.push(match[1]);
