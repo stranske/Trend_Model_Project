@@ -1,6 +1,6 @@
 'use strict';
 
-const { paginateWithBackoff, withBackoff } = require('./api-helpers.js');
+const { paginateWithBackoff } = require('./api-helpers.js');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
