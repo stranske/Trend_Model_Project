@@ -47,11 +47,7 @@ _HUMAN_FREQUENCY_LABELS = {
 
 
 def _normalise_delta_days(delta_days: pd.Series) -> pd.Series:
-    if delta_days.empty:
-        return delta_days
-
-    cleaned = delta_days.replace([np.inf, -np.inf], np.nan)
-    return cleaned.dropna()
+    return _normalize_delta_days(delta_days)
 
 
 _DEFAULT_MISSING_POLICY = "drop"
