@@ -1904,8 +1904,10 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const { extractIssueNumberFromPull } = require('./.github/scripts/agents_pr_meta_keepalive.js');
-            const { parseScopeTasksAcceptanceSections } = require('./.github/scripts/issue_scope_parser.js');
+            const path = require('path');
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+            const { extractIssueNumberFromPull } = require(path.resolve(workspace, '.github/scripts/agents_pr_meta_keepalive.js'));
+            const { parseScopeTasksAcceptanceSections } = require(path.resolve(workspace, '.github/scripts/issue_scope_parser.js'));
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -2087,7 +2089,28 @@ jobs:
 
             const issueNumber = extractIssueNumber(pr);
             if (!issueNumber) {
-              core.warning(`Unable to determine source issue for PR #${pr.number}. The PR title or body must contain the issue number (e.g. #123) or the hidden marker <!-- meta:issue:123 -->.`);
+              const warningMsg = `Unable to determine source issue for PR #${pr.number}. The PR title, branch name, or body must contain the issue number (e.g. #123, branch: issue-123, or the hidden marker <!-- meta:issue:123 -->).`;
+              core.warning(warningMsg);
+
+              try {
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                });
+                const alreadyWarned = comments.some((c) => c.body && c.body.includes('Unable to determine source issue'));
+                
+                if (!alreadyWarned) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: pr.number,
+                    body: `⚠️ **Action Required**: ${warningMsg}`
+                  });
+                }
+              } catch (error) {
+                core.warning(`Failed to post warning comment: ${error.message}`);
+              }
               return;
             }
 
