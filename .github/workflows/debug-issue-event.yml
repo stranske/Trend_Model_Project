@@ -29,7 +29,7 @@ jobs:
           
           labels_json='${{ toJson(github.event.issue.labels.*.name) }}'
           if echo "$labels_json" | jq -e 'any(test("^agent:") or test("^agents:"))' > /dev/null; then
-             echo "MATCH: Contains check passed"
+          echo "MATCH: Contains check passed"
           else
-             echo "FAIL: Contains check failed"
+          echo "FAIL: Contains check failed"
           fi
