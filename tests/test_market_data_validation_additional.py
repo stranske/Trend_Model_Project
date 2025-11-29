@@ -174,7 +174,7 @@ def test_classify_frequency_ignores_infinite_offsets(
 ) -> None:
     index = pd.date_range("2024-01-31", periods=5, freq="ME")
 
-    original = market_data._normalize_delta_days
+    original = market_data._normalise_delta_days
 
     def inject_and_clean(delta_days: pd.Series) -> pd.Series:
         polluted = delta_days.astype(float)
@@ -182,7 +182,7 @@ def test_classify_frequency_ignores_infinite_offsets(
         polluted.iloc[-1] = -float("inf")
         return original(polluted)
 
-    monkeypatch.setattr(market_data, "_normalize_delta_days", inject_and_clean)
+    monkeypatch.setattr(market_data, "_normalise_delta_days", inject_and_clean)
 
     info = market_data.classify_frequency(index)
 
