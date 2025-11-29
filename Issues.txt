@@ -21,7 +21,7 @@ Market data cadence validation relies on pandas' deprecated `mode.use_inf_as_na`
 Scope
 - Cadence validation path in `io/market_data.py` and its associated cadence/inf handling tests.
 Tasks
-- Normalize infinite values prior to cadence calculation (e.g., replace `±inf` with `NaN`) and drop reliance on the deprecated mode flag.
+- Normalize infinite values prior to cadence calculation (e.g., replace `np.inf` and `-np.inf` with `NaN`) and drop reliance on the deprecated mode flag.
 - Ensure cadence validation still reports the same diagnostics for valid and invalid inputs after the inf-normalization change.
 - Add tests covering inputs with `inf`/`-inf` values to confirm the new path handles them without using `mode.use_inf_as_na`.
 Acceptance criteria
