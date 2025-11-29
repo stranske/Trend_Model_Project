@@ -659,30 +659,46 @@ def _compute_weights_and_stats(
 
         allowed_start = window.in_start
         allowed_end = window.out_end
-        mask = (preprocess.df[preprocess.date_col] >= allowed_start) & (
-            preprocess.df[preprocess.date_col] <= allowed_end
-        )
-        scoped = preprocess.df.loc[mask, [preprocess.date_col] + fund_cols]
-        if scoped.empty:
-            return pd.DataFrame(dtype=float)
 
-        scoped = scoped.copy().set_index(preprocess.date_col).reindex(columns=fund_cols)
-        scoped = scoped.loc[:, ~scoped.columns.duplicated()]
+        def _filter_window(frame: pd.DataFrame, *, strict: bool) -> pd.DataFrame:
+            outside_mask = (frame.index < allowed_start) | (frame.index > allowed_end)
+            if strict and bool(outside_mask.any()):
+                first = pd.Timestamp(frame.index[outside_mask].min())
+                last = pd.Timestamp(frame.index[outside_mask].max())
+                msg = (
+                    "Signal inputs contain dates outside the active analysis window: "
+                    f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
+                )
+                raise ValueError(msg)
 
-        if not scoped.index.is_monotonic_increasing:
-            scoped = scoped.sort_index()
+            scoped = frame.loc[
+                (frame.index >= allowed_start) & (frame.index <= allowed_end)
+            ]
+            scoped = scoped.loc[:, ~scoped.columns.duplicated()]
+            scoped = scoped.reindex(columns=fund_cols)
+            return scoped.astype(float)
 
-        outside_mask = (scoped.index < allowed_start) | (scoped.index > allowed_end)
-        if bool(outside_mask.any()):
-            first = pd.Timestamp(scoped.index[outside_mask].min())
-            last = pd.Timestamp(scoped.index[outside_mask].max())
-            msg = (
-                "Signal inputs contain dates outside the active analysis window: "
-                f"[{first} → {last}] not within [{allowed_start} → {allowed_end}]"
+        signal_source: pd.DataFrame | None = None
+        strict_enforcement = True
+        try:
+            scoped_cols = [preprocess.date_col, *fund_cols]
+            # Copy before ``set_index`` so DataFrame subclasses (see
+            # ``tests.test_pipeline_helpers_additional.SignalFrame``) can signal
+            # that no usable signal data are available.
+            subset = preprocess.df[scoped_cols].copy()
+            signal_source = subset.set_index(preprocess.date_col)
+            strict_enforcement = False
+        except Exception:
+            signal_source = None
+
+        if signal_source is None:
+            signal_source = (
+                pd.concat([window.in_df, window.out_df])
+                .sort_index()
+                .reindex(columns=fund_cols)
             )
-            raise ValueError(msg)
 
-        return scoped.astype(float)
+        return _filter_window(signal_source, strict=strict_enforcement)
 
     weight_engine_fallback: dict[str, str] | None = None
     if (

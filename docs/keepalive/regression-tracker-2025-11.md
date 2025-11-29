@@ -11,6 +11,7 @@
 | 2025-11-28 | PR #3827 keepalive sweep | Runner logs "scope/tasks/acceptance block unavailable" and skips commenting. | Confirms hard dependency on `Scope` section; no remediation applied yet. |
 | 2025-11-27 | Agents 63 Issue Intake bootstrap | First PR comment lacks the issue's Tasks + Acceptance content. | Intake workflow no longer copies the issue template when creating the bootstrap PR description. |
 | 2025-11-26 | Manual keepalive retry | Keepalive comment posted without actionable scope block; Codex ignored due to missing tasks. | Shows that partial fixes went out but were incomplete; notes referenced as "fixed" in commit message. |
+| 2025-11-28 | PR #3839 intake bootstrap | Issue text never landed on the PR even though the issue already contains Tasks + Acceptance; automation comment still shows `_No scope information available_`. | Agents 63 dry-run run [19774157406](https://github.com/stranske/Trend_Model_Project/actions/runs/19774157406) reused the existing PR but skipped posting the issue body, so the first PR comment remains empty. |
 
 *(Add new rows here as additional failures are confirmed.)*
 
@@ -53,12 +54,14 @@ Review the last ~8 merges touching keepalive / intake automation to avoid reappl
 - 2025-11-28 19:10 UTC — Confirmed Issue-label → PR bootstrap works again (`agent:codex` on Issue #3821 spawned PR #3833 automatically). Keepalive state comment now renders even when scope/tasks are missing, but the completion gate remains **open** until a real issue populates Tasks + Acceptance and we observe a follow-up keepalive round.
 - 2025-11-28 20:05 UTC — Added `analyzeSectionPresence()` helper plus workflow wiring so Agents 63 surfaces warnings whenever Scope/Tasks/Acceptance are missing. Missing sections now trigger PR + issue comments **and** the Automated Status Summary now emits a human-readable explanation when it cannot populate the block, detailing which headings it expects and what failed. Validated via `node --test .github/scripts/__tests__/issue_scope_parser.test.js` and `./scripts/dev_check.sh --changed --fix`.
 - 2025-11-28 20:32 UTC — Reworked the bridge so the Automated Status Summary refuses to show placeholder checklists when any canonical section is missing. Instead, it now emits a `⚠️ Summary Unavailable` block that lists the expected headings and calls out the missing sections, while the PR comment still carries placeholders so keepalive can run. Re-tested with `./scripts/dev_check.sh --changed --fix`.
+- 2025-11-28 21:31 UTC — Agents 63 dry-run (run [19774157406](https://github.com/stranske/Trend_Model_Project/actions/runs/19774157406)) executed after PR #3839 was already open, but the issue-text comment still failed to post and keepalive gate run [19774156305](https://github.com/stranske/Trend_Model_Project/actions/runs/19774156305) skipped with `reason=no-human-activation`. Blockers remain: (1) rerun the bridge in PR mode so the issue body becomes the first PR comment, (2) post the human activation snippet so keepalive can proceed.
+- 2025-11-28 22:40 UTC — Landed `.github/scripts/issue_context_utils.js` and rewired the reusable bridge so invite-mode discoveries reuse that helper, locate the existing PR via the head branch, and always publish the issue-context comment plus template warning. Validated with `node --test .github/scripts/__tests__/issue_context_utils.test.js` and `./scripts/dev_check.sh --changed --fix`; next step is to rerun Agents 63 in invite mode to confirm the issue text now lands on the standing PR.
 - _(add more entries as steps complete)_
 
 ## Validation Checklist (to run after fixes)
-- [ ] `scripts/dev_check.sh --changed --fix`
-- [ ] `./scripts/validate_fast.sh --fix`
-- [ ] `./scripts/check_branch.sh --fast --fix`
+- [x] `scripts/dev_check.sh --changed --fix`
+- [x] `./scripts/validate_fast.sh --fix`
+- [x] `./scripts/check_branch.sh --fast --fix`
 - [ ] Re-run Agents 63 intake in dry-run mode; confirm first PR comment copies Tasks + Acceptance.
 - [ ] Trigger keepalive workflow (dry-run + live) and verify instructions post even without Scope section.
 - [ ] Confirm Codex responds to keepalive comment on PR #3827.
