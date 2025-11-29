@@ -25,7 +25,6 @@ from typing import (
 )
 
 import numpy as np
-
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field, model_validator
@@ -45,6 +44,15 @@ _HUMAN_FREQUENCY_LABELS = {
     "Y": "annual",
     "YE": "annual",
 }
+
+
+def _normalise_delta_days(delta_days: pd.Series) -> pd.Series:
+    if delta_days.empty:
+        return delta_days
+
+    cleaned = delta_days.replace([np.inf, -np.inf], np.nan)
+    return cleaned.dropna()
+
 
 _DEFAULT_MISSING_POLICY = "drop"
 _VALID_MISSING_POLICIES = {"drop", "ffill", "zero"}
@@ -386,7 +394,8 @@ def classify_frequency(
             "tolerance_periods": 0,
         }
 
-    delta_days = _normalize_delta_days(diffs / pd.Timedelta(days=1))
+    delta_days = diffs / pd.Timedelta(days=1)
+    delta_days = _normalise_delta_days(delta_days)
     if delta_days.empty:
         return {
             "canonical": "UNKNOWN",
@@ -397,7 +406,6 @@ def classify_frequency(
             "total_missing_periods": 0,
             "tolerance_periods": 0,
         }
-
     median_days = float(delta_days.median())
 
     if median_days <= 0:
