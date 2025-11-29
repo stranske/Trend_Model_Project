@@ -95,7 +95,6 @@ jobs:
               core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
               core.setOutput('proceed', 'true');
             }
-
   scenarios:
     name: Scenario - ${{ matrix.name }}
     needs: rate-limit-check
