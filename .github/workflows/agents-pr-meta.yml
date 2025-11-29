@@ -1894,6 +1894,9 @@ jobs:
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Update PR body
         uses: actions/github-script@v7
         with:
