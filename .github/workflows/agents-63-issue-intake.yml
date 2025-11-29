@@ -106,6 +106,7 @@ jobs:
     if: >
       github.event_name != 'issues' ||
       contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
+      contains(toJson(github.event.issue.labels.*.name), 'agents:') ||
       (github.event.action == 'unlabeled' && (startsWith(github.event.label.name, 'agent:') || startsWith(github.event.label.name, 'agents:')))
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
