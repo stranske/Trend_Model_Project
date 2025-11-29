@@ -489,11 +489,13 @@ jobs:
             
             const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
             const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
+            const metaMarker = `<!-- meta:issue:${issue_number} -->`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
             
             const bodySections = [
               keepaliveHeader,
+              metaMarker,
               '',
               header,
               '',
@@ -606,6 +608,7 @@ jobs:
               const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
               const keepaliveStatus = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
               const keepaliveHeader = `### Keepalive: ${keepaliveStatus}`;
+              const metaMarker = `<!-- meta:issue:${issue_number} -->`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
               const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
               const baseLine = base ? `Base: ${base}` : '';
@@ -624,6 +627,7 @@ jobs:
 
               const prBody = [
                 keepaliveHeader,
+                metaMarker,
                 '',
                 header,
                 '',

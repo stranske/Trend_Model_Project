@@ -144,6 +144,35 @@ Before the next round begins:
 
 ---
 
+## 11. Issue Context & Status Summary
+
+The Keepalive workflow depends on the **Automated Status Summary** block in the PR body to extract Scope, Tasks, and Acceptance Criteria. This block is populated by the `agents-pr-meta` workflow, which must first link the PR back to its originating Issue.
+
+### Data Flow
+1.  **Issue Intake (Agents 63):**
+    *   The `reusable-agents-issue-bridge.yml` workflow runs.
+    *   **Create Mode:** Automatically creates a PR. It **must** embed the Issue Number (e.g., `<!-- meta:issue:{N} -->`) and the initial Issue Body into the PR description.
+    *   **Invite Mode:** Posts a comment inviting a human to create the PR. It provides a "Suggested Body" which **must** include the Issue Number marker and the Issue Body content.
+2.  **PR Creation/Update:**
+    *   The PR is opened (by bot or human).
+    *   The `agents-pr-meta.yml` workflow triggers on `pull_request` events.
+3.  **Link Resolution:**
+    *   `agents-pr-meta` scans the PR title, branch name, and body for the Issue Number (looking for `#N`, `issue-N`, or the hidden `<!-- meta:issue:N -->` marker).
+    *   **Critical Dependency:** If the Issue Number cannot be resolved, the workflow cannot fetch the source Issue content.
+4.  **Status Summary Upsert:**
+    *   Once linked, `agents-pr-meta` fetches the *current* body of the source Issue.
+    *   It parses the Issue for "Scope", "Tasks", and "Acceptance Criteria".
+    *   It generates the `## Automated Status Summary` block and upserts it into the PR body (replacing any existing block).
+5.  **Keepalive Execution:**
+    *   The Keepalive runner scans the PR. It looks for the `## Automated Status Summary` (or fallback manual blocks).
+    *   If the summary is missing or marked "⚠️ Summary Unavailable", Keepalive skips the PR.
+
+### Failure Modes & Recovery
+*   **Missing Link:** If the PR title/body lacks the Issue Number, `agents-pr-meta` fails silently (or warns). **Fix:** Add `#<issue_number>` to the PR body.
+*   **Missing Sections:** If the source Issue lacks "Scope"/"Tasks"/"Acceptance", the summary will show a warning. **Fix:** Update the source Issue text and re-run `agents-pr-meta` (e.g., by editing the PR body slightly to trigger a re-scan).
+
+---
+
 ## Appendix: Operator Checklist
 
 | Phase | Key Checks |
