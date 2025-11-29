@@ -78,6 +78,7 @@ jobs:
             );
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
 
+            // Check PAT rate limit (used for authenticated operations)
             const status = await checkRateLimitStatus(github, { threshold, core });
 
             core.setOutput('safe', status.safe ? 'true' : 'false');
@@ -88,6 +89,8 @@ jobs:
             const summary = core.summary;
             summary.addHeading('Rate Limit Status', 3);
 
+            // Display PAT rate limit
+            summary.addHeading('Personal Access Token (PAT)', 4);
             if (status.error) {
               summary.addRaw(`⚠️ Could not check rate limit: ${status.error}`).addEOL();
               summary.addRaw('Proceeding with orchestrator run.').addEOL();
@@ -101,6 +104,12 @@ jobs:
                 summary.addRaw(`**Deferring orchestrator run** — rate limit too low. Try again in ~${waitMinutes} minutes.`).addEOL();
               }
             }
+
+            // Note: Installation token (GITHUB_TOKEN) has separate rate limits
+            // shown in workflow logs but not directly queryable via this token
+            summary.addHeading('Note', 4);
+            summary.addRaw('Installation token (GITHUB_TOKEN) has separate rate limits. ').addEOL();
+            summary.addRaw('Check workflow run headers for `x-ratelimit-*` if other jobs fail with rate limit errors.').addEOL();
 
             await summary.write();
 
