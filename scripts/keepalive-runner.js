@@ -8,6 +8,9 @@ const {
   extractScopeTasksAcceptanceSections: extractScopeTasksAcceptanceSectionsFromIssue,
   parseScopeTasksAcceptanceSections,
 } = require('../.github/scripts/issue_scope_parser.js');
+const {
+  getKeepaliveInstructionWithMention,
+} = require('../.github/scripts/keepalive_instruction_template.js');
 
 function parseJson(value, fallback) {
   try {
@@ -522,8 +525,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   }
   targetLabels = dedupe(targetLabels);
 
-  const defaultCommand =
-    "@codex Use the scope, acceptance criteria, and task list to ship code and tests each round. Start implementing the next coding task instead of only reposting checklists, and update checkboxes only after real work and verification are done. Re-post the refreshed scope/tasks/acceptance once you've completed work.";
+  // Instruction loaded from .github/templates/keepalive-instruction.md
+  const defaultCommand = getKeepaliveInstructionWithMention('codex');
   const commandRaw = options.keepalive_command ?? defaultCommand;
   const command = String(commandRaw).trim() || defaultCommand;
 

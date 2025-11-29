@@ -71,10 +71,11 @@ def _assert_no_dispatch(data: dict) -> None:
     assert _dispatch_events(data) == []
 
 
-DEFAULT_COMMAND = (
-    "@codex Use the scope, acceptance criteria, and task list to ship code and tests each round. "
-    "Start implementing the next coding task instead of only reposting checklists, and update checkboxes only after real work and verification are done. "
-    "Re-post the refreshed scope/tasks/acceptance once you've completed work."
+# First line of the keepalive instruction from .github/templates/keepalive-instruction.md
+# The full instruction is multi-line; tests check that the instruction starts correctly.
+DEFAULT_COMMAND_PREFIX = (
+    "@codex Your objective is to satisfy the **Acceptance Criteria** by completing each "
+    "**Task** within the defined **Scope**."
 )
 
 
@@ -166,7 +167,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert body_lines[1] == "<!-- keepalive-attempt: 1 -->"
     assert body_lines[2] == "<!-- codex-keepalive-marker -->"
     assert "<!-- keepalive-trace:" in created[0]["body"]
-    assert body_lines[4] == DEFAULT_COMMAND
+    assert body_lines[4].startswith(DEFAULT_COMMAND_PREFIX)
     _assert_scope_block(created[0]["body"])
     assert "**Keepalive Round" not in created[0]["body"]
     assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
@@ -240,7 +241,7 @@ def test_keepalive_dedupes_configuration() -> None:
     assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-trace:" in created[0]["body"]
-    assert DEFAULT_COMMAND in created[0]["body"]
+    assert DEFAULT_COMMAND_PREFIX in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "Codex, 1/1 checklist item" not in created[0]["body"]
     assert data["updated_comments"] == []
@@ -264,7 +265,7 @@ def test_keepalive_waits_for_recent_command() -> None:
     created = data["created_comments"]
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [707]
-    assert DEFAULT_COMMAND in created[0]["body"]
+    assert DEFAULT_COMMAND_PREFIX in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "Codex, 1/2 checklist item" not in created[0]["body"]
     assert "<!-- keepalive-trace:" in created[0]["body"]
@@ -312,7 +313,7 @@ def test_keepalive_skips_unapproved_comment_author() -> None:
     _assert_keepalive_authors(created, "helper-bot")
     assert len(created) == 1
     assert created[0]["issue_number"] == 313
-    assert DEFAULT_COMMAND in created[0]["body"]
+    assert DEFAULT_COMMAND_PREFIX in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "<!-- keepalive-trace:" in created[0]["body"]
 
@@ -339,7 +340,7 @@ def test_keepalive_handles_paged_comments() -> None:
     assert body_lines[1] == "<!-- keepalive-attempt: 1 -->"
     assert body_lines[2] == "<!-- codex-keepalive-marker -->"
     assert "<!-- keepalive-trace:" in created[0]["body"]
-    assert body_lines[4] == DEFAULT_COMMAND
+    assert body_lines[4].startswith(DEFAULT_COMMAND_PREFIX)
     _assert_scope_block(created[0]["body"])
     assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
     assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
@@ -368,7 +369,7 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
     assert "<!-- keepalive-attempt: 2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
     assert "<!-- keepalive-trace:" in body
-    assert DEFAULT_COMMAND in body
+    assert DEFAULT_COMMAND_PREFIX in body
     _assert_scope_block(body)
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
@@ -397,7 +398,7 @@ def test_keepalive_upgrades_legacy_comment() -> None:
     assert "<!-- keepalive-attempt: 2 -->" in body
     assert "<!-- codex-keepalive-marker -->" in body
     assert "<!-- keepalive-trace:" in body
-    assert DEFAULT_COMMAND in body
+    assert DEFAULT_COMMAND_PREFIX in body
     _assert_scope_block(body)
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
@@ -426,7 +427,7 @@ def test_keepalive_skips_non_codex_branches() -> None:
     # - Enough idle time has passed
     assert len(created) == 1
     _assert_keepalive_authors(created)
-    assert DEFAULT_COMMAND in created[0]["body"]
+    assert DEFAULT_COMMAND_PREFIX in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "<!-- keepalive-trace:" in created[0]["body"]
 
@@ -453,7 +454,7 @@ def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
     _assert_keepalive_authors(created)
     assert len(created) == 1
     assert created[0]["issue_number"] == 101
-    assert DEFAULT_COMMAND in created[0]["body"]
+    assert DEFAULT_COMMAND_PREFIX in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "<!-- keepalive-trace:" in created[0]["body"]
 
