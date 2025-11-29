@@ -1,4 +1,4 @@
-name: Debug Issue Event
+name: Agents Debug Issue Event
 on:
   issues:
     types: [labeled, unlabeled, opened, reopened]

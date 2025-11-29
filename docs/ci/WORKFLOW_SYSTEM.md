@@ -696,7 +696,7 @@ snapshots for audit trails.
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   `maint-51-dependency-refresh.yml`, the Gate summary job (inline),
   `maint-coverage-guard.yml`, health 40/41/42/43/44,
-  agents 70/63, `agents-moderate-connector.yml`, `agents-guard.yml`, reusable 10/12/16/18, and
+  agents 70/63, `agents-moderate-connector.yml`, `agents-debug-issue-event.yml`, `agents-guard.yml`, reusable 10/12/16/18, and
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
