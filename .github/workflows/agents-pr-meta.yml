@@ -1955,7 +1955,7 @@ jobs:
               if (!body || !heading) {
                 return '';
               }
-              const pattern = new RegExp(`^\s*${heading}\s*\n+([\\s\\S]*?)(?=^\s*\S|$)`, 'im');
+              const pattern = new RegExp(`^\\s*${heading}\\s*\\n+([\\s\\S]*?)(?=^\\s*\\S|$)`, 'im');
               const match = String(body || '').match(pattern);
               return match && match[1] ? match[1].trim() : '';
             }
