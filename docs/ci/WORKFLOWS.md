@@ -103,6 +103,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-64-verify-agent-assignment.yml`](../../.github/workflows/agents-64-verify-agent-assignment.yml) validates that labelled issues retain an approved agent assignee and publishes the verification outputs.
 * [`agents-moderate-connector.yml`](../../.github/workflows/agents-moderate-connector.yml) moderates connector-authored PR comments, enforcing repository allow/deny lists and applying the debugging label when deletions occur.
 * [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
+* [`agents-debug-issue-event.yml`](../../.github/workflows/agents-debug-issue-event.yml) dumps the GitHub event context for debugging issue triggers.
 * [`autofix.yml`](../../.github/workflows/autofix.yml) detects formatting failures in agent PRs, applies automated fixes via ruff, and pushes autofix branches when the autofix label is present.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) is the composite invoked by the orchestrator to run readiness, bootstrap, diagnostics, keepalive, and watchdog passes.
 * [`reusable-agents-issue-bridge.yml`](../../.github/workflows/reusable-agents-issue-bridge.yml) provides reusable agent bootstrap steps for creating PRs from GitHub issues across multiple agent types.
