@@ -175,7 +175,8 @@ jobs:
               [
                 .issue.labels[]?.name
                 | select(test("^agents?:[A-Za-z0-9-]+$"))
-                | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\\(.key)")
+                | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\(.key)")
+                | select(. != "keepalive")
               ][0] // empty
             ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
             if [ -n "$event_agent" ]; then
@@ -1115,9 +1116,15 @@ jobs:
               .map(label => typeof label === 'string' ? label : (label.name || ''))
               .filter(Boolean)
               .map(name => name.toLowerCase());
+            // Control labels that should not be counted as agent assignments
+            const controlLabelSuffixes = ['keepalive'];
             const codexGuardLabels = ['agent:codex', 'agents:codex'];
             const agentLabels = labels
-              .filter(name => /^agents?:[a-z0-9-]+$/.test(name));
+              .filter(name => /^agents?:[a-z0-9-]+$/.test(name))
+              .filter(name => {
+                const suffix = name.replace(/^agents?:/, '');
+                return !controlLabelSuffixes.includes(suffix);
+              });
             if (agentLabels.length !== 1) {
               core.setFailed(`Expected exactly one agent:* or agents:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
               return;
