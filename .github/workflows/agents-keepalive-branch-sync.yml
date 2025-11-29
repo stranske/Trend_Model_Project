@@ -97,8 +97,8 @@ jobs:
           
           # Push changes
           if ! git push origin HEAD:refs/heads/"$HEAD_REF"; then
-             echo "::error::Failed to push synced branch. It may have diverged or is protected."
-             exit 1
+            echo "::error::Failed to push synced branch. It may have diverged or is protected."
+            exit 1
           fi
           
           echo "Successfully synced $HEAD_REF with $BASE_REF"
