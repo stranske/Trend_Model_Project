@@ -360,6 +360,11 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
     return "; ".join(parts)
 
 
+def _normalize_delta_days(delta_days: pd.Series) -> pd.Series:
+    cleaned = delta_days.replace([np.inf, -np.inf], np.nan).dropna()
+    return cleaned.astype(float)
+
+
 def classify_frequency(
     index: pd.DatetimeIndex,
     *,

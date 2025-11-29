@@ -157,6 +157,34 @@ def test_classify_frequency_normalises_infinite_intervals(monkeypatch: pytest.Mo
 
     assert info["code"] == "W"
     assert info["max_missing_periods"] == 0
+    
+def test_normalize_delta_days_drops_infinite_values() -> None:
+    delta_days = pd.Series([30.0, float("inf"), -float("inf"), 31.0])
+
+    cleaned = market_data._normalize_delta_days(delta_days)
+
+    assert cleaned.tolist() == [30.0, 31.0]
+
+
+def test_classify_frequency_ignores_infinite_offsets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index = pd.date_range("2024-01-31", periods=5, freq="ME")
+
+    original = market_data._normalize_delta_days
+
+    def inject_and_clean(delta_days: pd.Series) -> pd.Series:
+        polluted = delta_days.astype(float)
+        polluted.iloc[0] = float("inf")
+        polluted.iloc[-1] = -float("inf")
+        return original(polluted)
+
+    monkeypatch.setattr(market_data, "_normalize_delta_days", inject_and_clean)
+
+    info = market_data.classify_frequency(index)
+
+    assert info["code"] == "M"
+    assert info["label"] == "monthly"
 
 
 def test_classify_frequency_irregular_preview_includes_ellipsis() -> None:
