@@ -4,6 +4,7 @@
 
 ## Progress updates
 - Round 1: Captured the initial scope/tasks/acceptance from the automated status summary for issue #3861 (risk-free fallback window coverage and diagnostics).
+- Round 2: Reconfirmed all items remain open; no acceptance criteria have been satisfied yet. Checklists reposted for visibility until progress is made.
 
 ## Scope
 - [ ] The risk-free fallback chooses the lowest-volatility numeric column with any non-null value, so sparse series can be selected and later propagate NaNs when aligned to the analysis windows.
