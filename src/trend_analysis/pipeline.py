@@ -660,9 +660,9 @@ def _compute_weights_and_stats(
         allowed_start = window.in_start
         allowed_end = window.out_end
 
-        def _filter_window(frame: pd.DataFrame) -> pd.DataFrame:
+        def _filter_window(frame: pd.DataFrame, *, strict: bool) -> pd.DataFrame:
             outside_mask = (frame.index < allowed_start) | (frame.index > allowed_end)
-            if bool(outside_mask.any()):
+            if strict and bool(outside_mask.any()):
                 first = pd.Timestamp(frame.index[outside_mask].min())
                 last = pd.Timestamp(frame.index[outside_mask].max())
                 msg = (
@@ -679,6 +679,7 @@ def _compute_weights_and_stats(
             return scoped.astype(float)
 
         signal_source: pd.DataFrame | None = None
+        strict_enforcement = True
         try:
             scoped_cols = [preprocess.date_col, *fund_cols]
             # Copy before ``set_index`` so DataFrame subclasses (see
@@ -686,6 +687,7 @@ def _compute_weights_and_stats(
             # that no usable signal data are available.
             subset = preprocess.df[scoped_cols].copy()
             signal_source = subset.set_index(preprocess.date_col)
+            strict_enforcement = False
         except Exception:
             signal_source = None
 
@@ -696,7 +698,7 @@ def _compute_weights_and_stats(
                 .reindex(columns=fund_cols)
             )
 
-        return _filter_window(signal_source)
+        return _filter_window(signal_source, strict=strict_enforcement)
 
     weight_engine_fallback: dict[str, str] | None = None
     if (
