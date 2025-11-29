@@ -1924,6 +1924,12 @@ jobs:
 
               extractIssueNumberFromPull = require(keepalivePath).extractIssueNumberFromPull;
               parseScopeTasksAcceptanceSections = require(parserPath).parseScopeTasksAcceptanceSections;
+              if (typeof extractIssueNumberFromPull !== 'function') {
+                throw new Error('extractIssueNumberFromPull is not exported from keepalive script');
+              }
+              if (typeof parseScopeTasksAcceptanceSections !== 'function') {
+                throw new Error('parseScopeTasksAcceptanceSections is not exported from parser script');
+              }
             } catch (error) {
               core.setFailed(`Failed to load required scripts: ${error.message}`);
               return;
