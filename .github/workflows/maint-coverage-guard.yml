@@ -11,48 +11,11 @@ permissions:
   issues: write
 
 jobs:
-  # Rate limit gate: skip non-critical maintenance when API quota is low
-  # This ensures keepalive and core workflows get priority (threshold: 2000)
+  # Call reusable rate limit check workflow
   rate-limit-check:
-    name: Rate limit gate
-    runs-on: ubuntu-latest
-    outputs:
-      proceed: ${{ steps.check.outputs.proceed || 'true' }}
-    steps:
-      - name: Check API quota
-        id: check
-        uses: actions/github-script@v7
-        env:
-          # Higher threshold than orchestrator (1000) so keepalive runs first
-          RATE_LIMIT_THRESHOLD: '2000'
-        with:
-          script: |
-            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
-            try {
-              const { data } = await github.rest.rateLimit.get();
-              const remaining = data?.resources?.core?.remaining || 0;
-              const limit = data?.resources?.core?.limit || 5000;
-              const proceed = remaining >= threshold;
-
-              core.setOutput('proceed', proceed ? 'true' : 'false');
-              core.setOutput('remaining', String(remaining));
-
-              if (!proceed) {
-                const reset = data?.resources?.core?.reset || 0;
-                const resetTime = new Date(reset * 1000).toISOString();
-                core.notice(`Deferring coverage guard: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
-                await core.summary
-                  .addHeading('Coverage Guard Deferred', 3)
-                  .addRaw(`API quota too low for non-critical maintenance (${remaining}/${limit} remaining).`)
-                  .addEOL()
-                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
-                  .write();
-              }
-            } catch (error) {
-              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
-              core.setOutput('proceed', 'true');
-            }
-
+    uses: ./.github/workflows/reusable-rate-limit-check.yml
+    with:
+      rate_limit_threshold: 2000
   guard:
     name: coverage baseline monitor
     needs: rate-limit-check
