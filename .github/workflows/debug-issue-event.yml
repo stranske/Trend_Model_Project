@@ -28,7 +28,7 @@ jobs:
           fi
           
           labels_json='${{ toJson(github.event.issue.labels.*.name) }}'
-          if [[ "$labels_json" == *"agent:"* ]] || [[ "$labels_json" == *"agents:"* ]]; then
+          if echo "$labels_json" | jq -e 'any(test("^agent:") or test("^agents:"))' > /dev/null; then
              echo "MATCH: Contains check passed"
           else
              echo "FAIL: Contains check failed"
