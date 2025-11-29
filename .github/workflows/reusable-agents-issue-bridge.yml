@@ -636,12 +636,16 @@ jobs:
               
               // Post issue context comment on existing PR if not already present
               try {
-                const { data: comments } = await github.rest.issues.listComments({
-                  owner,
-                  repo,
-                  issue_number: existingPr.number,
-                  per_page: 100,
-                });
+                // Fetch all comments using pagination to avoid missing any
+                const comments = await github.paginate(
+                  github.rest.issues.listComments,
+                  {
+                    owner,
+                    repo,
+                    issue_number: existingPr.number,
+                    per_page: 100,
+                  }
+                );
                 const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issue_number}\\b`, 'i');
                 const alreadyPosted = comments.some((c) => headerRegex.test(c.body || ''));
                 
