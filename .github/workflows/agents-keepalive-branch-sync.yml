@@ -164,7 +164,7 @@ jobs:
               echo "$conflict_files"
 
               # Check if conflicts are only in auto-resolvable files (lock files)
-              non_lock_conflicts=$(echo "$conflict_files" | grep -vE '\.(lock|lock\.json)$' || true)
+              non_lock_conflicts=$(echo "$conflict_files" | grep -vE '(\.lock$|lock\.json$|package-lock\.json$|yarn\.lock$|poetry\.lock$|Gemfile\.lock$|requirements.*\.lock$)' || true)
               if [ -z "$non_lock_conflicts" ]; then
                 echo "All conflicts are in lock files. Attempting auto-resolution..."
                 for file in $conflict_files; do
