@@ -2,6 +2,8 @@
 Labels: agent:codex, bug, backend
 Why
 `pipeline._build_sample_windows` still calls the deprecated `pd.api.types.is_datetime64tz_dtype`, which pandas plans to drop; timezone-aware datasets will raise before window construction once the API is removed.
+Scope
+- `pipeline._build_sample_windows` dtype guard and adjacent sample-window tests that exercise timezone-aware inputs.
 Tasks
 - Replace the dtype check with a supported alternative (e.g., `isinstance(dtype, pd.DatetimeTZDtype)` or `DatetimeTZDtype.is_dtype`) while keeping behaviour identical for tz-aware and naive indexes.
 - Add regression coverage for tz-aware datasets that verifies window construction works without deprecation warnings on current pandas.
@@ -16,6 +18,8 @@ Implementation notes
 Labels: agent:codex, bug, data
 Why
 Market data cadence validation relies on pandas' deprecated `mode.use_inf_as_na` context manager; once removed, cadence checks will raise before emitting diagnostics, and inf handling will regress.
+Scope
+- Cadence validation path in `io/market_data.py` and its associated cadence/inf handling tests.
 Tasks
 - Normalize infinite values prior to cadence calculation (e.g., replace `±inf` with `NaN`) and drop reliance on the deprecated mode flag.
 - Ensure cadence validation still reports the same diagnostics for valid and invalid inputs after the inf-normalization change.
@@ -30,6 +34,8 @@ Implementation notes
 Labels: agent:codex, enhancement, data
 Why
 `compute_universe_fingerprint` treats missing or unreadable membership/data files as empty byte streams, making fingerprints identical for "no files" and "empty files" and masking corrupt inputs.
+Scope
+- `analysis/results.compute_universe_fingerprint` plus tests that cover valid, empty, and missing membership/data inputs.
 Tasks
 - Emit a warning or explicit marker in the hash payload when expected membership/data files are absent or unreadable.
 - Preserve deterministic fingerprints for valid inputs while differentiating missing-file scenarios.
@@ -44,6 +50,8 @@ Implementation notes
 Labels: agent:codex, cleanup, backend
 Why
 Month-end logic still uses legacy "M" aliases (e.g., `pd.date_range(..., freq="M")`, `pd.Period(text, freq="M")`), which trigger deprecation warnings and risk breaking on future pandas releases.
+Scope
+- Month-end frequency usage in sample-window construction and related date-range helpers and tests that assert month-end boundaries.
 Tasks
 - Replace month-end frequency strings with the recommended "ME" aliases in sample-window construction and related helpers.
 - Update any date-range tests or fixtures that rely on the old alias to keep expectations aligned.
@@ -58,6 +66,8 @@ Implementation notes
 Labels: agent:codex, enhancement, backend
 Why
 `_compute_weights_and_stats` converts weighting errors into equal-weight fallbacks with only a warning, hiding configuration or numerical issues from callers and downstream logs.
+Scope
+- `_compute_weights_and_stats` and callers that propagate fallback weighting results, along with tests that assert diagnostics on fallback paths.
 Tasks
 - Return structured diagnostics when fallbacks occur (e.g., include the failure reason and fallback type) so downstream consumers can detect the bypass.
 - Optionally propagate the diagnostic through existing payload/metadata structures without breaking current callers.
