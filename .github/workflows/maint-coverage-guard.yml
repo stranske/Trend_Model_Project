@@ -11,8 +11,15 @@ permissions:
   issues: write
 
 jobs:
+  # Call reusable rate limit check workflow
+  rate-limit-check:
+    uses: ./.github/workflows/reusable-rate-limit-check.yml
+    with:
+      rate_limit_threshold: 2000
   guard:
     name: coverage baseline monitor
+    needs: rate-limit-check
+    if: needs.rate-limit-check.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
