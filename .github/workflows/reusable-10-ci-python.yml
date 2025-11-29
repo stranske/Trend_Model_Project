@@ -682,7 +682,7 @@ jobs:
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
           path: artifacts/coverage
           if-no-files-found: warn
-          retention-days: ${{ github.event_name == 'pull_request' && 1 || 7 }}
+          retention-days: 7
           overwrite: true
 
       - name: Finalize check results

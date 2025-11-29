@@ -1,4 +1,4 @@
-name: Release
+name: Maint 60 Release
 
 on:
   push:

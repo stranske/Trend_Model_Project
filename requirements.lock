@@ -59,6 +59,8 @@ docformatter==1.7.7
     # via trend-model (pyproject.toml)
 et-xmlfile==2.0.0
     # via openpyxl
+execnet==2.1.2
+    # via pytest-xdist
 executing==2.2.1
     # via stack-data
 fastapi==0.121.2
@@ -244,9 +246,12 @@ pytest==9.0.1
     #   trend-model (pyproject.toml)
     #   pytest-cov
     #   pytest-rerunfailures
+    #   pytest-xdist
 pytest-cov==7.0.0
     # via trend-model (pyproject.toml)
 pytest-rerunfailures==16.1
+    # via trend-model (pyproject.toml)
+pytest-xdist==3.6.1
     # via trend-model (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
