@@ -2084,7 +2084,7 @@ jobs:
 
             const issueNumber = extractIssueNumber(pr);
             if (!issueNumber) {
-              core.info(`Unable to determine source issue for PR #${pr.number}; skipping.`);
+              core.warning(`Unable to determine source issue for PR #${pr.number}. The PR title or body must contain the issue number (e.g. #123) or the hidden marker <!-- meta:issue:123 -->.`);
               return;
             }
 
