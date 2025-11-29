@@ -396,8 +396,9 @@ def _build_sample_windows(
     out_sdate = _resolve_bound(out_start, bound="start")
     out_edate = _resolve_bound(out_end, bound="end")
 
-    if pd.api.types.is_datetime64tz_dtype(preprocess.df[preprocess.date_col]):
-        tz = preprocess.df[preprocess.date_col].dt.tz
+    date_series = preprocess.df[preprocess.date_col]
+    if pd.DatetimeTZDtype.is_dtype(date_series.dtype):
+        tz = date_series.dt.tz
         in_sdate = in_sdate.tz_localize(tz)
         in_edate = in_edate.tz_localize(tz)
         out_sdate = out_sdate.tz_localize(tz)

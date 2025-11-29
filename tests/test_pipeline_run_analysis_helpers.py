@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import pytest
 
@@ -89,6 +91,37 @@ def test_build_sample_windows_handles_empty_slice() -> None:
 
     assert isinstance(window.diagnostic.reason_code, str)
     assert window.diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value
+
+
+def test_build_sample_windows_preserves_tz_without_warnings() -> None:
+    df = _make_simple_frame()
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=RiskStatsConfig(risk_free=0.0),
+        periods_per_year_override=None,
+        allow_risk_free_fallback=None,
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        warnings.simplefilter("error", DeprecationWarning)
+        window = _build_sample_windows(
+            preprocess,
+            in_start="2020-01-31",
+            in_end="2020-03-31",
+            out_start="2020-04-30",
+            out_end="2020-06-30",
+        )
+
+    assert isinstance(window, _WindowStage)
+    assert window.in_start == pd.Timestamp("2020-01-31")
+    assert window.out_end == pd.Timestamp("2020-06-30")
+    assert window.in_df.index.tz is None
+    assert window.out_df.index.tz is None
 
 
 def test_select_universe_reports_missing_funds() -> None:
