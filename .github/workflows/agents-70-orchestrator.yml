@@ -2830,17 +2830,21 @@ jobs:
               return;
             }
 
+            // GitHub repository_dispatch limits client_payload to 10 top-level properties.
+            // Nest auxiliary data under `meta` to stay within the limit.
             const payload = {
               issue: issueNumber || prNumber,
               base,
               head,
               agent: (process.env.AGENT_ALIAS || '').trim() || 'codex',
-              comment_id: commentId,
-              comment_url: process.env.COMMENT_URL || '',
-              round: process.env.ROUND || '',
-              trace: process.env.TRACE || '',
-              dispatch_mode: process.env.DISPATCH_MODE || '',
               instruction_body: instructionBody,
+              dispatch_mode: process.env.DISPATCH_MODE || '',
+              meta: {
+                comment_id: commentId,
+                comment_url: process.env.COMMENT_URL || '',
+                round: process.env.ROUND || '',
+                trace: process.env.TRACE || '',
+              },
               quiet: true,
               reply: 'none',
             };

@@ -634,16 +634,20 @@ jobs:
               return;
             }
 
+            // GitHub repository_dispatch limits client_payload to 10 top-level properties.
+            // Nest auxiliary data under `meta` to stay within the limit.
             const clientPayload = {
               issue: prNumber,
               base: resolvedBase,
               head: resolvedHead,
               agent: agentAlias,
-              comment_id: commentId,
-              comment_url: commentUrl,
-              round,
-              trace,
               instruction_body: instructionBody,
+              meta: {
+                comment_id: commentId,
+                comment_url: commentUrl,
+                round,
+                trace,
+              },
               quiet: true,
               reply: 'none',
             };
@@ -1687,16 +1691,20 @@ jobs:
               return;
             }
 
+            // GitHub repository_dispatch limits client_payload to 10 top-level properties.
+            // Nest auxiliary data under `meta` to stay within the limit.
             const clientPayload = {
               issue: prNumber,
               base: resolvedBase,
               head: resolvedHead,
               agent: agentAlias,
-              comment_id: commentId,
-              comment_url: commentUrl,
-              round,
-              trace,
               instruction_body: instructionBody,
+              meta: {
+                comment_id: commentId,
+                comment_url: commentUrl,
+                round,
+                trace,
+              },
               quiet: true,
               reply: 'none',
             };

@@ -340,6 +340,23 @@ async function dispatchCommand({
     return false;
   }
 
+  // GitHub repository_dispatch limits client_payload to 10 top-level properties.
+  // Nest auxiliary data under `meta` to stay within the limit while preserving
+  // backward compatibility by keeping core routing properties at the top level.
+  const meta = {
+    trace: trace || '',
+    round: parseRoundNumber(round) || 0,
+  };
+  if (commentInfo?.id) {
+    meta.comment_id = Number(commentInfo.id);
+  }
+  if (commentInfo?.url) {
+    meta.comment_url = commentInfo.url;
+  }
+  if (idempotencyKey) {
+    meta.idempotency_key = idempotencyKey;
+  }
+
   const payload = {
     issue: Number.isFinite(prNumber) ? Number(prNumber) : parseNumber(prNumber, 0, { min: 0 }),
     action,
@@ -347,24 +364,10 @@ async function dispatchCommand({
     base: baseRef || '',
     head: headRef || '',
     head_sha: headSha || '',
-    trace: trace || '',
+    meta,
+    quiet: true,
+    reply: 'none',
   };
-
-  const parsedRound = parseRoundNumber(round);
-  if (parsedRound > 0) {
-    payload.round = parsedRound;
-  }
-  if (commentInfo?.id) {
-    payload.comment_id = Number(commentInfo.id);
-  }
-  if (commentInfo?.url) {
-    payload.comment_url = commentInfo.url;
-  }
-  if (idempotencyKey) {
-    payload.idempotency_key = idempotencyKey;
-  }
-  payload.quiet = true;
-  payload.reply = 'none';
 
   try {
     await github.rest.repos.createDispatchEvent({
