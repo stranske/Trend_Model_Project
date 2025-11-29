@@ -1111,11 +1111,29 @@ jobs:
             }
             const { owner, repo } = context.repo;
             const num = Number(issueNumber);
-            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
-            const labels = (issue.labels || [])
-              .map(label => typeof label === 'string' ? label : (label.name || ''))
-              .filter(Boolean)
-              .map(name => name.toLowerCase());
+            
+            // Use event payload labels if available (avoids API call, prevents rate limiting)
+            let labels;
+            const payloadLabels = context.payload.issue?.labels;
+            // Only use labels from event payload if the issue number matches.
+            // This workflow can be triggered manually (workflow_dispatch) or by issue events.
+            // When triggered manually, INPUT_ISSUE may refer to a different issue than the event payload.
+            // In that case, we must fetch labels via API to avoid using labels from the wrong issue.
+            if (payloadLabels && Array.isArray(payloadLabels) && String(context.payload.issue?.number) === String(num)) {
+              core.info('Using labels from event payload (no API call needed).');
+              labels = payloadLabels
+                .map(label => typeof label === 'string' ? label : (label.name || ''))
+                .filter(Boolean)
+                .map(name => name.toLowerCase());
+            } else {
+              // Fallback to API call for manual dispatch or mismatched issue numbers
+              core.info('Fetching labels via API (event payload not available or issue mismatch).');
+              const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
+              labels = (issue.labels || [])
+                .map(label => typeof label === 'string' ? label : (label.name || ''))
+                .filter(Boolean)
+                .map(name => name.toLowerCase());
+            }
             // Control labels that should not be counted as agent assignments
             const controlLabelSuffixes = ['keepalive'];
             const codexGuardLabels = ['agent:codex', 'agents:codex'];
