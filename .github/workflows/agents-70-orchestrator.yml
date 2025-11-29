@@ -72,7 +72,10 @@ jobs:
           RATE_LIMIT_THRESHOLD: '1000'
         with:
           script: |
-            const { checkRateLimitStatus } = require('./.github/scripts/api-helpers.js');
+            const path = require('path');
+            const { checkRateLimitStatus } = require(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
+            );
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
 
             const status = await checkRateLimitStatus(github, { threshold, core });
