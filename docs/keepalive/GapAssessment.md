@@ -35,3 +35,11 @@
    - Prior implementation failed immediately on rate limit, causing `pr-fetch-failed` without recovery.
    - **Fix:** Added `withRateLimitRetry()` helper with exponential backoff (3 retries, 2s base delay).
    - Applied to PR fetch calls in `keepalive_gate.js` (`evaluateRunCapForPr`, `evaluateKeepaliveGate`).
+
+5. **Checklist progress not preserved across status updates (RESOLVED 2025-11)**
+   - The `agents-pr-meta` workflow was regenerating the Automated Status Summary entirely from the source issue on every update.
+   - This caused checked checkboxes (recording completed work) to revert to unchecked state.
+   - **Root cause:** `buildStatusBlock()` pulled scope/tasks/acceptance directly from source issue without reading existing PR body state.
+   - **Fix:** Added `extractBlock()`, `parseCheckboxStates()`, and `mergeCheckboxStates()` helpers.
+   - Before generating the status block, the workflow now extracts existing checkbox states from the PR body and merges them into the new content.
+   - Affected file: `agents-pr-meta.yml` (Upsert PR body sections job).

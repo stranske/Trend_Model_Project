@@ -1981,6 +1981,56 @@ jobs:
                 .join('\n');
             }
 
+            // Extract an existing block from PR body by marker
+            function extractBlock(body, marker) {
+              const start = `<!-- ${marker}:start -->`;
+              const end = `<!-- ${marker}:end -->`;
+              const startIndex = (body || '').indexOf(start);
+              const endIndex = (body || '').indexOf(end);
+              if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+                return '';
+              }
+              return body.slice(startIndex + start.length, endIndex).trim();
+            }
+
+            // Parse checkbox states from a block, returning a Map of normalized text -> checked state
+            function parseCheckboxStates(block) {
+              const states = new Map();
+              const lines = String(block || '').split(/\r?\n/);
+              for (const line of lines) {
+                const match = line.match(/^- \[(x| )\]\s*(.+)$/i);
+                if (match) {
+                  const checked = match[1].toLowerCase() === 'x';
+                  const text = match[2].trim();
+                  // Normalize: remove leading "- " if present and trim
+                  const normalized = text.replace(/^-\s*/, '').trim().toLowerCase();
+                  if (normalized && checked) {
+                    states.set(normalized, true);
+                  }
+                }
+              }
+              return states;
+            }
+
+            // Merge checked states into new checklist content
+            function mergeCheckboxStates(newContent, existingStates) {
+              if (!existingStates || existingStates.size === 0) {
+                return newContent;
+              }
+              const lines = String(newContent || '').split(/\r?\n/);
+              return lines.map((line) => {
+                const match = line.match(/^- \[( )\]\s*(.+)$/);
+                if (match) {
+                  const text = match[2].trim();
+                  const normalized = text.replace(/^-\s*/, '').trim().toLowerCase();
+                  if (existingStates.has(normalized)) {
+                    return `- [x] ${text}`;
+                  }
+                }
+                return line;
+              }).join('\n');
+            }
+
             async function withRetries(fn, options = {}) {
               const attempts = Number(options.attempts) || 3;
               const baseDelay = Number(options.delayMs) || 1000;
@@ -2233,6 +2283,7 @@ jobs:
               headSha: prInfo.headSha,
               workflowRuns,
               requiredChecks,
+              existingBody: pr.body,
             });
 
             const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
@@ -2337,21 +2388,31 @@ jobs:
               return latest;
             }
 
-            function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks}) {
+            function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody}) {
               const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
 
+              // Extract existing checkbox states from current PR body to preserve progress
+              const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
+              const existingStates = parseCheckboxStates(existingBlock);
+              if (existingStates.size > 0) {
+                core.info(`Preserving ${existingStates.size} checked item(s) from existing status summary`);
+              }
+
               statusLines.push('#### Scope');
-              const scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
+              let scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
+              scopeFormatted = mergeCheckboxStates(scopeFormatted, existingStates);
               statusLines.push(scopeFormatted);
               statusLines.push('');
 
               statusLines.push('#### Tasks');
-              const tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
+              let tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
+              tasksFormatted = mergeCheckboxStates(tasksFormatted, existingStates);
               statusLines.push(tasksFormatted);
               statusLines.push('');
 
               statusLines.push('#### Acceptance criteria');
-              const acceptanceFormatted = acceptance ? ensureChecklist(acceptance) : fallbackChecklist('Acceptance criteria section missing from source issue.');
+              let acceptanceFormatted = acceptance ? ensureChecklist(acceptance) : fallbackChecklist('Acceptance criteria section missing from source issue.');
+              acceptanceFormatted = mergeCheckboxStates(acceptanceFormatted, existingStates);
               statusLines.push(acceptanceFormatted);
               statusLines.push('');
 
