@@ -19,7 +19,9 @@ def _iter_agent_files(agent_dir: Path) -> Iterable[Path]:
     yield from agent_dir.glob("codex-*.md")
 
 
-def list_agent_bootstraps(agent_dir: Path | str = Path(__file__).resolve().parents[1] / "agents") -> List[AgentBootstrap]:
+def list_agent_bootstraps(
+    agent_dir: Path | str = Path(__file__).resolve().parents[1] / "agents",
+) -> List[AgentBootstrap]:
     """Return sorted bootstrap metadata for Codex issue trackers.
 
     Args:
