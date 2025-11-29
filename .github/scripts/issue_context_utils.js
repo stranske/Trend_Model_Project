@@ -20,8 +20,8 @@ function buildIssueContext(issueBody) {
   const hasActionableContent = Boolean(presence?.hasActionableContent);
   const summaryContentBlock = (scopeBlockStrict || '').trim();
   
-  // Only show warning if we're missing required (non-optional) sections AND have no actionable content
-  const summaryNeedsWarning = !hasActionableContent && missingSections.length > 0;
+  // Show warning if any required (non-optional) sections are missing
+  const summaryNeedsWarning = missingSections.length > 0;
   
   const missingDescription = missingSections.length
     ? `Problem detected: ${missingSections.join(', ')} ${missingSections.length === 1 ? 'is' : 'are'} missing or empty in the source issue.`
