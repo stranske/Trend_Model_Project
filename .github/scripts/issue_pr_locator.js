@@ -18,7 +18,7 @@ function issueMentionPatterns(issueNumber) {
 
 function candidateScore(candidate, { issueNumber }) {
   if (!candidate || candidate.state !== 'open') {
-    return -1;
+    return { score: -1, updated: 0 };
   }
 
   let score = 0;
