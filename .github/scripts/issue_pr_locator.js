@@ -9,7 +9,7 @@ function issueMentionPatterns(issueNumber) {
   if (!Number.isFinite(num) || num <= 0) {
     return [];
   }
-  const escaped = String(num).replace(/[-/\\^$*+?.()|[\]{}]/g, (m) => `\\${m}`);
+  const escaped = String(num).replace(/[-/\\^$*+?.()|\\[\\]{}]/g, (m) => `\\${m}`);
   return [
     new RegExp(`(^|[^0-9])#${escaped}(?![0-9])`, 'i'),
     new RegExp(`issue\\s*#?${escaped}`, 'i'),
