@@ -2,7 +2,8 @@ name: Agents 70 Orchestrator
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    # Reduced from */20 to */30 to conserve API rate limit (R-3)
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       params_json:
@@ -39,6 +40,12 @@ on:
     #     dry_run: true|false (optional)
     #     params: { ... }        # forwarded to params_json
     #     options: { ... }       # forwarded to options_json overrides
+
+# Prevent multiple orchestrator runs from overlapping and consuming excessive API quota
+concurrency:
+  group: agents-70-orchestrator-singleton
+  cancel-in-progress: false
+
 jobs:
   rate-limit-check:
     name: Rate limit pre-check
@@ -60,8 +67,9 @@ jobs:
         id: check
         uses: actions/github-script@v7
         env:
-          # Threshold below which we defer the run (default 500)
-          RATE_LIMIT_THRESHOLD: '500'
+          # Threshold below which we defer the run
+          # Set to 1000 (20% of 5000/hr PAT limit) to leave buffer for other workflows
+          RATE_LIMIT_THRESHOLD: '1000'
         with:
           script: |
             const { checkRateLimitStatus } = require('./.github/scripts/api-helpers.js');
