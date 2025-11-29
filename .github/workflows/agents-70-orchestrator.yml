@@ -1766,7 +1766,10 @@ jobs:
             const round = process.env.ROUND_VALUE || process.env.ROUND_DISPLAY || '(unknown)';
             const trace = process.env.TRACE_VALUE || process.env.TRACE_DISPLAY || '(missing)';
             const providedBody = (process.env.COMMENT_BODY || '').trim();
-            const template = (process.env.SCOPE_TASKS_ACCEPTANCE || '').trim();
+
+            // Load instruction directive from template file
+            const { getKeepaliveInstructionWithMention } = require('./.github/scripts/keepalive_instruction_template.js');
+            const instructionDirective = getKeepaliveInstructionWithMention(agentAlias);
 
             let body = providedBody;
             if (!body) {
@@ -1774,7 +1777,7 @@ jobs:
                 `<!-- keepalive-round: ${round} -->`,
                 '<!-- codex-keepalive-marker -->',
                 `<!-- keepalive-trace: ${trace} -->`,
-                template || `@${agentAlias} Continue with the remaining tasks.`,
+                instructionDirective,
                 '',
                 staBlock,
               ].filter(Boolean).join('\n');

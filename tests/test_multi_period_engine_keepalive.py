@@ -247,6 +247,12 @@ def test_run_requires_price_data() -> None:
 def test_threshold_hold_returns_placeholder_for_empty_universe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test that an empty fund universe produces a placeholder result.
+
+    This scenario can occur when funds pass initial validation but have NaN
+    data in the specific analysis period window. We mock the validation to
+    allow such data through.
+    """
     cfg = BasicConfig()
     cfg.portfolio = {
         "policy": "threshold_hold",
@@ -258,19 +264,35 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
     }
     cfg.performance = {"enable_cache": False}
 
-    dates = pd.to_datetime(["2020-01-31", "2020-02-29"])
+    # All funds have NaN in the target period window
+    dates = pd.to_datetime(["2019-12-31", "2020-01-31", "2020-02-29"])
     df = pd.DataFrame(
         {
             "Date": dates,
-            "FundA": [0.1, float("nan")],
-            "FundB": [float("nan"), 0.2],
+            "FundA": [0.1, float("nan"), float("nan")],
+            "FundB": [0.02, float("nan"), float("nan")],
         }
     )
 
     _patch_generate_periods(
         monkeypatch,
-        [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
+        [DummyPeriod("2020-01", "2020-01", "2020-02", "2020-02")],
     )
+
+    # Mock _resolve_risk_free_column to bypass validation and return a
+    # result that allows the engine to proceed with the NaN-filled data
+    def mock_resolve_rf(
+        df: Any,
+        *,
+        date_col: str,
+        indices_list: Any,
+        risk_free_column: Any,
+        allow_risk_free_fallback: Any,
+        fallback_window: Any = None,
+    ) -> tuple[str, List[str], str]:
+        return ("FundA", ["FundA", "FundB"], "mocked")
+
+    monkeypatch.setattr(mp_engine, "_resolve_risk_free_column", mock_resolve_rf)
     monkeypatch.setattr(
         "trend_analysis.selector.create_selector_by_name",
         lambda *_a, **_k: StaticSelector(),

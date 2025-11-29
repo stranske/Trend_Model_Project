@@ -89,10 +89,14 @@ When posting is allowed:
    <!-- keepalive-round: {N} -->
    <!-- codex-keepalive-marker -->
    <!-- keepalive-trace: {TRACE} -->
-   @<agent> Use the scope, acceptance criteria, and task list to ship code and tests each round. Start implementing the next coding task instead of only reposting checklists, and update checkboxes only after real work and verification are done. Re-post the refreshed scope/tasks/acceptance once you've completed work.
+   @<agent> <instruction directive from .github/templates/keepalive-instruction.md>
 
    <Scope/Tasks/Acceptance block>
    ```
+   
+   **Instruction Template:** The directive text is loaded from [`.github/templates/keepalive-instruction.md`](../../.github/templates/keepalive-instruction.md).
+   Edit that file to update the instruction given to agents across all workflows.
+
 4. **Reaction contract:** After posting, add 🎉 (`:hooray:`). That reaction is the idempotency marker; PR-meta acknowledges by
    adding 🚀 for dedupe within the expected TTL.
 

@@ -39,6 +39,7 @@ def test_prepare_preprocess_stage_rejects_missing_dates() -> None:
         missing_limit=None,
         stats_cfg=RiskStatsConfig(risk_free=0.0),
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
 
     assert isinstance(result.diagnostic.reason_code, str)
@@ -56,6 +57,7 @@ def test_prepare_preprocess_stage_returns_payload() -> None:
         missing_limit=None,
         stats_cfg=RiskStatsConfig(risk_free=0.0),
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
 
     assert stage.freq_summary.code == "M"
@@ -74,6 +76,7 @@ def test_build_sample_windows_handles_empty_slice() -> None:
         missing_limit=None,
         stats_cfg=stats_cfg,
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
 
     window = _build_sample_windows(
@@ -98,6 +101,7 @@ def test_select_universe_reports_missing_funds() -> None:
         missing_limit=None,
         stats_cfg=RiskStatsConfig(risk_free=0.0),
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,
@@ -139,6 +143,7 @@ def test_select_universe_rejects_unknown_indices() -> None:
         missing_limit=None,
         stats_cfg=RiskStatsConfig(risk_free=0.0),
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,
@@ -198,6 +203,7 @@ def test_compute_weights_and_stats_produces_metrics(
         missing_limit=None,
         stats_cfg=stats_cfg,
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,
@@ -295,6 +301,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
         missing_limit=None,
         stats_cfg=stats_cfg,
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,
@@ -367,6 +374,7 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
         missing_limit=None,
         stats_cfg=stats_cfg,
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,
@@ -451,6 +459,7 @@ def test_assemble_analysis_output_wraps_success(
         missing_limit=None,
         stats_cfg=stats_cfg,
         periods_per_year_override=None,
+        allow_risk_free_fallback=None,
     )
     window = _build_sample_windows(
         preprocess,

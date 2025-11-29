@@ -6,12 +6,13 @@ const stripBlockquotePrefixes = (value) =>
 const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 
 const SECTION_DEFS = [
-  { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope'] },
-  { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List'] },
+  { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope', 'Why', 'Background', 'Context', 'Overview'], optional: true },
+  { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List', 'Implementation', 'Implementation notes'], optional: false },
   {
     key: 'acceptance',
     label: 'Acceptance Criteria',
-    aliases: ['Acceptance Criteria', 'Acceptance', 'Acceptance criteria'],
+    aliases: ['Acceptance Criteria', 'Acceptance', 'Acceptance criteria', 'Definition of Done', 'Done Criteria'],
+    optional: false,
   },
 ];
 
@@ -222,13 +223,22 @@ const analyzeSectionPresence = (source) => {
       key: section.key,
       label: section.label,
       present: Boolean(content),
+      optional: Boolean(section.optional),
     };
   });
-  const missing = entries.filter((entry) => !entry.present).map((entry) => entry.label);
+  // Only report non-optional sections as missing
+  const missing = entries
+    .filter((entry) => !entry.present && !entry.optional)
+    .map((entry) => entry.label);
+  // Check if we have at least one actionable section (tasks or acceptance)
+  const hasActionableContent = entries.some(
+    (entry) => entry.present && (entry.key === 'tasks' || entry.key === 'acceptance')
+  );
   return {
     entries,
     missing,
     hasAllRequired: missing.length === 0,
+    hasActionableContent,
   };
 };
 
