@@ -22,686 +22,107 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  autofix:
-    name: Trigger bounded autofix branch
+  resolve:
+    name: Resolve Context
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
-      ALLOWED_GLOBS: |-
-        **/*.py
-        **/*.pyi
-        requirements.lock
-      MAX_ATTEMPTS: '2'
+    outputs:
+      should_run: ${{ steps.context.outputs.should_run }}
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      pr_head_ref: ${{ steps.context.outputs.head_ref }}
+      pr_title: ${{ steps.context.outputs.pr_title }}
+      pr_is_draft: ${{ steps.context.outputs.pr_is_draft }}
+      pr_labels_json: ${{ steps.context.outputs.pr_labels_json }}
+      same_repo: ${{ steps.context.outputs.same_repo }}
+      caller_actor: ${{ steps.context.outputs.caller_actor }}
     steps:
       - name: Resolve PR context
         id: context
         uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
           script: |
-            const summary = core.summary;
-            summary.addHeading('CI autofix loop guard');
-
-            const maxAttempts = Number(process.env.MAX_ATTEMPTS || '2') || 2;
-            const result = {
-              should_run: 'false',
-              skip_reason: '',
-              pr_number: '',
-              head_ref: '',
-              head_sha: '',
-              short_sha: '',
-              branch_name: '',
-              attempt: '',
-              comment_id: '',
-              max_attempts: String(maxAttempts),
-              workflow_url: '',
-              trigger_label: '',
-              label_actor: '',
-              has_autofix_clean: 'false',
-            };
-
-            const RATE_LIMIT = Symbol('rate-limit');
-
-            const finalize = async () => {
-              for (const [key, value] of Object.entries(result)) {
-                core.setOutput(key, value);
-              }
-              await summary.write();
-            };
-
-            const exitEarly = async (reason, message) => {
-              if (reason) {
-                result.skip_reason = reason;
-              }
-              if (message) {
-                summary.addRaw(message).addEOL();
-              }
-              await finalize();
-            };
-
-            const isRateLimitError = (error) => {
-              if (!error) {
-                return false;
-              }
-              const status = error.status || error?.response?.status;
-              if (status && Number(status) === 403) {
-                const msg = String(error?.response?.data?.message || error.message || '').toLowerCase();
-                return msg.includes('rate limit');
-              }
-              const msg = String(error.message || '').toLowerCase();
-              return msg.includes('rate limit');
-            };
-
-            const sanitizeStage = (stage) =>
-              String(stage || '')
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '') || 'api';
-
-            const handleRateLimit = async (stage, error) => {
-              const key = sanitizeStage(stage);
-              result.skip_reason = `rate-limit-${key}`;
-              summary.addRaw(`GitHub API rate limit reached while ${stage}; skipping autofix iteration.`).addEOL();
-              const requestId =
-                error?.response?.headers?.['x-github-request-id'] ||
-                error?.response?.headers?.['X-GitHub-Request-Id'];
-              if (requestId) {
-                summary.addRaw(`request-id: ${requestId}`).addEOL();
-              }
-              await finalize();
-            };
-
-            const safeCall = async (stage, fn) => {
-              try {
-                return await fn();
-              } catch (error) {
-                if (isRateLimitError(error)) {
-                  await handleRateLimit(stage, error);
-                  throw RATE_LIMIT;
-                }
-                throw error;
-              }
-            };
-
-            try {
-              const isLabeledEvent =
-                context.eventName === 'pull_request_target' &&
-                context.payload.action === 'labeled';
-              const isPushEvent =
-                context.eventName === 'pull_request' &&
-                ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
-
-              if (!isLabeledEvent && !isPushEvent) {
-                await exitEarly(
-                  'unsupported-event',
-                  `Autofix loop expects labeled or push events; got ${context.eventName}/${context.payload.action}.`
-                );
-                return;
-              }
-
-              let triggerLabel = '';
-              if (isLabeledEvent) {
-                const rawLabel = context.payload.label?.name;
-                triggerLabel = typeof rawLabel === 'string' ? rawLabel.toLowerCase() : '';
-                result.trigger_label = triggerLabel;
-                result.label_actor = String(context.payload.sender?.login || '');
-
-                summary.addRaw(`Trigger label: ${triggerLabel || '(none)'}`).addEOL();
-
-                if (triggerLabel !== 'autofix' && triggerLabel !== 'autofix:clean') {
-                  await exitEarly('unmatched-label', 'Label is not autofix/autofix:clean; skipping.');
-                  return;
-                }
-              } else {
-                summary.addRaw(`Triggered by push event: ${context.payload.action}`).addEOL();
-              }
-
-              const prNumber = Number(context.payload.pull_request?.number);
-              if (!prNumber) {
-                await exitEarly('invalid-pr-number', 'Unable to resolve pull request number.');
-                return;
-              }
-
-              const { owner, repo } = context.repo;
-              const prResponse = await safeCall('fetching pull request', () =>
-                github.rest.pulls.get({ owner, repo, pull_number: prNumber })
-              );
-              const pr = prResponse.data;
-
-              summary.addRaw(`Evaluating PR #${pr.number}: ${pr.title}`).addEOL();
-
-              if (pr.state !== 'open') {
-                await exitEarly('pr-closed', 'PR is not open; skipping.');
-                return;
-              }
-
-              if (pr.draft) {
-                await exitEarly('pr-draft', 'PR is draft; skipping until ready.');
-                return;
-              }
-
-              const labelNames = (pr.labels || [])
-                .map((label) => {
-                  if (!label) return '';
-                  if (typeof label === 'string') return label.toLowerCase();
-                  if (typeof label.name === 'string') return label.name.toLowerCase();
-                  return '';
-                })
-                .filter(Boolean);
-
-              summary.addRaw(`Labels: ${labelNames.join(', ') || '(none)'}`).addEOL();
-
-              const hasAutofixClean = labelNames.includes('autofix:clean');
-              result.has_autofix_clean = hasAutofixClean ? 'true' : 'false';
-
-              if (!pr.head || !pr.base || !pr.head.repo || !pr.base.repo) {
-                await exitEarly('missing-repo-context', 'Unable to determine PR head/base repository.');
-                return;
-              }
-
-              const sameRepo =
-                pr.head.repo.full_name === pr.base.repo.full_name &&
-                pr.head.repo.full_name === `${owner}/${repo}`;
-              summary.addRaw(`Same repository PR: ${sameRepo}`).addEOL();
-
-              if (!sameRepo) {
-                await exitEarly('fork-pr', 'Autofix loop only runs for same-repo branches.');
-                return;
-              }
-
-              const token = String(process.env.ACTIONS_BOT_PAT || '').trim();
-              if (!token) {
-                await exitEarly('missing-actions-bot-pat', 'ACTIONS_BOT_PAT secret is missing; skipping autofix.');
-                return;
-              }
-
-              const files = await safeCall('listing pull request files', () =>
-                github.paginate(github.rest.pulls.listFiles, {
-                  owner,
-                  repo,
-                  pull_number: pr.number,
-                  per_page: 100,
-                })
-              );
-              const allowedExtensions = ['.py', '.pyi'];
-              const pythonFiles = files
-                .map((file) => {
-                  if (!file) return '';
-                  if (typeof file === 'string') return file;
-                  if (typeof file.filename === 'string') return file.filename;
-                  return '';
-                })
-                .filter(Boolean)
-                .filter((filename) => {
-                  const lower = filename.toLowerCase();
-                  return allowedExtensions.some((ext) => lower.endsWith(ext));
-                });
-
-              const nonPythonFiles = files
-                .map((file) => {
-                  if (!file) return '';
-                  if (typeof file === 'string') return file;
-                  if (typeof file.filename === 'string') return file.filename;
-                  return '';
-                })
-                .filter(Boolean)
-                .filter((filename) => {
-                  const lower = filename.toLowerCase();
-                  return !allowedExtensions.some((ext) => lower.endsWith(ext));
-                });
-
-              summary.addRaw(`Python files in PR: ${pythonFiles.length}`).addEOL();
-              summary.addRaw(`Non-Python files in PR: ${nonPythonFiles.length}`).addEOL();
-
-              if (pythonFiles.length === 0) {
-                await exitEarly('no-python-files', 'No Python files in PR; skipping autofix loop.');
-                return;
-              }
-
-              if (isPushEvent) {
-                const testFiles = pythonFiles.filter((filename) => {
-                  const lower = filename.toLowerCase();
-                  return lower.includes('/tests/') || /(^|\/)test_/.test(lower);
-                });
-                const sourceFiles = pythonFiles.length - testFiles.length;
-
-                summary.addRaw(`Push event: ${sourceFiles} source file(s), ${testFiles.length} test file(s); autofix will run.`).addEOL();
-              }
-
-              if (nonPythonFiles.length > 0) {
-                summary
-                  .addRaw(`Note: PR contains non-Python files (${nonPythonFiles.join(', ')}). Autofix will only commit changes to Python files.`)
-                  .addEOL();
-              }
-
-              const shortSha = (pr.head.sha || '').slice(0, 7);
-              const branchName = `autofix/${pr.number}-${shortSha}`;
-
-              const marker = '<!-- autofix-loop:';
-              let previousAttempts = 0;
-              let commentId = '';
-              let lastAutofixSha = '';
-
-              const comments = await safeCall('listing PR comments', () =>
-                github.paginate(github.rest.issues.listComments, {
-                  owner,
-                  repo,
-                  issue_number: pr.number,
-                  per_page: 100,
-                })
-              );
-
-              for (const comment of comments) {
-                const body = comment.body || '';
-                const markerIndex = body.indexOf(marker);
-                if (markerIndex === -1) continue;
-                const markerEnd = body.indexOf('-->', markerIndex);
-                if (markerEnd === -1) continue;
-                const payloadRaw = body.slice(markerIndex + marker.length, markerEnd).trim();
-                if (!payloadRaw) continue;
-                try {
-                  const payload = JSON.parse(payloadRaw);
-                  if (Number(payload.pr) !== pr.number) continue;
-                  previousAttempts = Number(payload.attempts || payload.attempt || 0) || 0;
-                  lastAutofixSha = String(payload.head || payload.head_sha || '').trim();
-                  commentId = String(comment.id);
-                  break;
-                } catch (error) {
-                  core.warning(`Failed to parse autofix marker on comment ${comment.id}: ${error}`);
-                }
-              }
-
-              const currentSha = String(pr.head.sha || '').trim();
-              if (lastAutofixSha && currentSha && lastAutofixSha !== currentSha) {
-                summary.addRaw(`New commit detected (${currentSha.slice(0, 7)} ≠ ${lastAutofixSha.slice(0, 7)}); resetting attempt counter.`).addEOL();
-                previousAttempts = 0;
-              }
-
-              summary.addRaw(`Previous attempts for this commit: ${previousAttempts}`).addEOL();
-
-              if (previousAttempts >= maxAttempts) {
-                await exitEarly(
-                  'max-attempts-reached',
-                  `Maximum autofix attempts (${maxAttempts}) reached for commit ${currentSha.slice(0, 7)}; skipping.`
-                );
-                return;
-              }
-
-              const attempt = previousAttempts + 1;
-
-              Object.assign(result, {
-                should_run: 'true',
-                skip_reason: '',
-                pr_number: String(pr.number),
-                head_ref: pr.head.ref || '',
-                head_sha: pr.head.sha || '',
-                short_sha: shortSha,
-                branch_name: branchName,
-                attempt: String(attempt),
-                comment_id: commentId,
-              });
-
-              summary.addRaw(`Attempt ${attempt} of ${maxAttempts} will run.`).addEOL();
-              await finalize();
-            } catch (error) {
-              if (error === RATE_LIMIT) {
-                return;
-              }
-              throw error;
-            }
-
-      - name: Ensure ACTIONS_BOT_PAT is configured
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          if [ -z "${ACTIONS_BOT_PAT}" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for autofix pushes.'
-            exit 1
-          fi
-
-      - name: Skip when guard declined
-        if: steps.context.outputs.should_run != 'true'
-        run: |
-          echo "Autofix loop skipped: ${{ steps.context.outputs.skip_reason || 'no-op' }}"
-
-      - name: Checkout PR head
-        if: steps.context.outputs.should_run == 'true'
-        uses: actions/checkout@v4
-        with:
-          token: ${{ env.ACTIONS_BOT_PAT }}
-          ref: ${{ steps.context.outputs.head_ref }}
-          fetch-depth: 0
-
-      - name: Prepare autofix branch
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          git config user.name "stranske-automation-bot"
-          git config user.email "stranske-automation-bot@users.noreply.github.com"
-
-      - name: Extract formatter pins
-        if: steps.context.outputs.should_run == 'true'
-        id: pins
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          env_path = Path('.github/workflows/autofix-versions.env')
-          pins = {}
-          for line in env_path.read_text(encoding='utf-8').splitlines():
-              line = line.strip()
-              if not line or line.startswith('#') or '=' not in line:
-                  continue
-              key, value = line.split('=', 1)
-              pins[key.strip()] = value.strip()
-          output = os.environ['GITHUB_OUTPUT']
-          with open(output, 'a', encoding='utf-8') as handle:
-              handle.write(f"ruff={pins.get('RUFF_VERSION', '')}\n")
-              handle.write(f"black={pins.get('BLACK_VERSION', '')}\n")
-          PY
-
-      - name: Setup Python
-        if: steps.context.outputs.should_run == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install autofix toolchain
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          if [ -n "${{ steps.pins.outputs.ruff }}" ]; then
-            pip install "ruff==${{ steps.pins.outputs.ruff }}"
-          else
-            pip install ruff
-          fi
-          if [ -n "${{ steps.pins.outputs.black }}" ]; then
-            pip install "black==${{ steps.pins.outputs.black }}"
-          else
-            pip install black
-          fi
-
-      - name: Apply Ruff import ordering fixes
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          source .venv/bin/activate
-          ruff check --select I --fix .
-
-      - name: Apply Ruff lint fixes
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          source .venv/bin/activate
-          ruff check --fix .
-
-      - name: Apply Black formatting
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          source .venv/bin/activate
-          black .
-
-      - name: Sync test dependencies
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          echo "Checking for undeclared test dependencies..."
-          python scripts/sync_test_dependencies.py --fix
-          echo "✓ Test dependencies synchronized"
-          if git diff --quiet pyproject.toml; then
-            echo "✓ No dependency changes needed"
-          else
-            echo "✓ Updated pyproject.toml with missing test dependencies"
-            git add pyproject.toml
-          fi
-
-      - name: Install uv for lockfile management
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Regenerate lockfile if needed
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          if [ ! -f requirements.lock ]; then
-            echo "No requirements.lock found; skipping lockfile regeneration."
-            exit 0
-          fi
-          
-          # Check if lockfile is out of date by comparing with fresh compile
-          echo "Checking lockfile consistency..."
-          uv pip compile pyproject.toml --extra app --extra dev --extra notebooks > /tmp/requirements.compiled 2>&1 || {
-            echo "Warning: uv pip compile failed, skipping lockfile update"
-            exit 0
-          }
-          
-          # Normalize and compare (using same logic as test)
-          LOCKFILE_STATUS=$(python .github/scripts/lockfile_status.py \
-            --compiled /tmp/requirements.compiled \
-            --lockfile requirements.lock)
-          
-          if [ "$LOCKFILE_STATUS" = "CURRENT" ]; then
-            echo "✓ Lockfile is up to date"
-          elif [ "$LOCKFILE_STATUS" = "OUTDATED" ]; then
-            echo "✗ Lockfile is out of date - regenerating..."
-            uv pip compile pyproject.toml --extra app --extra dev --extra notebooks -o requirements.lock
-            echo "✓ requirements.lock updated"
-          else
-            echo "Warning: Could not determine lockfile status"
-          fi
-
-      - name: Remove temporary virtualenv
-        if: steps.context.outputs.should_run == 'true'
-        run: rm -rf .venv
-
-      - name: Detect allowed changes
-        if: steps.context.outputs.should_run == 'true'
-        id: diff
-        run: |
-          set -euo pipefail
-          mapfile -t files < <(git status --short --untracked-files=no | awk '{print $2}')
-          if [ "${#files[@]}" -eq 0 ]; then
-            {
-              echo "changed=false"
-              echo "file_count=0"
-              echo "files_json=[]"
-            } >>"$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          printf '%s\n' "${files[@]}" > .autofix-files.txt
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          from pathlib import PurePosixPath
-
-          files = [line.strip() for line in Path('.autofix-files.txt').read_text(encoding='utf-8').splitlines() if line.strip()]
-          allowed_raw = os.environ.get('ALLOWED_GLOBS', '')
-          globs = [line.strip() for line in allowed_raw.splitlines() if line.strip()]
-
-          python_files = []
-          non_python_files = []
-          for file in files:
-              path = PurePosixPath(file)
-              if any(path.match(pattern) for pattern in globs):
-                  python_files.append(file)
-              else:
-                  non_python_files.append(file)
-
-          output = os.environ['GITHUB_OUTPUT']
-          with open(output, 'a', encoding='utf-8') as handle:
-              handle.write(f'changed={str(len(python_files) > 0).lower()}\n')
-              handle.write(f'file_count={len(python_files)}\n')
-              handle.write('files_json=' + json.dumps(python_files) + '\n')
-              handle.write('non_python_files_json=' + json.dumps(non_python_files) + '\n')
-          
-          if non_python_files:
-              print(f'Warning: Non-Python files modified but will not be committed: {non_python_files}')
-              # Reset non-Python files to avoid committing them
-              for file in non_python_files:
-                  os.system(f'git checkout HEAD -- {file}')
-          
-          if not python_files:
-              print('No Python files were modified by autofix.')
-              exit(0)
-          PY
-
-      - name: Commit autofix changes
-        if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git add -A
-          git commit -m "chore(autofix): format code and update dependencies"
-
-      - name: Push autofix branch
-        if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git push origin "HEAD:${{ steps.context.outputs.head_ref }}"
-
-      - name: Update PR comment and labels
-        if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          ATTEMPT: ${{ steps.context.outputs.attempt }}
-          MAX_ATTEMPTS: ${{ steps.context.outputs.max_attempts }}
-          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
-          BRANCH_NAME: ${{ steps.context.outputs.branch_name }}
-          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
-          WORKFLOW_URL: ${{ steps.context.outputs.workflow_url }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          FILES_JSON: ${{ steps.diff.outputs.files_json || '[]' }}
-          FILE_COUNT: ${{ steps.diff.outputs.file_count || '0' }}
-          CHANGED: ${{ steps.diff.outputs.changed || 'false' }}
-        with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER || '0');
-            if (!prNumber) {
-              core.warning('Missing PR number; skipping comment update.');
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('should_run', 'false');
               return;
             }
-            const attempt = Number(process.env.ATTEMPT || '0');
-            const maxAttempts = Number(process.env.MAX_ATTEMPTS || '0') || 2;
-            const commentIdRaw = process.env.COMMENT_ID || '';
-            const commentId = commentIdRaw ? Number(commentIdRaw) : null;
-            const branch = process.env.BRANCH_NAME || '';
-            const headSha = process.env.HEAD_SHA || '';
-            const files = JSON.parse(process.env.FILES_JSON || '[]');
-            const fileCount = Number(process.env.FILE_COUNT || '0');
-            const changed = (process.env.CHANGED || '').toLowerCase() === 'true';
-            const workflowUrl = process.env.WORKFLOW_URL || '';
-            const runUrl = process.env.RUN_URL || '';
 
+            // Event validation
+            const isLabeled = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
+            const isPush = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+
+            if (!isLabeled && !isPush) {
+              core.info(`Unsupported event: ${context.eventName}/${context.payload.action}`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Label validation
+            if (isLabeled) {
+              const label = context.payload.label?.name?.toLowerCase();
+              if (label !== 'autofix' && label !== 'autofix:clean') {
+                core.info(`Label '${label}' is not an autofix trigger.`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+            }
+
+            // PR State validation
+            if (pr.state !== 'open') {
+              core.info('PR is not open.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            if (pr.draft) {
+              core.info('PR is draft.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Same repo check
+            const sameRepo = pr.head.repo.full_name === pr.base.repo.full_name;
+            if (!sameRepo) {
+              core.info('Fork PRs not supported by this workflow.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // File check
             const { owner, repo } = context.repo;
-            const summary = core.summary;
-            summary.addHeading('CI autofix loop result');
-            summary.addRaw(`PR #${prNumber} · Attempt ${attempt}/${maxAttempts}`).addEOL();
-            summary.addRaw(`Branch: ${branch}`).addEOL();
-            summary.addRaw(`Head: ${headSha.slice(0, 7)}`).addEOL();
-            summary.addRaw(changed ? `Files changed: ${fileCount}` : 'No changes produced.').addEOL();
-            if (files.length) {
-              summary.addList(files.map((file) => `\`${file}\``));
-            }
-            await summary.write();
-
-            const lines = [];
-            lines.push(`Autofix attempt ${attempt}/${maxAttempts} for PR #${prNumber}.`);
-            lines.push('');
-            if (workflowUrl) {
-              lines.push(`- Trigger: [upstream CI run](${workflowUrl})`);
-            } else {
-              lines.push(`- Trigger: [autofix workflow run](${runUrl})`);
-            }
-            if (branch) {
-              lines.push(`- Branch: \`${branch}\``);
-            }
-            if (headSha) {
-              lines.push(`- Head SHA: \`${headSha.slice(0, 7)}\``);
-            }
-            lines.push(`- Result: ${changed ? `pushed ${fileCount} file${fileCount === 1 ? '' : 's'}` : 'no changes required'}`);
-            if (files.length) {
-              lines.push('- Files touched:');
-              lines.push('');
-              for (const file of files) {
-                lines.push(`  - \`${file}\``);
-              }
-            }
-            lines.push('');
-            const markerPayload = {
-              pr: prNumber,
-              attempts: attempt,
-              max_attempts: maxAttempts,
-              head: headSha,
-              branch,
-              workflow_run: github.runId,
-              workflow_url: runUrl,
-              upstream_url: workflowUrl,
-              updated_at: new Date().toISOString(),
-            };
-            lines.push(`<!-- autofix-loop:${JSON.stringify(markerPayload)} -->`);
-            const body = lines.join('\n');
-
-            const postComment = async () => {
-              if (commentId) {
-                await github.rest.issues.updateComment({ owner, repo, comment_id: commentId, body });
-              } else {
-                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-              }
-            };
-
-            try {
-              await postComment();
-            } catch (error) {
-              const status = error?.status ?? error?.response?.status;
-              const message = String(error?.message || error?.response?.data?.message || '');
-              if (status === 403 && /API rate limit exceeded/i.test(message)) {
-                core.warning('Rate limit hit while posting autofix comment; skipping comment update for this attempt.');
-              } else {
-                throw error;
-              }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            
+            const hasPython = files.some(f => f.filename.endsWith('.py') || f.filename.endsWith('.pyi'));
+            if (!hasPython) {
+              core.info('No Python files changed.');
+              core.setOutput('should_run', 'false');
+              return;
             }
 
-      # Label removal disabled to support iterative workflows with keepalive.
-      # The 2-attempts-per-commit limit prevents infinite loops, so keeping
-      # the label allows autofix to respond to subsequent formatting issues
-      # without requiring manual re-labeling.
-      # - name: Remove autofix labels after success
-      #   if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed == 'true'
-      #   uses: actions/github-script@v7
-      #   with:
-      #     github-token: ${{ env.ACTIONS_BOT_PAT }}
-      #     script: |
-      #       const prNumber = Number(core.getInput('pr_number'));
-      #       if (!prNumber) {
-      #         core.warning('Missing PR number; skipping label removal.');
-      #         return;
-      #       }
-      #
-      #       const { owner, repo } = context.repo;
-      #       const labels = ['autofix', 'autofix:clean'];
-      #       for (const name of labels) {
-      #         try {
-      #           await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name });
-      #           core.info(`Removed ${name} label.`);
-      #         } catch (error) {
-      #           if (error.status !== 404) {
-      #             core.warning(`Failed to remove ${name}: ${error}`);
-      #           }
-      #         }
-      #       }
-      #     pr_number: ${{ steps.context.outputs.pr_number }}
+            core.setOutput('should_run', 'true');
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('pr_title', pr.title);
+            core.setOutput('pr_is_draft', pr.draft);
+            core.setOutput('pr_labels_json', JSON.stringify(pr.labels.map(l => l.name)));
+            core.setOutput('same_repo', sameRepo);
+            core.setOutput('caller_actor', context.actor);
 
-      - name: Note absence of changes
-        if: steps.context.outputs.should_run == 'true' && steps.diff.outputs.changed != 'true'
-        run: echo 'Autofix completed without modifications.'
+  autofix:
+    needs: resolve
+    if: needs.resolve.outputs.should_run == 'true'
+    uses: ./.github/workflows/reusable-18-autofix.yml
+    with:
+      pr_number: ${{ fromJson(needs.resolve.outputs.pr_number) }}
+      pr_head_ref: ${{ needs.resolve.outputs.pr_head_ref }}
+      pr_title: ${{ needs.resolve.outputs.pr_title }}
+      pr_is_draft: ${{ fromJson(needs.resolve.outputs.pr_is_draft) }}
+      pr_labels_json: ${{ needs.resolve.outputs.pr_labels_json }}
+      same_repo: ${{ fromJson(needs.resolve.outputs.same_repo) }}
+      caller_actor: ${{ needs.resolve.outputs.caller_actor }}
+    secrets:
+      service_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
