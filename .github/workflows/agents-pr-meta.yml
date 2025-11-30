@@ -15,11 +15,7 @@ on:
     types:
       - created
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - edited
+    types: [opened, synchronize, reopened, edited]
   workflow_run:
     workflows: ["Gate"]
     types: [completed]
