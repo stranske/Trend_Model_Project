@@ -57,6 +57,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "agents-guard.yml",
     "agents-debug-issue-event.yml",
     "agents-pr-meta.yml",
+    "agents-pr-meta-v2.yml",
     "autofix.yml",
     "health-40-repo-selfcheck.yml",
     "health-40-sweep.yml",
