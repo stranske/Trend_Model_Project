@@ -29,14 +29,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: >-
-    ${{
-      github.event_name == 'issue_comment'
-      && github.event.comment
-      && github.event.comment.id
-      && format('agents-pr-meta-comment-{0}', github.event.comment.id)
-      || format('agents-pr-meta-run-{0}', github.run_id)
-    }}
+  group: agents-pr-meta-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
