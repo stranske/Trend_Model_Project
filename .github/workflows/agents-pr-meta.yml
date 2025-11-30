@@ -6,27 +6,27 @@
 # This workflow updates the PR description with automated status information
 # and handles keepalive instruction detection and dispatch.
 #
-# Last modified: 2025-11-30T02:45:00Z (force GitHub re-registration)
+# Last modified: 2025-11-30T03:15:00Z (format match working workflows)
 #
 name: Agents PR meta manager
 
 on:
   issue_comment:
-    types:
-      - created
+    types: [created]
   pull_request:
     types: [opened, synchronize, reopened, edited]
   workflow_run:
-    workflows: ["Gate"]
+    workflows:
+      - Gate
     types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "PR number to update (leave empty to use trigger context)"
+        description: 'PR number to update (leave empty to use trigger context)'
         required: false
         type: string
       debug:
-        description: "Enable debug logging"
+        description: 'Enable debug logging'
         required: false
         type: boolean
         default: false
