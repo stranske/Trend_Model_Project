@@ -34,9 +34,21 @@ if [[ ! -f ".coveragerc.${PROFILE}" ]]; then
   echo "Invalid coverage profile: ${PROFILE}. File .coveragerc.${PROFILE} not found."
   exit 1
 fi
-# Run pytest under coverage and capture exit code so we can handle the "no tests" case
+
+# Build pytest arguments
+PYTEST_ARGS=("--maxfail=1" "--disable-warnings" "--cov=src" "--cov-branch" "--cov-config=.coveragerc.${PROFILE}")
+
+# Enable parallel execution if pytest-xdist is available
+if python -c "import xdist" 2>/dev/null; then
+  PYTEST_ARGS+=("-n" "auto")
+  echo "Running tests in parallel with pytest-xdist..."
+else
+  echo "Running tests sequentially (install pytest-xdist for parallel execution)"
+fi
+
+# Run pytest with coverage and capture exit code so we can handle the "no tests" case
 set +e
-coverage run --branch --rcfile ".coveragerc.${PROFILE}" -m pytest --maxfail=1 --disable-warnings "$@"
+PYTHONPATH="./src" pytest "${PYTEST_ARGS[@]}" "$@"
 status=$?
 set -e
 
@@ -45,6 +57,7 @@ if [[ "$status" -eq 5 ]]; then
   exit 1
 fi
 
+# Generate coverage report
 coverage report -m
 
 exit "$status"
