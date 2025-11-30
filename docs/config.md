@@ -1,52 +1,105 @@
-Configuration
-=============
+# Configuration Reference
 
-This document describes how to configure [actionlint](..) behavior.
+This document describes the configuration options for the Trend Model Project.
 
-Note that configuration file is optional. The author tries to keep configuration file as minimal as possible not to
-bother users to configure behavior of actionlint. Running actionlint without configuration file would work fine in most
-cases.
+## Configuration Files
 
-## Configuration file
+### File Locations
 
-Configuration file `actionlint.yaml` or `actionlint.yml` can be put in `.github` directory.
+| File | Purpose |
+|------|---------|
+| `config/defaults.yml` | Default values (fallback) |
+| `config/demo.yml` | Demo/test configuration |
+| `config/presets/*.yml` | Risk profile presets |
+| `config/universe/*.yml` | Universe definitions |
 
-Note: If you're using [Super-Linter][], the file should be placed in a different directory. Please check the project's document.
+### Loading Priority
 
-You don't need to write the first configuration file by your hand. `actionlint` command can generate a default configuration
-with `-init-config` flag.
+1. Command-line argument: `-c path/to/config.yml`
+2. Environment variable: `TREND_CFG=path/to/config.yml`
+3. Default: `config/defaults.yml`
 
-```sh
-actionlint -init-config
-vim .github/actionlint.yaml
-```
+## Configuration Sections
 
-Currently only one item can be configured.
+### Data Section
 
 ```yaml
-self-hosted-runner:
-  # Labels of self-hosted runner in array of string
-  labels:
-    - linux.2xlarge
-    - windows-latest-xl
-    - linux-multi-gpu
-# Configuration variables in array of strings defined in your repository or organization
-config-variables:
-  - DEFAULT_RUNNER
-  - JOB_NAME
-  - ENVIRONMENT_STAGE
+data:
+  csv_path: demo/demo_returns.csv
+  date_column: Date
+  columns: null  # null = all columns except date
+  missing_policy: drop  # drop, ffill, zero
+  missing_fill_limit: 3  # max consecutive fills
 ```
 
-- `self-hosted-runner`: Configuration for your self-hosted runner environment.
-  - `labels`: Label names added to your self-hosted runners as list of pattern. Glob syntax supported by [`path.Match`][pat]
-    is available.
-- `config-variables`: [Configuration variables][vars]. When an array is set, actionlint will check `vars` properties strictly.
-  An empty array means no variable is allowed. The default value `null` disables the check.
+### Portfolio Section
 
----
+```yaml
+portfolio:
+  top_n: 8                    # Number of assets to select
+  lookback: 12                # Months for trend calculation
+  rebalance_frequency: M      # M=monthly, Q=quarterly
+  weighting: equal            # equal, score_prop, vol_adjusted
+  
+  # Selection options
+  selection:
+    mode: rank                # all, random, manual, rank
+    score_by: Sharpe          # Sharpe, AnnualReturn, blended
+```
 
-[Checks](checks.md) | [Installation](install.md) | [Usage](usage.md) | [Go API](api.md) | [References](reference.md)
+### Risk Section
 
-[Super-Linter]: https://github.com/super-linter/super-linter
-[pat]: https://pkg.go.dev/path#Match
-[vars]: https://docs.github.com/en/actions/learn-github-actions/variables
+```yaml
+risk:
+  vol_target: 0.10            # Target volatility (10%)
+  max_position: 0.25          # Max 25% per position
+  min_position: 0.02          # Min 2% per position
+```
+
+### Output Section
+
+```yaml
+output:
+  format: excel               # csv, json, excel
+  path: outputs/analysis      # Output directory/prefix
+  include_raw_metrics: true   # Include detailed metrics
+```
+
+### Walk-Forward Section
+
+```yaml
+walk_forward:
+  train: 36                   # In-sample months
+  test: 12                    # Out-of-sample months
+  step: 6                     # Step size
+```
+
+## Preset Configurations
+
+Pre-built risk profiles in `config/presets/`:
+
+| Preset | Description |
+|--------|-------------|
+| `conservative.yml` | Lower risk, stable returns |
+| `balanced.yml` | Moderate risk/return |
+| `aggressive.yml` | Higher risk, growth focus |
+| `cash_constrained.yml` | Limited cash allocation |
+
+### Using Presets
+
+```bash
+PYTHONPATH="./src" python -m trend_analysis.run_analysis -c config/presets/balanced.yml
+```
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `TREND_CFG` | Default config file path |
+| `PYTHONPATH` | Add `./src` for module imports |
+
+## See Also
+
+- [ConfigMap.md](ConfigMap.md) - Complete config file inventory
+- [PresetStrategies.md](PresetStrategies.md) - Preset details
+- [UserGuide.md](UserGuide.md) - User documentation
