@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 # Workflow: Manages PR body sections including status summary and keepalive dispatch
+# Force re-registration: 2025-11-30T02:15:00Z
 name: Agents PR meta manager
 
 on:
