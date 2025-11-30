@@ -34,6 +34,32 @@ Prompts that ensure factual grounding before analysis.
 
 ---
 
+## Issue & Acceptance Evaluation
+
+Prompts for evaluating issue completion status.
+
+1. **Evaluate Issue Acceptance Criteria**
+   Determine if an issue can be closed by reviewing actual code and outcomes.
+   ```
+   Evaluate Issue <ISSUE_NUMBER> at https://github.com/stranske/Trend_Model_Project/issues/<ISSUE_NUMBER> to determine whether all acceptance criteria have been met and the issue can be closed, or whether work remains.
+
+   Requirements:
+   - Run ./scripts/preflight-pr.sh on any linked PRs first
+   - Review actual code changes in the remote repo, not summaries
+   - Verify each acceptance criterion against committed code and test results
+   - Check that tests exist and pass for claimed functionality
+   - Report: which criteria are MET (with evidence), which are NOT MET (with gaps)
+   ```
+
+2. **PR Acceptance Check**
+   Verify a PR satisfies its linked issue's acceptance criteria.
+   ```
+   For PR #<PR_NUMBER>, verify each acceptance criterion from the linked issue is satisfied.
+   Run ./scripts/preflight-pr.sh <PR_NUMBER> first, then check the actual diff and test results.
+   ```
+
+---
+
 ## Code Quality & Validation
 
 Prompts for ensuring code meets standards.
