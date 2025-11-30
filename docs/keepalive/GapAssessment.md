@@ -43,3 +43,15 @@
    - **Fix:** Added `extractBlock()`, `parseCheckboxStates()`, and `mergeCheckboxStates()` helpers.
    - Before generating the status block, the workflow now extracts existing checkbox states from the PR body and merges them into the new content.
    - Affected file: `agents-pr-meta.yml` (Upsert PR body sections job).
+
+6. **Workflow registration corruption after merge (IN PROGRESS 2025-11)**
+   - After merging PR #3888, the `agents-pr-meta.yml` workflow stopped triggering on `pull_request` and `workflow_run` events.
+   - **Symptoms:**
+     - GitHub API shows workflow name as file path instead of `Agents PR meta manager`
+     - New PRs created after merge received no automatic body population
+     - All push event runs for this workflow fail with 'workflow file issue' error
+   - **Root cause:** GitHub's workflow registration system appears to have corrupted metadata during merge.
+   - **Fix attempt:** Rename workflow file from `agents-pr-meta.yml` to `agents-51-pr-meta.yml` to force re-registration with GitHub.
+   - **Workaround:** Manual PR body population using `gh pr edit --body-file` for affected PRs (#3892).
+   - Affected PRs: #3892 (workaround applied), #3893 (fix PR pending).
+
