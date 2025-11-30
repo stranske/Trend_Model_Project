@@ -60,11 +60,6 @@ def pytest_collection_modifyitems(config, items):
                 it.add_marker(pytest.mark.xfail(reason="quarantined", strict=False))
 
     for it in items:
-        # Assign serial-marked tests to a single xdist worker group
-        # to prevent parallel execution conflicts (e.g., shared filesystem ops)
-        if it.get_closest_marker("serial"):
-            it.add_marker(pytest.mark.xdist_group(name="serial"))
-
         markers = sorted({marker.name for marker in it.iter_markers()})
         if not markers:
             continue

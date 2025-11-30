@@ -169,6 +169,7 @@ class TestDemoGoldenMaster:
         return sorted(key_files)[:8]
 
     @pytest.mark.serial
+    @pytest.mark.xdist_group(name="demo_pipeline")
     def test_demo_pipeline_end_to_end(self):
         """
         Golden master test: Run complete demo pipeline and validate outputs.
@@ -302,6 +303,7 @@ class TestDemoGoldenMaster:
             print(f"  {filename}: {file_hash}")
 
     @pytest.mark.serial
+    @pytest.mark.xdist_group(name="demo_pipeline")
     def test_demo_pipeline_deterministic(self):
         """Test that demo pipeline produces deterministic outputs across runs.
 

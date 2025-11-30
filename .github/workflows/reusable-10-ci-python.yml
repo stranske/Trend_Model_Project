@@ -480,8 +480,8 @@ jobs:
             args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
           fi
           if python -c "import xdist" 2>/dev/null; then
-            args+=("-n" "auto")
-            echo "Running tests in parallel with pytest-xdist..."
+            args+=("-n" "auto" "--dist=loadgroup")
+            echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
           fi
           pytest "${args[@]}"
 
