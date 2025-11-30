@@ -99,6 +99,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-pr-meta.yml`](../../.github/workflows/agents-pr-meta.yml) manages PR metadata and automated status updates. (Deprecated; see `agents-pr-meta-v2.yml`.)
 * [`agents-pr-meta-v2.yml`](../../.github/workflows/agents-pr-meta-v2.yml) is the active replacement for `agents-pr-meta.yml` with identical functionality.
 * [`agents-pr-meta-v3.yml`](../../.github/workflows/agents-pr-meta-v3.yml) is a minimal test workflow to verify GitHub workflow registration.
+* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the refactored version using external scripts to avoid GitHub workflow parser limits.
 * [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
 * [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) is the canonical front door. It now listens for `agent:codex` labels directly and routes both label triggers and ChatGPT sync requests through the shared normalization pipeline.
