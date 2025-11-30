@@ -6,10 +6,14 @@ This document explains the migration from deprecated `@app.on_event()` decorator
 
 ### 1. Updated Dependencies
 
-Added FastAPI and Uvicorn to `requirements.txt`:
-```
-fastapi>=0.104.0
-uvicorn[standard]
+Added FastAPI and Uvicorn to `pyproject.toml`:
+```toml
+[project]
+dependencies = [
+    # ... other deps ...
+    "fastapi>=0.104.0",
+    "uvicorn[standard]",
+]
 ```
 
 ### 2. Replaced Basic HTTP Server with FastAPI

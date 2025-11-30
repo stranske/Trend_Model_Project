@@ -8,7 +8,7 @@ This document introduces the main features of the Trend Model Project and explai
    ```bash
    ./scripts/setup_env.sh
    ```
-   This creates `.venv/` and installs packages from `requirements.txt`.
+   This creates `.venv/` and installs packages from `requirements.lock`.
 2. Optional: run the test suite to verify everything works:
    ```bash
    ./scripts/run_tests.sh
