@@ -13,14 +13,14 @@ from trend_analysis import run_analysis
 
 class DummyResult:
     def __init__(self) -> None:
-        dates = pd.date_range("2024-01-31", periods=2, freq="M")
+        dates = pd.date_range("2024-01-31", periods=2, freq="ME")
         self.metrics = pd.DataFrame({"metric": [1.0, 2.0]}, index=dates)
         self.details = {"summary": "ok"}
 
 
 class DetailedResult:
     def __init__(self) -> None:
-        index = pd.date_range("2024-01-31", periods=3, freq="M")
+        index = pd.date_range("2024-01-31", periods=3, freq="ME")
         self.metrics = pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=index)
         self.details = {
             "performance_by_regime": pd.DataFrame(
@@ -74,7 +74,7 @@ def test_main_passes_missing_policy(
         }
         return pd.DataFrame(
             {
-                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Date": pd.date_range("2024-01-31", periods=2, freq="ME"),
                 "Fund": [0.01, 0.02],
             }
         )
@@ -120,7 +120,7 @@ def test_main_maps_nan_policy_when_signature_uses_nan(
         captured["nan_limit"] = nan_limit
         return pd.DataFrame(
             {
-                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Date": pd.date_range("2024-01-31", periods=2, freq="ME"),
                 "Fund": [0.01, 0.02],
             }
         )
@@ -170,7 +170,7 @@ def test_main_uses_nan_fallback_and_default_exports(
         }
         return pd.DataFrame(
             {
-                "Date": pd.date_range("2024-01-31", periods=3, freq="M"),
+                "Date": pd.date_range("2024-01-31", periods=3, freq="ME"),
                 "Fund": [0.01, 0.02, 0.03],
             }
         )
@@ -249,7 +249,7 @@ def test_main_detailed_no_results(
     def fake_load_csv(*_args: object, **_kwargs: object) -> pd.DataFrame:
         return pd.DataFrame(
             {
-                "Date": pd.date_range("2024-01-31", periods=2, freq="M"),
+                "Date": pd.date_range("2024-01-31", periods=2, freq="ME"),
                 "Fund": [0.01, 0.02],
             }
         )

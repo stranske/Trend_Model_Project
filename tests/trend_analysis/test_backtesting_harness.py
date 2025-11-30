@@ -297,7 +297,7 @@ def test_run_backtest_handles_duplicate_index_and_pending_cost() -> None:
 
 
 def test_run_backtest_enforces_membership_mask_on_weights() -> None:
-    dates = pd.date_range("2020-01-31", periods=6, freq="M")
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     returns = pd.DataFrame(
         {
             "Date": dates,
@@ -335,7 +335,7 @@ def test_run_backtest_enforces_membership_mask_on_weights() -> None:
 
 
 def test_run_backtest_membership_missing_price_data_raises() -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     returns = pd.DataFrame(
         {
             "Date": dates,
@@ -366,7 +366,7 @@ def test_run_backtest_membership_missing_price_data_raises() -> None:
 
 
 def test_run_backtest_membership_policy_skip_masks_missing_rows() -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     returns = pd.DataFrame(
         {
             "Date": dates,
@@ -400,7 +400,7 @@ def test_run_backtest_membership_policy_skip_masks_missing_rows() -> None:
 
 
 def test_run_backtest_membership_missing_column_skip_continues() -> None:
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     returns = pd.DataFrame(
         {
             "Date": dates,
@@ -428,7 +428,7 @@ def test_run_backtest_membership_missing_column_skip_continues() -> None:
 
 
 def test_run_backtest_membership_missing_column_raises() -> None:
-    dates = pd.date_range("2020-01-31", periods=2, freq="M")
+    dates = pd.date_range("2020-01-31", periods=2, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Alpha": [0.01, 0.02]})
 
     membership = pd.DataFrame(

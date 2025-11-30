@@ -19,7 +19,6 @@ Core layers:
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
 - Keepalive heartbeat (`maint-keepalive.yml`): twice-daily cron + dispatch workflow that posts a timestamped comment (with run link) to the Ops heartbeat issue using `ACTIONS_BOT_PAT` and fails fast if either the issue variable or PAT is missing.
 - Coverage guard (`maint-coverage-guard.yml`): daily cron + dispatch workflow that fetches the latest Gate coverage artifacts, compares them to the configured baseline, and maintains the rolling `[coverage] baseline breach` issue.
-- Path Labeling: `pr-path-labeler.yml` auto-categorizes PRs.
 
 ### 1.1 Current CI Topology (Issue #2439)
 The CI stack now routes every pull request through a single Gate workflow that orchestrates the reusable CI and Docker checks:

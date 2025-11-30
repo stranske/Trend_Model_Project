@@ -13,5 +13,10 @@ directories, so they are treated as rarely used or historical utilities.
   unified `trend` CLI. Last-known use: pre-unified CLI era; retained only as
   a reference.
 
+## 2025-11-30-one-off
+
+- `demo_export_fix.py` — one-off demo export fix script; no references found
+  in workflows, docs, or other scripts.
+
 If you need to revive any of these scripts, please re-home them under a
 supported workflow and add the appropriate documentation and ownership notes.

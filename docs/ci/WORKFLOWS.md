@@ -96,7 +96,9 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-keepalive-dispatch-handler.yml`](../../.github/workflows/agents-keepalive-dispatch-handler.yml) listens for orchestrator `repository_dispatch` payloads and replays them through the reusable agents topology so keepalive actions stay aligned with branch-sync repairs.
 * [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) and [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
 * [`agents-74-pr-body-writer.yml`](../../.github/workflows/agents-74-pr-body-writer.yml) synchronizes PR body sections from source issues and builds status summaries.
-* [`agents-pr-meta.yml`](../../.github/workflows/agents-pr-meta.yml) manages PR metadata and automated status updates.
+* [`agents-pr-meta.yml`](../../.github/workflows/agents-pr-meta.yml) manages PR metadata and automated status updates. (Deprecated; see `agents-pr-meta-v2.yml`.)
+* [`agents-pr-meta-v2.yml`](../../.github/workflows/agents-pr-meta-v2.yml) is the active replacement for `agents-pr-meta.yml` with identical functionality.
+* [`agents-pr-meta-v3.yml`](../../.github/workflows/agents-pr-meta-v3.yml) is a minimal test workflow to verify GitHub workflow registration.
 * [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
 * [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) is the canonical front door. It now listens for `agent:codex` labels directly and routes both label triggers and ChatGPT sync requests through the shared normalization pipeline.

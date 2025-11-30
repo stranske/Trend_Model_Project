@@ -105,7 +105,7 @@ def test_build_metadata_includes_core_fields(monkeypatch) -> None:
 
 def test_results_from_payload_coerces_series() -> None:
     portfolio = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="M")
+        [0.01, 0.02], index=pd.date_range("2020-01-31", periods=2, freq="ME")
     )
     payload = {
         "portfolio_equal_weight_combined": portfolio,

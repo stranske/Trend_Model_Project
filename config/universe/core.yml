@@ -2,8 +2,8 @@ version: 1
 key: core
 name: Core trend cohort
 description: Concentrated set of diversified trend managers with long live track records.
-data_csv: Trend Universe Data.csv
-membership_csv: Trend Universe Membership.csv
+data_csv: data/Trend Universe Data.csv
+membership_csv: data/Trend Universe Membership.csv
 date_column: Date
 members:
   - AHL Dimension

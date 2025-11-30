@@ -89,8 +89,13 @@ def test_ensure_glob_matches_requires_csv_extension(tmp_path: Path) -> None:
 
 
 def test_ensure_glob_matches_raises_when_no_files(tmp_path: Path) -> None:
+    # Use a unique pattern that won't match any files anywhere
+    nonexistent_dir = tmp_path / "unique_nonexistent_dir_xyz123"
+    nonexistent_dir.mkdir()
     with pytest.raises(ValueError, match="did not match any CSV files"):
-        config_model._ensure_glob_matches("data/*.csv", base_dir=tmp_path)
+        config_model._ensure_glob_matches(
+            "unique_nonexistent_dir_xyz123/*.csv", base_dir=tmp_path
+        )
 
 
 def _basic_data_settings_dict(tmp_path: Path) -> dict[str, object]:

@@ -150,7 +150,7 @@ The test will fail if `some_tool` is not in either `REQUIRED_CLI_TOOLS` or `OPTI
 
 ## Required Dependencies
 
-### Python Packages (requirements.txt)
+### Python Packages (pyproject.toml)
 
 **Core**:
 - pandas
@@ -194,9 +194,13 @@ The test will fail if `some_tool` is not in either `REQUIRED_CLI_TOOLS` or `OPTI
 
 ### For Python Packages
 
-1. Add the package to `requirements.txt`:
-   ```
-   new-package>=1.0.0
+1. Add the package to `pyproject.toml` under `[project.optional-dependencies].dev`:
+   ```toml
+   [project.optional-dependencies]
+   dev = [
+       # ... existing deps ...
+       "new-package>=1.0.0",
+   ]
    ```
 
 2. If it's optional (tests can skip gracefully), add to `test_test_dependencies.py`:
@@ -285,9 +289,9 @@ uv pip compile pyproject.toml -o requirements.lock
 
 The enforcement tests run automatically with every test suite execution. If they fail, it means:
 
-1. A new Python package is imported but not in `requirements.txt`
+1. A new Python package is imported but not in `pyproject.toml`
 2. A new CLI tool is used but not documented
-3. Requirements.txt has invalid package specifications
+3. `pyproject.toml` has invalid package specifications
 
 Fix by adding the missing dependency to the appropriate configuration file.
 
@@ -295,7 +299,7 @@ Fix by adding the missing dependency to the appropriate configuration file.
 
 The CI workflow validates dependencies in this order:
 
-1. **Install Python dependencies** from requirements.txt
+1. **Install Python dependencies** from `requirements.lock`
 2. **Install Node.js and npm** via GitHub Actions
 3. **Install uv** via official installer
 4. **Validate test dependencies** via test suite

@@ -15,7 +15,7 @@ def _restore_optimizer(monkeypatch):
 def test_realised_volatility_supports_simple_and_ewma():
     returns = pd.DataFrame(
         {"asset": [0.01, 0.03, 0.02, 0.05, 0.04]},
-        index=pd.date_range("2024-01-01", periods=5, freq="M"),
+        index=pd.date_range("2024-01-01", periods=5, freq="ME"),
     )
     simple = risk.realised_volatility(returns, risk.RiskWindow(length=2))
     assert simple.index.equals(returns.index)
@@ -50,7 +50,7 @@ def test_compute_constrained_weights_applies_controls(monkeypatch):
             "A": [0.01, 0.02, 0.015, 0.018, 0.022],
             "B": [0.0, 0.0, 0.0, 0.0, 0.0],
         },
-        index=pd.date_range("2024-01-31", periods=5, freq="M"),
+        index=pd.date_range("2024-01-31", periods=5, freq="ME"),
     )
     base_weights = {"A": 0.6, "B": 0.4}
     payload_capture: dict[str, object] = {}

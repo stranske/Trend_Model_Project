@@ -1,35 +1,16 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-#
-# Agents PR meta manager
-# -----------------------
-# Manages PR body sections including status summary and keepalive dispatch.
-# This workflow updates the PR description with automated status information
-# and handles keepalive instruction detection and dispatch.
-#
-# Last modified: 2025-11-30T02:45:00Z (force GitHub re-registration)
-#
-name: Agents PR meta manager
+# DEPRECATED: This workflow has been replaced by agents-pr-meta-v2.yml
+# The workflow ID (201068412) became corrupted in GitHub's registry.
+# Keeping this file to maintain the agents:guard protection but disabling triggers.
+name: Agents PR meta manager (DEPRECATED)
 
 on:
-  issue_comment:
-    types:
-      - created
-  pull_request:
-    types: [opened, synchronize, reopened, edited]
-  workflow_run:
-    workflows: ["Gate"]
-    types: [completed]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: "PR number to update (leave empty to use trigger context)"
+      deprecated_notice:
+        description: 'This workflow is deprecated. Use agents-pr-meta-v2.yml instead.'
         required: false
         type: string
-      debug:
-        description: "Enable debug logging"
-        required: false
-        type: boolean
-        default: false
+        default: 'deprecated'
 
 permissions:
   contents: read

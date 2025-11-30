@@ -1,0 +1,556 @@
+name: "Codex Bootstrap (concise)"
+description: "Create a new branch and draft PR from an issue, then post a Codex command. Uses PAT if provided, else GITHUB_TOKEN."
+
+inputs:
+  issue:
+    description: "Issue number to bootstrap from"
+    required: true
+  service_bot_pat:
+    description: "Optional classic PAT with repo scope for branch/PR creation"
+    required: false
+    default: ""
+  codex_command:
+    description: "Codex activation command (must start with or will be prefixed by 'codex:' or '@codex')"
+    required: false
+    default: "@codex start"
+  suppress_activate:
+    description: "If 'true', suppress initial activation comment (also suppressed by issue token or env)"
+    required: false
+    default: ""
+  pr_mode:
+    description: "auto | manual (manual = create branch + marker only)"
+    required: false
+    default: "auto"
+  allow_fallback:
+    description: "Allow fallback to GITHUB_TOKEN when PAT is missing"
+    default: "true"
+    required: false
+  codex_command_legacy:
+    description: "Command to post to the PR to trigger Codex (duplicate key, kept for archive)"
+    default: "codex: start"
+    required: false
+  base_branch:
+    description: "Base branch to open PR against (defaults to current checkout)"
+    required: false
+  debug_mode:
+    description: "Enable verbose logging"
+    default: "false"
+    required: false
+
+outputs:
+  pr_number:
+    description: "Opened or reused PR number"
+    value: ${{ steps.pr_out.outputs.pr_number }}
+  pr_url:
+    description: "Opened or reused PR URL"
+    value: ${{ steps.pr_out.outputs.pr_url }}
+  branch_name:
+    description: "Created branch name"
+    value: ${{ steps.branch_out.outputs.branch_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Preflight and token selection
+      id: preflight
+      shell: bash
+      env:
+        INPUT_PAT: ${{ inputs.service_bot_pat }}
+        INPUT_ALLOW_FALLBACK: ${{ inputs.allow_fallback }}
+        GH_TOKEN_DEFAULT: ${{ github.token }}
+        DEBUG_MODE: ${{ inputs.debug_mode }}
+      run: |
+        set -euo pipefail
+        issue="${{ inputs.issue }}"
+        [[ -n "$issue" ]] || { echo "issue input is required" >&2; exit 2; }
+
+        # Choose token: PAT first, else GITHUB_TOKEN if allowed
+        token=""
+        if [ -n "${INPUT_PAT:-}" ]; then
+          token="$INPUT_PAT"
+          src="SERVICE_BOT_PAT"
+        elif [ "${INPUT_ALLOW_FALLBACK:-true}" = "true" ]; then
+          token="$GH_TOKEN_DEFAULT"
+          src="GITHUB_TOKEN"
+        else
+          echo "SERVICE_BOT_PAT missing and fallback disabled" >&2
+          exit 86
+        fi
+
+        # Minimal auth probe
+        if ! curl -fsS -H "Authorization: Bearer ${token}" https://api.github.com/rate_limit >/dev/null; then
+          # Try legacy header
+          if ! curl -fsS -H "Authorization: token ${token}" https://api.github.com/rate_limit >/dev/null; then
+            echo "Auth probe failed for selected token source ${src}" >&2
+            exit 1
+          fi
+        fi
+
+        # Derive owner/repo
+        repo_full="${{ github.repository }}"
+        owner="${repo_full%%/*}"
+        repo="${repo_full##*/}"
+
+        # Determine base branch
+        base_branch_input="${{ inputs.base_branch }}"
+        if [ -n "$base_branch_input" ]; then
+          base_branch="$base_branch_input"
+        else
+          # Fall back to the currently checked-out ref name
+          base_branch="${{ github.ref_name }}"
+        fi
+
+        # Determine head sha for base branch
+        api="https://api.github.com/repos/${owner}/${repo}"
+        head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${base_branch}" | jq -r '.object.sha' || true)
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          # Try default branch
+          default_branch=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}" | jq -r '.default_branch')
+          head_sha=$(curl -fsS -H "Authorization: Bearer ${token}" "${api}/git/ref/heads/${default_branch}" | jq -r '.object.sha')
+          base_branch="$default_branch"
+        fi
+        if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+          echo "Failed to resolve base branch head sha" >&2
+          exit 3
+        fi
+
+        # Create a unique branch name (agents/codex-issue-<n>-<run_id>)
+        run_id="${{ github.run_id }}"
+        branch="agents/codex-issue-${issue}-${run_id}"
+
+        # Export for later steps
+        {
+          echo "TOKEN_SRC=${src}"
+          echo "BOOTSTRAP_TOKEN=${token}"
+          echo "OWNER=${owner}"
+          echo "REPO=${repo}"
+          echo "BASE_BRANCH=${base_branch}"
+          echo "BASE_SHA=${head_sha}"
+          echo "ISSUE_NUM=${issue}"
+          echo "BRANCH_NAME=${branch}"
+        } >> "$GITHUB_ENV"
+
+        if [ "${DEBUG_MODE}" = "true" ]; then
+          echo "owner/repo=${owner}/${repo} base=${base_branch} sha=${head_sha} branch=${branch} token=${src}"
+        fi
+
+    - name: Create branch (git ref)
+      id: create_branch
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BASE_SHA: ${{ env.BASE_SHA }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}/git/refs"
+        payload=$(jq -n --arg ref "refs/heads/${BRANCH_NAME}" --arg sha "$BASE_SHA" '{ref: $ref, sha: $sha}')
+        # Try Bearer, then legacy token header
+        status=$(curl -s -o /tmp/create_ref.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+        if [ "$status" -eq 422 ]; then
+          echo "Branch already exists (422) – continuing."
+          echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+        elif [ "$status" -eq 201 ]; then
+          echo "Branch created (201)."
+          echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+        else
+          status2=$(curl -s -o /tmp/create_ref2.json -w "%{http_code}" -X POST -H "Authorization: token ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api" -d "$payload" || true)
+          if [ "$status2" -eq 422 ]; then
+            echo "Branch already exists (422 legacy) – continuing."
+            echo "BRANCH_CREATED=false" >> "$GITHUB_ENV"
+          elif [ "$status2" -eq 201 ]; then
+            echo "Branch created (201 legacy)."
+            echo "BRANCH_CREATED=true" >> "$GITHUB_ENV"
+          else
+            echo "Failed to create branch: HTTP $status / $status2" >&2
+            echo "Response1:" >&2; sed -n '1,200p' /tmp/create_ref.json >&2 || true
+            echo "Response2:" >&2; sed -n '1,200p' /tmp/create_ref2.json >&2 || true
+            exit 10
+          fi
+        fi
+
+    - name: Ensure marker commit on branch
+      id: marker
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        path="agents/codex-${ISSUE_NUM}.md"
+        api_base="https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}"
+        body_base64=$(printf "<!-- bootstrap for codex on issue #%s -->\n" "$ISSUE_NUM" | base64 -w0)
+        # Probe for existing file on the branch
+        sha=$(curl -sfS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "${api_base}?ref=${BRANCH_NAME}" | jq -r '.sha' 2>/dev/null || true)
+        if [ -n "$sha" ] && [ "$sha" != "null" ]; then
+          payload=$(jq -n --arg msg "chore(codex): update marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" --arg sha "$sha" '{message:$msg, content:$content, branch:$branch, sha:$sha}')
+        else
+          payload=$(jq -n --arg msg "chore(codex): bootstrap marker for #${ISSUE_NUM}" --arg content "$body_base64" --arg branch "$BRANCH_NAME" '{message:$msg, content:$content, branch:$branch}')
+        fi
+        status=$(curl -s -o /tmp/put_content.json -w "%{http_code}" -X PUT -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api_base" -d "$payload" || true)
+        if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+          echo "Marker file ensured on branch."
+        else
+          echo "Failed to create/update marker file (HTTP $status). Proceeding anyway to attempt PR creation." >&2
+          sed -n '1,200p' /tmp/put_content.json >&2 || true
+        fi
+
+    - name: Open or reuse draft PR
+      id: open_pr
+      shell: bash
+      env:
+        OWNER: ${{ env.OWNER }}
+        REPO: ${{ env.REPO }}
+        BOOTSTRAP_TOKEN: ${{ env.BOOTSTRAP_TOKEN }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        BASE_BRANCH: ${{ env.BASE_BRANCH }}
+        ISSUE_NUM: ${{ env.ISSUE_NUM }}
+      run: |
+        set -euo pipefail
+        api="https://api.github.com/repos/${OWNER}/${REPO}"
+        # Fetch issue details for PR body
+        title=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.title // "(no title)"')
+        body=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/issues/${ISSUE_NUM}" | jq -r '.body // "(no body provided)"')
+        header="### Source Issue #${ISSUE_NUM}: ${title}"
+        pr_body=$(jq -n --arg h "$header" --arg b "$body" '$h + "\n\n---\n" + $b + "\n\n---\n\nThis draft PR was auto-created to engage Codex on the task above. All edits should occur on this branch."')
+        # Check if PR already open for this branch
+        existing=$(curl -fsS -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" "$api/pulls?state=open&head=${OWNER}:${BRANCH_NAME}")
+        pr_number=$(echo "$existing" | jq -r '.[0].number // empty')
+        pr_url=$(echo "$existing" | jq -r '.[0].html_url // empty')
+        if [ -z "$pr_number" ]; then
+          payload=$(jq -n --arg title "Codex bootstrap for #${ISSUE_NUM}" --arg head "$BRANCH_NAME" --arg base "$BASE_BRANCH" --argjson draft true --arg body "$pr_body" '{title:$title, head:$head, base:$base, draft:$draft, body:$body}')
+          status=$(curl -s -o /tmp/create_pr.json -w "%{http_code}" -X POST -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls" -d "$payload" || true)
+          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+            pr_number=$(jq -r '.number' /tmp/create_pr.json)
+            pr_url=$(jq -r '.html_url' /tmp/create_pr.json)
+            echo "PR created: #$pr_number"
+          else
+            echo "Failed to create PR (HTTP $status)" >&2
+            sed -n '1,200p' /tmp/create_pr.json >&2 || true
+            exit 11
+          fi
+        else
+          echo "Reusing existing PR #$pr_number"
+          # Optionally update body if missing header
+          has_header=$(echo "$existing" | jq -r '.[0].body | contains("'"$header"'")')
+          if [ "$has_header" != "true" ]; then
+            payload=$(jq -n --arg body "$pr_body" '{body:$body}')
+            curl -fsS -X PATCH -H "Authorization: Bearer ${BOOTSTRAP_TOKEN}" -H 'Content-Type: application/json' "$api/pulls/$pr_number" -d "$payload" >/dev/null || true
+          fi
+        fi
+        {
+          echo "PR_NUMBER=$pr_number"
+          echo "PR_URL=$pr_url"
+        } >> "$GITHUB_ENV"
+        # Also expose for downstream job steps that read env
+        {
+          echo "CODEX_PR=$pr_number"
+          echo "CODEX_REUSED=$( [ -z "$existing" ] && echo false || echo true )"
+        } >> "$GITHUB_ENV"
+
+    - name: Label and post Codex command
+      id: codex_comment
+      shell: bash
+      env:
+        SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        # Ensure fallback paths and diagnostics can access the default token
+        GITHUB_TOKEN: ${{ github.token }}
+        CODEX_COMMAND: ${{ inputs.codex_command }}
+        CODEX_SUPPRESS_ACTIVATE_INPUT: ${{ inputs.suppress_activate }}
+        CODEX_PR_MODE: ${{ inputs.pr_mode }}
+        CODEX_FAIL_ON_TOKEN_MISMATCH: ${{ inputs.fail_on_token_mismatch }}
+        CODEX_FORCE_BRANCH_FAIL: ${{ inputs.force_branch_fail }}
+        CODEX_FORCE_DUAL_FAIL: ${{ inputs.force_dual_fail }}
+        CODEX_FAIL_ON_INVALID_COMMAND: ${{ inputs.fail_on_invalid_command }}
+      with:
+        github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
+        script: |
+          const issue_number = Number('${{ inputs.issue }}');
+          const { owner, repo } = context.repo;
+          if (!issue_number) { core.setFailed('No issue number passed to bootstrap'); return; }
+          const usingPAT = !!process.env.SERVICE_BOT_PAT;
+          let tokenSource = usingPAT ? 'SERVICE_BOT_PAT' : 'GITHUB_TOKEN';
+          const allowFallback = '${{ inputs.allow_fallback }}' === 'true';
+          let fallbackUsed = false;
+          const branch = `agents/codex-issue-${issue_number}`;
+          const markerPath = `agents/.codex-bootstrap-${issue_number}.json`;
+          async function exists(path, ref){
+            try { await github.rest.repos.getContent({owner, repo, path, ref}); return true; } catch { return false; }
+          }
+          // Resolve base branch
+          let baseSha; let baseBranch;
+          try {
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            baseBranch = repoInfo.default_branch || 'main';
+            const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
+            baseSha = ref.object.sha;
+          } catch (e) {
+            core.setFailed(`Unable to resolve base branch SHA: ${e.message}`);
+            return;
+          }
+          let branchExists = true;
+            try { await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }); } catch { branchExists = false; }
+          if (!branchExists) {
+            let created = false;
+            let firstErr;
+            const debugMode = '${{ inputs.debug_mode }}' === 'true';
+            const forcePrimaryFail = /true/i.test(String(process.env.CODEX_FORCE_BRANCH_FAIL||''));
+            const forceDualFail = /true/i.test(String(process.env.CODEX_FORCE_DUAL_FAIL||''));
+            try {
+              if (forcePrimaryFail) { throw Object.assign(new Error('Forced primary failure (test simulation)'), { status: 403 }); }
+              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+              core.info(`Created branch ${branch} with primary token (${tokenSource}).`);
+              created = true;
+            } catch (e) {
+              firstErr = e;
+              const detail = e && e.response && e.response.data ? JSON.stringify(e.response.data) : '';
+              core.warning(`Primary branch create failed (${tokenSource}) status=${e.status || '?'} msg=${e.message} detail=${detail}`);
+              if (debugMode) core.info(`DEBUG primary-create-error-object: ${JSON.stringify({status: e.status, message: e.message, stack: e.stack})}`);
+              // Multi-layer retry path
+              // 1) If primary was SERVICE_BOT_PAT, optionally retry using low-level fetch with PAT itself (some rulesets block Octokit flow but allow token header variants)
+              if (tokenSource === 'SERVICE_BOT_PAT' && !forceDualFail) {
+                const primaryToken = process.env.SERVICE_BOT_PAT;
+                const headerVariants = primaryToken ? [
+                  { style: 'Bearer', header: `Bearer ${primaryToken}` },
+                  { style: 'token',  header: `token ${primaryToken}` }
+                ] : [];
+                for (const hv of headerVariants) {
+                  if (created) break;
+                  try {
+                    core.info(`Retrying branch create with SERVICE_BOT_PAT via fetch (Authorization: ${hv.style}).`);
+                    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': hv.header,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'codex-bootstrap-action'
+                      },
+                      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                    });
+                    if (resp.status === 201) {
+                      created = true; fallbackUsed = true; // treat as fallback path
+                      core.info(`Created branch ${branch} with SERVICE_BOT_PAT using ${hv.style} header.`);
+                      break;
+                    } else {
+                      let txt; try { txt = await resp.text(); } catch (err) { core.warning(`Failed to parse response text: ${err && err.message ? err.message : err}`); txt = ''; }
+                      core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                    }
+                  } catch (e2) {
+                    core.warning(`SERVICE_BOT_PAT fetch (${hv.style}) exception msg=${e2.message}`);
+                  }
+                }
+              }
+              // 2) Fallback to alternate tokens if allowed
+              if (!created && tokenSource === 'SERVICE_BOT_PAT' && allowFallback && !forceDualFail) {
+                const fallbackCandidates = [
+                  { env: 'GITHUB_TOKEN', value: process.env.GITHUB_TOKEN },
+                  { env: 'ACTIONS_DEFAULT_TOKEN', value: process.env.ACTIONS_DEFAULT_TOKEN }
+                ].filter(c => !!c.value);
+                for (const cand of fallbackCandidates) {
+                  if (created) break;
+                  core.info(`Attempting branch create retry with fallback ${cand.env} (fetch API).`);
+                  for (const hv of [
+                    { style: 'Bearer', header: `Bearer ${cand.value}` },
+                    { style: 'token',  header: `token ${cand.value}` }
+                  ]) {
+                    if (created) break;
+                    try {
+                      const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': hv.header,
+                          'Accept': 'application/vnd.github+json',
+                          'Content-Type': 'application/json',
+                          'User-Agent': 'codex-bootstrap-action'
+                        },
+                        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
+                      });
+                      if (resp.status === 201) {
+                        created = true; fallbackUsed = true; tokenSource = cand.env; core.info(`Created branch ${branch} with fallback ${cand.env} using ${hv.style} header.`);
+                        break;
+                      } else {
+                        let txt; try { txt = await resp.text(); } catch {}
+                        core.warning(`Fallback (${cand.env}) ${hv.style} failed http_status=${resp.status} body=${(txt||'').slice(0,400)}`);
+                      }
+                    } catch (e3) {
+                      core.warning(`Fallback (${cand.env}) ${hv.style} exception msg=${e3.message}`);
+                    }
+                  }
+                }
+              }
+            }
+            if (!created) {
+              const dualFail = tokenSource === 'SERVICE_BOT_PAT';
+              const err = firstErr || { status: 'unknown', message: 'unspecified branch create error' };
+              const msg = `Codex bootstrap blocked: unable to create branch ${branch}. primary_status=${err.status || '?'} primary_msg=${err.message}`;
+              try { await github.rest.issues.createComment({ owner, repo, issue_number, body: msg + '\n\nIf this persists: 1) confirm token rulesets, 2) check branch protection/rulesets, 3) ensure fallback allowed if PAT blocked.' }); } catch {}
+              core.warning(msg);
+              if ('${{ inputs.fail_on_dual_branch_failure }}' === 'true') core.setFailed(msg);
+              return;
+            } else {
+              core.setOutput('branch_created', 'true');
+              core.setOutput('fallback_used', fallbackUsed ? 'true' : 'false');
+            }
+          } else {
+            core.info(`Branch ${branch} already exists`);
+            core.setOutput('branch_created', 'false');
+            core.setOutput('fallback_used', 'false');
+          }
+          core.setOutput('token_source', tokenSource);
+          if (await exists(markerPath, branch)) {
+            core.info('Marker exists – bootstrap already performed. Emitting summary (idempotent).');
+            let decoded; let issueBodyCached = '';
+            try {
+              const { data: markerFile } = await github.rest.repos.getContent({ owner, repo, path: markerPath, ref: branch });
+              if (!Array.isArray(markerFile)) {
+                decoded = Buffer.from(markerFile.content, markerFile.encoding || 'base64').toString('utf8');
+                core.summary.addHeading('Codex Bootstrap (Previously Completed)').addCodeBlock(decoded, 'json').write();
+              }
+            } catch (e) { core.warning('Could not read marker for summary: ' + e.message); }
+            try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueBodyCached = issue.body || ''; } catch {}
+            const suppressFromToken = (issueBodyCached || '').includes('[codex-suppress-activate]');
+            const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+            const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+            const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
+            let parsed = {}; try { parsed = JSON.parse(decoded||'{}'); } catch {}
+            let reuse = true; let prNumberExisting = parsed.pr || null; let prAuthor = parsed.pr_author || null;
+            // Optional re-bootstrap if existing PR is closed
+            if (prNumberExisting && '${{ inputs.rebootstrap_closed_pr }}' === 'true') {
+              try {
+                const { data: existingPR } = await github.rest.pulls.get({ owner, repo, pull_number: prNumberExisting });
+                if (existingPR.state === 'closed') {
+                  core.info(`Existing PR #${prNumberExisting} is closed; initiating re-bootstrap.`);
+                  const replicatedHeader = `### Source Issue #${issue_number}: ${existingPR.title || ''}`;
+                  const newBody = `${replicatedHeader}\n\nRe-bootstrap due to closed original PR #${prNumberExisting}.`;
+                  const { data: newPR } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: false, title: `Codex re-bootstrap for #${issue_number}`, body: newBody });
+                  prNumberExisting = newPR.number; prAuthor = newPR.user && newPR.user.login || null; reuse = false; // treat as fresh for outputs
+                  const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumberExisting, ts: new Date().toISOString(), rebootstrap: true }, null, 2)).toString('base64');
+                  await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): rebootstrap marker for #${issue_number}`, content: markerContent });
+                  const human = 'stranske-automation-bot';
+                  async function assignPair(target) {
+                    try {
+                      await github.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees: ['chatgpt-codex-connector', human] });
+                      return true;
+                    } catch (e) {
+                      core.warning(`Codex assignment failed on #${target}: ${e.status || '?'} ${e.message}`);
+                      return false;
+                    }
+                  }
+                  const issueAssignOk = await assignPair(issue_number);
+                  const prAssignOk = await assignPair(prNumberExisting);
+                  if (!activationSuppressed) {
+                    await github.rest.issues.createComment({ owner, repo, issue_number: prNumberExisting, body: `@chatgpt-codex-connector Please begin work on this task. Source issue #${issue_number}.` });
+                  } else {
+                    core.info('Activation comment suppressed.');
+                  }
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: prNumberExisting, labels: ['agent:codex'] });
+                  let cmd = String(process.env.CODEX_COMMAND || '@codex start').replace(/[\r\n`]/g,'').trim();
+                  const allowedCommands = ['@codex start','@codex test','@codex lint','@codex build','@codex review','@codex docs','codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'];
+                  const allowedCommandsLower = allowedCommands.map(c => c.toLowerCase());
+                  if (!allowedCommandsLower.includes(cmd.toLowerCase())) {
+                    core.warning('Unsafe Codex command; defaulting.');
+                    cmd = '@codex start';
+                  }
+                  await github.rest.issues.createComment({ owner, repo, issue_number: prNumberExisting, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+                  await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumberExisting} to engage Codex. Track work there.` });
+                }
+              } catch (e) { core.warning(`Closed PR re-bootstrap check failed: ${e.message}`); }
+            }
+            if (prNumberExisting) core.setOutput('codex_pr', String(prNumberExisting));
+            core.setOutput('codex_reused', reuse ? 'true' : 'false');
+            const prAuthorFinal = prAuthor;
+            try {
+              const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+              fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify({
+                reused: reuse, issue: issue_number, pr: prNumberExisting || null, branch, base: baseBranch,
+                suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthorFinal, ts: new Date().toISOString(), rebootstrap_attempt: !reuse,
+                fallback_used: (fallbackUsed || core.getOutput('fallback_used') === 'true')
+              }, null, 2));
+              if (decoded) fs.writeFileSync('codex-artifacts/marker_snapshot.json', decoded);
+              fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.');
+            } catch (e) { core.warning('Failed to write codex_bootstrap_summary.json: ' + e.message); }
+            console.log('CODEX_BOOTSTRAP_SUMMARY:' + JSON.stringify({ reused: reuse, issue: issue_number, pr: prNumberExisting || null, branch, base: baseBranch, suppression: activationSuppressed, token_source: tokenSource, pr_author: prAuthorFinal }));
+            return;
+          }
+          // Create marker seed file to ensure branch has a change (issue markdown stub)
+          const path = `agents/codex-${issue_number}.md`;
+          const content = Buffer.from(`<!-- bootstrap for codex on issue #${issue_number} -->\n`).toString('base64');
+          let sha; try { const probe = await github.rest.repos.getContent({ owner, repo, path, ref: branch }); if (!Array.isArray(probe.data)) sha = probe.data.sha; } catch {}
+          await github.rest.repos.createOrUpdateFileContents({ owner, repo, path, branch, message: `chore(codex): bootstrap PR for issue #${issue_number}`, content, sha });
+          // Pull issue details
+          let issueTitle = '(no title)'; let issueBody = '(no body provided)';
+          try { const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number }); issueTitle = issue.title || issueTitle; issueBody = issue.body || issueBody; } catch (e) { core.warning(`Failed to fetch issue #${issue_number} for body replication: ${e.message}`); }
+          const prMode = (process.env.CODEX_PR_MODE || 'auto').toLowerCase();
+          const manual = prMode === 'manual';
+          if (manual) {
+            const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: null, ts: new Date().toISOString(), mode: 'manual', token_source: tokenSource }, null, 2)).toString('base64');
+            await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): mark manual bootstrap for #${issue_number}`, content: markerContent });
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Branch **${branch}** created. Manual mode is enabled (CODEX_PR_MODE=manual). Open a draft PR from this branch targeting **${baseBranch}** then label with \`agent:codex\`.` });
+            core.summary.addHeading('Codex Bootstrap (Manual Mode)').addTable([[{data:'Issue',header:true},{data:'Branch',header:true},{data:'PR Created',header:true},{data:'Mode',header:true},{data:'TokenSource',header:true}], [String(issue_number), branch, 'false', 'manual', tokenSource]]).write();
+            const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+            fs.writeFileSync('codex-artifacts/codex_bootstrap_summary.json', JSON.stringify({ reused:false, issue:issue_number, pr:null, branch, base:baseBranch, manual:true, token_source: tokenSource, pr_author: null, ts:new Date().toISOString() }, null, 2));
+            console.log('CODEX_BOOTSTRAP_SUMMARY:' + JSON.stringify({ reused:false, issue:issue_number, pr:null, branch, base:baseBranch, manual:true, token_source: tokenSource, pr_author: null }));
+            core.setOutput('codex_pr', ''); core.setOutput('codex_reused', 'false');
+            return;
+          }
+          const suppressFromToken = (issueBody || '').includes('[codex-suppress-activate]');
+          const suppressFromInput = /true/i.test(String(process.env.CODEX_SUPPRESS_ACTIVATE_INPUT||''));
+          const suppressFromEnv   = !!process.env.CODEX_SUPPRESS_ACTIVATE;
+          const activationSuppressed = suppressFromEnv || suppressFromInput || suppressFromToken;
+          const replicatedHeader = `### Source Issue #${issue_number}: ${issueTitle}`;
+          const replicatedBody = `${replicatedHeader}\n\n---\n${issueBody}\n\n---\n\nThis PR was auto-created to engage Codex on the task above. All edits should occur on this branch.\n`;
+          const { data: open } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+          let prNumber; let prBodyNeedsUpdate = false; let existingPR; let prAuthorLogin = null;
+          if (open.length) { existingPR = open[0]; prNumber = existingPR.number; prAuthorLogin = existingPR.user && existingPR.user.login || null; if (!existingPR.body || !existingPR.body.includes(replicatedHeader)) prBodyNeedsUpdate = true; }
+          else { const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: false, title: `Codex bootstrap for #${issue_number}`, body: replicatedBody }); prNumber = pr.number; prAuthorLogin = pr.user && pr.user.login || null; }
+          if (prBodyNeedsUpdate) { try { await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: replicatedBody }); core.info(`Updated existing PR #${prNumber} body.`); } catch (e) { core.warning(`Unable to update PR body: ${e.message}`); } }
+          const human = 'stranske-automation-bot';
+          async function assignPair(target) { try { await github.rest.issues.addAssignees({ owner, repo, issue_number: target, assignees: ['chatgpt-codex-connector', human] }); return true; } catch (e) { core.warning(`Codex assignment failed on #${target}: ${e.status || '?'} ${e.message}`); return false; } }
+          const issueAssignOk = await assignPair(issue_number);
+          const prAssignOk = await assignPair(prNumber);
+          if (!activationSuppressed) {
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `@chatgpt-codex-connector Please begin work on this task. Source issue #${issue_number}.` });
+          } else { core.info('Activation comment suppressed.'); }
+          await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: ['agent:codex'] });
+          let cmd = String(process.env.CODEX_COMMAND || '@codex start').replace(/[\r\n`]/g,'').trim();
+          // Support both legacy "codex:" and new "@codex" prefixes
+          const allowedCommands = [
+            '@codex start','@codex test','@codex lint','@codex build','@codex review','@codex docs',
+            'codex: start','codex: test','codex: lint','codex: build','codex: review','codex: docs'
+          ];
+          const failOnInvalidCommand = /true/i.test(String(process.env.CODEX_FAIL_ON_INVALID_COMMAND||''));
+          const originalCmd = cmd;
+          let invalidCommand = false;
+          if (!allowedCommands.some(c => c.toLowerCase() === cmd.toLowerCase())) {
+            invalidCommand = true;
+            core.warning(`Unsafe Codex command '${originalCmd}' – defaulting to '@codex start'.`);
+            cmd = '@codex start';
+          }
+          await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+          await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened draft PR #${prNumber} to engage Codex. Track work there.` });
+          const markerContent = Buffer.from(JSON.stringify({ issue: issue_number, pr: prNumber, ts: new Date().toISOString() }, null, 2)).toString('base64');
+          await github.rest.repos.createOrUpdateFileContents({ owner, repo, path: markerPath, branch, message: `chore(codex): mark bootstrap for #${issue_number}`, content: markerContent });
+          core.summary.addHeading('Codex Bootstrap').addTable([[{data:'Issue',header:true},{data:'PR',header:true},{data:'Branch',header:true},{data:'Reused',header:true},{data:'Suppressed',header:true},{data:'TokenSource',header:true},{data:'Author',header:true}], [String(issue_number), String(prNumber), branch, 'false', String(activationSuppressed), tokenSource, prAuthorLogin || '(unknown)']]).write();
+          core.setOutput('codex_pr', String(prNumber));
+          core.setOutput('codex_reused', 'false');
+          try {
+            const fs = require('fs'); fs.mkdirSync('codex-artifacts', { recursive: true });
+            const artifactPayload = { reused:false, issue:issue_number, pr:prNumber, branch, base:baseBranch, assigned_issue:issueAssignOk, assigned_pr:prAssignOk, suppression:activationSuppressed, token_source: tokenSource, pr_author: prAuthorLogin, ts:new Date().toISOString(), fallback_used: fallbackUsed, command_original: originalCmd, command_final: cmd, invalid_command: invalidCommand };
+            fs.writeFileSync('codex-artifacts/codex_bootstrap_result.json', JSON.stringify(artifactPayload, null, 2)); fs.writeFileSync('codex-artifacts/README.txt', 'Codex bootstrap artifacts.');
+            console.log('CODEX_BOOTSTRAP_RESULT:' + JSON.stringify(artifactPayload));
+          } catch(e){ core.warning('Failed to write artifact: '+e.message); }
+          const mismatch = usingPAT && prAuthorLogin === 'github-actions[bot]';
+          if (mismatch) {
+            const msg = `:warning: Token mismatch – SERVICE_BOT_PAT present but PR author is github-actions[bot].`;
+            try { await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: msg }); } catch(e){ core.warning('Comment failed: '+e.message); }
+            if (process.env.CODEX_FAIL_ON_TOKEN_MISMATCH) core.setFailed('Failing due to CODEX_FAIL_ON_TOKEN_MISMATCH and author mismatch.');
+          }
+          if (invalidCommand && failOnInvalidCommand) {
+            core.setFailed(`Failing due to invalid Codex command override: '${originalCmd}'.`);
+          }

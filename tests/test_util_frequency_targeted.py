@@ -99,7 +99,7 @@ def test_detect_frequency_single_entry_defaults_to_monthly() -> None:
 def test_detect_frequency_falls_back_when_infer_freq_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    idx = pd.date_range("2024-01-31", periods=6, freq="M")
+    idx = pd.date_range("2024-01-31", periods=6, freq="ME")
 
     monkeypatch.setattr(
         pd, "infer_freq", lambda _: (_ for _ in ()).throw(ValueError("boom"))

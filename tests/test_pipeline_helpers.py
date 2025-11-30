@@ -75,7 +75,7 @@ def test_derive_split_from_periods_handles_ratio_and_date() -> None:
 def test_resolve_sample_split_validates_dataframe() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "Fund": [0.1, 0.2, 0.3, 0.4],
         }
     )
@@ -90,7 +90,7 @@ def test_resolve_sample_split_validates_dataframe() -> None:
 def test_prepare_input_data_applies_missing_policy() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "FundA": [0.1, None, 0.2],
             "FundB": [0.05, 0.06, 0.07],
         }

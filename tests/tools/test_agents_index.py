@@ -18,5 +18,6 @@ def test_list_agent_bootstraps_includes_current_issue_file():
 
     bootstraps = list_agent_bootstraps(agents_dir)
 
-    assert any(entry.issue == 3878 for entry in bootstraps)
-    assert any(entry.path.name == "codex-3878.md" for entry in bootstraps)
+    # Check for any active codex file (3878 was archived, 3572 is current)
+    assert any(entry.issue == 3572 for entry in bootstraps)
+    assert any(entry.path.name == "codex-3572.md" for entry in bootstraps)
