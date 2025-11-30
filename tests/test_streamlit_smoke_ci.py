@@ -219,7 +219,6 @@ def test_streamlit_app_pages_accessible(streamlit_app):
 def test_streamlit_app_run_page_exists():
     """Test that the Run page file exists and can be imported."""
     run_page_paths = [
-        Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py",
         Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py",
     ]
 
@@ -265,7 +264,7 @@ def test_error_handling_components():
 def test_progress_reporting_components():
     """Test that progress reporting components exist in the Run page."""
     run_page_path = (
-        Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
     )
 
     if not run_page_path.exists():
@@ -327,7 +326,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
 def test_run_page_imports_successfully():
     """Test that the Run page can be imported without errors."""
     run_page_path = (
-        Path(__file__).parent.parent / "app" / "streamlit" / "pages" / "03_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
     )
 
     if not run_page_path.exists():

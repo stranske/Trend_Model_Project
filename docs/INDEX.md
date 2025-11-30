@@ -102,6 +102,18 @@ Use this index to find the current contributor guides and to understand which ov
 - Utilities: `archive_agents.sh`, `git_hooks.sh`, `docker_smoke.sh`
 - Archived `demo_export_fix.py` - one-off fix script
 
+**`streamlit_app/` folder (reviewed 2025-11-30):**
+- Primary Streamlit UI for the Trend Portfolio Simulator
+- `app.py` - Main entry point with demo button
+- `components/` - Reusable UI components (charts, validation, caching)
+- `pages/` - Multipage app structure:
+  - `1_Data.py` (canonical), `1_Upload.py` (legacy shim)
+  - `2_Model.py` (canonical), `2_Configure.py` (legacy shim)
+  - `3_Run.py` (canonical), `3_Results.py` (shim → 4_Results)
+  - `4_Results.py` (canonical results display)
+- Shim files kept for backward test compatibility
+- Updated tests to remove references to old `app/streamlit/` path
+
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
 | --- | --- | --- |
