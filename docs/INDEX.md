@@ -2,6 +2,37 @@
 
 Use this index to find the current contributor guides and to understand which overlapping docs remain for historical context.
 
+## Repository Structure
+
+### Core Directories
+| Directory | Purpose | Key Files |
+| --- | --- | --- |
+| `src/` | Main source code | `trend_analysis/` package, `trend_portfolio_app/` |
+| `tests/` | Unit and integration tests | pytest test files |
+| `config/` | Configuration files | `defaults.yml`, `demo.yml` |
+| `scripts/` | Utility and CI scripts | `setup_env.sh`, `run_tests.sh` |
+| `docs/` | Documentation | Guides, references, CI docs |
+| `analysis/` | Analysis helpers | `cv.py`, `results.py`, `tearsheet.py` |
+| `assets/` | Static assets | `screenshots/` for documentation |
+| `demo/` | Demo data and outputs | Generated demo datasets |
+
+### Automation & CI
+| Directory | Purpose | Key Files |
+| --- | --- | --- |
+| `.github/workflows/` | GitHub Actions workflows | 36 workflow files (see `WORKFLOW_GUIDE.md`) |
+| `.github/actions/` | Custom composite actions | `autofix/`, `build-pr-comment/`, `codex-bootstrap-lite/`, `signature-verify/` |
+| `.github/` | GitHub config | `CODEOWNERS`, `agents.json`, `copilot-instructions.md` |
+
+### Archives
+| Directory | Purpose | Contents |
+| --- | --- | --- |
+| `archives/agents/` | Archived Codex task files | 433 files from closed issues |
+| `archives/github-actions/` | Retired GitHub Actions | `apply-autofix/`, `autofix-commit-push/`, `codex-bootstrap/`, `update-residual-history/` |
+| `archives/github-config/` | Orphaned GitHub config | `labeler.yml` (no workflow used it) |
+| `archives/analysis/` | Investigation notes | `health44-pr-run-review.md` |
+| `archives/docs/` | Archived documentation | Historical guides and reports |
+| `archives/reports/` | Archived reports | Testing summaries, release notes |
+
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
 | --- | --- | --- |
