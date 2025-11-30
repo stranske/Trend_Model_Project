@@ -26,12 +26,38 @@ Use this index to find the current contributor guides and to understand which ov
 ### Archives
 | Directory | Purpose | Contents |
 | --- | --- | --- |
-| `archives/agents/` | Archived Codex task files | 433 files from closed issues |
-| `archives/github-actions/` | Retired GitHub Actions | `apply-autofix/`, `autofix-commit-push/`, `codex-bootstrap/`, `update-residual-history/` |
-| `archives/github-config/` | Orphaned GitHub config | `labeler.yml` (no workflow used it) |
-| `archives/analysis/` | Investigation notes | `health44-pr-run-review.md` |
+| `archives/agents/` | Archived Codex task files | 433 files from closed issues (archived 2025-11-30) |
+| `archives/github-actions/` | Retired GitHub Actions | 4 unused actions (archived 2025-11-30) |
+| `archives/github-config/` | Orphaned GitHub config | `labeler.yml` - no workflow used it (archived 2025-11-30) |
+| `archives/analysis/` | Investigation notes | `health44-pr-run-review.md` (archived 2025-11-30) |
 | `archives/docs/` | Archived documentation | Historical guides and reports |
 | `archives/reports/` | Archived reports | Testing summaries, release notes |
+
+#### Archive Details (2025-11-30 Cleanup)
+
+**agents/ folder cleanup:**
+- Archived 415 `codex-*.md` task files for closed issues
+- Archived 18 `ledger-*.md` files for closed issues
+- Kept active task files for open issues
+
+**`.github/actions/` cleanup:**
+- Archived `apply-autofix/` - superseded by `autofix/`
+- Archived `autofix-commit-push/` - superseded by `autofix/`
+- Archived `codex-bootstrap/` - superseded by `codex-bootstrap-lite/`
+- Archived `update-residual-history/` - no longer referenced
+- Kept: `autofix/`, `build-pr-comment/`, `codex-bootstrap-lite/`, `signature-verify/`
+
+**`.github/` root cleanup:**
+- Fixed CODEOWNERS stale workflow references
+- Archived orphaned `labeler.yml` (no `pr-path-labeler.yml` workflow exists)
+
+**`analysis/` folder cleanup:**
+- Archived `health44-pr-run-review.md` investigation notes
+- Kept active code: `cv.py`, `results.py`, `tearsheet.py`, `__init__.py`
+
+**`assets/` folder cleanup:**
+- Removed empty placeholder PNG files (0 bytes)
+- Consolidated placeholder descriptions into `screenshots/README.md`
 
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
