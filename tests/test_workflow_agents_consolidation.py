@@ -215,7 +215,7 @@ def test_keepalive_job_present():
 
 
 def test_agents_pr_meta_keepalive_configuration():
-    workflow = _load_workflow_yaml("agents-pr-meta.yml")
+    workflow = _load_workflow_yaml("agents-pr-meta-v2.yml")
     triggers = _workflow_on_section(workflow)
     issue_comment = triggers.get("issue_comment", {})
     assert issue_comment.get("types") == [
