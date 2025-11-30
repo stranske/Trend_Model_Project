@@ -335,10 +335,11 @@ class TestBuildStep0:
             warning_msg = str(mock_warn.call_args[0][0])
             assert "Invalid YAML in template config" in warning_msg
 
+    @patch("trend_analysis.gui.app._load_notebook_deps")
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
     def test_template_error_handling_permission_error(
-        self, mock_list_cfgs, mock_widgets
+        self, mock_list_cfgs, mock_widgets, mock_load_deps
     ):
         """Test template loading with permission error."""
         mock_list_cfgs.return_value = ["permission_template"]
