@@ -181,6 +181,7 @@ EXPECTED_NAMES = {
     "agents-keepalive-dispatch-handler.yml": "Keepalive Dispatch Handler",
     "agents-pr-meta.yml": "Agents PR meta manager (DEPRECATED)",
     "agents-pr-meta-v2.yml": "Agents PR meta manager v2",
+    "agents-pr-meta-v3.yml": "Agents PR meta manager v3",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-40-sweep.yml": "Health 40 Sweep",
