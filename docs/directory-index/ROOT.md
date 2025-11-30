@@ -74,9 +74,9 @@
 
 | Folder | Purpose | Index |
 |--------|---------|-------|
-| `agents/` | Codex agent session logs | [View](agents.md) |
+| `agents/` | Active Codex instruction files (1 active, rest archived) | [View](agents.md) |
 | `analysis/` | Analysis modules and results helpers | [View](analysis.md) |
-| `archives/` | Historical artifacts and retired code | [View](archives.md) |
+| `archives/` | Historical artifacts and retired code (incl. 415+ agent files) | [View](archives.md) |
 | `assets/` | Static assets (images, templates) | [View](assets.md) |
 | `config/` | YAML configuration files | [View](config.md) |
 | `data/` | Reference datasets and raw data | [View](data.md) |
