@@ -1,2 +1,0 @@
-trend_analysis
-trend_portfolio_app
