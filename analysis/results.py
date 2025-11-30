@@ -8,6 +8,7 @@ import importlib.metadata as importlib_metadata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
+import warnings
 
 import pandas as pd
 
@@ -16,6 +17,10 @@ __all__ = ["Results", "build_metadata", "compute_universe_fingerprint"]
 _ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_DATA_PATH = _ROOT / "data" / "Trend Universe Data.csv"
 _DEFAULT_MEMBERSHIP_PATH = _ROOT / "data" / "Trend Universe Membership.csv"
+
+
+def _marker(label: str, state: str) -> bytes:
+    return f"<<{label.upper()}:{state.upper()}>>".encode("utf-8")
 
 
 def _coerce_series(obj: Any) -> pd.Series:
@@ -28,22 +33,30 @@ def _coerce_series(obj: Any) -> pd.Series:
     return pd.Series(dtype=float)
 
 
-def _read_bytes(path: Path | None) -> bytes:
+def _read_bytes(path: Path | None, *, label: str) -> tuple[bytes, str | None]:
     if path is None:
-        return b""
+        return _marker(label, "missing"), f"{label} file missing: no path provided"
+    if not path.exists():
+        return _marker(label, "missing"), f"{label} file missing: {path}"
     try:
-        return path.read_bytes()
-    except FileNotFoundError:
-        return b""
+        return path.read_bytes(), None
+    except OSError as exc:
+        return _marker(label, "unreadable"), f"{label} file unreadable: {path} ({exc})"
 
 
-def _normalise_membership(path: Path | None, columns: Sequence[str]) -> bytes:
-    if path is None or not path.exists():
-        return b""
+def _normalise_membership(
+    path: Path | None, columns: Sequence[str], *, label: str
+) -> tuple[bytes, str | None]:
+    if path is None:
+        return _marker(label, "missing"), f"{label} file missing: no path provided"
+    if not path.exists():
+        return _marker(label, "missing"), f"{label} file missing: {path}"
     try:
         frame = pd.read_csv(path)
-    except Exception:
-        return b""
+    except pd.errors.EmptyDataError:
+        frame = pd.DataFrame(columns=columns)
+    except Exception as exc:
+        return _marker(label, "unreadable"), f"{label} file unreadable: {path} ({exc})"
     available = [col for col in columns if col in frame.columns]
     if not available:
         available = list(frame.columns)
@@ -51,7 +64,7 @@ def _normalise_membership(path: Path | None, columns: Sequence[str]) -> bytes:
     subset = subset.astype(str)
     subset = subset.sort_values(by=available).reset_index(drop=True)
     csv_payload = cast(str, subset.to_csv(index=False))
-    return csv_payload.encode("utf-8")
+    return csv_payload.encode("utf-8"), None
 
 
 def compute_universe_fingerprint(
@@ -62,10 +75,17 @@ def compute_universe_fingerprint(
 ) -> str:
     """Return a short hash describing the current dataset inputs."""
 
-    data_bytes = _read_bytes(Path(data_path) if data_path else None)
-    membership_bytes = _normalise_membership(
-        Path(membership_path) if membership_path else None, membership_columns
+    data_bytes, data_warning = _read_bytes(
+        Path(data_path) if data_path else None, label="data"
     )
+    membership_bytes, membership_warning = _normalise_membership(
+        Path(membership_path) if membership_path else None,
+        membership_columns,
+        label="membership",
+    )
+    for message in (data_warning, membership_warning):
+        if message:
+            warnings.warn(message, UserWarning)
     hasher = hashlib.blake2b(digest_size=16)
     hasher.update(data_bytes)
     hasher.update(membership_bytes)
