@@ -2,6 +2,19 @@
 
 **ALWAYS follow these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
+## Verification Before Claims (MANDATORY)
+
+**Before making ANY factual claim about PR, issue, workflow, or system state, run the query that returns that specific data. No exceptions.**
+
+When asked to evaluate or analyze a PR:
+```bash
+./scripts/preflight-pr.sh <PR_NUMBER>
+```
+
+Include the raw output in your response BEFORE any analysis. Do not infer state from indirect evidence when direct queries are available. Do not present assumptions as facts.
+
+**Violations of this rule waste user time and erode trust.**
+
 ## Project Overview
 
 Trend Analysis Project is a Python financial analysis application that provides volatility-adjusted trend portfolio analysis. It includes a command-line interface, Jupyter notebooks, Streamlit web application, and comprehensive testing infrastructure with multi-tier validation.

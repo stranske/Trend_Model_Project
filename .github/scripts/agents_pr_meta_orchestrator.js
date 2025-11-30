@@ -10,6 +10,24 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Check if an error is transient and retryable
+ * @param {Error} error - The error to check
+ * @returns {boolean}
+ */
+function isTransientError(error) {
+  if (!error) return false;
+  const status = Number(error?.status || 0);
+  const message = String(error?.message || '').toLowerCase();
+  // Secondary rate limit (429), server errors (5xx) are always retryable
+  if (status === 429 || status >= 500) return true;
+  // 403 is only retryable if message indicates rate limit or abuse detection
+  if (status === 403 && (message.includes('rate limit') || message.includes('abuse detection'))) return true;
+  // Check for rate limit keywords in any error message
+  if (message.includes('rate limit') || message.includes('abuse detection') || message.includes('timeout')) return true;
+  return false;
+}
+
+/**
  * Acquire activation lock by adding rocket reaction
  */
 async function acquireActivationLock({github, context, core, commentId}) {
@@ -63,7 +81,7 @@ async function snapshotOrchestratorRuns({github, context, core, prNumber, trace}
 }
 
 /**
- * Dispatch Agents 70 orchestrator for keepalive
+ * Dispatch Agents 70 orchestrator for keepalive with retry for transient errors
  */
 async function dispatchOrchestrator({github, context, core, inputs}) {
   const { issue, prNumber, branch, base, round, trace, instructionBody } = inputs;
@@ -94,27 +112,46 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
     options.keepalive_instruction = instructionBody;
   }
 
-  try {
-    await github.rest.actions.createWorkflowDispatch({
-      owner,
-      repo,
-      workflow_id: workflowId,
-      ref,
-      inputs: {
-        keepalive_enabled: 'true',
-        params_json: JSON.stringify(params),
-        options_json: JSON.stringify(options),
-        dry_run: 'false',
-        pr_number: prValue,
-      },
-    });
-    core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-' }).`);
-    return { ok: true, reason: 'ok' };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    core.error(`Failed to dispatch ${workflowId}: ${message}`);
-    return { ok: false, reason: 'dispatch-error' };
+  const dispatchPayload = {
+    owner,
+    repo,
+    workflow_id: workflowId,
+    ref,
+    inputs: {
+      keepalive_enabled: 'true',
+      params_json: JSON.stringify(params),
+      options_json: JSON.stringify(options),
+      dry_run: 'false',
+      pr_number: prValue,
+    },
+  };
+
+  // Retry with exponential backoff for transient errors
+  const maxRetries = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await github.rest.actions.createWorkflowDispatch(dispatchPayload);
+      core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
+      return { ok: true, reason: 'ok' };
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (isTransientError(error) && attempt < maxRetries) {
+        const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+        core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
+        await sleep(delayMs);
+        continue;
+      }
+      core.error(`Failed to dispatch ${workflowId} after ${attempt} attempts: ${message}`);
+      return { ok: false, reason: 'dispatch-error', error: message };
+    }
   }
+  
+  // Should not reach here, but just in case
+  const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
+  core.error(`Failed to dispatch ${workflowId} after ${maxRetries} attempts: ${message}`);
+  return { ok: false, reason: 'dispatch-error', error: message };
 }
 
 /**
@@ -238,14 +275,32 @@ async function dispatchKeepaliveCommand({github, context, core, inputs}) {
     reply: 'none',
   };
 
-  await github.rest.repos.createDispatchEvent({
-    owner,
-    repo,
-    event_type: 'codex-pr-comment-command',
-    client_payload: clientPayload,
-  });
-
-  core.info(`repository_dispatch emitted for PR #${prNumber} (comment ${commentId}).`);
+  // Retry dispatch with exponential backoff for transient errors
+  const maxRetries = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await github.rest.repos.createDispatchEvent({
+        owner,
+        repo,
+        event_type: 'codex-pr-comment-command',
+        client_payload: clientPayload,
+      });
+      core.info(`repository_dispatch emitted for PR #${prNumber} (comment ${commentId}).`);
+      return; // Success
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      if (isTransientError(err) && attempt < maxRetries) {
+        const delay = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+        core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delay}ms...`);
+        await sleep(delay);
+      } else {
+        break;
+      }
+    }
+  }
+  throw lastError;
 }
 
 /**

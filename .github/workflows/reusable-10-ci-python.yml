@@ -228,6 +228,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -287,10 +289,10 @@ jobs:
           if [ -f .github/workflows/autofix-versions.env ]; then
             # Source version pins from shared config to stay consistent with autofix
             source .github/workflows/autofix-versions.env
-            specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}")
+            specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
           else
             echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
-            specs+=(black ruff isort docformatter mypy pytest pytest-cov)
+            specs+=(black ruff isort docformatter mypy pytest pytest-cov pytest-xdist)
           fi
 
           if [ ${#specs[@]} -eq 0 ]; then
@@ -422,6 +424,16 @@ jobs:
           set -euo pipefail
           ruff check --output-format github .
 
+      - name: Cache mypy state
+        if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**/*.py') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-
+
       - name: Mypy (type check)
         id: mypy
         if: ${{ inputs.typecheck && inputs['run-mypy'] && steps.mypy-pin.outputs.python-version != '' && matrix.python-version == steps.mypy-pin.outputs.python-version }}
@@ -467,8 +479,9 @@ jobs:
           if [ -n "${PYTEST_MARKERS}" ]; then
             args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
           fi
-          if python -c "import pytest_xdist" 2>/dev/null; then
-            args+=("-n" "auto")
+          if python -c "import xdist" 2>/dev/null; then
+            args+=("-n" "auto" "--dist=loadgroup")
+            echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
           fi
           pytest "${args[@]}"
 
