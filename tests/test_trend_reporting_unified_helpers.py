@@ -80,7 +80,7 @@ def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
     index = pd.period_range("2021-01", periods=6, freq="M")
     portfolio = pd.Series([0.01, -0.005, 0.012, 0.008, -0.004, 0.015], index=index)
     turnover = pd.Series(
-        [0.2, 0.18, 0.22], index=pd.date_range("2021-01-31", periods=3, freq="M")
+        [0.2, 0.18, 0.22], index=pd.date_range("2021-01-31", periods=3, freq="ME")
     )
     final_weights = pd.Series({"FundA": 0.6, "FundB": 0.4})
     regime_table = pd.DataFrame(

@@ -51,7 +51,7 @@ def _reload(monkeypatch: pytest.MonkeyPatch, module_name: str):
 
 
 def _sample_df() -> pd.DataFrame:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     return pd.DataFrame(
         {
             "Date": dates,

@@ -131,7 +131,7 @@ def _sample_returns() -> pd.DataFrame:
         "FundA": [0.01, -0.005, 0.012],
         "FundB": [0.008, 0.007, -0.002],
     }
-    index = pd.date_range("2023-01-31", periods=3, freq="M")
+    index = pd.date_range("2023-01-31", periods=3, freq="ME")
     return pd.DataFrame(data, index=index)
 
 

@@ -1129,7 +1129,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
 
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=6, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=6, freq="ME"),
             "Alpha Fund": np.linspace(0.01, 0.02, num=6),
             "Beta Fund": np.linspace(0.02, 0.03, num=6),
             "Gamma Fund": np.linspace(0.015, 0.025, num=6),

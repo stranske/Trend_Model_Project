@@ -624,7 +624,7 @@ def test_infer_periods_per_year_handles_various_spacings(
 ) -> None:
     daily = pd.date_range("2020-01-01", periods=10, freq="B")
     weekly = pd.date_range("2020-01-01", periods=10, freq="W")
-    monthly = pd.date_range("2020-01-01", periods=10, freq="M")
+    monthly = pd.date_range("2020-01-01", periods=10, freq="ME")
     quarterly = pd.date_range("2020-01-01", periods=5, freq="Q")
     sparse = pd.DatetimeIndex([pd.Timestamp("2020-01-01")])
     descending = pd.DatetimeIndex(

@@ -10,7 +10,7 @@ def test_rolling_information_ratio_without_cache():
     original = cache.is_enabled()
     cache.set_enabled(False)
     try:
-        index = pd.date_range("2024-01-01", periods=5, freq="M")
+        index = pd.date_range("2024-01-01", periods=5, freq="ME")
         returns = pd.Series([0.01, 0.02, -0.01, 0.015, 0.005], index=index)
         result = rolling_information_ratio(returns, benchmark=0.0, window=3)
 

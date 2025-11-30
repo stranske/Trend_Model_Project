@@ -552,6 +552,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   favor of `agents-pr-meta-v2.yml` due to GitHub workflow registration issue.)
 - **Agents PR meta manager v2** – `.github/workflows/agents-pr-meta-v2.yml` is
   the active replacement for `agents-pr-meta.yml` with identical functionality.
+- **Agents PR meta manager v3** – `.github/workflows/agents-pr-meta-v3.yml` is
+  a minimal test workflow to verify GitHub workflow registration.
 - **Keepalive sweep (orchestrator only).** The Agents 70 Orchestrator provides
   the single, consolidated keepalive path. The orchestrator passes the
   `enable_keepalive` flag into `reusable-16-agents.yml`, which executes the

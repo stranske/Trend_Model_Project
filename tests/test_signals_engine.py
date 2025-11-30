@@ -9,7 +9,7 @@ from trend_analysis.signals import TrendSpec, compute_trend_signals
 
 @pytest.fixture
 def sample_returns() -> pd.DataFrame:
-    index = pd.date_range("2020-01-31", periods=8, freq="M")
+    index = pd.date_range("2020-01-31", periods=8, freq="ME")
     data = {
         "AssetA": np.linspace(-0.02, 0.03, len(index)),
         "AssetB": np.cos(np.linspace(0.0, np.pi, len(index))) * 0.02,

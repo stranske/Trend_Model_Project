@@ -1,6 +1,6 @@
 # Demo dataset provenance
 
-This repository bundles a few small CSV files (for example `hedge_fund_returns_with_indexes.csv`, `Trend Universe Data.csv`, and other samples under `demo/`). They exist solely to support tests, docs, and interactive demos.
+This repository bundles a few small CSV files in the `data/` folder (for example `data/hedge_fund_returns_with_indexes.csv`, `data/Trend Universe Data.csv`, and other samples under `demo/`). They exist solely to support tests, docs, and interactive demos.
 
 - **Provenance:** All bundled data is synthetic or derived from public benchmark series. No confidential client information or proprietary hedge fund records are present.
 - **Intended use:** The files allow contributors to exercise the Trend Model demos, verify export pipelines, and run automated tests without reaching out to live data providers.
@@ -42,7 +42,7 @@ not meant to inform live investment decisions.
 
 ## Risk-free columns in sample data
 
-- The long backtest sample (`hedge_fund_returns_with_indexes.csv`) includes a
+- The long backtest sample (`data/hedge_fund_returns_with_indexes.csv`) includes a
   **"Risk-Free Rate"** column. Configs such as `config/long_backtest.yml`
   specify `data.risk_free_column: "Risk-Free Rate"` and set
   `allow_risk_free_fallback: false` to ensure the cash proxy is used and

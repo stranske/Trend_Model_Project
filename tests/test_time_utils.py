@@ -30,7 +30,7 @@ def test_align_calendar_removes_weekends_and_holidays():
 
 
 def test_align_calendar_preserves_monthly_frequency():
-    dates = pd.date_range("2024-01-31", periods=4, freq="M")
+    dates = pd.date_range("2024-01-31", periods=4, freq="ME")
     df = pd.DataFrame(
         {
             "Date": dates,

@@ -232,44 +232,28 @@ exactly as v1.0 did. Breaking that throws `ExportError`.
 | ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
 | **Portfolio logic & metrics**        | `trend_analysis/metrics.py` (vectorised)                                   | loops inside `run_analysis.py`, ad‑hoc calcs in notebooks |
-| **Export / I/O**                     | `trend_analysis/export.py`                                                 | the root‑level `exports.py`, snippets inside notebooks    |
+| **Export / I/O**                     | `trend_analysis/export/` package                                           | the root‑level `exports.py`, snippets inside notebooks    |
 | **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
 | **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
-| **CLI entry‑point**                  | `run_analysis.py` **only** (thin wrapper around `trend_analysis.cli:main`) | bespoke `scripts/*.py` entry points                       |
-| **Config**                           | `config/defaults.yml` loaded through `trend_analysis.config.load()`        | hard‑coded constants, magic numbers in notebooks          |
-| **Tests**                            | `tests/` (pytest; 100 % branch‑aware coverage gate)                        |    —                                                      |
+| **CLI entry‑point**                  | `trend_analysis/run_analysis.py` via `cli:main`                            | bespoke `scripts/*.py` entry points                       |
+| **Config**                           | `trend_analysis/config/` package with `models.py`                          | hard‑coded constants, magic numbers in notebooks          |
+| **Tests**                            | `tests/` (pytest with coverage gate)                                       |    —                                                      |
+
 One concern → one module.
 Replacements must delete or comment‑out whatever they obsolete in the same PR.
 
-Immediate Refactor Tasks
-Flatten duplications
+### Refactor Status ✅
 
-Rename data_utils.py → trend_analysis/data.py, adjust imports, delete the original.
+The following refactors from the original Phase-2 spec are **complete**:
 
-Migrate the contents of the top‑level exports.py into trend_analysis/export.py; keep only a re‑export stub for one minor release.
+- ✅ `data.py` – canonical data ingest module
+- ✅ `export/` – package with formatters and multi-period helpers
+- ✅ `core/` – importable sub-package with rank selection and metric cache
+- ✅ `pipeline.py` – pure orchestration function
+- ✅ `config/` – Pydantic models with YAML loading
+- ✅ Env-var override: `TREND_CFG=/path/to/override.yml`
 
-Turn the stray core/ directory into an importable sub‑package:
-core/indicator.py → trend_analysis/core/indicator.py, etc.
-
-Single pipeline
-
-Implement trend_analysis/pipeline.py exposing a pure function
-run(config: Config) -> pd.DataFrame.
-
-run_analysis.py should parse CLI args, build a Config, pass it to pipeline.run, then handle pretty printing / file output only.
-
-Config resolution
-
-# trend_analysis/config.py
-from pydantic import BaseModel
-class Config(BaseModel):
-    defaults: str = Path(__file__).with_name("..").joinpath("config/defaults.yml")
-    # ...other validated fields...
-def load(path: str | None = None) -> Config: ...
-
-Env‑var override: TREND_CFG=/path/to/override.yml run_analysis ...
-
-Dependency hygiene
+### Dependency Hygiene
 
 Heavy imports (numpy, pandas, scipy) at top of each module are fine.
 
@@ -277,13 +261,13 @@ Keep formatter/test tool versions in lock-step by running `python -m scripts.syn
 
 No circular imports. pipeline.py orchestrates; nothing imports it.
 
-Tests
+### Tests
 
 NOTE: Test fixtures must be text-serialised (CSV/JSON); no binary formats in PRs.
 
-Require 100 % branch coverage on trend_analysis/* via pytest‑cov in CI.
+Coverage gate enforced via pytest-cov in CI.
 
-Conventions & Guard‑rails
+### Conventions & Guard‑rails
 Vectorise first.
 Falling back to for‑loops requires a comment justifying why vectorisation is impossible or harmful.
 

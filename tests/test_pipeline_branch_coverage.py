@@ -15,7 +15,7 @@ from trend_analysis.risk import RiskDiagnostics
 
 
 def _sample_frame() -> pd.DataFrame:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     data = {
         "Date": dates,
         "Fund_A": [0.01, 0.02, 0.015, 0.017, np.nan, 0.011],
@@ -30,7 +30,7 @@ RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 def _stub_diagnostics(columns: Iterator[str]) -> RiskDiagnostics:
     cols = list(columns)
-    index = pd.date_range("2024-01-31", periods=6, freq="M")
+    index = pd.date_range("2024-01-31", periods=6, freq="ME")
     asset_vol = pd.DataFrame(0.1, index=index, columns=cols)
     portfolio = pd.Series(0.1, index=index, name="portfolio")
     turnover = pd.Series([], dtype=float, name="turnover")
@@ -53,7 +53,7 @@ def test_preprocessing_summary_monthly_branch() -> None:
 
 
 def test_resolve_sample_split_returns_existing_keys() -> None:
-    df = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=2, freq="M")})
+    df = pd.DataFrame({"Date": pd.date_range("2024-01-31", periods=2, freq="ME")})
     split_cfg = {
         "in_start": "2024-01",
         "in_end": "2024-02",
