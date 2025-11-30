@@ -21,10 +21,8 @@ name: "Agents PR meta manager"
       - reopened
       - edited
   workflow_run:
-    workflows:
-      - "Gate"
-    types:
-      - completed
+    workflows: ["Gate"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
