@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from analysis import Results, build_metadata, compute_universe_fingerprint
 
@@ -22,6 +24,56 @@ def test_compute_universe_fingerprint_uses_all_inputs(tmp_path: Path) -> None:
     assert len(fingerprint) == 12
     # Deterministic check ensures both files contribute to the fingerprint.
     assert fingerprint == compute_universe_fingerprint(data_path, membership_path)
+
+
+def test_compute_universe_fingerprint_distinguishes_missing_and_empty(
+    tmp_path: Path,
+) -> None:
+    empty_data = tmp_path / "Trend Universe Data.csv"
+    empty_membership = tmp_path / "Trend Universe Membership.csv"
+    empty_data.write_text("", encoding="utf-8")
+    empty_membership.write_text("", encoding="utf-8")
+
+    empty_fingerprint = compute_universe_fingerprint(empty_data, empty_membership)
+
+    with pytest.warns(UserWarning):
+        missing_fingerprint = compute_universe_fingerprint(
+            tmp_path / "missing-data.csv", tmp_path / "missing-membership.csv"
+        )
+
+    assert empty_fingerprint == compute_universe_fingerprint(
+        empty_data, empty_membership
+    )
+    assert missing_fingerprint != empty_fingerprint
+
+
+def test_compute_universe_fingerprint_warns_on_unreadable_files(
+    tmp_path: Path, monkeypatch
+) -> None:
+    unreadable_data = tmp_path / "Trend Universe Data.csv"
+    unreadable_data.mkdir()
+    membership_path = tmp_path / "Trend Universe Membership.csv"
+    membership_path.write_text("fund,effective_date,end_date\n", encoding="utf-8")
+
+    def _raise_os_error(*_: object, **__: object) -> None:
+        raise OSError("boom")
+
+    monkeypatch.setattr(pd, "read_csv", _raise_os_error)
+
+    with pytest.warns(UserWarning):
+        unreadable_fingerprint = compute_universe_fingerprint(
+            unreadable_data, membership_path
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        empty_membership = membership_path.with_name("Empty Membership.csv")
+        empty_membership.write_text("", encoding="utf-8")
+        empty_data = membership_path.with_name("Empty Data.csv")
+        empty_data.write_text("", encoding="utf-8")
+        empty_fingerprint = compute_universe_fingerprint(empty_data, empty_membership)
+
+    assert unreadable_fingerprint != empty_fingerprint
 
 
 def test_build_metadata_includes_core_fields(monkeypatch) -> None:
