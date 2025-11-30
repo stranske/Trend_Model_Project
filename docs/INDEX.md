@@ -8,7 +8,7 @@ Use this index to find the current contributor guides and to understand which ov
 | Directory | Purpose | Key Files |
 | --- | --- | --- |
 | `src/` | Main source code | `trend_analysis/` package, `trend_portfolio_app/` |
-| `tests/` | Unit and integration tests | pytest test files |
+| `tests/` | Unit and integration tests | See tests/ organization below |
 | `config/` | Configuration files | `defaults.yml`, `demo.yml`, `presets/`, `universe/` |
 | `scripts/` | Utility and CI scripts | `setup_env.sh`, `run_tests.sh` |
 | `docs/` | Documentation | Guides, references, CI docs |
@@ -113,6 +113,34 @@ Use this index to find the current contributor guides and to understand which ov
   - `4_Results.py` (canonical results display)
 - Shim files kept for backward test compatibility
 - Updated tests to remove references to old `app/streamlit/` path
+
+**`tests/` folder (reorganized 2025-11-30):**
+- **3707+ tests** across multiple categories
+- **Major reorganization**: Workflow/CI tests separated into `tests/workflows/` for future repo split
+
+| Subfolder | Purpose | Contents |
+| --- | --- | --- |
+| `tests/workflows/` | **Workflow system tests** | 33 test files, `github_scripts/`, `fixtures/` |
+| `tests/app/` | Streamlit app tests | 10 test files |
+| `tests/backtesting/` | Backtesting tests | 2 test files |
+| `tests/trend_analysis/` | Core analysis tests | 8 test files |
+| `tests/scripts/` | Script tests | 6 test files |
+| `tests/tools/` | Tool tests | 4 test files |
+| `tests/unit/` | Unit tests | `util/` subfolder |
+| `tests/smoke/` | Smoke tests | 3 test files |
+| `tests/soft_coverage/` | Coverage tracking | 4 test files |
+| `tests/golden/` | Golden master tests | 2 test files |
+| `tests/fixtures/` | Core test fixtures | `score_frame_2025-06-30.csv` |
+| `tests/data/` | Test data files | 6 files |
+| `tests/proxy/` | Proxy tests | 1 test file |
+
+**Workflow tests reorganization details:**
+- Created `tests/workflows/` to separate CI/automation tests from core tests
+- Moved 33 workflow-related test files (`test_workflow_*.py`, `test_autofix_*.py`, `test_ci_*.py`, `test_keepalive_*.py`, `test_agents_*.py`, etc.)
+- Moved `tests/github_scripts/` → `tests/workflows/github_scripts/`
+- Moved workflow fixtures (`agents_pr_meta/`, `keepalive/`, `keepalive_post_work/`, `orchestrator/`) to `tests/workflows/fixtures/`
+- Updated path references in harness JS files and test imports
+- Core fixture `score_frame_2025-06-30.csv` remains in `tests/fixtures/`
 
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
