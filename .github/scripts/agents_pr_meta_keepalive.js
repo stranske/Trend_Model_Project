@@ -3,6 +3,29 @@
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
+/**
+ * Sleep for a specified duration
+ * @param {number} ms - Duration in milliseconds
+ * @returns {Promise<void>}
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Check if an error is transient and retryable
+ * @param {Error} error - The error to check
+ * @returns {boolean}
+ */
+function isTransientError(error) {
+  if (!error) return false;
+  const status = Number(error?.status || 0);
+  const message = String(error?.message || '').toLowerCase();
+  // Rate limit (403), secondary rate limit (429), server errors (5xx)
+  if (status === 403 || status === 429 || status >= 500) return true;
+  // Check for rate limit in message
+  if (message.includes('rate limit') || message.includes('abuse detection')) return true;
+  return false;
+}
+
 // Inlined from ../../scripts/keepalive_instruction_segment.js to avoid relative require issues in github-script
 function normaliseNewlines(value) {
   return String(value || '').replace(/\r\n/g, '\n');
@@ -192,6 +215,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     deduped: 'false',
     instruction_body: '',
     instruction_bytes: '0',
+    agent_alias: '',
+    head_sha: '',
   };
 
   const setBasicOutputs = () => {
@@ -214,6 +239,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('deduped', outputs.deduped);
     core.setOutput('instruction_body', outputs.instruction_body || '');
     core.setOutput('instruction_bytes', outputs.instruction_bytes || '0');
+    core.setOutput('agent_alias', outputs.agent_alias || '');
+    core.setOutput('head_sha', outputs.head_sha || '');
   };
 
   const { comment, issue } = context.payload || {};
@@ -263,6 +290,15 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     const traceValueRaw = outputs.trace || (traceMatch && traceMatch[1] ? traceMatch[1].replace(/--+$/u, '').trim() : '');
     const traceValue = traceValueRaw || 'n/a';
     const dedupedFlag = outputs.deduped === 'true' ? 'true' : 'false';
+    
+    // Emit DISPATCH summary line per Observability_Contract.md Section 6
+    const dispatchOk = outputs.dispatch === 'true';
+    const prValue = outputs.pr || (issue?.number ? `#${issue.number}` : '#?');
+    const headSha = outputs.head_sha || (context?.payload?.pull_request?.head?.sha || '').slice(0, 7) || '-';
+    const dispatchSummary = `DISPATCH: ok=${dispatchOk} path=comment reason=${outputs.reason || 'unknown'} pr=${prValue.startsWith('#') ? prValue : '#' + prValue} activation=${commentId} agent=${outputs.agent_alias || 'codex'} head=${headSha} trace=${traceValue}`;
+    core.info(dispatchSummary);
+    
+    // Also log the INSTRUCTION line for backwards compatibility
     core.info(
       `INSTRUCTION: comment_id=${commentId} trace=${traceValue} source=${resolveSummarySource()} seen=${seenFlag} deduped=${dedupedFlag}`
     );
@@ -378,19 +414,40 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   instructionSeen = true;
 
+  // Fetch PR with retry for transient errors (rate limits, server errors)
   let pull;
-  try {
-    const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-    pull = response.data;
-  } catch (error) {
+  const maxRetries = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+      pull = response.data;
+      break;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (isTransientError(error) && attempt < maxRetries) {
+        const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+        core.warning(`PR fetch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
+        await sleep(delayMs);
+        continue;
+      }
+      outputs.reason = 'pull-fetch-failed';
+      core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} after ${attempt} attempts (${message}).`);
+      return finalise();
+    }
+  }
+  if (!pull) {
     outputs.reason = 'pull-fetch-failed';
-    const message = error instanceof Error ? error.message : String(error);
-    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} (${message}).`);
+    const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
+    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} after ${maxRetries} attempts (${message}).`);
     return finalise();
   }
 
   outputs.branch = pull?.head?.ref || '';
   outputs.base = pull?.base?.ref || '';
+  outputs.head_sha = (pull?.head?.sha || '').slice(0, 7);
+  outputs.agent_alias = 'codex'; // Default agent alias
 
   const instructionBody = extractInstructionSegment(body);
   if (!instructionBody) {
