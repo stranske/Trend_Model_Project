@@ -13,7 +13,7 @@
     "AGENT_STATE": "done",
     "TTL_SHORT_MS": "0",
     "POLL_SHORT_MS": "0",
-    "TTL_LONG_MS": "5",
+    "TTL_LONG_MS": "100",
     "POLL_LONG_MS": "0"
   },
   "headRepo": "fork-owner/Trend_Model_Project",
