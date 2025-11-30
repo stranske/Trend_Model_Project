@@ -62,7 +62,7 @@ class DummyMapping(Mapping[str, Any]):
 def fixture_monthly_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "A": [0.01, 0.02, 0.03, 0.04],
             "B": [0.0, 0.01, -0.02, 0.03],
         }
@@ -450,7 +450,7 @@ def test_prepare_input_data_requires_date_column(monthly_frame: pd.DataFrame) ->
 def test_prepare_input_data_handles_empty_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="M")})
+    df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
     summary = FrequencySummary(
         code="M", label="Monthly", resampled=False, target="M", target_label="Monthly"
     )
@@ -548,7 +548,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_analysis_rank_selection_with_fallbacks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -658,7 +658,7 @@ def test_run_analysis_rank_selection_with_fallbacks(
 
 
 def test_run_analysis_zero_weight_custom(monkeypatch: pytest.MonkeyPatch) -> None:
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -748,7 +748,7 @@ def test_compute_signal_error_paths(monthly_frame: pd.DataFrame) -> None:
 def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "FundA": [0.01, 0.02, 0.0, 0.03],
             "FundB": [0.0, -0.01, 0.02, 0.01],
         }
@@ -811,7 +811,7 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "FundA": [0.01, 0.02, 0.0, 0.03],
             "FundB": [0.0, -0.01, 0.02, 0.01],
         }
@@ -870,7 +870,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_single_period_run_basic_metrics() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "FundA": [0.01, 0.02, -0.01, 0.03],
             "FundB": [0.0, 0.01, 0.02, -0.01],
         }
@@ -901,7 +901,7 @@ def test_single_period_run_coerces_string_dates() -> None:
 def test_single_period_run_rejects_empty_metrics() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=2, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
             "FundA": [0.01, 0.02],
         }
     )
@@ -916,7 +916,7 @@ def test_single_period_run_rejects_empty_metrics() -> None:
 def test_single_period_run_rejects_empty_window() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=2, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=2, freq="ME"),
             "FundA": [0.01, 0.02],
         }
     )
@@ -928,7 +928,7 @@ def test_single_period_run_rejects_empty_window() -> None:
 def test_single_period_run_rejects_all_nan_window() -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "FundA": [np.nan, np.nan, np.nan],
             "FundB": [np.nan, np.nan, np.nan],
         }
@@ -946,7 +946,7 @@ def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 
     data = pd.DataFrame(
         {"returns": [0.1, -0.2, 0.05, 0.03]},
-        index=RaisingIndex(pd.date_range("2020-01-31", periods=4, freq="M")),
+        index=RaisingIndex(pd.date_range("2020-01-31", periods=4, freq="ME")),
     )
 
     class DummyCache:
@@ -972,7 +972,7 @@ def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_compute_signal_without_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = pd.DataFrame(
         {"returns": [0.1, -0.2, 0.05]},
-        index=pd.date_range("2020-01-31", periods=3, freq="M"),
+        index=pd.date_range("2020-01-31", periods=3, freq="ME"),
     )
 
     class DummyCache:
@@ -989,7 +989,7 @@ def test_compute_signal_without_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_position_from_signal_behaviour() -> None:
     signal = pd.Series(
         [np.nan, 0.2, 0.0, -0.5, np.nan],
-        index=pd.date_range("2020-01-31", periods=5, freq="M"),
+        index=pd.date_range("2020-01-31", periods=5, freq="ME"),
         name="signal",
     )
     positions = pipeline.position_from_signal(
@@ -1013,7 +1013,7 @@ def test_module_getattr_stats_alias() -> None:
 
 
 def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
-    dates = pd.date_range("2020-01-31", periods=5, freq="M")
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -1189,7 +1189,7 @@ def test_run_analysis_returns_none_when_ret_cols_consumed(
 
     base = ShrinkingColumnsFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "FundA": [0.0, 0.1, -0.1],
         }
     )
@@ -1226,7 +1226,7 @@ def test_run_analysis_returns_none_when_ret_cols_consumed(
 
 
 def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -1345,7 +1345,7 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
                 return result.iloc[0:0].copy()
             return SignalFrame(result)
 
-    dates = pd.date_range("2020-01-31", periods=2, freq="M")
+    dates = pd.date_range("2020-01-31", periods=2, freq="ME")
     frame = SignalFrame({"Date": dates, "FundA": [0.01, 0.02], "RF": [0.0, 0.0]})
     freq_summary = FrequencySummary("M", "Monthly", False, "M", "Monthly")
     missing_result = MissingPolicyResult(
@@ -1426,7 +1426,7 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
 def test_run_analysis_warmup_zeroes_initial_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2020-01-31", periods=5, freq="M")
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -1511,7 +1511,7 @@ def test_run_analysis_warmup_zeroes_initial_rows(
 def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -1596,7 +1596,7 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
 def test_run_analysis_handles_benchmark_overrides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     prepared = pd.DataFrame(
         {
             "Date": dates,
@@ -1683,7 +1683,7 @@ def test_run_missing_policy_and_limit_fallbacks(
 ) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "FundA": [0.01, 0.02, 0.0, 0.03],
             "FundB": [0.0, -0.01, 0.02, 0.01],
         }
@@ -1737,7 +1737,7 @@ def test_run_missing_policy_and_limit_fallbacks(
 def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "FundA": [0.01, 0.02, 0.03],
         }
     )
@@ -1795,7 +1795,7 @@ def test_run_full_requires_csv_path() -> None:
 def test_run_full_uses_nan_policy_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=4, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=4, freq="ME"),
             "FundA": [0.01, 0.02, 0.0, 0.03],
             "FundB": [0.0, -0.01, 0.02, 0.01],
         }
@@ -1845,7 +1845,7 @@ def test_run_full_uses_nan_policy_defaults(monkeypatch: pytest.MonkeyPatch) -> N
 def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame(
         {
-            "Date": pd.date_range("2020-01-31", periods=3, freq="M"),
+            "Date": pd.date_range("2020-01-31", periods=3, freq="ME"),
             "FundA": [0.01, 0.02, 0.03],
         }
     )

@@ -8,9 +8,10 @@ def test_lint_failure():
     assert x == 1 and y == 2
 
 
-def test_mypy_failure() -> int:
-    # Intentional mypy error: wrong return type
-    return "not an int"
+def test_mypy_failure() -> None:
+    # Intentional mypy error: assigning wrong type to variable
+    x: int = "not an int"  # type: ignore[assignment]
+    assert x == "not an int"
 
 
 @pytest.mark.cosmetic

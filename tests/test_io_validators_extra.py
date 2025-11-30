@@ -288,7 +288,7 @@ def test_load_and_validate_upload_returns_metadata(
     metadata = _metadata_with_warnings()
     frame = pd.DataFrame(
         {
-            "Date": pd.date_range("2024-01-31", periods=metadata.rows, freq="M"),
+            "Date": pd.date_range("2024-01-31", periods=metadata.rows, freq="ME"),
             "FundA": 0.01,
         }
     )
@@ -382,7 +382,7 @@ def test_validation_result_report_omits_optional_metadata() -> None:
 
 
 def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="M")
+    index = pd.date_range("2024-01-01", periods=3, freq="ME")
     df = pd.DataFrame(index=index)
 
     def raise_error(_index: pd.Index) -> dict[str, str]:
@@ -393,7 +393,7 @@ def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_detect_frequency_returns_code(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="M")
+    index = pd.date_range("2024-01-01", periods=3, freq="ME")
     df = pd.DataFrame(index=index)
     monkeypatch.setattr(
         "trend_analysis.io.validators.classify_frequency",
@@ -408,7 +408,7 @@ def test_detect_frequency_handles_non_datetime_index() -> None:
 
 
 def test_detect_frequency_returns_label(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="M")
+    index = pd.date_range("2024-01-01", periods=3, freq="ME")
     df = pd.DataFrame(index=index)
 
     def classify(idx: pd.Index) -> dict[str, Any]:

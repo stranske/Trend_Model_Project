@@ -131,7 +131,7 @@ def test_default_periods_per_year_mappings() -> None:
 
 
 def test_compute_regime_series_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     proxy = pd.Series([0.01, 0.02, -0.01, 0.015, 0.03, 0.025], index=dates)
     settings = RegimeSettings(
         enabled=True,
@@ -175,7 +175,7 @@ def test_compute_regime_series_uses_cache(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_compute_regime_series_without_cache_returns_labels() -> None:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     proxy = pd.Series([0.01, 0.02, -0.01, 0.03, 0.025, -0.02], index=dates)
     settings = RegimeSettings(
         enabled=True,
@@ -197,7 +197,7 @@ def test_compute_regime_series_handles_empty_input() -> None:
         empty_series, settings, freq="M", periods_per_year=12
     ).empty
     nan_series = pd.Series(
-        [np.nan, np.nan], index=pd.date_range("2024-01-31", periods=2, freq="M")
+        [np.nan, np.nan], index=pd.date_range("2024-01-31", periods=2, freq="ME")
     )
     assert _compute_regime_series(
         nan_series, settings, freq="M", periods_per_year=12
@@ -207,7 +207,7 @@ def test_compute_regime_series_handles_empty_input() -> None:
 def test_compute_regimes_disabled_returns_empty() -> None:
     settings = RegimeSettings(enabled=False)
     proxy = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M")
+        [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME")
     )
     result = compute_regimes(proxy, settings, freq="M", periods_per_year=12)
     assert result.empty
@@ -258,7 +258,7 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
     table, notes = aggregate_performance_by_regime(
         returns_map={
             "Fund": pd.Series(
-                [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="M")
+                [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME")
             )
         },
         risk_free=0.0,
@@ -271,7 +271,7 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
 
     regimes = pd.Series(
         ["Risk-On", "Risk-Off"],
-        index=pd.date_range("2024-01-31", periods=2, freq="M"),
+        index=pd.date_range("2024-01-31", periods=2, freq="ME"),
         dtype="string",
     )
     series = pd.Series([0.01, -0.02], index=regimes.index)
@@ -290,7 +290,7 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
 
 
 def test_build_regime_payload_handling(monkeypatch: pytest.MonkeyPatch) -> None:
-    dates = pd.date_range("2024-01-31", periods=3, freq="M")
+    dates = pd.date_range("2024-01-31", periods=3, freq="ME")
     data = pd.DataFrame(
         {"Date": dates, "Proxy": [0.01, 0.02, -0.01], "Fund": [0.02, 0.01, 0.03]}
     )
@@ -378,7 +378,7 @@ def test_build_regime_payload_handling(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_build_regime_payload_handles_missing_labels(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2024-01-31", periods=2, freq="M")
+    dates = pd.date_range("2024-01-31", periods=2, freq="ME")
     data = pd.DataFrame({"Date": dates, "Proxy": [0.01, 0.02], "Fund": [0.02, 0.01]})
     returns_map = {"Fund": data.set_index("Date")["Fund"]}
 
@@ -412,7 +412,7 @@ def test_build_regime_payload_handles_missing_labels(
 def test_build_regime_payload_generates_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     data = pd.DataFrame(
         {
             "Date": dates,
@@ -459,7 +459,7 @@ def test_build_regime_payload_generates_summary(
 def test_compute_regime_series_volatility_tag_includes_periods(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2024-01-31", periods=10, freq="M")
+    dates = pd.date_range("2024-01-31", periods=10, freq="ME")
     proxy = pd.Series(np.linspace(0.01, 0.05, len(dates)), index=dates)
     settings = RegimeSettings(
         enabled=True,
@@ -507,7 +507,7 @@ def test_compute_regime_series_volatility_tag_includes_periods(
 def test_compute_regime_series_volatility_tag_skips_when_no_periods(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2024-01-31", periods=8, freq="M")
+    dates = pd.date_range("2024-01-31", periods=8, freq="ME")
     proxy = pd.Series(np.linspace(0.01, 0.04, len(dates)), index=dates)
     settings = RegimeSettings(
         enabled=True,
@@ -559,7 +559,7 @@ def test_compute_regime_series_volatility_tag_skips_when_no_periods(
 def test_build_regime_payload_uses_notes_when_no_user_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dates = pd.date_range("2024-01-31", periods=6, freq="M")
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
     data = pd.DataFrame({"Date": dates, "Proxy": np.linspace(100, 120, len(dates))})
 
     regimes = pd.Series(["Risk-On"] * len(dates), index=dates, dtype="string")

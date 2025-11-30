@@ -40,7 +40,7 @@ def test_compute_trend_signals_vol_adjust_without_target() -> None:
             "FundA": [0.01, 0.02, 0.03, 0.01, 0.0, -0.01, -0.02],
             "FundB": [0.0, 0.01, 0.015, -0.005, -0.01, 0.0, 0.005],
         },
-        index=pd.date_range("2024-01-31", periods=7, freq="M"),
+        index=pd.date_range("2024-01-31", periods=7, freq="ME"),
     )
     spec = TrendSpec(window=3, vol_adjust=True, vol_target=None)
 

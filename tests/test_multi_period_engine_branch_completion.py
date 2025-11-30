@@ -178,7 +178,7 @@ def test_run_missing_policy_rejects_empty_cleaned_frame() -> None:
     """If the missing-data policy yields no assets the engine must error."""
 
     cfg = _base_config()
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     df = pd.DataFrame({"Date": dates, "Alpha": [float("nan")] * 3})
 
     with pytest.raises(ValueError, match="Missing-data policy removed all assets"):

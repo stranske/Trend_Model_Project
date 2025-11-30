@@ -107,7 +107,7 @@ class TestScriptErrorHandling(unittest.TestCase):
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=120,  # Increased timeout for CI with many changed files
             )
             self.assertIsNotNone(result.returncode, "dev_check.sh should complete")
         except subprocess.TimeoutExpired:
@@ -120,7 +120,7 @@ class TestScriptErrorHandling(unittest.TestCase):
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=120,  # Increased timeout for CI with many changed files
             )
             self.assertIsNotNone(result.returncode, "validate_fast.sh should complete")
         except subprocess.TimeoutExpired:

@@ -15,7 +15,7 @@ from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency
             True,
         ),
         (
-            pd.date_range("2024-01-01", periods=12, freq="M"),
+            pd.date_range("2024-01-01", periods=12, freq="ME"),
             "M",
             False,
         ),

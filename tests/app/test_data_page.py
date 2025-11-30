@@ -174,7 +174,7 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
 
     df = pd.DataFrame(
         {"FundA": [0.01, 0.02, -0.01], "SPX Index": [0.03, -0.02, 0.01]},
-        index=pd.date_range("2024-01-31", periods=3, freq="M"),
+        index=pd.date_range("2024-01-31", periods=3, freq="ME"),
     )
     meta = {"validation": {"issues": [], "warnings": []}, "frequency_label": "monthly"}
 
