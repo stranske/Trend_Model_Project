@@ -1,24 +1,38 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
-# Workflow: Manages PR body sections including status summary and keepalive dispatch
-# Force re-registration: 2025-11-30T02:15:00Z
-name: Agents PR meta manager
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+#
+# Agents PR meta manager
+# -----------------------
+# Manages PR body sections including status summary and keepalive dispatch.
+# This workflow updates the PR description with automated status information
+# and handles keepalive instruction detection and dispatch.
+#
+# Last modified: 2025-11-30T02:45:00Z (force GitHub re-registration)
+#
+name: "Agents PR meta manager"
 
-on:
+"on":
   issue_comment:
-    types: [created]
+    types:
+      - created
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
   workflow_run:
-    workflows: [Gate]
-    types: [completed]
+    workflows:
+      - "Gate"
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number to update (leave empty to use trigger context)'
+        description: "PR number to update (leave empty to use trigger context)"
         required: false
         type: string
       debug:
-        description: 'Enable debug logging'
+        description: "Enable debug logging"
         required: false
         type: boolean
         default: false
