@@ -93,6 +93,15 @@ Use this index to find the current contributor guides and to understand which ov
 - `tearsheet.md` - Generated output from `analysis/tearsheet.py` (active, referenced in README)
 - Archived `code_review.md` - one-off analysis from PR #3877
 
+**`scripts/` folder (reviewed 2025-11-30):**
+- **74 scripts** organized by category (see `scripts/README.md`)
+- CI/Workflow scripts: `ci_*.py`, `ledger_*.py`, `sync_*.py`, `coverage_*.py`
+- Core dev scripts: `setup_env.sh`, `run_tests.sh`, `run_streamlit.sh`, `generate_demo.py`
+- Validation tiers: `dev_check.sh`, `validate_fast.sh`, `check_branch.sh`
+- Performance: `benchmark_performance.py`, `compare_perf.py`
+- Utilities: `archive_agents.sh`, `git_hooks.sh`, `docker_smoke.sh`
+- Archived `demo_export_fix.py` - one-off fix script
+
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
 | --- | --- | --- |
