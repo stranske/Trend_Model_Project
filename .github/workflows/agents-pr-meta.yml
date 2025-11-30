@@ -8,7 +8,7 @@
 #
 # Last modified: 2025-11-30T02:45:00Z (force GitHub re-registration)
 #
-name: "Agents PR meta manager"
+name: Agents PR meta manager
 
 on:
   issue_comment:
