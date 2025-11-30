@@ -228,6 +228,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -421,6 +423,16 @@ jobs:
         run: |
           set -euo pipefail
           ruff check --output-format github .
+
+      - name: Cache mypy state
+        if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**/*.py') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Mypy (type check)
         id: mypy
