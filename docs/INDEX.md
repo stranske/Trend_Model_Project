@@ -40,7 +40,7 @@ Use this index to find the current contributor guides and to understand which ov
 #### Documentation Archive Details (2025-11-30)
 
 **`docs/archive/` structure:**
-- `plans/` - 39 completed implementation plans for closed issues
+- `plans/` - 58 archived files (implementation plans, summaries, vendored docs)
 - `ops-issues/` - 5 operations scope docs and smoke test artifacts
 - `audits/` - 1 dated audit report
 - `ARCHIVE_WORKFLOWS.md` - Retired workflow documentation
@@ -52,6 +52,18 @@ Use this index to find the current contributor guides and to understand which ov
 - Progress logs (`*_progress.md`, `*-log.md`) for finished tasks
 - Dated audit reports (`repository_housekeeping_audit_2025-*.md`)
 - Operations issue scopes from `docs/ops/` for closed issues: #2494, #2615, #2820
+- Redundant validation docs (consolidated into `fast-validation-ecosystem.md`)
+- Redundant dependency docs (consolidated into `DEPENDENCY_ENFORCEMENT.md`)
+- Vendored actionlint documentation (replaced with project-specific guides)
+
+**Documentation consolidation (2025-11-30):**
+- Archived 5 redundant validation docs → kept `fast-validation-ecosystem.md`
+- Archived 2 redundant dependency docs → kept `DEPENDENCY_ENFORCEMENT.md`
+- Replaced 6 vendored actionlint docs with project-specific content
+- Renamed walkforward docs for clarity:
+  - `walk_forward.md` → `walkforward-parameter-grid.md`
+  - `Walkforward.md` → `walkforward-analysis.md`
+- Updated all `requirements.txt` references to `pyproject.toml`/`requirements.lock`
 
 #### Archive Details (2025-11-30 Cleanup)
 
