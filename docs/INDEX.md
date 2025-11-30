@@ -83,6 +83,16 @@ Use this index to find the current contributor guides and to understand which ov
 - Old notebooks already archived to `archives/notebooks/2025/`
 - Clear README with maintenance expectations
 
+**`perf/` folder (reviewed 2025-11-30):**
+- `perf_baseline.json` - Placeholder for performance regression baseline (not yet generated)
+- `runs/` - Transient runtime logs (git-ignored)
+- Fixed broken symlink that pointed to non-existent archive path
+- Referenced workflow `maint-52-perf-benchmark.yml` does not exist yet
+
+**`reports/` folder (reviewed 2025-11-30):**
+- `tearsheet.md` - Generated output from `analysis/tearsheet.py` (active, referenced in README)
+- Archived `code_review.md` - one-off analysis from PR #3877
+
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
 | --- | --- | --- |
