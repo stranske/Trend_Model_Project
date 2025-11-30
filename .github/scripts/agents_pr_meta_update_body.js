@@ -32,7 +32,7 @@ function extractSection(body, heading) {
     return '';
   }
   const pattern = new RegExp(`^\\s*${heading}\\s*\\n+([\\s\\S]*?)(?=^\\s*\\S|$)`, 'im');
-  const match = String(body || '').match(pattern);
+  const match = String(body).match(pattern);
   return match && match[1] ? match[1].trim() : '';
 }
 
@@ -77,11 +77,18 @@ function parseCheckboxStates(block) {
   return states;
 }
 
+/**
+ * Merge checkbox states from existingStates into newContent.
+ * Only unchecked items `- [ ]` in newContent get their state restored.
+ * This is intentional: already checked items in newContent preserve their state,
+ * while unchecked items can be restored from the previous body state.
+ */
 function mergeCheckboxStates(newContent, existingStates) {
   if (!existingStates || existingStates.size === 0) {
     return newContent;
   }
   const lines = String(newContent || '').split(/\r?\n/);
+  // Only match unchecked `- [ ]` items - checked items preserve their state
   return lines.map((line) => {
     const match = line.match(/^- \[( )\]\s*(.+)$/);
     if (match) {
@@ -112,6 +119,22 @@ function upsertBlock(body, marker, replacement) {
 
 // ========== API Helpers ==========
 
+/**
+ * Simple retry wrapper with linear backoff for general API errors.
+ * 
+ * Note: This differs from api-helpers.js `withBackoff` which specifically handles
+ * rate limit errors (403/429) with exponential backoff and reset time extraction.
+ * This function retries any error type with simple linear delay, suitable for
+ * transient network/server errors during PR body updates.
+ * 
+ * @param {Function} fn - Async function to retry
+ * @param {Object} options - Configuration options
+ * @param {number} [options.attempts=3] - Number of attempts
+ * @param {number} [options.delayMs=1000] - Base delay between attempts in ms
+ * @param {string} [options.description] - Label for logging
+ * @param {Object} [options.core] - GitHub Actions core object for logging
+ * @returns {Promise<any>} Result of the function call
+ */
 async function withRetries(fn, options = {}) {
   const attempts = Number(options.attempts) || 3;
   const baseDelay = Number(options.delayMs) || 1000;
@@ -549,10 +572,11 @@ async function run({github, context, core, inputs}) {
   );
   const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
 
-  const requiredChecks = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
-  if (!requiredChecks.includes('gate') && pr.base.ref) {
-    requiredChecks.push('gate');
-  }
+  const requiredChecksRaw = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
+  // Avoid mutating the returned array - create a new one with 'gate' appended if needed
+  const requiredChecks = (!requiredChecksRaw.includes('gate') && pr.base.ref)
+    ? [...requiredChecksRaw, 'gate']
+    : requiredChecksRaw;
 
   const statusBlock = buildStatusBlock({
     scope,
