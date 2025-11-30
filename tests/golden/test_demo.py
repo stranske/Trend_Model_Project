@@ -168,6 +168,7 @@ class TestDemoGoldenMaster:
         # Return sorted list, limit to most critical files
         return sorted(key_files)[:8]
 
+    @pytest.mark.serial
     def test_demo_pipeline_end_to_end(self):
         """
         Golden master test: Run complete demo pipeline and validate outputs.
@@ -300,6 +301,7 @@ class TestDemoGoldenMaster:
         for filename, file_hash in sorted(file_hashes.items()):
             print(f"  {filename}: {file_hash}")
 
+    @pytest.mark.serial
     def test_demo_pipeline_deterministic(self):
         """Test that demo pipeline produces deterministic outputs across runs.
 
@@ -490,10 +492,15 @@ class TestDemoGoldenMaster:
             )
 
         script_content = script_path.read_text()
+        # Accept either coverage run with rcfile OR pytest --cov with cov-config
+        # The pytest --cov approach is needed for pytest-xdist parallel execution
         rcfile_pattern = r"coverage run[^\n]+--rcfile \"\.coveragerc\.\$\{PROFILE\}\""
-        if not re.search(rcfile_pattern, script_content):
+        cov_config_pattern = r"--cov-config=\.coveragerc\.\$\{PROFILE\}"
+        if not re.search(rcfile_pattern, script_content) and not re.search(
+            cov_config_pattern, script_content
+        ):
             errors.append(
-                "run_tests.sh should invoke coverage run with the requested rcfile to honour profile thresholds"
+                "run_tests.sh should invoke coverage with the requested rcfile/cov-config to honour profile thresholds"
             )
 
         if "coverage report" not in script_content:
