@@ -18,10 +18,12 @@ function isTransientError(error) {
   if (!error) return false;
   const status = Number(error?.status || 0);
   const message = String(error?.message || '').toLowerCase();
-  // Rate limit (403), secondary rate limit (429), server errors (5xx)
-  if (status === 403 || status === 429 || status >= 500) return true;
-  // Check for rate limit in message
-  if (message.includes('rate limit') || message.includes('abuse detection')) return true;
+  // Secondary rate limit (429), server errors (5xx) are always retryable
+  if (status === 429 || status >= 500) return true;
+  // 403 is only retryable if message indicates rate limit or abuse detection
+  if (status === 403 && (message.includes('rate limit') || message.includes('abuse detection'))) return true;
+  // Check for rate limit keywords in any error message
+  if (message.includes('rate limit') || message.includes('abuse detection') || message.includes('timeout')) return true;
   return false;
 }
 
@@ -274,9 +276,9 @@ async function dispatchKeepaliveCommand({github, context, core, inputs}) {
   };
 
   // Retry dispatch with exponential backoff for transient errors
-  const maxAttempts = 3;
+  const maxRetries = 3;
   let lastError;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await github.rest.repos.createDispatchEvent({
         owner,
@@ -288,10 +290,11 @@ async function dispatchKeepaliveCommand({github, context, core, inputs}) {
       return; // Success
     } catch (err) {
       lastError = err;
-      if (isTransientError(err) && attempt < maxAttempts) {
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        core.warning(`Dispatch attempt ${attempt} failed (${err.message}), retrying in ${delay}ms...`);
-        await new Promise((r) => setTimeout(r, delay));
+      const message = err instanceof Error ? err.message : String(err);
+      if (isTransientError(err) && attempt < maxRetries) {
+        const delay = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+        core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delay}ms...`);
+        await sleep(delay);
       } else {
         break;
       }

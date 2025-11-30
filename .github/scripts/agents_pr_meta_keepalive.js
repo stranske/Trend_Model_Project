@@ -19,10 +19,12 @@ function isTransientError(error) {
   if (!error) return false;
   const status = Number(error?.status || 0);
   const message = String(error?.message || '').toLowerCase();
-  // Rate limit (403), secondary rate limit (429), server errors (5xx)
-  if (status === 403 || status === 429 || status >= 500) return true;
-  // Check for rate limit in message
-  if (message.includes('rate limit') || message.includes('abuse detection')) return true;
+  // Secondary rate limit (429), server errors (5xx) are always retryable
+  if (status === 429 || status >= 500) return true;
+  // 403 is only retryable if message indicates rate limit or abuse detection
+  if (status === 403 && (message.includes('rate limit') || message.includes('abuse detection'))) return true;
+  // Check for rate limit keywords in any error message
+  if (message.includes('rate limit') || message.includes('abuse detection') || message.includes('timeout')) return true;
   return false;
 }
 
@@ -291,11 +293,19 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     const traceValue = traceValueRaw || 'n/a';
     const dedupedFlag = outputs.deduped === 'true' ? 'true' : 'false';
     
+    // Determine path for DISPATCH summary per Observability_Contract.md Section 6
+    // path=comment for issue_comment.created (human activation)
+    // path=gate for workflow_run (Gate replay activation)
+    const dispatchPath = eventName === 'workflow_run' ? 'gate' : 'comment';
+    
     // Emit DISPATCH summary line per Observability_Contract.md Section 6
     const dispatchOk = outputs.dispatch === 'true';
+    // prValue is already formatted with # prefix
     const prValue = outputs.pr || (issue?.number ? `#${issue.number}` : '#?');
     const headSha = outputs.head_sha || (context?.payload?.pull_request?.head?.sha || '').slice(0, 7) || '-';
-    const dispatchSummary = `DISPATCH: ok=${dispatchOk} path=comment reason=${outputs.reason || 'unknown'} pr=${prValue.startsWith('#') ? prValue : '#' + prValue} activation=${commentId} agent=${outputs.agent_alias || 'codex'} head=${headSha} trace=${traceValue}`;
+    const capValue = outputs.cap || 'n/a';
+    const activeValue = outputs.active || 'n/a';
+    const dispatchSummary = `DISPATCH: ok=${dispatchOk} path=${dispatchPath} reason=${outputs.reason || 'unknown'} pr=${prValue} activation=${commentId} agent=${outputs.agent_alias || 'codex'} head=${headSha} cap=${capValue} active=${activeValue} trace=${traceValue}`;
     core.info(dispatchSummary);
     
     // Also log the INSTRUCTION line for backwards compatibility
