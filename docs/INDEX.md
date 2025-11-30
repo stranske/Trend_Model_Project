@@ -9,12 +9,14 @@ Use this index to find the current contributor guides and to understand which ov
 | --- | --- | --- |
 | `src/` | Main source code | `trend_analysis/` package, `trend_portfolio_app/` |
 | `tests/` | Unit and integration tests | pytest test files |
-| `config/` | Configuration files | `defaults.yml`, `demo.yml` |
+| `config/` | Configuration files | `defaults.yml`, `demo.yml`, `presets/`, `universe/` |
 | `scripts/` | Utility and CI scripts | `setup_env.sh`, `run_tests.sh` |
 | `docs/` | Documentation | Guides, references, CI docs |
 | `analysis/` | Analysis helpers | `cv.py`, `results.py`, `tearsheet.py` |
 | `assets/` | Static assets | `screenshots/` for documentation |
 | `demo/` | Demo data and outputs | Generated demo datasets |
+| `examples/` | Usage examples | Demo scripts, legacy streamlit app |
+| `notebooks/` | Jupyter notebooks | `Vol_Adj_Trend_Analysis1.5.TrEx.ipynb` (maintained) |
 
 ### Automation & CI
 | Directory | Purpose | Key Files |
@@ -30,6 +32,7 @@ Use this index to find the current contributor guides and to understand which ov
 | `archives/github-actions/` | Retired GitHub Actions | 4 unused actions (archived 2025-11-30) |
 | `archives/github-config/` | Orphaned GitHub config | `labeler.yml` - no workflow used it (archived 2025-11-30) |
 | `archives/analysis/` | Investigation notes | `health44-pr-run-review.md` (archived 2025-11-30) |
+| `archives/notebooks/` | Superseded notebooks | Old notebook versions in `2025/` |
 | `archives/docs/` | Archived documentation | Historical guides and reports |
 | `archives/reports/` | Archived reports | Testing summaries, release notes |
 
@@ -58,6 +61,27 @@ Use this index to find the current contributor guides and to understand which ov
 **`assets/` folder cleanup:**
 - Removed empty placeholder PNG files (0 bytes)
 - Consolidated placeholder descriptions into `screenshots/README.md`
+
+### Folders Reviewed (No Changes Needed)
+
+**`config/` folder (reviewed 2025-11-30):**
+- Well-organized with clear structure
+- `defaults.yml` - Master configuration schema
+- `demo.yml` - Demo/test configuration
+- `presets/` - User presets: `aggressive.yml`, `balanced.yml`, `conservative.yml`, `cash_constrained.yml`
+- `universe/` - Universe definitions: `core.yml`, `core_plus_benchmarks.yml`, `managed_futures_min.yml`
+- Specialized configs for backtesting, walk-forward analysis, etc.
+- Fully documented in `docs/ConfigMap.md`
+
+**`examples/` folder (reviewed 2025-11-30):**
+- Contains usage examples with clear README documentation
+- Active scripts: `demo_robust_weighting.py`, `demo_turnover_cap.py`, `debug_fund_selection.py`, `integration_example.py`, `portfolio_analysis_report.py`
+- `legacy_streamlit_app/` - Historical prototype kept for reference (documented in README_APP.md)
+
+**`notebooks/` folder (reviewed 2025-11-30):**
+- Single maintained notebook: `Vol_Adj_Trend_Analysis1.5.TrEx.ipynb`
+- Old notebooks already archived to `archives/notebooks/2025/`
+- Clear README with maintenance expectations
 
 ## Overlapping docs and their scopes
 | Document | Audience | Scope/status |
