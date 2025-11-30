@@ -348,7 +348,7 @@ def test_run_page_imports_successfully():
 
     # Check that key functions exist
     assert hasattr(run_page, "format_error_message")
-    assert hasattr(run_page, "run_analysis_with_progress")
+    assert hasattr(run_page, "main")
 
     print("✅ Run page imports successfully")
 
