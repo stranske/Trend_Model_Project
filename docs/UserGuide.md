@@ -210,7 +210,7 @@ For reproducible results across different runs and environments, see [Reproducib
 
 ## 12.1 Walk-forward (rolling OOS) analysis
 
-The Streamlit Results page now includes a Walk-forward analysis expander to aggregate metrics over rolling out-of-sample windows and, optionally, by regime. See [Walkforward.md](Walkforward.md) for a quick guide and a CLI example.
+The Streamlit Results page now includes a Walk-forward analysis expander to aggregate metrics over rolling out-of-sample windows and, optionally, by regime. See [walkforward-analysis.md](walkforward-analysis.md) for a quick guide and a CLI example.
 
 ## 13. Structured run logging
 

@@ -1,306 +1,214 @@
-actionlint
-## Trend Model quickstart
+# Trend Model Project
 
-Install the packages in editable mode to expose the CLI entry points.  The
-legacy `sitecustomize.py` shim has been removed, so editable installs (or a
-wheel install) are now the only supported way to run code—`PYTHONPATH`
-modifications are intentionally ignored:
+A Python-based financial analysis application for volatility-adjusted trend portfolio construction and backtesting. The project provides a command-line interface, interactive Streamlit web application, and Jupyter notebook support for analyzing fund manager performance and constructing optimized portfolios.
+
+## What This Project Does
+
+The Trend Model Project helps you:
+
+- **Analyze fund returns** – Load CSV/Excel data and compute risk-adjusted metrics (CAGR, Sharpe, Sortino, max drawdown, information ratio)
+- **Select top performers** – Rank funds by configurable scoring criteria and apply filters
+- **Construct portfolios** – Weight selected funds using equal-weight, score-proportional, risk parity, or Bayesian methods
+- **Backtest strategies** – Run single-period or multi-period analyses with walk-forward validation
+- **Generate reports** – Export results to Excel, CSV, JSON, HTML, and PDF formats
+
+## Quick Start
+
+### 1. Install
 
 ```bash
+# Clone the repository
+git clone https://github.com/stranske/Trend_Model_Project.git
+cd Trend_Model_Project
+
+# Set up virtual environment and install dependencies
+./scripts/setup_env.sh
+
+# Or manually:
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
 pip install -e .[app]
 ```
 
-Verify the installation and explore the available commands (this also proves
-`trend --help` works as required by Issue #3582):
+### 2. Verify Installation
 
 ```bash
 trend --help
+```
+
+### 3. Run the Demo
+
+```bash
+# Generate synthetic demo data
+python scripts/generate_demo.py
+
+# Run analysis with demo configuration
 trend run -c config/demo.yml --returns demo/demo_returns.csv
 ```
 
-The `trend` command is the unified launcher for day-to-day workflows:
-
-- `trend run` executes the single-period pipeline
-- `trend report` produces summary artefacts
-- `trend quick-report` turns existing run artefacts into a compact HTML + heatmap bundle
-- `trend stress` replays canned stress windows
-- `trend app` starts the Streamlit interface
-
-Need to know where the sample CSV inputs come from?  See
-[README_DATA.md](README_DATA.md) for provenance, intended use, and limitations
-before wiring them into demos or documentation.
-
-Every demo/backtest script (for example `scripts/run_multi_demo.py`) shells out
-to these console entry points instead of adjusting `sys.path`.  If you skip the
-editable install, the scripts will raise a friendly error explaining how to fix
-your environment.
-
-Run the demo pipeline end-to-end using the helper script:
+### 4. Launch the Web App
 
 ```bash
-python scripts/run_multi_demo.py
+trend app
 ```
 
-### Generate a markdown tear sheet
+Then open http://localhost:8501 in your browser.
 
-Create a quick report from the most recent demo results (writes both Markdown and a PNG chart bundle):
+## Usage Options
 
-```bash
-python -m src.cli report --last-run demo/portfolio_test_results/last_run_results.json
-cat reports/tearsheet.md
-```
+| Interface | Command | Best For |
+|-----------|---------|----------|
+| **CLI** | `trend run -c config.yml` | Scripted/automated analysis |
+| **Streamlit App** | `trend app` | Interactive exploration |
+| **Jupyter GUI** | `from trend_analysis.gui import launch; launch()` | Notebook workflows |
 
-### Named universes
-
-Predefined membership sets live under `config/universe`. Swap between them at
-runtime by adding the `--universe` flag to `trend-model run`:
+### Command-Line Examples
 
 ```bash
-trend-model run \
-  --config config/trend_universe_2004.yml \
-  --input "data/Trend Universe Data.csv" \
-  --universe core
-```
+# Basic analysis with config file
+trend run -c config/demo.yml --returns data/returns.csv
 
-Change the universe key (for example, `managed_futures_min`) to rerun the same
-configuration against a different membership timeline without editing the
-config file.
+# Use a preset strategy
+trend run -c config/demo.yml --returns data/returns.csv --preset conservative
 
-### Walk-forward stability harness
+# Generate a report from previous results
+trend report --last-run demo/portfolio_test_results/last_run_results.json
 
-Use the lightweight walk-forward sweep when you need deterministic train/test
-splits across a small parameter grid:
+# Run stress test scenarios
+trend stress -c config/demo.yml
 
-```bash
+# Walk-forward analysis
 python scripts/walk_forward.py --config config/walk_forward.yml
 ```
 
-The helper emits per-fold metrics, a consolidated summary CSV/JSONL, and an
-optional heatmap under `perf/wf/`. See [docs/walk_forward.md](docs/walk_forward.md)
-for the configuration layout and sample output.
-### Demo data provenance
+## Configuration
 
-The repository ships a handful of CSV fixtures so demos and automated tests
-run without external downloads. Before using those files, review
-[README_DATA.md](README_DATA.md) for provenance, permitted use, and
-limitations—every bundled dataset is synthetic or derived from public
-benchmarks and must not be treated as production-quality market data.
-### Run logs
-
-All user-facing scripts now call ``trend_analysis.logging_setup.setup_logging`` to
-initialize logging in a single place. Each invocation writes a timestamped log
-such as ``perf/runs/20250205-131500/app.log`` and mirrors the same output to the
-console. The ``perf/runs`` directory is git-ignored, so ad-hoc investigations no
-longer pollute ``git status``.
-
-Need to inspect a run later?  Point your favourite log viewer at the newest
-folder:
-
-```bash
-ls -1 perf/runs | tail -n 1
-tail -f perf/runs/<timestamp>/app.log
-```
-
-Ad-hoc helpers that live under `scripts/` now share a tiny utility
-(`trend_analysis.script_logging.setup_script_logging`) so every run initialises the same
-perf logger before doing real work.  Custom scripts can reuse the helper to get
-consistent logs without re-implementing any wiring:
-
-```python
-from trend_analysis.script_logging import setup_script_logging
-
-if __name__ == "__main__":
-    setup_script_logging(app_name="rebalance-helper")
-```
-
-### Root-level file inventory and placement
-
-| File | Category | Purpose / placement rationale |
-| --- | --- | --- |
-| `README.md` | Reference doc | CLI quickstart and inventory anchor kept at the repository entrypoint. |
-| `AGENTS_APP.md` | Reference doc | App + simulator work instructions surfaced at the top level for quick discovery. |
-| `Agents.md` | Reference doc | Guard-rails and workflow guidance that govern repository changes. |
-| `README_APP.md` | Reference doc | Streamlit app install, layout, and preset notes for maintainers. |
-| `README_DATA.md` | Reference doc | Provenance and usage notes for bundled datasets referenced during onboarding. |
-| `CHANGELOG.md` | Reference doc | Release notes held at the root per conventional placement. |
-| `CODE_OF_CONDUCT.md` | Reference doc | Community policy required at repository entry. |
-| `CONTRIBUTING.md` | Reference doc | Contribution workflow and review expectations. |
-| `DEPENDENCY_QUICKSTART.md` | Reference doc | Dependency setup cheat sheet kept beside the main README. |
-| `DOCKER_QUICKSTART.md` | Reference doc | Docker usage guide co-located with `docker-compose.yml` and the root Dockerfile. |
-| `SECURITY.md` | Reference doc | Security policy and disclosure expectations. |
-| `data/Trend Universe Data.csv` | Data sample | Primary demo return matrix; universe configs reference `data/` path. |
-| `data/Trend Universe Membership.csv` | Data sample | Membership ledger paired with the return matrix in `data/`. |
-| `data/hedge_fund_returns_with_indexes.csv` | Data sample | Benchmark demo input consumed by example configs and docs. |
-| `coverage-summary.md` | CI-generated | Coverage trend snapshot updated by CI workflows. |
-| `gate-summary.md` | CI-generated | Gate status snapshot for PR checks. |
-| `keepalive_status.md` | Index | Keepalive status index pointing to `docs/keepalive/status/`. |
-
-See `archives/ROOT_FILE_INDEX.md` for the dated archive index covering additional root-level artefacts moved out of the entrypoint.
-
-### Archived generated artifacts
-
-Historical CI outputs (for example `coverage-summary.md`, `gate-summary.md`,
-and `keepalive_status.md`) are date-stamped under
-`archives/generated/2025/` with root-level symlinks pointing at the current
-copies. Additional legacy reports such as `Portfolio_Test_Results_Summary.md`,
-`TESTING_SUMMARY.md`, and `Issues.txt` moved to the `archives/reports/`
-and `archives/docs/` trees on 2025-11-22; use `archives/ROOT_FILE_INDEX.md`
-to find the precise paths.
-
----
-
-==========
-[![CI Badge][]][CI]
-[![API Document][api-badge]][apidoc]
-
-[actionlint][repo] is a static checker for GitHub Actions workflow files. [Try it online!][playground]
-
-Features:
-
-- **Syntax check for workflow files** to check unexpected or missing keys following [workflow syntax][syntax-doc]
-- **Strong type check for `${{ }}` expressions** to catch several semantic errors like access to not existing property,
-  type mismatches, ...
-- **Actions usage check** to check that inputs at `with:` and outputs in `steps.{id}.outputs` are correct
-- **Reusable workflow check** to check inputs/outputs/secrets of reusable workflows and workflow calls
-- **[shellcheck][] and [pyflakes][] integrations** for scripts at `run:`
-- **Security checks**; [script injection][script-injection-doc] by untrusted inputs, hard-coded credentials
-- **Other several useful checks**; [glob syntax][filter-pattern-doc] validation, dependencies check for `needs:`,
-  runner label validation, cron syntax validation, ...
-
-See [the full list](docs/checks.md) of checks done by actionlint.
-
-<img src="https://github.com/rhysd/ss/blob/master/actionlint/main.gif?raw=true" alt="actionlint reports 7 errors" width="806" height="492"/>
-
-**Example of broken workflow:**
+Analysis parameters are controlled via YAML configuration files. The key sections are:
 
 ```yaml
-on:
-  push:
-    branch: main
-    tags:
-      - 'v\d+'
-jobs:
-  test:
-    strategy:
-      matrix:
-        os: [macos-latest, linux-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - run: echo "Checking commit '${{ github.event.head_commit.message }}'"
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node_version: 18.x
-      - uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ matrix.platform }}-node-${{ hashFiles('**/package-lock.json') }}
-        if: ${{ github.repository.permissions.admin == true }}
-      - run: npm install && npm test
+data:
+  returns_file: "data/returns.csv"
+  risk_free_column: "T-Bill"          # Optional cash proxy
+  missing_policy: "ffill"             # Handle gaps: drop, ffill, or zero
+
+portfolio:
+  selection_mode: "rank"              # all, random, manual, or rank
+  top_n: 10                           # Number of funds to select
+  weighting:
+    method: "equal"                   # equal, score_prop, risk_parity, hrp, etc.
+
+vol_adjust:
+  target_vol: 0.10                    # 10% annualized volatility target
+
+output:
+  format: "excel"                     # excel, csv, or json
+  path: "outputs/results"
 ```
 
-**actionlint reports 7 errors:**
+See `config/defaults.yml` for the complete schema and `config/presets/` for ready-made strategies.
+
+## Project Structure
 
 ```
-test.yaml:3:5: unexpected key "branch" for "push" section. expected one of "branches", "branches-ignore", "paths", "paths-ignore", "tags", "tags-ignore", "types", "workflows" [syntax-check]
-  |
-3 |     branch: main
-  |     ^~~~~~~
-test.yaml:5:11: character '\' is invalid for branch and tag names. only special characters [, ?, +, *, \, ! can be escaped with \. see `man git-check-ref-format` for more details. note that regular expression is unavailable. note: filter pattern syntax is explained at https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet [glob]
-  |
-5 |       - 'v\d+'
-  |           ^~~~
-test.yaml:10:28: label "linux-latest" is unknown. available labels are "windows-latest", "windows-2022", "windows-2019", "windows-2016", "ubuntu-latest", "ubuntu-22.04", "ubuntu-20.04", "ubuntu-18.04", "macos-latest", "macos-12", "macos-12.0", "macos-11", "macos-11.0", "macos-10.15", "self-hosted", "x64", "arm", "arm64", "linux", "macos", "windows". if it is a custom label for self-hosted runner, set list of labels in actionlint.yaml config file [runner-label]
-   |
-10 |         os: [macos-latest, linux-latest]
-   |                            ^~~~~~~~~~~~~
-test.yaml:13:41: "github.event.head_commit.message" is potentially untrusted. avoid using it directly in inline scripts. instead, pass it through an environment variable. see https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions for more details [expression]
-   |
-13 |       - run: echo "Checking commit '${{ github.event.head_commit.message }}'"
-   |                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-test.yaml:17:11: input "node_version" is not defined in action "actions/setup-node@v4". available inputs are "always-auth", "architecture", "cache", "cache-dependency-path", "check-latest", "node-version", "node-version-file", "registry-url", "scope", "token" [action]
-   |
-17 |           node_version: 18.x
-   |           ^~~~~~~~~~~~~
-test.yaml:21:20: property "platform" is not defined in object type {os: string} [expression]
-   |
-21 |           key: ${{ matrix.platform }}-node-${{ hashFiles('**/package-lock.json') }}
-   |                    ^~~~~~~~~~~~~~~
-test.yaml:22:17: receiver of object dereference "permissions" must be type of object but got "string" [expression]
-   |
-22 |         if: ${{ github.repository.permissions.admin == true }}
-   |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Trend_Model_Project/
+├── src/trend_analysis/     # Core analysis package
+│   ├── pipeline.py         # Main orchestration
+│   ├── metrics.py          # Financial metrics
+│   ├── export/             # Output formatters
+│   └── config/             # Configuration models
+├── src/trend_portfolio_app/ # Streamlit application
+├── streamlit_app/          # Streamlit pages
+├── config/                 # YAML configuration files
+│   ├── defaults.yml
+│   └── presets/            # Conservative, balanced, aggressive
+├── scripts/                # Utility scripts
+├── tests/                  # Unit tests
+├── docs/                   # Documentation
+└── demo/                   # Generated demo datasets
 ```
 
-## Why?
+## Documentation
 
-- **Running a workflow is time consuming.** You need to push the changes and wait until the workflow runs on GitHub even if
-  it contains some trivial mistakes. [act][] is useful to debug the workflow locally. But it is not suitable for CI and still
-  time consuming when your workflow gets larger.
-- **Checks of workflow files by GitHub are very loose.** It reports no error even if unexpected keys are in mappings
-  (meant that some typos in keys). And also it reports no error when accessing to property which is actually not existing.
-  For example `matrix.foo` when no `foo` is defined in `matrix:` section, it is evaluated to `null` and causes no error.
-- **Some mistakes silently break a workflow.** Most common case I saw is specifying missing property to cache key. In the
-  case cache silently does not work properly but a workflow itself runs without error. So you might not notice the mistake
-  forever.
+| Document | Purpose |
+|----------|---------|
+| **[User Guide](docs/UserGuide.md)** | Complete feature walkthrough with examples |
+| **[README_APP.md](README_APP.md)** | Streamlit app layout and features |
+| **[README_DATA.md](README_DATA.md)** | Demo data provenance and limitations |
+| **[docs/INDEX.md](docs/INDEX.md)** | Full documentation index |
+| **[docs/CLI.md](docs/CLI.md)** | Command-line interface reference |
+| **[docs/ConfigMap.md](docs/ConfigMap.md)** | Configuration parameter reference |
+| **[docs/PresetStrategies.md](docs/PresetStrategies.md)** | Strategy preset descriptions |
 
-## Quick start
+## Key Features
 
-Install `actionlint` command by downloading [the released binary][releases] or by Homebrew or by `go install`. See
-[the installation document](docs/install.md) for more details like how to manage the command with several package managers
-or run via Docker container.
+### Selection Modes
 
-```sh
-go install github.com/rhysd/actionlint/cmd/actionlint@latest
+- **all** – Include every fund in the portfolio
+- **rank** – Select top N funds by score
+- **random** – Randomly sample funds (for Monte Carlo analysis)
+- **manual** – Hand-pick funds via GUI
+
+### Weighting Methods
+
+| Method | Description |
+|--------|-------------|
+| `equal` | Simple 1/N allocation |
+| `score_prop` | Weights proportional to scores |
+| `score_prop_bayes` | Bayesian shrinkage of scores |
+| `adaptive_bayes` | Cross-period learning |
+| `risk_parity` | Equal risk contribution |
+| `hrp` | Hierarchical risk parity |
+
+### Risk Controls
+
+- Volatility targeting with configurable lookback windows
+- Maximum weight constraints per asset
+- Group-level allocation caps
+- Turnover limits and transaction cost modeling
+
+### Output Formats
+
+- **Excel** – Formatted workbook with summary sheet
+- **CSV** – Machine-readable metrics
+- **JSON** – Structured data for programmatic consumption
+- **HTML/PDF** – Tear sheets and reports (via `trend report`)
+
+## Development
+
+### Run Tests
+
+```bash
+./scripts/run_tests.sh
 ```
 
-Basically all you need to do is run the `actionlint` command in your repository. actionlint automatically detects workflows and
-checks errors. actionlint focuses on finding out mistakes. It tries to catch errors as much as possible and make false positives
-as minimal as possible.
+### Validation
 
-```sh
-actionlint
+```bash
+# Quick check during development
+./scripts/dev_check.sh --fix
+
+# Comprehensive pre-commit validation
+./scripts/validate_fast.sh --fix
+
+# Full CI-equivalent check
+./scripts/check_branch.sh --fast --fix
 ```
 
-Another option to try actionlint is [the online playground][playground]. Your browser can run actionlint through WebAssembly.
+### Contributing
 
-See [the usage document](docs/usage.md) for more details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## Documents
+## File Inventory
 
-- [Checks](docs/checks.md): Full list of all checks done by actionlint with example inputs, outputs, and playground links.
-- [Installation](docs/install.md): Installation instructions. Prebuilt binaries, Homebrew package, a Docker image, building from
-  source, a download script (for CI) are available.
-- [Usage](docs/usage.md): How to use `actionlint` command locally or on GitHub Actions, the online playground, an official Docker
-  image, and integrations with reviewdog, Problem Matchers, super-linter, pre-commit, VS Code.
-- [Configuration](docs/config.md): How to configure actionlint behavior. Currently only labels of self-hosted runners can be
-  configured.
-- [Go API](docs/api.md): How to use actionlint as Go library.
-- [References](docs/reference.md): Links to resources.
-
-## Bug reporting
-
-When you see some bugs or false positives, it is helpful to [file a new issue][issue-form] with a minimal example
-of input. Giving me some feedbacks like feature requests or ideas of additional checks is also welcome.
+| File | Purpose |
+|------|---------|
+| `Agents.md` | Guard-rails and workflow guidance for contributors |
+| `CHANGELOG.md` | Release notes |
+| `CONTRIBUTING.md` | Contribution guidelines |
+| `DEPENDENCY_QUICKSTART.md` | Dependency setup cheat sheet |
+| `DOCKER_QUICKSTART.md` | Docker usage guide |
+| `SECURITY.md` | Security policy |
 
 ## License
 
-actionlint is distributed under [the MIT license](./LICENSE.txt).
-
-[CI Badge]: https://github.com/rhysd/actionlint/workflows/CI/badge.svg?branch=main&event=push
-[CI]: https://github.com/rhysd/actionlint/actions?query=workflow%3ACI+branch%3Amain
-[api-badge]: https://pkg.go.dev/badge/github.com/rhysd/actionlint.svg
-[apidoc]: https://pkg.go.dev/github.com/rhysd/actionlint
-[repo]: https://github.com/rhysd/actionlint
-[playground]: https://rhysd.github.io/actionlint/
-[shellcheck]: https://github.com/koalaman/shellcheck
-[pyflakes]: https://github.com/PyCQA/pyflakes
-[act]: https://github.com/nektos/act
-[syntax-doc]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-[filter-pattern-doc]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
-[script-injection-doc]: https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
-[issue-form]: https://github.com/rhysd/actionlint/issues/new
-[releases]: https://github.com/rhysd/actionlint/releases
+[MIT License](LICENSE)
