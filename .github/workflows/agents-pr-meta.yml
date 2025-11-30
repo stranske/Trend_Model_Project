@@ -10,7 +10,7 @@
 #
 name: "Agents PR meta manager"
 
-"on":
+on:
   issue_comment:
     types:
       - created
