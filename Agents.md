@@ -3,6 +3,13 @@
 YOU ARE CODEX.  EXTEND THE VOL_ADJ_TREND_ANALYSIS PROJECT AS FOLLOWS
 --------------------------------------------------------------------
 
+## App + Sim Layer Instructions
+- Prefer calling `trend_analysis.pipeline.single_period_run` when available.
+- Expand tests first; each PR solves one issue.
+- How to run: `./scripts/run_streamlit.sh`, `pytest -q`.
+- Acceptance criteria: schema validator, policy engine behavior, simulator smoke test, pipeline integration parity within tolerance.
+- Backlog: preview score frame, weight heatmap, integrate native rank_selection after upstream merge, add expected shortfall & diversification value, export commit hash.
+
 ## Agents consumer workflows (historical)
 
 Manual consumer wrappers were fully retired once the orchestrator became the

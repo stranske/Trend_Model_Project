@@ -61,7 +61,7 @@ runtime by adding the `--universe` flag to `trend-model run`:
 ```bash
 trend-model run \
   --config config/trend_universe_2004.yml \
-  --input "Trend Universe Data.csv" \
+  --input "data/Trend Universe Data.csv" \
   --universe core
 ```
 
@@ -130,16 +130,13 @@ if __name__ == "__main__":
 | `CONTRIBUTING.md` | Reference doc | Contribution workflow and review expectations. |
 | `DEPENDENCY_QUICKSTART.md` | Reference doc | Dependency setup cheat sheet kept beside the main README. |
 | `DOCKER_QUICKSTART.md` | Reference doc | Docker usage guide co-located with `docker-compose.yml` and the root Dockerfile. |
-| `ROBUSTNESS_GUIDE.md` | Reference doc | Legacy robustness pointer retained until a refreshed guide lands. |
 | `SECURITY.md` | Reference doc | Security policy and disclosure expectations. |
-| `Trend Universe Data.csv` | Data sample | Primary demo return matrix; universe configs reference the root path directly. |
-| `Trend Universe Membership.csv` | Data sample | Membership ledger paired with the return matrix; loaders expect the root location. |
-| `hedge_fund_returns_with_indexes.csv` | Data sample | Benchmark demo input consumed by example configs and docs. |
-| `test_multi_period_selection.py` | Active script | Standalone regression harness kept at root for quick manual selection checks. |
-| `test_upload_app.py` | Active script | Upload-app smoke harness invoked directly outside the pytest tree. |
-| `coverage-summary.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_coverage-summary.md` (CI snapshot). |
-| `gate-summary.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_gate-summary.md` (CI gate snapshot). |
-| `keepalive_status.md` | Historical | Symlink to `archives/generated/2025/2025-11-22_keepalive_status.md` (keepalive snapshot). |
+| `data/Trend Universe Data.csv` | Data sample | Primary demo return matrix; universe configs reference `data/` path. |
+| `data/Trend Universe Membership.csv` | Data sample | Membership ledger paired with the return matrix in `data/`. |
+| `data/hedge_fund_returns_with_indexes.csv` | Data sample | Benchmark demo input consumed by example configs and docs. |
+| `coverage-summary.md` | CI-generated | Coverage trend snapshot updated by CI workflows. |
+| `gate-summary.md` | CI-generated | Gate status snapshot for PR checks. |
+| `keepalive_status.md` | Index | Keepalive status index pointing to `docs/keepalive/status/`. |
 
 See `archives/ROOT_FILE_INDEX.md` for the dated archive index covering additional root-level artefacts moved out of the entrypoint.
 
