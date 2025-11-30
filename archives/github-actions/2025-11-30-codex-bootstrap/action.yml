@@ -25,8 +25,8 @@ inputs:
     description: "Allow fallback to GITHUB_TOKEN when PAT is missing"
     default: "true"
     required: false
-  codex_command:
-    description: "Command to post to the PR to trigger Codex"
+  codex_command_legacy:
+    description: "Command to post to the PR to trigger Codex (duplicate key, kept for archive)"
     default: "codex: start"
     required: false
   base_branch:
