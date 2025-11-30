@@ -62,6 +62,10 @@ results/
 !tests/fixtures/keepalive_post_work/*.json
 !tests/fixtures/agents_pr_meta/*.json
 !tests/fixtures/orchestrator/*.json
+!tests/workflows/fixtures/keepalive/*.json
+!tests/workflows/fixtures/keepalive_post_work/*.json
+!tests/workflows/fixtures/agents_pr_meta/*.json
+!tests/workflows/fixtures/orchestrator/*.json
 !tests/data/*.csv
 # generated tear sheets
 reports/*.png

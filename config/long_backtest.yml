@@ -2,7 +2,7 @@
 version: "1"
 
 data:
-  csv_path: hedge_fund_returns_with_indexes.csv
+  csv_path: data/hedge_fund_returns_with_indexes.csv
   date_column: Date
   frequency: ME  # monthly data (month-end)
   risk_free_column: "Risk-Free Rate"

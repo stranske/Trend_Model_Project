@@ -32,7 +32,7 @@ def test_compute_trend_signals_rejects_empty_returns() -> None:
 def test_vol_adjust_without_target_inverts_rolling_std() -> None:
     """When ``vol_target`` is omitted the inverse rolling std should be used."""
 
-    index = pd.date_range("2024-01-31", periods=8, freq="M")
+    index = pd.date_range("2024-01-31", periods=8, freq="ME")
     base_data = {
         "fund_a": np.linspace(-0.01, 0.03, len(index)),
         "fund_b": np.linspace(0.015, -0.02, len(index)),

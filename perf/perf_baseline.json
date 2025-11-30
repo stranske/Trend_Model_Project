@@ -1,1 +1,1 @@
-../archives/generated/2025/perf/perf_baseline.json
+{"_note": "Baseline not yet generated. Run: python scripts/benchmark_performance.py --rows 1200 --cols 35 --runs 4 --output perf/perf_baseline.json"}

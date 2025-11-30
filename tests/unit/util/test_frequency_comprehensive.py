@@ -225,7 +225,7 @@ def test_intervals_in_days_matches_expected_delta() -> None:
     [list, tuple, pd.Series],
 )
 def test_detect_frequency_accepts_various_iterables(iterable_type: type) -> None:
-    values = iterable_type(pd.date_range("2024-01-01", periods=5, freq="M"))
+    values = iterable_type(pd.date_range("2024-01-01", periods=5, freq="ME"))
 
     summary = freq.detect_frequency(values)
 

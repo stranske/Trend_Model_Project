@@ -2,8 +2,8 @@ version: 1
 key: managed_futures_min
 name: Managed futures mini
 description: Small comparison set for quick smoke tests and doc examples.
-data_csv: Trend Universe Data.csv
-membership_csv: Trend Universe Membership.csv
+data_csv: data/Trend Universe Data.csv
+membership_csv: data/Trend Universe Membership.csv
 date_column: Date
 members:
   - Crabel Advanced Trend Program

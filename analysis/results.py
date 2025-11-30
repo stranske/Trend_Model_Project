@@ -14,8 +14,8 @@ import pandas as pd
 __all__ = ["Results", "build_metadata", "compute_universe_fingerprint"]
 
 _ROOT = Path(__file__).resolve().parents[1]
-_DEFAULT_DATA_PATH = _ROOT / "Trend Universe Data.csv"
-_DEFAULT_MEMBERSHIP_PATH = _ROOT / "Trend Universe Membership.csv"
+_DEFAULT_DATA_PATH = _ROOT / "data" / "Trend Universe Data.csv"
+_DEFAULT_MEMBERSHIP_PATH = _ROOT / "data" / "Trend Universe Membership.csv"
 
 
 def _coerce_series(obj: Any) -> pd.Series:

@@ -17,13 +17,13 @@ operational detail for the kept set.
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml` |
-| `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-keepalive.yml` |
-| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml` |
-| `agents-` | Agent orchestration entry points | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-16-agents.yml` |
+| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-11-ci-smoke.yml` |
+| `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-47-disable-legacy-workflows.yml`, `maint-50-tool-version-check.yml`, `maint-51-dependency-refresh.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-coverage-guard.yml` |
+| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
+| `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-guard.yml`, `agents-pr-meta.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-agents-issue-bridge.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
-| `autofix-` assets | Shared configuration for autofix tooling | `autofix-versions.env` |
+| `autofix.yml` | CI autofix loop | `autofix.yml` |
 
 **Naming checklist**
 1. Choose the correct prefix for the workflow's scope.
@@ -40,35 +40,51 @@ The active roster below mirrors the **Keep** list in the [Workflow System Overvi
 
 ### PR Checks
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
+- **`pr-11-ci-smoke.yml`** — Minimal invariant CI that runs on push/PR to phase-2-dev and main. Installs the project, validates imports, and runs `pytest tests/test_invariants.py` for fast regression detection.
 
 _Inline Gate helper_
 - **Gate summary job (`pr-00-gate.yml`)** — Post-CI job that downloads artifacts, computes coverage deltas, runs the label-gated autofix routine, and updates the PR summary comment with a stable marker.
 
 ### Maintenance & Repo Health
-- **`maint-keepalive.yml`** — Twice-daily cron plus manual dispatch heartbeat that posts a timestamped comment (with the run URL) to the Ops heartbeat issue using the `ACTIONS_BOT_PAT` secret. Fails fast when `OPS_HEARTBEAT_ISSUE` or the PAT are missing so misconfiguration surfaces immediately.
+- **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
+- **`maint-46-post-ci.yml`** — Post-CI summary recovery workflow triggered by `workflow_run` on Gate completion. Propagates Gate commit status and posts summaries when the Gate's own summary job doesn't complete.
+- **`maint-47-disable-legacy-workflows.yml`** — Manual dispatch utility to disable retired workflows that still appear in the Actions UI.
+- **`maint-50-tool-version-check.yml`** — Scheduled + manual dispatch workflow that checks for tool version updates.
+- **`maint-51-dependency-refresh.yml`** — Scheduled + manual dispatch workflow for dependency updates.
+- **`maint-52-validate-workflows.yml`** — PR/push workflow that validates workflow YAML syntax and structure.
+- **`maint-60-release.yml`** — Tag-triggered release workflow for publishing packages.
+- **`maint-coverage-guard.yml`** — Daily cron + dispatch workflow that monitors Gate coverage artifacts and maintains the rolling coverage baseline breach issue.
 - **`health-40-sweep.yml`** — Weekly sweep that fans out to Actionlint and branch-protection verification. Pull requests trigger the Actionlint leg (paths-filter gated) while schedule/manual runs execute both checks to keep the enforcement snapshots fresh.
+- **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
+- **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report covering stale branches, unassigned issues, and default-branch protection drift, with optional `workflow_dispatch` reruns.
 - **`health-42-actionlint.yml`** — Underlying Actionlint job invoked by the sweep (and still runnable via manual dispatch when you need a focused lint dry run).
 - **`health-43-ci-signature-guard.yml`** — Guards the CI manifest with signed fixture checks.
 - **`health-44-gate-branch-protection.yml`** — Enforces branch-protection policy via `tools/enforce_gate_branch_protection.py` when the PAT is configured (now triggered on PRs or by the consolidated sweep).
-
-_Additional opt-in utilities_
-- **`health-41-repo-health.yml`** — Weekly repository health sweep that writes a single run-summary report covering stale branches, unassigned issues, and default-branch protection drift, with optional `workflow_dispatch` reruns.
-- **`health-40-repo-selfcheck.yml`** — Read-only governance probe that surfaces label coverage and branch-protection visibility gaps in the run summary.
-- **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and opens a labelled PR when changes exist.
+- **`health-50-security-scan.yml`** — Security scanning workflow triggered on push, PR, and schedule. Runs vulnerability checks and security audits.
 
 ### Agents & Issues
-- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
 - **`agents-63-issue-intake.yml`** — Canonical front door that seeds Codex bootstrap PRs on `agent:codex`/`agents:codex` labels, exposes manual dispatch inputs, and services ChatGPT sync via `workflow_call`.
+- **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
+- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
 - **`agents-71-codex-belt-dispatcher.yml`** — Cron + manual dispatcher that selects the next `agent:codex` + `status:ready` issue, prepares the deterministic `codex/issue-*` branch, labels the source issue as in-progress, and repository-dispatches the worker.
 - **`agents-72-codex-belt-worker.yml`** — Repository-dispatch consumer that re-validates labels, ensures the branch diverges from the base (empty commit when needed), and opens or refreshes the Codex automation PR with labels, assignees, and activation comment.
 - **`agents-73-codex-belt-conveyor.yml`** — Gate follower that squash-merges successful belt PRs, deletes the branch, closes the originating issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue keeps moving.
-- **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
+- **`agents-guard.yml`** (aka Health 45 Agents Guard) — PR workflow that validates agent-related labels and permissions.
+- **`agents-pr-meta.yml`** — PR metadata manager that serializes Codex activation commands and PR body decoration through dedicated jobs sharing a concurrency group keyed by PR number.
+- **`agents-moderate-connector.yml`** — Comment moderation workflow that filters connector-authored comments based on allow/deny lists.
+- **`agents-keepalive-branch-sync.yml`** — Dispatch-triggered utility that syncs PR branches with their base branch (merges base into head).
+- **`agents-keepalive-dispatch-handler.yml`** — Repository dispatch handler for keepalive events.
+- **`agents-debug-issue-event.yml`** — Debug workflow that dumps GitHub context on issue events (labeled, unlabeled, opened, reopened). Useful for troubleshooting label triggers.
+
+### Autofix
+- **`autofix.yml`** — CI Autofix Loop triggered on `pull_request` and `pull_request_target`. Runs formatting fixes and commits changes back to the PR branch.
 
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
 - **`reusable-16-agents.yml`** — Reusable agent automation stack.
 - **`reusable-18-autofix.yml`** — Autofix harness used by the Gate summary job.
+- **`reusable-agents-issue-bridge.yml`** — Reusable workflow for bridging issues to agent automation, called by `agents-63-issue-intake.yml`.
 
 ### Self-tests
 - **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.

@@ -142,7 +142,7 @@ def test_gate_universe_matches_date_symbol_pairs() -> None:
 
 
 def test_build_membership_mask_marks_entries_and_exits() -> None:
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     membership = pd.DataFrame(
         {
             "fund": ["Alpha", "Beta", "Gamma"],
@@ -159,7 +159,7 @@ def test_build_membership_mask_marks_entries_and_exits() -> None:
 
 
 def test_build_membership_mask_accepts_membership_table() -> None:
-    dates = pd.date_range("2020-01-31", periods=2, freq="M")
+    dates = pd.date_range("2020-01-31", periods=2, freq="ME")
     membership = {
         "AAA": (
             MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),

@@ -1,61 +1,110 @@
-Go API
-======
-[![API Document][api-badge]][apidoc]
+# API Reference
 
-This document describes how to use [actionlint](..) as Go library.
+This document provides an overview of the Trend Model Project's programmatic interfaces.
 
-actionlint can be used from Go programs. See [the documentation][apidoc] to know the list of all APIs. It contains
-a workflow file parser built on top of `go-yaml/yaml`, expression `${{ }}` lexer/parser/checker, etc.
+## Python API
 
-Followings are unexhaustive list of interesting APIs.
+### Core Pipeline
 
-- `Command` struct represents entire `actionlint` command. `Command.Main` takes command line arguments and runs command
-  until the end and returns exit status.
-- `Linter` manages linter lifecycle and applies checks to given files. If you want to run actionlint checks in your
-  program, please use this struct.
-- `Project` and `Projects` detect a project (Git repository) in a given directory path and find configuration in it.
-- `Config` represents structure of `actionlint.yaml` config file. It can be decoded by [go-yaml/yaml][go-yaml] library.
-- `Workflow`, `Job`, `Step`, ... are nodes of workflow syntax tree. `Workflow` is a root node.
-- `Parse()` parses given contents into a workflow syntax tree. It tries to find syntax errors as much as possible and
-  returns found errors as slice.
-- `Pass` is a visitor to traverse a workflow syntax tree. Multiple passes can be applied at single pass using `Visitor`.
-- `Rule` is an interface for rule checkers and `RuneBase` is a base struct to implement a rule checker.
-  - `RuleExpression` is a rule checker to check expression syntax in `${{ }}`.
-  - `RuleShellcheck` is a rule checker to apply `shellcheck` command to `run:` sections and collect errors from it.
-  - `RuleJobNeeds` is a rule checker to check dependencies in `needs:` section. It can detect cyclic dependencies.
-  - ...
-- `ExprLexer` lexes expression syntax in `${{ }}` and returns slice of `Token`.
-- `ExprParser` parses given slice of `Token` and returns syntax tree for expression in `${{ }}`. `ExprNode` is an
-  interface for nodes in the expression syntax tree.
-- `ExprType` is an interface of types in expression syntax `${{ }}`. `ObjectType`, `ArrayType`, `StringType`,
-  `NumberType`, ... are structs to represent actual types of expression.
-- `ExprSemanticsChecker` checks semantics of expression syntax `${{ }}`. It traverses given expression syntax tree and
-  deduces its type, checking types and resolving variables (contexts).
-- `ValidateRefGlob()` and `ValidatePathGlob()` validate [glob filter pattern][filter-pattern-doc] and returns all errors
-  found by the validator.
-- `ActionMetadata` is a struct for action metadata file (`action.yml`). It is used to check inputs specified at `with:`
-  and typing `steps.{id}.outputs` object strictly.
-- `PopularActions` global variable is the data set of popular actions' metadata collected by [the script](../scripts/generate-popular-actions).
-- `AllWebhookTypes` global variable is the mapping from all webhook names to their types collected by [the script](../scripts/generate-webhook-events).
-- `WorkflowKeyAvailability()` returns available context names and special function names for the given workflow key like
-  `jobs.<job_id>.outputs.<output_id>`. This function uses the data collected by [the script](../scripts/generate-availability).
+```python
+from trend_analysis.pipeline import run
 
-## Library versioning
+# Run analysis with config file
+results = run(config_path="config/demo.yml")
 
-The version of this repository is for command line tool `actionlint`. So it does not represent the version of the library.
-It means that the library does not follow semantic versioning and any patch version bump may introduce some breaking changes.
+# Run with config object
+from trend_analysis.config import load
+config = load("config/demo.yml")
+results = run(config=config)
+```
 
-## Go version compatibility
+### Configuration
 
-Minimum supported Go version is written in [`go.mod`](../go.mod) file in this repository. That said, older Go versions are
-actually not tested on CI. Last two major Go versions are recommended because they're tested on CI. For example, when the latest
-Go version is v1.22, v1.21 and v1.22 are nice to use.
+```python
+from trend_analysis.config import load, Config
 
----
+# Load from file
+config = load("config/defaults.yml")
 
-[Checks](checks.md) | [Installation](install.md) | [Usage](usage.md) | [Configuration](config.md) | [References](reference.md)
+# Access configuration values
+print(config.data.csv_path)
+print(config.portfolio.top_n)
+```
 
-[api-badge]: https://pkg.go.dev/badge/github.com/rhysd/actionlint.svg
-[apidoc]: https://pkg.go.dev/github.com/rhysd/actionlint
-[go-yaml]: https://github.com/go-yaml/yaml
-[filter-pattern-doc]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+### Metrics
+
+```python
+from trend_analysis.metrics import (
+    calculate_returns,
+    calculate_sharpe_ratio,
+    calculate_max_drawdown,
+    calculate_cagr,
+)
+
+# Calculate metrics on return series
+sharpe = calculate_sharpe_ratio(returns, risk_free_rate=0.02)
+max_dd = calculate_max_drawdown(returns)
+cagr = calculate_cagr(returns, periods_per_year=12)
+```
+
+### Export
+
+```python
+from trend_analysis.export import export_to_excel, export_to_csv, export_to_json
+
+# Export results to various formats
+export_to_excel(results, "output.xlsx")
+export_to_csv(results, "output")
+export_to_json(results, "output.json")
+```
+
+## REST API
+
+The project includes a FastAPI server for programmatic access.
+
+### Starting the Server
+
+```bash
+uvicorn trend_analysis.api_server:app --host 0.0.0.0 --port 8000
+```
+
+### Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/analyze` | POST | Run analysis with config |
+| `/docs` | GET | OpenAPI documentation |
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"config_path": "config/demo.yml"}'
+```
+
+## CLI Interface
+
+See [CLI.md](CLI.md) for command-line interface documentation.
+
+## Module Structure
+
+```
+src/trend_analysis/
+├── __init__.py          # Package exports
+├── config/              # Configuration loading
+├── core/                # Core algorithms
+├── engine/              # Analysis engine
+├── export/              # Export functionality
+├── metrics.py           # Metric calculations
+├── pipeline.py          # Main pipeline
+├── data.py              # Data loading/processing
+└── api_server/          # REST API
+```
+
+## See Also
+
+- [UserGuide.md](UserGuide.md) - User documentation
+- [CLI.md](CLI.md) - Command-line interface
+- [config.md](config.md) - Configuration reference
