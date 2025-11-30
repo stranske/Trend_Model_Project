@@ -1,16 +1,24 @@
-# DEPRECATED: This workflow has been replaced by agents-pr-meta-v2.yml
-# The workflow ID (201068412) became corrupted in GitHub's registry.
-# Keeping this file to maintain the agents:guard protection but disabling triggers.
-name: Agents PR meta manager (DEPRECATED)
+name: Agents PR meta manager v2
 
 on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
   workflow_dispatch:
     inputs:
-      deprecated_notice:
-        description: 'This workflow is deprecated. Use agents-pr-meta-v2.yml instead.'
+      pr_number:
+        description: 'PR number to update (leave empty to use trigger context)'
         required: false
         type: string
-        default: 'deprecated'
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
