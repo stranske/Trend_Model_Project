@@ -17,7 +17,7 @@ Implementation notes
 2) Surface missing-data policy status when skipping enforcement on user-supplied data
 Labels: agent:codex, enhancement, data
 Why
-`trend_analysis.multi_period.engine.run` silently bypasses `apply_missing_policy` when callers supply `df`/`price_frames` and no policy/limit is set. Users can unknowingly run with raw missing data, producing different universes than validated configs.
+`trend_analysis.multi_period.engine.run` silently bypasses `apply_missing_policy` when callers supply `df`/`price_frames` and no policy/limit is set. Users can inadvertently run with raw missing data, producing different universes than validated configs.
 Scope
 - Missing-data handling branch in `trend_analysis.multi_period.engine.run` and period-level diagnostics/metadata.
 Tasks
