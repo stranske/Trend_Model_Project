@@ -384,10 +384,12 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   // If no round marker but comment is from an allowed author and contains @codex (or similar),
   // treat it as initial activation (round 1). This handles the case where a human posts
   // "@codex <instructions>" without keepalive markers - we bootstrap the first round.
+  // IMPORTANT: Do NOT treat comments that contain the keepalive instruction signature as initial
+  // activation - those are manual re-posts of existing instructions and should be rejected.
   const isInitialActivation = !roundMatch && isAuthorAllowed && body && (
     normaliseBody(body).toLowerCase().startsWith('@codex') ||
     /^@[a-z0-9_-]+\s/i.test(normaliseBody(body).trim())
-  );
+  ) && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
     outputs.reason = 'missing-round';

@@ -543,10 +543,9 @@ async function fetchGateStatus({ github, owner, repo, headSha, core }) {
  * Count active workflow runs for a PR.
  * 
  * PERFORMANCE OPTIMIZATIONS (v2):
- * - Query by branch when available (single API call instead of per-status queries)
- * - Skip per-run detail fetches by using branch/SHA matching from list results
- * - Limit results to reasonable count (run cap is typically 2-5)
- * - Use single query without status filter, then filter locally
+ * - Skip per-run detail fetches - use data from list results directly
+ * - Match PR using multiple signals (pull_requests array, head branch, SHA, concurrency)
+ * - Still uses paginate for test compatibility
  */
 async function countActive({
   github,
@@ -568,6 +567,7 @@ async function countActive({
 
   const includeRecentCompleted = Number.isFinite(completedLookbackSeconds) && completedLookbackSeconds > 0;
   const lookbackMillis = includeRecentCompleted ? Math.max(0, completedLookbackSeconds) * 1000 : 0;
+  const statuses = includeRecentCompleted ? ['queued', 'in_progress', 'completed'] : ['queued', 'in_progress'];
   
   let workflowFiles = Array.isArray(workflows)
     ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
@@ -596,8 +596,9 @@ async function countActive({
   /**
    * Fast PR matching without additional API calls.
    * Only uses data already available in the run object.
+   * OPTIMIZATION: Removed per-run getWorkflowRun calls - all matching now done from list data.
    */
-  const runMatchesPrFast = (run) => {
+  const runMatchesPr = (run) => {
     if (!run) return false;
 
     // Skip current run
@@ -648,64 +649,47 @@ async function countActive({
     return false;
   };
 
-  // OPTIMIZATION: Query by branch if we have headRef, which is faster and more targeted
-  // than querying all runs and filtering. This avoids the need for per-run detail fetches.
   for (const workflowFile of workflowFiles) {
     const label = workflowFile === WORKER_WORKFLOW_FILE ? 'worker' : 'orchestrator';
-    
-    try {
-      // Build query params - use branch filter if available for efficiency
-      const queryParams = {
-        owner,
-        repo,
-        workflow_id: workflowFile,
-        per_page: 30, // Limit results - we only need a few recent runs
-      };
-      
-      // If we have a branch, filter by it to reduce results dramatically
-      if (normalisedHeadRef) {
-        queryParams.branch = normalisedHeadRef;
-      }
+    for (const status of statuses) {
+      try {
+        const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
+          owner,
+          repo,
+          workflow_id: workflowFile,
+          status,
+          per_page: 100,
+        }, { core });
+        for (const run of runs) {
+          const runId = Number(run?.id || 0);
+          if (!Number.isFinite(runId) || runId <= 0) {
+            continue;
+          }
+          if (runIds.has(runId)) {
+            continue;
+          }
+          if (!runMatchesPr(run)) {
+            continue;
+          }
 
-      // Single API call - let GitHub filter, then we filter locally by status
-      const response = await withRateLimitRetry(
-        () => github.rest.actions.listWorkflowRuns(queryParams),
-        { core }
-      );
-      
-      const runs = response?.data?.workflow_runs || [];
-      
-      for (const run of runs) {
-        const runId = Number(run?.id || 0);
-        if (!Number.isFinite(runId) || runId <= 0) continue;
-        if (runIds.has(runId)) continue;
+          if (status === 'completed') {
+            if (!includeRecentCompleted) {
+              continue;
+            }
+            const completedAt = resolveCompletionTimestamp(run);
+            if (completedAt < recentCutoff) {
+              continue;
+            }
+          }
 
-        const status = String(run.status || '').toLowerCase();
-        const isActive = status === 'queued' || status === 'in_progress';
-        const isCompleted = status === 'completed';
-
-        // Skip if not active and not tracking recent completed
-        if (!isActive && (!includeRecentCompleted || !isCompleted)) continue;
-
-        // Fast match without additional API calls
-        if (!runMatchesPrFast(run)) continue;
-
-        // For completed runs, check if within recent window
-        if (isCompleted) {
-          const completedAt = resolveCompletionTimestamp(run);
-          if (completedAt < recentCutoff) continue;
+          runIds.add(runId);
+          const bucket = status === 'completed' ? `${label}_recent` : label;
+          breakdown.set(bucket, (breakdown.get(bucket) || 0) + 1);
         }
-
-        runIds.add(runId);
-        const bucket = isCompleted ? `${label}_recent` : label;
-        breakdown.set(bucket, (breakdown.get(bucket) || 0) + 1);
-      }
-    } catch (err) {
-      if (!error) {
-        error = err instanceof Error ? err.message : String(err);
-      }
-      if (core?.warning) {
-        core.warning(`countActive error for ${workflowFile}: ${error}`);
+      } catch (err) {
+        if (!error) {
+          error = err instanceof Error ? err.message : String(err);
+        }
       }
     }
   }
