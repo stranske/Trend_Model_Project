@@ -1,5 +1,8 @@
 'use strict';
 
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
 const {
   parseCheckboxStates,
   mergeCheckboxStates,
@@ -7,10 +10,7 @@ const {
   extractBlock,
 } = require('../agents_pr_meta_update_body.js');
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-
-test('parseCheckboxStates: extracts checked items from a checkbox list', () => {
+test('parseCheckboxStates extracts checked items from a checkbox list', () => {
   const block = `
 - [x] Task one completed
 - [ ] Task two pending
@@ -26,7 +26,7 @@ test('parseCheckboxStates: extracts checked items from a checkbox list', () => {
   assert.strictEqual(states.has('task two pending'), false);
 });
 
-test('parseCheckboxStates: normalizes text by stripping leading dashes', () => {
+test('parseCheckboxStates normalizes text by stripping leading dashes', () => {
   const block = `
 - [x] - Tests fail if weight bounds...
 - [ ] - Existing functionality remains
@@ -38,7 +38,7 @@ test('parseCheckboxStates: normalizes text by stripping leading dashes', () => {
   assert.strictEqual(states.get('tests fail if weight bounds...'), true);
 });
 
-test('parseCheckboxStates: handles case-insensitive matching', () => {
+test('parseCheckboxStates handles case-insensitive matching', () => {
   const block = `
 - [X] UPPERCASE checked
 - [x] lowercase checked
@@ -51,13 +51,13 @@ test('parseCheckboxStates: handles case-insensitive matching', () => {
   assert.strictEqual(states.get('lowercase checked'), true);
 });
 
-test('parseCheckboxStates: returns empty map for empty input', () => {
+test('parseCheckboxStates returns empty map for empty input', () => {
   assert.deepStrictEqual(parseCheckboxStates(''), new Map());
   assert.deepStrictEqual(parseCheckboxStates(null), new Map());
   assert.deepStrictEqual(parseCheckboxStates(undefined), new Map());
 });
 
-test('mergeCheckboxStates: restores checked state for unchecked items', () => {
+test('mergeCheckboxStates restores checked state for unchecked items', () => {
   const newContent = `
 - [ ] Task one
 - [ ] Task two
@@ -76,97 +76,93 @@ test('mergeCheckboxStates: restores checked state for unchecked items', () => {
   assert.ok(result.includes('- [x] Task three'));
 });
 
-test('mergeCheckboxStates: preserves already checked items in new content', () => {
+test('mergeCheckboxStates preserves already checked items in new content', () => {
   const newContent = `
 - [x] Already checked in new content
 - [ ] Unchecked in new
-    `.trim();
+  `.trim();
 
-    const existingStates = new Map([
-      ['unchecked in new', true],
-    ]);
+  const existingStates = new Map([
+    ['unchecked in new', true],
+  ]);
 
-    const result = mergeCheckboxStates(newContent, existingStates);
+  const result = mergeCheckboxStates(newContent, existingStates);
 
-    // Already checked stays checked
-    expect(result).toContain('- [x] Already checked in new content');
-    // Unchecked gets restored
-    expect(result).toContain('- [x] Unchecked in new');
-  });
+  // Already checked stays checked
+  assert.ok(result.includes('- [x] Already checked in new content'));
+  // Unchecked gets restored
+  assert.ok(result.includes('- [x] Unchecked in new'));
+});
 
-  it('handles items with leading dashes in text', () => {
-    const newContent = `
+test('mergeCheckboxStates handles items with leading dashes in text', () => {
+  const newContent = `
 - [ ] - Tests fail if bounds violated
 - [ ] - Functionality remains unchanged
-    `.trim();
+  `.trim();
 
-    const existingStates = new Map([
-      ['tests fail if bounds violated', true],
-    ]);
+  const existingStates = new Map([
+    ['tests fail if bounds violated', true],
+  ]);
 
-    const result = mergeCheckboxStates(newContent, existingStates);
+  const result = mergeCheckboxStates(newContent, existingStates);
 
-    expect(result).toContain('- [x] - Tests fail if bounds violated');
-    expect(result).toContain('- [ ] - Functionality remains unchanged');
-  });
+  assert.ok(result.includes('- [x] - Tests fail if bounds violated'));
+  assert.ok(result.includes('- [ ] - Functionality remains unchanged'));
+});
 
-  it('returns original content if no existing states', () => {
-    const content = '- [ ] Task one\n- [ ] Task two';
-    
-    expect(mergeCheckboxStates(content, null)).toBe(content);
-    expect(mergeCheckboxStates(content, new Map())).toBe(content);
-  });
+test('mergeCheckboxStates returns original content if no existing states', () => {
+  const content = '- [ ] Task one\n- [ ] Task two';
 
-  it('handles real-world acceptance criteria format', () => {
-    const prBody = `
+  assert.strictEqual(mergeCheckboxStates(content, null), content);
+  assert.strictEqual(mergeCheckboxStates(content, new Map()), content);
+});
+
+test('mergeCheckboxStates handles real-world acceptance criteria format', () => {
+  const prBody = `
 #### Acceptance criteria
 - [ ] - Tests fail if weight bounds or turnover calculations allow negative weights
 - [ ] - Existing functionality remains unchanged outside the stronger test coverage
-    `.trim();
+  `.trim();
 
-    // Agent completes first criterion and posts with checked box
-    const agentReply = `
+  // Agent completes first criterion and posts with checked box
+  const agentReply = `
 #### Acceptance criteria
 - [x] - Tests fail if weight bounds or turnover calculations allow negative weights
 - [ ] - Existing functionality remains unchanged outside the stronger test coverage
-    `.trim();
+  `.trim();
 
-    const existingStates = parseCheckboxStates(agentReply);
-    expect(existingStates.size).toBe(1);
+  const existingStates = parseCheckboxStates(agentReply);
+  assert.strictEqual(existingStates.size, 1);
 
-    // PR-meta refreshes from issue (unchecked) and merges agent's checked state
-    const merged = mergeCheckboxStates(prBody, existingStates);
+  // PR-meta refreshes from issue (unchecked) and merges agent's checked state
+  const merged = mergeCheckboxStates(prBody, existingStates);
 
-    expect(merged).toContain('- [x] - Tests fail if weight bounds or turnover calculations allow negative weights');
-    expect(merged).toContain('- [ ] - Existing functionality remains unchanged outside the stronger test coverage');
-  });
+  assert.ok(merged.includes('- [x] - Tests fail if weight bounds or turnover calculations allow negative weights'));
+  assert.ok(merged.includes('- [ ] - Existing functionality remains unchanged outside the stronger test coverage'));
 });
 
-describe('ensureChecklist', () => {
-  it('adds checkbox prefix to plain text lines', () => {
-    const text = 'Task one\nTask two\nTask three';
-    const result = ensureChecklist(text);
+test('ensureChecklist adds checkbox prefix to plain text lines', () => {
+  const text = 'Task one\nTask two\nTask three';
+  const result = ensureChecklist(text);
 
-    expect(result).toBe('- [ ] Task one\n- [ ] Task two\n- [ ] Task three');
-  });
-
-  it('preserves existing checkbox formatting', () => {
-    const text = '- [x] Completed task\n- [ ] Pending task';
-    const result = ensureChecklist(text);
-
-    expect(result).toBe('- [x] Completed task\n- [ ] Pending task');
-  });
-
-  it('returns placeholder for empty input', () => {
-    expect(ensureChecklist('')).toBe('- [ ] —');
-    expect(ensureChecklist('   ')).toBe('- [ ] —');
-    expect(ensureChecklist(null)).toBe('- [ ] —');
-  });
+  assert.strictEqual(result, '- [ ] Task one\n- [ ] Task two\n- [ ] Task three');
 });
 
-describe('extractBlock', () => {
-  it('extracts content between markers', () => {
-    const body = `
+test('ensureChecklist preserves existing checkbox formatting', () => {
+  const text = '- [x] Completed task\n- [ ] Pending task';
+  const result = ensureChecklist(text);
+
+  assert.strictEqual(result, '- [x] Completed task\n- [ ] Pending task');
+});
+
+test('ensureChecklist returns placeholder for empty input', () => {
+  assert.strictEqual(ensureChecklist(''), '- [ ] —');
+  assert.strictEqual(ensureChecklist('   '), '- [ ] —');
+  assert.strictEqual(ensureChecklist(null), '- [ ] —');
+});
+
+test('extractBlock extracts content between markers', () => {
+  const body = `
 Some preamble text
 
 <!-- auto-status-summary:start -->
@@ -176,18 +172,17 @@ Some preamble text
 <!-- auto-status-summary:end -->
 
 Some footer text
-    `.trim();
+  `.trim();
 
-    const block = extractBlock(body, 'auto-status-summary');
+  const block = extractBlock(body, 'auto-status-summary');
 
-    expect(block).toContain('#### Tasks');
-    expect(block).toContain('- [ ] Task one');
-    expect(block).toContain('- [x] Task two');
-  });
+  assert.ok(block.includes('#### Tasks'));
+  assert.ok(block.includes('- [ ] Task one'));
+  assert.ok(block.includes('- [x] Task two'));
+});
 
-  it('returns empty string if markers not found', () => {
-    expect(extractBlock('no markers here', 'auto-status-summary')).toBe('');
-    expect(extractBlock('', 'auto-status-summary')).toBe('');
-    expect(extractBlock(null, 'auto-status-summary')).toBe('');
-  });
+test('extractBlock returns empty string if markers not found', () => {
+  assert.strictEqual(extractBlock('no markers here', 'auto-status-summary'), '');
+  assert.strictEqual(extractBlock('', 'auto-status-summary'), '');
+  assert.strictEqual(extractBlock(null, 'auto-status-summary'), '');
 });
