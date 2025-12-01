@@ -1,5 +1,7 @@
 'use strict';
 
+const { makeTrace } = require('./keepalive_contract.js');
+
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
 
@@ -378,28 +380,56 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise(false);
   }
 
-  if (!roundMatch) {
+  // INITIAL ACTIVATION HANDLING:
+  // If no round marker but comment is from an allowed author and starts with @codex,
+  // treat it as initial activation (round 1). This handles the case where a human posts
+  // "@codex <instructions>" without keepalive markers - we bootstrap the first round.
+  // IMPORTANT: Only @codex triggers activation (not any @mention like @maintainer).
+  // Do NOT treat comments that contain the keepalive instruction signature as initial
+  // activation - those are manual re-posts of existing instructions and should be rejected.
+  const normalisedBody = normaliseBody(body).toLowerCase();
+  const startsWithCodexMention = normalisedBody.startsWith('@codex') && 
+    (normalisedBody.length === 6 || /^@codex[\s,;:!?]/.test(normalisedBody));
+  const isInitialActivation = !roundMatch && isAuthorAllowed && body && 
+    startsWithCodexMention && !isLikelyInstruction(body);
+
+  if (!roundMatch && !isInitialActivation) {
     outputs.reason = 'missing-round';
-    core.info('Keepalive dispatch skipped: comment missing keepalive round marker.');
+    core.info('Keepalive dispatch skipped: comment missing keepalive round marker and not initial activation.');
     return finalise(false);
   }
 
-  if (!isAuthorAllowed) {
+  // For non-initial activation (keepalive round > 1), require authorized author
+  // (initial activation already checks author in isInitialActivation)
+  if (!isInitialActivation && !isAuthorAllowed) {
     outputs.reason = 'unauthorised-author';
     core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
     return finalise(false);
   }
 
-  if (!hasKeepaliveMarker) {
+  // For initial activation, we don't require keepalive marker or trace
+  // (those are only in subsequent keepalive instruction comments posted by the orchestrator)
+  if (!isInitialActivation && !hasKeepaliveMarker) {
     outputs.reason = 'missing-sentinel';
     core.info('Keepalive dispatch skipped: comment missing codex keepalive marker.');
     return finalise(false);
   }
 
-  const round = Number.parseInt(roundMatch[1], 10);
-  if (!Number.isFinite(round) || round <= 0) {
-    outputs.reason = 'invalid-round';
-    core.info('Keepalive dispatch skipped: invalid round marker.');
+  // Determine round: from marker if present, otherwise 1 for initial activation
+  let round;
+  if (roundMatch) {
+    round = Number.parseInt(roundMatch[1], 10);
+    if (!Number.isFinite(round) || round <= 0) {
+      outputs.reason = 'invalid-round';
+      core.info('Keepalive dispatch skipped: invalid round marker.');
+      return finalise(false);
+    }
+  } else if (isInitialActivation) {
+    round = 1;
+    core.info('Initial human activation detected - bootstrapping round 1.');
+  } else {
+    outputs.reason = 'missing-round';
+    core.info('Keepalive dispatch skipped: unable to determine round.');
     return finalise(false);
   }
 
@@ -414,7 +444,13 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   outputs.pr = prNumber ? String(prNumber) : '';
   outputs.round = String(round);
-  const trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
+  
+  // For initial activation, generate a new trace; otherwise extract from comment
+  let trace = traceMatch ? traceMatch[1].replace(/--+$/u, '').trim() : '';
+  if (!trace && isInitialActivation) {
+    trace = makeTrace();
+    core.info(`Generated new trace for initial activation: ${trace}`);
+  }
   if (!trace) {
     outputs.reason = 'missing-trace';
     core.info('Keepalive dispatch skipped: comment missing keepalive trace marker.');
