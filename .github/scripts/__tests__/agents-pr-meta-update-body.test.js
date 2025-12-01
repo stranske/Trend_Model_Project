@@ -7,77 +7,77 @@ const {
   extractBlock,
 } = require('../agents_pr_meta_update_body.js');
 
-describe('parseCheckboxStates', () => {
-  it('extracts checked items from a checkbox list', () => {
-    const block = `
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+test('parseCheckboxStates: extracts checked items from a checkbox list', () => {
+  const block = `
 - [x] Task one completed
 - [ ] Task two pending
 - [x] Task three completed
 - [ ] Task four pending
-    `.trim();
+  `.trim();
 
-    const states = parseCheckboxStates(block);
+  const states = parseCheckboxStates(block);
 
-    expect(states.size).toBe(2);
-    expect(states.get('task one completed')).toBe(true);
-    expect(states.get('task three completed')).toBe(true);
-    expect(states.has('task two pending')).toBe(false);
-  });
-
-  it('normalizes text by stripping leading dashes', () => {
-    const block = `
-- [x] - Tests fail if weight bounds...
-- [ ] - Existing functionality remains
-    `.trim();
-
-    const states = parseCheckboxStates(block);
-
-    expect(states.size).toBe(1);
-    expect(states.get('tests fail if weight bounds...')).toBe(true);
-  });
-
-  it('handles case-insensitive matching', () => {
-    const block = `
-- [X] UPPERCASE checked
-- [x] lowercase checked
-    `.trim();
-
-    const states = parseCheckboxStates(block);
-
-    expect(states.size).toBe(2);
-    expect(states.get('uppercase checked')).toBe(true);
-    expect(states.get('lowercase checked')).toBe(true);
-  });
-
-  it('returns empty map for empty input', () => {
-    expect(parseCheckboxStates('')).toEqual(new Map());
-    expect(parseCheckboxStates(null)).toEqual(new Map());
-    expect(parseCheckboxStates(undefined)).toEqual(new Map());
-  });
+  assert.strictEqual(states.size, 2);
+  assert.strictEqual(states.get('task one completed'), true);
+  assert.strictEqual(states.get('task three completed'), true);
+  assert.strictEqual(states.has('task two pending'), false);
 });
 
-describe('mergeCheckboxStates', () => {
-  it('restores checked state for unchecked items', () => {
-    const newContent = `
+test('parseCheckboxStates: normalizes text by stripping leading dashes', () => {
+  const block = `
+- [x] - Tests fail if weight bounds...
+- [ ] - Existing functionality remains
+  `.trim();
+
+  const states = parseCheckboxStates(block);
+
+  assert.strictEqual(states.size, 1);
+  assert.strictEqual(states.get('tests fail if weight bounds...'), true);
+});
+
+test('parseCheckboxStates: handles case-insensitive matching', () => {
+  const block = `
+- [X] UPPERCASE checked
+- [x] lowercase checked
+  `.trim();
+
+  const states = parseCheckboxStates(block);
+
+  assert.strictEqual(states.size, 2);
+  assert.strictEqual(states.get('uppercase checked'), true);
+  assert.strictEqual(states.get('lowercase checked'), true);
+});
+
+test('parseCheckboxStates: returns empty map for empty input', () => {
+  assert.deepStrictEqual(parseCheckboxStates(''), new Map());
+  assert.deepStrictEqual(parseCheckboxStates(null), new Map());
+  assert.deepStrictEqual(parseCheckboxStates(undefined), new Map());
+});
+
+test('mergeCheckboxStates: restores checked state for unchecked items', () => {
+  const newContent = `
 - [ ] Task one
 - [ ] Task two
 - [ ] Task three
-    `.trim();
+  `.trim();
 
-    const existingStates = new Map([
-      ['task one', true],
-      ['task three', true],
-    ]);
+  const existingStates = new Map([
+    ['task one', true],
+    ['task three', true],
+  ]);
 
-    const result = mergeCheckboxStates(newContent, existingStates);
+  const result = mergeCheckboxStates(newContent, existingStates);
 
-    expect(result).toContain('- [x] Task one');
-    expect(result).toContain('- [ ] Task two');
-    expect(result).toContain('- [x] Task three');
-  });
+  assert.ok(result.includes('- [x] Task one'));
+  assert.ok(result.includes('- [ ] Task two'));
+  assert.ok(result.includes('- [x] Task three'));
+});
 
-  it('preserves already checked items in new content', () => {
-    const newContent = `
+test('mergeCheckboxStates: preserves already checked items in new content', () => {
+  const newContent = `
 - [x] Already checked in new content
 - [ ] Unchecked in new
     `.trim();
