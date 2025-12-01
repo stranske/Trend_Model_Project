@@ -121,10 +121,12 @@ def _assert_single_dispatch(
     assert payload["agent"] == "codex"
     assert payload["base"] == "main"
     assert payload["head"]
-    assert payload["comment_id"]
-    assert payload["comment_url"].startswith("https://example.test/")
-    assert payload["trace"], "Dispatch payload must include keepalive trace"
-    assert isinstance(payload["trace"], str)
+    # Check nested meta structure (comment_id, comment_url, round, trace nested under meta)
+    meta = payload.get("meta", {})
+    assert meta.get("comment_id"), "Dispatch payload meta must include comment_id"
+    assert meta.get("comment_url", "").startswith("https://example.test/")
+    assert meta.get("trace"), "Dispatch payload meta must include keepalive trace"
+    assert isinstance(meta.get("trace"), str)
     assert payload.get("quiet") is True
     assert payload.get("reply") == "none"
     instruction_body = payload.get("instruction_body")
@@ -132,9 +134,9 @@ def _assert_single_dispatch(
     assert "Head SHA" not in instruction_body
     assert "Workflow / Job" not in instruction_body
     if round_expected is not None:
-        assert payload["round"] == round_expected
+        assert meta.get("round") == round_expected
     else:
-        assert isinstance(payload["round"], int) and payload["round"] >= 1
+        assert isinstance(meta.get("round"), int) and meta.get("round") >= 1
     return payload
 
 
@@ -174,8 +176,12 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 101, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
-    assert payload["comment_url"].endswith(f"#comment-{created[0]['id']}")
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
+    assert (
+        payload.get("meta", {})
+        .get("comment_url", "")
+        .endswith(f"#comment-{created[0]['id']}")
+    )
 
     reactions = data.get("instruction_reactions", [])
     assert reactions == [{"comment_id": created[0]["id"], "content": "hooray"}]
@@ -246,7 +252,7 @@ def test_keepalive_dedupes_configuration() -> None:
     assert "Codex, 1/1 checklist item" not in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 505, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and any("#505" in entry for entry in details["items"])
@@ -271,7 +277,7 @@ def test_keepalive_waits_for_recent_command() -> None:
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 707, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
@@ -303,7 +309,7 @@ def test_keepalive_respects_paused_label() -> None:
     assert "Codex, 1/1 checklist item" not in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 505, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
 
 def test_keepalive_skips_unapproved_comment_author() -> None:
@@ -346,7 +352,7 @@ def test_keepalive_handles_paged_comments() -> None:
     assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 808, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
     summary = data["summary"]
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
@@ -374,7 +380,7 @@ def test_keepalive_posts_new_comment_for_next_round() -> None:
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 909, round_expected=2)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
@@ -403,7 +409,7 @@ def test_keepalive_upgrades_legacy_comment() -> None:
     assert created[0]["issue_number"] == 909
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 909, round_expected=2)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
     summary = data["summary"]
     raw = _raw_entries(summary)
@@ -435,7 +441,7 @@ def test_keepalive_skips_non_codex_branches() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     payload = _assert_single_dispatch(data, 111, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
     assert payload["head"] == "feature/non-codex-update"
 
 
@@ -462,7 +468,7 @@ def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
     raw = _raw_entries(summary)
     assert "Triggered keepalive count: 1" in raw
     payload = _assert_single_dispatch(data, 101, round_expected=1)
-    assert payload["comment_id"] == created[0]["id"]
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
 
 def test_keepalive_fails_when_required_labels_missing() -> None:

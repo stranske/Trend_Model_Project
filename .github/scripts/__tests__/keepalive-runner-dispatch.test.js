@@ -45,15 +45,25 @@ test('dispatchKeepaliveCommand uses github.getOctokit when available', async () 
     owner: 'stranske',
     repo: 'Trend_Model_Project',
     token: 'token-123',
-    payload: { issue: 99, comment_id: 1 },
+    payload: { issue: 99, comment_id: 1, trace: 'tr123', round: 2 },
   });
 
   assert.equal(events.length, 1);
   assert.equal(events[0].owner, 'stranske');
   assert.equal(events[0].repo, 'Trend_Model_Project');
+  // Verify nested structure to stay under 10 top-level property limit
   assert.deepEqual(events[0].client_payload, {
     issue: 99,
-    comment_id: 1,
+    base: '',
+    head: '',
+    agent: 'codex',
+    instruction_body: '',
+    meta: {
+      comment_id: 1,
+      comment_url: '',
+      round: 2,
+      trace: 'tr123',
+    },
     quiet: true,
     reply: 'none',
   });
@@ -82,7 +92,7 @@ test('dispatchKeepaliveCommand falls back to github.constructor when getOctokit 
     owner: 'owner-co',
     repo: 'repo-co',
     token: 'token-abc',
-    payload: { issue: 100, comment_id: 2 },
+    payload: { issue: 100, comment_id: 2, comment_url: 'https://example.com', trace: 'abc', round: 1 },
   });
 
   assert.equal(events.length, 1);
@@ -91,6 +101,11 @@ test('dispatchKeepaliveCommand falls back to github.constructor when getOctokit 
   assert.equal(events[0].input.repo, 'repo-co');
   assert.equal(events[0].input.client_payload.quiet, true);
   assert.equal(events[0].input.client_payload.reply, 'none');
+  // Verify nested meta structure
+  assert.equal(events[0].input.client_payload.meta.comment_id, 2);
+  assert.equal(events[0].input.client_payload.meta.comment_url, 'https://example.com');
+  assert.equal(events[0].input.client_payload.meta.trace, 'abc');
+  assert.equal(events[0].input.client_payload.meta.round, 1);
 });
 
 test('dispatchKeepaliveCommand throws when token is missing', async () => {
