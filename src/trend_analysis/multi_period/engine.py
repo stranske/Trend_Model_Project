@@ -711,6 +711,18 @@ def run(
         policy_spec: str | Mapping[str, str] | None = None
         cleaned = original_returns
         _missing_summary = None
+        message = (
+            "Missing-data policy skipped: user supplied returns/price_frames with "
+            "no missing_policy or missing_limit configured; raw gaps may remain."
+        )
+        logger.info(message)
+        missing_policy_diagnostic = {
+            "applied": False,
+            "policy": None,
+            "limit": None,
+            "reason": "user_supplied_data_without_policy",
+            "message": message,
+        }
     else:
         policy_spec = missing_policy_cfg or "ffill"
         cleaned, _missing_summary = apply_missing_policy(
@@ -718,6 +730,13 @@ def run(
             policy=policy_spec,
             limit=missing_limit_cfg,
         )
+        missing_policy_diagnostic = {
+            "applied": True,
+            "policy": policy_spec,
+            "limit": missing_limit_cfg,
+            "reason": "configured",
+            "message": None,
+        }
 
     cleaned = cleaned.dropna(how="all")
     if cleaned.empty:
@@ -831,6 +850,7 @@ def run(
                 pt.out_start,
                 pt.out_end,
             )
+            res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
 
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
@@ -1183,6 +1203,7 @@ def run(
                         "score_frame": pd.DataFrame(),
                         "weight_engine_fallback": None,
                         "manager_changes": [],
+                        "missing_policy_diagnostic": dict(missing_policy_diagnostic),
                     },
                 )
             )
@@ -1486,6 +1507,7 @@ def run(
             pt.out_start,
             pt.out_end,
         )
+        res_dict["missing_policy_diagnostic"] = dict(missing_policy_diagnostic)
         # Attach per-period manager change log and execution stats
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
