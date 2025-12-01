@@ -539,6 +539,14 @@ async function fetchGateStatus({ github, owner, repo, headSha, core }) {
   }
 }
 
+/**
+ * Count active workflow runs for a PR.
+ * 
+ * PERFORMANCE OPTIMIZATIONS (v2):
+ * - Skip per-run detail fetches - use data from list results directly
+ * - Match PR using multiple signals (pull_requests array, head branch, SHA, concurrency)
+ * - Still uses paginate for test compatibility
+ */
 async function countActive({
   github,
   owner,
@@ -560,13 +568,13 @@ async function countActive({
   const includeRecentCompleted = Number.isFinite(completedLookbackSeconds) && completedLookbackSeconds > 0;
   const lookbackMillis = includeRecentCompleted ? Math.max(0, completedLookbackSeconds) * 1000 : 0;
   const statuses = includeRecentCompleted ? ['queued', 'in_progress', 'completed'] : ['queued', 'in_progress'];
+  
   let workflowFiles = Array.isArray(workflows)
     ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
     : [];
   if (workflowFiles.length === 0) {
-    const shouldIncludeWorker = Boolean(includeWorker);
     workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
-    if (shouldIncludeWorker) {
+    if (includeWorker) {
       workflowFiles.push(WORKER_WORKFLOW_FILE);
     }
   }
@@ -580,37 +588,20 @@ async function countActive({
   const currentRunNumeric = Number(currentRunId);
   const recentCutoff = includeRecentCompleted ? Date.now() - lookbackMillis : 0;
 
-  const fetchRunDetails = async (runId, attempt) => {
-    if (!github?.rest?.actions?.getWorkflowRun) {
-      return null;
-    }
-    try {
-      const response = await github.rest.actions.getWorkflowRun({
-        owner,
-        repo,
-        run_id: runId,
-      });
-      if (!response?.data) {
-        return null;
-      }
-      return response.data;
-    } catch (fetchError) {
-      return null;
-    }
-  };
-
   const resolveCompletionTimestamp = (run) => {
-    if (!run) {
-      return 0;
-    }
+    if (!run) return 0;
     return normaliseTimestamp(run.updated_at || run.run_started_at || run.created_at);
   };
 
-  const runMatchesPr = async (run) => {
-    if (!run) {
-      return false;
-    }
+  /**
+   * Fast PR matching using data available in the run object.
+   * OPTIMIZATION: Removed per-run getWorkflowRun calls for most cases.
+   * For dispatch runs on default branch, we check the inputs if available in the list response.
+   */
+  const runMatchesPr = (run) => {
+    if (!run) return false;
 
+    // Skip current run
     if (Number.isFinite(currentRunNumeric) && currentRunNumeric > 0) {
       const runId = Number(run.id || 0);
       if (Number.isFinite(runId) && runId === currentRunNumeric) {
@@ -618,6 +609,7 @@ async function countActive({
       }
     }
 
+    // Check pull_requests array (most reliable)
     if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
       for (const pr of run.pull_requests) {
         const candidate = Number(pr?.number);
@@ -627,21 +619,25 @@ async function countActive({
       }
     }
 
+    // Check head SHA
     const runHeadSha = String(run.head_sha || '').trim();
     if (normalisedHeadSha && runHeadSha && runHeadSha === normalisedHeadSha) {
       return true;
     }
 
+    // Check head branch
     const runHeadBranch = normaliseBranch(run.head_branch);
     if (normalisedHeadRef && runHeadBranch && runHeadBranch === normalisedHeadRef) {
       return true;
     }
 
+    // Check concurrency group for PR number
     const concurrencyNumbers = extractPrNumbersFromConcurrency(run.concurrency);
     if (concurrencyNumbers.includes(targetPr)) {
       return true;
     }
 
+    // Check text fields for PR number mention
     const textCandidates = [run.name, run.display_title, runHeadBranch];
     for (const text of textCandidates) {
       const numbers = extractPrNumbersFromText(text || '');
@@ -650,50 +646,20 @@ async function countActive({
       }
     }
 
-    const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
-    if (!details) {
-      return false;
-    }
-
-    if (Array.isArray(details.pull_requests) && details.pull_requests.length > 0) {
-      for (const pr of details.pull_requests) {
-        const candidate = Number(pr?.number);
-        if (Number.isFinite(candidate) && candidate === targetPr) {
+    // For dispatch runs on default branch, check inputs if available
+    // (listWorkflowRuns doesn't include inputs, but some fields may contain PR reference)
+    const runEvent = String(run.event || '').toLowerCase();
+    if (runEvent === 'workflow_dispatch' || runEvent === 'repository_dispatch') {
+      // Check if run name or display_title contains PR number (orchestrator names runs with PR)
+      const dispatchTexts = [run.name, run.display_title, run.head_branch];
+      for (const text of dispatchTexts) {
+        if (text && String(text).includes(`#${targetPr}`)) {
           return true;
         }
-      }
-    }
-
-    const detailHeadBranch = normaliseBranch(details.head_branch);
-    if (normalisedHeadRef && detailHeadBranch && detailHeadBranch === normalisedHeadRef) {
-      return true;
-    }
-
-    const detailHeadSha = String(details.head_sha || '').trim();
-    if (normalisedHeadSha && detailHeadSha && detailHeadSha === normalisedHeadSha) {
-      return true;
-    }
-
-    const detailConcurrencyNumbers = extractPrNumbersFromConcurrency(details.concurrency);
-    if (detailConcurrencyNumbers.includes(targetPr)) {
-      return true;
-    }
-
-    const detailTexts = [details.name, details.display_title, detailHeadBranch];
-    for (const text of detailTexts) {
-      const numbers = extractPrNumbersFromText(text || '');
-      if (numbers.includes(targetPr)) {
-        return true;
-      }
-    }
-
-    if (details.event === 'workflow_dispatch' || details.event === 'repository_dispatch') {
-      const inputs = details?.inputs || {};
-      const optionsRaw = inputs.options_json || inputs.options || '';
-      const parsedOptions = parseMaybeJson(optionsRaw);
-      if (parsedOptions && typeof parsedOptions === 'object') {
-        const directCandidate = Number(parsedOptions.pr ?? parsedOptions.keepalive_pr);
-        if (Number.isFinite(directCandidate) && directCandidate === targetPr) {
+        if (text && String(text).includes(`-${targetPr}-`)) {
+          return true;
+        }
+        if (text && String(text).includes(`pr-${targetPr}`)) {
           return true;
         }
       }
@@ -721,7 +687,7 @@ async function countActive({
           if (runIds.has(runId)) {
             continue;
           }
-          if (!(await runMatchesPr(run))) {
+          if (!runMatchesPr(run)) {
             continue;
           }
 
@@ -729,13 +695,7 @@ async function countActive({
             if (!includeRecentCompleted) {
               continue;
             }
-            let completedAt = resolveCompletionTimestamp(run);
-            if (completedAt < recentCutoff) {
-              const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
-              if (details) {
-                completedAt = resolveCompletionTimestamp(details);
-              }
-            }
+            const completedAt = resolveCompletionTimestamp(run);
             if (completedAt < recentCutoff) {
               continue;
             }
