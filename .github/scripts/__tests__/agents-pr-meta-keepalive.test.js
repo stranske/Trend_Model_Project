@@ -63,8 +63,8 @@ test('automation summary comment is upgraded to next keepalive round', async () 
           if (content === 'eyes') {
             return { status: 201, data: { content: 'eyes' } };
           }
-          if (content === 'dart') {
-            return { status: 201, data: { content: 'dart' } };
+          if (content === 'rocket') {
+            return { status: 201, data: { content: 'rocket' } };
           }
           throw new Error(`Unexpected reaction ${content}`);
         },
@@ -237,8 +237,8 @@ test('manual restated instructions are autopatched to the next round', async () 
           if (content === 'eyes') {
             return { status: 201, data: { content: 'eyes' } };
           }
-          if (content === 'dart') {
-            return { status: 201, data: { content: 'dart' } };
+          if (content === 'rocket') {
+            return { status: 201, data: { content: 'rocket' } };
           }
           throw new Error(`Unexpected reaction ${content}`);
         },
