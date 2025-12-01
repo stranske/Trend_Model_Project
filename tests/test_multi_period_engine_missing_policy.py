@@ -79,6 +79,11 @@ def test_missing_policy_diagnostic_skipped_for_user_supplied_frames(
     assert diag["applied"] is False
     assert diag["reason"] == "user_supplied_data_without_policy"
     assert "Missing-data policy skipped" in caplog.text
+    assert results[0]["missing_policy_applied"] is False
+    assert (
+        results[0]["missing_policy_message"]
+        == "Missing-data policy skipped: user supplied returns/price_frames with no missing_policy or missing_limit configured; raw gaps may remain."
+    )
 
 
 def test_missing_policy_diagnostic_applied_when_configured(
@@ -112,3 +117,5 @@ def test_missing_policy_diagnostic_applied_when_configured(
     assert diag["applied"] is True
     assert diag["policy"] == "bfill"
     assert diag["limit"] is None
+    assert results[0]["missing_policy_applied"] is True
+    assert results[0]["missing_policy_message"] is None

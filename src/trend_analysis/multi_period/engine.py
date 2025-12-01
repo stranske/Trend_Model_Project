@@ -708,19 +708,15 @@ def run(
     )
 
     if skip_missing_policy:
-        logger.info(
-            "Missing-data policy skipped: user-supplied price data without "
-            "missing_policy/missing_limit provided; raw data used.",
-        )
-        policy_spec: str | Mapping[str, str] | None = None
-        missing_policy_reason = "skipped_user_supplied_input"
-        cleaned = original_returns
-        _missing_summary = None
         message = (
             "Missing-data policy skipped: user supplied returns/price_frames with "
             "no missing_policy or missing_limit configured; raw gaps may remain."
         )
         logger.info(message)
+        policy_spec: str | Mapping[str, str] | None = None
+        missing_policy_reason = "skipped_user_supplied_input"
+        cleaned = original_returns
+        _missing_summary = None
         missing_policy_diagnostic = {
             "applied": False,
             "policy": None,
@@ -796,6 +792,7 @@ def run(
         "missing_policy_applied": not skip_missing_policy,
         "missing_policy_reason": missing_policy_reason,
         "missing_policy_spec": policy_spec,
+        "missing_policy_message": missing_policy_diagnostic.get("message"),
     }
 
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
