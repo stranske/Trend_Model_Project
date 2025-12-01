@@ -234,7 +234,7 @@ class DataSettings(BaseModel):
     @classmethod
     def _validate_allow_risk_free_fallback(cls, value: Any) -> bool | None:
         if value in (None, ""):
-            return None
+            return False
         if isinstance(value, bool):
             return value
         raise ValueError(

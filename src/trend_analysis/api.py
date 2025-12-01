@@ -31,6 +31,7 @@ from .pipeline import (
     _resolve_sample_split,
     _run_analysis_with_diagnostics,
 )
+from .util.risk_free import resolve_risk_free_settings
 
 # Back-compat attribute so legacy tests can patch ``api._run_analysis``.
 _run_analysis = _run_analysis_with_diagnostics
@@ -112,8 +113,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
     data_settings = getattr(config, "data", {}) or {}
-    risk_free_column = data_settings.get("risk_free_column")
-    allow_risk_free_fallback = bool(data_settings.get("allow_risk_free_fallback"))
+    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(
+        data_settings
+    )
     max_lag_days = data_settings.get("max_lag_days")
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):

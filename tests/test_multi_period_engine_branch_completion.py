@@ -262,9 +262,10 @@ def test_call_pipeline_with_diag_honors_monkeypatch(
     assert calls, "patched _run_analysis should be invoked"
 
 
-def test_run_defaults_to_risk_free_fallback_when_unset(
+def test_run_defaults_to_risk_free_fallback_disabled_when_unset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify risk-free fallback defaults to False when not explicitly set."""
     cfg = _base_config()
     cfg.portfolio["policy"] = "all"
     captured: dict[str, Any] = {}
@@ -279,7 +280,7 @@ def test_run_defaults_to_risk_free_fallback_when_unset(
     mp_engine.run(cfg, df=_simple_df(), price_frames=None)
 
     assert captured["risk_free_column"] is None
-    assert captured["allow_risk_free_fallback"] is True
+    assert captured["allow_risk_free_fallback"] is False
 
 
 def test_run_respects_explicit_risk_free_preferences(
