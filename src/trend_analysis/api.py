@@ -114,9 +114,9 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     data_settings = getattr(config, "data", {}) or {}
     risk_free_column = data_settings.get("risk_free_column")
     allow_flag = data_settings.get("allow_risk_free_fallback")
-    allow_risk_free_fallback = (
-        False if risk_free_column else bool(allow_flag)
-    )
+    allow_risk_free_fallback = False
+    if not risk_free_column and isinstance(allow_flag, bool):
+        allow_risk_free_fallback = allow_flag
     max_lag_days = data_settings.get("max_lag_days")
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):

@@ -9,6 +9,7 @@ from trend_analysis import api
 from trend_analysis.config import Config
 from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
 from trend_analysis.multi_period import engine as mp_engine
+from trend_analysis.pipeline import _resolve_risk_free_column
 
 
 @dataclass
@@ -136,3 +137,36 @@ def test_entry_points_resolve_risk_free_settings_consistently(
     multi_kwargs = multi_invocations[-1]
     assert multi_kwargs["risk_free_column"] == risk_free_column
     assert multi_kwargs["allow_risk_free_fallback"] is expected_allow
+
+
+def test_missing_risk_free_requires_explicit_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    frame = _make_frame()
+    cfg = _make_single_config(None, None)
+
+    def _run_with_risk_free_check(*_: Any, **kwargs: Any):
+        _resolve_risk_free_column(
+            frame,
+            date_col="Date",
+            indices_list=None,
+            risk_free_column=kwargs.get("risk_free_column"),
+            allow_risk_free_fallback=kwargs.get("allow_risk_free_fallback"),
+        )
+        return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
+
+    monkeypatch.setattr(api, "_run_analysis", _run_with_risk_free_check)
+
+    with pytest.raises(ValueError) as single_err:
+        api.run_simulation(cfg, frame)
+
+    single_message = str(single_err.value)
+
+    multi_cfg = _MultiPeriodDummyConfig()
+    multi_cfg.data = {"date_column": "Date", "frequency": "M"}
+
+    monkeypatch.setattr(mp_engine, "_run_analysis", _run_with_risk_free_check)
+
+    with pytest.raises(ValueError) as multi_err:
+        mp_engine.run(multi_cfg, frame)
+
+    assert str(multi_err.value) == single_message
+    assert "allow_risk_free_fallback" in single_message
