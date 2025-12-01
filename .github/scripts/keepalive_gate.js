@@ -539,6 +539,15 @@ async function fetchGateStatus({ github, owner, repo, headSha, core }) {
   }
 }
 
+/**
+ * Count active workflow runs for a PR.
+ * 
+ * PERFORMANCE OPTIMIZATIONS (v2):
+ * - Query by branch when available (single API call instead of per-status queries)
+ * - Skip per-run detail fetches by using branch/SHA matching from list results
+ * - Limit results to reasonable count (run cap is typically 2-5)
+ * - Use single query without status filter, then filter locally
+ */
 async function countActive({
   github,
   owner,
@@ -559,14 +568,13 @@ async function countActive({
 
   const includeRecentCompleted = Number.isFinite(completedLookbackSeconds) && completedLookbackSeconds > 0;
   const lookbackMillis = includeRecentCompleted ? Math.max(0, completedLookbackSeconds) * 1000 : 0;
-  const statuses = includeRecentCompleted ? ['queued', 'in_progress', 'completed'] : ['queued', 'in_progress'];
+  
   let workflowFiles = Array.isArray(workflows)
     ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
     : [];
   if (workflowFiles.length === 0) {
-    const shouldIncludeWorker = Boolean(includeWorker);
     workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
-    if (shouldIncludeWorker) {
+    if (includeWorker) {
       workflowFiles.push(WORKER_WORKFLOW_FILE);
     }
   }
@@ -580,37 +588,19 @@ async function countActive({
   const currentRunNumeric = Number(currentRunId);
   const recentCutoff = includeRecentCompleted ? Date.now() - lookbackMillis : 0;
 
-  const fetchRunDetails = async (runId, attempt) => {
-    if (!github?.rest?.actions?.getWorkflowRun) {
-      return null;
-    }
-    try {
-      const response = await github.rest.actions.getWorkflowRun({
-        owner,
-        repo,
-        run_id: runId,
-      });
-      if (!response?.data) {
-        return null;
-      }
-      return response.data;
-    } catch (fetchError) {
-      return null;
-    }
-  };
-
   const resolveCompletionTimestamp = (run) => {
-    if (!run) {
-      return 0;
-    }
+    if (!run) return 0;
     return normaliseTimestamp(run.updated_at || run.run_started_at || run.created_at);
   };
 
-  const runMatchesPr = async (run) => {
-    if (!run) {
-      return false;
-    }
+  /**
+   * Fast PR matching without additional API calls.
+   * Only uses data already available in the run object.
+   */
+  const runMatchesPrFast = (run) => {
+    if (!run) return false;
 
+    // Skip current run
     if (Number.isFinite(currentRunNumeric) && currentRunNumeric > 0) {
       const runId = Number(run.id || 0);
       if (Number.isFinite(runId) && runId === currentRunNumeric) {
@@ -618,6 +608,7 @@ async function countActive({
       }
     }
 
+    // Check pull_requests array (most reliable)
     if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
       for (const pr of run.pull_requests) {
         const candidate = Number(pr?.number);
@@ -627,21 +618,25 @@ async function countActive({
       }
     }
 
+    // Check head SHA
     const runHeadSha = String(run.head_sha || '').trim();
     if (normalisedHeadSha && runHeadSha && runHeadSha === normalisedHeadSha) {
       return true;
     }
 
+    // Check head branch
     const runHeadBranch = normaliseBranch(run.head_branch);
     if (normalisedHeadRef && runHeadBranch && runHeadBranch === normalisedHeadRef) {
       return true;
     }
 
+    // Check concurrency group for PR number
     const concurrencyNumbers = extractPrNumbersFromConcurrency(run.concurrency);
     if (concurrencyNumbers.includes(targetPr)) {
       return true;
     }
 
+    // Check text fields for PR number mention
     const textCandidates = [run.name, run.display_title, runHeadBranch];
     for (const text of textCandidates) {
       const numbers = extractPrNumbersFromText(text || '');
@@ -650,105 +645,67 @@ async function countActive({
       }
     }
 
-    const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
-    if (!details) {
-      return false;
-    }
-
-    if (Array.isArray(details.pull_requests) && details.pull_requests.length > 0) {
-      for (const pr of details.pull_requests) {
-        const candidate = Number(pr?.number);
-        if (Number.isFinite(candidate) && candidate === targetPr) {
-          return true;
-        }
-      }
-    }
-
-    const detailHeadBranch = normaliseBranch(details.head_branch);
-    if (normalisedHeadRef && detailHeadBranch && detailHeadBranch === normalisedHeadRef) {
-      return true;
-    }
-
-    const detailHeadSha = String(details.head_sha || '').trim();
-    if (normalisedHeadSha && detailHeadSha && detailHeadSha === normalisedHeadSha) {
-      return true;
-    }
-
-    const detailConcurrencyNumbers = extractPrNumbersFromConcurrency(details.concurrency);
-    if (detailConcurrencyNumbers.includes(targetPr)) {
-      return true;
-    }
-
-    const detailTexts = [details.name, details.display_title, detailHeadBranch];
-    for (const text of detailTexts) {
-      const numbers = extractPrNumbersFromText(text || '');
-      if (numbers.includes(targetPr)) {
-        return true;
-      }
-    }
-
-    if (details.event === 'workflow_dispatch' || details.event === 'repository_dispatch') {
-      const inputs = details?.inputs || {};
-      const optionsRaw = inputs.options_json || inputs.options || '';
-      const parsedOptions = parseMaybeJson(optionsRaw);
-      if (parsedOptions && typeof parsedOptions === 'object') {
-        const directCandidate = Number(parsedOptions.pr ?? parsedOptions.keepalive_pr);
-        if (Number.isFinite(directCandidate) && directCandidate === targetPr) {
-          return true;
-        }
-      }
-    }
-
     return false;
   };
 
+  // OPTIMIZATION: Query by branch if we have headRef, which is faster and more targeted
+  // than querying all runs and filtering. This avoids the need for per-run detail fetches.
   for (const workflowFile of workflowFiles) {
     const label = workflowFile === WORKER_WORKFLOW_FILE ? 'worker' : 'orchestrator';
-    for (const status of statuses) {
-      try {
-        const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
-          owner,
-          repo,
-          workflow_id: workflowFile,
-          status,
-          per_page: 100,
-        }, { core });
-        for (const run of runs) {
-          const runId = Number(run?.id || 0);
-          if (!Number.isFinite(runId) || runId <= 0) {
-            continue;
-          }
-          if (runIds.has(runId)) {
-            continue;
-          }
-          if (!(await runMatchesPr(run))) {
-            continue;
-          }
+    
+    try {
+      // Build query params - use branch filter if available for efficiency
+      const queryParams = {
+        owner,
+        repo,
+        workflow_id: workflowFile,
+        per_page: 30, // Limit results - we only need a few recent runs
+      };
+      
+      // If we have a branch, filter by it to reduce results dramatically
+      if (normalisedHeadRef) {
+        queryParams.branch = normalisedHeadRef;
+      }
 
-          if (status === 'completed') {
-            if (!includeRecentCompleted) {
-              continue;
-            }
-            let completedAt = resolveCompletionTimestamp(run);
-            if (completedAt < recentCutoff) {
-              const details = await fetchRunDetails(Number(run.id || 0), Number(run.run_attempt || 1));
-              if (details) {
-                completedAt = resolveCompletionTimestamp(details);
-              }
-            }
-            if (completedAt < recentCutoff) {
-              continue;
-            }
-          }
+      // Single API call - let GitHub filter, then we filter locally by status
+      const response = await withRateLimitRetry(
+        () => github.rest.actions.listWorkflowRuns(queryParams),
+        { core }
+      );
+      
+      const runs = response?.data?.workflow_runs || [];
+      
+      for (const run of runs) {
+        const runId = Number(run?.id || 0);
+        if (!Number.isFinite(runId) || runId <= 0) continue;
+        if (runIds.has(runId)) continue;
 
-          runIds.add(runId);
-          const bucket = status === 'completed' ? `${label}_recent` : label;
-          breakdown.set(bucket, (breakdown.get(bucket) || 0) + 1);
+        const status = String(run.status || '').toLowerCase();
+        const isActive = status === 'queued' || status === 'in_progress';
+        const isCompleted = status === 'completed';
+
+        // Skip if not active and not tracking recent completed
+        if (!isActive && (!includeRecentCompleted || !isCompleted)) continue;
+
+        // Fast match without additional API calls
+        if (!runMatchesPrFast(run)) continue;
+
+        // For completed runs, check if within recent window
+        if (isCompleted) {
+          const completedAt = resolveCompletionTimestamp(run);
+          if (completedAt < recentCutoff) continue;
         }
-      } catch (err) {
-        if (!error) {
-          error = err instanceof Error ? err.message : String(err);
-        }
+
+        runIds.add(runId);
+        const bucket = isCompleted ? `${label}_recent` : label;
+        breakdown.set(bucket, (breakdown.get(bucket) || 0) + 1);
+      }
+    } catch (err) {
+      if (!error) {
+        error = err instanceof Error ? err.message : String(err);
+      }
+      if (core?.warning) {
+        core.warning(`countActive error for ${workflowFile}: ${error}`);
       }
     }
   }
