@@ -91,7 +91,57 @@ jobs:
               return;
             }
 
-            core.info(`Connector moderation triggered for comment ${comment.id} by @${login}.`);
+            // Check if this comment contains legitimate work content that should be preserved.
+            // Work summaries typically include: checklist updates, code references, commit info,
+            // task completion markers, or substantive status updates.
+            const body = String(comment?.body || '').toLowerCase();
+            const preservePatterns = [
+              /- \[x\]/,                          // Checked checkbox (task completed)
+              /#### (scope|tasks|acceptance)/,   // Checklist section headers
+              /## (summary|status|progress)/,    // Status update headers
+              /commit[s]?\s+[a-f0-9]{7,}/,        // Commit references
+              /\bimplemented\b.*\b(test|fix|add|update)/,  // Implementation language
+              /\bpushed\b.*\bcommit/,             // Pushed commits
+              /\bcompleted\b.*\btask/,            // Task completion
+              /```\w+/,                           // Code blocks
+              /\bfile[s]?\s+changed/i,            // File change summaries
+              /\btest[s]?\s+(pass|fail|added)/i,  // Test status
+            ];
+
+            const hasWorkContent = preservePatterns.some((pattern) => pattern.test(body));
+            if (hasWorkContent) {
+              core.info(`Moderation skipped: comment ${comment.id} contains work content (checklist/commits/code).`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            // Also preserve comments that are substantively long (likely status updates, not noise)
+            const wordCount = body.split(/\s+/).filter(Boolean).length;
+            if (wordCount > 100) {
+              core.info(`Moderation skipped: comment ${comment.id} has ${wordCount} words (likely substantive).`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            // Check for known noise patterns that should be deleted
+            const noisePatterns = [
+              /to use codex here/i,
+              /create a codex account/i,
+              /sign up for codex/i,
+              /codex is not available/i,
+              /unable to process/i,
+              /i cannot initiate/i,
+              /cannot start new/i,
+            ];
+
+            const isNoise = noisePatterns.some((pattern) => pattern.test(body));
+            if (!isNoise) {
+              core.info(`Moderation skipped: comment ${comment.id} does not match known noise patterns.`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            core.info(`Connector moderation triggered for comment ${comment.id} by @${login} (matched noise pattern).`);
             core.setOutput('delete', 'true');
             core.setOutput('comment_id', String(comment.id || ''));
             core.setOutput('author', login);
