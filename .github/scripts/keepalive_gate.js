@@ -594,9 +594,9 @@ async function countActive({
   };
 
   /**
-   * Fast PR matching without additional API calls.
-   * Only uses data already available in the run object.
-   * OPTIMIZATION: Removed per-run getWorkflowRun calls - all matching now done from list data.
+   * Fast PR matching using data available in the run object.
+   * OPTIMIZATION: Removed per-run getWorkflowRun calls for most cases.
+   * For dispatch runs on default branch, we check the inputs if available in the list response.
    */
   const runMatchesPr = (run) => {
     if (!run) return false;
@@ -643,6 +643,25 @@ async function countActive({
       const numbers = extractPrNumbersFromText(text || '');
       if (numbers.includes(targetPr)) {
         return true;
+      }
+    }
+
+    // For dispatch runs on default branch, check inputs if available
+    // (listWorkflowRuns doesn't include inputs, but some fields may contain PR reference)
+    const runEvent = String(run.event || '').toLowerCase();
+    if (runEvent === 'workflow_dispatch' || runEvent === 'repository_dispatch') {
+      // Check if run name or display_title contains PR number (orchestrator names runs with PR)
+      const dispatchTexts = [run.name, run.display_title, run.head_branch];
+      for (const text of dispatchTexts) {
+        if (text && String(text).includes(`#${targetPr}`)) {
+          return true;
+        }
+        if (text && String(text).includes(`-${targetPr}-`)) {
+          return true;
+        }
+        if (text && String(text).includes(`pr-${targetPr}`)) {
+          return true;
+        }
       }
     }
 

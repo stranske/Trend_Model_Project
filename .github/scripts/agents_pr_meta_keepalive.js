@@ -381,15 +381,17 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
 
   // INITIAL ACTIVATION HANDLING:
-  // If no round marker but comment is from an allowed author and contains @codex (or similar),
+  // If no round marker but comment is from an allowed author and starts with @codex,
   // treat it as initial activation (round 1). This handles the case where a human posts
   // "@codex <instructions>" without keepalive markers - we bootstrap the first round.
-  // IMPORTANT: Do NOT treat comments that contain the keepalive instruction signature as initial
+  // IMPORTANT: Only @codex triggers activation (not any @mention like @maintainer).
+  // Do NOT treat comments that contain the keepalive instruction signature as initial
   // activation - those are manual re-posts of existing instructions and should be rejected.
-  const isInitialActivation = !roundMatch && isAuthorAllowed && body && (
-    normaliseBody(body).toLowerCase().startsWith('@codex') ||
-    /^@[a-z0-9_-]+\s/i.test(normaliseBody(body).trim())
-  ) && !isLikelyInstruction(body);
+  const normalisedBody = normaliseBody(body).toLowerCase();
+  const startsWithCodexMention = normalisedBody.startsWith('@codex') && 
+    (normalisedBody.length === 6 || /^@codex[\s,;:!?]/.test(normalisedBody));
+  const isInitialActivation = !roundMatch && isAuthorAllowed && body && 
+    startsWithCodexMention && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
     outputs.reason = 'missing-round';
@@ -397,8 +399,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise(false);
   }
 
-  // For initial activation, we don't require the allowed author check to fail
-  // (it's already checked in isInitialActivation), but we still need an author
+  // For non-initial activation (keepalive round > 1), require authorized author
+  // (initial activation already checks author in isInitialActivation)
   if (!isInitialActivation && !isAuthorAllowed) {
     outputs.reason = 'unauthorised-author';
     core.info(`Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list.`);
