@@ -97,7 +97,8 @@ function computeInstructionByteLength(text) {
 
 const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
 const INSTRUCTION_REACTION = 'hooray';
-const LOCK_REACTION = 'dart';
+// Valid GitHub reactions: +1, -1, laugh, confused, heart, hooray, rocket, eyes
+const LOCK_REACTION = 'rocket';
 
 function normaliseLogin(login) {
   return String(login || '')
