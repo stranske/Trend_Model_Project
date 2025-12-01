@@ -10,6 +10,9 @@ from types import SimpleNamespace
 
 import pytest
 
+# Force serial execution - these tests write to shared files (input.txt, topics.json)
+pytestmark = pytest.mark.serial
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
 TOPICS_PATH = pathlib.Path("topics.json")
