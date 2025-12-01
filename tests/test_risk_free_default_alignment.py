@@ -3,8 +3,8 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import pytest
-from trend.diagnostics import DiagnosticResult
 
+from trend.diagnostics import DiagnosticResult
 from trend_analysis import api
 from trend_analysis.config import Config
 from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
@@ -126,7 +126,9 @@ def test_entry_points_resolve_risk_free_settings_consistently(
 
     multi_invocations: list[dict[str, Any]] = []
 
-    def fake_multi_run(*_: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
+    def fake_multi_run(
+        *_: Any, **kwargs: Any
+    ) -> DiagnosticResult[dict[str, Any] | None]:
         multi_invocations.append(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
@@ -139,7 +141,9 @@ def test_entry_points_resolve_risk_free_settings_consistently(
     assert multi_kwargs["allow_risk_free_fallback"] is expected_allow
 
 
-def test_missing_risk_free_requires_explicit_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_risk_free_requires_explicit_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     frame = _make_frame()
     cfg = _make_single_config(None, None)
 
