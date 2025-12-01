@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import importlib
 import json
 import os
 import sys
@@ -44,7 +45,7 @@ _STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 _PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
 
 
-def _resolve_pipeline() -> Any:
+def _resolve_pipeline(*, fresh: bool = False) -> Any:
     """Return the preferred ``trend_analysis.pipeline`` module.
 
     This first consults the live module cache so tests that swap
@@ -55,7 +56,18 @@ def _resolve_pipeline() -> Any:
     allowing lazy resolution.
     """
 
-    return import_module("trend_analysis.pipeline")
+    module = import_module("trend_analysis.pipeline")
+
+    if fresh:
+        try:
+            module = importlib.reload(module)
+        except Exception:
+            # Best-effort reload; fall back to the already imported module if
+            # reload fails (for example when the module is a stub without a
+            # loader during tests).
+            pass
+
+    return module
 
 
 def _pipeline_proxy_simple() -> bool:
@@ -72,7 +84,7 @@ class _PipelineProxy:
         missing = object()
 
         if _pipeline_proxy_simple():
-            module = _resolve_pipeline()
+            module = _resolve_pipeline(fresh=True)
             attr = getattr(module, name, missing)
 
             if name == "run":

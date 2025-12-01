@@ -31,7 +31,7 @@ def test_pipeline_proxy_falls_back_to_package(monkeypatch):
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", None)
     pkg_module = SimpleNamespace(run=lambda cfg: "pkg")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda: pkg_module)
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: pkg_module)
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
@@ -44,7 +44,7 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda: module)
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: module)
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
@@ -76,7 +76,7 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
         called["gc"] = True
         return []
 
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda: module)
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: module)
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
     monkeypatch.setattr(gc, "get_objects", fake_get_objects)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
@@ -86,6 +86,23 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
 
     assert result == "direct"
     assert called["gc"] is False
+    assert app._PIPELINE_DEBUG[-1][0] == "run"
+
+
+def test_pipeline_proxy_simple_mode_reload_bypasses_patched_module(monkeypatch):
+    patched = ModuleType("trend_analysis.pipeline")
+    patched.run = lambda cfg: "patched"
+    canonical = ModuleType("trend_analysis.pipeline")
+    canonical.run = lambda cfg: "direct"
+
+    monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
+    monkeypatch.setattr(app.importlib, "reload", lambda mod: canonical)
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
+    app._PIPELINE_DEBUG.clear()
+
+    result = app.pipeline.run(object())
+
+    assert result == "direct"
     assert app._PIPELINE_DEBUG[-1][0] == "run"
 
 
