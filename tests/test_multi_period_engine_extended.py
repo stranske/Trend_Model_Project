@@ -1,6 +1,7 @@
 import types
 from typing import Any, Dict, Iterable
 
+import logging
 import numpy as np
 import pandas as pd
 import pytest
@@ -224,3 +225,89 @@ def test_run_combines_price_frames_and_calls_analysis(
         "2020-02-29",
         "2020-02-29",
     )
+
+
+def test_run_marks_missing_policy_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = DummyConfig()
+    cfg.data["missing_policy"] = "bfill"
+
+    df = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")],
+            "FundX": [0.1, np.nan],
+        }
+    )
+
+    periods = [
+        types.SimpleNamespace(
+            in_start="2020-01-31",
+            in_end="2020-01-31",
+            out_start="2020-02-29",
+            out_end="2020-02-29",
+        )
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda *_: periods)
+
+    applied: dict[str, object] = {}
+
+    def fake_apply_missing_policy(frame, *, policy, limit):
+        applied["policy"] = policy
+        applied["limit"] = limit
+        applied["input"] = frame.copy()
+        return frame.fillna(0.0), {"filled": True}
+
+    monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
+
+    captured: list[pd.DataFrame] = []
+
+    def fake_run_analysis(cleaned_df, *_args, **_kwargs):
+        captured.append(cleaned_df.copy())
+        return {"out_ew_stats": {}, "out_user_stats": {}}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    results = engine.run(cfg, df=df)
+
+    assert applied["policy"] == "bfill"
+    assert applied["limit"] is None
+    # Missing values should be filled by the fake policy hook
+    assert captured[0]["FundX"].tolist() == [0.1, 0.0]
+
+    assert results[0]["missing_policy_applied"] is True
+    assert results[0]["missing_policy"] == "bfill"
+    assert results[0]["missing_policy_reason"] is None
+
+
+def test_run_flags_missing_policy_skipped_for_user_data(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    cfg = DummyConfig()
+
+    frames = {
+        "2020-01": _make_price_frame("2020-01-31", {"FundX": 0.1, "FundY": np.nan}),
+    }
+
+    periods = [
+        types.SimpleNamespace(
+            in_start="2020-01-31",
+            in_end="2020-01-31",
+            out_start="2020-01-31",
+            out_end="2020-01-31",
+        )
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda *_: periods)
+
+    def fake_run_analysis(cleaned_df, *_args, **_kwargs):
+        return {"out_ew_stats": {}, "out_user_stats": {}}
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    caplog.set_level(logging.INFO, logger=engine.logger.name)
+
+    results = engine.run(cfg, df=None, price_frames=frames)
+
+    assert results[0]["missing_policy_applied"] is False
+    assert results[0]["missing_policy"] is None
+    assert results[0]["missing_policy_reason"] == "user_supplied_data_no_policy"
+
+    assert "Missing-data policy skipped" in caplog.text

@@ -711,6 +711,10 @@ def run(
         policy_spec: str | Mapping[str, str] | None = None
         cleaned = original_returns
         _missing_summary = None
+        logger.info(
+            "Missing-data policy skipped: user supplied price data without "
+            "missing_policy/missing_limit settings; proceeding with raw frame."
+        )
     else:
         policy_spec = missing_policy_cfg or "ffill"
         cleaned, _missing_summary = apply_missing_policy(
@@ -718,6 +722,10 @@ def run(
             policy=policy_spec,
             limit=missing_limit_cfg,
         )
+    missing_policy_applied = not skip_missing_policy
+    missing_policy_reason = (
+        None if missing_policy_applied else "user_supplied_data_no_policy"
+    )
 
     cleaned = cleaned.dropna(how="all")
     if cleaned.empty:
@@ -831,6 +839,9 @@ def run(
                 pt.out_start,
                 pt.out_end,
             )
+            res_dict["missing_policy_applied"] = missing_policy_applied
+            res_dict["missing_policy"] = policy_spec
+            res_dict["missing_policy_reason"] = missing_policy_reason
 
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
@@ -1164,6 +1175,9 @@ def run(
                             pt.out_start,
                             pt.out_end,
                         ),
+                        "missing_policy_applied": missing_policy_applied,
+                        "missing_policy": policy_spec,
+                        "missing_policy_reason": missing_policy_reason,
                         "selected_funds": [],
                         "in_sample_scaled": pd.DataFrame(),
                         "out_sample_scaled": pd.DataFrame(),
@@ -1486,6 +1500,9 @@ def run(
             pt.out_start,
             pt.out_end,
         )
+        res_dict["missing_policy_applied"] = missing_policy_applied
+        res_dict["missing_policy"] = policy_spec
+        res_dict["missing_policy_reason"] = missing_policy_reason
         # Attach per-period manager change log and execution stats
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover

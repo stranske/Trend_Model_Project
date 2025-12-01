@@ -1,5 +1,7 @@
 """Tests for the :mod:`trend_analysis.typing` module contract."""
 
+import collections.abc
+import types
 from collections import UserDict
 from types import MappingProxyType
 from typing import (
@@ -67,6 +69,23 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     stats_mapping_hint = cast(Any, hints["out_ew_stats"])
     assert stats_mapping_hint == StatsMapping
 
+    assert hints["missing_policy_applied"] is bool
+
+    missing_policy_hint = cast(Any, hints["missing_policy"])
+    assert get_origin(missing_policy_hint) is Union
+    missing_policy_args = set(get_args(missing_policy_hint))
+    assert str in missing_policy_args
+    assert type(None) in missing_policy_args
+    assert any(
+        get_origin(arg) in {Mapping, collections.abc.Mapping}
+        for arg in missing_policy_args
+        if arg is not type(None)
+    )
+
+    missing_reason_hint = cast(Any, hints["missing_policy_reason"])
+    assert get_origin(missing_reason_hint) in {Union, types.UnionType}
+    assert set(get_args(missing_reason_hint)) == {str, type(None)}
+
 
 def test_multi_period_period_result_supports_incremental_population() -> None:
     """Ensure the TypedDict behaves like a mutable dictionary at runtime."""
@@ -82,6 +101,9 @@ def test_multi_period_period_result_supports_incremental_population() -> None:
     result["manager_changes"].append({"added": ["ABC"], "removed": []})
     result["turnover"] = 0.75
     result["cov_diag"] = [0.1, 0.2]
+    result["missing_policy_applied"] = True
+    result["missing_policy"] = "ffill"
+    result["missing_policy_reason"] = None
 
     ew_stats = UserDict({"alpha": 1.0})
     result["out_ew_stats"] = ew_stats
