@@ -130,7 +130,7 @@ def _resolve_risk_free_settings(
     """Determine risk-free column selection and fallback policy."""
 
     if not data_settings:
-        return None, False
+        return None, True
 
     risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
     allow_cfg = data_settings.get("allow_risk_free_fallback")
@@ -141,7 +141,7 @@ def _resolve_risk_free_settings(
     if isinstance(allow_cfg, bool):
         return risk_free_column, allow_cfg
 
-    return risk_free_column, False
+    return risk_free_column, True
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):
