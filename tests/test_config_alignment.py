@@ -111,7 +111,10 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
 
     assert trend_cfg.data.csv_path == core_cfg.data.csv_path
     assert trend_cfg.data.managers_glob == core_cfg.data.managers_glob
-    assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
+    assert (
+        trend_cfg.data.universe_membership_path
+        == core_cfg.data.universe_membership_path
+    )
     assert trend_cfg.data.frequency == core_cfg.data.frequency
     assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
         core_cfg.costs.transaction_cost_bps
@@ -120,4 +123,3 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
     assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
         core_cfg.costs.per_trade_bps
     )
-
