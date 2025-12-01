@@ -1,7 +1,8 @@
-import pandas as pd
-import pytest
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
+
+import pandas as pd
+import pytest
 
 from trend_analysis.multi_period import engine as mp_engine
 
@@ -64,7 +65,9 @@ def test_missing_policy_diagnostic_skipped_for_user_supplied_frames(
         return frame, {"policy": policy, "limit": limit}
 
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_apply_missing_policy)
-    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", lambda *_, **__: _fake_pipeline_result())
+    monkeypatch.setattr(
+        mp_engine, "_call_pipeline_with_diag", lambda *_, **__: _fake_pipeline_result()
+    )
 
     caplog.set_level("INFO")
 
@@ -97,7 +100,9 @@ def test_missing_policy_diagnostic_applied_when_configured(
         return frame.fillna(0.0), {"policy": policy, "limit": limit}
 
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_apply_missing_policy)
-    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", lambda *_, **__: _fake_pipeline_result())
+    monkeypatch.setattr(
+        mp_engine, "_call_pipeline_with_diag", lambda *_, **__: _fake_pipeline_result()
+    )
 
     results = mp_engine.run(cfg, df=df)
 

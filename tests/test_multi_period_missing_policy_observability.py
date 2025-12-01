@@ -51,7 +51,9 @@ class DummyConfig:
         }
 
 
-def test_missing_policy_skip_flag_and_log(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_missing_policy_skip_flag_and_log(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     cfg = DummyConfig()
     df = pd.DataFrame(
         {
@@ -60,7 +62,9 @@ def test_missing_policy_skip_flag_and_log(monkeypatch: pytest.MonkeyPatch, caplo
         }
     )
 
-    def fake_run_analysis(frame: pd.DataFrame, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run_analysis(
+        frame: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> Dict[str, Any]:
         assert frame["Date"].tolist() == [
             pd.Timestamp("2020-01-31"),
             pd.Timestamp("2020-03-31"),
@@ -78,7 +82,9 @@ def test_missing_policy_skip_flag_and_log(monkeypatch: pytest.MonkeyPatch, caplo
         res.get("missing_policy_reason") == "skipped_user_supplied_input"
         for res in results
     )
-    assert any("Missing-data policy skipped" in rec.getMessage() for rec in caplog.records)
+    assert any(
+        "Missing-data policy skipped" in rec.getMessage() for rec in caplog.records
+    )
 
 
 def test_missing_policy_applied_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,7 +98,9 @@ def test_missing_policy_applied_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         }
     )
 
-    def fake_run_analysis(frame: pd.DataFrame, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run_analysis(
+        frame: pd.DataFrame, *args: Any, **kwargs: Any
+    ) -> Dict[str, Any]:
         assert not frame.drop(columns=["Date"]).isna().any().any()
         assert len(frame) == 3
         return {"analysis": "ok"}
