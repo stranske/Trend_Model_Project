@@ -36,6 +36,14 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+# Pre-import modules with lazy loaders to avoid race conditions in xdist parallel execution.
+# The trend_analysis package uses __getattr__ for lazy submodule loading, which can fail
+# when multiple workers try to access submodules concurrently during import.
+try:
+    import trend_analysis.export.bundle  # noqa: F401
+except ImportError:
+    pass  # OK if dependencies not installed
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _autofix_diagnostics_session() -> Iterator[DiagnosticsRecorder]:
