@@ -336,8 +336,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "[autofix-clean] Running clean cosmetic sweep"
-          if [ ! -d tests ]; then
-            echo "[autofix-clean] No tests/ directory detected; skipping"
+          targets=()
+          if [ -d src ]; then
+            targets+=("src")
+          fi
+          if [ -d tests ]; then
+            targets+=("tests")
+          fi
+          if [ ${#targets[@]} -eq 0 ]; then
+            echo "[autofix-clean] No src/ or tests/ directory detected; skipping"
             {
               echo "changed=false"
               echo "remaining_issues=0"
@@ -345,9 +352,10 @@ jobs:
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          ruff check tests --select I --fix --exit-zero
-          ruff check tests --fix --exit-zero
-          black tests || true
+          printf '[autofix-clean] Target directories: %s\n' "${targets[*]}"
+          ruff check "${targets[@]}" --select I --fix --exit-zero
+          ruff check "${targets[@]}" --fix --exit-zero
+          black "${targets[@]}" || true
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -356,30 +364,30 @@ jobs:
           echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
           echo "new_issues=0" >> "$GITHUB_OUTPUT"
           mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
-          outside_tests=()
-          tests_only=()
+          allowed_changes=()
+          other_changes=()
           for path in "${changed_paths[@]}"; do
             if [[ -z "$path" ]]; then
               continue
             fi
-            if [[ "$path" == tests/* ]]; then
-              tests_only+=("$path")
+            if [[ "$path" == tests/* ]] || [[ "$path" == src/* ]]; then
+              allowed_changes+=("$path")
             else
-              outside_tests+=("$path")
+              other_changes+=("$path")
             fi
           done
-          if [ ${#outside_tests[@]} -gt 0 ]; then
+          if [ ${#other_changes[@]} -gt 0 ]; then
             {
-              echo "[autofix-clean] ERROR: clean mode produced non-test changes:" >&2
-              printf '  - %s\n' "${outside_tests[@]}" >&2
+              echo "[autofix-clean] ERROR: clean mode produced changes outside src/ and tests/:" >&2
+              printf '  - %s\n' "${other_changes[@]}" >&2
             }
             exit 1
           fi
-          if [ ${#tests_only[@]} -gt 0 ]; then
-            sorted_tests=$(printf '%s\n' "${tests_only[@]}" | sort -u)
+          if [ ${#allowed_changes[@]} -gt 0 ]; then
+            sorted_changes=$(printf '%s\n' "${allowed_changes[@]}" | sort -u)
             {
               echo "file_list<<AUTOFIX_DELIMITER_$$"
-              printf '%s\n' "$sorted_tests"
+              printf '%s\n' "$sorted_changes"
               echo "AUTOFIX_DELIMITER_$$"
             } >> "$GITHUB_OUTPUT"
           fi
