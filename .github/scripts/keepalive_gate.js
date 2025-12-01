@@ -739,7 +739,7 @@ async function countActive({
           if (runIds.has(runId)) {
             continue;
           }
-          if (!runMatchesPr(run)) {
+          if (!(await runMatchesPr(run))) {
             continue;
           }
 
