@@ -624,6 +624,23 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise();
   }
 
+  // Add agents:activated label on first human activation per GoalsAndPlumbing.md Section 1
+  if (isInitialActivation && prNumber) {
+    try {
+      await github.rest.issues.addLabels({
+        owner,
+        repo,
+        issue_number: prNumber,
+        labels: ['agents:activated'],
+      });
+      core.info(`Added agents:activated label to PR #${prNumber} on initial human activation.`);
+    } catch (error) {
+      // Don't fail the dispatch if label addition fails - it's informational
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`Failed to add agents:activated label to PR #${prNumber}: ${message}`);
+    }
+  }
+
   outputs.dispatch = 'true';
   outputs.reason = 'keepalive-detected';
 

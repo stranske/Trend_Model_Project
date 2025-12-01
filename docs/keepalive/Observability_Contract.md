@@ -36,7 +36,7 @@ This document makes the **decision points observable** and **unskippable**: anyo
 **Labels (control plane)**  
 - `agents:keepalive` — enable keepalive on this PR  
 - `agents:activated` — set (auto) after first human activation  
-- `agents:max-runs:X` — run‑cap override (default 2; clamp 1..5)
+- `agents:max-runs:X` — run‑cap override (default 1; clamp 1..5)
 
 ---
 

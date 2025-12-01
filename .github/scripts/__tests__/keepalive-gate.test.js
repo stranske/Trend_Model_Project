@@ -268,7 +268,6 @@ test('evaluateRunCapForPr enforces cap using default when label absent', async (
   const registry = {
     'agents-70-orchestrator.yml|queued': [
       { id: 801, pull_requests: [{ number: 12 }] },
-      { id: 802, pull_requests: [{ number: 12 }] },
     ],
   };
   const pulls = {
@@ -289,8 +288,8 @@ test('evaluateRunCapForPr enforces cap using default when label absent', async (
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'run-cap-reached');
-  assert.equal(result.runCap, 2);
-  assert.equal(result.activeRuns, 2);
+  assert.equal(result.runCap, 1);
+  assert.equal(result.activeRuns, 1);
 });
 
 test('evaluateRunCapForPr respects labelled cap across successive attempts', async () => {
@@ -311,6 +310,7 @@ test('evaluateRunCapForPr respects labelled cap across successive attempts', asy
     prNumber: 50,
   };
 
+  // Label sets cap to 2 explicitly, overriding the default of 1
   let result = await evaluateRunCapForPr({ ...baseArgs, currentRunId: 900 });
   assert.equal(result.ok, true);
   assert.equal(result.runCap, 2);

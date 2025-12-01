@@ -1119,6 +1119,7 @@ jobs:
             }
 
             const { owner, repo } = context.repo;
+            const currentRunId = context.runId;
             const result = await evaluateRunCapForPr({
               core,
               github,
@@ -1126,6 +1127,7 @@ jobs:
               repo,
               prNumber: prValue,
               includeWorker: false,
+              currentRunId,
             });
 
             const bool = (value) => (value ? 'true' : 'false');
@@ -1981,7 +1983,7 @@ jobs:
                 owner,
                 repo,
                 comment_id: commentId,
-                content: 'dart',
+                content: 'rocket',
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
@@ -2120,7 +2122,7 @@ jobs:
                 comment_id: commentId,
                 per_page: 100,
               });
-              if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'dart')) {
+              if (reactions.some((reaction) => (reaction?.content || '').toLowerCase() === 'rocket')) {
                 acknowledged = true;
                 ackSource = 'reaction';
                 break;
