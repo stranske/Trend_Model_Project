@@ -31,3 +31,4 @@ class MultiPeriodPeriodResult(TypedDict, total=False):
     transaction_cost: float
     cov_diag: CovarianceDiagonal
     cache_stats: StatsMapping
+    missing_policy_applied: bool

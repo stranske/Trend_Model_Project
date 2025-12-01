@@ -31,6 +31,7 @@ def test_multi_period_period_result_schema_matches_expected_contract() -> None:
     assert MultiPeriodPeriodResult.__total__ is False
 
     assert hints["period"] == tuple[str, str, str, str]
+    assert hints["missing_policy_applied"] is bool
 
     def assert_mapping_union(value: object) -> None:
         typed_value = cast(Any, value)

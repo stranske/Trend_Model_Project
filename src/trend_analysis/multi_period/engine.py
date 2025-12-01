@@ -706,8 +706,12 @@ def run(
         and missing_policy_cfg is None
         and missing_limit_cfg is None
     )
+    missing_policy_applied = not skip_missing_policy
 
     if skip_missing_policy:
+        logger.info(
+            "Skipping missing-data policy: user-supplied data without missing_policy/missing_limit"
+        )
         policy_spec: str | Mapping[str, str] | None = None
         cleaned = original_returns
         _missing_summary = None
@@ -831,6 +835,7 @@ def run(
                 pt.out_start,
                 pt.out_end,
             )
+            res_dict["missing_policy_applied"] = missing_policy_applied
 
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
@@ -1183,6 +1188,7 @@ def run(
                         "score_frame": pd.DataFrame(),
                         "weight_engine_fallback": None,
                         "manager_changes": [],
+                        "missing_policy_applied": missing_policy_applied,
                     },
                 )
             )
@@ -1490,6 +1496,7 @@ def run(
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
+        res_dict["missing_policy_applied"] = missing_policy_applied
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights
