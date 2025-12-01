@@ -176,7 +176,7 @@ class DataSettings(BaseModel):
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
-    allow_risk_free_fallback: bool | None = Field(default=None)
+    allow_risk_free_fallback: bool | None = Field(default=False)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -234,7 +234,7 @@ class DataSettings(BaseModel):
     @classmethod
     def _validate_allow_risk_free_fallback(cls, value: Any) -> bool | None:
         if value in (None, ""):
-            return None
+            return False
         if isinstance(value, bool):
             return value
         raise ValueError(
