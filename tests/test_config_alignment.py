@@ -76,3 +76,48 @@ def test_core_config_round_trips_into_trend_config() -> None:
         core_cfg.costs.half_spread_bps
     )
 
+
+def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,Mgr_01\n2024-01-31,1.0\n", encoding="utf-8")
+
+    membership = tmp_path / "universe.csv"
+    membership.write_text("Mgr_01\n", encoding="utf-8")
+
+    managers_dir = tmp_path / "managers"
+    managers_dir.mkdir()
+    manager_path = managers_dir / "mgr_01.csv"
+    manager_path.write_text("Date,Mgr_01\n2024-01-31,1.0\n", encoding="utf-8")
+
+    raw_cfg = {
+        "data": {
+            "csv_path": csv_file.name,
+            "managers_glob": str(managers_dir.relative_to(tmp_path) / "*.csv"),
+            "date_column": "Date",
+            "frequency": "M",
+            "universe_membership_path": membership.name,
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.25,
+            "transaction_cost_bps": 12.5,
+        },
+        "vol_adjust": {"target_vol": 0.1, "floor_vol": 0.0, "warmup_periods": 0},
+    }
+
+    core_cfg = validate_core_config(raw_cfg, base_path=tmp_path)
+    trend_payload = _build_trend_payload(core_cfg, raw_cfg)
+    trend_cfg = validate_trend_config(trend_payload, base_path=tmp_path)
+
+    assert trend_cfg.data.csv_path == core_cfg.data.csv_path
+    assert trend_cfg.data.managers_glob == core_cfg.data.managers_glob
+    assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
+    assert trend_cfg.data.frequency == core_cfg.data.frequency
+    assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
+        core_cfg.costs.transaction_cost_bps
+    )
+    assert trend_cfg.portfolio.cost_model is not None
+    assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
+        core_cfg.costs.per_trade_bps
+    )
+

@@ -34,6 +34,16 @@ model is constructed:
   covering runtime-only options such as calendars, risk targets, and turnover
   controls.
 
+### How the layers map into the full config
+
+| Concern | CoreConfig behaviour | TrendConfig behaviour |
+| --- | --- | --- |
+| Data paths | Resolves `csv_path`, `universe_membership_path`, and `managers_glob` relative to the config file or project root; rejects missing files | Accepts the normalised values from `CoreConfig.to_payload()` and re-validates they point to real files or matching globs using the same base path |
+| Frequency | Normalises to upper-case strings and restricts values to `D`, `W`, `M`, `ME` | Enforces the same allowed set (with `ME` preserved) |
+| Costs | Fills `cost_model` defaults from `transaction_cost_bps` so the payload is always explicit | Reads the explicit values and keeps them non-negative during model validation |
+| Data source selection | Accepts either `csv_path` or `managers_glob` (or both) but requires at least one | Same contract; rejects empty inputs after `CoreConfig` has already normalised them |
+| Risk controls | Not present; only used later in the pipeline | Validates `vol_adjust` and other runtime-only knobs |
+
 ### Invariants to keep aligned
 
 - `data.csv_path` or `data.managers_glob` **must** point to existing files when
@@ -46,6 +56,8 @@ model is constructed:
 - `portfolio.transaction_cost_bps` and every linear `cost_model` field (bps per
   trade, slippage, per-trade bps, half-spread) remain non-negative and must
   round-trip unchanged through `CoreConfig.to_payload()` into `TrendConfig`.
+- Relative paths must resolve to the same absolute targets in both layers when
+  the same `base_path` is supplied.
 
 ### Intentional differences
 
