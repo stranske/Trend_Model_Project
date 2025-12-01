@@ -42,6 +42,7 @@ from ..universe import (
     apply_membership_windows,
 )
 from ..util.missing import apply_missing_policy
+from ..util.risk_free import resolve_risk_free_settings
 from ..weighting import (
     AdaptiveBayesWeighting,
     BaseWeighting,
@@ -122,26 +123,7 @@ def _get_missing_policy_settings(
     if missing_limit_cfg is None:
         missing_limit_cfg = data_settings.get("nan_limit")
     return missing_policy_cfg, missing_limit_cfg
-
-
-def _resolve_risk_free_settings(
-    data_settings: Mapping[str, Any] | None,
-) -> tuple[str | None, bool]:
-    """Determine risk-free column selection and fallback policy."""
-
-    if not data_settings:
-        return None, False
-
-    risk_free_column = cast(str | None, data_settings.get("risk_free_column"))
-    allow_cfg = data_settings.get("allow_risk_free_fallback")
-
-    if risk_free_column:
-        return risk_free_column, False
-
-    if isinstance(allow_cfg, bool):
-        return risk_free_column, allow_cfg
-
-    return risk_free_column, False
+_resolve_risk_free_settings = resolve_risk_free_settings
 
 
 class MissingPriceDataError(FileNotFoundError, ValueError):

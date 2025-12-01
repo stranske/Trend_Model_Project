@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -7,9 +8,11 @@ import pytest
 from trend.diagnostics import DiagnosticResult
 from trend_analysis import api
 from trend_analysis.config import Config
+from trend_analysis.config.model import validate_trend_config
 from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
 from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.pipeline import _resolve_risk_free_column
+from trend_analysis.util.risk_free import resolve_risk_free_settings
 
 
 @dataclass
@@ -174,3 +177,40 @@ def test_missing_risk_free_requires_explicit_flag(
 
     assert str(multi_err.value) == single_message
     assert "allow_risk_free_fallback" in single_message
+
+
+@pytest.mark.parametrize("risk_free_column", [None, "RF"])
+@pytest.mark.parametrize("allow_value, expected", [(None, False), (True, True), (False, False)])
+def test_trend_config_validation_resolves_defaults(
+    allow_value: bool | None,
+    risk_free_column: str | None,
+    expected: bool,
+    tmp_path: Path,
+) -> None:
+    data_section: dict[str, Any] = {"date_column": "Date", "frequency": "M"}
+    if risk_free_column is not None:
+        data_section["risk_free_column"] = risk_free_column
+    if allow_value is not None:
+        data_section["allow_risk_free_fallback"] = allow_value
+
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("Date,AssetA\n2020-01-31,0.0\n")
+    data_section["csv_path"] = csv_path
+
+    cfg = validate_trend_config(
+        {
+            "data": data_section,
+            "portfolio": {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "transaction_cost_bps": 0.0,
+            },
+            "vol_adjust": {"target_vol": 1.0},
+        },
+        base_path=tmp_path,
+    )
+
+    resolved_col, resolved_allow = resolve_risk_free_settings(cfg.data.model_dump())
+    assert resolved_col == risk_free_column
+    expected_allow = False if risk_free_column else expected
+    assert resolved_allow is expected_allow

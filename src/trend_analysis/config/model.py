@@ -176,7 +176,7 @@ class DataSettings(BaseModel):
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
-    allow_risk_free_fallback: bool | None = Field(default=False)
+    allow_risk_free_fallback: bool | None = Field(default=None)
 
     model_config = ConfigDict(extra="ignore")
 
