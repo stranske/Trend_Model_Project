@@ -180,7 +180,9 @@ def test_missing_risk_free_requires_explicit_flag(
 
 
 @pytest.mark.parametrize("risk_free_column", [None, "RF"])
-@pytest.mark.parametrize("allow_value, expected", [(None, False), (True, True), (False, False)])
+@pytest.mark.parametrize(
+    "allow_value, expected", [(None, False), (True, True), (False, False)]
+)
 def test_trend_config_validation_resolves_defaults(
     allow_value: bool | None,
     risk_free_column: str | None,
