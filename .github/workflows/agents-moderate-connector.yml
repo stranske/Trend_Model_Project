@@ -104,8 +104,8 @@ jobs:
               /\bpushed\b.*\bcommit/,             // Pushed commits
               /\bcompleted\b.*\btask/,            // Task completion
               /```\w+/,                           // Code blocks
-              /\bfile[s]?\s+changed/i,            // File change summaries
-              /\btest[s]?\s+(pass|fail|added)/i,  // Test status
+              /\bfile[s]?\s+changed/,            // File change summaries
+              /\btest[s]?\s+(pass|fail|added)/,  // Test status
             ];
 
             const hasWorkContent = preservePatterns.some((pattern) => pattern.test(body));
