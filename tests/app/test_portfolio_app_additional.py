@@ -11,6 +11,7 @@ import trend_portfolio_app.app as app
 
 
 def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", base_module)
     pkg_module = SimpleNamespace(run=lambda cfg: "pkg")
@@ -26,6 +27,7 @@ def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
 
 
 def test_pipeline_proxy_falls_back_to_package(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", None)
     pkg_module = SimpleNamespace(run=lambda cfg: "pkg")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
@@ -37,6 +39,7 @@ def test_pipeline_proxy_falls_back_to_package(monkeypatch):
 
 
 def test_pipeline_proxy_uses_package_attribute(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     module = ModuleType("trend_analysis.pipeline")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
@@ -49,6 +52,7 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
 
 
 def test_pipeline_proxy_handles_gc_errors(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", base_module)
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=base_module))
@@ -60,6 +64,29 @@ def test_pipeline_proxy_handles_gc_errors(monkeypatch):
 
     result = app.pipeline.run(object())
     assert result == "base"
+
+
+def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
+    module = ModuleType("trend_analysis.pipeline")
+    module.run = lambda cfg: "direct"
+
+    called = {"gc": False}
+
+    def fake_get_objects():
+        called["gc"] = True
+        return []
+
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda: module)
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
+    app._PIPELINE_DEBUG.clear()
+
+    result = app.pipeline.run(object())
+
+    assert result == "direct"
+    assert called["gc"] is False
+    assert app._PIPELINE_DEBUG[-1][0] == "run"
 
 
 def test_columns_normalisation_uses_placeholders(monkeypatch):

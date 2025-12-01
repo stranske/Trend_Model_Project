@@ -23,6 +23,7 @@ from trend_analysis.multi_period import run_from_config as run_multi
 from utils.paths import proj_path
 
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
+_PIPELINE_SIMPLE_ENV = "TREND_PIPELINE_PROXY_SIMPLE"
 _STREAMLIT_LOG_PATH: Path | None = None
 
 
@@ -57,10 +58,53 @@ def _resolve_pipeline() -> Any:
     return import_module("trend_analysis.pipeline")
 
 
+def _pipeline_proxy_simple() -> bool:
+    """Return ``True`` when the simple proxy mode is enabled via env flag."""
+
+    flag = os.environ.get(_PIPELINE_SIMPLE_ENV, "")
+    return flag.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class _PipelineProxy:
     """Lazy proxy that favours patched pipeline attributes when reloaded."""
 
     def __getattr__(self, name: str) -> Any:
+        missing = object()
+
+        if _pipeline_proxy_simple():
+            module = _resolve_pipeline()
+            attr = getattr(module, name, missing)
+
+            if name == "run":
+                pkg_module = getattr(_trend_pkg, "pipeline", None)
+                pkg_attr = (
+                    getattr(pkg_module, name, missing)
+                    if pkg_module is not None
+                    else missing
+                )
+                _PIPELINE_DEBUG.append(
+                    (
+                        name,
+                        id(module),
+                        id(pkg_module) if pkg_module is not None else 0,
+                        id(pkg_attr) if pkg_attr is not missing else 0,
+                    )
+                )
+
+            if attr is not missing:
+                return attr
+
+            pkg_module = getattr(_trend_pkg, "pipeline", None)
+            pkg_attr = (
+                getattr(pkg_module, name, missing)
+                if pkg_module is not None
+                else missing
+            )
+            if pkg_attr is not missing:
+                return pkg_attr
+
+            raise AttributeError(name)
+
         # Prefer attributes from the live module object in sys.modules. Tests
         # commonly monkeypatch `trend_analysis.pipeline` in-place, so returning
         # the attribute from the cached module ensures those patches are
@@ -70,7 +114,6 @@ class _PipelineProxy:
         if module is None:
             module = _resolve_pipeline()
 
-        missing = object()
         attr = getattr(module, name, missing)
 
         # Instrumentation for tests — keep a lightweight trace when 'run' is
