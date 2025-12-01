@@ -99,7 +99,7 @@ jobs:
               /- \[x\]/,                          // Checked checkbox (task completed)
               /#### (scope|tasks|acceptance)/,   // Checklist section headers
               /## (summary|status|progress)/,    // Status update headers
-              /commit[s]?\s+[a-f0-9]{7,}/,        // Commit references
+              /commit[s]?\s+[a-f0-9]{7,40}/,        // Commit references
               /\bimplemented\b.{0,100}?\b(test|fix|add|update)/,  // Implementation language
               /\bpushed\b.*\bcommit/,             // Pushed commits
               /\bcompleted\b.*\btask/,            // Task completion
