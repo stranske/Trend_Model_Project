@@ -594,11 +594,68 @@ async function countActive({
   };
 
   /**
-   * Fast PR matching using data available in the run object.
-   * OPTIMIZATION: Removed per-run getWorkflowRun calls for most cases.
-   * For dispatch runs on default branch, we check the inputs if available in the list response.
+   * Fetch workflow run details to access inputs (needed for dispatch events).
+   * Returns null on error to allow graceful degradation.
    */
-  const runMatchesPr = (run) => {
+  const fetchRunDetails = async (runId) => {
+    if (!github?.rest?.actions?.getWorkflowRun) return null;
+    try {
+      const response = await github.rest.actions.getWorkflowRun({
+        owner,
+        repo,
+        run_id: runId,
+      });
+      return response?.data || null;
+    } catch (err) {
+      // Graceful degradation - log but don't fail
+      if (core?.info) {
+        core.info(`fetchRunDetails(${runId}) failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      return null;
+    }
+  };
+
+  /**
+   * Check if dispatch run inputs contain the target PR number.
+   * Orchestrator runs carry PR number in options_json or pr_number inputs.
+   */
+  const checkDispatchInputsForPr = (inputs) => {
+    if (!inputs || typeof inputs !== 'object') return false;
+
+    // Check direct pr_number input
+    const directPr = Number(inputs.pr_number ?? inputs.pr);
+    if (Number.isFinite(directPr) && directPr === targetPr) {
+      return true;
+    }
+
+    // Check options_json which may contain { pr: <number> }
+    const optionsRaw = inputs.options_json || inputs.options || '';
+    const parsedOptions = parseMaybeJson(optionsRaw);
+    if (parsedOptions && typeof parsedOptions === 'object') {
+      const optionsPr = Number(parsedOptions.pr ?? parsedOptions.keepalive_pr);
+      if (Number.isFinite(optionsPr) && optionsPr === targetPr) {
+        return true;
+      }
+    }
+
+    // Check params_json which may also contain PR reference
+    const paramsRaw = inputs.params_json || inputs.params || '';
+    const parsedParams = parseMaybeJson(paramsRaw);
+    if (parsedParams && typeof parsedParams === 'object') {
+      const paramsPr = Number(parsedParams.pr ?? parsedParams.pull_request);
+      if (Number.isFinite(paramsPr) && paramsPr === targetPr) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  /**
+   * PR matching with fast path for most runs + fallback for dispatch events.
+   * OPTIMIZATION: Only fetches run details for dispatch events where inputs are needed.
+   */
+  const runMatchesPr = async (run) => {
     if (!run) return false;
 
     // Skip current run
@@ -646,20 +703,15 @@ async function countActive({
       }
     }
 
-    // For dispatch runs on default branch, check inputs if available
-    // (listWorkflowRuns doesn't include inputs, but some fields may contain PR reference)
+    // For dispatch events, we MUST fetch run details to check inputs.
+    // listWorkflowRuns doesn't expose inputs, but getWorkflowRun does.
+    // This is the only reliable way to detect orchestrator runs for a specific PR.
     const runEvent = String(run.event || '').toLowerCase();
     if (runEvent === 'workflow_dispatch' || runEvent === 'repository_dispatch') {
-      // Check if run name or display_title contains PR number (orchestrator names runs with PR)
-      const dispatchTexts = [run.name, run.display_title, run.head_branch];
-      for (const text of dispatchTexts) {
-        if (text && String(text).includes(`#${targetPr}`)) {
-          return true;
-        }
-        if (text && String(text).includes(`-${targetPr}-`)) {
-          return true;
-        }
-        if (text && String(text).includes(`pr-${targetPr}`)) {
+      const runId = Number(run.id || 0);
+      if (Number.isFinite(runId) && runId > 0) {
+        const details = await fetchRunDetails(runId);
+        if (details?.inputs && checkDispatchInputsForPr(details.inputs)) {
           return true;
         }
       }
