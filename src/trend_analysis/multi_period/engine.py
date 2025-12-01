@@ -708,11 +708,17 @@ def run(
     )
 
     if skip_missing_policy:
+        logger.info(
+            "Missing-data policy skipped: user-supplied price data without "
+            "missing_policy/missing_limit provided; raw data used.",
+        )
         policy_spec: str | Mapping[str, str] | None = None
+        missing_policy_reason = "skipped_user_supplied_input"
         cleaned = original_returns
         _missing_summary = None
     else:
         policy_spec = missing_policy_cfg or "ffill"
+        missing_policy_reason = "applied"
         cleaned, _missing_summary = apply_missing_policy(
             original_returns,
             policy=policy_spec,
@@ -767,6 +773,12 @@ def run(
     }
 
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
+    missing_policy_metadata = {
+        "missing_policy_applied": not skip_missing_policy,
+        "missing_policy_reason": missing_policy_reason,
+        "missing_policy_spec": policy_spec,
+    }
+
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
         periods = generate_periods(cfg.model_dump())
         out_results: List[MultiPeriodPeriodResult] = []
@@ -825,6 +837,7 @@ def run(
                     )
                 continue
             res_dict = dict(payload)
+            res_dict.update(missing_policy_metadata)
             res_dict["period"] = (
                 pt.in_start,
                 pt.in_end,
@@ -1480,6 +1493,7 @@ def run(
                 )
             continue
         res_dict = dict(payload)
+        res_dict.update(missing_policy_metadata)
         res_dict["period"] = (
             pt.in_start,
             pt.in_end,
