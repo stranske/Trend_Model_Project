@@ -38,7 +38,9 @@ def test_turnover_penalty_respects_bounds_and_normalisation() -> None:
 def test_apply_weight_bounds_clamps_and_normalises(
     weights: dict[str, float], min_bound: float, max_bound: float
 ) -> None:
-    bounded = mp_engine._apply_weight_bounds(pd.Series(weights, dtype=float), min_bound, max_bound)
+    bounded = mp_engine._apply_weight_bounds(
+        pd.Series(weights, dtype=float), min_bound, max_bound
+    )
 
     assert bounded.ge(0.0).all()
     assert bounded.between(min_bound - 1e-12, max_bound + 1e-12).all()
@@ -83,7 +85,9 @@ def test_turnover_penalty_shrinks_trades_and_clamps_bounds() -> None:
     assert penalised_turnover <= bounded_turnover + 1e-12
 
 
-def test_fast_turnover_aligns_with_recomputed_history(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fast_turnover_aligns_with_recomputed_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     frames = {
         "2021-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["A", "B"]),
         "2021-02-28": pd.DataFrame({"Sharpe": [0.4, 0.8]}, index=["B", "C"]),
@@ -92,15 +96,23 @@ def test_fast_turnover_aligns_with_recomputed_history(monkeypatch: pytest.Monkey
     class DummySelector:
         column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class DummyWeighting:
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             if selected.empty:
                 return pd.DataFrame(columns=["weight"])
-            base = pd.Series(np.linspace(1.0, 0.6, num=len(selected)), index=selected.index, dtype=float)
+            base = pd.Series(
+                np.linspace(1.0, 0.6, num=len(selected)),
+                index=selected.index,
+                dtype=float,
+            )
             base /= base.sum()
             return base.to_frame("weight")
 
@@ -122,7 +134,9 @@ def test_fast_turnover_aligns_with_recomputed_history(monkeypatch: pytest.Monkey
         series = trades.pop(0)
         return series.copy(), 0.0
 
-    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply_rebalancing_strategies)
+    monkeypatch.setattr(
+        mp_engine, "apply_rebalancing_strategies", fake_apply_rebalancing_strategies
+    )
 
     pf = mp_engine.run_schedule(
         frames,
@@ -162,11 +176,15 @@ def test_fast_turnover_tracks_union_changes_across_periods(
     class DummySelector:
         column = "Sharpe"
 
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class DummyWeighting:
-        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
+        def weight(
+            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
+        ) -> pd.DataFrame:
             del date
             if selected.empty:
                 return pd.DataFrame(columns=["weight"])
@@ -193,7 +211,9 @@ def test_fast_turnover_tracks_union_changes_across_periods(
         series = turnover_path.pop(0)
         return series.copy(), 0.0
 
-    monkeypatch.setattr(mp_engine, "apply_rebalancing_strategies", fake_apply_rebalancing_strategies)
+    monkeypatch.setattr(
+        mp_engine, "apply_rebalancing_strategies", fake_apply_rebalancing_strategies
+    )
 
     pf = mp_engine.run_schedule(
         frames,
@@ -219,4 +239,3 @@ def test_fast_turnover_tracks_union_changes_across_periods(
             )
         assert pf.turnover[date] == pytest.approx(expected)
         previous = weights
-
