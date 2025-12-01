@@ -706,11 +706,18 @@ def run(
         and missing_policy_cfg is None
         and missing_limit_cfg is None
     )
+    missing_policy_applied = not skip_missing_policy
+    missing_policy_reason = "applied"
 
     if skip_missing_policy:
         policy_spec: str | Mapping[str, str] | None = None
         cleaned = original_returns
         _missing_summary = None
+        missing_policy_reason = "skipped_user_supplied_data"
+        logger.info(
+            "Missing-data policy skipped for user-supplied data without explicit "
+            "policy/limit; using raw inputs."
+        )
     else:
         policy_spec = missing_policy_cfg or "ffill"
         cleaned, _missing_summary = apply_missing_policy(
@@ -831,6 +838,8 @@ def run(
                 pt.out_start,
                 pt.out_end,
             )
+            res_dict["missing_policy_applied"] = missing_policy_applied
+            res_dict["missing_policy_reason"] = missing_policy_reason
 
             # (Experimental) attach covariance diag using cache/incremental path for diagnostics.
             # Keeps existing outputs stable; adds optional "cov_diag" key.
@@ -1183,6 +1192,8 @@ def run(
                         "score_frame": pd.DataFrame(),
                         "weight_engine_fallback": None,
                         "manager_changes": [],
+                        "missing_policy_applied": missing_policy_applied,
+                        "missing_policy_reason": missing_policy_reason,
                     },
                 )
             )
@@ -1490,6 +1501,8 @@ def run(
         res_dict["manager_changes"] = events
         res_dict["turnover"] = period_turnover
         res_dict["transaction_cost"] = float(period_cost)
+        res_dict["missing_policy_applied"] = missing_policy_applied
+        res_dict["missing_policy_reason"] = missing_policy_reason
         # Append this period's result (was incorrectly outside loop causing only last period kept)
         results.append(res_dict)
     # Update complete for this period; next loop will use prev_weights

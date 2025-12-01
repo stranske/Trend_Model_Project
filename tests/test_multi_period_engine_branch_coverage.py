@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable
 
@@ -310,6 +311,8 @@ def test_run_loads_csv_and_handles_missing_policy(
     output = mp_engine.run(cfg, df=None)
 
     assert len(output) == 1
+    assert output[0]["missing_policy_applied"] is True
+    assert output[0]["missing_policy_reason"] == "applied"
 
 
 def test_run_load_csv_failure_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -321,7 +324,9 @@ def test_run_load_csv_failure_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         mp_engine.run(cfg, df=None)
 
 
-def test_run_price_frames_skip_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_price_frames_skip_policy(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     cfg = MinimalConfig()
     cfg.portfolio["policy"] = "threshold_hold"
     cfg.portfolio["threshold_hold"]["target_n"] = 1
@@ -355,7 +360,14 @@ def test_run_price_frames_skip_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mp_engine, "EqualWeight", lambda: WeightingStub())
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
+    caplog.set_level(logging.INFO, logger=mp_engine.logger.name)
     results = mp_engine.run(cfg, df=None, price_frames=price_frames)
 
     assert len(results) == 1
     assert results[0]["selected_funds"] == []
+    assert results[0]["missing_policy_applied"] is False
+    assert results[0]["missing_policy_reason"] == "skipped_user_supplied_data"
+    assert any(
+        "Missing-data policy skipped for user-supplied data" in record.message
+        for record in caplog.records
+    )
