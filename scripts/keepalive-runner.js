@@ -370,8 +370,21 @@ async function dispatchKeepaliveCommand({
     throw new Error('Octokit instance missing repos.createDispatchEvent for keepalive dispatch.');
   }
 
+  // GitHub repository_dispatch limits client_payload to 10 top-level properties.
+  // Nest auxiliary data under `meta` to stay within the limit while preserving
+  // backward compatibility by keeping core routing properties at the top level.
   const clientPayload = {
-    ...payload,
+    issue: payload.issue,
+    base: payload.base || '',
+    head: payload.head || '',
+    agent: payload.agent || 'codex',
+    instruction_body: payload.instruction_body || '',
+    meta: {
+      comment_id: payload.comment_id,
+      comment_url: payload.comment_url || '',
+      round: payload.round || 0,
+      trace: payload.trace || '',
+    },
     quiet: true,
     reply: 'none',
   };
@@ -384,7 +397,7 @@ async function dispatchKeepaliveCommand({
   });
 
   core.info(
-    `Emitted repository_dispatch codex-pr-comment-command for PR #${clientPayload.issue} (comment ${clientPayload.comment_id}).`
+    `Emitted repository_dispatch codex-pr-comment-command for PR #${clientPayload.issue} (comment ${clientPayload.meta.comment_id}).`
   );
 }
 
