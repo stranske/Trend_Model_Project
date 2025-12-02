@@ -70,7 +70,7 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
     module = ModuleType("trend_analysis.pipeline")
     module.run = lambda cfg: "direct"
 
-    called = {"gc": False}
+    called = {"gc": False, "imports": 0}
 
     def fake_get_objects():
         called["gc"] = True
@@ -88,10 +88,11 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
 
     assert result == "direct"
     assert called["gc"] is False
+    assert called["imports"] == 1
     assert app._PIPELINE_DEBUG[-1][0] == "run"
 
 
-def test_pipeline_proxy_simple_mode_reload_bypasses_patched_module(monkeypatch):
+def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     patched = ModuleType("trend_analysis.pipeline")
     patched.run = lambda cfg: "patched"
     canonical = ModuleType("trend_analysis.pipeline")
@@ -109,6 +110,9 @@ def test_pipeline_proxy_simple_mode_reload_bypasses_patched_module(monkeypatch):
     result = app.pipeline.run(object())
 
     assert result == "direct"
+    assert sys.modules.get("trend_analysis.pipeline") is canonical
+    assert calls["imports"] == 1
+    assert calls.get("gc", False) is False
     assert app._PIPELINE_DEBUG[-1][0] == "run"
     assert sys.modules["trend_analysis.pipeline"] is canonical
 
