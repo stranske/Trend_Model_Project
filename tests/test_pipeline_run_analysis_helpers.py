@@ -213,6 +213,9 @@ def test_select_universe_rejects_unknown_indices() -> None:
     }
 
 
+# Tests that monkeypatch pipeline functions must run serially to avoid
+# interfering with parallel test execution.
+@pytest.mark.serial
 def test_compute_weights_and_stats_produces_metrics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -287,6 +290,7 @@ def test_compute_weights_and_stats_produces_metrics(
     )
 
 
+@pytest.mark.serial
 def test_compute_weights_scopes_signal_inputs_to_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -384,6 +388,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
     assert observed["max"] == window.out_df.index.max()
 
 
+@pytest.mark.serial
 def test_compute_weights_rejects_out_of_window_signal_dates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -469,6 +474,7 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
         )
 
 
+@pytest.mark.serial
 def test_assemble_analysis_output_wraps_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

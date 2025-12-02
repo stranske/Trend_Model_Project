@@ -406,6 +406,8 @@ def test_run_analysis_injects_avg_corr_metric():
     assert score_frame["AvgCorr"].notna().all()
 
 
+# Tests that monkeypatch pipeline functions must run serially.
+@pytest.mark.serial
 def test_run_analysis_benchmark_ir_fallback(monkeypatch):
     df = _make_two_fund_df()
     df["SPX"] = 0.01
