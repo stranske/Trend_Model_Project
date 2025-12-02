@@ -70,13 +70,19 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
     module = ModuleType("trend_analysis.pipeline")
     module.run = lambda cfg: "direct"
 
-    called = {"gc": False}
+    called = {"gc": False, "imports": 0}
 
     def fake_get_objects():
         called["gc"] = True
         return []
 
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: module)
+    def fake_resolve(*, fresh: bool = False, simple: bool = False):
+        called["imports"] += 1
+        assert simple is True
+        assert fresh is True
+        return module
+
+    monkeypatch.setattr(app, "_resolve_pipeline", fake_resolve)
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
     monkeypatch.setattr(gc, "get_objects", fake_get_objects)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
@@ -86,23 +92,37 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
 
     assert result == "direct"
     assert called["gc"] is False
+    assert called["imports"] == 1
     assert app._PIPELINE_DEBUG[-1][0] == "run"
 
 
-def test_pipeline_proxy_simple_mode_reload_bypasses_patched_module(monkeypatch):
+def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     patched = ModuleType("trend_analysis.pipeline")
     patched.run = lambda cfg: "patched"
     canonical = ModuleType("trend_analysis.pipeline")
     canonical.run = lambda cfg: "direct"
 
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
-    monkeypatch.setattr(app.importlib, "reload", lambda mod: canonical)
+
+    calls: dict[str, object] = {"imports": 0, "gc": False}
+
+    def fake_import_module(name: str):
+        calls["imports"] = calls.get("imports", 0) + 1
+        assert name == "trend_analysis.pipeline"
+        sys.modules[name] = canonical
+        return canonical
+
+    monkeypatch.setattr(app, "import_module", fake_import_module)
+    monkeypatch.setattr(gc, "get_objects", lambda: (_ for _ in ()).throw(RuntimeError()))
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
     app._PIPELINE_DEBUG.clear()
 
     result = app.pipeline.run(object())
 
     assert result == "direct"
+    assert sys.modules.get("trend_analysis.pipeline") is canonical
+    assert calls["imports"] == 1
+    assert calls.get("gc", False) is False
     assert app._PIPELINE_DEBUG[-1][0] == "run"
 
 

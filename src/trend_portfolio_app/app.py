@@ -45,7 +45,7 @@ _STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 _PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
 
 
-def _resolve_pipeline(*, fresh: bool = False) -> Any:
+def _resolve_pipeline(*, fresh: bool = False, simple: bool = False) -> Any:
     """Return the preferred ``trend_analysis.pipeline`` module.
 
     This first consults the live module cache so tests that swap
@@ -56,7 +56,16 @@ def _resolve_pipeline(*, fresh: bool = False) -> Any:
     allowing lazy resolution.
     """
 
-    module = import_module("trend_analysis.pipeline")
+    module_name = "trend_analysis.pipeline"
+
+    if simple:
+        # Bypass any patched module objects in ``sys.modules`` to fetch the
+        # canonical pipeline module directly.
+        if fresh:
+            sys.modules.pop(module_name, None)
+        return import_module(module_name)
+
+    module = import_module(module_name)
 
     if fresh:
         try:
@@ -84,7 +93,7 @@ class _PipelineProxy:
         missing = object()
 
         if _pipeline_proxy_simple():
-            module = _resolve_pipeline(fresh=True)
+            module = _resolve_pipeline(fresh=True, simple=True)
             attr = getattr(module, name, missing)
 
             if name == "run":
