@@ -2086,7 +2086,7 @@ jobs:
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
             let ref = (process.env.TARGET_REF || '').trim();
             if (!ref) {
-              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+              ref = context.payload?.repository?.default_branch || 'main';
             }
             ref = ref.replace(/^refs\/heads\//, '');
 
@@ -2167,7 +2167,7 @@ jobs:
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
             let ref = (process.env.REF || '').trim();
             if (!ref) {
-              ref = context.payload?.repository?.default_branch || 'phase-2-dev';
+              ref = context.payload?.repository?.default_branch || 'main';
             }
             const dispatchedAt = Date.parse(process.env.DISPATCHED_AT || new Date().toISOString());
             const timeoutMs = (Number(process.env.TIMEOUT_SECONDS) || 600) * 1000;

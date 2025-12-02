@@ -43,7 +43,7 @@ command. Downstream repositories can reuse it directly:
 ```yaml
 jobs:
   docker-smoke:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-12-ci-docker.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-12-ci-docker.yml@main
 ```
 
 No inputs are required; extend by forking the workflow and layering additional
@@ -77,7 +77,7 @@ JSON
 export GITHUB_TOKEN="$(gh auth token)"  # Token must allow workflow dispatch
 
 gh workflow run agents-70-orchestrator.yml \
-  --ref phase-2-dev \
+  --ref main \
   --raw-field params_json="$(cat orchestrator.json)"
 ```
 
@@ -113,7 +113,7 @@ Artifact downloads remain optional (`enable_history`), and the comment/summary
 titles plus dispatch reason can be customised to document ad-hoc runs.
 
 ## Adoption Notes
-1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@phase-2-dev` in external repos.
+1. Reference the files directly via `uses: stranske/Trend_Model_Project/.github/workflows/<file>@main` in external repos.
 2. Pin versions or branch references explicitly; do not rely on floating defaults.
 3. When adopting the agents toolkit, point automation at `agents-70-orchestrator.yml`. Historical consumer wrappers were removed;
    consult [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md) only if you need the retirement log.

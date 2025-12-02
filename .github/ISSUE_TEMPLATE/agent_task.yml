@@ -41,7 +41,7 @@ body:
     attributes:
       label: Target base branch
       description: Branch Codex should use when creating the PR (defaults to the repo default branch).
-      placeholder: phase-2-dev
+      placeholder: main
   - type: textarea
     id: notes
     attributes:
