@@ -79,7 +79,7 @@ workflow files.
 | `maint-keepalive.yml` | schedule (17 */12 * * *), workflow_dispatch | Posts an Ops heartbeat comment with a UTC timestamp so scheduled runs leave an observable trace.
 | `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; defaults to verify-only mode and escalates to enforce+verify when `BRANCH_PROTECTION_TOKEN` is present while keeping a single failure tracker issue current.
 | `health-42-actionlint.yml` | pull_request (workflows), push (`main`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
-| `health-43-ci-signature-guard.yml` | pull_request/push (`main`) | Validates the signed job manifest for `pr-00-gate.yml`.
+| `health-43-ci-signature-guard.yml` | pull_request/push (`main`, `phase-2-dev`) | Validates the signed job manifest for `pr-00-gate.yml`.
 | `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the orchestrator. |
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift. |
 | `agents-71-codex-belt-dispatcher.yml` | schedule (*/30), workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, prepares the `codex/issue-*` branch, and dispatches the worker. |
