@@ -97,8 +97,10 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
 
 
 def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
-    # Save original module to restore later - critical for test isolation
-    original_pipeline = sys.modules.get("trend_analysis.pipeline")
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
 
     patched = ModuleType("trend_analysis.pipeline")
     patched.run = lambda cfg: "patched"
@@ -111,7 +113,7 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
 
     def import_module_stub(mod: str):
         called["imports"] += 1
-        sys.modules[mod] = canonical
+        monkeypatch.setitem(sys.modules, mod, canonical)
         return canonical
 
     def fake_get_objects():
@@ -133,18 +135,22 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
         assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
         assert sys.modules["trend_analysis.pipeline"] is canonical
     finally:
-        # Restore original module to prevent test pollution
-        if original_pipeline is not None:
-            sys.modules["trend_analysis.pipeline"] = original_pipeline
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
 def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
+
     canonical = ModuleType("trend_analysis.pipeline")
     call_count = {"imports": 0}
 
     def import_module_stub(mod: str):
         call_count["imports"] += 1
-        sys.modules[mod] = canonical
+        monkeypatch.setitem(sys.modules, mod, canonical)
         return canonical
 
     def fake_get_objects():
@@ -158,33 +164,38 @@ def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
     app._SIMPLE_PIPELINE_CACHE = None
 
-    first = app.pipeline.run(object())
-    second = app.pipeline.run(object())
+    try:
+        first = app.pipeline.run(object())
+        second = app.pipeline.run(object())
 
-    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
-    patched = ModuleType("trend_analysis.pipeline")
-    patched.run = lambda cfg: "patched"
-    sys.modules["trend_analysis.pipeline"] = patched
+        monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+        patched = ModuleType("trend_analysis.pipeline")
+        patched.run = lambda cfg: "patched"
+        monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
 
-    default_result = app.pipeline.run(object())
+        default_result = app.pipeline.run(object())
 
-    assert first == "direct"
-    assert second == "direct"
-    assert call_count["imports"] == 1
-    assert default_result == "patched"
-    assert app._SIMPLE_PIPELINE_CACHE is None
+        assert first == "direct"
+        assert second == "direct"
+        assert call_count["imports"] == 1
+        assert default_result == "patched"
+        assert app._SIMPLE_PIPELINE_CACHE is None
+    finally:
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
 def test_pipeline_proxy_switches_between_modes(monkeypatch):
-    # Save original module to restore later
-    original_pipeline = sys.modules.get("trend_analysis.pipeline")
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
 
     canonical = ModuleType("trend_analysis.pipeline")
     canonical.run = lambda cfg: "direct"
 
     def resolve_stub(*, fresh=False, simple=False):
-        # Use monkeypatch.setitem pattern to track changes
-        sys.modules["trend_analysis.pipeline"] = canonical
+        monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", canonical)
         return canonical
 
     patched = ModuleType("trend_analysis.pipeline")
@@ -207,12 +218,8 @@ def test_pipeline_proxy_switches_between_modes(monkeypatch):
         assert app._PIPELINE_DEBUG[-2][:2] == ("run", True)
         assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
     finally:
-        # Restore original module to prevent test pollution
-        if original_pipeline is not None:
-            sys.modules["trend_analysis.pipeline"] = original_pipeline
-        elif "trend_analysis.pipeline" in sys.modules:
-            # Only remove if we added it and it wasn't there before
-            pass  # Keep whatever was set during the test
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
 def test_columns_normalisation_uses_placeholders(monkeypatch):
