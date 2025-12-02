@@ -66,14 +66,18 @@ class _FixedWeighting(BaseWeighting):
         self._sequences = sequences
         self._call = 0
 
-    def weight(self, selected: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:  # pragma: no cover - simple
+    def weight(
+        self, selected: pd.DataFrame, date: pd.Timestamp
+    ) -> pd.DataFrame:  # pragma: no cover - simple
         del selected, date
         series = self._sequences[self._call]
         self._call += 1
         return series.to_frame("weight")
 
 
-def test_fast_turnover_matches_recomputed_history(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fast_turnover_matches_recomputed_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Fast turnover path should agree with recomputed turnover history."""
 
     frames = {
@@ -107,7 +111,9 @@ def test_fast_turnover_matches_recomputed_history(monkeypatch: pytest.MonkeyPatc
     )
 
     class DummySelector:
-        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(
+            self, score_frame: pd.DataFrame
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     weighting = _FixedWeighting(returned)
