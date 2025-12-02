@@ -23,7 +23,7 @@ def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
 
     result = app.pipeline.run(object())
     assert result == "patched"
-    assert app._PIPELINE_DEBUG[-1][0] == "run"
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
 
 
 def test_pipeline_proxy_falls_back_to_package(monkeypatch):
@@ -93,7 +93,7 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
     assert result == "direct"
     assert called["gc"] is False
     assert called["imports"] == 1
-    assert app._PIPELINE_DEBUG[-1][0] == "run"
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
 
 
 def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
@@ -126,7 +126,7 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     assert sys.modules.get("trend_analysis.pipeline") is canonical
     assert called["imports"] == 1
     assert called.get("gc", False) is False
-    assert app._PIPELINE_DEBUG[-1][0] == "run"
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
     assert sys.modules["trend_analysis.pipeline"] is canonical
 
 

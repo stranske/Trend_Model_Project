@@ -42,7 +42,7 @@ def _ensure_streamlit_logging() -> Path | None:
 
 _STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 
-_PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
+_PIPELINE_DEBUG: list[tuple[str, bool, int, int, int]] = []
 
 
 def _resolve_pipeline(*, fresh: bool = False, simple: bool = False) -> Any:
@@ -103,6 +103,7 @@ class _PipelineProxy:
                 _PIPELINE_DEBUG.append(
                     (
                         name,
+                        True,
                         id(module),
                         id(pkg_module) if pkg_module is not None else 0,
                         id(pkg_attr) if pkg_attr is not missing else 0,
@@ -146,6 +147,7 @@ class _PipelineProxy:
             _PIPELINE_DEBUG.append(
                 (
                     name,
+                    False,
                     id(module),
                     id(pkg_module) if pkg_module is not None else 0,
                     id(pkg_attr) if pkg_attr is not missing else 0,
