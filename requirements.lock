@@ -145,7 +145,7 @@ mccabe==0.7.0
     # via flake8
 multimethod==1.10
     # via pandera
-mypy==1.18.2
+mypy==1.19.0
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -251,7 +251,7 @@ pytest-cov==7.0.0
     # via trend-model (pyproject.toml)
 pytest-rerunfailures==16.1
     # via trend-model (pyproject.toml)
-pytest-xdist==3.6.1
+pytest-xdist==3.8.0
     # via trend-model (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
@@ -280,7 +280,7 @@ rpds-py==0.28.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.14.6
+ruff==0.14.7
     # via trend-model (pyproject.toml)
 scipy==1.16.3
     # via trend-model (pyproject.toml)
