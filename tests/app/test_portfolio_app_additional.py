@@ -130,6 +130,34 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     assert sys.modules["trend_analysis.pipeline"] is canonical
 
 
+def test_pipeline_proxy_switches_between_modes(monkeypatch):
+    canonical = ModuleType("trend_analysis.pipeline")
+    canonical.run = lambda cfg: "direct"
+
+    def resolve_stub(*, fresh=False, simple=False):
+        sys.modules["trend_analysis.pipeline"] = canonical
+        return canonical
+
+    patched = ModuleType("trend_analysis.pipeline")
+    patched.run = lambda cfg: "patched"
+
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=canonical))
+    monkeypatch.setattr(app, "_resolve_pipeline", resolve_stub)
+    monkeypatch.setattr(gc, "get_objects", lambda: [patched])
+    app._PIPELINE_DEBUG.clear()
+
+    simple_result = app.pipeline.run(object())
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+
+    default_result = app.pipeline.run(object())
+
+    assert simple_result == "direct"
+    assert default_result == "patched"
+    assert app._PIPELINE_DEBUG[-2][:2] == ("run", True)
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
+
+
 def test_columns_normalisation_uses_placeholders(monkeypatch):
     class StubColumns:
         def __call__(self, spec):
