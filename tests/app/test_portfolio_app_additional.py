@@ -131,10 +131,14 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
 
 
 def test_pipeline_proxy_switches_between_modes(monkeypatch):
+    # Save original module to restore later
+    original_pipeline = sys.modules.get("trend_analysis.pipeline")
+
     canonical = ModuleType("trend_analysis.pipeline")
     canonical.run = lambda cfg: "direct"
 
     def resolve_stub(*, fresh=False, simple=False):
+        # Use monkeypatch.setitem pattern to track changes
         sys.modules["trend_analysis.pipeline"] = canonical
         return canonical
 
@@ -147,15 +151,23 @@ def test_pipeline_proxy_switches_between_modes(monkeypatch):
     monkeypatch.setattr(gc, "get_objects", lambda: [patched])
     app._PIPELINE_DEBUG.clear()
 
-    simple_result = app.pipeline.run(object())
-    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+    try:
+        simple_result = app.pipeline.run(object())
+        monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
 
-    default_result = app.pipeline.run(object())
+        default_result = app.pipeline.run(object())
 
-    assert simple_result == "direct"
-    assert default_result == "patched"
-    assert app._PIPELINE_DEBUG[-2][:2] == ("run", True)
-    assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
+        assert simple_result == "direct"
+        assert default_result == "patched"
+        assert app._PIPELINE_DEBUG[-2][:2] == ("run", True)
+        assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
+    finally:
+        # Restore original module to prevent test pollution
+        if original_pipeline is not None:
+            sys.modules["trend_analysis.pipeline"] = original_pipeline
+        elif "trend_analysis.pipeline" in sys.modules:
+            # Only remove if we added it and it wasn't there before
+            pass  # Keep whatever was set during the test
 
 
 def test_columns_normalisation_uses_placeholders(monkeypatch):
