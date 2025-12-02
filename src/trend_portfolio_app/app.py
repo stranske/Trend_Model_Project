@@ -26,6 +26,7 @@ from utils.paths import proj_path
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
 _PIPELINE_SIMPLE_ENV = "TREND_PIPELINE_PROXY_SIMPLE"
 _STREAMLIT_LOG_PATH: Path | None = None
+_SIMPLE_PIPELINE_CACHE: types.ModuleType | None = None
 
 
 def _ensure_streamlit_logging() -> Path | None:
@@ -58,9 +59,21 @@ def _resolve_pipeline(*, fresh: bool = False, simple: bool = False) -> Any:
     allowing lazy resolution.
     """
 
+    global _SIMPLE_PIPELINE_CACHE
+
+    # When simple mode is disabled, drop any cached module to avoid reusing a
+    # direct-imported pipeline after switching back to the GC-scanning path.
+    if not simple:
+        _SIMPLE_PIPELINE_CACHE = None
+
     if simple:
+        if _SIMPLE_PIPELINE_CACHE is not None:
+            return _SIMPLE_PIPELINE_CACHE
+
         sys.modules.pop("trend_analysis.pipeline", None)
-        return import_module("trend_analysis.pipeline")
+        module = import_module("trend_analysis.pipeline")
+        _SIMPLE_PIPELINE_CACHE = module
+        return module
 
     module = import_module("trend_analysis.pipeline")
 
@@ -87,6 +100,7 @@ class _PipelineProxy:
     """Lazy proxy that favours patched pipeline attributes when reloaded."""
 
     def __getattr__(self, name: str) -> Any:
+        global _SIMPLE_PIPELINE_CACHE
         missing = object()
 
         if _pipeline_proxy_simple():
@@ -123,6 +137,11 @@ class _PipelineProxy:
                 return pkg_attr
 
             raise AttributeError(name)
+
+        # Simple mode is disabled; ensure any cached simple-mode module is
+        # cleared so switching back to the default path prefers patched
+        # GC-scanned modules.
+        _SIMPLE_PIPELINE_CACHE = None
 
         # Prefer attributes from the live module object in sys.modules. Tests
         # commonly monkeypatch `trend_analysis.pipeline` in-place, so returning

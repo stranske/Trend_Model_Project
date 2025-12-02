@@ -130,6 +130,43 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     assert sys.modules["trend_analysis.pipeline"] is canonical
 
 
+def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
+    canonical = ModuleType("trend_analysis.pipeline")
+    call_count = {"imports": 0}
+
+    def import_module_stub(mod: str):
+        call_count["imports"] += 1
+        sys.modules[mod] = canonical
+        return canonical
+
+    def fake_get_objects():
+        raise AssertionError("GC scanning should not be invoked in simple mode")
+
+    canonical.run = lambda cfg: "direct"
+
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "yes")
+    monkeypatch.setattr(app, "import_module", import_module_stub)
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
+    app._SIMPLE_PIPELINE_CACHE = None
+
+    first = app.pipeline.run(object())
+    second = app.pipeline.run(object())
+
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+    patched = ModuleType("trend_analysis.pipeline")
+    patched.run = lambda cfg: "patched"
+    sys.modules["trend_analysis.pipeline"] = patched
+
+    default_result = app.pipeline.run(object())
+
+    assert first == "direct"
+    assert second == "direct"
+    assert call_count["imports"] == 1
+    assert default_result == "patched"
+    assert app._SIMPLE_PIPELINE_CACHE is None
+
+
 def test_pipeline_proxy_switches_between_modes(monkeypatch):
     # Save original module to restore later
     original_pipeline = sys.modules.get("trend_analysis.pipeline")
