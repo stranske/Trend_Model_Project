@@ -3,6 +3,7 @@ import warnings
 import pandas as pd
 import pytest
 
+from trend_analysis import pipeline as pipeline_module
 from trend_analysis.pipeline import (
     PipelineReasonCode,
     PipelineResult,
@@ -228,9 +229,7 @@ def test_compute_weights_and_stats_produces_metrics(
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(
-        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
-    )
+    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
@@ -313,9 +312,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(
-        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
-    )
+    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
 
     observed: dict[str, pd.Timestamp] = {}
 
@@ -401,9 +398,7 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(
-        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
-    )
+    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
@@ -487,9 +482,7 @@ def test_assemble_analysis_output_wraps_success(
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(
-        "trend_analysis.pipeline.single_period_run", _fake_single_period_run
-    )
+    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
