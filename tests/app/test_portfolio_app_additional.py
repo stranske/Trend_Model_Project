@@ -44,7 +44,9 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False, simple=False: module)
+    monkeypatch.setattr(
+        app, "_resolve_pipeline", lambda fresh=False, simple=False: module
+    )
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
@@ -99,6 +101,7 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     canonical.run = lambda cfg: "direct"
 
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
+
     def import_module_stub(mod: str):
         sys.modules[mod] = canonical
         return canonical
