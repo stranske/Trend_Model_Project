@@ -10,6 +10,9 @@ import pytest
 import trend_portfolio_app.app as app
 
 
+# Pipeline proxy tests modify sys.modules which can interfere with parallel tests.
+# Mark them serial to run in dedicated worker group.
+@pytest.mark.serial
 def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
     monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
@@ -26,6 +29,7 @@ def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
     assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_falls_back_to_package(monkeypatch):
     monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", None)
@@ -38,6 +42,7 @@ def test_pipeline_proxy_falls_back_to_package(monkeypatch):
     assert result == "pkg"
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     module = ModuleType("trend_analysis.pipeline")
@@ -53,6 +58,7 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     assert result == "package"
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_handles_gc_errors(monkeypatch):
     monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
@@ -68,6 +74,7 @@ def test_pipeline_proxy_handles_gc_errors(monkeypatch):
     assert result == "base"
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
     module = ModuleType("trend_analysis.pipeline")
     module.run = lambda cfg: "direct"
@@ -96,6 +103,7 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
     assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     # Import the real module and save it for cleanup
     from importlib import import_module as real_import_module
@@ -139,6 +147,7 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
         sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
     # Import the real module and save it for cleanup
     from importlib import import_module as real_import_module
@@ -185,6 +194,7 @@ def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
         sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_switches_between_modes(monkeypatch):
     # Import the real module and save it for cleanup
     from importlib import import_module as real_import_module
