@@ -78,9 +78,11 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
         called["gc"] = True
         return []
 
-    monkeypatch.setattr(
-        app, "_resolve_pipeline", lambda fresh=False, simple=False: module
-    )
+    def resolve_stub(*, fresh=False, simple=False):
+        called["imports"] += 1
+        return module
+
+    monkeypatch.setattr(app, "_resolve_pipeline", resolve_stub)
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
     monkeypatch.setattr(gc, "get_objects", fake_get_objects)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
@@ -102,11 +104,19 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
 
+    called = {"gc": False, "imports": 0}
+
     def import_module_stub(mod: str):
+        called["imports"] += 1
         sys.modules[mod] = canonical
         return canonical
 
+    def fake_get_objects():
+        called["gc"] = True
+        return []
+
     monkeypatch.setattr(app, "import_module", import_module_stub)
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
     app._PIPELINE_DEBUG.clear()
 
@@ -114,8 +124,8 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
 
     assert result == "direct"
     assert sys.modules.get("trend_analysis.pipeline") is canonical
-    assert calls["imports"] == 1
-    assert calls.get("gc", False) is False
+    assert called["imports"] == 1
+    assert called.get("gc", False) is False
     assert app._PIPELINE_DEBUG[-1][0] == "run"
     assert sys.modules["trend_analysis.pipeline"] is canonical
 
