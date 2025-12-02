@@ -11,7 +11,8 @@ from types import SimpleNamespace
 import pytest
 
 # Force serial execution - these tests write to shared files (input.txt, topics.json)
-pytestmark = pytest.mark.serial
+# The xdist_group marker ensures all tests in this file run in the same worker
+pytestmark = [pytest.mark.serial, pytest.mark.xdist_group(name="chatgpt_parser")]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / ".github/scripts/parse_chatgpt_topics.py"
