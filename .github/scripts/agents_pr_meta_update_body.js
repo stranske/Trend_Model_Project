@@ -102,6 +102,70 @@ function mergeCheckboxStates(newContent, existingStates) {
   }).join('\n');
 }
 
+/**
+ * List of bot logins that report task completion via comments.
+ * These bots post checked checkboxes that should be captured and
+ * merged into the PR body's Automated Status Summary.
+ */
+const CONNECTOR_BOT_LOGINS = [
+  'chatgpt-codex-connector[bot]',
+  'github-actions[bot]',  // Sometimes used for automation
+];
+
+/**
+ * Fetch comments from connector bots and extract checked checkbox states.
+ * This enables the keepalive system to detect when agents report task completion.
+ * 
+ * @param {Object} github - GitHub API client
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {Object} core - GitHub Actions core object for logging
+ * @returns {Promise<Map<string, boolean>>} Map of normalized checkbox text to checked state
+ */
+async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core) {
+  const states = new Map();
+  
+  try {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+    
+    // Filter to connector bot comments only
+    const connectorComments = comments.filter((c) => 
+      c.user && CONNECTOR_BOT_LOGINS.includes(c.user.login)
+    );
+    
+    if (connectorComments.length === 0) {
+      return states;
+    }
+    
+    // Parse checkbox states from all connector comments
+    // Later comments override earlier ones (most recent state wins)
+    for (const comment of connectorComments) {
+      const commentStates = parseCheckboxStates(comment.body);
+      for (const [key, value] of commentStates) {
+        if (value) {
+          states.set(key, true);
+        }
+      }
+    }
+    
+    if (states.size > 0 && core) {
+      core.info(`Found ${states.size} checked checkbox(es) from connector bot comments`);
+    }
+  } catch (error) {
+    if (core) {
+      core.warning(`Failed to fetch connector comments: ${error.message}`);
+    }
+  }
+  
+  return states;
+}
+
 function upsertBlock(body, marker, replacement) {
   const start = `<!-- ${marker}:start -->`;
   const end = `<!-- ${marker}:end -->`;
@@ -254,30 +318,43 @@ function buildPreamble(sections) {
   return lines.join('\n');
 }
 
-function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, core}) {
+function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
-  if (existingStates.size > 0 && core) {
+  
+  // Merge existing PR body states with connector bot comment states
+  // Connector states take precedence (they represent actual completion signals from agents)
+  const mergedStates = new Map(existingStates);
+  if (connectorStates && connectorStates.size > 0) {
+    for (const [key, value] of connectorStates) {
+      if (value) {
+        mergedStates.set(key, true);
+      }
+    }
+    if (core) {
+      core.info(`Merged ${connectorStates.size} connector checkbox state(s) with ${existingStates.size} existing state(s) → ${mergedStates.size} total`);
+    }
+  } else if (existingStates.size > 0 && core) {
     core.info(`Preserving ${existingStates.size} checked item(s) from existing status summary`);
   }
 
   statusLines.push('#### Scope');
   let scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
-  scopeFormatted = mergeCheckboxStates(scopeFormatted, existingStates);
+  scopeFormatted = mergeCheckboxStates(scopeFormatted, mergedStates);
   statusLines.push(scopeFormatted);
   statusLines.push('');
 
   statusLines.push('#### Tasks');
   let tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
-  tasksFormatted = mergeCheckboxStates(tasksFormatted, existingStates);
+  tasksFormatted = mergeCheckboxStates(tasksFormatted, mergedStates);
   statusLines.push(tasksFormatted);
   statusLines.push('');
 
   statusLines.push('#### Acceptance criteria');
   let acceptanceFormatted = acceptance ? ensureChecklist(acceptance) : fallbackChecklist('Acceptance criteria section missing from source issue.');
-  acceptanceFormatted = mergeCheckboxStates(acceptanceFormatted, existingStates);
+  acceptanceFormatted = mergeCheckboxStates(acceptanceFormatted, mergedStates);
   statusLines.push(acceptanceFormatted);
   statusLines.push('');
 
@@ -578,6 +655,9 @@ async function run({github, context, core, inputs}) {
     ? [...requiredChecksRaw, 'gate']
     : requiredChecksRaw;
 
+  // Fetch checkbox states from connector bot comments to merge into status summary
+  const connectorStates = await fetchConnectorCheckboxStates(github, owner, repo, pr.number, core);
+
   const statusBlock = buildStatusBlock({
     scope,
     tasks,
@@ -586,6 +666,7 @@ async function run({github, context, core, inputs}) {
     workflowRuns,
     requiredChecks,
     existingBody: pr.body,
+    connectorStates,
     core,
   });
 
@@ -618,6 +699,7 @@ module.exports = {
   extractBlock,
   parseCheckboxStates,
   mergeCheckboxStates,
+  fetchConnectorCheckboxStates,
   upsertBlock,
   buildPreamble,
   buildStatusBlock,
