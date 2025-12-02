@@ -72,7 +72,7 @@ workflow files.
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
-| `pr-11-ci-smoke.yml` | push (`main`), pull_request (`main`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
+| `pr-11-ci-smoke.yml` | push (`main`, `phase-2-dev`), pull_request (`main`, `phase-2-dev`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
