@@ -97,6 +97,9 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
 
 
 def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
+    # Save original module to restore later - critical for test isolation
+    original_pipeline = sys.modules.get("trend_analysis.pipeline")
+
     patched = ModuleType("trend_analysis.pipeline")
     patched.run = lambda cfg: "patched"
     canonical = ModuleType("trend_analysis.pipeline")
@@ -120,14 +123,19 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
     app._PIPELINE_DEBUG.clear()
 
-    result = app.pipeline.run(object())
+    try:
+        result = app.pipeline.run(object())
 
-    assert result == "direct"
-    assert sys.modules.get("trend_analysis.pipeline") is canonical
-    assert called["imports"] == 1
-    assert called.get("gc", False) is False
-    assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
-    assert sys.modules["trend_analysis.pipeline"] is canonical
+        assert result == "direct"
+        assert sys.modules.get("trend_analysis.pipeline") is canonical
+        assert called["imports"] == 1
+        assert called.get("gc", False) is False
+        assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
+        assert sys.modules["trend_analysis.pipeline"] is canonical
+    finally:
+        # Restore original module to prevent test pollution
+        if original_pipeline is not None:
+            sys.modules["trend_analysis.pipeline"] = original_pipeline
 
 
 def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
