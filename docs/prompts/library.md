@@ -53,12 +53,6 @@ Standard prompts for instructing coding agents.
    When posting your reply, copy the **exact checkbox text** from the Tasks and Acceptance Criteria sections below. Do NOT paraphrase or summarize. The automation matches text exactly.
 
    Example format for your reply:
-   ## Completed this round
-   ### Tasks
-   - [x] Add an environment flag (e.g., `TREND_PIPELINE_PROXY_SIMPLE`) that, when set, skips GC scanning...
-   ### Acceptance Criteria  
-   - [x] Setting the new env flag yields a direct-import proxy path; default continues to honour GC-scanned modules.
-
    **DO NOT:**
    - Commit only status files, markdown summaries, or documentation when tasks require code.
    - Re-post checklists without making implementation progress.
