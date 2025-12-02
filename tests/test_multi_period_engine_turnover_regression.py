@@ -14,6 +14,29 @@ from trend_analysis.multi_period import engine as mp_engine
 from trend_analysis.weighting import BaseWeighting
 
 
+def test_apply_weight_bounds_clamps_and_normalises() -> None:
+    """Bounds application must prevent negatives and preserve unit sum."""
+
+    weights = pd.Series({"A": 0.8, "B": 0.2, "C": 0.1})
+
+    bounded = mp_engine._apply_weight_bounds(weights, min_w_bound=0.05, max_w_bound=0.6)
+
+    assert bounded.between(0.05 - 1e-12, 0.6 + 1e-12).all()
+    assert bounded.sum() == pytest.approx(1.0, rel=0, abs=1e-12)
+    assert bounded.idxmax() == "A"
+
+    # Negative inputs and sub-minimum weights are lifted then redistributed.
+    weights_with_negatives = pd.Series({"A": -0.2, "B": 0.93, "C": 0.05})
+
+    bounded_negative = mp_engine._apply_weight_bounds(
+        weights_with_negatives, min_w_bound=0.1, max_w_bound=0.7
+    )
+
+    assert (bounded_negative >= 0).all()
+    assert bounded_negative.between(0.1 - 1e-12, 0.7 + 1e-12).all()
+    assert bounded_negative.sum() == pytest.approx(1.0, rel=0, abs=1e-12)
+
+
 def test_turnover_penalty_respects_bounds_and_normalisation() -> None:
     """Penalised turnover must stay within bounds and remain normalised."""
 
