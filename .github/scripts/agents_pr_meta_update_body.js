@@ -148,9 +148,7 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
     for (const comment of connectorComments) {
       const commentStates = parseCheckboxStates(comment.body);
       for (const [key, value] of commentStates) {
-        if (value) {
-          states.set(key, true);
-        }
+        states.set(key, true);
       }
     }
     
