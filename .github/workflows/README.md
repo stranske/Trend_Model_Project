@@ -72,14 +72,14 @@ workflow files.
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
 | `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable Python 3.11/3.12 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
-| `pr-11-ci-smoke.yml` | push (`phase-2-dev`, `main`), pull_request (`phase-2-dev`, `main`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
+| `pr-11-ci-smoke.yml` | push (`main`, `phase-2-dev`), pull_request (`main`, `phase-2-dev`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
 | `maint-keepalive.yml` | schedule (17 */12 * * *), workflow_dispatch | Posts an Ops heartbeat comment with a UTC timestamp so scheduled runs leave an observable trace.
 | `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; defaults to verify-only mode and escalates to enforce+verify when `BRANCH_PROTECTION_TOKEN` is present while keeping a single failure tracker issue current.
-| `health-42-actionlint.yml` | pull_request (workflows), push (`phase-2-dev`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
-| `health-43-ci-signature-guard.yml` | pull_request/push (`phase-2-dev`) | Validates the signed job manifest for `pr-00-gate.yml`.
+| `health-42-actionlint.yml` | pull_request (workflows), push (`main`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
+| `health-43-ci-signature-guard.yml` | pull_request/push (`main`, `phase-2-dev`) | Validates the signed job manifest for `pr-00-gate.yml`.
 | `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the orchestrator. |
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift. |
 | `agents-71-codex-belt-dispatcher.yml` | schedule (*/30), workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, prepares the `codex/issue-*` branch, and dispatches the worker. |
@@ -109,7 +109,7 @@ on:
         default: "3.12"
 jobs:
   ci:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-10-ci-python.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-10-ci-python.yml@main
     with:
       marker: ${{ inputs.marker }}
       python-version: ${{ inputs["python-version"] }}
@@ -130,7 +130,7 @@ on:
   workflow_dispatch:
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-16-agents.yml@phase-2-dev
+    uses: stranske/Trend_Model_Project/.github/workflows/reusable-16-agents.yml@main
     with:
       enable_readiness: true
       enable_preflight: true

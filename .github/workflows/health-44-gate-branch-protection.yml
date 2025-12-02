@@ -84,7 +84,7 @@ jobs:
               return;
             }
 
-            const resolvedFallback = directDefault || payload.repository?.default_branch || 'phase-2-dev';
+            const resolvedFallback = directDefault || payload.repository?.default_branch || 'main';
 
             try {
               const response = await withApiRetry(
