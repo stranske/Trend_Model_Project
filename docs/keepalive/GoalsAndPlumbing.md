@@ -159,12 +159,12 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
     *   **Invite Mode:** Posts a comment inviting a human to create the PR. It provides a "Suggested Body" which **must** include the Issue Number marker and the Issue Body content.
 2.  **PR Creation/Update:**
     *   The PR is opened (by bot or human).
-    *   The `agents-pr-meta.yml` workflow triggers on `pull_request` events.
+    *   The `agents-pr-meta-v4.yml` workflow triggers on `pull_request` events.
 3.  **Link Resolution:**
-    *   `agents-pr-meta` scans the PR title, branch name, and body for the Issue Number (looking for `#N`, `issue-N`, or the hidden `<!-- meta:issue:N -->` marker).
+    *   `agents-pr-meta-v4` scans the PR title, branch name, and body for the Issue Number (looking for `#N`, `issue-N`, or the hidden `<!-- meta:issue:N -->` marker).
     *   **Critical Dependency:** If the Issue Number cannot be resolved, the workflow cannot fetch the source Issue content.
 4.  **Status Summary Upsert:**
-    *   Once linked, `agents-pr-meta` fetches the *current* body of the source Issue.
+    *   Once linked, `agents-pr-meta-v4` fetches the *current* body of the source Issue.
     *   It parses the Issue for "Scope", "Tasks", and "Acceptance Criteria".
     *   It generates the `## Automated Status Summary` block and upserts it into the PR body (replacing any existing block).
 5.  **Keepalive Execution:**

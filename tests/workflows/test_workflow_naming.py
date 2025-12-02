@@ -179,9 +179,7 @@ EXPECTED_NAMES = {
     "agents-debug-issue-event.yml": "Agents Debug Issue Event",
     "agents-keepalive-branch-sync.yml": "Keepalive Branch Sync",
     "agents-keepalive-dispatch-handler.yml": "Keepalive Dispatch Handler",
-    "agents-pr-meta.yml": "Agents PR meta manager (DEPRECATED)",
-    "agents-pr-meta-v2.yml": "Agents PR meta manager v2",
-    "agents-pr-meta-v3.yml": "Agents PR meta manager v3",
+    # Note: agents-pr-meta.yml, v2, v3 archived to archives/github-actions/2025-12-02-pr-meta-legacy/
     "agents-pr-meta-v4.yml": "Agents PR meta manager",
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",

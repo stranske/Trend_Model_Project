@@ -21,6 +21,12 @@ const ALLOW_REMOVED_PATHS = new Set(
     // Clean up retired agent workflows from .github/workflows to reduce noise.
     '.github/workflows/agents-64-pr-comment-commands.yml',
     '.github/workflows/agents-74-pr-body-writer.yml',
+    // Legacy pr-meta workflows superseded by agents-pr-meta-v4.yml.
+    // v1 had corrupted workflow ID, v2/v3 were still running and failing.
+    // Archived to archives/github-actions/2025-12-02-pr-meta-legacy/
+    '.github/workflows/agents-pr-meta.yml',
+    '.github/workflows/agents-pr-meta-v2.yml',
+    '.github/workflows/agents-pr-meta-v3.yml',
   ].map((entry) => entry.toLowerCase()),
 );
 
@@ -395,6 +401,10 @@ function evaluateGuard({
       }
 
       if (status === 'renamed' && previous) {
+        // Allow renames/moves of files in the ALLOW_REMOVED_PATHS list
+        if (removalAllowed) {
+          continue;
+        }
         fatalViolations.push(`• ${previous} was renamed to ${current}.`);
         continue;
       }

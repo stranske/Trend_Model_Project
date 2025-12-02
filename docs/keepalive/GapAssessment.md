@@ -36,10 +36,21 @@
    - **Fix:** Added `withRateLimitRetry()` helper with exponential backoff (3 retries, 2s base delay).
    - Applied to PR fetch calls in `keepalive_gate.js` (`evaluateRunCapForPr`, `evaluateKeepaliveGate`).
 
-5. **Checklist progress not preserved across status updates (RESOLVED 2025-11)**
+5. **Checklist progress not preserved across status updates (RESOLVED 2025-12)**
    - The `agents-pr-meta` workflow was regenerating the Automated Status Summary entirely from the source issue on every update.
    - This caused checked checkboxes (recording completed work) to revert to unchecked state.
    - **Root cause:** `buildStatusBlock()` pulled scope/tasks/acceptance directly from source issue without reading existing PR body state.
    - **Fix:** Added `extractBlock()`, `parseCheckboxStates()`, and `mergeCheckboxStates()` helpers.
    - Before generating the status block, the workflow now extracts existing checkbox states from the PR body and merges them into the new content.
-   - Affected file: `agents-pr-meta.yml` (Upsert PR body sections job).
+   - See Finding #6 for connector bot checkbox capture (implemented 2025-12).
+   - Affected file: `agents_pr_meta_update_body.js`.
+
+6. **Connector bot completion signals not captured (RESOLVED 2025-12)**
+   - The Codex connector bot (`chatgpt-codex-connector[bot]`) reports task completion by posting **comments** with checked checkboxes (`- [x] Task description`).
+   - The `mergeCheckboxStates()` function only preserved checkbox states already present in the **PR body**.
+   - **Result:** Agent completed work and reported `[x]` in comments, but the PR body's Automated Status Summary remained unchecked.
+   - **Impact:** Keepalive could not detect when acceptance criteria were satisfied, causing infinite dispatch loops.
+   - **Fix:** Added `fetchConnectorCheckboxStates()` helper that fetches connector bot comments, parses checked checkboxes, and merges those states into the PR body's Automated Status Summary.
+   - Updated `buildStatusBlock()` to accept `connectorStates` parameter and merge connector checkbox states after PR body states.
+   - Updated `run()` to call `fetchConnectorCheckboxStates()` before building the status block.
+   - **Affected files:** `agents_pr_meta_update_body.js`.

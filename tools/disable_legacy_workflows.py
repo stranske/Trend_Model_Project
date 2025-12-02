@@ -56,9 +56,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
     "agents-keepalive-dispatch-handler.yml",
     "agents-guard.yml",
     "agents-debug-issue-event.yml",
-    "agents-pr-meta.yml",
-    "agents-pr-meta-v2.yml",
-    "agents-pr-meta-v3.yml",
+    # Note: agents-pr-meta.yml, v2, v3 archived to archives/github-actions/2025-12-02-pr-meta-legacy/
     "agents-pr-meta-v4.yml",
     "autofix.yml",
     "health-40-repo-selfcheck.yml",
@@ -98,9 +96,7 @@ CANONICAL_WORKFLOW_NAMES: Set[str] = {
     "Keepalive Branch Sync",
     "Keepalive Dispatch Handler",
     "Agents Debug Issue Event",
-    "Agents PR meta manager (DEPRECATED)",
-    "Agents PR meta manager v2",
-    "Agents PR meta manager v3",
+    # Note: Legacy pr-meta workflow names archived - only v4 ("Agents PR meta manager") remains
     "Agents PR meta manager",
     "CI Autofix Loop",
     "Health 45 Agents Guard",

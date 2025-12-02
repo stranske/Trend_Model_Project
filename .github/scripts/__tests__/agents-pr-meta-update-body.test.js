@@ -8,6 +8,7 @@ const {
   mergeCheckboxStates,
   ensureChecklist,
   extractBlock,
+  fetchConnectorCheckboxStates,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -185,4 +186,135 @@ test('extractBlock returns empty string if markers not found', () => {
   assert.strictEqual(extractBlock('no markers here', 'auto-status-summary'), '');
   assert.strictEqual(extractBlock('', 'auto-status-summary'), '');
   assert.strictEqual(extractBlock(null, 'auto-status-summary'), '');
+});
+
+// ========== fetchConnectorCheckboxStates tests ==========
+
+test('fetchConnectorCheckboxStates extracts checked boxes from connector bot comments', async () => {
+  const mockGithub = {
+    paginate: async (method, params) => {
+      assert.strictEqual(params.issue_number, 123);
+      return [
+        {
+          user: { login: 'chatgpt-codex-connector[bot]' },
+          body: `
+## Work Summary
+
+- [x] Implemented feature A
+- [ ] Feature B pending
+- [x] Added tests for feature A
+          `.trim(),
+        },
+      ];
+    },
+    rest: {
+      issues: {
+        listComments: {},
+      },
+    },
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 123, null);
+
+  assert.strictEqual(states.size, 2);
+  assert.strictEqual(states.get('implemented feature a'), true);
+  assert.strictEqual(states.get('added tests for feature a'), true);
+  assert.strictEqual(states.has('feature b pending'), false);
+});
+
+test('fetchConnectorCheckboxStates ignores non-connector comments', async () => {
+  const mockGithub = {
+    paginate: async () => [
+      {
+        user: { login: 'regular-user' },
+        body: '- [x] User checked something',
+      },
+      {
+        user: { login: 'chatgpt-codex-connector[bot]' },
+        body: '- [x] Connector checked this',
+      },
+    ],
+    rest: { issues: { listComments: {} } },
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 1, null);
+
+  assert.strictEqual(states.size, 1);
+  assert.strictEqual(states.get('connector checked this'), true);
+  assert.strictEqual(states.has('user checked something'), false);
+});
+
+test('fetchConnectorCheckboxStates returns empty map when no connector comments exist', async () => {
+  const mockGithub = {
+    paginate: async () => [
+      { user: { login: 'user1' }, body: '- [x] Task done' },
+      { user: { login: 'user2' }, body: 'LGTM!' },
+    ],
+    rest: { issues: { listComments: {} } },
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 1, null);
+
+  assert.strictEqual(states.size, 0);
+});
+
+test('fetchConnectorCheckboxStates aggregates checked boxes from multiple connector comments', async () => {
+  const mockGithub = {
+    paginate: async () => [
+      {
+        user: { login: 'chatgpt-codex-connector[bot]' },
+        body: '- [x] Task A completed',
+      },
+      {
+        user: { login: 'github-actions[bot]' },
+        body: '- [x] Task B done\n- [x] Task C done',
+      },
+      {
+        user: { login: 'chatgpt-codex-connector[bot]' },
+        body: '- [x] Task D finished',
+      },
+    ],
+    rest: { issues: { listComments: {} } },
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 1, null);
+
+  assert.strictEqual(states.size, 4);
+  assert.strictEqual(states.get('task a completed'), true);
+  assert.strictEqual(states.get('task b done'), true);
+  assert.strictEqual(states.get('task c done'), true);
+  assert.strictEqual(states.get('task d finished'), true);
+});
+
+test('fetchConnectorCheckboxStates handles API errors gracefully', async () => {
+  const mockGithub = {
+    paginate: async () => {
+      throw new Error('API rate limit exceeded');
+    },
+    rest: { issues: { listComments: {} } },
+  };
+
+  const mockCore = {
+    warning: () => {},
+    info: () => {},
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 1, mockCore);
+
+  assert.strictEqual(states.size, 0);
+});
+
+test('fetchConnectorCheckboxStates handles comments with null user', async () => {
+  const mockGithub = {
+    paginate: async () => [
+      { user: null, body: '- [x] Orphaned comment' },
+      { user: { login: 'chatgpt-codex-connector[bot]' }, body: '- [x] Valid task' },
+    ],
+    rest: { issues: { listComments: {} } },
+  };
+
+  const states = await fetchConnectorCheckboxStates(mockGithub, 'owner', 'repo', 1, null);
+
+  assert.strictEqual(states.size, 1);
+  assert.strictEqual(states.get('valid task'), true);
 });

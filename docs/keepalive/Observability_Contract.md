@@ -180,7 +180,7 @@ Always print `SYNC:` line.
 
 > Names below match typical jobs; adapt IDs/paths to your repo.
 
-**PR‑meta (`.github/workflows/agents-pr-meta.yml`)**
+**PR‑meta (`.github/workflows/agents-pr-meta-v4.yml`)**
 
 - **Comment lane** (`on: issue_comment`):
   - _Before dispatch_: run‑cap check; reaction lock; instruction extraction guard.
