@@ -45,16 +45,22 @@ _STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 _PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
 
 
-def _resolve_pipeline(*, fresh: bool = False) -> Any:
+def _resolve_pipeline(*, fresh: bool = False, simple: bool = False) -> Any:
     """Return the preferred ``trend_analysis.pipeline`` module.
 
-    This first consults the live module cache so tests that swap
+    When ``simple`` is set the module cache entry is dropped so we import a
+    clean copy without attempting to honour patched module objects or GC
+    scanning. Otherwise this consults the live module cache so tests that swap
     ``sys.modules['trend_analysis.pipeline']`` continue to work. When the
-    cached module differs from the originally imported instance (for example
-    if another test reloaded the package) we prefer whichever version exposes
+    cached module differs from the originally imported instance (for example if
+    another test reloaded the package) we prefer whichever version exposes
     patched attributes. This mirrors the previous eager-import behaviour while
     allowing lazy resolution.
     """
+
+    if simple:
+        sys.modules.pop("trend_analysis.pipeline", None)
+        return import_module("trend_analysis.pipeline")
 
     module = import_module("trend_analysis.pipeline")
 
@@ -84,7 +90,7 @@ class _PipelineProxy:
         missing = object()
 
         if _pipeline_proxy_simple():
-            module = _resolve_pipeline(fresh=True)
+            module = _resolve_pipeline(fresh=True, simple=True)
             attr = getattr(module, name, missing)
 
             if name == "run":
