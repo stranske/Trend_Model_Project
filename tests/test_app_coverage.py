@@ -394,16 +394,19 @@ class TestBuildStep0:
 
         store = ParamStore()
 
+        # Build step0 BEFORE patching Path.read_text to avoid breaking
+        # IPython imports and other file reads during widget initialization
+        with patch("trend_analysis.gui.app.reset_weight_state"):
+            _build_step0(store)
+
+        template_callback = mock_dropdown.observe.call_args[0][0]
+        change_event = {"new": "broken_template"}
+
+        # Now patch Path.read_text only during the callback execution
         with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
             patch("warnings.warn") as mock_warn,
             patch("pathlib.Path.read_text", side_effect=RuntimeError("boom")),
         ):
-            _build_step0(store)
-
-            template_callback = mock_dropdown.observe.call_args[0][0]
-            change_event = {"new": "broken_template"}
-
             template_callback(change_event, store=store)
 
             mock_warn.assert_called()
