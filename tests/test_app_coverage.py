@@ -317,17 +317,20 @@ class TestBuildStep0:
 
         store = ParamStore()
 
+        # Build step0 BEFORE patching Path.read_text to avoid breaking
+        # IPython imports and other file reads during widget initialization
+        with patch("trend_analysis.gui.app.reset_weight_state"):
+            _build_step0(store)
+
+        # Simulate template dropdown change with invalid YAML
+        template_callback = mock_dropdown.observe.call_args[0][0]
+        change_event = {"new": "invalid_template"}
+
+        # Now patch Path.read_text only during the callback execution
         with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
             patch("warnings.warn") as mock_warn,
             patch("pathlib.Path.read_text", return_value="invalid: yaml: content: {"),
         ):
-            _build_step0(store)
-
-            # Simulate template dropdown change with invalid YAML
-            template_callback = mock_dropdown.observe.call_args[0][0]
-            change_event = {"new": "invalid_template"}
-
             template_callback(change_event, store=store)
 
             # Verify warning was issued for invalid YAML
@@ -335,11 +338,10 @@ class TestBuildStep0:
             warning_msg = str(mock_warn.call_args[0][0])
             assert "Invalid YAML in template config" in warning_msg
 
-    @patch("trend_analysis.gui.app._load_notebook_deps")
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
     def test_template_error_handling_permission_error(
-        self, mock_list_cfgs, mock_widgets, mock_load_deps
+        self, mock_list_cfgs, mock_widgets
     ):
         """Test template loading with permission error."""
         mock_list_cfgs.return_value = ["permission_template"]
@@ -354,20 +356,23 @@ class TestBuildStep0:
 
         store = ParamStore()
 
+        # Build step0 BEFORE patching Path.read_text to avoid breaking
+        # IPython imports and other file reads during widget initialization
+        with patch("trend_analysis.gui.app.reset_weight_state"):
+            _build_step0(store)
+
+        # Simulate template dropdown change with permission error
+        template_callback = mock_dropdown.observe.call_args[0][0]
+        change_event = {"new": "permission_template"}
+
+        # Now patch Path.read_text only during the callback execution
         with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
             patch("warnings.warn") as mock_warn,
             patch(
                 "pathlib.Path.read_text",
                 side_effect=PermissionError("Permission denied"),
             ),
         ):
-            _build_step0(store)
-
-            # Simulate template dropdown change with permission error
-            template_callback = mock_dropdown.observe.call_args[0][0]
-            change_event = {"new": "permission_template"}
-
             template_callback(change_event, store=store)
 
             # Verify warning was issued for permission error
@@ -394,16 +399,19 @@ class TestBuildStep0:
 
         store = ParamStore()
 
+        # Build step0 BEFORE patching Path.read_text to avoid breaking
+        # IPython imports and other file reads during widget initialization
+        with patch("trend_analysis.gui.app.reset_weight_state"):
+            _build_step0(store)
+
+        template_callback = mock_dropdown.observe.call_args[0][0]
+        change_event = {"new": "broken_template"}
+
+        # Now patch Path.read_text only during the callback execution
         with (
-            patch("trend_analysis.gui.app.reset_weight_state"),
             patch("warnings.warn") as mock_warn,
             patch("pathlib.Path.read_text", side_effect=RuntimeError("boom")),
         ):
-            _build_step0(store)
-
-            template_callback = mock_dropdown.observe.call_args[0][0]
-            change_event = {"new": "broken_template"}
-
             template_callback(change_event, store=store)
 
             mock_warn.assert_called()
