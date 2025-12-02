@@ -546,17 +546,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents 74 PR body writer** – `.github/workflows/agents-74-pr-body-writer.yml`
   synchronizes PR body sections from source issues and builds dynamic status
   summaries from workflow runs and acceptance criteria.
-- **Agents PR meta manager** – `.github/workflows/agents-pr-meta.yml` manages
-  PR metadata and automated status updates, including the Automated Status
-  Summary that tracks issue acceptance criteria completion. (Deprecated in
-  favor of `agents-pr-meta-v2.yml` due to GitHub workflow registration issue.)
-- **Agents PR meta manager v2** – `.github/workflows/agents-pr-meta-v2.yml` is
-  the active replacement for `agents-pr-meta.yml` with identical functionality.
-- **Agents PR meta manager v3** – `.github/workflows/agents-pr-meta-v3.yml` is
-  a minimal test workflow to verify GitHub workflow registration.
 - **Agents PR meta manager** – `.github/workflows/agents-pr-meta-v4.yml` is
-  the refactored version using external scripts to avoid GitHub workflow
-  parser limits while maintaining all original functionality.
+  the canonical PR meta manager using external scripts to stay under GitHub
+  workflow parser limits. Manages PR metadata and the Automated Status Summary
+  that tracks issue acceptance criteria completion. (Legacy v1/v2/v3 versions
+  archived to `archives/github-actions/2025-12-02-pr-meta-legacy/`.)
 - **Keepalive sweep (orchestrator only).** The Agents 70 Orchestrator provides
   the single, consolidated keepalive path. The orchestrator passes the
   `enable_keepalive` flag into `reusable-16-agents.yml`, which executes the
