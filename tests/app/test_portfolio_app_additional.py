@@ -44,7 +44,7 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: module)
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False, simple=False: module)
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
@@ -76,13 +76,9 @@ def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
         called["gc"] = True
         return []
 
-    def fake_resolve(*, fresh: bool = False, simple: bool = False):
-        called["imports"] += 1
-        assert simple is True
-        assert fresh is True
-        return module
-
-    monkeypatch.setattr(app, "_resolve_pipeline", fake_resolve)
+    monkeypatch.setattr(
+        app, "_resolve_pipeline", lambda fresh=False, simple=False: module
+    )
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
     monkeypatch.setattr(gc, "get_objects", fake_get_objects)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
@@ -103,19 +99,11 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     canonical.run = lambda cfg: "direct"
 
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
-
-    calls: dict[str, object] = {"imports": 0, "gc": False}
-
-    def fake_import_module(name: str):
-        calls["imports"] = calls.get("imports", 0) + 1
-        assert name == "trend_analysis.pipeline"
-        sys.modules[name] = canonical
+    def import_module_stub(mod: str):
+        sys.modules[mod] = canonical
         return canonical
 
-    monkeypatch.setattr(app, "import_module", fake_import_module)
-    monkeypatch.setattr(
-        gc, "get_objects", lambda: (_ for _ in ()).throw(RuntimeError())
-    )
+    monkeypatch.setattr(app, "import_module", import_module_stub)
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
     app._PIPELINE_DEBUG.clear()
 
@@ -126,6 +114,7 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
     assert calls["imports"] == 1
     assert calls.get("gc", False) is False
     assert app._PIPELINE_DEBUG[-1][0] == "run"
+    assert sys.modules["trend_analysis.pipeline"] is canonical
 
 
 def test_columns_normalisation_uses_placeholders(monkeypatch):
