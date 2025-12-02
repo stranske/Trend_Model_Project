@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import importlib
 import json
 import os
 import sys
@@ -23,7 +24,9 @@ from trend_analysis.multi_period import run_from_config as run_multi
 from utils.paths import proj_path
 
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
+_PIPELINE_SIMPLE_ENV = "TREND_PIPELINE_PROXY_SIMPLE"
 _STREAMLIT_LOG_PATH: Path | None = None
+_SIMPLE_PIPELINE_CACHE: types.ModuleType | None = None
 
 
 def _ensure_streamlit_logging() -> Path | None:
@@ -40,27 +43,106 @@ def _ensure_streamlit_logging() -> Path | None:
 
 _STREAMLIT_LOG_PATH = _ensure_streamlit_logging()
 
-_PIPELINE_DEBUG: list[tuple[str, int, int, int]] = []
+_PIPELINE_DEBUG: list[tuple[str, bool, int, int, int]] = []
 
 
-def _resolve_pipeline() -> Any:
+def _resolve_pipeline(*, fresh: bool = False, simple: bool = False) -> Any:
     """Return the preferred ``trend_analysis.pipeline`` module.
 
-    This first consults the live module cache so tests that swap
+    When ``simple`` is set the module cache entry is dropped so we import a
+    clean copy without attempting to honour patched module objects or GC
+    scanning. Otherwise this consults the live module cache so tests that swap
     ``sys.modules['trend_analysis.pipeline']`` continue to work. When the
-    cached module differs from the originally imported instance (for example
-    if another test reloaded the package) we prefer whichever version exposes
+    cached module differs from the originally imported instance (for example if
+    another test reloaded the package) we prefer whichever version exposes
     patched attributes. This mirrors the previous eager-import behaviour while
     allowing lazy resolution.
     """
 
-    return import_module("trend_analysis.pipeline")
+    global _SIMPLE_PIPELINE_CACHE
+
+    # When simple mode is disabled, drop any cached module to avoid reusing a
+    # direct-imported pipeline after switching back to the GC-scanning path.
+    if not simple:
+        _SIMPLE_PIPELINE_CACHE = None
+
+    if simple:
+        if _SIMPLE_PIPELINE_CACHE is not None:
+            return _SIMPLE_PIPELINE_CACHE
+
+        sys.modules.pop("trend_analysis.pipeline", None)
+        module = import_module("trend_analysis.pipeline")
+        _SIMPLE_PIPELINE_CACHE = module
+        return module
+
+    module = import_module("trend_analysis.pipeline")
+
+    if fresh:
+        try:
+            module = importlib.reload(module)
+        except Exception:
+            # Best-effort reload; fall back to the already imported module if
+            # reload fails (for example when the module is a stub without a
+            # loader during tests).
+            pass
+
+    return module
+
+
+def _pipeline_proxy_simple() -> bool:
+    """Return ``True`` when the simple proxy mode is enabled via env flag."""
+
+    flag = os.environ.get(_PIPELINE_SIMPLE_ENV, "")
+    return flag.strip().lower() in {"1", "true", "yes", "on"}
 
 
 class _PipelineProxy:
     """Lazy proxy that favours patched pipeline attributes when reloaded."""
 
     def __getattr__(self, name: str) -> Any:
+        global _SIMPLE_PIPELINE_CACHE
+        missing = object()
+
+        if _pipeline_proxy_simple():
+            module = _resolve_pipeline(fresh=True, simple=True)
+            attr = getattr(module, name, missing)
+
+            if name == "run":
+                pkg_module = getattr(_trend_pkg, "pipeline", None)
+                pkg_attr = (
+                    getattr(pkg_module, name, missing)
+                    if pkg_module is not None
+                    else missing
+                )
+                _PIPELINE_DEBUG.append(
+                    (
+                        name,
+                        True,
+                        id(module),
+                        id(pkg_module) if pkg_module is not None else 0,
+                        id(pkg_attr) if pkg_attr is not missing else 0,
+                    )
+                )
+
+            if attr is not missing:
+                return attr
+
+            pkg_module = getattr(_trend_pkg, "pipeline", None)
+            pkg_attr = (
+                getattr(pkg_module, name, missing)
+                if pkg_module is not None
+                else missing
+            )
+            if pkg_attr is not missing:
+                return pkg_attr
+
+            raise AttributeError(name)
+
+        # Simple mode is disabled; ensure any cached simple-mode module is
+        # cleared so switching back to the default path prefers patched
+        # GC-scanned modules.
+        _SIMPLE_PIPELINE_CACHE = None
+
         # Prefer attributes from the live module object in sys.modules. Tests
         # commonly monkeypatch `trend_analysis.pipeline` in-place, so returning
         # the attribute from the cached module ensures those patches are
@@ -70,7 +152,6 @@ class _PipelineProxy:
         if module is None:
             module = _resolve_pipeline()
 
-        missing = object()
         attr = getattr(module, name, missing)
 
         # Instrumentation for tests — keep a lightweight trace when 'run' is
@@ -85,6 +166,7 @@ class _PipelineProxy:
             _PIPELINE_DEBUG.append(
                 (
                     name,
+                    False,
                     id(module),
                     id(pkg_module) if pkg_module is not None else 0,
                     id(pkg_attr) if pkg_attr is not missing else 0,

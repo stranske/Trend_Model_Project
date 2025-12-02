@@ -406,6 +406,8 @@ def test_run_analysis_injects_avg_corr_metric():
     assert score_frame["AvgCorr"].notna().all()
 
 
+# Tests that monkeypatch pipeline functions must run serially.
+@pytest.mark.serial
 def test_run_analysis_benchmark_ir_fallback(monkeypatch):
     df = _make_two_fund_df()
     df["SPX"] = 0.01
@@ -420,7 +422,8 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
             raise ZeroDivisionError("bad benchmark")
         return original_ir(series_a, series_b)
 
-    monkeypatch.setattr("trend_analysis.pipeline.information_ratio", selective_boom)
+    # Patch the module-level binding in pipeline.py so run_analysis sees our stub
+    monkeypatch.setattr(pipeline, "information_ratio", selective_boom)
 
     res = pipeline.run_analysis(
         df,

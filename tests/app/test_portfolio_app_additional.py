@@ -10,7 +10,11 @@ import pytest
 import trend_portfolio_app.app as app
 
 
+# Pipeline proxy tests modify sys.modules which can interfere with parallel tests.
+# Mark them serial to run in dedicated worker group.
+@pytest.mark.serial
 def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", base_module)
     pkg_module = SimpleNamespace(run=lambda cfg: "pkg")
@@ -22,33 +26,41 @@ def test_pipeline_proxy_prefers_gc_patched_module(monkeypatch):
 
     result = app.pipeline.run(object())
     assert result == "patched"
-    assert app._PIPELINE_DEBUG[-1][0] == "run"
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_falls_back_to_package(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", None)
     pkg_module = SimpleNamespace(run=lambda cfg: "pkg")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda: pkg_module)
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False: pkg_module)
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
     assert result == "pkg"
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_uses_package_attribute(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     module = ModuleType("trend_analysis.pipeline")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(app, "_resolve_pipeline", lambda: module)
+    monkeypatch.setattr(
+        app, "_resolve_pipeline", lambda fresh=False, simple=False: module
+    )
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
     assert result == "package"
 
 
+@pytest.mark.serial
 def test_pipeline_proxy_handles_gc_errors(monkeypatch):
+    monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
     base_module = SimpleNamespace(run=lambda cfg: "base")
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", base_module)
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=base_module))
@@ -60,6 +72,164 @@ def test_pipeline_proxy_handles_gc_errors(monkeypatch):
 
     result = app.pipeline.run(object())
     assert result == "base"
+
+
+@pytest.mark.serial
+def test_pipeline_proxy_simple_mode_direct_import(monkeypatch):
+    module = ModuleType("trend_analysis.pipeline")
+    module.run = lambda cfg: "direct"
+
+    called = {"gc": False, "imports": 0}
+
+    def fake_get_objects():
+        called["gc"] = True
+        return []
+
+    def resolve_stub(*, fresh=False, simple=False):
+        called["imports"] += 1
+        return module
+
+    monkeypatch.setattr(app, "_resolve_pipeline", resolve_stub)
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
+    app._PIPELINE_DEBUG.clear()
+
+    result = app.pipeline.run(object())
+
+    assert result == "direct"
+    assert called["gc"] is False
+    assert called["imports"] == 1
+    assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
+
+
+@pytest.mark.serial
+def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
+
+    patched = ModuleType("trend_analysis.pipeline")
+    patched.run = lambda cfg: "patched"
+    canonical = ModuleType("trend_analysis.pipeline")
+    canonical.run = lambda cfg: "direct"
+
+    monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
+
+    called = {"gc": False, "imports": 0}
+
+    def import_module_stub(mod: str):
+        called["imports"] += 1
+        monkeypatch.setitem(sys.modules, mod, canonical)
+        return canonical
+
+    def fake_get_objects():
+        called["gc"] = True
+        return []
+
+    monkeypatch.setattr(app, "import_module", import_module_stub)
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
+    app._PIPELINE_DEBUG.clear()
+
+    try:
+        result = app.pipeline.run(object())
+
+        assert result == "direct"
+        assert sys.modules.get("trend_analysis.pipeline") is canonical
+        assert called["imports"] == 1
+        assert called.get("gc", False) is False
+        assert app._PIPELINE_DEBUG[-1][:2] == ("run", True)
+        assert sys.modules["trend_analysis.pipeline"] is canonical
+    finally:
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
+
+
+@pytest.mark.serial
+def test_pipeline_proxy_simple_mode_caches_direct_import(monkeypatch):
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
+
+    canonical = ModuleType("trend_analysis.pipeline")
+    call_count = {"imports": 0}
+
+    def import_module_stub(mod: str):
+        call_count["imports"] += 1
+        monkeypatch.setitem(sys.modules, mod, canonical)
+        return canonical
+
+    def fake_get_objects():
+        raise AssertionError("GC scanning should not be invoked in simple mode")
+
+    canonical.run = lambda cfg: "direct"
+
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "yes")
+    monkeypatch.setattr(app, "import_module", import_module_stub)
+    monkeypatch.setattr(gc, "get_objects", fake_get_objects)
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=None))
+    app._SIMPLE_PIPELINE_CACHE = None
+
+    try:
+        first = app.pipeline.run(object())
+        second = app.pipeline.run(object())
+
+        monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+        patched = ModuleType("trend_analysis.pipeline")
+        patched.run = lambda cfg: "patched"
+        monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", patched)
+
+        default_result = app.pipeline.run(object())
+
+        assert first == "direct"
+        assert second == "direct"
+        assert call_count["imports"] == 1
+        assert default_result == "patched"
+        assert app._SIMPLE_PIPELINE_CACHE is None
+    finally:
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
+
+
+@pytest.mark.serial
+def test_pipeline_proxy_switches_between_modes(monkeypatch):
+    # Import the real module and save it for cleanup
+    from importlib import import_module as real_import_module
+
+    real_pipeline = real_import_module("trend_analysis.pipeline")
+
+    canonical = ModuleType("trend_analysis.pipeline")
+    canonical.run = lambda cfg: "direct"
+
+    def resolve_stub(*, fresh=False, simple=False):
+        monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", canonical)
+        return canonical
+
+    patched = ModuleType("trend_analysis.pipeline")
+    patched.run = lambda cfg: "patched"
+
+    monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "1")
+    monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=canonical))
+    monkeypatch.setattr(app, "_resolve_pipeline", resolve_stub)
+    monkeypatch.setattr(gc, "get_objects", lambda: [patched])
+    app._PIPELINE_DEBUG.clear()
+
+    try:
+        simple_result = app.pipeline.run(object())
+        monkeypatch.delenv("TREND_PIPELINE_PROXY_SIMPLE", raising=False)
+
+        default_result = app.pipeline.run(object())
+
+        assert simple_result == "direct"
+        assert default_result == "patched"
+        assert app._PIPELINE_DEBUG[-2][:2] == ("run", True)
+        assert app._PIPELINE_DEBUG[-1][:2] == ("run", False)
+    finally:
+        # Always restore real module to prevent test pollution in parallel runs
+        sys.modules["trend_analysis.pipeline"] = real_pipeline
 
 
 def test_columns_normalisation_uses_placeholders(monkeypatch):
