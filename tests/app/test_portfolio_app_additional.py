@@ -113,7 +113,9 @@ def test_pipeline_proxy_simple_mode_ignores_sys_modules_patch(monkeypatch):
         return canonical
 
     monkeypatch.setattr(app, "import_module", fake_import_module)
-    monkeypatch.setattr(gc, "get_objects", lambda: (_ for _ in ()).throw(RuntimeError()))
+    monkeypatch.setattr(
+        gc, "get_objects", lambda: (_ for _ in ()).throw(RuntimeError())
+    )
     monkeypatch.setenv("TREND_PIPELINE_PROXY_SIMPLE", "true")
     app._PIPELINE_DEBUG.clear()
 
