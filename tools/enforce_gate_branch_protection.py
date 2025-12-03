@@ -281,7 +281,10 @@ def _fetch_ruleset_status_checks(
             pattern == "~DEFAULT_BRANCH"
             for pattern in (
                 (ruleset.get("conditions", {}).get("ref_name", {}).get("include") or [])
-                + (ruleset.get("conditions", {}).get("ref_name", {}).get("exclude") or [])
+                + (
+                    ruleset.get("conditions", {}).get("ref_name", {}).get("exclude")
+                    or []
+                )
             )
         )
         for ruleset in rulesets

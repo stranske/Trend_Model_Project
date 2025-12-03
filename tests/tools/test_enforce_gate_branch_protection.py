@@ -455,7 +455,9 @@ def test_ruleset_fetch_falls_back_to_branch_when_default_unknown(
 
     session = DummySession([rulesets_response, detail_response])
     monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
-    monkeypatch.setattr(guard, "_resolve_default_branch", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        guard, "_resolve_default_branch", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
 
     state = guard._fetch_ruleset_status_checks(session, "owner/repo", "develop")
@@ -484,9 +486,7 @@ def test_ruleset_fetch_honors_exclude_patterns(monkeypatch: pytest.MonkeyPatch) 
     session = DummySession([rulesets_response])
     monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
 
-    state = guard._fetch_ruleset_status_checks(
-        session, "owner/repo", "release/v1.0"
-    )
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "release/v1.0")
 
     assert state is None
     assert session.get_urls == [f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"]
