@@ -31,7 +31,9 @@ def test_weekend_only_raises_after_filtering():
         }
     )
 
-    with pytest.raises(ValueError, match="All rows were removed during weekend filtering"):
+    with pytest.raises(
+        ValueError, match="All rows were removed during weekend filtering"
+    ):
         align_calendar(df)
 
 
@@ -67,5 +69,7 @@ def test_monthly_frequency_expands_to_business_month_end():
 
     expected_dates = pd.to_datetime(["2023-01-31", "2023-02-28", "2023-03-31"])
     assert result["Date"].tolist() == list(expected_dates)
-    assert result.loc[result["Date"] == pd.Timestamp("2023-02-28"), "value"].isna().all()
+    assert (
+        result.loc[result["Date"] == pd.Timestamp("2023-02-28"), "value"].isna().all()
+    )
     assert result.attrs["calendar_alignment"]["target_frequency"] == "M"
