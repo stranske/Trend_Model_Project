@@ -71,7 +71,9 @@ def test_coerce_path_rejects_directories(tmp_path):
 
 def test_load_membership_normalises_and_sorts(tmp_path):
     membership = tmp_path / "universe.csv"
-    membership.write_text("Symbol,effective_date,end_date\nB,2024-02-02,\nA,2024-01-01,2024-02-01\n")
+    membership.write_text(
+        "Symbol,effective_date,end_date\nB,2024-02-02,\nA,2024-01-01,2024-02-01\n"
+    )
 
     cfg = DummyConfig(data={"universe_membership_path": membership})
     result = loaders.load_membership(cfg)
