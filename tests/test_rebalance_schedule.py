@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis.schedules import (
+    _coerce_datetime_index,
+    _match_timezone,
     apply_rebalance_schedule,
     get_rebalance_dates,
     normalize_positions,
@@ -225,3 +227,43 @@ def test_normalize_positions_two_asset_reproducible_weights() -> None:
     pd.testing.assert_series_equal(
         normalized.iloc[-1], expected_last, check_names=False
     )
+
+
+def test_coerce_datetime_index_rejects_unusable_values() -> None:
+    with pytest.raises(TypeError, match="prices must be convertible"):
+        _coerce_datetime_index(pd.Index([object()]), name="prices")
+
+
+def test_match_timezone_localises_when_template_tz_set() -> None:
+    idx = pd.DatetimeIndex(["2024-01-01"])
+    template = pd.DatetimeIndex(["2024-01-01"], tz="UTC")
+
+    converted = _match_timezone(idx, template)
+
+    assert str(converted.tz) == "UTC"
+
+
+def test_apply_rebalance_schedule_reindexes_to_eligible_set() -> None:
+    index = pd.bdate_range("2024-03-01", periods=4)
+    positions = pd.DataFrame(
+        {
+            "AAA": [0.3, 0.4, 0.2, 0.1],
+            "BBB": [0.7, 0.6, 0.8, 0.9],
+        },
+        index=index,
+    )
+
+    schedule = get_rebalance_dates(index, "weekly")
+    applied = apply_rebalance_schedule(positions, schedule, eligible=["BBB", "CCC"])
+
+    assert list(applied.columns) == ["BBB", "CCC"]
+    assert (applied["CCC"] == 0.0).all()
+
+
+def test_match_timezone_drops_timezone_when_template_naive() -> None:
+    idx = pd.DatetimeIndex(["2024-01-01"], tz="UTC")
+    template = pd.DatetimeIndex(["2024-01-01"])
+
+    converted = _match_timezone(idx, template)
+
+    assert converted.tz is None

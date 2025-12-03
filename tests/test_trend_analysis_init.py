@@ -62,6 +62,38 @@ def test_safe_is_type_handles_missing_module(monkeypatch):
     assert "tests.missing_mod" in sys.modules
 
 
+def test_patch_dataclasses_module_guard_respects_existing_patch(monkeypatch):
+    import dataclasses
+
+    import trend_analysis as ta
+
+    sentinel = object()
+    monkeypatch.setattr(dataclasses, "_trend_model_patched", True, raising=False)
+    monkeypatch.setattr(dataclasses, "_is_type", sentinel)
+    monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
+
+    ta._patch_dataclasses_module_guard()
+
+    assert ta._SAFE_IS_TYPE is sentinel
+
+
+def test_patch_dataclasses_module_guard_no_is_type(monkeypatch):
+    import dataclasses
+
+    import trend_analysis as ta
+
+    original = getattr(dataclasses, "_is_type", None)
+    monkeypatch.setattr(dataclasses, "_is_type", None)
+    monkeypatch.setattr(dataclasses, "_trend_model_patched", False, raising=False)
+    monkeypatch.delattr(ta, "_SAFE_IS_TYPE", raising=False)
+
+    ta._patch_dataclasses_module_guard()
+
+    assert not hasattr(ta, "_SAFE_IS_TYPE")
+    if original is not None:
+        assert dataclasses._is_type is None
+
+
 def test_spec_proxy_triggers_registration(monkeypatch):
     import trend_analysis as ta
 

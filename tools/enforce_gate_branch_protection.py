@@ -274,6 +274,30 @@ def _fetch_ruleset_status_checks(
     if not isinstance(rulesets, list):
         return None
 
+    default_branch: str | None = os.getenv("DEFAULT_BRANCH")
+    if default_branch is None and any(
+        isinstance(ruleset, Mapping)
+        and any(
+            pattern == "~DEFAULT_BRANCH"
+            for pattern in (
+                (ruleset.get("conditions", {}).get("ref_name", {}).get("include") or [])
+                + (ruleset.get("conditions", {}).get("ref_name", {}).get("exclude") or [])
+            )
+        )
+        for ruleset in rulesets
+    ):
+        default_branch = _resolve_default_branch(session, repo, api_root=api_root)
+
+    default_ref: str | None
+    if default_branch:
+        default_ref = (
+            default_branch
+            if default_branch.startswith("refs/")
+            else f"refs/heads/{default_branch}"
+        )
+    else:
+        default_ref = None
+
     # Find rulesets that apply to this branch and have required_status_checks
     all_contexts: list[str] = []
     strict = False
@@ -310,6 +334,8 @@ def _fetch_ruleset_status_checks(
             if not isinstance(pattern, str):
                 return False
             if pattern == "~DEFAULT_BRANCH":
+                if default_ref is None:
+                    return False
                 return branch_ref == default_ref or branch == default_branch
             return fnmatch(branch_ref, pattern) or fnmatch(branch, pattern)
 
@@ -347,7 +373,9 @@ def _fetch_ruleset_status_checks(
 
             params = rule.get("parameters", {})
             if params.get("strict_required_status_checks_policy"):
-                strict = True
+                strict = strict or bool(
+                    params.get("strict_required_status_checks_policy")
+                )
 
             checks = params.get("required_status_checks", [])
             for check in checks:
