@@ -319,6 +319,7 @@ def _fetch_ruleset_status_checks(
 
         branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
 
+        # Retrieve DEFAULT_BRANCH from environment. If unset, fallback to resolving via API or using the queried branch.
         default_branch = os.getenv("DEFAULT_BRANCH")
         if default_branch is None and any(
             pattern == "~DEFAULT_BRANCH" for pattern in includes + excludes
