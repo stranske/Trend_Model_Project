@@ -55,7 +55,9 @@ def test_load_and_validate_csv(tmp_path):
     assert len(df) == 2
 
 
-def test_load_and_validate_file_sanitizes_headers_and_builds_meta(monkeypatch, tmp_path):
+def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
+    monkeypatch, tmp_path
+):
     csv_path = tmp_path / "formulas.csv"
     csv_path.write_text("=evil,@bad\n1,2\n3,4\n")
 
@@ -87,7 +89,10 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(monkeypatch, t
                     "missing_policy_summary": "dropped bad",
                     "missing_policy_filled": [],
                     "missing_policy_dropped": ["evil"],
-                    "date_range": (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-01-31")),
+                    "date_range": (
+                        pd.Timestamp("2020-01-01"),
+                        pd.Timestamp("2020-01-31"),
+                    ),
                     "start": pd.Timestamp("2020-01-01"),
                     "end": pd.Timestamp("2020-01-31"),
                 },
