@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 import pytest
 
 from trend_analysis.universe_catalog import (
@@ -215,7 +214,9 @@ def test_load_universe_requires_fund_column(tmp_path: Path) -> None:
         "Date,A\n2020-01-31,1\n",
         encoding="utf-8",
     )
-    membership.write_text("symbol_alias,effective_date\nA,2020-01-31\n", encoding="utf-8")
+    membership.write_text(
+        "symbol_alias,effective_date\nA,2020-01-31\n", encoding="utf-8"
+    )
     cfg.write_text(
         """
 version: 1
