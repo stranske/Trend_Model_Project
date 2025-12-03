@@ -3,10 +3,20 @@ import io
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataMode, MarketDataValidationError
+from trend_analysis.io.market_data import (
+    MarketDataMetadata,
+    MarketDataMode,
+    MarketDataValidationError,
+    MissingPolicyFillDetails,
+    ValidatedMarketData,
+)
 from trend_portfolio_app.data_schema import (
     DATE_COL,
+    _build_meta,
+    _sanitize_formula_headers,
     _validate_df,
+    apply_original_headers,
+    extract_headers_from_bytes,
     infer_benchmarks,
     load_and_validate_csv,
     load_and_validate_file,
@@ -103,3 +113,71 @@ def test_validate_df_sanitizes_duplicate_formula_headers_unique():
     mapping = meta["sanitized_columns"]
     assert mapping[0]["sanitized"] == "Alpha"
     assert mapping[1]["sanitized"] == "Alpha_2"
+
+
+def test_extract_headers_handles_edge_cases():
+    assert extract_headers_from_bytes(b"", is_excel=False) == []
+    assert extract_headers_from_bytes(b"", is_excel=True) == []
+    # Malformed Excel payload yields None rather than raising
+    assert extract_headers_from_bytes(b"not-excel", is_excel=True) is None
+
+
+def test_apply_original_headers_mismatch():
+    df = pd.DataFrame([[1, 2]], columns=["A", "B"])
+    result = apply_original_headers(df, ["A"])
+    assert result is None
+    assert list(df.columns) == ["A", "B"]
+
+
+def test_sanitize_formula_headers_no_changes():
+    df = pd.DataFrame([[1, 2]], columns=["safe", "header"])
+    sanitized, changes = _sanitize_formula_headers(df)
+    assert sanitized is df
+    assert changes == []
+
+
+def test_build_meta_populates_warnings_and_metadata_fields():
+    metadata = MarketDataMetadata(
+        mode=MarketDataMode.PRICE,
+        frequency="D",
+        frequency_detected="D",
+        frequency_label="daily",
+        frequency_missing_periods=2,
+        frequency_max_gap_periods=3,
+        frequency_tolerance_periods=1,
+        start=pd.Timestamp("2020-01-01"),
+        end=pd.Timestamp("2020-01-05"),
+        rows=5,
+        columns=["=Bad", "Index"],
+        missing_policy="drop",
+        missing_policy_limit=1,
+        missing_policy_summary="dropped missing",
+        missing_policy_dropped=["Index"],
+        missing_policy_filled={
+            "=Bad": MissingPolicyFillDetails(method="ffill", count=1)
+        },
+    )
+    validated = ValidatedMarketData(
+        pd.DataFrame({"=Bad": [1, None, None, None, None], "Index": [None] * 5}),
+        metadata,
+    )
+    meta = _build_meta(
+        validated, sanitized_columns=[{"original": "=Bad", "sanitized": "Bad"}]
+    )
+
+    warnings = meta["validation"]["warnings"]
+    assert any("Dataset is quite small" in warning for warning in warnings)
+    assert any("missing values" in warning for warning in warnings)
+    assert any("missing daily periods" in warning for warning in warnings)
+    assert any("Missing-data policy dropped columns" in warning for warning in warnings)
+    assert any("Sanitized column headers" in warning for warning in warnings)
+    assert meta["symbols"] == ["=Bad", "Index"]
+    assert meta["date_range"] == ("2020-01-01", "2020-01-05")
+
+
+def test_read_binary_payload_rejects_unsupported_object():
+    class NotReadable:
+        pass
+
+    with pytest.raises(TypeError):
+        load_and_validate_file(NotReadable())

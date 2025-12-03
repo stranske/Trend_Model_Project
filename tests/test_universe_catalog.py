@@ -7,6 +7,7 @@ import pytest
 
 from trend_analysis.universe_catalog import (
     _clean_members,
+    _resolve_date_column,
     _resolve_path,
     _resolve_universe_file,
     load_universe,
@@ -65,6 +66,17 @@ def test_resolve_path_errors(tmp_path: Path) -> None:
         _resolve_path(base_dir / "missing.csv", base_dir=base_dir)
 
 
+def test_resolve_path_prefers_parent_directory(tmp_path: Path) -> None:
+    base_dir = tmp_path / "configs"
+    base_dir.mkdir()
+    parent_file = tmp_path / "shared.csv"
+    parent_file.write_text("dummy", encoding="utf-8")
+
+    resolved = _resolve_path("shared.csv", base_dir=base_dir)
+
+    assert resolved == parent_file.resolve()
+
+
 def test_resolve_universe_file_missing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         _resolve_universe_file("unknown", base_dir=tmp_path)
@@ -76,6 +88,24 @@ def test_resolve_universe_file_bare_existing(tmp_path: Path) -> None:
 
     resolved = _resolve_universe_file(file_path, base_dir=tmp_path)
     assert resolved == file_path.resolve()
+
+
+def test_resolve_universe_file_with_suffix(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "alt.yaml"
+    cfg_path.write_text("version: 1\n", encoding="utf-8")
+
+    resolved = _resolve_universe_file("alt", base_dir=tmp_path)
+
+    assert resolved == cfg_path.resolve()
+
+
+def test_resolve_universe_file_accepts_existing_absolute(tmp_path: Path) -> None:
+    raw_path = tmp_path / "bare"
+    raw_path.write_text("placeholder", encoding="utf-8")
+
+    resolved = _resolve_universe_file(raw_path, base_dir=tmp_path)
+
+    assert resolved == raw_path.resolve()
 
 
 def test_load_universe_spec_validation(tmp_path: Path) -> None:
@@ -135,6 +165,30 @@ members:
     assert list(mask.columns) == ["A"]
 
     assert _clean_members(["", "   "]) is None
+
+
+def test_load_universe_resolves_date_and_symbol_column(tmp_path: Path) -> None:
+    cfg = tmp_path / "core.yml"
+    prices = tmp_path / "prices.csv"
+    membership = tmp_path / "membership.csv"
+    prices.write_text("DATE,X\n2020-01-31,10\n", encoding="utf-8")
+    membership.write_text(
+        "symbol,effective_date,end_date\nX,2020-01-31,\n", encoding="utf-8"
+    )
+    cfg.write_text(
+        """
+version: 1
+data_csv: prices.csv
+membership_csv: membership.csv
+date_column: date
+        """,
+        encoding="utf-8",
+    )
+
+    mask, spec = load_universe(cfg, base_dir=tmp_path)
+
+    assert list(mask.columns) == ["X"]
+    assert spec.date_column == "DATE"
 
 
 def test_load_universe_orders_when_members_missing(tmp_path: Path) -> None:
@@ -228,3 +282,8 @@ membership_csv: membership.csv
 
     with pytest.raises(ValueError):
         load_universe(cfg, base_dir=tmp_path)
+
+
+def test_resolve_date_column_errors_for_missing_column() -> None:
+    with pytest.raises(KeyError, match="Date column 'missing' was not found"):
+        _resolve_date_column(pd.DataFrame({"Date": []}), "missing")
