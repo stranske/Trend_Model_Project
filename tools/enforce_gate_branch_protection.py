@@ -347,7 +347,7 @@ def _fetch_ruleset_status_checks(
 
             params = rule.get("parameters", {})
             if params.get("strict_required_status_checks_policy"):
-                strict = strict or True
+                strict = True
 
             checks = params.get("required_status_checks", [])
             for check in checks:
