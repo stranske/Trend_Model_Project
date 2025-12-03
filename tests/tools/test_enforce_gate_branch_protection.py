@@ -295,7 +295,9 @@ def test_ruleset_fetch_supports_glob_patterns(monkeypatch: pytest.MonkeyPatch) -
     assert session.get_urls[-1].endswith("/rulesets/456")
 
 
-def test_ruleset_fetch_respects_default_branch_pattern(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ruleset_fetch_respects_default_branch_pattern(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     rulesets_response = DummyResponse(
         200,
         [
@@ -312,7 +314,9 @@ def test_ruleset_fetch_respects_default_branch_pattern(monkeypatch: pytest.Monke
             "rules": [
                 {
                     "type": "required_status_checks",
-                    "parameters": {"required_status_checks": [{"context": "gate/context"}]},
+                    "parameters": {
+                        "required_status_checks": [{"context": "gate/context"}]
+                    },
                 }
             ]
         },
@@ -328,7 +332,9 @@ def test_ruleset_fetch_respects_default_branch_pattern(monkeypatch: pytest.Monke
     assert session.get_urls[-1].endswith("/rulesets/789")
 
 
-def test_ruleset_fetch_ignores_default_branch_for_other_refs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ruleset_fetch_ignores_default_branch_for_other_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     rulesets_response = DummyResponse(
         200,
         [
