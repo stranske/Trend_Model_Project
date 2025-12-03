@@ -424,6 +424,130 @@ def test_ruleset_fetch_ignores_non_default_branch_after_repo_lookup(
     ]
 
 
+def test_ruleset_fetch_falls_back_to_branch_when_default_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 203,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"]}},
+            }
+        ],
+    )
+    detail_response = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "required_status_checks": [
+                            {"context": "gate/context"},
+                        ]
+                    },
+                }
+            ]
+        },
+    )
+
+    session = DummySession([rulesets_response, detail_response])
+    monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
+    monkeypatch.setattr(guard, "_resolve_default_branch", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "develop")
+
+    assert state == StatusCheckState(strict=False, contexts=["gate/context"])
+    assert session.get_urls[-1].endswith("/rulesets/203")
+
+
+def test_ruleset_fetch_honors_exclude_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 204,
+                "enforcement": "active",
+                "conditions": {
+                    "ref_name": {
+                        "include": ["refs/heads/*"],
+                        "exclude": ["refs/heads/release/*"],
+                    }
+                },
+            }
+        ],
+    )
+
+    session = DummySession([rulesets_response])
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(
+        session, "owner/repo", "release/v1.0"
+    )
+
+    assert state is None
+    assert session.get_urls == [f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"]
+
+
+def test_ruleset_fetch_combines_strictness(monkeypatch: pytest.MonkeyPatch) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 205,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["refs/heads/*"]}},
+            },
+            {
+                "id": 206,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["refs/heads/*"]}},
+            },
+        ],
+    )
+    strict_detail = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "strict_required_status_checks_policy": True,
+                        "required_status_checks": [{"context": "strict"}],
+                    },
+                }
+            ]
+        },
+    )
+    lax_detail = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "required_status_checks": [{"context": "lax"}],
+                    },
+                }
+            ]
+        },
+    )
+
+    session = DummySession([rulesets_response, strict_detail, lax_detail])
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "main")
+
+    assert state == StatusCheckState(strict=True, contexts=["lax", "strict"])
+    assert session.get_urls[-2:] == [
+        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets/205",
+        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets/206",
+    ]
+
+
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
     response = DummyResponse(
         200,
