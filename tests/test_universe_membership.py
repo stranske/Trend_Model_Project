@@ -22,6 +22,29 @@ def test_load_universe_membership_requires_effective_date(tmp_path: Path) -> Non
         load_universe_membership(csv)
 
 
+def test_load_universe_membership_requires_file(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.csv"
+
+    with pytest.raises(FileNotFoundError):
+        load_universe_membership(missing)
+
+
+def test_load_universe_membership_validates_columns(tmp_path: Path) -> None:
+    csv = tmp_path / "membership.csv"
+    csv.write_text("fund,end_date\nFundA,2020-01-01\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="effective_date"):
+        load_universe_membership(csv)
+
+
+def test_load_universe_membership_rejects_blank_fund(tmp_path: Path) -> None:
+    csv = tmp_path / "membership.csv"
+    csv.write_text("fund,effective_date\n ,2020-01-01\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="fund name"):
+        load_universe_membership(csv)
+
+
 def test_apply_membership_masks_adds_and_drops() -> None:
     idx = pd.to_datetime(["2020-01-31", "2020-02-29", "2020-03-31"])
     frame = pd.DataFrame(
@@ -48,6 +71,22 @@ def test_apply_membership_masks_adds_and_drops() -> None:
     assert not pd.isna(masked.loc[pd.Timestamp("2020-02-29"), "FundB"])
     assert pd.isna(masked.loc[pd.Timestamp("2020-03-31"), "FundC"])
     assert masked.loc[pd.Timestamp("2020-02-29"), "FundC"] == pytest.approx(0.8)
+
+
+def test_apply_membership_windows_coerces_index_and_ignores_unknown_funds() -> None:
+    frame = pd.DataFrame({"AAA": [1, 2]}, index=["2020-01-01", "2020-01-02"])
+    membership = {
+        "AAA": (MembershipWindow(pd.Timestamp("2020-01-02"), None),),
+        "ZZZ": (MembershipWindow(pd.Timestamp("2020-01-01"), None),),
+    }
+
+    masked = apply_membership_windows(frame, membership)
+
+    assert isinstance(masked.index, pd.DatetimeIndex)
+    assert pd.isna(masked.loc[pd.Timestamp("2020-01-01"), "AAA"])
+    assert masked.loc[pd.Timestamp("2020-01-02"), "AAA"] == 2
+    # Unknown fund is ignored and does not add a column
+    assert "ZZZ" not in masked.columns
 
 
 def test_gate_universe_enforces_membership_daily() -> None:
@@ -81,6 +120,23 @@ def test_gate_universe_enforces_membership_daily() -> None:
     assert march_rows.empty
     jan_rows = gated[gated["date"] == pd.Timestamp("2020-01-31")]
     assert jan_rows["symbol"].tolist() == ["AAA"]
+
+
+def test_gate_universe_validates_as_of_and_membership() -> None:
+    prices = pd.DataFrame({"date": ["2020-01-01"], "symbol": ["AAA"], "value": [1]})
+
+    with pytest.raises(ValueError, match="Unknown datetime string format"):
+        gate_universe(prices, prices, "invalid-date")
+
+    empty_membership = pd.DataFrame(columns=["symbol", "effective_date", "end_date"])
+    empty = gate_universe(prices, empty_membership, pd.Timestamp("2020-01-01"))
+    assert empty.empty
+
+    future_membership = pd.DataFrame(
+        {"symbol": ["AAA"], "effective_date": ["2020-02-01"], "end_date": [None]}
+    )
+    future = gate_universe(prices, future_membership, pd.Timestamp("2020-01-15"))
+    assert future.empty
 
 
 def test_gate_universe_rebalance_only_uses_single_date(tmp_path: Path) -> None:
@@ -141,6 +197,23 @@ def test_gate_universe_matches_date_symbol_pairs() -> None:
     assert list(zip(gated["date"], gated["symbol"])) == expected_pairs
 
 
+def test_gate_universe_drops_when_active_pairs_empty() -> None:
+    prices = pd.DataFrame(
+        {"date": ["2020-01-31"], "symbol": ["AAA"], "value": [1]},
+    )
+    membership = pd.DataFrame(
+        {
+            "symbol": ["AAA"],
+            "effective_date": ["2020-02-01"],
+            "end_date": ["2020-02-29"],
+        }
+    )
+
+    gated = gate_universe(prices, membership, pd.Timestamp("2020-01-31"))
+
+    assert gated.empty
+
+
 def test_build_membership_mask_marks_entries_and_exits() -> None:
     dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     membership = pd.DataFrame(
@@ -171,3 +244,11 @@ def test_build_membership_mask_accepts_membership_table() -> None:
     assert bool(mask.loc[pd.Timestamp("2020-01-31"), "AAA"])
     assert bool(mask.loc[pd.Timestamp("2020-02-29"), "AAA"])
     assert mask.columns.tolist() == ["AAA"]
+
+
+def test_build_membership_mask_handles_empty_inputs() -> None:
+    empty_dates = build_membership_mask([], {})
+    assert empty_dates.empty
+
+    mask = build_membership_mask(["2020-01-01"], pd.DataFrame())
+    assert mask.empty
