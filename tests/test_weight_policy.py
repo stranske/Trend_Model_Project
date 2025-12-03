@@ -64,6 +64,49 @@ def test_apply_weight_policy_handles_warmup_with_previous_weights():
     )
 
 
+def test_apply_weight_policy_cash_clips_negative_and_preserves_sum():
+    weights = pd.Series({"A": -0.25, "B": 0.75})
+    signals = pd.Series({"A": np.nan, "B": 1.0})
+
+    result = apply_weight_policy(weights, signals, mode="cash", min_assets=1)
+
+    assert result.loc["A"] == 0.0
+    assert result.loc["B"] == 0.75
+    assert np.isclose(result.sum(), 0.75)
+
+
+def test_apply_weight_policy_drop_falls_back_to_previous_when_under_min_assets():
+    weights = pd.Series({"A": np.inf, "B": 0.2})
+    signals = pd.Series({"A": 1.0, "B": 1.0})
+    previous = pd.Series({"A": 0.6, "B": 0.4})
+
+    result = apply_weight_policy(
+        weights, signals, mode="DROP", min_assets=2, previous=previous
+    )
+
+    assert set(result.index) == {"A", "B"}
+    assert np.isclose(result.sum(), 1.0)
+    pd.testing.assert_series_equal(
+        result.sort_index(), (previous / previous.sum()).sort_index()
+    )
+
+
+def test_apply_weight_policy_returns_empty_when_no_valid_weights_and_no_fallback():
+    weights = pd.Series(dtype=float)
+    signals = pd.Series(dtype=float)
+
+    empty_result = apply_weight_policy(weights, signals, mode="drop", min_assets=1)
+    assert empty_result.empty
+
+    invalid_weights = pd.Series({"A": np.nan})
+    missing_previous = pd.Series(dtype=float)
+    result = apply_weight_policy(
+        invalid_weights, signals, mode="drop", min_assets=1, previous=missing_previous
+    )
+
+    assert result.empty
+
+
 def test_run_schedule_drops_invalid_signals_and_normalises():
     score_frames = {
         "2020-01-31": pd.DataFrame({"Sharpe": [1.0, np.nan]}, index=["FundA", "FundB"]),
