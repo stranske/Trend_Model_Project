@@ -39,6 +39,15 @@ def test_rolling_shifted_dataframe_sum_matches_manual() -> None:
     pd.testing.assert_frame_equal(result, expected)
 
 
+def test_rolling_shifted_accepts_trimmed_string_aggregation() -> None:
+    series = pd.Series(np.arange(5, dtype=float))
+
+    result = rolling_shifted(series, window=2, agg=" Mean \n")
+    expected = series.shift(1).rolling(window=2, min_periods=2).mean()
+
+    pd.testing.assert_series_equal(result, expected)
+
+
 def test_rolling_shifted_std_respects_min_periods_and_is_causal() -> None:
     series = pd.Series(np.linspace(-0.1, 0.08, 12), index=pd.RangeIndex(12))
 
@@ -71,3 +80,10 @@ def test_rolling_shifted_rejects_unknown_string_agg() -> None:
 
     with pytest.raises(ValueError, match="agg must be one of"):
         rolling_shifted(series, window=2, agg="median")
+
+
+def test_rolling_shifted_rejects_non_callable_non_string_agg() -> None:
+    series = pd.Series([1, 2, 3, 4], index=pd.RangeIndex(4))
+
+    with pytest.raises(TypeError, match="agg must be a recognised string or callable"):
+        rolling_shifted(series, window=2, agg=123)  # type: ignore[arg-type]
