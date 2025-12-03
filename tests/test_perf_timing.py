@@ -14,6 +14,14 @@ def test_log_timing_emits_single_line(caplog):
     assert "foo=bar" in record.message
 
 
+def test_log_timing_noop_when_logger_disabled(caplog):
+    caplog.set_level(logging.WARNING, logger="trend_analysis.performance")
+
+    log_timing("example", duration_s=0.002, status="miss")
+
+    assert not caplog.records
+
+
 def test_timed_stage_allows_mutating_state(caplog):
     caplog.set_level(logging.INFO, logger="trend_analysis.performance")
 
@@ -25,3 +33,16 @@ def test_timed_stage_allows_mutating_state(caplog):
     assert "stage=slow_step" in record.message
     assert "status=hit" in record.message
     assert "rows=12" in record.message
+
+
+def test_timed_stage_defaults_and_extra_metadata(caplog):
+    caplog.set_level(logging.INFO, logger="trend_analysis.performance")
+
+    with timed_stage("lazy_step") as state:
+        state.setdefault("extra", {})["note"] = "n/a"
+
+    record = caplog.records[-1]
+    assert "stage=lazy_step" in record.message
+    assert "duration_ms" in record.message
+    assert "status=" not in record.message
+    assert "note=n/a" in record.message
