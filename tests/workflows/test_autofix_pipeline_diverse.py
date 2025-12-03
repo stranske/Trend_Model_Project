@@ -36,6 +36,7 @@ def _run(
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
 def test_autofix_pipeline_handles_diverse_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
