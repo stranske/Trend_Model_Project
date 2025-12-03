@@ -355,6 +355,75 @@ def test_ruleset_fetch_skips_non_default_branches(
     assert session.get_urls == [f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"]
 
 
+def test_ruleset_fetch_resolves_repo_default_when_env_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 202,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"]}},
+            }
+        ],
+    )
+    repo_response = DummyResponse(200, {"default_branch": "develop"})
+    detail_response = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "required_status_checks": [
+                            {"context": "gate/context"},
+                        ]
+                    },
+                }
+            ]
+        },
+    )
+
+    session = DummySession([rulesets_response, repo_response, detail_response])
+    monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "develop")
+
+    assert state == StatusCheckState(strict=False, contexts=["gate/context"])
+    assert session.get_urls[0].endswith("/rulesets")
+    assert session.get_urls[1].endswith("/owner/repo")
+    assert session.get_urls[2].endswith("/rulesets/202")
+
+
+def test_ruleset_fetch_ignores_non_default_branch_after_repo_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 303,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"]}},
+            }
+        ],
+    )
+    repo_response = DummyResponse(200, {"default_branch": "main"})
+    session = DummySession([rulesets_response, repo_response, DummyResponse(500)])
+    monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "feature/x")
+
+    assert state is None
+    assert session.get_urls == [
+        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets",
+        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo",
+    ]
+
+
 def test_update_status_checks_submits_payload_and_returns_state() -> None:
     response = DummyResponse(
         200,
