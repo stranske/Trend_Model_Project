@@ -136,7 +136,9 @@ def test_apply_rebalance_schedule_preserves_dtype_and_overlapping_calendar() -> 
 
 def test_apply_rebalance_schedule_resorts_to_original_order() -> None:
     ascending = pd.bdate_range("2023-01-02", periods=4)
-    scrambled = pd.DatetimeIndex([ascending[2], ascending[0], ascending[3], ascending[1]])
+    scrambled = pd.DatetimeIndex(
+        [ascending[2], ascending[0], ascending[3], ascending[1]]
+    )
     positions = pd.Series([1.0, 2.0, 3.0, 4.0], index=scrambled, name="positions")
 
     calendar = get_rebalance_dates(scrambled, "weekly")
@@ -186,9 +188,13 @@ def test_normalize_positions_requires_datetime_index() -> None:
 
 
 def test_normalize_positions_validates_inputs() -> None:
-    positions = pd.DataFrame({"A": [0.1, 0.2]}, index=pd.to_datetime(["2023-01-01", "2023-01-01"]))
+    positions = pd.DataFrame(
+        {"A": [0.1, 0.2]}, index=pd.to_datetime(["2023-01-01", "2023-01-01"])
+    )
 
-    with pytest.raises(TypeError, match="positions must be provided as a pandas DataFrame"):
+    with pytest.raises(
+        TypeError, match="positions must be provided as a pandas DataFrame"
+    ):
         normalize_positions([1, 2])  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match="positions columns must be unique"):
