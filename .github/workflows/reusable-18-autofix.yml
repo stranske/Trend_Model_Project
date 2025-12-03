@@ -422,7 +422,7 @@ jobs:
               fi
               allowed=false
               for pattern in "${allowed_patterns[@]}"; do
-                # Unquote pattern to enable glob matching in case statement
+                # shellcheck disable=SC2254  # Intentionally unquoted for glob matching
                 case "$path" in
                   $pattern)
                     allowed=true
