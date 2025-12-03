@@ -414,7 +414,7 @@ jobs:
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
               allowed_patterns=("src/**" "tests/**" "tools/**" ".github/scripts/**")
             fi
-            shopt -s nullglob globstar
+            shopt -s nullglob globstar extglob
             disallowed=()
             for path in "${changed_paths[@]}"; do
               if [[ -z "$path" ]]; then
@@ -422,8 +422,9 @@ jobs:
               fi
               allowed=false
               for pattern in "${allowed_patterns[@]}"; do
+                # Unquote pattern to enable glob matching in case statement
                 case "$path" in
-                  "$pattern")
+                  $pattern)
                     allowed=true
                     break
                     ;;
