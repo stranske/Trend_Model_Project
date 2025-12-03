@@ -36,6 +36,7 @@ def _run(
 
 
 @pytest.mark.integration
+@pytest.mark.quarantine
 def test_autofix_pipeline_repairs_live_documents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

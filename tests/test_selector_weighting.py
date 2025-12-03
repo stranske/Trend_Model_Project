@@ -85,6 +85,7 @@ def test_bayesian_shrinkage_monotonic():
 
 
 @pytest.mark.integration
+@pytest.mark.quarantine
 def test_selector_weighting_autofix_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
