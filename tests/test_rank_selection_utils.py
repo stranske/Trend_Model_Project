@@ -48,3 +48,49 @@ def test_hash_universe_is_order_insensitive_and_stable():
 
     changed = rs._hash_universe(["a", "c", "d"])
     assert baseline != changed
+
+
+def test_stats_cfg_hash_tracks_extra_attributes():
+    cfg = rs.RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.01)
+    cfg.extra_field = {"alpha": 1}
+    baseline = rs._stats_cfg_hash(cfg)
+
+    cfg.extra_field["alpha"] = 2
+    mutated = rs._stats_cfg_hash(cfg)
+    assert baseline != mutated
+
+    mirror = rs.RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.01)
+    mirror.extra_field = {"alpha": 2}
+    assert mutated == rs._stats_cfg_hash(mirror)
+
+
+def test_window_metric_cache_scopes_and_limits_are_respected():
+    rs.clear_window_metric_cache()
+    frame = pd.DataFrame({"A": [1.0], "B": [2.0]})
+    bundle = rs.WindowMetricBundle(
+        key=None,
+        start="2020-01",
+        end="2020-02",
+        freq="M",
+        stats_cfg_hash="hash",
+        universe=tuple(frame.columns),
+        in_sample_df=frame,
+        _metrics=pd.DataFrame(index=frame.columns),
+    )
+    key = ("2020-01", "2020-02", "u", "h")
+
+    rs.store_window_metric_bundle(key, bundle)
+    assert rs.get_window_metric_bundle(key) is bundle
+
+    previous = rs.set_window_metric_cache_limit(0)
+    assert rs.get_window_metric_bundle(key) is None
+    rs.set_window_metric_cache_limit(previous)
+
+    rs.clear_window_metric_cache()
+    with rs.selector_cache_scope("alt"):
+        rs.store_window_metric_bundle(key, bundle)
+        assert rs.get_window_metric_bundle(key) is bundle
+
+    assert rs.get_window_metric_bundle(key) is None
+    stats = rs.selector_cache_stats()
+    assert stats["entries"] == 0
