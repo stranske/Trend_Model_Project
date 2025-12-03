@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from trend_analysis.util.rolling import rolling_shifted
 
@@ -49,3 +50,25 @@ def test_rolling_shifted_std_respects_min_periods_and_is_causal() -> None:
     expected = series.shift(1).rolling(window=4, min_periods=2).std(ddof=0)
     pd.testing.assert_series_equal(baseline, expected)
     pd.testing.assert_series_equal(baseline.iloc[:-1], shifted.iloc[:-1])
+
+
+def test_rolling_shifted_rejects_invalid_window() -> None:
+    series = pd.Series([1, 2, 3], index=pd.RangeIndex(3))
+
+    with pd.option_context("mode.chained_assignment", None):  # suppress chained assignment warnings in pandas
+        with pytest.raises(ValueError, match="window must be a positive integer"):
+            rolling_shifted(series, window=0, agg="mean")
+
+
+def test_rolling_shifted_rejects_invalid_min_periods() -> None:
+    series = pd.Series([1, 2, 3], index=pd.RangeIndex(3))
+
+    with pytest.raises(ValueError, match="min_periods must be positive when provided"):
+        rolling_shifted(series, window=2, agg="mean", min_periods=0)
+
+
+def test_rolling_shifted_rejects_unknown_string_agg() -> None:
+    series = pd.Series([1, 2, 3, 4], index=pd.RangeIndex(4))
+
+    with pytest.raises(ValueError, match="agg must be one of"):
+        rolling_shifted(series, window=2, agg="median")
