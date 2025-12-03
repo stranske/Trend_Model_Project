@@ -64,7 +64,7 @@ def test_apply_weight_policy_handles_warmup_with_previous_weights():
     )
 
 
-def test_apply_weight_policy_cash_clips_negative_and_preserves_sum():
+def test_apply_weight_policy_cash_mode_clips_negatives():
     weights = pd.Series({"A": -0.25, "B": 0.75})
     signals = pd.Series({"A": np.nan, "B": 1.0})
 
