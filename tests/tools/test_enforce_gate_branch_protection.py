@@ -424,7 +424,7 @@ def test_ruleset_fetch_ignores_non_default_branch_after_repo_lookup(
     ]
 
 
-def test_ruleset_fetch_requires_default_resolution_for_default_branch_pattern(
+def test_ruleset_fetch_falls_back_to_branch_when_default_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     rulesets_response = DummyResponse(
@@ -437,8 +437,23 @@ def test_ruleset_fetch_requires_default_resolution_for_default_branch_pattern(
             }
         ],
     )
+    detail_response = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "required_status_checks": [
+                            {"context": "gate/context"},
+                        ]
+                    },
+                }
+            ]
+        },
+    )
 
-    session = DummySession([rulesets_response])
+    session = DummySession([rulesets_response, detail_response])
     monkeypatch.delenv("DEFAULT_BRANCH", raising=False)
     monkeypatch.setattr(
         guard, "_resolve_default_branch", lambda *_args, **_kwargs: None
@@ -447,8 +462,8 @@ def test_ruleset_fetch_requires_default_resolution_for_default_branch_pattern(
 
     state = guard._fetch_ruleset_status_checks(session, "owner/repo", "develop")
 
-    assert state is None
-    assert session.get_urls == [f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"]
+    assert state == StatusCheckState(strict=False, contexts=["gate/context"])
+    assert session.get_urls[-1].endswith("/rulesets/203")
 
 
 def test_ruleset_fetch_honors_exclude_patterns(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -281,7 +281,10 @@ def _fetch_ruleset_status_checks(
             pattern == "~DEFAULT_BRANCH"
             for pattern in (
                 (ruleset.get("conditions", {}).get("ref_name", {}).get("include") or [])
-                + (ruleset.get("conditions", {}).get("ref_name", {}).get("exclude") or [])
+                + (
+                    ruleset.get("conditions", {}).get("ref_name", {}).get("exclude")
+                    or []
+                )
             )
         )
         for ruleset in rulesets
@@ -315,6 +318,20 @@ def _fetch_ruleset_status_checks(
         excludes = ref_name.get("exclude") or []
 
         branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
+
+        default_branch = os.getenv("DEFAULT_BRANCH")
+        if default_branch is None and any(
+            pattern == "~DEFAULT_BRANCH" for pattern in includes + excludes
+        ):
+            default_branch = _resolve_default_branch(session, repo, api_root=api_root)
+        if default_branch is None:
+            # Fall back to the queried branch when we cannot resolve the repo default
+            default_branch = branch if "/" not in branch else branch.split("/")[-1]
+        default_ref = (
+            default_branch
+            if default_branch.startswith("refs/")
+            else f"refs/heads/{default_branch}"
+        )
 
         def _matches(pattern: object) -> bool:
             if not isinstance(pattern, str):
