@@ -238,9 +238,27 @@ def _fetch_ruleset_status_checks(
     *,
     api_root: str = DEFAULT_API_ROOT,
 ) -> StatusCheckState | None:
-    """Fetch required status checks from repository rulesets.
+    """
+    Fetch required status checks from repository rulesets.
 
-    Returns None if no rulesets with status checks are found for the branch.
+    This function acts as a fallback when branch protection rules are not available
+    via the standard branch protection API. It queries the GitHub repository rulesets
+    endpoint to determine required status checks for the specified branch.
+
+    GitHub API endpoint used:
+        GET /repos/{owner}/{repo}/rulesets
+        (see: https://docs.github.com/en/rest/repos/rules?apiVersion=2022-11-28#get-repository-rulesets)
+
+    Returns:
+        StatusCheckState instance if required status checks are found for the branch,
+        or None if no applicable rulesets or status checks are present.
+
+    Example return values:
+        - None: No rulesets found, or no rulesets apply to the branch, or no status checks required.
+        - StatusCheckState(strict=False, contexts=['Gate / gate', 'Health 45 Agents Guard / Enforce agents workflow protections']):
+            Required status checks found for the branch, with strict mode disabled.
+        - StatusCheckState(strict=True, contexts=['ci/test', 'lint']):
+            Required status checks found for the branch, with strict mode enabled.
     """
     # Fetch all rulesets for the repository
     response = _call_with_rate_limit_retry(
