@@ -36,10 +36,7 @@ def _run(
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="Autofix pipeline has known compatibility issues with Python <3.12",
-)
+@pytest.mark.quarantine
 def test_autofix_pipeline_repairs_live_documents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

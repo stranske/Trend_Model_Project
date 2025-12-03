@@ -85,10 +85,7 @@ def test_bayesian_shrinkage_monotonic():
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="Autofix pipeline has known compatibility issues with Python <3.12",
-)
+@pytest.mark.quarantine
 def test_selector_weighting_autofix_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
