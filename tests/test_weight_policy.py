@@ -91,7 +91,7 @@ def test_apply_weight_policy_drop_falls_back_to_previous_when_under_min_assets()
     )
 
 
-def test_apply_weight_policy_returns_empty_when_no_valid_weights_and_no_fallback():
+def test_apply_weight_policy_returns_empty_without_valid_inputs():
     weights = pd.Series(dtype=float)
     signals = pd.Series(dtype=float)
 
