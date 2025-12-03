@@ -319,28 +319,24 @@ def _fetch_ruleset_status_checks(
 
         branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
 
-        # Retrieve DEFAULT_BRANCH from environment. If unset, fallback to resolving via API or using the queried branch.
-        default_branch = os.getenv("DEFAULT_BRANCH")
-        if default_branch is None and any(
-            pattern == "~DEFAULT_BRANCH" for pattern in includes + excludes
-        ):
-            default_branch = _resolve_default_branch(session, repo, api_root=api_root)
-        if default_branch is None:
+        # Use pre-computed default_branch and default_ref from before the loop
+        # to avoid redundant API calls
+        local_default_branch = default_branch
+        local_default_ref = default_ref
+        if local_default_branch is None:
             # Fall back to the queried branch when we cannot resolve the repo default
-            default_branch = branch if "/" not in branch else branch.split("/")[-1]
-        default_ref = (
-            default_branch
-            if default_branch.startswith("refs/")
-            else f"refs/heads/{default_branch}"
-        )
+            local_default_branch = (
+                branch if "/" not in branch else branch.split("/")[-1]
+            )
+            local_default_ref = f"refs/heads/{local_default_branch}"
 
         def _matches(pattern: object) -> bool:
             if not isinstance(pattern, str):
                 return False
             if pattern == "~DEFAULT_BRANCH":
-                if default_ref is None:
+                if local_default_ref is None:
                     return False
-                return branch_ref == default_ref or branch == default_branch
+                return branch_ref == local_default_ref or branch == local_default_branch
             return fnmatch(branch_ref, pattern) or fnmatch(branch, pattern)
 
         # Check if branch matches (supports ~DEFAULT_BRANCH and refs/heads/*)
