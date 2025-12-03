@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -31,7 +30,11 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
     cfg = {
         "data": {"csv_path": "data.csv", "date_column": "Date", "columns": ["A", "B"]},
         "walk_forward": {"train": 2, "test": 1, "step": 1},
-        "strategy": {"top_n": 3, "defaults": {"band": -1}, "grid": {"lookback": [2, 3]}},
+        "strategy": {
+            "top_n": 3,
+            "defaults": {"band": -1},
+            "grid": {"lookback": [2, 3]},
+        },
         "run": {"name": "demo", "output_dir": "out", "seed": 7},
     }
     cfg_path = _write_config(tmp_path, cfg)
@@ -96,7 +99,9 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
         ),
     ],
 )
-def test_load_settings_validation_errors(tmp_path: Path, cfg: dict, message: str) -> None:
+def test_load_settings_validation_errors(
+    tmp_path: Path, cfg: dict, message: str
+) -> None:
     cfg_path = _write_config(tmp_path, cfg)
     with pytest.raises(ValueError) as err:
         load_settings(cfg_path)
@@ -146,7 +151,11 @@ def test_persist_artifacts_emits_files(tmp_path: Path) -> None:
     )
 
     folds = pd.DataFrame(
-        {"fold": [1], "train_start": [pd.Timestamp("2020-01-01")], "param_lookback": [1]}
+        {
+            "fold": [1],
+            "train_start": [pd.Timestamp("2020-01-01")],
+            "param_lookback": [1],
+        }
     )
     summary = pd.DataFrame({"param_lookback": [1], "mean_cagr": [0.01], "folds": [1]})
 
