@@ -252,11 +252,18 @@ def _fetch_ruleset_status_checks(
 
         branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
 
+        default_branch = os.getenv("DEFAULT_BRANCH", "main")
+        default_ref = (
+            default_branch
+            if default_branch.startswith("refs/")
+            else f"refs/heads/{default_branch}"
+        )
+
         def _matches(pattern: object) -> bool:
             if not isinstance(pattern, str):
                 return False
             if pattern == "~DEFAULT_BRANCH":
-                return True
+                return branch_ref == default_ref or branch == default_branch
             return fnmatch(branch_ref, pattern) or fnmatch(branch, pattern)
 
         # Check if branch matches (supports ~DEFAULT_BRANCH and refs/heads/*)

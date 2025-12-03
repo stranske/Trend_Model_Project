@@ -18,7 +18,7 @@ from trend_analysis.walk_forward import (
 
 
 def _write_config(tmp_path: Path, content: dict) -> Path:
-    cfg_path = tmp_path / "wf.yml"
+    cfg_path = tmp_path / "wf.json"
     cfg_path.write_text(json.dumps(content), encoding="utf-8")
     return cfg_path
 
