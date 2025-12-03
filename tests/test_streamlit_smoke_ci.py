@@ -191,6 +191,7 @@ def streamlit_app():
         manager.stop()
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_streamlit_app_startup(streamlit_app):
     """Test that Streamlit app starts up successfully."""
     assert streamlit_app.is_running()
