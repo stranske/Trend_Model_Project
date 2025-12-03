@@ -871,11 +871,9 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
         captured["result"] = res
         captured["path"] = path
 
-    import trend_analysis.export.bundle
+    from trend_analysis.export import bundle as export_bundle_mod
 
-    monkeypatch.setattr(
-        trend_analysis.export.bundle, "export_bundle", fake_export_bundle
-    )
+    monkeypatch.setattr(export_bundle_mod, "export_bundle", fake_export_bundle)
     monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: None)
 
     bundle_dir = tmp_path / "artifacts"
@@ -899,10 +897,10 @@ def test_write_bundle_accepts_explicit_file(
 
     recorded: dict[str, Path] = {}
 
-    import trend_analysis.export.bundle
+    from trend_analysis.export import bundle as export_bundle_mod
 
     monkeypatch.setattr(
-        trend_analysis.export.bundle,
+        export_bundle_mod,
         "export_bundle",
         lambda res, path: recorded.update(result=res, path=path),
     )
