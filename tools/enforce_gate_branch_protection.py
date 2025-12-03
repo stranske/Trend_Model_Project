@@ -298,7 +298,8 @@ def _fetch_ruleset_status_checks(
         ):
             default_branch = _resolve_default_branch(session, repo, api_root=api_root)
         if default_branch is None:
-            default_branch = "main"
+            # Fall back to the queried branch when we cannot resolve the repo default
+            default_branch = branch if "/" not in branch else branch.split("/")[-1]
         default_ref = (
             default_branch
             if default_branch.startswith("refs/")
@@ -346,7 +347,7 @@ def _fetch_ruleset_status_checks(
 
             params = rule.get("parameters", {})
             if params.get("strict_required_status_checks_policy"):
-                strict = True
+                strict = strict or True
 
             checks = params.get("required_status_checks", [])
             for check in checks:
