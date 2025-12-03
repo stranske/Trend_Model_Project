@@ -1,8 +1,8 @@
 """Coverage-focused tests for ``trend_analysis.__init__`` internals."""
 
-from types import ModuleType
 import importlib
 import sys
+from types import ModuleType
 
 import pytest
 
