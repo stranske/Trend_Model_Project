@@ -35,9 +35,7 @@ def test_pipeline_result_behaves_like_mapping():
 def test_pipeline_failure_populates_default_message_and_context_copy():
     context = {"window": "2020"}
 
-    result = pipeline_failure(
-        PipelineReasonCode.NO_FUNDS_SELECTED, context=context
-    )
+    result = pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED, context=context)
 
     assert result.value is None
     assert result.diagnostic is not None
@@ -53,9 +51,7 @@ def test_pipeline_failure_populates_default_message_and_context_copy():
 
 
 def test_pipeline_failure_allows_custom_message_override():
-    result = pipeline_failure(
-        PipelineReasonCode.INPUT_NONE, message="custom override"
-    )
+    result = pipeline_failure(PipelineReasonCode.INPUT_NONE, message="custom override")
 
     assert result.diagnostic is not None
     assert result.diagnostic.message == "custom override"
