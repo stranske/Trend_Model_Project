@@ -67,10 +67,19 @@ class DummySession(requests.Session):
         return self._responses[-1]
 
     def get(self, *args: object, **kwargs: object) -> requests.Response:
+        """
+        Records the URL used in the GET request for test tracking.
+        Expects the URL to be passed as the first positional argument or as the 'url' keyword argument.
+        Raises ValueError if no URL is found in the expected places.
+        """
         if args and isinstance(args[0], str):
             self.get_urls.append(args[0])
         elif isinstance(kwargs.get("url"), str):
             self.get_urls.append(str(kwargs["url"]))
+        else:
+            raise ValueError(
+                "DummySession.get expects the URL as the first positional argument or as the 'url' keyword argument."
+            )
         return self._next_response()
 
     def patch(self, *_args: object, **_kwargs: object) -> requests.Response:
