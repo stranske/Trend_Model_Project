@@ -5,11 +5,11 @@ import pandas as pd
 import pytest
 
 from trend_analysis.schedules import (
+    _coerce_datetime_index,
+    _match_timezone,
     apply_rebalance_schedule,
     get_rebalance_dates,
     normalize_positions,
-    _coerce_datetime_index,
-    _match_timezone,
 )
 
 

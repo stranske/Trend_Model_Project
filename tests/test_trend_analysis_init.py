@@ -64,6 +64,7 @@ def test_safe_is_type_handles_missing_module(monkeypatch):
 
 def test_patch_dataclasses_module_guard_respects_existing_patch(monkeypatch):
     import dataclasses
+
     import trend_analysis as ta
 
     sentinel = object()
@@ -78,6 +79,7 @@ def test_patch_dataclasses_module_guard_respects_existing_patch(monkeypatch):
 
 def test_patch_dataclasses_module_guard_no_is_type(monkeypatch):
     import dataclasses
+
     import trend_analysis as ta
 
     original = getattr(dataclasses, "_is_type", None)
