@@ -36,7 +36,16 @@ def test_run_tab_applies_session_state_and_invokes_pipeline(
         captured["config"] = cfg
         return pd.DataFrame({"metric": [0.1, 0.2]})
 
+    def fake_run_full(cfg: Any) -> Any:
+        # Also stub run_full to prevent real execution
+        return None
+
+    # Patch the module directly in sys.modules to ensure the app gets the patched version
     monkeypatch.setattr(pipeline_mod, "run", fake_run)
+    monkeypatch.setattr(pipeline_mod, "run_full", fake_run_full)
+
+    # Ensure the patched module is in sys.modules before app import
+    sys.modules["trend_analysis.pipeline"] = pipeline_mod
 
     streamlit_stub = _RunButtonStreamlit()
 

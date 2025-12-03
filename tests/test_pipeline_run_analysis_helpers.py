@@ -324,7 +324,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
         return pd.DataFrame(0.0, index=df.index, columns=df.columns)
 
     monkeypatch.setattr(
-        "trend_analysis.pipeline.compute_trend_signals", _fake_compute_trend_signals
+        pipeline_module, "compute_trend_signals", _fake_compute_trend_signals
     )
 
     preprocess = _prepare_preprocess_stage(
