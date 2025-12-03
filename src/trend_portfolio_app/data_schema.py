@@ -37,6 +37,7 @@ def _normalise_header_value(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
+        # Remove the UTF-8 BOM (Byte Order Mark) character if present.
         return value.lstrip("\ufeff")
     if pd.isna(value):
         return ""
