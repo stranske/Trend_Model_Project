@@ -37,7 +37,7 @@ def _normalise_header_value(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
-        return value
+        return value.lstrip("\ufeff")
     if pd.isna(value):
         return ""
     return str(value)
