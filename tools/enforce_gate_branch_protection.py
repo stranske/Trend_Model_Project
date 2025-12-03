@@ -209,6 +209,28 @@ def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
     return _state_from_status_payload(status_checks, default_strict=None)
 
 
+def _resolve_default_branch(
+    session: requests.Session, repo: str, *, api_root: str = DEFAULT_API_ROOT
+) -> str | None:
+    """Return the repository's default branch when available."""
+
+    response = _call_with_rate_limit_retry(
+        "fetching repository metadata for default branch",
+        lambda: session.get(f"{api_root}/repos/{repo}", timeout=30),
+    )
+    if response.status_code >= 400:
+        return None
+
+    payload = response.json()
+    if not isinstance(payload, Mapping):
+        return None
+
+    default_branch = payload.get("default_branch")
+    if isinstance(default_branch, str) and default_branch:
+        return default_branch
+    return None
+
+
 def _fetch_ruleset_status_checks(
     session: requests.Session,
     repo: str,
@@ -247,12 +269,18 @@ def _fetch_ruleset_status_checks(
         # Check if this ruleset applies to the branch
         conditions = ruleset.get("conditions", {})
         ref_name = conditions.get("ref_name", {})
-        includes = ref_name.get("include", [])
-        excludes = ref_name.get("exclude", [])
+        includes = ref_name.get("include") or ["refs/heads/*"]
+        excludes = ref_name.get("exclude") or []
 
         branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
 
-        default_branch = os.getenv("DEFAULT_BRANCH", "main")
+        default_branch = os.getenv("DEFAULT_BRANCH")
+        if default_branch is None and any(
+            pattern == "~DEFAULT_BRANCH" for pattern in includes + excludes
+        ):
+            default_branch = _resolve_default_branch(session, repo, api_root=api_root)
+        if default_branch is None:
+            default_branch = "main"
         default_ref = (
             default_branch
             if default_branch.startswith("refs/")
