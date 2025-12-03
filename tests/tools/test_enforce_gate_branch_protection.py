@@ -251,14 +251,10 @@ def test_ruleset_fetch_uses_branch_excludes(monkeypatch: pytest.MonkeyPatch) -> 
     session = DummySession([rulesets_response, DummyResponse(500)])
     monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
 
-    state = guard._fetch_ruleset_status_checks(
-        session, "owner/repo", "release/v1.0"
-    )
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "release/v1.0")
 
     assert state is None
-    assert session.get_urls == [
-        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"
-    ]
+    assert session.get_urls == [f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"]
 
 
 def test_ruleset_fetch_supports_glob_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
