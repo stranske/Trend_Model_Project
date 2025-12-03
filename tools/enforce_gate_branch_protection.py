@@ -332,7 +332,7 @@ def fetch_status_checks(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
     if response.status_code == 403:
-        # Try rulesets first (they may be readable even without admin access)
+        # Try rulesets as fallback (they may be readable even without admin access)
         ruleset_state = _fetch_ruleset_status_checks(
             session, repo, branch, api_root=api_root
         )
