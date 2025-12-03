@@ -75,7 +75,7 @@ def test_apply_weight_policy_cash_clips_negative_and_preserves_sum():
     assert np.isclose(result.sum(), 0.75)
 
 
-def test_apply_weight_policy_drop_falls_back_to_previous_when_under_min_assets():
+def test_apply_weight_policy_drop_mode_fallback_under_min():
     weights = pd.Series({"A": np.inf, "B": 0.2})
     signals = pd.Series({"A": 1.0, "B": 1.0})
     previous = pd.Series({"A": 0.6, "B": 0.4})
