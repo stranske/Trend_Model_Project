@@ -208,6 +208,102 @@ def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
     return _state_from_status_payload(status_checks, default_strict=None)
 
 
+def _fetch_ruleset_status_checks(
+    session: requests.Session,
+    repo: str,
+    branch: str,
+    *,
+    api_root: str = DEFAULT_API_ROOT,
+) -> StatusCheckState | None:
+    """Fetch required status checks from repository rulesets.
+
+    Returns None if no rulesets with status checks are found for the branch.
+    """
+    # Fetch all rulesets for the repository
+    response = _call_with_rate_limit_retry(
+        "fetching repository rulesets",
+        lambda: session.get(f"{api_root}/repos/{repo}/rulesets", timeout=30),
+    )
+    if response.status_code == 404:
+        return None
+    if response.status_code >= 400:
+        return None
+
+    rulesets = response.json()
+    if not isinstance(rulesets, list):
+        return None
+
+    # Find rulesets that apply to this branch and have required_status_checks
+    all_contexts: list[str] = []
+    strict = False
+
+    for ruleset in rulesets:
+        if not isinstance(ruleset, Mapping):
+            continue
+        if ruleset.get("enforcement") != "active":
+            continue
+
+        # Check if this ruleset applies to the branch
+        conditions = ruleset.get("conditions", {})
+        ref_name = conditions.get("ref_name", {})
+        includes = ref_name.get("include", [])
+
+        # Check if branch matches (supports ~DEFAULT_BRANCH and refs/heads/*)
+        matches_branch = False
+        for pattern in includes:
+            if pattern == "~DEFAULT_BRANCH":
+                matches_branch = True
+                break
+            if pattern == f"refs/heads/{branch}":
+                matches_branch = True
+                break
+            if pattern == branch:
+                matches_branch = True
+                break
+
+        if not matches_branch:
+            continue
+
+        # Fetch full ruleset details to get the rules
+        ruleset_id = ruleset.get("id")
+        if not ruleset_id:
+            continue
+
+        detail_response = _call_with_rate_limit_retry(
+            f"fetching ruleset {ruleset_id}",
+            lambda rid=ruleset_id: session.get(
+                f"{api_root}/repos/{repo}/rulesets/{rid}", timeout=30
+            ),
+        )
+        if detail_response.status_code >= 400:
+            continue
+
+        ruleset_detail = detail_response.json()
+        rules = ruleset_detail.get("rules", [])
+
+        for rule in rules:
+            if not isinstance(rule, Mapping):
+                continue
+            if rule.get("type") != "required_status_checks":
+                continue
+
+            params = rule.get("parameters", {})
+            if params.get("strict_required_status_checks_policy"):
+                strict = True
+
+            checks = params.get("required_status_checks", [])
+            for check in checks:
+                if isinstance(check, Mapping):
+                    context = check.get("context")
+                    if context:
+                        all_contexts.append(context)
+
+    if not all_contexts:
+        return None
+
+    return StatusCheckState(strict=strict, contexts=sorted(set(all_contexts)))
+
+
 def fetch_status_checks(
     session: requests.Session,
     repo: str,
@@ -222,10 +318,23 @@ def fetch_status_checks(
         ),
     )
     if response.status_code == 404:
+        # Try rulesets as fallback
+        ruleset_state = _fetch_ruleset_status_checks(
+            session, repo, branch, api_root=api_root
+        )
+        if ruleset_state is not None:
+            return ruleset_state
         raise BranchProtectionMissingError(
             "Required status checks are not enabled for this branch. Configure the base protection rule first."
         )
     if response.status_code == 403:
+        # Try rulesets first (they may be readable even without admin access)
+        ruleset_state = _fetch_ruleset_status_checks(
+            session, repo, branch, api_root=api_root
+        )
+        if ruleset_state is not None:
+            return ruleset_state
+
         branch_response = _call_with_rate_limit_retry(
             f"inspecting branch protection for {branch}",
             lambda: session.get(
