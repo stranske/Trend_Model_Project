@@ -1,9 +1,6 @@
-from __future__ import annotations
+"""Tests for multi-period loader helpers."""
 
-from dataclasses import dataclass, field
-from datetime import timezone
-from pathlib import Path
-from typing import Any
+from __future__ import annotations
 
 import pandas as pd
 import pytest
@@ -11,85 +8,112 @@ import pytest
 from trend_analysis.multi_period import loaders
 
 
-@dataclass
-class LoaderConfig:
-    data: dict[str, Any] = field(default_factory=dict)
-    benchmarks: dict[str, str] = field(default_factory=dict)
+class DummyConfig:
+    def __init__(self, *, data=None, benchmarks=None):
+        self.data = data or {}
+        self.benchmarks = benchmarks
 
 
-def test_load_prices_reads_csv(tmp_path: Path) -> None:
-    csv = tmp_path / "returns.csv"
-    csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
-    cfg = LoaderConfig(data={"csv_path": csv, "nan_policy": "ffill"})
+def test_load_prices_invokes_validators(monkeypatch, tmp_path):
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("Date,AAA\n2024-01-01,1.0\n")
+
+    called = {}
+
+    def fake_load_csv(path, *, errors, missing_policy, missing_limit):
+        called["path"] = path
+        called["errors"] = errors
+        called["missing_policy"] = missing_policy
+        called["missing_limit"] = missing_limit
+        frame = pd.DataFrame({"Date": pd.to_datetime(["2024-01-01"]), "AAA": [1.0]})
+        frame.attrs["market_data_frequency_code"] = "D"
+        return frame
+
+    def fake_coerce(frame):
+        called["coerced"] = True
+        return frame
+
+    def fake_validate(frame, *, freq):
+        called.setdefault("validated", []).append((tuple(frame.columns), freq))
+
+    monkeypatch.setattr(loaders, "load_csv", fake_load_csv)
+    monkeypatch.setattr(loaders, "coerce_to_utc", fake_coerce)
+    monkeypatch.setattr(loaders, "validate_prices", fake_validate)
+
+    cfg = DummyConfig(data={"csv_path": str(csv_path), "missing_policy": "ffill"})
     frame = loaders.load_prices(cfg)
-    assert list(frame.columns) == ["Date", "A"]
-    assert frame.iloc[0]["A"] == pytest.approx(0.1)
-    assert isinstance(frame.index, pd.DatetimeIndex)
-    assert frame.index.tz is timezone.utc
-    assert str(frame["Date"].dtype) == "datetime64[ns, UTC]"
+
+    assert list(frame.columns) == ["Date", "AAA"]
+    assert called["path"] == str(csv_path)
+    assert called["errors"] == "raise"
+    assert called["missing_policy"] == "ffill"
+    assert called["missing_limit"] is None
+    assert called["coerced"] is True
+    assert called["validated"] == [(("Date", "AAA"), "D")]
 
 
-def test_load_prices_requires_path() -> None:
-    cfg = LoaderConfig()
+def test_load_prices_missing_path_raises_key_error():
+    cfg = DummyConfig(data={})
     with pytest.raises(KeyError):
         loaders.load_prices(cfg)
 
 
-def test_load_prices_passes_frequency_to_contract(monkeypatch, tmp_path: Path) -> None:
-    csv = tmp_path / "returns.csv"
-    csv.write_text("Date,A\n2020-01-31,0.1\n2020-02-29,0.2\n", encoding="utf-8")
-    cfg = LoaderConfig(data={"csv_path": csv})
+def test_coerce_path_rejects_directories(tmp_path):
+    directory = tmp_path / "data_dir"
+    directory.mkdir()
 
-    captured: dict[str, Any] = {}
+    with pytest.raises(IsADirectoryError):
+        loaders._coerce_path(directory, field="data.csv_path")
 
-    def fake_validate(frame: pd.DataFrame, *, freq: str | None = None) -> pd.DataFrame:
-        captured["freq"] = freq
-        captured["rows"] = len(frame)
-        return frame
-
-    monkeypatch.setattr(loaders, "validate_prices", fake_validate)
-
-    frame = loaders.load_prices(cfg)
-    assert captured["rows"] == len(frame)
-    expected_freq = frame.attrs.get("market_data_frequency_code") or "D"
-    assert captured["freq"] == expected_freq
+    with pytest.raises(KeyError):
+        loaders._coerce_path("   ", field="data.csv_path")
 
 
-def test_load_membership_normalises_schema(tmp_path: Path) -> None:
-    ledger = tmp_path / "membership.csv"
-    ledger.write_text(
-        "Fund,Effective_Date,End_Date\nFundA,2020-01-31,\n",
-        encoding="utf-8",
-    )
-    cfg = LoaderConfig(data={"universe_membership_path": ledger})
-    frame = loaders.load_membership(cfg)
-    assert list(frame.columns) == ["fund", "effective_date", "end_date"]
-    assert frame.iloc[0]["fund"] == "FundA"
-    assert str(frame.iloc[0]["effective_date"]) == "2020-01-31 00:00:00"
+def test_load_membership_normalises_and_sorts(tmp_path):
+    membership = tmp_path / "universe.csv"
+    membership.write_text("Symbol,effective_date,end_date\nB,2024-02-02,\nA,2024-01-01,2024-02-01\n")
+
+    cfg = DummyConfig(data={"universe_membership_path": membership})
+    result = loaders.load_membership(cfg)
+
+    assert list(result.columns) == ["fund", "effective_date", "end_date"]
+    assert result["fund"].tolist() == ["A", "B"]
+    assert pd.isna(result.loc[1, "end_date"])
 
 
-def test_load_membership_empty_when_missing_path() -> None:
-    cfg = LoaderConfig()
-    frame = loaders.load_membership(cfg)
-    assert frame.empty
-    assert list(frame.columns) == ["fund", "effective_date", "end_date"]
+def test_load_membership_missing_required_columns_raises(tmp_path):
+    membership = tmp_path / "universe.csv"
+    membership.write_text("Symbol,end_date\nA,\n")
+
+    cfg = DummyConfig(data={"universe_membership_path": membership})
+    with pytest.raises(ValueError):
+        loaders.load_membership(cfg)
 
 
-def test_load_benchmarks_extracts_columns() -> None:
+def test_load_benchmarks_selects_columns_and_errors_on_missing():
     prices = pd.DataFrame(
         {
-            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
-            "SPX": [0.1, 0.2],
+            "Date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "AAA": [1.0, 2.0],
+            "BBB": [3.0, 4.0],
         }
     )
-    cfg = LoaderConfig(benchmarks={"spx": "SPX"})
-    bench = loaders.load_benchmarks(cfg, prices)
-    assert list(bench.columns) == ["Date", "spx"]
-    assert bench.iloc[1]["spx"] == pytest.approx(0.2)
+    cfg = DummyConfig(benchmarks={"Bench1": "AAA", "Bench2": "CCC"})
 
-
-def test_load_benchmarks_raises_for_missing_column() -> None:
-    prices = pd.DataFrame({"Date": pd.to_datetime(["2020-01-31"])})
-    cfg = LoaderConfig(benchmarks={"spx": "SPX"})
     with pytest.raises(KeyError):
         loaders.load_benchmarks(cfg, prices)
+
+    cfg_valid = DummyConfig(benchmarks={"Bench1": "AAA", "Bench2": "BBB"})
+    frame = loaders.load_benchmarks(cfg_valid, prices)
+
+    assert list(frame.columns) == ["Date", "Bench1", "Bench2"]
+    assert frame["Bench2"].tolist() == [3.0, 4.0]
+
+
+def test_load_benchmarks_returns_empty_when_no_mapping():
+    prices = pd.DataFrame({"Date": pd.to_datetime(["2024-01-01"])})
+    cfg = DummyConfig(benchmarks=None)
+
+    empty = loaders.load_benchmarks(cfg, prices)
+    assert empty.empty
+    assert list(empty.columns) == ["Date"]
