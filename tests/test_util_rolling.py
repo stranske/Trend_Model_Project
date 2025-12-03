@@ -55,11 +55,8 @@ def test_rolling_shifted_std_respects_min_periods_and_is_causal() -> None:
 def test_rolling_shifted_rejects_invalid_window() -> None:
     series = pd.Series([1, 2, 3], index=pd.RangeIndex(3))
 
-    with pd.option_context(
-        "mode.chained_assignment", None
-    ):  # suppress chained assignment warnings in pandas
-        with pytest.raises(ValueError, match="window must be a positive integer"):
-            rolling_shifted(series, window=0, agg="mean")
+    with pytest.raises(ValueError, match="window must be a positive integer"):
+        rolling_shifted(series, window=0, agg="mean")
 
 
 def test_rolling_shifted_rejects_invalid_min_periods() -> None:
