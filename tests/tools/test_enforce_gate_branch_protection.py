@@ -57,6 +57,7 @@ class DummySession(requests.Session):
             self._responses = [response]
         self._response_index = 0
         self.last_payload: dict | None = None
+        self.get_urls: list[str] = []
 
     def _next_response(self) -> requests.Response:
         if self._response_index < len(self._responses):
@@ -65,7 +66,11 @@ class DummySession(requests.Session):
             return response
         return self._responses[-1]
 
-    def get(self, *_args: object, **_kwargs: object) -> requests.Response:
+    def get(self, *args: object, **kwargs: object) -> requests.Response:
+        if args and isinstance(args[0], str):
+            self.get_urls.append(args[0])
+        elif isinstance(kwargs.get("url"), str):
+            self.get_urls.append(str(kwargs["url"]))
         return self._next_response()
 
     def patch(self, *_args: object, **_kwargs: object) -> requests.Response:
@@ -224,6 +229,74 @@ def test_fetch_status_checks_rate_limit_exhausted(
         fetch_status_checks(session, "owner/repo", "main")
 
     assert "rate limit" in str(excinfo.value).lower()
+
+
+def test_ruleset_fetch_uses_branch_excludes(monkeypatch: pytest.MonkeyPatch) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 123,
+                "enforcement": "active",
+                "conditions": {
+                    "ref_name": {
+                        "include": ["refs/heads/*"],
+                        "exclude": ["refs/heads/release/*"],
+                    }
+                },
+            }
+        ],
+    )
+    # Extra response to ensure no detail fetch occurs for excluded branch
+    session = DummySession([rulesets_response, DummyResponse(500)])
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(
+        session, "owner/repo", "release/v1.0"
+    )
+
+    assert state is None
+    assert session.get_urls == [
+        f"{guard.DEFAULT_API_ROOT}/repos/owner/repo/rulesets"
+    ]
+
+
+def test_ruleset_fetch_supports_glob_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
+    rulesets_response = DummyResponse(
+        200,
+        [
+            {
+                "id": 456,
+                "enforcement": "active",
+                "conditions": {"ref_name": {"include": ["refs/heads/*"]}},
+            }
+        ],
+    )
+    detail_response = DummyResponse(
+        200,
+        {
+            "rules": [
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "strict_required_status_checks_policy": True,
+                        "required_status_checks": [
+                            {"context": "gate/context"},
+                            {"context": "other"},
+                        ],
+                    },
+                }
+            ]
+        },
+    )
+
+    session = DummySession([rulesets_response, detail_response])
+    monkeypatch.setattr(guard, "_sleep", lambda _delay: None)
+
+    state = guard._fetch_ruleset_status_checks(session, "owner/repo", "main")
+
+    assert state == StatusCheckState(strict=True, contexts=["gate/context", "other"])
+    assert session.get_urls[-1].endswith("/rulesets/456")
 
 
 def test_update_status_checks_submits_payload_and_returns_state() -> None:

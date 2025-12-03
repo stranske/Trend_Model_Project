@@ -40,3 +40,11 @@ def test_make_window_key_canonicalizes_universe_and_stats_cfg():
     key_one = rs.make_window_key("2020-01", "2020-12", [" A", "B"], cfg)
     key_two = rs.make_window_key("2020-01", "2020-12", ["B", "A"], cfg)
     assert key_one == key_two
+
+
+def test_hash_universe_is_order_insensitive_and_stable():
+    baseline = rs._hash_universe(["b", "a", "c"])
+    assert baseline == rs._hash_universe(["c", "b", "a"])
+
+    changed = rs._hash_universe(["a", "c", "d"])
+    assert baseline != changed

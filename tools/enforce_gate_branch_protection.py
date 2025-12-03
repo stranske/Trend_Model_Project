@@ -10,6 +10,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Mapping, Sequence
 
@@ -247,19 +248,22 @@ def _fetch_ruleset_status_checks(
         conditions = ruleset.get("conditions", {})
         ref_name = conditions.get("ref_name", {})
         includes = ref_name.get("include", [])
+        excludes = ref_name.get("exclude", [])
+
+        branch_ref = branch if branch.startswith("refs/") else f"refs/heads/{branch}"
+
+        def _matches(pattern: object) -> bool:
+            if not isinstance(pattern, str):
+                return False
+            if pattern == "~DEFAULT_BRANCH":
+                return True
+            return fnmatch(branch_ref, pattern) or fnmatch(branch, pattern)
 
         # Check if branch matches (supports ~DEFAULT_BRANCH and refs/heads/*)
-        matches_branch = False
-        for pattern in includes:
-            if pattern == "~DEFAULT_BRANCH":
-                matches_branch = True
-                break
-            if pattern == f"refs/heads/{branch}":
-                matches_branch = True
-                break
-            if pattern == branch:
-                matches_branch = True
-                break
+        matches_branch = any(_matches(pattern) for pattern in includes)
+
+        if matches_branch and any(_matches(pattern) for pattern in excludes):
+            continue
 
         if not matches_branch:
             continue
