@@ -53,6 +53,32 @@ def test_get_rebalance_dates_custom_schedule_intersection() -> None:
     assert calendar.equals(expected)
 
 
+def test_get_rebalance_dates_validates_frequency_inputs() -> None:
+    index = pd.bdate_range("2024-01-02", periods=5)
+
+    with pytest.raises(ValueError, match="freq must be a non-empty string"):
+        get_rebalance_dates(index, "  ")
+
+    with pytest.raises(ValueError, match="Unsupported frequency alias: quarterlyy"):
+        get_rebalance_dates(index, "quarterlyy")
+
+    with pytest.raises(TypeError, match="freq must be a string frequency alias"):
+        get_rebalance_dates(index, 123)  # type: ignore[arg-type]
+
+
+def test_get_rebalance_dates_matches_timezone_and_deduplicates_custom() -> None:
+    index = pd.date_range("2024-02-01", periods=4, freq="D", tz="UTC")
+    custom = pd.DatetimeIndex(["2024-02-02", "2024-02-03", "2024-02-02"])
+
+    calendar = get_rebalance_dates(index, custom)
+
+    expected = pd.DatetimeIndex(
+        [pd.Timestamp("2024-02-02", tz="UTC"), pd.Timestamp("2024-02-03", tz="UTC")],
+        name="rebalance_date",
+    )
+    assert calendar.equals(expected)
+
+
 def test_apply_rebalance_schedule_only_changes_on_calendar() -> None:
     index = pd.bdate_range("2023-01-02", periods=15)
     positions = pd.DataFrame(
@@ -75,6 +101,12 @@ def test_apply_rebalance_schedule_only_changes_on_calendar() -> None:
 
     mid_week = pd.Timestamp("2023-01-10")
     assert applied.loc[mid_week].equals(normalised.loc[calendar[0]])
+
+
+def test_apply_rebalance_schedule_requires_datetime_index() -> None:
+    positions = pd.Series([0.1, 0.2], index=["2023-01-01", "2023-01-02"])
+    with pytest.raises(TypeError, match="positions index must be a DatetimeIndex"):
+        apply_rebalance_schedule(positions, [pd.Timestamp("2023-01-02")])
 
 
 def test_apply_rebalance_schedule_preserves_initial_window() -> None:
@@ -100,6 +132,18 @@ def test_apply_rebalance_schedule_preserves_dtype_and_overlapping_calendar() -> 
     assert applied.dtype == np.dtype("float64")
     expected = normalize_positions(positions.to_frame("position"))["position"]
     assert applied.loc[index[3]] == expected.loc[index[2]]
+
+
+def test_apply_rebalance_schedule_resorts_to_original_order() -> None:
+    ascending = pd.bdate_range("2023-01-02", periods=4)
+    scrambled = pd.DatetimeIndex([ascending[2], ascending[0], ascending[3], ascending[1]])
+    positions = pd.Series([1.0, 2.0, 3.0, 4.0], index=scrambled, name="positions")
+
+    calendar = get_rebalance_dates(scrambled, "weekly")
+    applied = apply_rebalance_schedule(positions, calendar)
+
+    assert applied.index.equals(scrambled)
+    assert applied.loc[scrambled[1]] == applied.loc[scrambled[0]]
 
 
 def test_apply_rebalance_schedule_errors_when_calendar_missing() -> None:
@@ -139,6 +183,24 @@ def test_normalize_positions_requires_datetime_index() -> None:
     df = pd.DataFrame({"AAA": [0.1]}, index=["not-a-date"])
     with pytest.raises(TypeError, match="normalize_positions contract"):
         normalize_positions(df)
+
+
+def test_normalize_positions_validates_inputs() -> None:
+    positions = pd.DataFrame({"A": [0.1, 0.2]}, index=pd.to_datetime(["2023-01-01", "2023-01-01"]))
+
+    with pytest.raises(TypeError, match="positions must be provided as a pandas DataFrame"):
+        normalize_positions([1, 2])  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="positions columns must be unique"):
+        duplicate_cols = pd.DataFrame([[0.1, 0.2]], columns=["A", "B"])
+        duplicate_cols.columns = ["A", "A"]
+        normalize_positions(duplicate_cols)
+
+    with pytest.raises(ValueError, match="positions index must be unique"):
+        normalize_positions(positions)
+
+    with pytest.raises(ValueError, match="eligible must include at least one symbol"):
+        normalize_positions(pd.DataFrame({"A": [0.1]}), eligible=[])
 
 
 def test_normalize_positions_two_asset_reproducible_weights() -> None:
