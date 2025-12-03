@@ -332,7 +332,7 @@ def test_ruleset_fetch_respects_default_branch_pattern(
     assert session.get_urls[-1].endswith("/rulesets/789")
 
 
-def test_ruleset_fetch_ignores_default_branch_for_other_refs(
+def test_ruleset_fetch_skips_non_default_branches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     rulesets_response = DummyResponse(
