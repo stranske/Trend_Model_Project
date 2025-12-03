@@ -118,7 +118,11 @@ def test_render_html_renders_metrics_and_artifacts() -> None:
     manifest = {
         "metrics": {"cagr": 0.1234},
         "artifacts": [{"name": "demo.csv", "size": 4}],
-        "data_window": {"start": "2020-01-01", "end": "2020-02-01", "instrument_count": 1},
+        "data_window": {
+            "start": "2020-01-01",
+            "end": "2020-02-01",
+            "instrument_count": 1,
+        },
         "git_hash": "deadbeef",
     }
 
