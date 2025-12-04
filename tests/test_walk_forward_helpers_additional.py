@@ -46,10 +46,14 @@ def test_tie_breaker_is_deterministic_with_rng(simple_index: pd.DatetimeIndex) -
 
     assert tie_series.index.equals(simple_index)
     assert tie_series.dtype == float
-    assert tie_series.tolist() == pytest.approx(list(np.array([0.68235186, 0.05382102, 0.22035987, 0.18437181, 0.1759059])))
+    assert tie_series.tolist() == pytest.approx(
+        list(np.array([0.68235186, 0.05382102, 0.22035987, 0.18437181, 0.1759059]))
+    )
 
 
-def test_select_weights_applies_band_and_tie_breaking(simple_index: pd.DatetimeIndex) -> None:
+def test_select_weights_applies_band_and_tie_breaking(
+    simple_index: pd.DatetimeIndex,
+) -> None:
     data = pd.DataFrame(
         {
             "a": [1.0, 1.0, 1.0, 1.0, 1.0],
