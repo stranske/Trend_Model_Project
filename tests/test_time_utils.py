@@ -131,7 +131,7 @@ def test_align_calendar_all_invalid_dates_raise_value_error():
         align_calendar(df)
 
 
-def test_align_calendar_weekly_frequency_retains_weekend_rows():
+def test_align_calendar_weekly_frequency_drops_weekend_rows():
     df = pd.DataFrame(
         {
             "Date": [
