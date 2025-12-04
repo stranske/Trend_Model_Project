@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
 
+from trend_analysis.reporting import run_artifacts
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 
 
@@ -86,3 +88,87 @@ def test_write_run_artifacts_skips_missing_files(tmp_path: Path) -> None:
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["artifacts"] == []
     assert manifest["data_window"]["rows"] == 1
+
+
+def test_serialise_stats_handles_mapping_and_invalid_values() -> None:
+    stats = {"cagr": "0.5", "vol": "n/a", "ignored": "x"}
+
+    result = run_artifacts._serialise_stats(stats)
+
+    assert result == {"cagr": 0.5}
+    assert run_artifacts._serialise_stats(None) == {}
+
+
+def test_data_window_uses_index_when_date_column_missing() -> None:
+    df = pd.DataFrame(
+        {"asset1": [1, 2], "asset2": [3, 4]},
+        index=pd.period_range("2020-01", periods=2, freq="M"),
+    )
+
+    summary = run_artifacts._data_window(df)
+
+    assert summary["rows"] == 2
+    assert summary["instrument_count"] == 2
+    assert summary["start"].startswith("2020-01")
+    assert summary["end"].startswith("2020-02")
+
+
+def test_render_html_renders_metrics_and_artifacts() -> None:
+    created = dt.datetime(2023, 1, 2, tzinfo=dt.timezone.utc)
+    manifest = {
+        "metrics": {"cagr": 0.1234},
+        "artifacts": [{"name": "demo.csv", "size": 4}],
+        "data_window": {
+            "start": "2020-01-01",
+            "end": "2020-02-01",
+            "instrument_count": 1,
+        },
+        "git_hash": "deadbeef",
+    }
+
+    html = run_artifacts._render_html(
+        run_id="rid", created=created, manifest=manifest, summary_text="hello"
+    )
+
+    assert "Trend run receipt" in html
+    assert "0.1234" in html
+    assert "demo.csv" in html
+    assert "hello" in html
+
+
+def test_write_run_artifacts_deduplicates_and_coerces(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(run_artifacts, "_git_hash", lambda: "fixedhash")
+
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_text("payload", encoding="utf-8")
+
+    run_dir = write_run_artifacts(
+        output_dir=tmp_path / "out",
+        run_id="dup-test",
+        config=None,
+        config_path="cfg.yml",
+        input_path=tmp_path / "missing.csv",
+        data_frame=[{"A": 1}],
+        metrics_frame=[{"cagr": 0.2, "sharpe": 1.1}],
+        run_details={"selected_funds": "Alpha"},
+        exported_files=[artifact, artifact],
+        summary_text="",
+    )
+
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert manifest["selected_funds"] == ["Alpha"]
+    assert len(manifest["artifacts"]) == 1
+    assert manifest["metrics_overview"]["avg_cagr"] == 0.2
+
+
+def test_coerce_frame_gracefully_handles_unexpected_input() -> None:
+    class Bad:
+        pass
+
+    result = run_artifacts._coerce_frame(Bad())
+
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
