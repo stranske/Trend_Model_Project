@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from src import cli
+from trend_analysis import cli
 
 
 def _write_csv(
