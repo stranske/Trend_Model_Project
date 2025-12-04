@@ -131,7 +131,7 @@ def test_align_calendar_all_invalid_dates_raise_value_error():
         align_calendar(df)
 
 
-def test_align_calendar_weekly_frequency_drops_weekend_rows():
+def test_align_calendar_weekly_frequency_retains_start_when_target_empty():
     df = pd.DataFrame(
         {
             "Date": [
@@ -150,6 +150,7 @@ def test_align_calendar_weekly_frequency_drops_weekend_rows():
     alignment = result.attrs["calendar_alignment"]
     assert alignment["weekend_rows_dropped"] == 0
     assert alignment["target_frequency"] == "W-FRI"
+    assert alignment["timestamp_count"] == 1
 
 
 def test_align_calendar_holiday_overrides_are_range_filtered():
