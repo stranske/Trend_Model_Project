@@ -1,6 +1,5 @@
 import types
 
-
 from trend_analysis import api
 
 
