@@ -190,10 +190,6 @@ def test_normalize_positions_requires_datetime_index() -> None:
 
 
 def test_normalize_positions_validates_inputs() -> None:
-    positions = pd.DataFrame(
-        {"A": [0.1, 0.2]}, index=pd.to_datetime(["2023-01-01", "2023-01-01"])
-    )
-
     with pytest.raises(
         TypeError, match="positions must be provided as a pandas DataFrame"
     ):
