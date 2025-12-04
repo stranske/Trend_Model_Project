@@ -13,7 +13,9 @@ def test_normalise_membership_policy_defaults_and_validates() -> None:
         harness._normalise_membership_policy("invalid")
 
 
-def test_apply_membership_mask_skips_missing_and_extra_columns(caplog: pytest.LogCaptureFixture) -> None:
+def test_apply_membership_mask_skips_missing_and_extra_columns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     dates = pd.date_range("2020-01-01", periods=2, freq="D")
     data = pd.DataFrame({"A": [1.0, 2.0], "B": [1.0, np.nan]}, index=dates)
     membership = {
