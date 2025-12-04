@@ -297,7 +297,9 @@ def test_contract_frequency_prefers_detected_and_metadata_fallbacks() -> None:
     assert _contract_frequency(attrs) == "M"
 
 
-def test_apply_price_contract_updates_index_and_date_column(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_price_contract_updates_index_and_date_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     frame = pd.DataFrame(
         {
             "Date": ["2024-01-01", "2024-01-02"],
@@ -328,4 +330,6 @@ def test_apply_price_contract_updates_index_and_date_column(monkeypatch: pytest.
     assert contracted.index.tz is not None
     assert contracted.index.name is None  # cleared when date column is retained
     assert contracted["Date"].dt.tz is not None
-    pd.testing.assert_index_equal(contracted.index, calls["validated"].index, check_names=False)
+    pd.testing.assert_index_equal(
+        contracted.index, calls["validated"].index, check_names=False
+    )
