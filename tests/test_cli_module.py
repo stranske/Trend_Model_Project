@@ -84,6 +84,19 @@ output:
     assert set(data.columns) == {"r1"}
 
 
+def test_build_parser_sets_expected_expand_defaults() -> None:
+    parser = cli._build_parser()
+
+    args_default = parser.parse_args(["cv", "--config", "c.yaml"])
+    assert args_default.expand is None
+
+    args_expand = parser.parse_args(["cv", "--config", "c.yaml", "--expand"])
+    assert args_expand.expand is True
+
+    args_roll = parser.parse_args(["cv", "--config", "c.yaml", "--rolling"])
+    assert args_roll.expand is False
+
+
 def test_handle_cv_overrides_config_and_exports(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
@@ -148,6 +161,18 @@ output:
         "rows": 1,
     }
     assert Path(called["export"]).resolve() == (tmp_path / "custom/out").resolve()
+
+
+def test_handle_cv_errors_on_missing_config(tmp_path: Path) -> None:
+    args = argparse.Namespace(
+        config=str(tmp_path / "missing.yaml"),
+        folds=None,
+        expand=None,
+        output_dir=None,
+    )
+
+    with pytest.raises(SystemExit, match="Config not found"):
+        cli._handle_cv(args)
 
 
 def test_handle_report_invokes_renderer(monkeypatch, tmp_path: Path, capsys) -> None:
