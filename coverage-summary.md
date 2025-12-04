@@ -30,11 +30,11 @@
 
 ## Priority Areas (Lowest Coverage)
 
-1. **ui/rank_widgets.py** (0%) - Completely untested
-2. **core/rank_selection.py** (80%) - Critical ranking logic needs more coverage
-3. **walk_forward.py** (84%) - Walk-forward analysis needs edge cases
-4. **universe.py** (89%) - Universe management needs more tests
-5. **backtesting/harness.py** (90%) - Backtesting harness tests needed
+1. **trend_analysis/ui/rank_widgets.py** (0%) - Completely untested
+2. **trend_analysis/core/rank_selection.py** (80%) - Critical ranking logic needs more coverage
+3. **trend_analysis/walk_forward.py** (84%) - Walk-forward analysis needs edge cases
+4. **trend_analysis/universe.py** (89%) - Universe management needs more tests
+5. **trend_analysis/backtesting/harness.py** (90%) - Backtesting harness tests needed
 
 ## Test Statistics
 
