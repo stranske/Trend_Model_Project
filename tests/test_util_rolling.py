@@ -61,6 +61,24 @@ def test_rolling_shifted_std_respects_min_periods_and_is_causal() -> None:
     pd.testing.assert_series_equal(baseline.iloc[:-1], shifted.iloc[:-1])
 
 
+def test_rolling_shifted_max_respects_shift_and_default_min_periods() -> None:
+    series = pd.Series([10, 11, 7, 3, 5], index=pd.RangeIndex(5))
+
+    result = rolling_shifted(series, window=2, agg="max")
+    expected = series.shift(1).rolling(window=2, min_periods=2).max()
+
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_rolling_shifted_min_supports_negative_values() -> None:
+    series = pd.Series([0.2, -1.1, 3.4, -0.5, 2.2], index=pd.RangeIndex(5))
+
+    result = rolling_shifted(series, window=3, agg="min")
+    expected = series.shift(1).rolling(window=3, min_periods=3).min()
+
+    pd.testing.assert_series_equal(result, expected)
+
+
 def test_rolling_shifted_rejects_invalid_window() -> None:
     series = pd.Series([1, 2, 3], index=pd.RangeIndex(3))
 
