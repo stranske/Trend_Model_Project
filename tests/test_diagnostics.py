@@ -18,13 +18,11 @@ def test_pipeline_success_exposes_mapping_interface():
     assert result.diagnostic is None
 
 
-
 def test_pipeline_result_requires_value_for_item_access():
     result = diagnostics.PipelineResult(value=None)
 
     with pytest.raises(KeyError, match="does not contain a payload"):
         _ = result["anything"]
-
 
 
 def test_pipeline_failure_defaults_message_and_copies_context():
@@ -39,11 +37,12 @@ def test_pipeline_failure_defaults_message_and_copies_context():
     assert isinstance(diagnostic, DiagnosticPayload)
     assert (
         diagnostic.message
-        == diagnostics._DEFAULT_MESSAGES[diagnostics.PipelineReasonCode.SAMPLE_WINDOW_EMPTY]
+        == diagnostics._DEFAULT_MESSAGES[
+            diagnostics.PipelineReasonCode.SAMPLE_WINDOW_EMPTY
+        ]
     )
     assert diagnostic.context == context
     assert diagnostic.context is not context
-
 
 
 def test_coerce_pipeline_result_accepts_diagnostic_result():
@@ -55,7 +54,6 @@ def test_coerce_pipeline_result_accepts_diagnostic_result():
     assert diagnostic is None
 
 
-
 def test_coerce_pipeline_result_rejects_invalid_diagnostic_type():
     class PayloadHolder:
         diagnostic = object()
@@ -63,7 +61,6 @@ def test_coerce_pipeline_result_rejects_invalid_diagnostic_type():
 
     with pytest.raises(TypeError, match="DiagnosticPayload"):
         diagnostics.coerce_pipeline_result(PayloadHolder())
-
 
 
 def test_coerce_pipeline_result_rejects_non_mapping_payload():
