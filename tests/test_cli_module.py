@@ -11,7 +11,9 @@ import pytest
 from src import cli
 
 
-def _write_csv(tmp_path: Path, rows: list[dict[str, Any]], *, name: str = "returns.csv") -> Path:
+def _write_csv(
+    tmp_path: Path, rows: list[dict[str, Any]], *, name: str = "returns.csv"
+) -> Path:
     csv_path = tmp_path / name
     pd.DataFrame(rows).to_csv(csv_path, index=False)
     return csv_path
@@ -44,7 +46,9 @@ def test_load_returns_errors_on_missing_date_or_numeric_columns(tmp_path: Path) 
     csv_path = _write_csv(tmp_path, [{"Date": "2020-01-01", "a": "x"}])
 
     with pytest.raises(ValueError, match="Date column 'Missing'"):
-        cli._load_returns({"csv_path": csv_path, "date_column": "Missing"}, base_dir=tmp_path)
+        cli._load_returns(
+            {"csv_path": csv_path, "date_column": "Missing"}, base_dir=tmp_path
+        )
 
     with pytest.raises(ValueError, match="No numeric columns"):
         cli._load_returns({"csv_path": csv_path}, base_dir=tmp_path)
@@ -79,7 +83,9 @@ output:
     assert set(data.columns) == {"r1"}
 
 
-def test_handle_cv_overrides_config_and_exports(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_handle_cv_overrides_config_and_exports(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
     csv_path = _write_csv(tmp_path, [{"Date": "2020-01-01", "r": 1}])
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(
@@ -108,12 +114,18 @@ output:
 
     def fake_export(report, output_dir):
         called["export"] = output_dir
-        return {"folds": output_dir / "f.csv", "summary": output_dir / "s.csv", "markdown": output_dir / "m.md"}
+        return {
+            "folds": output_dir / "f.csv",
+            "summary": output_dir / "s.csv",
+            "markdown": output_dir / "m.md",
+        }
 
     monkeypatch.setitem(
         sys.modules,
         "analysis.cv",
-        type("m", (), {"walk_forward": fake_walk_forward, "export_report": fake_export}),
+        type(
+            "m", (), {"walk_forward": fake_walk_forward, "export_report": fake_export}
+        ),
     )
 
     args = argparse.Namespace(
@@ -128,7 +140,12 @@ output:
     captured = capsys.readouterr().out
     assert "Folds written" in captured
     assert exit_code == 0
-    assert called["walk_forward"] == {"folds": 5, "expand": False, "params": {}, "rows": 1}
+    assert called["walk_forward"] == {
+        "folds": 5,
+        "expand": False,
+        "params": {},
+        "rows": 1,
+    }
     assert Path(called["export"]).resolve() == (tmp_path / "custom/out").resolve()
 
 
@@ -149,7 +166,9 @@ def test_handle_report_invokes_renderer(monkeypatch, tmp_path: Path, capsys) -> 
     monkeypatch.setattr(cli, "load_results_payload", fake_load)
     monkeypatch.setattr(cli, "render", fake_render)
 
-    args = argparse.Namespace(last_run=str(payload_path), output=str(tmp_path / "out.md"))
+    args = argparse.Namespace(
+        last_run=str(payload_path), output=str(tmp_path / "out.md")
+    )
 
     exit_code = cli._handle_report(args)
 
