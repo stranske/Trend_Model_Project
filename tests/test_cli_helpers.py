@@ -1,66 +1,115 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis import cli
+from trend_analysis.cli import (
+    _apply_universe_mask,
+    _extract_cache_stats,
+    _resolve_artifact_paths,
+)
 
 
-def test_extract_cache_stats_returns_last_valid_snapshot():
+def test_resolve_artifact_paths_deduplicates_and_normalises_excel_alias():
+    resolved = _resolve_artifact_paths(
+        Path("/tmp/out"),
+        "result",
+        ["summary", "details"],
+        ["csv", "excel", "json", "CSV"],
+    )
+    assert resolved == [
+        Path("/tmp/out/result_summary.csv"),
+        Path("/tmp/out/result_details.csv"),
+        Path("/tmp/out/result.xlsx"),
+        Path("/tmp/out/result_summary.json"),
+        Path("/tmp/out/result_details.json"),
+    ]
+
+
+def test_extract_cache_stats_returns_last_integer_like_snapshot():
     payload = {
-        "early": {"entries": 1, "hits": 0, "misses": 1, "incremental_updates": 0},
+        "meta": {"hits": 1.0, "entries": 2, "misses": 3, "incremental_updates": 0},
         "nested": [
-            {"entries": 2, "hits": 1, "misses": 1, "incremental_updates": 0.0},
-            "ignore",
-            {"entries": 3, "hits": 2, "misses": 0, "incremental_updates": 1},
+            {"entries": 5, "hits": 4.2, "misses": 1, "incremental_updates": 3},
+            np.array([1, 2, 3]),
+            {
+                "entries": 10,
+                "hits": 9,
+                "misses": 1,
+                "incremental_updates": 7,
+                "extra": "ignored",
+            },
         ],
-        "frame": pd.DataFrame({"A": [1, 2]}),
-        "array": np.array([1, 2, 3]),
     }
 
-    stats = cli._extract_cache_stats(payload)
-
-    assert stats == {"entries": 3, "hits": 2, "misses": 0, "incremental_updates": 1}
-
-
-def test_extract_cache_stats_returns_none_when_absent():
-    payload = {"no_stats": [{"entries": 1, "hits": 1}], "series": pd.Series([1.0])}
-
-    assert cli._extract_cache_stats(payload) is None
+    assert _extract_cache_stats(payload) == {
+        "entries": 10,
+        "hits": 9,
+        "misses": 1,
+        "incremental_updates": 7,
+    }
 
 
-def test_apply_universe_mask_filters_and_preserves_dates():
+def test_extract_cache_stats_ignores_invalid_candidates():
+    class CustomSized:
+        def __len__(self):
+            return 3
+
+    payload = [
+        {"entries": "a", "hits": 1, "misses": 1, "incremental_updates": 1},
+        pd.DataFrame({"a": [1, 2]}),
+        CustomSized(),
+    ]
+
+    assert _extract_cache_stats(payload) is None
+
+
+def test_apply_universe_mask_respects_membership_and_date_column_case_insensitive():
     df = pd.DataFrame(
         {
-            "Date": ["2020-01-01", "2020-01-02"],
-            "A": [1.0, 2.0],
-            "B": [3.0, 4.0],
+            "Date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+            "AAA": [1.0, 2.0, 3.0],
+            "BBB": [4.0, 5.0, 6.0],
         }
     )
     mask = pd.DataFrame(
-        {"A": [True, False], "B": [False, True]},
-        index=pd.to_datetime(["2020-01-01", "2020-01-02"]),
+        {
+            "AAA": [True, False, True],
+            "BBB": [False, True, False],
+        },
+        index=pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
     )
 
-    result = cli._apply_universe_mask(df, mask, date_column="date")
+    result = _apply_universe_mask(df, mask, date_column="date")
 
-    assert list(result.columns) == ["Date", "A", "B"]
-    assert pd.to_datetime(result["Date"]).tolist() == list(mask.index)
-    assert np.isnan(result.loc[0, "B"]) and np.isnan(result.loc[1, "A"])
-    assert result.loc[0, "A"] == 1.0 and result.loc[1, "B"] == 4.0
+    expected = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+            "AAA": [1.0, np.nan, 3.0],
+            "BBB": [np.nan, 5.0, np.nan],
+        }
+    )
 
-
-def test_apply_universe_mask_raises_for_missing_members():
-    df = pd.DataFrame({"date": ["2020-01-01"], "A": [1.0]})
-    mask = pd.DataFrame({"Missing": [True]}, index=pd.to_datetime(["2020-01-01"]))
-
-    with pytest.raises(KeyError):
-        cli._apply_universe_mask(df, mask, date_column="date")
+    pd.testing.assert_frame_equal(result, expected)
 
 
-def test_apply_universe_mask_short_circuits_on_empty_mask():
-    df = pd.DataFrame({"date": ["2020-01-01"], "A": [1.0]})
-    mask = pd.DataFrame()
+def test_apply_universe_mask_raises_for_missing_member_columns():
+    df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "AAA": [1.0, 2.0],
+        }
+    )
+    mask = pd.DataFrame(
+        {
+            "AAA": [True, True],
+            "BBB": [False, True],
+        },
+        index=pd.to_datetime(["2024-01-01", "2024-01-02"]),
+    )
 
-    result = cli._apply_universe_mask(df, mask, date_column="date")
+    with pytest.raises(KeyError) as excinfo:
+        _apply_universe_mask(df, mask, date_column="date")
 
-    assert result is df
+    assert "BBB" in str(excinfo.value)
