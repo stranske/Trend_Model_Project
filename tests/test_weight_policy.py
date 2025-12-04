@@ -95,7 +95,9 @@ def test_apply_weight_policy_falls_back_to_empty_when_previous_insufficient():
     weights = pd.Series({"A": np.nan, "B": np.nan})
     previous = pd.Series({"A": 0.7})
 
-    result = apply_weight_policy(weights, None, mode="drop", min_assets=2, previous=previous)
+    result = apply_weight_policy(
+        weights, None, mode="drop", min_assets=2, previous=previous
+    )
 
     assert result.empty
 
