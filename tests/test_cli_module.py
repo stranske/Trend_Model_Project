@@ -8,7 +8,8 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from trend_analysis import cli
+# Import from the root-level cli module, not trend_analysis.cli
+import cli
 
 
 def _write_csv(
@@ -86,7 +87,7 @@ output:
 def test_handle_cv_overrides_config_and_exports(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
-    csv_path = _write_csv(tmp_path, [{"Date": "2020-01-01", "r": 1}])
+    _write_csv(tmp_path, [{"Date": "2020-01-01", "r": 1}])
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(
         """
