@@ -142,8 +142,13 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
     bundle_dir.mkdir()
     recorded: list[Path] = []
 
+    # Import the module explicitly to ensure it's loaded before monkeypatching,
+    # which avoids lazy-loading issues in parallel test execution with pytest-xdist.
+    import trend_analysis.export.bundle as bundle_mod
+
     monkeypatch.setattr(
-        "trend_analysis.export.bundle.export_bundle",
+        bundle_mod,
+        "export_bundle",
         lambda result, path: recorded.append(path),
     )
     monkeypatch.setattr(
