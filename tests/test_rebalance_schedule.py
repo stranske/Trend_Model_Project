@@ -201,15 +201,19 @@ def test_normalize_positions_validates_inputs() -> None:
 
 
 def test_normalize_positions_rejects_duplicate_columns_and_empty_eligible() -> None:
-    df = pd.DataFrame([[0.1, 0.2]], columns=["AAA", "AAA"], index=pd.to_datetime(["2024-01-01"]))
+    df = pd.DataFrame(
+        [[0.1, 0.2]], columns=["AAA", "AAA"], index=pd.to_datetime(["2024-01-01"])
+    )
 
     with pytest.raises(
-        ValueError, match="positions columns must be unique per the normalize_positions contract"
+        ValueError,
+        match="positions columns must be unique per the normalize_positions contract",
     ):
         normalize_positions(df)
 
     with pytest.raises(
-        ValueError, match="eligible must include at least one symbol per the normalize_positions contract"
+        ValueError,
+        match="eligible must include at least one symbol per the normalize_positions contract",
     ):
         normalize_positions(df.loc[:, ~df.columns.duplicated()], eligible=[])
 
@@ -219,7 +223,8 @@ def test_normalize_positions_rejects_duplicate_index() -> None:
     df = pd.DataFrame({"AAA": [0.1, 0.2]}, index=duplicated_index)
 
     with pytest.raises(
-        ValueError, match="positions index must be unique per the normalize_positions contract"
+        ValueError,
+        match="positions index must be unique per the normalize_positions contract",
     ):
         normalize_positions(df)
 
@@ -233,7 +238,9 @@ def test_match_timezone_aligns_naive_and_aware_indices() -> None:
     assert localized.tz_convert(None).equals(naive_index)
 
     aware_index = pd.DatetimeIndex(["2024-03-01", "2024-03-02"], tz="UTC")
-    dropped = _match_timezone(aware_index, pd.DatetimeIndex(["2024-03-01", "2024-03-02"]))
+    dropped = _match_timezone(
+        aware_index, pd.DatetimeIndex(["2024-03-01", "2024-03-02"])
+    )
     assert dropped.tz is None
     assert dropped.equals(pd.DatetimeIndex(["2024-03-01", "2024-03-02"]))
 
