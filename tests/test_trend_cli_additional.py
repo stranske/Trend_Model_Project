@@ -9,6 +9,12 @@ import pytest
 
 import trend.cli as cli
 
+# Pre-import the bundle module at collection time to avoid lazy-loading race
+# conditions when pytest-xdist runs tests in parallel. This ensures the module
+# is in sys.modules before workers fork and prevents ImportError when
+# monkeypatching trend_analysis.export.bundle in test_write_bundle_into_directory.
+import trend_analysis.export.bundle as _bundle_mod  # noqa: F401
+
 
 def test_refresh_legacy_cli_module_updates_cache(monkeypatch):
     module = ModuleType("trend_analysis.cli")
@@ -142,12 +148,10 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
     bundle_dir.mkdir()
     recorded: list[Path] = []
 
-    # Import the module explicitly to ensure it's loaded before monkeypatching,
-    # which avoids lazy-loading issues in parallel test execution with pytest-xdist.
-    import trend_analysis.export.bundle as bundle_mod
-
+    # Use the pre-imported module from the top of the file to avoid
+    # lazy-loading race conditions in parallel test execution.
     monkeypatch.setattr(
-        bundle_mod,
+        _bundle_mod,
         "export_bundle",
         lambda result, path: recorded.append(path),
     )
