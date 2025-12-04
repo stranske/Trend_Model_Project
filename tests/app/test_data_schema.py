@@ -77,6 +77,17 @@ def test_read_binary_payload_rejects_unsupported_types() -> None:
         data_schema._read_binary_payload(object())
 
 
+def test_read_binary_payload_text_stream_encodes_bytes_and_restores_position() -> None:
+    stream = io.StringIO("hello")
+    stream.seek(1)
+
+    raw, name = data_schema._read_binary_payload(stream)
+
+    assert raw == b"hello"
+    assert name == "upload"
+    assert stream.tell() == 1
+
+
 def test_load_and_validate_csv(tmp_path):
     csv = tmp_path / "toy.csv"
     csv.write_text("Date,A,B\n2020-01-31,0.01,0.02\n2020-02-29,0.00,-0.01\n")
@@ -142,6 +153,47 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
     warnings = meta.get("validation", {}).get("warnings", [])
     assert any("Missing-data policy" in warning for warning in warnings)
     assert any("Sanitized column headers" in warning for warning in warnings)
+
+
+def test_normalise_header_value_coerces_none_and_nan() -> None:
+    assert data_schema._normalise_header_value(None) == ""
+    assert data_schema._normalise_header_value(pd.NA) == ""
+    assert data_schema._normalise_header_value(7) == "7"
+
+
+def test_allocate_unique_name_adds_suffix_when_occupied() -> None:
+    occupied = {"Date", "Value", "Date_2"}
+
+    new = data_schema._allocate_unique_name("Date", occupied)
+
+    assert new == "Date_3"
+    assert "Date_3" in occupied
+
+
+def test_extract_headers_from_bytes_handles_empty_and_excel(monkeypatch) -> None:
+    assert data_schema.extract_headers_from_bytes(b"", is_excel=False) == []
+
+    def fake_read_excel(buffer: io.BytesIO, header: int | None, nrows: int | None):
+        return pd.DataFrame([["Date", "Value"]])
+
+    monkeypatch.setattr(data_schema.pd, "read_excel", fake_read_excel)
+
+    headers = data_schema.extract_headers_from_bytes(b"rawbytes", is_excel=True)
+
+    assert headers == ["Date", "Value"]
+
+
+def test_sanitize_formula_headers_handles_date_collision() -> None:
+    df = pd.DataFrame([[1, 2, 3]], columns=["=Date", "=Date", "+value"])
+
+    sanitized, changes = data_schema._sanitize_formula_headers(df)
+
+    assert list(sanitized.columns) == ["Date", "Date_2", "value"]
+    assert changes == [
+        {"original": "=Date", "sanitized": "Date"},
+        {"original": "=Date", "sanitized": "Date_2"},
+        {"original": "+value", "sanitized": "value"},
+    ]
 
 
 def test_extract_headers_from_excel_failure_returns_none() -> None:

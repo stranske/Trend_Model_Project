@@ -91,6 +91,28 @@ def test_apply_weight_policy_drop_mode_fallback_under_min():
     )
 
 
+def test_apply_weight_policy_falls_back_to_empty_when_previous_insufficient():
+    weights = pd.Series({"A": np.nan, "B": np.nan})
+    previous = pd.Series({"A": 0.7})
+
+    result = apply_weight_policy(
+        weights, None, mode="drop", min_assets=2, previous=previous
+    )
+
+    assert result.empty
+
+
+def test_apply_weight_policy_zero_sum_returns_zeros():
+    weights = pd.Series({"A": 0.0, "B": 0.0})
+    signals = pd.Series({"A": 1.0, "B": 1.0})
+
+    result = apply_weight_policy(weights, signals, mode="drop", min_assets=1)
+
+    assert set(result.index) == {"A", "B"}
+    assert np.isclose(result.sum(), 0.0)
+    assert (result == 0.0).all()
+
+
 def test_apply_weight_policy_returns_empty_without_valid_inputs():
     weights = pd.Series(dtype=float)
     signals = pd.Series(dtype=float)

@@ -190,25 +190,55 @@ def test_normalize_positions_requires_datetime_index() -> None:
 
 
 def test_normalize_positions_validates_inputs() -> None:
-    positions = pd.DataFrame(
-        {"A": [0.1, 0.2]}, index=pd.to_datetime(["2023-01-01", "2023-01-01"])
-    )
-
     with pytest.raises(
         TypeError, match="positions must be provided as a pandas DataFrame"
     ):
         normalize_positions([1, 2])  # type: ignore[arg-type]
 
-    with pytest.raises(ValueError, match="positions columns must be unique"):
-        duplicate_cols = pd.DataFrame([[0.1, 0.2]], columns=["A", "B"])
-        duplicate_cols.columns = ["A", "A"]
-        normalize_positions(duplicate_cols)
 
-    with pytest.raises(ValueError, match="positions index must be unique"):
-        normalize_positions(positions)
+def test_normalize_positions_rejects_duplicate_columns_and_empty_eligible() -> None:
+    df = pd.DataFrame(
+        [[0.1, 0.2]], columns=["AAA", "AAA"], index=pd.to_datetime(["2024-01-01"])
+    )
 
-    with pytest.raises(ValueError, match="eligible must include at least one symbol"):
-        normalize_positions(pd.DataFrame({"A": [0.1]}), eligible=[])
+    with pytest.raises(
+        ValueError,
+        match="positions columns must be unique per the normalize_positions contract",
+    ):
+        normalize_positions(df)
+
+    with pytest.raises(
+        ValueError,
+        match="eligible must include at least one symbol per the normalize_positions contract",
+    ):
+        normalize_positions(df.loc[:, ~df.columns.duplicated()], eligible=[])
+
+
+def test_normalize_positions_rejects_duplicate_index() -> None:
+    duplicated_index = pd.to_datetime(["2024-02-01", "2024-02-01"])
+    df = pd.DataFrame({"AAA": [0.1, 0.2]}, index=duplicated_index)
+
+    with pytest.raises(
+        ValueError,
+        match="positions index must be unique per the normalize_positions contract",
+    ):
+        normalize_positions(df)
+
+
+def test_match_timezone_aligns_naive_and_aware_indices() -> None:
+    aware_template = pd.date_range("2024-03-01", periods=2, freq="D", tz="UTC")
+    naive_index = pd.DatetimeIndex(["2024-03-01", "2024-03-02"], name="rebalance_date")
+
+    localized = _match_timezone(naive_index, aware_template)
+    assert str(localized.tz) == "UTC"
+    assert localized.tz_convert(None).equals(naive_index)
+
+    aware_index = pd.DatetimeIndex(["2024-03-01", "2024-03-02"], tz="UTC")
+    dropped = _match_timezone(
+        aware_index, pd.DatetimeIndex(["2024-03-01", "2024-03-02"])
+    )
+    assert dropped.tz is None
+    assert dropped.equals(pd.DatetimeIndex(["2024-03-01", "2024-03-02"]))
 
 
 def test_normalize_positions_two_asset_reproducible_weights() -> None:

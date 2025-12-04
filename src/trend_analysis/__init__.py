@@ -140,6 +140,15 @@ for _name in _EAGER_SUBMODULES:
 def __getattr__(attr: str) -> ModuleType:  # pragma: no cover - thin lazy loader
     target = _LAZY_SUBMODULES.get(attr)
     if target is None:
+        # Fallback: attempt to load an eager submodule that may have failed
+        # during initial import (e.g., due to race conditions in parallel tests).
+        if attr in _EAGER_SUBMODULES:
+            try:
+                mod = importlib.import_module(f"trend_analysis.{attr}")
+                globals()[attr] = mod
+                return mod
+            except ImportError:
+                pass
         raise AttributeError(attr)
     mod = importlib.import_module(target)
     globals()[attr] = mod
