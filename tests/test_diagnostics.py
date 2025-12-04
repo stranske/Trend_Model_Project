@@ -211,3 +211,26 @@ def test_pipeline_failure_without_context_sets_none():
     diagnostic = result.diagnostic
     assert diagnostic is not None
     assert diagnostic.context is None
+
+
+def test_pipeline_success_copy_does_not_mutate_original_payload():
+    payload = {"alpha": 1}
+    result = diagnostics.pipeline_success(payload)
+
+    copied = result.copy()
+    copied["alpha"] = 2
+
+    assert payload == {"alpha": 1}
+    assert copied == {"alpha": 2}
+
+
+def test_coerce_pipeline_result_handles_wrapper_with_none_payload_and_no_diagnostic():
+    class Wrapper:
+        def __init__(self) -> None:
+            self.value = None
+            self.diagnostic = None
+
+    payload, diagnostic = diagnostics.coerce_pipeline_result(Wrapper())
+
+    assert payload is None
+    assert diagnostic is None
