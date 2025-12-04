@@ -1070,6 +1070,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   return {
     ok,
     reason,
+    prNumber,
     hasKeepaliveLabel,
     hasHumanActivation: humanActivation,
     gateConcluded,
