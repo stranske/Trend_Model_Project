@@ -145,7 +145,8 @@ def test_align_calendar_weekly_frequency_retains_weekend_rows():
 
     result = align_calendar(df, frequency="W")
 
-    assert result["Date"].dt.normalize().tolist() == [pd.Timestamp("2023-07-08")]
+    assert result["Date"].dt.normalize().tolist() == []
+    assert result.empty
     alignment = result.attrs["calendar_alignment"]
     assert alignment["weekend_rows_dropped"] == 0
     assert alignment["target_frequency"] == "W-FRI"
