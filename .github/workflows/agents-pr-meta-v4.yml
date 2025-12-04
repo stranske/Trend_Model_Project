@@ -199,7 +199,13 @@ jobs:
             core.setOutput('ok', bool(result.ok));
             core.setOutput('reason', result.reason || '');
             core.setOutput('agent_alias', result.primaryAgent || '');
-            core.setOutput('pr_number', result.prNumber || '');
+            // Fallback: extract PR number from activation comment URL if result.prNumber is missing
+            let prNum = result.prNumber || '';
+            if (!prNum && result.activationComment?.html_url) {
+              const match = result.activationComment.html_url.match(/\/pull\/(\d+)/);
+              if (match) prNum = match[1];
+            }
+            core.setOutput('pr_number', prNum);
             core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
 
       - name: Detect keepalive from activation

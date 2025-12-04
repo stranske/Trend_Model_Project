@@ -11,7 +11,9 @@ import pytest
 
 from trend_analysis.data import (
     DEFAULT_POLICY_FALLBACK,
+    _apply_price_contract,
     _coerce_limit_kwarg,
+    _contract_frequency,
     _validate_payload,
     ensure_datetime,
     load_csv,
@@ -277,3 +279,57 @@ def test_ensure_datetime_noop_when_column_missing() -> None:
     result = ensure_datetime(frame.copy(), column="Date")
 
     pd.testing.assert_frame_equal(result, frame)
+
+
+def test_contract_frequency_prefers_detected_and_metadata_fallbacks() -> None:
+    attrs = {
+        "market_data_frequency_code": "W",
+        "market_data_frequency": "D",
+    }
+    assert _contract_frequency(attrs) == "W"
+
+    meta = SimpleNamespace(frequency_detected=None, frequency="M")
+    attrs = {
+        "market_data_frequency_code": "  ",
+        "market_data_frequency": None,
+        "market_data": {"metadata": meta},
+    }
+    assert _contract_frequency(attrs) == "M"
+
+
+def test_apply_price_contract_updates_index_and_date_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": ["2024-01-01", "2024-01-02"],
+            "A": [1.0, 2.0],
+        }
+    )
+    frame.attrs["market_data_frequency_code"] = "Q"
+
+    calls: dict[str, Any] = {}
+
+    def fake_coerce(df: pd.DataFrame) -> pd.DataFrame:
+        coerced = df.copy()
+        coerced["Date"] = pd.to_datetime(coerced["Date"], utc=True)
+        coerced.index = coerced["Date"]
+        coerced.index.name = "Date"
+        return coerced
+
+    def fake_validate(df: pd.DataFrame, *, freq: str) -> None:
+        calls["freq"] = freq
+        calls["validated"] = df.copy()
+
+    monkeypatch.setattr("trend_analysis.data.coerce_to_utc", fake_coerce)
+    monkeypatch.setattr("trend_analysis.data.validate_prices", fake_validate)
+
+    contracted = _apply_price_contract(frame, include_date_column=True)
+
+    assert calls["freq"] == "Q"
+    assert contracted.index.tz is not None
+    assert contracted.index.name is None  # cleared when date column is retained
+    assert contracted["Date"].dt.tz is not None
+    pd.testing.assert_index_equal(
+        contracted.index, calls["validated"].index, check_names=False
+    )
