@@ -38,3 +38,25 @@ def test_main_exits_when_uvicorn_missing(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "uvicorn is required" in captured.err
     assert "pip install uvicorn" in captured.err
+
+
+def test_main_runs_uvicorn_with_expected_arguments(monkeypatch):
+    run_kwargs = {}
+
+    def fake_run(*args, **kwargs):
+        run_kwargs["args"] = args
+        run_kwargs["kwargs"] = kwargs
+
+    monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
+    monkeypatch.setenv("HEALTH_PORT", "9001")
+    monkeypatch.setattr(health_wrapper, "uvicorn", type("Uvicorn", (), {"run": fake_run}))
+
+    health_wrapper.main()
+
+    assert run_kwargs["args"] == ("trend_portfolio_app.health_wrapper:app",)
+    assert run_kwargs["kwargs"] == {
+        "host": "127.0.0.1",
+        "port": 9001,
+        "reload": False,
+        "access_log": False,
+    }
