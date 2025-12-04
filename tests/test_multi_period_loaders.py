@@ -52,6 +52,49 @@ def test_load_prices_invokes_validators(monkeypatch, tmp_path):
     assert called["validated"] == [(("Date", "AAA"), "D")]
 
 
+def test_load_prices_falls_back_to_nan_config(monkeypatch, tmp_path):
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("Date,AAA\n2024-01-01,1.0\n")
+
+    captured = {}
+
+    def fake_load_csv(path, *, errors, missing_policy, missing_limit):
+        captured["path"] = path
+        captured["errors"] = errors
+        captured["missing_policy"] = missing_policy
+        captured["missing_limit"] = missing_limit
+        return pd.DataFrame({"Date": pd.to_datetime(["2024-01-01"]), "AAA": [1.0]})
+
+    def fake_coerce(frame):
+        captured["coerced"] = True
+        return frame
+
+    def fake_validate(frame, *, freq):
+        captured.setdefault("validated", []).append((tuple(frame.columns), freq))
+
+    monkeypatch.setattr(loaders, "load_csv", fake_load_csv)
+    monkeypatch.setattr(loaders, "coerce_to_utc", fake_coerce)
+    monkeypatch.setattr(loaders, "validate_prices", fake_validate)
+
+    cfg = DummyConfig(
+        data={"csv_path": str(csv_path), "nan_policy": "bfill", "nan_limit": 2}
+    )
+
+    frame = loaders.load_prices(cfg)
+
+    assert list(frame.columns) == ["Date", "AAA"]
+    assert captured["missing_policy"] == "bfill"
+    assert captured["missing_limit"] == 2
+    assert captured["validated"] == [(("Date", "AAA"), "D")]
+
+
+def test_load_prices_missing_file_raises(tmp_path):
+    cfg = DummyConfig(data={"csv_path": tmp_path / "missing.csv"})
+
+    with pytest.raises(FileNotFoundError):
+        loaders.load_prices(cfg)
+
+
 def test_load_prices_missing_path_raises_key_error():
     cfg = DummyConfig(data={})
     with pytest.raises(KeyError):
@@ -67,6 +110,19 @@ def test_coerce_path_rejects_directories(tmp_path):
 
     with pytest.raises(KeyError):
         loaders._coerce_path("   ", field="data.csv_path")
+
+
+def test_coerce_path_resolves_relative_and_missing(tmp_path, monkeypatch):
+    data_file = tmp_path / "data.csv"
+    data_file.write_text("Date,AAA\n2024-01-01,1.0\n")
+
+    monkeypatch.chdir(tmp_path)
+
+    resolved = loaders._coerce_path("./data.csv", field="data.csv_path")
+    assert resolved == data_file.resolve()
+
+    with pytest.raises(FileNotFoundError):
+        loaders._coerce_path("./missing.csv", field="data.csv_path")
 
 
 def test_load_membership_normalises_and_sorts(tmp_path):
@@ -90,6 +146,13 @@ def test_load_membership_missing_required_columns_raises(tmp_path):
     cfg = DummyConfig(data={"universe_membership_path": membership})
     with pytest.raises(ValueError):
         loaders.load_membership(cfg)
+
+
+def test_load_membership_returns_empty_when_not_configured():
+    empty = loaders.load_membership(DummyConfig(data={}))
+
+    assert empty.empty
+    assert list(empty.columns) == ["fund", "effective_date", "end_date"]
 
 
 def test_load_benchmarks_selects_columns_and_errors_on_missing():
@@ -119,3 +182,11 @@ def test_load_benchmarks_returns_empty_when_no_mapping():
     empty = loaders.load_benchmarks(cfg, prices)
     assert empty.empty
     assert list(empty.columns) == ["Date"]
+
+
+def test_load_benchmarks_requires_date_column():
+    prices = pd.DataFrame({"AAA": [1.0]})
+    cfg = DummyConfig(benchmarks={"Bench1": "AAA"})
+
+    with pytest.raises(KeyError):
+        loaders.load_benchmarks(cfg, prices)
