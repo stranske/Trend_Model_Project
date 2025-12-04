@@ -52,7 +52,9 @@ def test_main_runs_uvicorn_with_env_overrides(monkeypatch, capsys):
 
     monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
     monkeypatch.setenv("HEALTH_PORT", "1234")
-    monkeypatch.setattr(health_wrapper, "uvicorn", type("UV", (), {"run": staticmethod(fake_run)}))
+    monkeypatch.setattr(
+        health_wrapper, "uvicorn", type("UV", (), {"run": staticmethod(fake_run)})
+    )
 
     health_wrapper.main()
 
