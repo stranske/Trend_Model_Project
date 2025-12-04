@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -81,7 +80,7 @@ def test_compute_turnover_handles_union_of_indices() -> None:
     assert turnover == pytest.approx(1.0)
 
 
-def test_evaluate_parameter_grid_builds_records_and_summary(tmp_path: Path) -> None:
+def test_evaluate_parameter_grid_builds_records_and_summary() -> None:
     returns = pd.DataFrame(
         {
             "a": [0.01, -0.02, 0.03, 0.04],
