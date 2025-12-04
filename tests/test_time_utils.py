@@ -73,3 +73,45 @@ def test_monthly_frequency_expands_to_business_month_end():
         result.loc[result["Date"] == pd.Timestamp("2023-02-28"), "value"].isna().all()
     )
     assert result.attrs["calendar_alignment"]["target_frequency"] == "M"
+
+
+def test_align_calendar_normalises_timezones_and_infers_frequency():
+    df = pd.DataFrame(
+        {
+            "Date": [
+                pd.Timestamp("2023-01-10 12:00", tz="US/Eastern"),
+                pd.Timestamp("2023-01-11 12:00", tz="US/Eastern"),
+            ],
+            "value": [1, 2],
+        }
+    )
+
+    result = align_calendar(df, frequency=None, timezone="US/Eastern")
+
+    expected = [pd.Timestamp("2023-01-10 17:00"), pd.Timestamp("2023-01-11 17:00")]
+    assert result["Date"].tolist() == expected
+    assert result.attrs["calendar_alignment"]["target_frequency"] == "B"
+    assert result.attrs["calendar_alignment"]["timezone"] == "UTC"
+
+
+def test_align_calendar_defaults_to_simple_calendar_when_unknown():
+    df = pd.DataFrame(
+        {
+            "Date": [
+                dt.datetime(2023, 7, 3),
+                dt.datetime(2023, 7, 4),
+                dt.datetime(2023, 7, 5),
+            ],
+            "value": [10, 20, 30],
+        }
+    )
+
+    result = align_calendar(df, holiday_calendar="unknown")
+
+    assert result["Date"].dt.normalize().tolist() == [
+        pd.Timestamp("2023-07-03"),
+        pd.Timestamp("2023-07-05"),
+    ]
+    alignment = result.attrs["calendar_alignment"]
+    assert alignment["calendar"] == "simple"
+    assert alignment["holiday_rows_dropped"] == 1
