@@ -38,3 +38,34 @@ def test_main_exits_when_uvicorn_missing(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "uvicorn is required" in captured.err
     assert "pip install uvicorn" in captured.err
+
+
+@pytest.mark.skipif(
+    health_wrapper.FastAPI is None or health_wrapper.uvicorn is None,
+    reason="FastAPI or uvicorn not installed",
+)
+def test_main_runs_uvicorn_with_env_overrides(monkeypatch, capsys):
+    calls = []
+
+    def fake_run(app_path, **kwargs):
+        calls.append((app_path, kwargs))
+
+    monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
+    monkeypatch.setenv("HEALTH_PORT", "1234")
+    monkeypatch.setattr(health_wrapper, "uvicorn", type("UV", (), {"run": staticmethod(fake_run)}))
+
+    health_wrapper.main()
+
+    captured = capsys.readouterr()
+    assert "Starting health wrapper service on 127.0.0.1:1234" in captured.out
+    assert calls == [
+        (
+            "trend_portfolio_app.health_wrapper:app",
+            {
+                "host": "127.0.0.1",
+                "port": 1234,
+                "reload": False,
+                "access_log": False,
+            },
+        )
+    ]
