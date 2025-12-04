@@ -174,9 +174,14 @@ def test_align_calendar_converts_timezone_aware_series():
 
 
 def test_align_calendar_handles_empty_holiday_index():
-    df = pd.DataFrame({"Date": [dt.datetime(2023, 1, 5), dt.datetime(2023, 1, 6)], "value": [1, 2]})
+    df = pd.DataFrame(
+        {"Date": [dt.datetime(2023, 1, 5), dt.datetime(2023, 1, 6)], "value": [1, 2]}
+    )
 
     aligned = align_calendar(df, frequency="B", holiday_calendar="simple")
 
     assert aligned.attrs["calendar_alignment"]["holiday_rows_dropped"] == 0
-    assert aligned["Date"].tolist() == pd.to_datetime(["2023-01-05", "2023-01-06"]).tolist()
+    assert (
+        aligned["Date"].tolist()
+        == pd.to_datetime(["2023-01-05", "2023-01-06"]).tolist()
+    )
