@@ -49,7 +49,9 @@ def test_main_runs_uvicorn_with_expected_arguments(monkeypatch):
 
     monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
     monkeypatch.setenv("HEALTH_PORT", "9001")
-    monkeypatch.setattr(health_wrapper, "uvicorn", type("Uvicorn", (), {"run": fake_run}))
+    monkeypatch.setattr(
+        health_wrapper, "uvicorn", type("Uvicorn", (), {"run": fake_run})
+    )
 
     health_wrapper.main()
 
