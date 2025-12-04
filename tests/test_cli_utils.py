@@ -8,7 +8,14 @@ def test_extract_cache_stats_returns_last_snapshot():
     payload = {
         "periods": [
             {"stats": {"entries": 1, "hits": 2, "misses": 3, "incremental_updates": 4}},
-            {"stats": {"entries": 5.0, "hits": 6.0, "misses": 7.0, "incremental_updates": 8.0}},
+            {
+                "stats": {
+                    "entries": 5.0,
+                    "hits": 6.0,
+                    "misses": 7.0,
+                    "incremental_updates": 8.0,
+                }
+            },
         ],
         "irrelevant": [pd.Series([1, 2, 3])],
     }
@@ -23,7 +30,12 @@ def test_extract_cache_stats_walks_nested_sequences():
         [
             {"entries": 1, "hits": 1, "misses": 1, "incremental_updates": 1},
             [
-                {"entries": 9.0, "hits": 10.0, "misses": 11.0, "incremental_updates": 12.0},
+                {
+                    "entries": 9.0,
+                    "hits": 10.0,
+                    "misses": 11.0,
+                    "incremental_updates": 12.0,
+                },
             ],
         ],
     )
