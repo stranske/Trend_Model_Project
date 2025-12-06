@@ -214,7 +214,7 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 - Add vol adjustment toggle with conditional floor_vol input
 - Update analysis_runner to pass these to Config
 
-**Status:** 🔴 Not Started
+**Status:** ✅ Complete
 
 ---
 
