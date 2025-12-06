@@ -306,13 +306,20 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     # Restrict CSV loading to files under the allowed root directory ("demo")
     safe_root = Path("demo").resolve()
     user_input_path = Path(csv_path.strip())
+    # Reject absolute paths and parent traversals ('..') up front
+    if user_input_path.is_absolute() or any(part == ".." for part in user_input_path.parts):
+        result["error"] = f"Access denied: path must be relative and not contain '..' ({csv_path})"
+        return result
     try:
         # Resolve the user-supplied path relative to the safe root
         candidate_path = (safe_root / user_input_path).resolve()
     except Exception as exc:
         result["error"] = f"Invalid path: {csv_path} ({exc})"
         return result
-    if not str(candidate_path).startswith(str(safe_root)):
+    # Fully robust: ensure candidate_path is a child/descendant of safe_root
+    try:
+        candidate_path.relative_to(safe_root)
+    except ValueError:
         result["error"] = f"Access denied: {csv_path} is outside the allowed directory"
         return result
     if not candidate_path.exists():
