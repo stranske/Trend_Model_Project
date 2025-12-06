@@ -129,13 +129,6 @@ def _build_sample_split(
                     "training_end": training_end.strftime("%Y-%m"),
                     "eval_start": eval_start.strftime("%Y-%m"),
                     "eval_end": eval_end.strftime("%Y-%m"),
-# (Lines 132-135 removed; no replacement needed)
-                return {
-                    "in_start": in_start.strftime("%Y-%m"),
-                    "in_end": in_end.strftime("%Y-%m"),
-                    "out_start": out_start.strftime("%Y-%m"),
-                    "out_end": out_end.strftime("%Y-%m"),
-                }
 
     # Relative mode (default): compute from lookback/evaluation windows
     lookback_months = _coerce_positive_int(
