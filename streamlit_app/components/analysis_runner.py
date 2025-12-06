@@ -109,10 +109,20 @@ def _build_sample_split(
                 config.get("lookback_months"), default=36, minimum=1
             )
 
-            # in_start = user start, out_end = user end
-            # For explicit mode, use user-specified dates to determine split
+            # Calculate date boundaries for explicit mode
+            # out_start and out_end come from user-specified dates
             out_start = _month_end(start_ts)
             out_end = _month_end(end_ts)
+
+            # in_end is one month before out_start
+            in_end = _month_end(out_start - pd.DateOffset(months=1))
+            if in_end < index.min():
+                in_end = _month_end(index.min())
+
+            # in_start is lookback_months before in_end
+            in_start = _month_end(in_end - pd.DateOffset(months=lookback_months - 1))
+            if in_start < index.min():
+                in_start = _month_end(index.min())
 
             return {
                 "in_start": in_start.strftime("%Y-%m"),
