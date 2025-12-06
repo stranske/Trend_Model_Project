@@ -85,51 +85,53 @@ def _build_sample_split(
         user_start = config.get("start_date")
         user_end = config.get("end_date")
 
-        if user_start and user_end:
-            # Parse user dates
-            try:
-                if isinstance(user_start, str):
-                    start_ts = pd.Timestamp(user_start)
-                else:
-                    start_ts = pd.Timestamp(user_start)
-                if isinstance(user_end, str):
-                    end_ts = pd.Timestamp(user_end)
-                else:
-                    end_ts = pd.Timestamp(user_end)
-            except (ValueError, TypeError):
-                # Fall back to relative mode on parse error
-                # (No need to assign date_mode; just continue to relative mode)
+        if not user_start or not user_end:
+            raise ValueError("Explicit date mode requires both start_date and end_date to be specified")
+
+        # Parse user dates
+        try:
+            if isinstance(user_start, str):
+                start_ts = pd.Timestamp(user_start)
             else:
-                # Clamp to data boundaries
-                data_start = index.min()
-                data_end = index.max()
-                start_ts = max(start_ts, data_start)
-                end_ts = min(end_ts, data_end)
+                start_ts = pd.Timestamp(user_start)
+            if isinstance(user_end, str):
+                end_ts = pd.Timestamp(user_end)
+            else:
+                end_ts = pd.Timestamp(user_end)
+        except (ValueError, TypeError):
+            # Fall back to relative mode on parse error
+            date_mode = "relative"
+        else:
+            # Clamp to data boundaries
+            data_start = index.min()
+            data_end = index.max()
+            start_ts = max(start_ts, data_start)
+            end_ts = min(end_ts, data_end)
 
-                # For explicit mode, use lookback_months to determine in-sample split
-                lookback_months = _coerce_positive_int(
-                    config.get("lookback_months"), default=36, minimum=1
-                )
+            # For explicit mode, use lookback_months to determine in-sample split
+            lookback_months = _coerce_positive_int(
+                config.get("lookback_months"), default=36, minimum=1
+            )
 
-                # in_start = user start, out_end = user end
-                # Split point is lookback_months before out_end
-                out_end = _month_end(end_ts)
-                out_start = _month_end(out_end - pd.DateOffset(months=lookback_months))
-                if out_start < start_ts:
-                    out_start = _month_end(start_ts)
+            # in_start = user start, out_end = user end
+            # Split point is lookback_months before out_end
+            out_end = _month_end(end_ts)
+            out_start = _month_end(out_end - pd.DateOffset(months=lookback_months))
+            if out_start < start_ts:
+                out_start = _month_end(start_ts)
 
-                # in_sample period is from start to just before out_start
-                in_start = _month_end(start_ts)
-                in_end = _month_end(out_start - pd.DateOffset(months=1))
-                if in_end < in_start:
-                    in_end = in_start
+            # in_sample period is from start to just before out_start
+            in_start = _month_end(start_ts)
+            in_end = _month_end(out_start - pd.DateOffset(months=1))
+            if in_end < in_start:
+                in_end = in_start
 
-                return {
-                    "in_start": in_start.strftime("%Y-%m"),
-                    "in_end": in_end.strftime("%Y-%m"),
-                    "out_start": out_start.strftime("%Y-%m"),
-                    "out_end": out_end.strftime("%Y-%m"),
-                }
+            return {
+                "in_start": in_start.strftime("%Y-%m"),
+                "in_end": in_end.strftime("%Y-%m"),
+                "out_start": out_start.strftime("%Y-%m"),
+                "out_end": out_end.strftime("%Y-%m"),
+            }
 
     # Relative mode (default): compute from lookback/evaluation windows
     lookback_months = _coerce_positive_int(
