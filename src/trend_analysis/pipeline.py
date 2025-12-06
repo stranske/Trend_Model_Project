@@ -1607,9 +1607,16 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
-        # Default to True when not explicitly set - allows analysis to proceed
-        # by auto-detecting the lowest-volatility column as risk-free proxy
+        # BREAKING CHANGE: The default behavior of allow_risk_free_fallback has changed.
+        # Previously, fallback was only enabled if explicitly set to True.
+        # Now, fallback is enabled unless explicitly set to False.
+        # This may cause unexpected behavior in existing configurations.
+        # Please document this change in the release notes.
         fallback_enabled = allow_risk_free_fallback is not False
+        if fallback_enabled and allow_risk_free_fallback is None:
+            logger.warning(
+                "Risk-free fallback is enabled by default. This is a breaking change from previous versions. Please review your configuration."
+            )
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
