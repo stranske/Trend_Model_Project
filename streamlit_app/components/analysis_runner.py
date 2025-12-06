@@ -129,10 +129,7 @@ def _build_sample_split(
                     "training_end": training_end.strftime("%Y-%m"),
                     "eval_start": eval_start.strftime("%Y-%m"),
                     "eval_end": eval_end.strftime("%Y-%m"),
-                        f"In-sample period must be at least {min_in_sample_months} months, "
-                        f"but got {in_sample_months} month(s). "
-                        f"Please select a wider date range."
-                    )
+# (Lines 132-135 removed; no replacement needed)
                 return {
                     "in_start": in_start.strftime("%Y-%m"),
                     "in_end": in_end.strftime("%Y-%m"),
