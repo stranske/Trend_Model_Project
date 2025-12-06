@@ -105,6 +105,7 @@ def _fix_invalid_day(date_str: str) -> str | None:
                 if day > max_day:
                     return f"{year}-{month:02d}-{max_day}"
         except (ValueError, IndexError):
+            # Invalid date format or out-of-range values; return None to indicate failure.
             pass
 
     return None
