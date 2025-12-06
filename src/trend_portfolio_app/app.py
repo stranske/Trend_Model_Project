@@ -393,6 +393,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
                     result["risk_free_candidate"] = rf
             except Exception as e:
                 import logging
+
                 logging.getLogger(__name__).debug(f"Risk-free detection failed: {e}")
 
     except Exception as exc:
