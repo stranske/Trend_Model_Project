@@ -722,6 +722,8 @@ def render_model_page() -> None:
             )
             if benchmark_selection != "(Select a benchmark)":
                 info_ratio_benchmark = benchmark_selection
+        else:
+            info_ratio_benchmark = ""
 
         # Section 4: Risk Settings
         st.divider()
