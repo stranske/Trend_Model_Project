@@ -118,6 +118,48 @@ def _fix_invalid_day(date_str: str) -> str | None:
     """Attempt to correct an invalid day-of-month in a date string.
 
     Common data entry errors include dates like 11/31/2017 (November only has
+    30 days) or 9/31/2017 (September has 30 days). This function detects these
+    patterns and corrects the day to the last valid day of the month.
+
+    Returns the corrected date string, or None if the date cannot be fixed.
+    """
+    date_str = str(date_str).strip()
+
+    # Try M/D/YYYY or MM/DD/YYYY format
+    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+    if match:
+        try:
+            month, day, year = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{month}/{max_day}/{year}"
+        except (ValueError, IndexError):
+            pass
+
+    # Try YYYY-MM-DD format
+    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
+    if match:
+        try:
+            year, month, day = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{year}-{month:02d}-{max_day}"
+        except (ValueError, IndexError):
+            pass
+
+    return None
+
+
 def correct_invalid_dates(
     df: pd.DataFrame,
     date_column: str = "Date",
@@ -134,7 +176,7 @@ def correct_invalid_dates(
         Name of the date column.
     action:
         How to handle invalid dates:
-        - "fix": Attempt to correct invalid dates (e.g., 11/31 -> 11/30)
+        - "fix": Attempt to correct invalid dates (e.g., 11/31 → 11/30)
         - "drop": Remove rows with invalid dates
         - "raise": Raise an error for invalid dates
 
@@ -239,7 +281,7 @@ def validate_input(
         is removed from the DataFrame (defaults to ``True``).
     auto_fix_dates:
         When ``True`` (default), automatically correct common date errors such
-        as invalid day-of-month values (e.g., 11/31 -> 11/30). When ``False``,
+        as invalid day-of-month values (e.g., 11/31 → 11/30). When ``False``,
         raise an error for any unparseable dates.
     """
 
@@ -285,7 +327,7 @@ def validate_input(
             for corr in corrections:
                 if corr["action"] == "fixed":
                     logger.info(
-                        "Auto-corrected invalid date at row %d: %r -> %r",
+                        "Auto-corrected invalid date at row %d: %r → %r",
                         corr["row"],
                         corr["original"],
                         corr["corrected"],
