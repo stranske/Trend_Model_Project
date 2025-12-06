@@ -139,7 +139,7 @@ def _fix_invalid_day(date_str: str) -> str | None:
                 if day > max_day:
                     return f"{month}/{max_day}/{year}"
         except (ValueError, IndexError):
-            # Parsing errors are expected for malformed dates; return None below.
+            # Parsing errors are expected for malformed dates; continue to try other formats.
             pass
 
     # Try YYYY-MM-DD format
