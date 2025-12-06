@@ -98,6 +98,7 @@ def _build_sample_split(
                     end_ts = pd.Timestamp(user_end)
             except (ValueError, TypeError):
                 # Fall back to relative mode on parse error
+                date_mode = "relative"
             else:
                 # Clamp to data boundaries
                 data_start = index.min()
@@ -111,24 +112,24 @@ def _build_sample_split(
                 )
 
                 # in_start = user start, out_end = user end
-                # training_start = user start, eval_end = user end
-                # Split point is lookback_months before eval_end
-                eval_end = _month_end(end_ts)
-                eval_start = _month_end(eval_end - pd.DateOffset(months=lookback_months))
-                if eval_start < start_ts:
-                    eval_start = _month_end(start_ts)
+                # Split point is lookback_months before out_end
+                out_end = _month_end(end_ts)
+                out_start = _month_end(out_end - pd.DateOffset(months=lookback_months))
+                if out_start < start_ts:
+                    out_start = _month_end(start_ts)
 
-                # training period is from start to just before eval_start
-                training_start = _month_end(start_ts)
-                training_end = _month_end(eval_start - pd.DateOffset(months=1))
-                if training_end < training_start:
-                    training_end = training_start
+                # in_sample period is from start to just before out_start
+                in_start = _month_end(start_ts)
+                in_end = _month_end(out_start - pd.DateOffset(months=1))
+                if in_end < in_start:
+                    in_end = in_start
 
                 return {
-                    "training_start": training_start.strftime("%Y-%m"),
-                    "training_end": training_end.strftime("%Y-%m"),
-                    "eval_start": eval_start.strftime("%Y-%m"),
-                    "eval_end": eval_end.strftime("%Y-%m"),
+                    "in_start": in_start.strftime("%Y-%m"),
+                    "in_end": in_end.strftime("%Y-%m"),
+                    "out_start": out_start.strftime("%Y-%m"),
+                    "out_end": out_end.strftime("%Y-%m"),
+                }
 
     # Relative mode (default): compute from lookback/evaluation windows
     lookback_months = _coerce_positive_int(
