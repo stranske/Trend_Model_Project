@@ -277,7 +277,7 @@ numerical issues), the system automatically falls back to equal weighting and lo
 
     st.markdown("---")
     st.caption(
-        "For more details, see the [full documentation](https://github.com/stranske/Trend_Model_Project/blob/main/docs/UserGuide.md)."
+        "For more details, see the [full documentation](https://github.com/stranske/Trend_Model_Project/blob/<branch-name>/docs/UserGuide.md)."
     )
 
 
