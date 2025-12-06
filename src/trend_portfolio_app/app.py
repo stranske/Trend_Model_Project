@@ -307,8 +307,12 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     safe_root = Path("demo").resolve()
     user_input_path = Path(csv_path.strip())
     # Reject absolute paths and parent traversals ('..') up front
-    if user_input_path.is_absolute() or any(part == ".." for part in user_input_path.parts):
-        result["error"] = f"Access denied: path must be relative and not contain '..' ({csv_path})"
+    if user_input_path.is_absolute() or any(
+        part == ".." for part in user_input_path.parts
+    ):
+        result["error"] = (
+            f"Access denied: path must be relative and not contain '..' ({csv_path})"
+        )
         return result
     try:
         # Resolve the user-supplied path relative to the safe root
