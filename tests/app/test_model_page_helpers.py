@@ -7,7 +7,6 @@ from types import ModuleType, SimpleNamespace
 import pandas as pd
 import pytest
 
-
 # Mark tests that rely on old Model page structure
 # The Model page has been restructured and some internal functions have changed
 pytestmark_obsolete = pytest.mark.skip(

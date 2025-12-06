@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 import streamlit as st
 
-
 # These tests are for the old 3_Run.py page which has been replaced by 3_Results.py
 # The new page has a different structure without show_disclaimer/main
 pytestmark = pytest.mark.skip(

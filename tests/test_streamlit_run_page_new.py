@@ -15,7 +15,6 @@ from unittest.mock import ANY, MagicMock, patch
 import pandas as pd
 import pytest
 
-
 # These tests are for the old 3_Run.py page - 3_Results.py has different structure
 pytestmark = pytest.mark.skip(
     reason="Tests for obsolete 3_Run.py page - 3_Results.py has different structure"
