@@ -124,6 +124,16 @@ def _build_sample_split(
                 if in_end < in_start:
                     in_end = in_start
 
+                # Validate minimum in-sample period (e.g., at least 12 months)
+                min_in_sample_months = 12
+                in_sample_months = (in_end.year - in_start.year) * 12 + (in_end.month - in_start.month) + 1
+                if in_sample_months < min_in_sample_months:
+                    raise ValueError(
+                        f"Selected date range is too short for analysis. "
+                        f"In-sample period must be at least {min_in_sample_months} months, "
+                        f"but got {in_sample_months} month(s). "
+                        f"Please select a wider date range."
+                    )
                 return {
                     "in_start": in_start.strftime("%Y-%m"),
                     "in_end": in_end.strftime("%Y-%m"),
