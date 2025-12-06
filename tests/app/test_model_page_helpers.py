@@ -8,10 +8,28 @@ import pandas as pd
 import pytest
 
 
+# Mark tests that rely on old Model page structure
+# The Model page has been restructured and some internal functions have changed
+pytestmark_obsolete = pytest.mark.skip(
+    reason="Model page restructured - test relies on old internal functions"
+)
+
+
 @pytest.fixture()
 def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     def _noop(*_args, **_kwargs):
         return None
+
+    def _passthrough_decorator(*args, **kwargs):
+        """Decorator stub that returns the function unchanged."""
+
+        def decorator(fn):
+            return fn
+
+        # Handle both @st.cache_data and @st.cache_data(...)
+        if args and callable(args[0]):
+            return args[0]
+        return decorator
 
     class Context:
         def __enter__(self):
@@ -30,6 +48,17 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.success = _noop
     stub.warning = _noop
     stub.altair_chart = _noop
+    stub.markdown = _noop
+    stub.caption = _noop
+    stub.metric = _noop
+    stub.write = _noop
+    stub.radio = lambda _label, options, index=0, **_kwargs: options[index]
+    stub.date_input = lambda _label, value=None, **_kwargs: value
+    stub.page_link = _noop
+    stub.rerun = _noop
+    stub.cache_data = _passthrough_decorator
+    stub.cache_resource = _passthrough_decorator
+    stub.expander = lambda *_args, **_kwargs: Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
     stub.columns = lambda n: [Context() for _ in range(n)]
@@ -68,6 +97,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+@pytest.mark.skip(reason="Model page restructured - TrendSpecPreset no longer in page")
 def test_preset_defaults_uses_preset(
     monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
 ) -> None:
@@ -94,6 +124,9 @@ def test_preset_defaults_uses_preset(
     assert defaults["zscore"] is True
 
 
+@pytest.mark.skip(
+    reason="Model page restructured - _trend_spec_from_form no longer exists"
+)
 def test_trend_spec_from_form_normalises_inputs(model_module: ModuleType) -> None:
     values = {
         "window": 50,
@@ -112,22 +145,36 @@ def test_trend_spec_from_form_normalises_inputs(model_module: ModuleType) -> Non
 
 
 def test_validate_model_catches_errors(model_module: ModuleType) -> None:
+    """Test that _validate_model catches various validation errors."""
+    # Test 1: Selection count exceeds column count
     values = {
-        "trend_spec": {
-            "window": 20,
-            "lag": 25,
-            "min_periods": 30,
-            "vol_adjust": True,
-            "vol_target": 0.0,
-        },
-        "selection_count": 15,
+        "lookback_months": 36,
+        "min_history_months": 36,
+        "selection_count": 15,  # Exceeds column_count=10
+        "metric_weights": {"sharpe": 1.0},
+    }
+    errors = model_module._validate_model(values, column_count=10)
+    assert any("Selection count" in err for err in errors)
+
+    # Test 2: No positive metric weights
+    values = {
+        "lookback_months": 36,
+        "min_history_months": 36,
+        "selection_count": 5,
         "metric_weights": {"sharpe": 0.0, "return_ann": 0.0},
     }
     errors = model_module._validate_model(values, column_count=10)
-    assert any("Lag" in err for err in errors)
-    assert any("Minimum periods" in err for err in errors)
     assert any("positive metric weight" in err for err in errors)
-    assert any("volatility target" in err for err in errors)
+
+    # Test 3: Min history exceeds lookback
+    values = {
+        "lookback_months": 24,
+        "min_history_months": 36,  # Exceeds lookback
+        "selection_count": 5,
+        "metric_weights": {"sharpe": 1.0},
+    }
+    errors = model_module._validate_model(values, column_count=10)
+    assert any("Minimum history" in err for err in errors)
 
 
 def test_render_model_page_clears_cached_results(
