@@ -8,7 +8,10 @@ deterministic feedback to users regardless of how data is supplied.
 
 from __future__ import annotations
 
+import calendar
 import enum
+import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -28,6 +31,8 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Frequency helpers
@@ -52,6 +57,124 @@ def _normalise_delta_days(delta_days: pd.Series) -> pd.Series:
 
 _DEFAULT_MISSING_POLICY = "drop"
 _VALID_MISSING_POLICIES = {"drop", "ffill", "zero"}
+
+
+# ---------------------------------------------------------------------------
+# Date auto-correction helpers
+# ---------------------------------------------------------------------------
+
+
+def _fix_invalid_day(date_str: str) -> str | None:
+    """Attempt to correct an invalid day-of-month in a date string.
+
+    Common data entry errors include dates like 11/31/2017 (November only has
+    30 days) or 9/31/2017 (September has 30 days). This function detects these
+    patterns and corrects the day to the last valid day of the month.
+
+    Returns the corrected date string, or None if the date cannot be fixed.
+    """
+    date_str = str(date_str).strip()
+
+    # Try M/D/YYYY or MM/DD/YYYY format
+    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+    if match:
+        try:
+            month, day, year = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{month}/{max_day}/{year}"
+        except (ValueError, IndexError):
+            # If parsing fails, return None to indicate the date cannot be fixed.
+            pass
+
+    # Try YYYY-MM-DD format
+    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
+    if match:
+        try:
+            year, month, day = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{year}-{month:02d}-{max_day}"
+        except (ValueError, IndexError):
+            # Invalid date format or out-of-range values; return None to indicate failure.
+            pass
+
+    return None
+
+
+def _auto_fix_invalid_dates(
+    df: pd.DataFrame, date_col: str
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    """Auto-correct or drop rows with invalid dates.
+
+    Parameters
+    ----------
+    df:
+        DataFrame with a date column.
+    date_col:
+        Name of the date column.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[dict]]
+        Corrected DataFrame and list of corrections applied.
+    """
+    working = df.copy()
+    raw_dates = working[date_col].astype(str)
+    parsed = pd.to_datetime(raw_dates, errors="coerce")
+    invalid_mask = parsed.isna()
+
+    if not invalid_mask.any():
+        return working, []
+
+    corrections: list[dict[str, Any]] = []
+    rows_to_drop: list[int] = []
+
+    for idx in working.index[invalid_mask]:
+        pos = working.index.get_loc(idx) if not isinstance(idx, int) else idx
+        original_value = raw_dates.loc[idx]
+        fixed = _fix_invalid_day(original_value)
+
+        if fixed is not None:
+            working.at[idx, date_col] = fixed
+            corrections.append(
+                {
+                    "row": pos + 1,
+                    "original": original_value,
+                    "corrected": fixed,
+                    "action": "fixed",
+                }
+            )
+        else:
+            rows_to_drop.append(idx)
+            corrections.append(
+                {
+                    "row": pos + 1,
+                    "original": original_value,
+                    "corrected": None,
+                    "action": "dropped",
+                }
+            )
+
+    if rows_to_drop:
+        working = working.drop(index=rows_to_drop)
+
+    return working, corrections
+
+
+# ---------------------------------------------------------------------------
+# Validation classes
+# ---------------------------------------------------------------------------
 
 
 class MarketDataMode(str, enum.Enum):
@@ -491,7 +614,9 @@ def classify_frequency(
     }
 
 
-def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataFrame:
+def _resolve_datetime_index(
+    df: pd.DataFrame, *, source: str | None, auto_fix_dates: bool = True
+) -> pd.DataFrame:
     working = df.copy()
 
     if isinstance(working.index, pd.DatetimeIndex):
@@ -508,6 +633,26 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
                 "Ensure the upload includes a timestamp column named 'Date'."
             ]
             raise MarketDataValidationError(_format_issues(issues), issues)
+
+        # Auto-fix invalid dates before parsing
+        if auto_fix_dates:
+            working, corrections = _auto_fix_invalid_dates(working, date_col)
+            if corrections:
+                for corr in corrections:
+                    if corr["action"] == "fixed":
+                        logger.info(
+                            "Auto-corrected invalid date at row %d: %r → %r",
+                            corr["row"],
+                            corr["original"],
+                            corr["corrected"],
+                        )
+                    else:
+                        logger.warning(
+                            "Dropped row %d with unfixable date: %r",
+                            corr["row"],
+                            corr["original"],
+                        )
+
         try:
             parsed = pd.to_datetime(working[date_col], errors="coerce")
         except (TypeError, ValueError) as exc:
@@ -549,6 +694,12 @@ def _resolve_datetime_index(df: pd.DataFrame, *, source: str | None) -> pd.DataF
     idx = idx.tz_localize(None)
     working.index = idx
     working.index.name = "Date"
+
+    # Auto-sort by date if not already in ascending order
+    if not working.index.is_monotonic_increasing:
+        logger.warning("Data not in ascending date order; auto-sorting by date index.")
+        working = working.sort_index()
+
     return working
 
 

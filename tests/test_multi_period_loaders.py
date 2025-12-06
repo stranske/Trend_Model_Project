@@ -155,7 +155,10 @@ def test_load_membership_returns_empty_when_not_configured():
     assert list(empty.columns) == ["fund", "effective_date", "end_date"]
 
 
-def test_load_benchmarks_selects_columns_and_errors_on_missing():
+def test_load_benchmarks_selects_columns_and_warns_on_missing(caplog):
+    """Test that missing benchmark columns are warned about and skipped."""
+    import logging
+
     prices = pd.DataFrame(
         {
             "Date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
@@ -165,8 +168,13 @@ def test_load_benchmarks_selects_columns_and_errors_on_missing():
     )
     cfg = DummyConfig(benchmarks={"Bench1": "AAA", "Bench2": "CCC"})
 
-    with pytest.raises(KeyError):
-        loaders.load_benchmarks(cfg, prices)
+    with caplog.at_level(logging.WARNING):
+        frame = loaders.load_benchmarks(cfg, prices)
+
+    # Should warn about missing column CCC and skip it
+    assert "CCC" in caplog.text or "Bench2" in caplog.text
+    # Should still return frame with available benchmarks
+    assert "Bench1" in frame.columns
 
     cfg_valid = DummyConfig(benchmarks={"Bench1": "AAA", "Bench2": "BBB"})
     frame = loaders.load_benchmarks(cfg_valid, prices)

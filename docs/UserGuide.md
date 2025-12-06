@@ -42,6 +42,8 @@ The GUI allows you to edit the configuration, select the portfolio mode, tweak r
 
 After editing the parameters click **Run** to execute the pipeline. Results are exported according to the chosen format. Weighting plug‑ins discovered via entry points appear automatically in the interface.
 
+For detailed explanations of each configuration parameter, see the [Model Configuration Reference](ModelConfiguration.md).
+
 ## 4. Configuration presets
 
 Ready-made presets live in `config/presets/` and provide sensible defaults for common risk profiles.

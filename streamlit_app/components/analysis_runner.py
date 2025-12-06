@@ -17,6 +17,8 @@ from .data_cache import cache_key_for_frame
 METRIC_REGISTRY = {
     "sharpe": "Sharpe",
     "return_ann": "AnnualReturn",
+    "sortino": "Sortino",
+    "info_ratio": "InformationRatio",
     "drawdown": "MaxDrawdown",
     "vol": "Volatility",
 }
@@ -75,6 +77,61 @@ def _build_sample_split(
     if index.empty:
         raise ValueError("Dataset is empty")
 
+    # Check if user specified explicit date mode
+    date_mode = config.get("date_mode", "relative")
+
+    if date_mode == "explicit":
+        # User has specified explicit start/end dates
+        user_start = config.get("start_date")
+        user_end = config.get("end_date")
+
+        if not user_start or not user_end:
+            raise ValueError(
+                "Explicit date mode requires both start_date and end_date to be specified"
+            )
+
+        # Parse user dates
+        try:
+            start_ts = pd.Timestamp(user_start)
+            end_ts = pd.Timestamp(user_end)
+        except (ValueError, TypeError):
+            # Fall back to relative mode on parse error
+            pass
+        else:
+            # Clamp to data boundaries
+            data_start = index.min()
+            data_end = index.max()
+            start_ts = max(start_ts, data_start)
+            end_ts = min(end_ts, data_end)
+
+            # For explicit mode, use lookback_months to determine in-sample split
+            lookback_months = _coerce_positive_int(
+                config.get("lookback_months"), default=36, minimum=1
+            )
+
+            # Calculate date boundaries for explicit mode
+            # out_start and out_end come from user-specified dates
+            out_start = _month_end(start_ts)
+            out_end = _month_end(end_ts)
+
+            # in_end is one month before out_start
+            in_end = _month_end(out_start - pd.DateOffset(months=1))
+            if in_end < index.min():
+                in_end = _month_end(index.min())
+
+            # in_start is lookback_months before in_end
+            in_start = _month_end(in_end - pd.DateOffset(months=lookback_months - 1))
+            if in_start < index.min():
+                in_start = _month_end(index.min())
+
+            return {
+                "in_start": in_start.strftime("%Y-%m"),
+                "in_end": in_end.strftime("%Y-%m"),
+                "out_start": out_start.strftime("%Y-%m"),
+                "out_end": out_end.strftime("%Y-%m"),
+            }
+
+    # Relative mode (default): compute from lookback/evaluation windows
     lookback_months = _coerce_positive_int(
         config.get("lookback_months"), default=36, minimum=1
     )
@@ -179,6 +236,15 @@ def _build_portfolio_config(
         METRIC_REGISTRY.get(metric, metric): float(weight)
         for metric, weight in weights.items()
     }
+
+    # Advanced settings
+    max_weight = _coerce_positive_float(config.get("max_weight"), default=0.20)
+    max_turnover = _coerce_positive_float(config.get("max_turnover"), default=1.0)
+    transaction_cost_bps = _coerce_positive_int(
+        config.get("transaction_cost_bps"), default=0, minimum=0
+    )
+    rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
+
     return {
         "selection_mode": "rank",
         "rank": {
@@ -188,6 +254,13 @@ def _build_portfolio_config(
             "blended_weights": registry_weights,
         },
         "weighting_scheme": weighting_scheme,
+        "rebalance_freq": rebalance_freq,
+        "max_turnover": max_turnover,
+        "transaction_cost_bps": transaction_cost_bps,
+        "constraints": {
+            "long_only": True,
+            "max_weight": max_weight,
+        },
     }
 
 
@@ -196,7 +269,18 @@ def _build_config(payload: AnalysisPayload) -> Config:
     weights = _normalise_metric_weights(state.get("metric_weights", {}))
     sample_split = _build_sample_split(payload.returns.index, state)
     vol_target = _coerce_positive_float(state.get("risk_target"), default=0.1)
-    signals_cfg = _build_signals_config(state.get("trend_spec", {}))
+
+    # Risk settings
+    vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
+    warmup_periods = _coerce_positive_int(
+        state.get("warmup_periods"), default=0, minimum=0
+    )
+    rf_rate_annual = _coerce_positive_float(state.get("rf_rate_annual"), default=0.0)
+
+    # Build signals config - use trend_spec if provided, otherwise use defaults
+    trend_spec = state.get("trend_spec", {})
+    signals_cfg = _build_signals_config(trend_spec)
+
     portfolio_cfg = _build_portfolio_config(state, weights)
 
     metrics_registry = [METRIC_REGISTRY.get(name, name) for name in weights]
@@ -213,22 +297,28 @@ def _build_config(payload: AnalysisPayload) -> Config:
     except (TypeError, ValueError):
         seed = 42
 
+    # Get preset name from either new or old format
+    preset_name = state.get("preset") or state.get("trend_spec_preset")
+
     return Config(
         version="1",
-        data={},
+        data={"allow_risk_free_fallback": True},
         preprocessing={},
         vol_adjust={
             "target_vol": vol_target,
-            "floor_vol": 0.015,
-            "warmup_periods": int(state.get("warmup_periods", 0) or 0),
+            "floor_vol": vol_floor,
+            "warmup_periods": warmup_periods,
         },
         sample_split=sample_split,
         portfolio=portfolio_cfg,
         signals=signals_cfg,
         benchmarks=benchmark_map,
-        metrics={"registry": metrics_registry},
+        metrics={
+            "registry": metrics_registry,
+            "rf_rate_annual": rf_rate_annual,
+        },
         export={},
-        run={"trend_preset": state.get("trend_spec_preset")},
+        run={"trend_preset": preset_name},
         seed=seed,
     )
 

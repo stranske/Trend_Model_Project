@@ -171,6 +171,59 @@ class _DummyStreamlit(ModuleType):
     def stop(self):  # pragma: no cover - sanity guard
         raise RuntimeError("st.stop invoked during test")
 
+    def divider(self, *_, **__):
+        return None
+
+    def date_input(self, *_, value=None, **__):
+        return value
+
+    def toggle(self, *_, value=False, **__):
+        return value
+
+    def metric(self, *_, **__):
+        return None
+
+    def container(self, *_, **__):
+        return _Context(self)
+
+    def form(self, *_, **__):
+        return _Context(self)
+
+    def form_submit_button(self, *_, **__):
+        return False
+
+    def progress(self, *_, **__):
+        return None
+
+    def empty(self, *_, **__):
+        return _Context(self)
+
+    def status(self, *_, **__):
+        return _Context(self)
+
+    def plotly_chart(self, *_, **__):
+        return None
+
+    def pyplot(self, *_, **__):
+        return None
+
+    # Caching decorators --------------------------------------------------------
+    def cache_data(self, _fn=None, *, show_spinner=True, **__):
+        """Pass-through decorator stub for st.cache_data."""
+
+        def decorator(fn):
+            return fn
+
+        return decorator if _fn is None else decorator(_fn)
+
+    def cache_resource(self, _fn=None, *, show_spinner=True, **__):
+        """Pass-through decorator stub for st.cache_resource."""
+
+        def decorator(fn):
+            return fn
+
+        return decorator if _fn is None else decorator(_fn)
+
 
 def _load_app(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     """Import ``trend_portfolio_app.app`` with a stub Streamlit module."""

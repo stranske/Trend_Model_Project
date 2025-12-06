@@ -20,8 +20,10 @@ that includes the first offending row when an issue is detected.
 
 from __future__ import annotations
 
+import calendar
+import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Literal, Sequence
 
 import numpy as np
 import pandas as pd
@@ -31,6 +33,7 @@ __all__ = [
     "InputSchema",
     "InputValidationError",
     "validate_input",
+    "correct_invalid_dates",
 ]
 
 
@@ -111,18 +114,148 @@ def _row_context(df: pd.DataFrame, position: int, date_column: str) -> str:
     return f" ({', '.join(context)})" if context else ""
 
 
-def _check_monotonic(parsed: pd.Series, date_column: str) -> None:
-    if len(parsed) < 2:
-        return
-    prev = parsed.iloc[0]
-    for idx in range(1, len(parsed)):
-        current = parsed.iloc[idx]
-        if current < prev:
-            raise InputValidationError(
-                "Date column must be sorted in ascending order. "
-                f"Row {idx + 1} contains {current.isoformat()} after {prev.isoformat()}."
+def _fix_invalid_day(date_str: str) -> str | None:
+    """Attempt to correct an invalid day-of-month in a date string.
+
+    Common data entry errors include dates like 11/31/2017 (November only has
+    30 days) or 9/31/2017 (September has 30 days). This function detects these
+    patterns and corrects the day to the last valid day of the month.
+
+    Returns the corrected date string, or None if the date cannot be fixed.
+    """
+    date_str = str(date_str).strip()
+
+    # Try M/D/YYYY or MM/DD/YYYY format
+    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+    if match:
+        try:
+            month, day, year = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
             )
-        prev = current
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{month}/{max_day}/{year}"
+        except (ValueError, IndexError):
+            pass
+
+    # Try YYYY-MM-DD format
+    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
+    if match:
+        try:
+            year, month, day = (
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+            if 1 <= month <= 12:
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    return f"{year}-{month:02d}-{max_day}"
+        except (ValueError, IndexError):
+            pass
+
+    return None
+
+
+def correct_invalid_dates(
+    df: pd.DataFrame,
+    date_column: str = "Date",
+    *,
+    action: Literal["fix", "drop", "raise"] = "fix",
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    """Correct or remove rows with invalid dates in a DataFrame.
+
+    Parameters
+    ----------
+    df:
+        Input DataFrame with a date column.
+    date_column:
+        Name of the date column.
+    action:
+        How to handle invalid dates:
+        - "fix": Attempt to correct invalid dates (e.g., 11/31 → 11/30)
+        - "drop": Remove rows with invalid dates
+        - "raise": Raise an error for invalid dates
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[dict]]
+        A tuple of (corrected DataFrame, list of corrections made).
+        Each correction dict contains: {"row": int, "original": str, "corrected": str | None}
+    """
+    if date_column not in df.columns:
+        return df, []
+
+    working = df.copy()
+    raw_dates = working[date_column].astype(str)
+    parsed = pd.to_datetime(raw_dates, errors="coerce")
+    invalid_mask = parsed.isna()
+
+    if not invalid_mask.any():
+        return working, []
+
+    corrections: list[dict[str, Any]] = []
+    rows_to_drop: list[int] = []
+
+    for idx in invalid_mask[invalid_mask].index:
+        pos = df.index.get_loc(idx) if isinstance(idx, int) else idx
+        original_value = raw_dates.loc[idx]
+
+        if action == "fix":
+            fixed = _fix_invalid_day(original_value)
+            if fixed is not None:
+                working.at[idx, date_column] = fixed
+                corrections.append(
+                    {
+                        "row": pos + 1,
+                        "original": original_value,
+                        "corrected": fixed,
+                        "action": "fixed",
+                    }
+                )
+            else:
+                # Cannot fix, will drop
+                rows_to_drop.append(idx)
+                corrections.append(
+                    {
+                        "row": pos + 1,
+                        "original": original_value,
+                        "corrected": None,
+                        "action": "dropped",
+                    }
+                )
+        elif action == "drop":
+            rows_to_drop.append(idx)
+            corrections.append(
+                {
+                    "row": pos + 1,
+                    "original": original_value,
+                    "corrected": None,
+                    "action": "dropped",
+                }
+            )
+        else:  # action == "raise"
+            raise InputValidationError(
+                f"Unable to parse '{date_column}' at row {pos + 1}: {original_value!r}."
+            )
+
+    if rows_to_drop:
+        working = working.drop(index=rows_to_drop)
+
+    return working, corrections
+
+
+def _check_monotonic(parsed: pd.Series, date_column: str) -> bool:
+    """Check if dates are in ascending order.
+
+    Returns True if the data is already sorted, False if it needs sorting.
+    """
+    if len(parsed) < 2:
+        return True
+    return bool(parsed.is_monotonic_increasing)
 
 
 def validate_input(
@@ -131,6 +264,7 @@ def validate_input(
     *,
     set_index: bool = True,
     drop_date_column: bool = True,
+    auto_fix_dates: bool = True,
 ) -> pd.DataFrame:
     """Validate a raw CSV DataFrame and normalise the timestamp column.
 
@@ -145,6 +279,10 @@ def validate_input(
     drop_date_column:
         When ``set_index`` is ``True``, controls whether the original date column
         is removed from the DataFrame (defaults to ``True``).
+    auto_fix_dates:
+        When ``True`` (default), automatically correct common date errors such
+        as invalid day-of-month values (e.g., 11/31 → 11/30). When ``False``,
+        raise an error for any unparseable dates.
     """
 
     if not isinstance(df, pd.DataFrame):
@@ -179,6 +317,28 @@ def validate_input(
     if date_column not in resolved_non_nullable:
         resolved_non_nullable.append(date_column)
 
+    # Attempt to auto-fix invalid dates before parsing
+    if auto_fix_dates:
+        working, corrections = correct_invalid_dates(working, date_column, action="fix")
+        if corrections:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            for corr in corrections:
+                if corr["action"] == "fixed":
+                    logger.info(
+                        "Auto-corrected invalid date at row %d: %r → %r",
+                        corr["row"],
+                        corr["original"],
+                        corr["corrected"],
+                    )
+                else:
+                    logger.warning(
+                        "Dropped row %d with unfixable date: %r",
+                        corr["row"],
+                        corr["original"],
+                    )
+
     raw_dates = working[date_column]
     parsed = pd.to_datetime(raw_dates, utc=True, errors="coerce")
     invalid_mask = parsed.isna()
@@ -189,7 +349,18 @@ def validate_input(
             f"Unable to parse '{schema.date_column}' at row {pos + 1}: {bad_value!r}."
         )
 
-    _check_monotonic(parsed, date_column)
+    # Auto-sort if dates are not in ascending order
+    is_sorted = _check_monotonic(parsed, date_column)
+    if not is_sorted:
+        import logging
+
+        logging.getLogger(__name__).info(
+            "Data not in ascending date order; auto-sorting by date."
+        )
+        sort_order = parsed.argsort()
+        working = working.iloc[sort_order].reset_index(drop=True)
+        parsed = parsed.iloc[sort_order].reset_index(drop=True)
+
     duplicates = parsed.duplicated()
     if duplicates.any():
         pos = _first_true_position(duplicates.to_numpy())

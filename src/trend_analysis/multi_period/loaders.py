@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,7 +12,14 @@ from data.contracts import coerce_to_utc, validate_prices
 
 from ..data import load_csv
 
-__all__ = ["load_prices", "load_membership", "load_benchmarks"]
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "load_prices",
+    "load_membership",
+    "load_benchmarks",
+    "detect_index_columns",
+]
 
 
 def _coerce_path(value: Any, *, field: str) -> Path:
@@ -115,11 +123,78 @@ def load_membership(cfg: Any) -> pd.DataFrame:
     return normalised.reset_index(drop=True)[columns]
 
 
+# Common patterns for detecting index/benchmark columns from names
+_INDEX_HINTS = (
+    "SPX",
+    "S&P",
+    "SP500",
+    "SP-500",
+    "SP_500",
+    "TSX",
+    "NDX",
+    "NASDAQ",
+    "DOW",
+    "DJIA",
+    "AGG",
+    "BOND",
+    "FIXED",
+    "BENCH",
+    "BENCHMARK",
+    "IDX",
+    "INDEX",
+    "MSCI",
+    "RUSSELL",
+    "FTSE",
+    "STOXX",
+    "VIX",
+    "VOLATILITY",
+)
+
+
+def detect_index_columns(columns: list[str]) -> list[str]:
+    """Detect likely index/benchmark columns from column names.
+
+    Scans column names for common index patterns (SPX, TSX, INDEX, etc.)
+    and returns a list of columns that appear to be market indices.
+
+    Parameters
+    ----------
+    columns:
+        List of column names from a DataFrame.
+
+    Returns
+    -------
+    list[str]
+        Column names that match index/benchmark patterns.
+    """
+    detected: list[str] = []
+    for col in columns:
+        upper = col.upper()
+        for hint in _INDEX_HINTS:
+            if hint in upper:
+                detected.append(col)
+                break
+    return detected
+
+
 def load_benchmarks(cfg: Any, prices: pd.DataFrame) -> pd.DataFrame:
-    """Extract benchmark series referenced by ``cfg`` from ``prices``."""
+    """Extract benchmark series referenced by ``cfg`` from ``prices``.
+
+    If configured benchmarks are missing from the data, a warning is logged
+    and those benchmarks are skipped. This allows the analysis to proceed
+    without requiring specific index columns.
+    """
 
     benchmarks = getattr(cfg, "benchmarks", None)
     if not isinstance(benchmarks, Mapping) or not benchmarks:
+        # No benchmarks configured - try auto-detecting from column names
+        if "Date" in prices.columns:
+            detected = detect_index_columns([c for c in prices.columns if c != "Date"])
+            if detected:
+                logger.info(
+                    "Auto-detected potential benchmark columns: %s",
+                    ", ".join(detected),
+                )
         return pd.DataFrame(columns=["Date"])
     if "Date" not in prices.columns:
         raise KeyError("prices DataFrame must include a 'Date' column for benchmarks")
@@ -133,5 +208,10 @@ def load_benchmarks(cfg: Any, prices: pd.DataFrame) -> pd.DataFrame:
         frame[str(label)] = series
     if missing:
         joined = ", ".join(sorted(set(missing)))
-        raise KeyError(f"Benchmark columns missing from price data: {joined}")
+        # Warn instead of raising - benchmarks are optional
+        logger.warning(
+            "Benchmark columns not found in data (skipped): %s. "
+            "Analysis will proceed without these benchmarks.",
+            joined,
+        )
     return frame
