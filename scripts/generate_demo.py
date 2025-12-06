@@ -135,10 +135,20 @@ def main() -> None:
     spx = _generate_manager_returns(rng, periods, target_sharpe=0.40, annual_vol=0.16)
     data["SPX"] = spx
 
-    # Add risk-free rate column (constant low positive)
-    # Approximate average T-bill rate for the period (~1% annual)
-    rf_monthly = 0.01 / 12
-    data["RF"] = np.full(periods, rf_monthly)
+    # Add risk-free rate column with realistic time variation
+    # Approximate actual T-bill rates: near 0% (2015-2021), rising in 2022-2023, elevated in 2024
+    rf_annual = np.zeros(periods)
+    # 2015-2021: near zero (0.1%)
+    rf_annual[:84] = 0.001
+    # 2022: rising (1%)
+    rf_annual[84:96] = 0.01
+    # 2023: high (4.5%)
+    rf_annual[96:108] = 0.045
+    # 2024: still elevated (4%)
+    rf_annual[108:] = 0.04
+    # Convert annual rates to monthly, add small random noise for realism
+    rf_monthly = rf_annual / 12 + rng.normal(0, 0.0002, periods)
+    data["RF"] = rf_monthly
 
     df = pd.DataFrame(data, index=dates)
     df.index.name = "Date"
