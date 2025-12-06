@@ -315,7 +315,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
         candidate_path = (safe_root / user_input_path).resolve()
         # Ensure candidate_path is a child/descendant of safe_root
         candidate_path.relative_to(safe_root)
-    except ValueError as exc:
+    except ValueError:
         result["error"] = f"Security violation: path traversal detected ({csv_path})"
         return result
     except Exception as exc:
