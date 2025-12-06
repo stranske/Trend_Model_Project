@@ -857,21 +857,8 @@ def render_model_page() -> None:
         submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
-            # Use Custom preset if user modified a non-Custom preset
+            # Always set to Custom unless user explicitly selects Custom
             effective_preset = new_preset if new_preset == "Custom" else "Custom"
-            # Check if values match a preset
-            for pname, pconfig in PRESET_CONFIGS.items():
-                if pconfig is None:
-                    continue
-                if (
-                    lookback == pconfig["lookback_months"]
-                    and min_history == pconfig["min_history_months"]
-                    and evaluation == pconfig["evaluation_months"]
-                    and selection == pconfig["selection_count"]
-                    and weighting_value == pconfig["weighting_scheme"]
-                ):
-                    effective_preset = pname
-                    break
 
             candidate_state = {
                 "preset": effective_preset,
