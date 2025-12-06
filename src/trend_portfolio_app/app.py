@@ -303,13 +303,24 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     if not csv_path or not csv_path.strip():
         return result
 
-    path = Path(csv_path.strip())
-    if not path.exists():
+    # Restrict CSV loading to files under the allowed root directory ("demo")
+    safe_root = Path("demo").resolve()
+    user_input_path = Path(csv_path.strip())
+    try:
+        # Resolve the user-supplied path relative to the safe root
+        candidate_path = (safe_root / user_input_path).resolve()
+    except Exception as exc:
+        result["error"] = f"Invalid path: {csv_path} ({exc})"
+        return result
+    if not str(candidate_path).startswith(str(safe_root)):
+        result["error"] = f"Access denied: {csv_path} is outside the allowed directory"
+        return result
+    if not candidate_path.exists():
         result["error"] = f"File not found: {csv_path}"
         return result
 
     try:
-        df = pd.read_csv(path)
+        df = pd.read_csv(candidate_path)
         result["columns"] = list(df.columns)
 
         # Get numeric columns (excluding Date-like columns)
