@@ -857,7 +857,7 @@ def render_model_page() -> None:
 
         if submitted:
             # Always set to Custom unless user explicitly selects Custom
-            effective_preset = new_preset if new_preset == "Custom" else "Custom"
+            effective_preset = "Custom"
 
             candidate_state = {
                 "preset": effective_preset,
