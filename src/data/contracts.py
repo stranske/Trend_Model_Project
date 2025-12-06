@@ -105,6 +105,26 @@ def _normalise_frequency(freq: str | None) -> str | None:
     return freq or None
 
 
+# Frequency groups that should be treated as equivalent for validation purposes.
+# For example, ME (Month End) and BME (Business Month End) are functionally
+# equivalent for financial data with monthly observations.
+_EQUIVALENT_FREQUENCIES: dict[str, set[str]] = {
+    "monthly": {"ME", "M", "BME", "BM", "MS", "BMS"},
+    "weekly": {"W", "W-SUN", "W-MON", "W-TUE", "W-WED", "W-THU", "W-FRI", "W-SAT"},
+    "daily": {"D", "B"},
+}
+
+
+def _frequencies_are_equivalent(freq1: str, freq2: str) -> bool:
+    """Check if two frequency codes are functionally equivalent."""
+    if freq1 == freq2:
+        return True
+    for group in _EQUIVALENT_FREQUENCIES.values():
+        if freq1 in group and freq2 in group:
+            return True
+    return False
+
+
 def _check_frequency(idx: pd.DatetimeIndex, freq: str | None) -> None:
     expected = _normalise_frequency(freq)
     if expected is None or len(idx) < 3:
@@ -123,6 +143,12 @@ def _check_frequency(idx: pd.DatetimeIndex, freq: str | None) -> None:
             inferred_offset = to_offset(inferred)
     except ValueError as exc:  # pragma: no cover - defensive guard for invalid freq
         raise ValueError(f"Unknown frequency alias '{freq}'.") from exc
+
+    # Check if frequencies are equivalent (e.g., ME and BME for monthly data)
+    if _frequencies_are_equivalent(
+        expected_offset.rule_code, inferred_offset.rule_code
+    ):
+        return
 
     if expected_offset != inferred_offset:
         raise ValueError(

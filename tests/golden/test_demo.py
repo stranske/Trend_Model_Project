@@ -200,9 +200,10 @@ class TestDemoGoldenMaster:
         df = pd.read_csv(demo_csv, index_col=0, parse_dates=True)
         assert len(df) == 120, f"Expected 120 months of data, got {len(df)}"
         assert (
-            len(df.columns) == 21
-        ), f"Expected 21 columns (20 managers + SPX), got {len(df.columns)}"
+            len(df.columns) == 22
+        ), f"Expected 22 columns (20 managers + SPX + RF), got {len(df.columns)}"
         assert "SPX" in df.columns, "SPX benchmark column missing"
+        assert "RF" in df.columns, "RF risk-free rate column missing"
 
         # Step 2: Run main demo analysis
         result = subprocess.run(

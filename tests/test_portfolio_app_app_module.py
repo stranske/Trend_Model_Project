@@ -129,6 +129,127 @@ class FakeStreamlit:
     def bar_chart(self, frame: pd.DataFrame) -> None:
         self.bar_charts.append(frame.copy())
 
+    def divider(self) -> None:
+        pass
+
+    def date_input(self, label: str, *, value=None, **_: Any):
+        return value
+
+    def toggle(self, label: str, *, value: bool = False, **_: Any) -> bool:
+        return value
+
+    def markdown(self, text: str, **_: Any) -> None:
+        pass
+
+    def write(self, *args: Any, **_: Any) -> None:
+        pass
+
+    def expander(self, label: str, **_: Any) -> _ContextManager:
+        return _ContextManager()
+
+    def tabs(self, names: list[str]) -> list[_ContextManager]:
+        return [_ContextManager() for _ in names]
+
+    def selectbox(
+        self,
+        label: str,
+        options: list[Any],
+        *,
+        index: int = 0,
+        **_: Any,
+    ) -> Any:
+        if not options:
+            return None
+        return options[min(index, len(options) - 1)]
+
+    def multiselect(
+        self,
+        label: str,
+        options: list[Any],
+        *,
+        default: list[Any] | None = None,
+        **_: Any,
+    ) -> list[Any]:
+        return list(default) if default else []
+
+    def radio(
+        self,
+        label: str,
+        options: list[Any],
+        *,
+        index: int = 0,
+        **_: Any,
+    ) -> Any:
+        if not options:
+            return None
+        return options[min(index, len(options) - 1)]
+
+    def number_input(
+        self,
+        label: str,
+        *,
+        value: float | int = 0,
+        **_: Any,
+    ) -> float | int:
+        return value
+
+    def slider(
+        self,
+        label: str,
+        *,
+        value: Any = None,
+        **_: Any,
+    ) -> Any:
+        return value
+
+    def checkbox(self, label: str, *, value: bool = False, **_: Any) -> bool:
+        return value
+
+    def file_uploader(self, label: str, **_: Any) -> None:
+        return None
+
+    def metric(self, label: str, value: Any, **_: Any) -> None:
+        pass
+
+    def container(self, **_: Any) -> _ContextManager:
+        return _ContextManager()
+
+    def form(self, key: str, **_: Any) -> _ContextManager:
+        return _ContextManager()
+
+    def form_submit_button(self, label: str, **_: Any) -> bool:
+        return False
+
+    def progress(self, value: float, **_: Any) -> None:
+        pass
+
+    def status(self, label: str, **_: Any) -> _ContextManager:
+        return _ContextManager()
+
+    def plotly_chart(self, fig: Any, **_: Any) -> None:
+        pass
+
+    def pyplot(self, fig: Any, **_: Any) -> None:
+        pass
+
+    def rerun(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        raise RuntimeError("st.stop invoked during test")
+
+    def cache_data(self, _fn=None, *, show_spinner=True, **__):
+        def decorator(fn):
+            return fn
+
+        return decorator if _fn is None else decorator(_fn)
+
+    def cache_resource(self, _fn=None, *, show_spinner=True, **__):
+        def decorator(fn):
+            return fn
+
+        return decorator if _fn is None else decorator(_fn)
+
 
 class _IterablePeriod:
     def __init__(self, values: list[str]) -> None:
@@ -504,6 +625,31 @@ def test_module_auto_renders_with_realistic_streamlit(
         "caption",
         "line_chart",
         "bar_chart",
+        "divider",
+        "date_input",
+        "toggle",
+        "markdown",
+        "write",
+        "expander",
+        "tabs",
+        "selectbox",
+        "multiselect",
+        "radio",
+        "number_input",
+        "slider",
+        "checkbox",
+        "file_uploader",
+        "metric",
+        "container",
+        "form",
+        "form_submit_button",
+        "progress",
+        "status",
+        "plotly_chart",
+        "pyplot",
+        "rerun",
+        "cache_data",
+        "cache_resource",
     ]:
         setattr(streamlit_module, name, _wrap(name))
 

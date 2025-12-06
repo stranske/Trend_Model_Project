@@ -83,14 +83,14 @@ def test_validate_market_data_duplicate_dates() -> None:
     assert "Duplicate timestamps" in str(exc.value)
 
 
-def test_validate_market_data_unsorted_dates() -> None:
+def test_validate_market_data_autosorts_unsorted_dates() -> None:
+    """Unsorted dates are now auto-sorted instead of raising."""
     df = _build_returns_frame().iloc[[2, 0, 1, 3]].reset_index(drop=True)
 
-    with pytest.raises(MarketDataValidationError) as exc:
-        validate_market_data(df)
-    assert "sorted in ascending order" in str(exc.value)
-    assert exc.value.issues
-    assert any("sorted" in issue for issue in exc.value.issues)
+    result = validate_market_data(df)
+    # Should succeed with auto-sorted dates
+    assert isinstance(result.index, pd.DatetimeIndex)
+    assert result.index.is_monotonic_increasing
 
 
 def test_validate_market_data_mixed_frequency() -> None:

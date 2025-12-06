@@ -218,9 +218,9 @@ def test_streamlit_app_pages_accessible(streamlit_app):
 
 
 def test_streamlit_app_run_page_exists():
-    """Test that the Run page file exists and can be imported."""
+    """Test that the Results page file exists and can be imported."""
     run_page_paths = [
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py",
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py",
     ]
 
     found_run_page = False
@@ -231,54 +231,53 @@ def test_streamlit_app_run_page_exists():
             # Try to validate the file has required components
             content = path.read_text()
 
-            # Check for key components
-            assert "run_simulation" in content
-            assert "progress" in content.lower()
+            # Check for key components (Results page uses render_results_page)
+            assert "render_results_page" in content
+            assert "analysis_runner" in content
             assert "error" in content.lower()
 
-            print(f"✅ Run page found and validated at {path}")
+            print(f"✅ Results page found and validated at {path}")
             break
 
-    assert found_run_page, "No Run page found in expected locations"
+    assert found_run_page, "No Results page found in expected locations"
 
 
 def test_error_handling_components():
-    """Test that error handling components exist in the Run page."""
+    """Test that error handling components exist in the Results page."""
     run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
     )
 
     if not run_page_path.exists():
-        pytest.skip("Run page not found for testing")
+        pytest.skip("Results page not found for testing")
 
     content = run_page_path.read_text()
 
     # Check for error handling features
-    assert "format_error_message" in content
+    assert "_analysis_error_messages" in content
     assert "exception" in content.lower() or "error" in content.lower()
-    assert "expander" in content.lower()  # For "Show details" functionality
-    assert "traceback" in content.lower()
+    assert "st.error" in content
 
     print("✅ Error handling components test passed")
 
 
 def test_progress_reporting_components():
-    """Test that progress reporting components exist in the Run page."""
+    """Test that progress/result rendering components exist in the Results page."""
     run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
     )
 
     if not run_page_path.exists():
-        pytest.skip("Run page not found for testing")
+        pytest.skip("Results page not found for testing")
 
     content = run_page_path.read_text()
 
-    # Check for progress reporting features
-    assert "progress" in content.lower()
-    assert "log" in content.lower()
-    assert "StreamlitLogHandler" in content or "logging" in content.lower()
+    # Check for results rendering features
+    assert "_render_summary" in content
+    assert "_render_charts" in content
+    assert "analysis_runner" in content
 
-    print("✅ Progress reporting components test passed")
+    print("✅ Results rendering components test passed")
 
 
 @pytest.mark.slow
@@ -325,13 +324,13 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
 
 
 def test_run_page_imports_successfully():
-    """Test that the Run page can be imported without errors."""
+    """Test that the Results page can be imported without errors."""
     run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Run.py"
+        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
     )
 
     if not run_page_path.exists():
-        pytest.skip("Run page not found for import testing")
+        pytest.skip("Results page not found for import testing")
 
     # Test import without actually running streamlit
     import importlib.util
@@ -340,18 +339,18 @@ def test_run_page_imports_successfully():
     # Mock streamlit before importing
     sys.modules["streamlit"] = Mock()
 
-    spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    spec = importlib.util.spec_from_file_location("results_page", run_page_path)
     assert spec is not None and spec.loader is not None
-    run_page = importlib.util.module_from_spec(spec)
+    results_page = importlib.util.module_from_spec(spec)
 
     # Should not raise any import errors
-    spec.loader.exec_module(run_page)
+    spec.loader.exec_module(results_page)
 
     # Check that key functions exist
-    assert hasattr(run_page, "format_error_message")
-    assert hasattr(run_page, "main")
+    assert hasattr(results_page, "_analysis_error_messages")
+    assert hasattr(results_page, "render_results_page")
 
-    print("✅ Run page imports successfully")
+    print("✅ Results page imports successfully")
 
 
 if __name__ == "__main__":
@@ -362,12 +361,12 @@ if __name__ == "__main__":
     subprocess.run(["python", "scripts/generate_demo.py"], check=True)
     print("✅ Demo data generation test passed")
 
-    # Test 2: Check Run page exists
-    run_page_path = Path("streamlit_app/pages/3_Run.py")
-    if run_page_path.exists():
-        print("✅ Run page exists")
+    # Test 2: Check Results page exists
+    results_page_path = Path("streamlit_app/pages/3_Results.py")
+    if results_page_path.exists():
+        print("✅ Results page exists")
     else:
-        print("❌ Run page not found")
+        print("❌ Results page not found")
         exit(1)
 
     # Test 3: Basic import test
@@ -375,10 +374,10 @@ if __name__ == "__main__":
     from unittest.mock import Mock
 
     sys.modules["streamlit"] = Mock()
-    spec = importlib.util.spec_from_file_location("run_page", run_page_path)
+    spec = importlib.util.spec_from_file_location("results_page", results_page_path)
     assert spec is not None and spec.loader is not None
-    run_page = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(run_page)
-    print("✅ Run page import test passed")
+    results_page = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(results_page)
+    print("✅ Results page import test passed")
 
     print("🎉 All smoke tests passed!")

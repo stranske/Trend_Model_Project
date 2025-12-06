@@ -51,12 +51,20 @@ def test_load_csv_returns_none_by_default(
     assert "Duplicate timestamps" in caplog.text
 
 
-def test_load_csv_rejects_unsorted_dates(tmp_path: Path) -> None:
+def test_load_csv_autosorts_unsorted_dates(tmp_path: Path, caplog) -> None:
+    """Test that unsorted dates are automatically sorted instead of raising."""
+    import logging
+
     csv = tmp_path / "unsorted.csv"
     csv.write_text("Date,A\n2024-02-01,0.01\n2024-01-01,0.02\n")
 
-    with pytest.raises(MarketDataValidationError, match="sorted in ascending"):
-        data_mod.load_csv(str(csv), errors="raise")
+    with caplog.at_level(logging.INFO):
+        result = data_mod.load_csv(str(csv), errors="raise")
+
+    # Data should be loaded and auto-sorted
+    assert result is not None
+    assert result.index.is_monotonic_increasing
+    assert "auto-sorting" in caplog.text.lower()
 
 
 def test_load_csv_raises_when_requested(tmp_path: Path) -> None:

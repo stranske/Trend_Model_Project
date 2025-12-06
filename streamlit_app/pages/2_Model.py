@@ -8,102 +8,192 @@ import streamlit as st
 
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner
-from trend_analysis.signal_presets import (
-    TrendSpecPreset,
-    get_trend_spec_preset,
-    list_trend_spec_presets,
-)
-from trend_analysis.signals import TrendSpec
 
+# Extended metric fields for ranking
 METRIC_FIELDS = [
-    ("Sharpe", "sharpe"),
-    ("Annual return", "return_ann"),
-    ("Max drawdown", "drawdown"),
+    ("Sharpe Ratio", "sharpe"),
+    ("Annual Return", "return_ann"),
+    ("Sortino Ratio", "sortino"),
+    ("Info Ratio", "info_ratio"),
+    ("Max Drawdown", "drawdown"),
+    ("Volatility", "vol"),
 ]
 
+# Available weighting schemes from the plugin registry
+WEIGHTING_SCHEMES = [
+    ("Equal Weight (1/N)", "equal"),
+    ("Risk Parity (inverse vol)", "risk_parity"),
+    ("Hierarchical Risk Parity", "hrp"),
+    ("Equal Risk Contribution", "erc"),
+    ("Robust Mean-Variance", "robust_mv"),
+    ("Robust Risk Parity", "robust_risk_parity"),
+]
 
-def _baseline_trend_spec() -> TrendSpec:
-    return TrendSpec()
+# Preset configurations with default parameter values
+PRESET_CONFIGS = {
+    "Baseline": {
+        "lookback_months": 36,
+        "min_history_months": 36,
+        "evaluation_months": 12,
+        "selection_count": 10,
+        "weighting_scheme": "equal",
+        "metric_weights": {
+            "sharpe": 1.0,
+            "return_ann": 1.0,
+            "sortino": 0.0,
+            "info_ratio": 0.0,
+            "drawdown": 0.5,
+            "vol": 0.0,
+        },
+        "risk_target": 0.10,
+        # Date mode: "relative" (use lookback/eval windows) or "explicit" (user-specified dates)
+        "date_mode": "relative",
+        "start_date": None,
+        "end_date": None,
+        # Risk settings
+        "rf_rate_annual": 0.0,
+        "vol_floor": 0.015,
+        "warmup_periods": 0,
+        # Advanced settings
+        "max_weight": 0.20,
+        "cooldown_months": 3,
+        "min_track_months": 24,
+        "rebalance_freq": "M",
+        "max_turnover": 1.0,
+        "transaction_cost_bps": 0,
+    },
+    "Conservative": {
+        "lookback_months": 48,
+        "min_history_months": 48,
+        "evaluation_months": 12,
+        "selection_count": 8,
+        "weighting_scheme": "risk_parity",
+        "metric_weights": {
+            "sharpe": 1.0,
+            "return_ann": 0.5,
+            "sortino": 1.0,
+            "info_ratio": 0.0,
+            "drawdown": 1.5,
+            "vol": 1.0,
+        },
+        "risk_target": 0.08,
+        # Date mode
+        "date_mode": "relative",
+        "start_date": None,
+        "end_date": None,
+        # Risk settings - lower floor for more conservative scaling
+        "rf_rate_annual": 0.0,
+        "vol_floor": 0.02,
+        "warmup_periods": 6,
+        # Advanced settings - more restrictive
+        "max_weight": 0.15,
+        "cooldown_months": 6,
+        "min_track_months": 36,
+        "rebalance_freq": "Q",
+        "max_turnover": 0.50,
+        "transaction_cost_bps": 10,
+    },
+    "Aggressive": {
+        "lookback_months": 24,
+        "min_history_months": 24,
+        "evaluation_months": 6,
+        "selection_count": 15,
+        "weighting_scheme": "hrp",
+        "metric_weights": {
+            "sharpe": 0.5,
+            "return_ann": 2.0,
+            "sortino": 0.5,
+            "info_ratio": 0.0,
+            "drawdown": 0.0,
+            "vol": 0.0,
+        },
+        "risk_target": 0.15,
+        # Date mode
+        "date_mode": "relative",
+        "start_date": None,
+        "end_date": None,
+        # Risk settings - lower floor, no warmup for faster response
+        "rf_rate_annual": 0.0,
+        "vol_floor": 0.01,
+        "warmup_periods": 0,
+        # Advanced settings - less restrictive
+        "max_weight": 0.25,
+        "cooldown_months": 1,
+        "min_track_months": 12,
+        "rebalance_freq": "M",
+        "max_turnover": 1.0,
+        "transaction_cost_bps": 0,
+    },
+    "Custom": None,  # Custom means keep current values
+}
+
+# Common index/benchmark column names
+BENCHMARK_COLUMNS = ["SPX", "TSX", "MSCI", "ACWI", "EAFE", "EM", "AGG", "BND"]
+
+# Help text for configuration parameters (brief tooltips)
+HELP_TEXT = {
+    "preset": "Pre-configured settings optimized for different investment styles. Changing preset auto-populates all parameters.",
+    "lookback": "Months of history used to calculate fund metrics (Sharpe, returns, etc.) for ranking.",
+    "min_history": "Minimum months of data required for a fund to be considered for selection.",
+    "evaluation": "Out-of-sample period (months) to measure portfolio performance after selection.",
+    "selection": "Number of top-ranked funds to include in the portfolio.",
+    "weighting": "How to allocate capital across selected funds. See Help page for details.",
+    "sharpe_weight": "Importance of risk-adjusted returns in fund ranking.",
+    "return_weight": "Importance of absolute returns in fund ranking.",
+    "sortino_weight": "Importance of downside risk-adjusted returns in fund ranking.",
+    "info_ratio_weight": "Importance of benchmark-relative risk-adjusted returns.",
+    "drawdown_weight": "Importance of limiting drawdowns in fund ranking.",
+    "vol_weight": "Importance of low volatility in fund ranking (lower vol = higher rank).",
+    "risk_target": "Target portfolio volatility. Weights are scaled to achieve this level.",
+    "info_ratio_benchmark": "Benchmark for calculating Information Ratio. Select an index or fund column.",
+    # Date range settings
+    "date_mode": "Choose whether to use relative lookback windows or explicit start/end dates.",
+    "start_date": "Simulation start date. Data before this date will be excluded.",
+    "end_date": "Simulation end date. Data after this date will be excluded.",
+    # Risk settings
+    "rf_rate": "Annual risk-free rate used for Sharpe/Sortino calculations. Default: 0%.",
+    "vol_floor": "Minimum volatility floor for scaling. Prevents extreme weights on low-vol assets.",
+    "warmup_periods": "Initial periods with zero portfolio weight (warm-up for signals).",
+    # Advanced settings
+    "max_weight": "Maximum allocation to any single fund. Prevents concentration risk.",
+    "cooldown_months": "After a fund is removed, it cannot be re-added for this many months.",
+    "min_track_months": "Minimum track record (months of data) required for a fund to be eligible.",
+    "rebalance_freq": "How often to rebalance the portfolio weights.",
+    "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
+    "transaction_cost_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
+}
 
 
-def _preset_defaults(name: str | None) -> dict[str, Any]:
-    if not name or name.lower() in {"baseline", "custom"}:
-        spec = _baseline_trend_spec()
-        return {
-            "window": spec.window,
-            "lag": spec.lag,
-            "min_periods": spec.min_periods or spec.window,
-            "vol_adjust": spec.vol_adjust,
-            "vol_target": spec.vol_target or 0.0,
-            "zscore": spec.zscore,
-        }
-    try:
-        preset = get_trend_spec_preset(name)
-    except KeyError:
-        return _preset_defaults(None)
-    spec = preset.spec if isinstance(preset, TrendSpecPreset) else TrendSpec()
-    defaults = {
-        "window": spec.window,
-        "lag": spec.lag,
-        "min_periods": spec.min_periods or spec.window,
-        "vol_adjust": spec.vol_adjust,
-        "vol_target": spec.vol_target or 0.0,
-        "zscore": spec.zscore,
-    }
-    return defaults
+def _normalize_weights(weights: dict[str, float]) -> dict[str, float]:
+    """Normalize metric weights to sum to 1.0."""
+    total = sum(float(w or 0) for w in weights.values())
+    if total <= 0:
+        return weights
+    return {k: round(v / total, 4) for k, v in weights.items()}
 
 
-def _coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
-    try:
-        coerced = int(value)
-    except (TypeError, ValueError):
-        return default
-    return max(coerced, minimum)
-
-
-def _coerce_non_negative_float(value: Any, *, default: float) -> float:
-    try:
-        coerced = float(value)
-    except (TypeError, ValueError):
-        return default
-    return max(coerced, 0.0)
-
-
-def _trend_spec_from_form(values: Mapping[str, Any]) -> dict[str, Any]:
-    window = _coerce_positive_int(values.get("window"), default=63, minimum=1)
-    lag = _coerce_positive_int(values.get("lag"), default=1, minimum=1)
-    if lag > window:
-        lag = window
-    min_periods = _coerce_positive_int(
-        values.get("min_periods"), default=window, minimum=1
-    )
-    if min_periods > window:
-        min_periods = window
-    vol_adjust = bool(values.get("vol_adjust", False))
-    vol_target = _coerce_non_negative_float(values.get("vol_target"), default=0.0)
-    if not vol_adjust or vol_target <= 0:
-        vol_target = 0.0
-    zscore = bool(values.get("zscore", False))
-    return {
-        "window": window,
-        "lag": lag,
-        "min_periods": min_periods,
-        "vol_adjust": vol_adjust,
-        "vol_target": vol_target,
-        "zscore": zscore,
-    }
+def _get_benchmark_columns(df) -> list[str]:
+    """Identify potential benchmark columns in the dataset."""
+    if df is None:
+        return []
+    all_cols = [str(c) for c in df.columns if str(c).upper() not in ("DATE", "INDEX")]
+    # Prioritize known benchmark names, then include all columns as options
+    benchmark_priority = []
+    other_cols = []
+    for col in all_cols:
+        if col.upper() in [b.upper() for b in BENCHMARK_COLUMNS]:
+            benchmark_priority.append(col)
+        else:
+            other_cols.append(col)
+    return benchmark_priority + other_cols
 
 
 def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     errors: list[str] = []
-    trend_spec = values.get("trend_spec", {})
-    window = trend_spec.get("window", 63)
-    lag = trend_spec.get("lag", 1)
-    if lag > window:
-        errors.append("Lag must be less than or equal to the lookback window.")
-    min_periods = trend_spec.get("min_periods", window)
-    if min_periods > window:
-        errors.append("Minimum periods cannot exceed the window length.")
+    lookback = values.get("lookback_months", 36)
+    min_history = values.get("min_history_months", lookback)
+    if min_history > lookback:
+        errors.append("Minimum history cannot exceed the lookback window.")
     selection = values.get("selection_count", 10)
     if column_count and selection > column_count:
         errors.append(
@@ -112,166 +202,701 @@ def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     weights = values.get("metric_weights", {})
     if not any(float(w or 0) > 0 for w in weights.values()):
         errors.append("Provide at least one positive metric weight.")
-    if trend_spec.get("vol_adjust") and trend_spec.get("vol_target", 0.0) <= 0:
-        errors.append(
-            "Set a positive volatility target when volatility adjustment is on."
-        )
+    # Validate benchmark is set if info_ratio weight > 0
+    if float(weights.get("info_ratio", 0)) > 0:
+        if not values.get("info_ratio_benchmark"):
+            errors.append("Select a benchmark for Information Ratio metric.")
     return errors
 
 
 def _initial_model_state() -> dict[str, Any]:
-    defaults = _preset_defaults("Baseline")
+    """Return default model state based on Baseline preset."""
+    baseline = PRESET_CONFIGS["Baseline"]
     return {
-        "trend_spec_preset": "Baseline",
-        "trend_spec": defaults,
-        "lookback_months": 36,
-        "evaluation_months": 12,
-        "selection_count": 10,
-        "weighting_scheme": "equal",
-        "metric_weights": {code: 1.0 for _, code in METRIC_FIELDS},
-        "risk_target": 0.1,
-        "warmup_periods": 0,
+        "preset": "Baseline",
+        "lookback_months": baseline["lookback_months"],
+        "min_history_months": baseline["min_history_months"],
+        "evaluation_months": baseline["evaluation_months"],
+        "selection_count": baseline["selection_count"],
+        "weighting_scheme": baseline["weighting_scheme"],
+        "metric_weights": baseline["metric_weights"].copy(),
+        "risk_target": baseline["risk_target"],
+        "info_ratio_benchmark": "",  # Empty until user selects
+        # Date settings
+        "date_mode": baseline["date_mode"],
+        "start_date": baseline["start_date"],
+        "end_date": baseline["end_date"],
+        # Risk settings
+        "rf_rate_annual": baseline["rf_rate_annual"],
+        "vol_floor": baseline["vol_floor"],
+        "warmup_periods": baseline["warmup_periods"],
+        # Advanced settings
+        "max_weight": baseline["max_weight"],
+        "cooldown_months": baseline["cooldown_months"],
+        "min_track_months": baseline["min_track_months"],
+        "rebalance_freq": baseline["rebalance_freq"],
+        "max_turnover": baseline["max_turnover"],
+        "transaction_cost_bps": baseline["transaction_cost_bps"],
     }
+
+
+# Detailed descriptions for weighting schemes (shown in expander)
+WEIGHTING_DESCRIPTIONS = {
+    "equal": """
+**Equal Weight (1/N)** allocates the same percentage to each selected fund.
+
+- **Pros:** Simple, transparent, robust to estimation error
+- **Cons:** Ignores risk characteristics; high-vol funds contribute more risk
+- **Best for:** Most users; when you don't want to make assumptions about fund behavior
+""",
+    "risk_parity": """
+**Risk Parity** allocates weights inversely proportional to each fund's volatility.
+Higher-volatility funds receive lower weights, so each contributes roughly equal risk.
+
+- **Pros:** Balances risk across assets; reduces concentration in volatile funds
+- **Cons:** Ignores correlations; may over-allocate to low-vol assets
+- **Best for:** Portfolios with assets of varying volatilities
+""",
+    "hrp": """
+**Hierarchical Risk Parity (HRP)** uses machine learning clustering to build a
+diversified allocation based on correlation structure.
+
+- **Pros:** Accounts for correlations; more stable than mean-variance
+- **Cons:** More complex; requires sufficient data for correlation estimation
+- **Best for:** Complex portfolios with many correlated assets
+""",
+    "erc": """
+**Equal Risk Contribution (ERC)** optimizes weights so each fund contributes
+exactly the same marginal risk to the portfolio.
+
+- **Pros:** Formal risk targeting; theoretically optimal risk allocation
+- **Cons:** Requires optimization; sensitive to covariance estimation
+- **Best for:** Formal risk management with specific risk targets
+""",
+    "robust_mv": """
+**Robust Mean-Variance** uses shrinkage estimation to stabilize the covariance
+matrix, reducing sensitivity to estimation error.
+
+- **Pros:** More stable than classical MVO; resistant to extreme weights
+- **Cons:** Still assumes you trust return forecasts
+- **Best for:** When you have return forecasts but want protection from estimation error
+""",
+    "robust_risk_parity": """
+**Robust Risk Parity** combines risk parity allocation with shrinkage estimation
+for the covariance matrix.
+
+- **Pros:** Benefits of risk parity with improved covariance estimation
+- **Cons:** More complex; requires tuning shrinkage parameters
+- **Best for:** Large portfolios with estimation uncertainty
+""",
+}
 
 
 def render_model_page() -> None:
     app_state.initialize_session_state()
-    st.title("Model")
+    st.title("Model Configuration")
 
-    df, _ = app_state.get_uploaded_data()
+    # Help link - use st.page_link for proper navigation
+    st.markdown(
+        "📖 Use the **Help** page in the sidebar for detailed explanations of all parameters."
+    )
+
+    df, meta = app_state.get_uploaded_data()
     if df is None:
         st.error("Load data on the Data page before configuring the model.")
         return
 
+    # Display dataset summary with name
+    st.markdown("---")
+    st.subheader("📊 Dataset Summary")
+
+    # Get dataset name from session state or meta
+    dataset_name = st.session_state.get("uploaded_filename", "Demo Dataset")
+    if meta and hasattr(meta, "source_name"):
+        dataset_name = meta.source_name
+    st.markdown(f"**Dataset:** {dataset_name}")
+
+    col_info1, col_info2, col_info3, col_info4 = st.columns(4)
+    with col_info1:
+        # Count only fund columns (exclude benchmarks/indices)
+        fund_cols = [
+            c
+            for c in df.columns
+            if c.upper()
+            not in ("DATE", "SPX", "TSX", "RF", "CASH", "TBILL", "TBILLS", "T-BILL")
+        ]
+        st.metric("Funds", len(fund_cols))
+    with col_info2:
+        st.metric("Time Periods", len(df))
+    with col_info3:
+        if hasattr(df.index, "min") and hasattr(df.index, "max"):
+            start_date = df.index.min()
+            st.metric(
+                "Start Date",
+                (
+                    start_date.strftime("%Y-%m")
+                    if hasattr(start_date, "strftime")
+                    else str(start_date)[:7]
+                ),
+            )
+    with col_info4:
+        if hasattr(df.index, "max"):
+            end_date = df.index.max()
+            st.metric(
+                "End Date",
+                (
+                    end_date.strftime("%Y-%m")
+                    if hasattr(end_date, "strftime")
+                    else str(end_date)[:7]
+                ),
+            )
+
+    # Get data date boundaries for validation
+    data_start = df.index.min() if hasattr(df.index, "min") else None
+    data_end = df.index.max() if hasattr(df.index, "max") else None
+
+    # Show fund names in an expander
+    with st.expander("View fund names"):
+        st.write(", ".join(fund_cols[:50]))
+        if len(fund_cols) > 50:
+            st.caption(f"...and {len(fund_cols) - 50} more")
+
+    st.markdown("---")
+
     model_state = st.session_state.setdefault("model_state", _initial_model_state())
 
-    preset_options = ["Baseline"] + sorted(list_trend_spec_presets()) + ["Custom"]
-    current_preset = model_state.get("trend_spec_preset")
-    if not current_preset:
-        current_preset = "Custom" if model_state.get("trend_spec") else "Baseline"
+    # =============================================
+    # SIMULATION PERIOD SETTINGS (outside form for immediate feedback)
+    # =============================================
+    st.subheader("📅 Simulation Period")
+    st.caption("Define the time range for your simulation.")
+
+    date_mode_options = ["relative", "explicit"]
+    date_mode_labels = {
+        "relative": "Relative (use lookback windows)",
+        "explicit": "Explicit (specify start/end dates)",
+    }
+    current_date_mode = model_state.get("date_mode", "relative")
+
+    date_mode = st.radio(
+        "Date Mode",
+        options=date_mode_options,
+        format_func=lambda x: date_mode_labels.get(x, x),
+        index=(
+            date_mode_options.index(current_date_mode)
+            if current_date_mode in date_mode_options
+            else 0
+        ),
+        help=HELP_TEXT["date_mode"],
+        horizontal=True,
+        key="date_mode_radio",
+    )
+
+    # Update model state if date mode changed
+    if date_mode != current_date_mode:
+        st.session_state["model_state"]["date_mode"] = date_mode
+
+    # Show date pickers when in explicit mode
+    if date_mode == "explicit":
+        date_col1, date_col2 = st.columns(2)
+
+        # Convert data boundaries to date objects for the date picker
+        if data_start is not None and hasattr(data_start, "date"):
+            min_date = data_start.date()
+        else:
+            min_date = None
+
+        if data_end is not None and hasattr(data_end, "date"):
+            max_date = data_end.date()
+        else:
+            max_date = None
+
+        # Get current values from model state
+        current_start = model_state.get("start_date")
+        current_end = model_state.get("end_date")
+
+        # Convert to date objects if they're strings
+        if isinstance(current_start, str) and current_start:
+            try:
+                import datetime
+
+                current_start = datetime.datetime.strptime(
+                    current_start[:7] + "-01", "%Y-%m-%d"
+                ).date()
+            except (ValueError, TypeError):
+                current_start = min_date
+        elif current_start is None:
+            current_start = min_date
+
+        if isinstance(current_end, str) and current_end:
+            try:
+                import datetime
+
+                current_end = datetime.datetime.strptime(
+                    current_end[:7] + "-01", "%Y-%m-%d"
+                ).date()
+            except (ValueError, TypeError):
+                current_end = max_date
+        elif current_end is None:
+            current_end = max_date
+
+        with date_col1:
+            sim_start_date = st.date_input(
+                "Simulation Start Date",
+                value=current_start,
+                min_value=min_date,
+                max_value=max_date,
+                help=HELP_TEXT["start_date"],
+                key="sim_start_date",
+            )
+            # Update model state
+            if sim_start_date:
+                st.session_state["model_state"]["start_date"] = sim_start_date.strftime(
+                    "%Y-%m-%d"
+                )
+
+        with date_col2:
+            sim_end_date = st.date_input(
+                "Simulation End Date",
+                value=current_end,
+                min_value=min_date,
+                max_value=max_date,
+                help=HELP_TEXT["end_date"],
+                key="sim_end_date",
+            )
+            # Update model state
+            if sim_end_date:
+                st.session_state["model_state"]["end_date"] = sim_end_date.strftime(
+                    "%Y-%m-%d"
+                )
+
+        # Validate date range
+        if sim_start_date and sim_end_date and sim_start_date > sim_end_date:
+            st.error("Start date must be before end date.")
+        else:
+            # Show selected period info
+            if sim_start_date and sim_end_date:
+                months_span = (sim_end_date.year - sim_start_date.year) * 12 + (
+                    sim_end_date.month - sim_start_date.month
+                )
+                if months_span > 600:  # 50 years * 12 months
+                    st.warning(
+                        "Date range exceeds 50 years - please verify your selection."
+                    )
+                else:
+                    st.info(
+                        f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
+                    )
+    else:
+        st.info(
+            "📊 Using relative date mode: simulation dates will be computed from lookback and evaluation windows."
+        )
+
+    st.markdown("---")
+
+    # Get benchmark column options for Info Ratio
+    benchmark_options = _get_benchmark_columns(df)
+
+    # Preset selection with auto-population (outside form for instant feedback)
+    preset_options = ["Baseline", "Conservative", "Aggressive", "Custom"]
+    current_preset = model_state.get("preset", "Baseline")
     try:
         preset_index = preset_options.index(current_preset)
     except ValueError:
         preset_index = 0
 
-    with st.form("model_settings", clear_on_submit=False):
-        st.subheader("Trend signal")
-        preset = st.selectbox("Preset", preset_options, index=preset_index)
-        if preset != model_state.get("trend_spec_preset") and preset != "Custom":
-            model_state["trend_spec"] = _preset_defaults(preset)
-            model_state["trend_spec_preset"] = preset
+    # Preset selector (outside form for immediate updates)
+    new_preset = st.selectbox(
+        "📋 Preset Configuration",
+        preset_options,
+        index=preset_index,
+        help=HELP_TEXT["preset"],
+        key="preset_selector",
+    )
 
-        defaults = model_state.get("trend_spec", _preset_defaults(preset))
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            window = st.number_input(
-                "Window (months)", min_value=1, value=int(defaults.get("window", 63))
-            )
-            min_periods = st.number_input(
-                "Minimum periods",
-                min_value=1,
-                value=int(defaults.get("min_periods", defaults.get("window", 63))),
-            )
-        with c2:
-            lag = st.number_input("Lag", min_value=1, value=int(defaults.get("lag", 1)))
-            vol_adjust = st.checkbox(
-                "Volatility adjust",
-                value=bool(defaults.get("vol_adjust", False)),
-            )
-        with c3:
-            vol_target = st.number_input(
-                "Volatility target",
-                min_value=0.0,
-                value=float(defaults.get("vol_target", 0.0)),
-                step=0.01,
-                format="%.2f",
-            )
-            zscore = st.checkbox(
-                "Row z-score", value=bool(defaults.get("zscore", False))
-            )
+    # Auto-populate when preset changes (except Custom)
+    if new_preset != current_preset and new_preset != "Custom":
+        preset_config = PRESET_CONFIGS.get(new_preset)
+        if preset_config:
+            st.session_state["model_state"] = {
+                "preset": new_preset,
+                "lookback_months": preset_config["lookback_months"],
+                "min_history_months": preset_config["min_history_months"],
+                "evaluation_months": preset_config["evaluation_months"],
+                "selection_count": preset_config["selection_count"],
+                "weighting_scheme": preset_config["weighting_scheme"],
+                "metric_weights": preset_config["metric_weights"].copy(),
+                "risk_target": preset_config["risk_target"],
+                "info_ratio_benchmark": model_state.get("info_ratio_benchmark", ""),
+                # Date settings
+                "date_mode": preset_config["date_mode"],
+                "start_date": preset_config["start_date"],
+                "end_date": preset_config["end_date"],
+                # Risk settings
+                "rf_rate_annual": preset_config["rf_rate_annual"],
+                "vol_floor": preset_config["vol_floor"],
+                "warmup_periods": preset_config["warmup_periods"],
+                # Advanced settings
+                "max_weight": preset_config["max_weight"],
+                "cooldown_months": preset_config["cooldown_months"],
+                "min_track_months": preset_config["min_track_months"],
+                "rebalance_freq": preset_config["rebalance_freq"],
+                "max_turnover": preset_config["max_turnover"],
+                "transaction_cost_bps": preset_config["transaction_cost_bps"],
+            }
+            st.rerun()
 
-        st.divider()
-        st.subheader("Portfolio")
-        c4, c5, c6 = st.columns(3)
-        with c4:
-            lookback = st.number_input(
-                "Lookback months",
-                min_value=12,
-                value=int(model_state.get("lookback_months", 36)),
-            )
-        with c5:
-            evaluation = st.number_input(
-                "Evaluation window (months)",
-                min_value=3,
-                value=int(model_state.get("evaluation_months", 12)),
-            )
-        with c6:
-            selection = st.number_input(
-                "Selection count",
-                min_value=1,
-                value=int(model_state.get("selection_count", 10)),
-            )
+    # Weighting scheme selector (outside form for dynamic description updates)
+    st.markdown("---")
+    st.subheader("📊 Weighting Scheme")
+    weighting_labels = [label for label, _ in WEIGHTING_SCHEMES]
+    weighting_values = [value for _, value in WEIGHTING_SCHEMES]
+    current_weighting = model_state.get("weighting_scheme", "equal")
+    try:
+        weighting_index = weighting_values.index(current_weighting)
+    except ValueError:
+        weighting_index = 0
 
-        weighting = st.selectbox(
-            "Weighting scheme",
-            ["equal", "vol_target"],
-            index=0 if model_state.get("weighting_scheme") == "equal" else 1,
-            help="Equal weights or volatility targeting in the portfolio stage.",
+    weighting_value = st.selectbox(
+        "Select Weighting Scheme",
+        options=weighting_values,
+        format_func=lambda x: weighting_labels[weighting_values.index(x)],
+        index=weighting_index,
+        help=HELP_TEXT["weighting"],
+        key="weighting_scheme_selector",
+    )
+
+    # Show description for selected weighting scheme (updates dynamically)
+    with st.expander("ℹ️ About this weighting scheme", expanded=False):
+        st.markdown(
+            WEIGHTING_DESCRIPTIONS.get(weighting_value, "No description available.")
         )
 
+    # Update model_state if weighting changed
+    if weighting_value != current_weighting:
+        st.session_state["model_state"]["weighting_scheme"] = weighting_value
+
+    with st.form("model_settings", clear_on_submit=False):
+        # Section 1: Fund Selection Settings
+        st.subheader("📋 Fund Selection Settings")
+        st.caption(
+            "Configure how funds are evaluated and filtered for portfolio inclusion."
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            lookback = st.number_input(
+                "Lookback Window (months)",
+                min_value=12,
+                value=int(model_state.get("lookback_months", 36)),
+                help=HELP_TEXT["lookback"],
+            )
+        with c2:
+            min_history = st.number_input(
+                "Minimum History Required (months)",
+                min_value=1,
+                value=int(
+                    model_state.get(
+                        "min_history_months", model_state.get("lookback_months", 36)
+                    )
+                ),
+                help=HELP_TEXT["min_history"],
+            )
+
+        # Section 2: Portfolio Settings
         st.divider()
-        st.subheader("Metric weights")
+        st.subheader("📈 Portfolio Settings")
+        st.caption("Configure how the portfolio is constructed from selected funds.")
+
+        c3, c4 = st.columns(2)
+        with c3:
+            evaluation = st.number_input(
+                "Evaluation Window (months)",
+                min_value=3,
+                value=int(model_state.get("evaluation_months", 12)),
+                help=HELP_TEXT["evaluation"],
+            )
+        with c4:
+            selection = st.number_input(
+                "Selection Count",
+                min_value=1,
+                max_value=len(fund_cols) if fund_cols else 100,
+                value=min(
+                    int(model_state.get("selection_count", 10)),
+                    len(fund_cols) if fund_cols else 10,
+                ),
+                help=HELP_TEXT["selection"],
+            )
+
+        # Section 3: Metric Weights
+        st.divider()
+        st.subheader("⚖️ Metric Weights")
+        st.caption(
+            "Relative importance of each metric when ranking funds for selection."
+        )
+
         metric_weights: dict[str, float] = {}
-        cols = st.columns(len(METRIC_FIELDS))
-        for (label, code), col in zip(METRIC_FIELDS, cols):
-            with col:
+        # Create two rows for the 6 metrics
+        help_keys = [
+            "sharpe_weight",
+            "return_weight",
+            "sortino_weight",
+            "info_ratio_weight",
+            "drawdown_weight",
+            "vol_weight",
+        ]
+
+        # First row: 3 metrics
+        col1, col2, col3 = st.columns(3)
+        cols_row1 = [col1, col2, col3]
+        for i in range(min(3, len(METRIC_FIELDS))):
+            label, code = METRIC_FIELDS[i]
+            help_key = help_keys[i]
+            with cols_row1[i]:
                 metric_weights[code] = st.number_input(
                     label,
                     min_value=0.0,
                     value=float(model_state.get("metric_weights", {}).get(code, 1.0)),
                     step=0.1,
+                    help=HELP_TEXT.get(
+                        help_key, "Weight for this metric in fund ranking."
+                    ),
+                    key=f"metric_{code}",
                 )
 
-        st.divider()
-        risk_target = st.number_input(
-            "Target volatility",
-            min_value=0.0,
-            value=float(model_state.get("risk_target", 0.1)),
-            step=0.01,
-        )
+        # Second row: remaining metrics
+        if len(METRIC_FIELDS) > 3:
+            col4, col5, col6 = st.columns(3)
+            cols_row2 = [col4, col5, col6]
+            for i in range(3, len(METRIC_FIELDS)):
+                label, code = METRIC_FIELDS[i]
+                help_key = help_keys[i] if i < len(help_keys) else "vol_weight"
+                with cols_row2[i - 3]:
+                    metric_weights[code] = st.number_input(
+                        label,
+                        min_value=0.0,
+                        value=float(
+                            model_state.get("metric_weights", {}).get(code, 1.0)
+                        ),
+                        step=0.1,
+                        help=HELP_TEXT.get(
+                            help_key, "Weight for this metric in fund ranking."
+                        ),
+                        key=f"metric_{code}",
+                    )
 
-        submitted = st.form_submit_button("Save model", type="primary")
+        # Show weight sum
+        weight_sum = sum(float(w or 0) for w in metric_weights.values())
+        if weight_sum > 0:
+            st.caption(
+                f"📊 Total weight: {weight_sum:.2f} — Weights will be auto-normalized to sum to 1.0 during analysis."
+            )
+        else:
+            st.warning("⚠️ Set at least one metric weight > 0.")
+
+        # Benchmark selector for Info Ratio - always show when info_ratio weight > 0
+        # Check both form value AND saved state for info_ratio weight
+        info_ratio_weight = metric_weights.get("info_ratio", 0)
+        saved_info_ratio_weight = model_state.get("metric_weights", {}).get(
+            "info_ratio", 0
+        )
+        show_benchmark_selector = info_ratio_weight > 0 or saved_info_ratio_weight > 0
+
+        info_ratio_benchmark = model_state.get("info_ratio_benchmark", "")
+        if show_benchmark_selector:
+            st.divider()
+            st.markdown("**📈 Information Ratio Benchmark**")
+            st.caption(
+                "Select the index or benchmark column to use for Information Ratio calculation."
+            )
+            current_benchmark = model_state.get("info_ratio_benchmark", "")
+            benchmark_index = 0
+            if current_benchmark and current_benchmark in benchmark_options:
+                benchmark_index = (
+                    benchmark_options.index(current_benchmark) + 1
+                )  # +1 for "Select..." option
+
+            benchmark_selection = st.selectbox(
+                "Benchmark Column",
+                options=["(Select a benchmark)"] + benchmark_options,
+                index=benchmark_index,
+                help=HELP_TEXT["info_ratio_benchmark"],
+                key="benchmark_selector",
+            )
+            if benchmark_selection != "(Select a benchmark)":
+                info_ratio_benchmark = benchmark_selection
+        else:
+            info_ratio_benchmark = ""
+
+        # Section 4: Risk Settings
+        st.divider()
+        st.subheader("🎯 Risk Settings")
+
+        risk_c1, risk_c2 = st.columns(2)
+        with risk_c1:
+            risk_target = st.number_input(
+                "Target Portfolio Volatility",
+                min_value=0.01,
+                max_value=0.50,
+                value=float(model_state.get("risk_target", 0.1)),
+                step=0.01,
+                format="%.2f",
+                help=HELP_TEXT["risk_target"],
+            )
+            st.caption(f"Target: {risk_target:.0%} annualized vol")
+
+        with risk_c2:
+            rf_rate_pct = st.number_input(
+                "Risk-Free Rate (%)",
+                min_value=0.0,
+                max_value=20.0,
+                value=float(model_state.get("rf_rate_annual", 0.0)) * 100,
+                step=0.25,
+                format="%.2f",
+                help=HELP_TEXT["rf_rate"],
+            )
+            # Convert to decimal for storage
+            rf_rate_annual = rf_rate_pct / 100.0
+            st.caption(f"Used for Sharpe/Sortino: {rf_rate_pct:.2f}%")
+
+        # Volatility floor and warmup
+        vol_c1, vol_c2 = st.columns(2)
+        with vol_c1:
+            vol_floor_pct = st.number_input(
+                "Volatility Floor (%)",
+                min_value=0.0,
+                max_value=10.0,
+                value=float(model_state.get("vol_floor", 0.015)) * 100,
+                step=0.1,
+                format="%.2f",
+                help=HELP_TEXT["vol_floor"],
+            )
+            # Convert to decimal for storage
+            vol_floor = vol_floor_pct / 100.0
+
+        with vol_c2:
+            warmup_periods = st.number_input(
+                "Warmup Periods",
+                min_value=0,
+                max_value=24,
+                value=int(model_state.get("warmup_periods", 0)),
+                help=HELP_TEXT["warmup_periods"],
+            )
+
+        max_weight = st.number_input(
+            "Maximum Weight per Fund (%)",
+            min_value=5,
+            max_value=100,
+            value=int(model_state.get("max_weight", 0.20) * 100),
+            step=5,
+            help=HELP_TEXT["max_weight"],
+        )
+        # Convert back to decimal for storage
+        max_weight_decimal = max_weight / 100.0
+
+        # Section 5: Advanced Settings
+        st.divider()
+        st.subheader("⚙️ Advanced Settings")
+        st.caption("Fine-tune fund addition/removal rules and transaction costs.")
+
+        adv_c1, adv_c2 = st.columns(2)
+        with adv_c1:
+            cooldown_months = st.number_input(
+                "Cooldown Period (months)",
+                min_value=0,
+                max_value=24,
+                value=int(model_state.get("cooldown_months", 3)),
+                help=HELP_TEXT["cooldown_months"],
+            )
+            min_track_months = st.number_input(
+                "Minimum Track Record (months)",
+                min_value=1,
+                max_value=120,
+                value=int(model_state.get("min_track_months", 24)),
+                help=HELP_TEXT["min_track_months"],
+            )
+
+        with adv_c2:
+            rebalance_options = ["M", "Q", "A"]
+            rebalance_labels = {"M": "Monthly", "Q": "Quarterly", "A": "Annually"}
+            current_rebal = model_state.get("rebalance_freq", "M")
+            rebalance_freq = st.selectbox(
+                "Rebalance Frequency",
+                options=rebalance_options,
+                format_func=lambda x: rebalance_labels.get(x, x),
+                index=(
+                    rebalance_options.index(current_rebal)
+                    if current_rebal in rebalance_options
+                    else 0
+                ),
+                help=HELP_TEXT["rebalance_freq"],
+            )
+            max_turnover = st.number_input(
+                "Maximum Turnover",
+                min_value=0.0,
+                max_value=2.0,
+                value=float(model_state.get("max_turnover", 1.0)),
+                step=0.1,
+                format="%.1f",
+                help=HELP_TEXT["max_turnover"],
+            )
+
+        transaction_cost_bps = st.number_input(
+            "Transaction Cost (basis points)",
+            min_value=0,
+            max_value=100,
+            value=int(model_state.get("transaction_cost_bps", 0)),
+            help=HELP_TEXT["transaction_cost_bps"],
+        )
+        if transaction_cost_bps > 0:
+            st.caption(
+                f"Each trade incurs a {transaction_cost_bps} bp ({transaction_cost_bps/100:.2f}%) cost."
+            )
+
+        submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
-            trend_spec = _trend_spec_from_form(
-                {
-                    "window": window,
-                    "lag": lag,
-                    "min_periods": min_periods,
-                    "vol_adjust": vol_adjust,
-                    "vol_target": vol_target,
-                    "zscore": zscore,
-                }
-            )
+            # Always set to Custom unless user explicitly selects Custom
+            effective_preset = "Custom"
+
             candidate_state = {
-                "trend_spec_preset": None if preset == "Custom" else preset,
-                "trend_spec": trend_spec,
+                "preset": effective_preset,
                 "lookback_months": lookback,
+                "min_history_months": min_history,
                 "evaluation_months": evaluation,
                 "selection_count": selection,
-                "weighting_scheme": weighting,
+                "weighting_scheme": weighting_value,
                 "metric_weights": metric_weights,
                 "risk_target": risk_target,
-                "warmup_periods": model_state.get("warmup_periods", 0),
+                "info_ratio_benchmark": info_ratio_benchmark,
+                # Date settings (preserved from outside form)
+                "date_mode": model_state.get("date_mode", "relative"),
+                "start_date": model_state.get("start_date"),
+                "end_date": model_state.get("end_date"),
+                # Risk settings
+                "rf_rate_annual": rf_rate_annual,
+                "vol_floor": vol_floor,
+                "warmup_periods": warmup_periods,
+                # Advanced settings
+                "max_weight": max_weight_decimal,
+                "cooldown_months": cooldown_months,
+                "min_track_months": min_track_months,
+                "rebalance_freq": rebalance_freq,
+                "max_turnover": max_turnover,
+                "transaction_cost_bps": transaction_cost_bps,
             }
-            errors = _validate_model(candidate_state, len(df.columns))
+            errors = _validate_model(
+                candidate_state, len(fund_cols) if fund_cols else 0
+            )
             if errors:
                 st.error("\n".join(f"• {err}" for err in errors))
             else:
                 st.session_state["model_state"] = candidate_state
                 analysis_runner.clear_cached_analysis()
                 app_state.clear_analysis_results()
-                st.success("Model configuration saved.")
+                st.success(
+                    "✅ Model configuration saved. Go to Results to run analysis."
+                )
 
 
 render_model_page()
