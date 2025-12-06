@@ -697,7 +697,7 @@ def _resolve_datetime_index(
 
     # Auto-sort by date if not already in ascending order
     if not working.index.is_monotonic_increasing:
-        logger.info("Data not in ascending date order; auto-sorting by date index.")
+        logger.warning("Data not in ascending date order; auto-sorting by date index.")
         working = working.sort_index()
 
     return working
