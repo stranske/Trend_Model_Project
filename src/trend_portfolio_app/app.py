@@ -308,9 +308,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     user_input_path = Path(csv_path.strip())
     # Reject absolute paths up front
     if user_input_path.is_absolute():
-        result["error"] = (
-            f"Access denied: path must be relative ({csv_path})"
-        )
+        result["error"] = f"Access denied: path must be relative ({csv_path})"
         return result
     try:
         # Join user input to safe root, then resolve
@@ -318,9 +316,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
         # Ensure candidate_path is a child/descendant of safe_root
         candidate_path.relative_to(safe_root)
     except Exception as exc:
-        result["error"] = (
-            f"Access denied or invalid path: {csv_path} ({exc})"
-        )
+        result["error"] = f"Access denied or invalid path: {csv_path} ({exc})"
         return result
     if not candidate_path.exists():
         result["error"] = f"File not found: {csv_path}"
