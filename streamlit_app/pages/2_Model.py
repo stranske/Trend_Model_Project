@@ -471,7 +471,7 @@ def render_model_page() -> None:
                 )
 
         # Validate date range
-        if sim_start_date and sim_end_date and sim_start_date >= sim_end_date:
+        if sim_start_date and sim_end_date and sim_start_date > sim_end_date:
             st.error("Start date must be before end date.")
         else:
             # Show selected period info
