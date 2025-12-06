@@ -350,6 +350,32 @@ def _build_config(payload: AnalysisPayload) -> Config:
         },
     }
 
+    # Entry/Exit thresholds (Phase 5)
+    z_entry_soft = float(state.get("z_entry_soft", 1.0) or 1.0)
+    z_exit_soft = float(state.get("z_exit_soft", -1.0) or -1.0)
+    soft_strikes = int(state.get("soft_strikes", 2) or 2)
+    entry_soft_strikes = int(state.get("entry_soft_strikes", 1) or 1)
+    sticky_add_periods = int(state.get("sticky_add_periods", 1) or 1)
+    sticky_drop_periods = int(state.get("sticky_drop_periods", 1) or 1)
+    ci_level = float(state.get("ci_level", 0.0) or 0.0)
+
+    # Build threshold_hold config for portfolio
+    threshold_hold_cfg = {
+        "z_entry_soft": z_entry_soft,
+        "z_exit_soft": z_exit_soft,
+        "soft_strikes": soft_strikes,
+        "entry_soft_strikes": entry_soft_strikes,
+    }
+
+    # Add threshold_hold and policy settings to portfolio config
+    portfolio_cfg["policy"] = "threshold_hold"
+    portfolio_cfg["threshold_hold"] = threshold_hold_cfg
+
+    # Add sticky periods and CI to policy config (for PolicyConfig in simulator)
+    portfolio_cfg["sticky_add_x"] = sticky_add_periods
+    portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
+    portfolio_cfg["ci_level"] = ci_level
+
     # Update portfolio config with leverage cap
     portfolio_cfg["leverage_cap"] = leverage_cap
 

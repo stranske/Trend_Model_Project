@@ -122,13 +122,15 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | Location | In UI | Description |
 |-----------|----------|-------|-------------|
-| `z_entry_soft` | replacer.py | ❌ | Z-score for soft entry |
-| `z_entry_hard` | replacer.py | ❌ | Z-score for hard entry |
-| `z_exit_soft` | replacer.py | ❌ | Z-score for soft exit |
-| `z_exit_hard` | replacer.py | ❌ | Z-score for hard exit |
-| `sticky_add_x` | PolicyConfig | ❌ | Periods required for add |
-| `sticky_drop_y` | PolicyConfig | ❌ | Periods required for drop |
-| `ci_level` | PolicyConfig | ❌ | Confidence interval level |
+| `z_entry_soft` | UI model_state | ✅ **NEW** | Z-score for soft entry |
+| `z_entry_hard` | replacer.py | ❌ | Z-score for hard entry (not commonly used) |
+| `z_exit_soft` | UI model_state | ✅ **NEW** | Z-score for soft exit |
+| `z_exit_hard` | replacer.py | ❌ | Z-score for hard exit (not commonly used) |
+| `soft_strikes` | UI model_state | ✅ **NEW** | Consecutive exit periods |
+| `entry_soft_strikes` | UI model_state | ✅ **NEW** | Consecutive entry periods |
+| `sticky_add_periods` | UI model_state | ✅ **NEW** | Periods required for add |
+| `sticky_drop_periods` | UI model_state | ✅ **NEW** | Periods required for drop |
+| `ci_level` | UI model_state | ✅ **NEW** | Confidence interval level |
 
 ### CATEGORY 10: Robustness / Covariance Settings
 
@@ -266,17 +268,24 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | UI Element | Section |
 |-----------|------------|---------|
-| `z_entry_soft` | Number input | Entry/Exit Rules (new) |
+| `z_entry_soft` | Number input | Entry/Exit Rules |
 | `z_exit_soft` | Number input | Entry/Exit Rules |
-| `sticky_add_x` | Number input | Entry/Exit Rules |
-| `sticky_drop_y` | Number input | Entry/Exit Rules |
+| `soft_strikes` | Number input | Entry/Exit Rules |
+| `entry_soft_strikes` | Number input | Entry/Exit Rules |
+| `sticky_add_periods` | Number input | Entry/Exit Rules |
+| `sticky_drop_periods` | Number input | Entry/Exit Rules |
+| `ci_level` | Slider (0-0.99) | Entry/Exit Rules |
 
 **Implementation Notes:**
-- Advanced feature, should be collapsible/hidden by default
-- Requires threshold-hold policy to be active
-- Complex interaction with policy engine
+- Added collapsible "Entry/Exit Rules" section
+- Z-score thresholds control manager hiring/firing based on relative performance
+- Soft strikes require consecutive periods below threshold before removal
+- Sticky periods require consistent ranking before hiring/firing
+- CI level adds confidence interval gate for entry decisions
+- Integrated with threshold_hold policy in portfolio config
+- Values passed to PolicyConfig for simulator
 
-**Status:** ⏸️ Skipped (Complex, Medium Priority)
+**Status:** ✅ Complete
 
 ---
 
@@ -327,13 +336,24 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 | 2 | Risk-Free Rate & Vol Controls | ✅ Complete | Dec 6, 2025 |
 | 3 | Fund Holding Rules | ✅ Complete | Dec 7, 2025 |
 | 4 | Trend Signal Parameters | ✅ Complete | Dec 7, 2025 |
-| 5 | Entry/Exit Thresholds | ⏸️ Skipped | - |
+| 5 | Entry/Exit Thresholds | ✅ Complete | Dec 7, 2025 |
 | 6 | Regime Analysis | ✅ Complete | Dec 7, 2025 |
 | 7 | Robustness & Expert | ✅ Complete | Dec 7, 2025 |
 
 ---
 
 ## Changelog
+
+**December 7, 2025 - Phase 5 Complete:**
+- **Phase 5: Entry/Exit Thresholds**
+  - Added `z_entry_soft` and `z_exit_soft` number inputs for z-score thresholds
+  - Added `soft_strikes` and `entry_soft_strikes` for consecutive period requirements
+  - Added `sticky_add_periods` and `sticky_drop_periods` for ranking persistence
+  - Added `ci_level` slider for confidence interval gate
+  - New collapsible "Entry/Exit Rules" section
+  - Integrated with threshold_hold policy in portfolio config
+  - Updated analysis_runner to pass thresholds to Config
+  - Controls manager hiring and firing decision logic
 
 **December 7, 2025 - Phases 3, 4, 6, 7 Complete:**
 - **Phase 3: Fund Holding Rules**

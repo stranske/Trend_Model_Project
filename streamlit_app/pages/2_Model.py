@@ -80,6 +80,14 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 2.0,
         "random_seed": 42,
+        # Entry/Exit thresholds (Phase 5)
+        "z_entry_soft": 1.0,
+        "z_exit_soft": -1.0,
+        "soft_strikes": 2,
+        "entry_soft_strikes": 1,
+        "sticky_add_periods": 1,
+        "sticky_drop_periods": 1,
+        "ci_level": 0.0,
     },
     "Conservative": {
         "lookback_months": 48,
@@ -130,6 +138,14 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 1.5,
         "random_seed": 42,
+        # Entry/Exit thresholds - conservative: stricter entry, lenient exit
+        "z_entry_soft": 1.5,
+        "z_exit_soft": -1.0,
+        "soft_strikes": 3,
+        "entry_soft_strikes": 2,
+        "sticky_add_periods": 2,
+        "sticky_drop_periods": 1,
+        "ci_level": 0.0,
     },
     "Aggressive": {
         "lookback_months": 24,
@@ -180,6 +196,14 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 3.0,
         "random_seed": 42,
+        # Entry/Exit thresholds - aggressive: lenient entry, quick exit
+        "z_entry_soft": 0.5,
+        "z_exit_soft": -0.5,
+        "soft_strikes": 1,
+        "entry_soft_strikes": 1,
+        "sticky_add_periods": 1,
+        "sticky_drop_periods": 1,
+        "ci_level": 0.0,
     },
     "Custom": None,  # Custom means keep current values
 }
@@ -237,6 +261,14 @@ HELP_TEXT = {
     "shrinkage_method": "Shrinkage method: Ledoit-Wolf or Oracle Approximating Shrinkage.",
     "leverage_cap": "Maximum gross exposure (1.0 = no leverage).",
     "random_seed": "Random seed for reproducibility. Change for different random selections.",
+    # Phase 5: Entry/Exit thresholds
+    "z_entry_soft": "Z-score threshold for fund entry consideration. Higher = stricter entry.",
+    "z_exit_soft": "Z-score threshold for fund exit consideration. Lower = stricter exit.",
+    "soft_strikes": "Consecutive periods below exit threshold before removing a fund.",
+    "entry_soft_strikes": "Consecutive periods above entry threshold before adding a fund.",
+    "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
+    "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
+    "ci_level": "Confidence interval level for entry gate (0 = disabled, 0.9 = 90% CI).",
 }
 
 
@@ -332,6 +364,14 @@ def _initial_model_state() -> dict[str, Any]:
         "shrinkage_method": baseline["shrinkage_method"],
         "leverage_cap": baseline["leverage_cap"],
         "random_seed": baseline["random_seed"],
+        # Entry/Exit thresholds (Phase 5)
+        "z_entry_soft": baseline["z_entry_soft"],
+        "z_exit_soft": baseline["z_exit_soft"],
+        "soft_strikes": baseline["soft_strikes"],
+        "entry_soft_strikes": baseline["entry_soft_strikes"],
+        "sticky_add_periods": baseline["sticky_add_periods"],
+        "sticky_drop_periods": baseline["sticky_drop_periods"],
+        "ci_level": baseline["ci_level"],
     }
 
 
@@ -657,6 +697,14 @@ def render_model_page() -> None:
                 "shrinkage_method": preset_config["shrinkage_method"],
                 "leverage_cap": preset_config["leverage_cap"],
                 "random_seed": preset_config["random_seed"],
+                # Entry/Exit thresholds (Phase 5)
+                "z_entry_soft": preset_config["z_entry_soft"],
+                "z_exit_soft": preset_config["z_exit_soft"],
+                "soft_strikes": preset_config["soft_strikes"],
+                "entry_soft_strikes": preset_config["entry_soft_strikes"],
+                "sticky_add_periods": preset_config["sticky_add_periods"],
+                "sticky_drop_periods": preset_config["sticky_drop_periods"],
+                "ci_level": preset_config["ci_level"],
             }
             st.rerun()
 
@@ -1196,6 +1244,123 @@ def render_model_page() -> None:
                     help=HELP_TEXT["random_seed"],
                 )
 
+        # Section 10: Entry/Exit Rules (Phase 5) - collapsible
+        st.divider()
+        with st.expander("🚪 Entry/Exit Rules", expanded=False):
+            st.caption(
+                "Configure how funds are added to and removed from the portfolio. "
+                "These settings control manager hiring and firing decisions."
+            )
+
+            st.markdown("**Z-Score Thresholds**")
+            st.info(
+                "Z-scores measure how a fund's performance compares to peers. "
+                "Positive = above average, Negative = below average."
+            )
+            ee_c1, ee_c2 = st.columns(2)
+            with ee_c1:
+                z_entry_soft = st.number_input(
+                    "Entry Threshold (Z-Score)",
+                    min_value=-2.0,
+                    max_value=3.0,
+                    value=float(model_state.get("z_entry_soft", 1.0)),
+                    step=0.25,
+                    format="%.2f",
+                    help=HELP_TEXT["z_entry_soft"],
+                )
+                st.caption(
+                    f"Fund must score ≥ {z_entry_soft:.2f}σ above average to be "
+                    "considered for addition."
+                )
+
+            with ee_c2:
+                z_exit_soft = st.number_input(
+                    "Exit Threshold (Z-Score)",
+                    min_value=-3.0,
+                    max_value=1.0,
+                    value=float(model_state.get("z_exit_soft", -1.0)),
+                    step=0.25,
+                    format="%.2f",
+                    help=HELP_TEXT["z_exit_soft"],
+                )
+                st.caption(
+                    f"Fund scoring ≤ {z_exit_soft:.2f}σ below average may be "
+                    "considered for removal."
+                )
+
+            st.markdown("**Consecutive Period Requirements**")
+            ee_c3, ee_c4 = st.columns(2)
+            with ee_c3:
+                soft_strikes = st.number_input(
+                    "Exit Strikes",
+                    min_value=1,
+                    max_value=6,
+                    value=int(model_state.get("soft_strikes", 2)),
+                    help=HELP_TEXT["soft_strikes"],
+                )
+                st.caption(
+                    f"Fund must fail {soft_strikes} consecutive periods before removal."
+                )
+
+            with ee_c4:
+                entry_soft_strikes = st.number_input(
+                    "Entry Strikes",
+                    min_value=1,
+                    max_value=6,
+                    value=int(model_state.get("entry_soft_strikes", 1)),
+                    help=HELP_TEXT["entry_soft_strikes"],
+                )
+                st.caption(
+                    f"Fund must pass {entry_soft_strikes} consecutive periods "
+                    "before addition."
+                )
+
+            st.markdown("**Sticky Ranking (Policy Engine)**")
+            ee_c5, ee_c6 = st.columns(2)
+            with ee_c5:
+                sticky_add_periods = st.number_input(
+                    "Sticky Add Periods",
+                    min_value=1,
+                    max_value=6,
+                    value=int(model_state.get("sticky_add_periods", 1)),
+                    help=HELP_TEXT["sticky_add_periods"],
+                )
+                st.caption(
+                    f"Fund must rank in top-K for {sticky_add_periods} periods "
+                    "before hiring."
+                )
+
+            with ee_c6:
+                sticky_drop_periods = st.number_input(
+                    "Sticky Drop Periods",
+                    min_value=1,
+                    max_value=6,
+                    value=int(model_state.get("sticky_drop_periods", 1)),
+                    help=HELP_TEXT["sticky_drop_periods"],
+                )
+                st.caption(
+                    f"Fund must rank in bottom-K for {sticky_drop_periods} periods "
+                    "before firing."
+                )
+
+            st.markdown("**Confidence Interval Gate**")
+            ci_level = st.slider(
+                "Confidence Interval Level",
+                min_value=0.0,
+                max_value=0.99,
+                value=float(model_state.get("ci_level", 0.0)),
+                step=0.05,
+                format="%.2f",
+                help=HELP_TEXT["ci_level"],
+            )
+            if ci_level > 0:
+                st.caption(
+                    f"Fund entry requires {ci_level * 100:.0f}% confidence that "
+                    "score exceeds threshold."
+                )
+            else:
+                st.caption("Confidence interval gate is disabled.")
+
         submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
@@ -1246,6 +1411,14 @@ def render_model_page() -> None:
                 "shrinkage_method": shrinkage_method,
                 "leverage_cap": leverage_cap,
                 "random_seed": random_seed,
+                # Entry/Exit thresholds (Phase 5)
+                "z_entry_soft": z_entry_soft,
+                "z_exit_soft": z_exit_soft,
+                "soft_strikes": soft_strikes,
+                "entry_soft_strikes": entry_soft_strikes,
+                "sticky_add_periods": sticky_add_periods,
+                "sticky_drop_periods": sticky_drop_periods,
+                "ci_level": ci_level,
             }
             errors = _validate_model(
                 candidate_state, len(fund_cols) if fund_cols else 0
