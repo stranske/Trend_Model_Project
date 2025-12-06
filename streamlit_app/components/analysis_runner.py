@@ -105,9 +105,6 @@ def _build_sample_split(
             end_ts = min(end_ts, data_end)
 
             # For explicit mode, use lookback_months to determine in-sample split
-            lookback_months = _coerce_positive_int(
-                config.get("lookback_months"), default=36, minimum=1
-            )
 
             # Calculate date boundaries for explicit mode
             # out_start and out_end come from user-specified dates
