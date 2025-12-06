@@ -110,17 +110,9 @@ def _build_sample_split(
             )
 
             # in_start = user start, out_end = user end
-            # Split point is lookback_months before out_end
+            # For explicit mode, use user-specified dates to determine split
+            out_start = _month_end(start_ts)
             out_end = _month_end(end_ts)
-            out_start = _month_end(out_end - pd.DateOffset(months=lookback_months))
-            if out_start < start_ts:
-                out_start = _month_end(start_ts)
-
-            # in_sample period is from start to just before out_start
-            in_start = _month_end(start_ts)
-            in_end = _month_end(out_start - pd.DateOffset(months=1))
-            if in_end < in_start:
-                in_end = in_start
 
             return {
                 "in_start": in_start.strftime("%Y-%m"),
