@@ -476,15 +476,14 @@ def render_model_page() -> None:
         else:
             # Show selected period info
             if sim_start_date and sim_end_date:
-                year_diff = sim_end_date.year - sim_start_date.year
-                if year_diff > 50:
+                months_span = (sim_end_date.year - sim_start_date.year) * 12 + (
+                    sim_end_date.month - sim_start_date.month
+                )
+                if months_span > 600:  # 50 years * 12 months
                     st.warning(
                         "Date range exceeds 50 years - please verify your selection."
                     )
                 else:
-                    months_span = year_diff * 12 + (
-                        sim_end_date.month - sim_start_date.month
-                    )
                     st.info(
                         f"📊 Selected period: {sim_start_date.strftime('%Y-%m')} to {sim_end_date.strftime('%Y-%m')} ({months_span} months)"
                     )
