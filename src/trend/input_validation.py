@@ -118,7 +118,6 @@ def _fix_invalid_day(date_str: str) -> str | None:
     """Attempt to correct an invalid day-of-month in a date string.
 
     Common data entry errors include dates like 11/31/2017 (November only has
-# (Removed duplicate _fix_invalid_day function; now using shared version above)
 def correct_invalid_dates(
     df: pd.DataFrame,
     date_column: str = "Date",
