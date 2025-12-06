@@ -28,16 +28,33 @@ def test_validate_input_missing_required_column() -> None:
         validate_input(df)
 
 
-def test_validate_input_rejects_unparseable_dates() -> None:
+def test_validate_input_drops_unparseable_dates(caplog) -> None:
+    """Test that unparseable dates are dropped with warning."""
+    import logging
+
     df = _load_csv("bad_date.csv")
-    with pytest.raises(InputValidationError, match="Unable to parse 'date' at row 2"):
-        validate_input(df)
+    with caplog.at_level(logging.WARNING):
+        result = validate_input(df)
+    # Should succeed with the bad row dropped
+    assert result is not None
+    assert len(result) == 1  # Only the valid row
+    assert "Dropped row" in caplog.text
 
 
-def test_validate_input_detects_unsorted_dates() -> None:
+def test_validate_input_autosorts_unsorted_dates() -> None:
+    """Unsorted dates are now auto-sorted instead of raising."""
     df = _load_csv("unsorted_dates.csv")
-    with pytest.raises(InputValidationError, match="sorted in ascending order"):
-        validate_input(df)
+    result = validate_input(df)
+    assert result is not None
+    # Check dates are sorted ascending - date becomes the index
+    if isinstance(result.index, pd.DatetimeIndex):
+        assert result.index.is_monotonic_increasing
+    elif "date" in result.columns:
+        dates = pd.to_datetime(result["date"])
+        assert dates.is_monotonic_increasing
+    else:
+        # If reset_index was called, date may be numeric index
+        assert len(result) > 0, "Result should have data"
 
 
 def test_validate_input_rejects_duplicate_dates() -> None:

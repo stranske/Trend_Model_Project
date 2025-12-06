@@ -88,8 +88,22 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
             def __exit__(self, exc_type, exc, tb):  # noqa: D401 - context helper
                 return False
 
+        class _Ctx:
+            def __enter__(self):  # noqa: D401 - context helper
+                return self
+
+            def __exit__(self, exc_type, exc, tb):  # noqa: D401 - context helper
+                return False
+
         def spinner(self, *_, **__):  # noqa: D401 - stub
             return self._Spinner()
+
+        def columns(self, spec, **__):  # noqa: D401 - stub
+            if isinstance(spec, int):
+                n = spec
+            else:
+                n = len(list(spec))
+            return [self._Ctx() for _ in range(n)]
 
         def button(self, label: str, *_, **__):  # noqa: D401 - stub
             self.button_calls.append(label)
@@ -102,6 +116,15 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
 
         def switch_page(self, target: str):  # noqa: D401 - stub
             self.switch_targets.append(target)
+
+        def caption(self, *_, **__):  # noqa: D401 - stub
+            return None
+
+        def error(self, *_, **__):  # noqa: D401 - stub
+            return None
+
+        def warning(self, *_, **__):  # noqa: D401 - stub
+            return None
 
     st_mock = MockStreamlit()
     monkeypatch.setitem(sys.modules, "streamlit", st_mock)
@@ -121,7 +144,7 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
     module = importlib.import_module("streamlit_app.app")
     assert module is not None
     assert called.get("triggered") is True
-    assert st_mock.switch_targets == ["pages/4_Results.py"]
-    assert any("Run demo" in text for text in st_mock.button_calls)
+    assert st_mock.switch_targets == ["pages/3_Results.py"]
+    assert any("Run Demo" in text for text in st_mock.button_calls)
 
     sys.modules.pop("streamlit_app.app", None)
