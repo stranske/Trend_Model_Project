@@ -29,6 +29,42 @@ FAST_SENTINEL = Path(OUT_DIR) / ".fast_demo_mode"
 START_DATE = dt.date(2015, 1, 31)
 
 
+def _generate_manager_returns(
+    rng: np.random.Generator,
+    periods: int,
+    target_sharpe: float,
+    annual_vol: float = 0.15,
+) -> np.ndarray:
+    """Generate monthly returns with targeted annualized Sharpe ratio.
+
+    Parameters
+    ----------
+    rng : np.random.Generator
+        Random number generator for reproducibility.
+    periods : int
+        Number of monthly return observations.
+    target_sharpe : float
+        Target annualized Sharpe ratio (e.g., 0.3 for 0.30).
+    annual_vol : float
+        Target annualized volatility (e.g., 0.15 for 15%).
+
+    Returns
+    -------
+    np.ndarray
+        Monthly return series with approximately the target Sharpe.
+    """
+    # Convert annualized targets to monthly
+    monthly_vol = annual_vol / np.sqrt(12)
+    # Sharpe = (annual_return - rf) / annual_vol
+    # For simplicity, assume rf ≈ 0
+    annual_return = target_sharpe * annual_vol
+    monthly_return = annual_return / 12
+
+    # Generate noise with target volatility
+    returns = rng.normal(loc=monthly_return, scale=monthly_vol, size=periods)
+    return returns
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate demo return series.")
     parser.add_argument(
@@ -53,17 +89,56 @@ def main() -> None:
     dates = pd.date_range(start, periods=periods, freq="ME")
 
     rng = np.random.default_rng(42)
-    data = {}
-    for i in range(1, 21):
-        base = rng.normal(loc=0.006, scale=0.04, size=periods)
-        slope = rng.normal(scale=0.0005)
-        trend = slope * np.arange(periods)
-        drift = rng.normal(scale=0.002, size=periods).cumsum()
-        data[f"Mgr_{i:02d}"] = base + trend + drift
 
-    # Add a simple market index so benchmark logic can run
-    spx = rng.normal(loc=0.005, scale=0.03, size=periods)
+    # Create realistic hedge fund universe with Sharpe ratios centered around 0.3
+    # Real hedge funds typically have Sharpes between -0.5 and 1.5, with median ~0.3
+    target_sharpes = [
+        # Top performers (rare)
+        0.85,
+        0.72,
+        # Above average performers
+        0.55,
+        0.52,
+        0.48,
+        0.45,
+        # Average performers (bulk)
+        0.38,
+        0.35,
+        0.32,
+        0.30,
+        0.28,
+        0.25,
+        0.22,
+        # Below average
+        0.15,
+        0.10,
+        0.05,
+        # Poor performers
+        0.00,
+        -0.10,
+        -0.20,
+        -0.35,
+    ]
+
+    # Shuffle to avoid obvious ordering
+    rng.shuffle(target_sharpes)
+
+    # Assign realistic volatilities (10-25% annual vol)
+    annual_vols = rng.uniform(0.10, 0.25, size=len(target_sharpes))
+
+    data = {}
+    for i, (sharpe, vol) in enumerate(zip(target_sharpes, annual_vols), start=1):
+        returns = _generate_manager_returns(rng, periods, sharpe, vol)
+        data[f"Mgr_{i:02d}"] = returns
+
+    # Add a simple market index (moderate Sharpe ~0.4 typical for equity indices)
+    spx = _generate_manager_returns(rng, periods, target_sharpe=0.40, annual_vol=0.16)
     data["SPX"] = spx
+
+    # Add risk-free rate column (constant low positive)
+    # Approximate average T-bill rate for the period (~1% annual)
+    rf_monthly = 0.01 / 12
+    data["RF"] = np.full(periods, rf_monthly)
 
     df = pd.DataFrame(data, index=dates)
     df.index.name = "Date"

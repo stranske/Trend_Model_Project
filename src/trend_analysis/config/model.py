@@ -48,6 +48,10 @@ def _resolve_path(value: str | os.PathLike[str], *, base_dir: Path | None) -> Pa
         ``None`` the repository root and current working directory are checked.
     """
 
+    # Strip whitespace from string paths to handle copy-paste artifacts
+    if isinstance(value, str):
+        value = value.strip()
+
     raw = Path(value).expanduser()
     if raw.is_absolute():
         path = raw.resolve()

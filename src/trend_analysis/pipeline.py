@@ -1607,7 +1607,9 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
-        fallback_enabled = allow_risk_free_fallback is True
+        # Default to True when not explicitly set - allows analysis to proceed
+        # by auto-detecting the lowest-volatility column as risk-free proxy
+        fallback_enabled = allow_risk_free_fallback is not False
         if not fallback_enabled:
             raise ValueError(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."

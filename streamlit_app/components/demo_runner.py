@@ -188,7 +188,9 @@ def _build_pipeline_config(
 
     return Config(
         version="1",
-        data={},
+        data={
+            "allow_risk_free_fallback": True,  # Enable auto-detection of risk-free column
+        },
         preprocessing={},
         vol_adjust={
             "target_vol": float(sim_config.get("risk_target", 0.1)),
@@ -296,27 +298,59 @@ def _update_session_state(
     if setup.config_state.get("preset_name") and isinstance(trend_payload, dict):
         trend_payload = dict(trend_payload)
         trend_payload["preset"] = setup.config_state.get("preset_name")
+    # Build model_settings for legacy compatibility
+    lookback = int(
+        overrides.get("lookback_months", setup.sim_config.get("lookback_months", 36))
+    )
+    selection_count = int(overrides.get("selection_count", 10))
+    risk_target = float(overrides.get("risk_target", 0.10))
+    weighting_scheme = str(
+        setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")
+    )
+    metric_weights_dict = {
+        k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
+    }
+
     model_settings = ModelSettings(
-        lookback_months=int(
-            overrides.get(
-                "lookback_months", setup.sim_config.get("lookback_months", 36)
-            )
-        ),
+        lookback_months=lookback,
         rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
-        selection_count=int(overrides.get("selection_count", 10)),
-        risk_target=float(overrides.get("risk_target", 0.10)),
-        weighting_scheme=str(
-            setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")
-        ),
+        selection_count=selection_count,
+        risk_target=risk_target,
+        weighting_scheme=weighting_scheme,
         cooldown_months=int(overrides.get("cooldown_months", 3)),
         min_track_months=int(overrides.get("min_track_months", 24)),
-        metric_weights={
-            k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
-        },
+        metric_weights=metric_weights_dict,
         trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
         benchmark=setup.benchmark,
     )
     state["model_settings"] = model_settings
+
+    # Set model_state dict for Results page compatibility
+    state["model_state"] = {
+        "preset": setup.config_state.get("preset_name", "Baseline"),
+        "trend_spec": trend_payload if isinstance(trend_payload, Mapping) else {},
+        "lookback_months": lookback,
+        "min_history_months": lookback,
+        "evaluation_months": 12,
+        "selection_count": selection_count,
+        "weighting_scheme": weighting_scheme,
+        "metric_weights": (
+            metric_weights_dict
+            if metric_weights_dict
+            else {
+                "sharpe": 1.0,
+                "return_ann": 1.0,
+                "drawdown": 0.5,
+                "sortino": 0.0,
+                "info_ratio": 0.0,
+                "vol": 0.0,
+            }
+        ),
+        "risk_target": risk_target,
+        "warmup_periods": 0,
+        "info_ratio_benchmark": setup.benchmark or "",
+    }
+    state["selected_benchmark"] = setup.benchmark
 
 
 def run_one_click_demo(st_module: Any | None = None) -> bool:
@@ -349,4 +383,10 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
 
     _update_session_state(st_module, setup, df, meta)
     st_module.session_state["sim_results"] = result
+    # Also store as analysis_result so Results page can display it directly
+    st_module.session_state["analysis_result"] = result
+    # Set a fingerprint for the data so cache key can match
+    from streamlit_app.components.data_cache import cache_key_for_frame
+
+    st_module.session_state["data_fingerprint"] = cache_key_for_frame(df)
     return True

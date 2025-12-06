@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_PATH="$ROOT_DIR/src/trend_portfolio_app/app.py"
+APP_PATH="$ROOT_DIR/streamlit_app/app.py"
 
 # Validation function for security and error handling
 validate_streamlit_setup() {
@@ -76,6 +76,9 @@ if ! validate_streamlit_setup "$APP_PATH"; then
     echo "ERROR: Validation failed. Cannot start Streamlit app." >&2
     exit 1
 fi
+
+# Set PYTHONPATH to include project root and src for module resolution
+export PYTHONPATH="$ROOT_DIR:$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 
 # Execute streamlit with proper error handling
 echo "Starting Streamlit app: $APP_PATH"

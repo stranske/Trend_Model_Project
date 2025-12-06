@@ -18,9 +18,11 @@ import yaml
 import trend_analysis as _trend_pkg
 from trend_analysis.config import DEFAULTS as DEFAULT_CFG_PATH
 from trend_analysis.config import Config, validate_trend_config
+from trend_analysis.data import identify_risk_free_fund
 from trend_analysis.diagnostics import coerce_pipeline_result
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.multi_period import run_from_config as run_multi
+from trend_analysis.multi_period.loaders import detect_index_columns
 from utils.paths import proj_path
 
 _STREAMLIT_LOG_ENV = "TREND_STREAMLIT_LOG_PATH"
@@ -279,6 +281,103 @@ def _read_defaults() -> Dict[str, Any]:
     return defaults
 
 
+@st.cache_data(show_spinner=False)
+def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
+    """Load CSV and analyze columns for risk-free and benchmark candidates.
+
+    Returns a dict with:
+    - columns: list of all column names
+    - numeric_columns: list of numeric column names (excluding Date)
+    - risk_free_candidate: auto-detected risk-free column (or None)
+    - benchmark_candidates: list of detected benchmark/index columns
+    - error: error message if loading failed (or None)
+    """
+    result: Dict[str, Any] = {
+        "columns": [],
+        "numeric_columns": [],
+        "risk_free_candidate": None,
+        "benchmark_candidates": [],
+        "error": None,
+    }
+
+    if not csv_path or not csv_path.strip():
+        return result
+
+    path = Path(csv_path.strip())
+    if not path.exists():
+        result["error"] = f"File not found: {csv_path}"
+        return result
+
+    try:
+        df = pd.read_csv(path)
+        result["columns"] = list(df.columns)
+
+        # Get numeric columns (excluding Date-like columns)
+        date_cols = {"date", "Date", "DATE", "timestamp", "Timestamp"}
+
+        # First check for already-numeric columns
+        numeric_cols = [
+            c
+            for c in df.select_dtypes(include=["number"]).columns
+            if c not in date_cols
+        ]
+
+        # If no numeric columns found, try to detect percentage-formatted columns
+        # (e.g., "0.37%", "-2.72%") which are common in financial data
+        if not numeric_cols:
+            for col in df.columns:
+                if col in date_cols:
+                    continue
+                # Check if column values look like percentages or numbers
+                sample = df[col].dropna().head(10).astype(str)
+                if sample.empty:
+                    continue
+                # Check if values contain % or look numeric
+                looks_numeric = (
+                    sample.str.replace(r"[%,\s]", "", regex=True)
+                    .str.match(r"^-?\d*\.?\d+$")
+                    .any()
+                )
+                if looks_numeric:
+                    numeric_cols.append(col)
+
+        result["numeric_columns"] = numeric_cols
+
+        # Detect benchmark/index columns from all non-date columns
+        all_data_cols = [c for c in df.columns if c not in date_cols]
+        result["benchmark_candidates"] = detect_index_columns(all_data_cols)
+
+        # Detect risk-free candidate (lowest volatility column)
+        # For percentage data, we need to convert first
+        if numeric_cols:
+            try:
+                # Try to convert percentage strings to floats for analysis
+                df_numeric = df.copy()
+                for col in numeric_cols:
+                    if df_numeric[col].dtype == object:
+                        # Convert percentage strings like "0.37%" to 0.0037
+                        df_numeric[col] = (
+                            df_numeric[col]
+                            .astype(str)
+                            .str.replace("%", "", regex=False)
+                            .str.replace(",", "", regex=False)
+                            .apply(pd.to_numeric, errors="coerce")
+                        )
+                        # If values were percentages, they're now in decimal form
+                        # (e.g., 0.37 from "0.37%")
+
+                rf = identify_risk_free_fund(df_numeric)
+                if rf and rf in numeric_cols:
+                    result["risk_free_candidate"] = rf
+            except Exception:
+                pass  # Ignore errors in risk-free detection
+
+    except Exception as exc:
+        result["error"] = str(exc)
+
+    return result
+
+
 def _to_yaml(d: Dict[str, Any]) -> str:
     """Serialise a mapping to YAML while preserving insertion order."""
 
@@ -507,6 +606,75 @@ def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
     )
     cfg_dict.setdefault("data", {})["csv_path"] = csv_value
 
+    # Analyze CSV columns and show configuration options
+    if csv_value and csv_value.strip():
+        analysis = _analyze_csv_columns(csv_value)
+
+        if analysis["error"]:
+            st.warning(f"⚠️ {analysis['error']}")
+        elif analysis["columns"]:
+            # We have columns - show configuration even if not all are numeric
+            st.divider()
+            st.subheader("Data Configuration")
+
+            # Show column count
+            num_cols = len(analysis["numeric_columns"])
+            total_cols = len(analysis["columns"]) - 1  # Exclude Date
+            if num_cols > 0:
+                st.caption(f"📊 {num_cols} data columns detected")
+            else:
+                st.caption(
+                    f"📊 {total_cols} columns detected (will be converted on load)"
+                )
+
+            # Get columns for selection - use numeric if available, else all non-date
+            selectable_cols = analysis["numeric_columns"]
+            if not selectable_cols:
+                date_cols = {"date", "Date", "DATE", "timestamp", "Timestamp"}
+                selectable_cols = [c for c in analysis["columns"] if c not in date_cols]
+
+            # Risk-free column selection
+            rf_options = ["(None - auto-detect)", "(None - skip)"] + selectable_cols
+            current_rf = cfg_dict.get("data", {}).get("risk_free_column", "")
+
+            # Determine default index
+            if current_rf and current_rf in selectable_cols:
+                rf_default_idx = rf_options.index(current_rf)
+            elif analysis["risk_free_candidate"]:
+                # Show the auto-detected candidate
+                rf_default_idx = 0  # Auto-detect
+            else:
+                rf_default_idx = 0
+
+            rf_selection = st.selectbox(
+                "Risk-free column",
+                rf_options,
+                index=rf_default_idx,
+                help="Column to use as risk-free rate. 'Auto-detect' finds the lowest volatility column.",
+            )
+
+            # Update config based on selection
+            if rf_selection == "(None - auto-detect)":
+                cfg_dict.setdefault("data", {})["risk_free_column"] = None
+                cfg_dict.setdefault("data", {})["allow_risk_free_fallback"] = True
+                if analysis["risk_free_candidate"]:
+                    st.caption(f"💡 Auto-detected: {analysis['risk_free_candidate']}")
+            elif rf_selection == "(None - skip)":
+                cfg_dict.setdefault("data", {})["risk_free_column"] = None
+                cfg_dict.setdefault("data", {})["allow_risk_free_fallback"] = True
+            else:
+                cfg_dict.setdefault("data", {})["risk_free_column"] = rf_selection
+                cfg_dict.setdefault("data", {})["allow_risk_free_fallback"] = False
+
+            # Benchmark/Index columns (informational)
+            if analysis["benchmark_candidates"]:
+                st.caption(
+                    f"📈 Detected benchmarks: {', '.join(analysis['benchmark_candidates'])}"
+                )
+            else:
+                st.caption("ℹ️ No benchmark columns detected (SPX, TSX, INDEX, etc.)")
+
+    st.divider()
     yaml_bytes = _to_yaml(cfg_dict).encode("utf-8")
     st.download_button(
         "Download YAML", data=yaml_bytes, file_name="config.yml", mime="text/yaml"
