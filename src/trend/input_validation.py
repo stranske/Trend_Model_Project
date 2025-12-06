@@ -118,50 +118,7 @@ def _fix_invalid_day(date_str: str) -> str | None:
     """Attempt to correct an invalid day-of-month in a date string.
 
     Common data entry errors include dates like 11/31/2017 (November only has
-    30 days) or 9/31/2017 (September has 30 days). This function detects these
-    patterns and corrects the day to the last valid day of the month.
-
-    Returns the corrected date string, or None if the date cannot be fixed.
-    """
-    date_str = str(date_str).strip()
-
-    # Try M/D/YYYY or MM/DD/YYYY format
-    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
-    if match:
-        try:
-            month, day, year = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{month}/{max_day}/{year}"
-        except (ValueError, IndexError):
-            # Parsing errors are expected for malformed dates; continue to try other formats.
-            pass
-
-    # Try YYYY-MM-DD format
-    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
-    if match:
-        try:
-            year, month, day = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{year}-{month:02d}-{max_day}"
-        except (ValueError, IndexError):
-            # Parsing errors are expected for malformed dates; continue to try other formats or return None.
-            pass
-
-    return None
-
-
+# (Removed duplicate _fix_invalid_day function; now using shared version above)
 def correct_invalid_dates(
     df: pd.DataFrame,
     date_column: str = "Date",
