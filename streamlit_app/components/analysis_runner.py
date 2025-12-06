@@ -92,14 +92,8 @@ def _build_sample_split(
 
         # Parse user dates
         try:
-            if isinstance(user_start, str):
-                start_ts = pd.Timestamp(user_start)
-            else:
-                start_ts = pd.Timestamp(user_start)
-            if isinstance(user_end, str):
-                end_ts = pd.Timestamp(user_end)
-            else:
-                end_ts = pd.Timestamp(user_end)
+            start_ts = pd.Timestamp(user_start)
+            end_ts = pd.Timestamp(user_end)
         except (ValueError, TypeError):
             # Fall back to relative mode on parse error
             pass
