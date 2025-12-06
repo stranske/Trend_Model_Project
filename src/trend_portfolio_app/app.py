@@ -391,8 +391,9 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
                 rf = identify_risk_free_fund(df_numeric)
                 if rf and rf in numeric_cols:
                     result["risk_free_candidate"] = rf
-            except Exception:
-                pass  # Ignore errors in risk-free detection
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).debug(f"Risk-free detection failed: {e}")
 
     except Exception as exc:
         result["error"] = str(exc)
