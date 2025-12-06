@@ -1,8 +1,8 @@
 # UI Parameter Audit and Implementation Plan
 
 **Created:** December 6, 2025  
-**Status:** In Progress  
-**Last Updated:** December 6, 2025 (Phase 1 Complete)
+**Status:** Phases 1-7 Complete  
+**Last Updated:** December 7, 2025
 
 ---
 
@@ -16,8 +16,8 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Status | Count |
 |--------|-------|
-| ✅ Currently in UI | **26** |
-| ❌ NOT in UI | **~49** |
+| ✅ Currently in UI | **40+** |
+| ❌ NOT in UI (advanced) | **~35** |
 
 ---
 
@@ -97,8 +97,8 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 | `rebalance_freq` | UI model_state | ✅ | Rebalance frequency (M/Q/A) |
 | `max_turnover` | UI model_state | ✅ | Maximum turnover per period |
 | `cooldown_months` | UI model_state | ✅ | Cooldown after fund removal |
-| `min_tenure_n` | PolicyConfig | ❌ | Min periods before fund removal |
-| `turnover_budget_max_changes` | PolicyConfig | ❌ | Max hires+fires per period |
+| `min_tenure_periods` | UI model_state | ✅ **NEW** | Min periods before fund removal |
+| `max_changes_per_period` | UI model_state | ✅ **NEW** | Max hires+fires per period |
 
 ### CATEGORY 7: Transaction Costs
 
@@ -110,13 +110,13 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 ### CATEGORY 8: Trend Signal Parameters
 
 | Parameter | Location | In UI | Description |
-|-----------|----------|-------|-------------|
-| `TrendSpec.window` | TrendSpec dataclass | ❌ | Rolling signal window |
-| `TrendSpec.lag` | TrendSpec dataclass | ❌ | Signal lag (delay) |
-| `TrendSpec.min_periods` | TrendSpec dataclass | ❌ | Min periods for rolling calc |
-| `TrendSpec.vol_adjust` | TrendSpec dataclass | ❌ | Vol-adjust signals |
-| `TrendSpec.vol_target` | TrendSpec dataclass | ❌ | Signal vol target |
-| `TrendSpec.zscore` | TrendSpec dataclass | ❌ | Z-score normalize signals |
+|-----------|----------|-------|---------|
+| `trend_window` | UI model_state | ✅ **NEW** | Rolling signal window |
+| `trend_lag` | UI model_state | ✅ **NEW** | Signal lag (delay) |
+| `trend_min_periods` | UI model_state | ✅ **NEW** | Min periods for rolling calc |
+| `trend_vol_adjust` | UI model_state | ✅ **NEW** | Vol-adjust signals |
+| `trend_vol_target` | UI model_state | ✅ **NEW** | Signal vol target |
+| `trend_zscore` | UI model_state | ✅ **NEW** | Z-score normalize signals |
 
 ### CATEGORY 9: Threshold-Hold / Entry-Exit Rules
 
@@ -133,9 +133,10 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 ### CATEGORY 10: Robustness / Covariance Settings
 
 | Parameter | Location | In UI | Description |
-|-----------|----------|-------|-------------|
-| `robustness.shrinkage.enabled` | defaults.yml | ❌ | Enable covariance shrinkage |
-| `robustness.shrinkage.method` | defaults.yml | ❌ | Shrinkage method |
+|-----------|----------|-------|---------|
+| `shrinkage_enabled` | UI model_state | ✅ **NEW** | Enable covariance shrinkage |
+| `shrinkage_method` | UI model_state | ✅ **NEW** | Shrinkage method |
+| `leverage_cap` | UI model_state | ✅ **NEW** | Maximum leverage cap |
 | `robustness.condition_check.threshold` | defaults.yml | ❌ | Condition number threshold |
 | `robustness.condition_check.safe_mode` | defaults.yml | ❌ | Fallback method |
 
@@ -149,9 +150,9 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 ### CATEGORY 12: Regime Analysis
 
 | Parameter | Location | In UI | Description |
-|-----------|----------|-------|-------------|
-| `regime.enabled` | defaults.yml | ❌ | Enable regime detection |
-| `regime.proxy` | defaults.yml | ❌ | Regime proxy (e.g., SPX) |
+|-----------|----------|-------|---------|
+| `regime_enabled` | UI model_state | ✅ **NEW** | Enable regime detection |
+| `regime_proxy` | UI model_state | ✅ **NEW** | Regime proxy (e.g., SPX) |
 | `regime.method` | defaults.yml | ❌ | Detection method |
 | `regime.lookback` | defaults.yml | ❌ | Regime lookback window |
 | `regime.threshold` | defaults.yml | ❌ | Regime change threshold |
@@ -168,8 +169,8 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 ### CATEGORY 14: Execution / Randomization
 
 | Parameter | Location | In UI | Description |
-|-----------|----------|-------|-------------|
-| `seed` | defaults.yml | ❌ | Random seed |
+|-----------|----------|-------|---------|
+| `random_seed` | UI model_state | ✅ **NEW** | Random seed |
 | `n_jobs` | defaults.yml | ❌ | Parallel jobs |
 
 ---
@@ -224,15 +225,16 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | UI Element | Section |
 |-----------|------------|---------|
-| `min_tenure_n` | Number input | Advanced Settings |
-| `turnover_budget_max_changes` | Number input | Advanced Settings |
-| `max_active` | Number input | Fund Selection |
+| `min_tenure_periods` | Number input | Fund Holding Rules |
+| `max_changes_per_period` | Number input | Fund Holding Rules |
+| `max_active_positions` | Number input | Fund Holding Rules |
 
 **Implementation Notes:**
-- Add to existing Advanced Settings section
-- These control churn and concentration limits
+- Added new "Fund Holding Rules" section
+- Controls churn and concentration limits
+- Added to PRESET_CONFIGS with values per preset
 
-**Status:** 🔴 Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -242,15 +244,19 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | UI Element | Section |
 |-----------|------------|---------|
-| `TrendSpec.window` | Number input | Signal Settings (new section) |
-| `TrendSpec.lag` | Number input | Signal Settings |
-| `TrendSpec.zscore` | Checkbox | Signal Settings |
+| `trend_window` | Number input | Signal Settings |
+| `trend_lag` | Number input | Signal Settings |
+| `trend_min_periods` | Number input (optional) | Signal Settings |
+| `trend_zscore` | Checkbox | Signal Settings |
+| `trend_vol_adjust` | Checkbox | Signal Settings |
+| `trend_vol_target` | Number input (%) | Signal Settings |
 
 **Implementation Notes:**
-- Create new collapsible "Signal Settings" section
-- Only show if user wants to customize (default to hidden)
+- Created collapsible "Signal Settings" section
+- Builds TrendSpec from UI parameters in analysis_runner
+- Added to PRESET_CONFIGS with values per preset
 
-**Status:** 🔴 Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -268,8 +274,9 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 **Implementation Notes:**
 - Advanced feature, should be collapsible/hidden by default
 - Requires threshold-hold policy to be active
+- Complex interaction with policy engine
 
-**Status:** 🔴 Not Started
+**Status:** ⏸️ Skipped (Complex, Medium Priority)
 
 ---
 
@@ -279,14 +286,15 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | UI Element | Section |
 |-----------|------------|---------|
-| `regime.enabled` | Checkbox | Advanced Settings |
-| `regime.proxy` | Selectbox | Advanced Settings (conditional) |
+| `regime_enabled` | Checkbox | Regime Analysis |
+| `regime_proxy` | Selectbox | Regime Analysis |
 
 **Implementation Notes:**
-- Simple toggle with benchmark selection
-- Lower priority as not all users need this
+- Added collapsible "Regime Analysis" section
+- Proxy dropdown shows available benchmarks from data
+- Passes to Config.regime dict in analysis_runner
 
-**Status:** 🔴 Not Started
+**Status:** ✅ Complete
 
 ---
 
@@ -296,34 +304,62 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 
 | Parameter | UI Element | Section |
 |-----------|------------|---------|
-| `robustness.shrinkage.enabled` | Checkbox | Expert Settings |
-| `robustness.shrinkage.method` | Selectbox | Expert Settings |
+| `shrinkage_enabled` | Checkbox | Expert Settings |
+| `shrinkage_method` | Selectbox | Expert Settings |
 | `leverage_cap` | Number input | Expert Settings |
-| `seed` | Number input | Expert Settings |
+| `random_seed` | Number input | Expert Settings |
 
 **Implementation Notes:**
-- Hide behind "Expert Mode" toggle
-- Most users should never need to touch these
+- Added collapsible "Expert Settings" section
+- Shrinkage methods: Ledoit-Wolf, OAS, None
+- Leverage cap limits gross exposure
+- Random seed for reproducibility
 
-**Status:** 🔴 Not Started
+**Status:** ✅ Complete
 
 ---
 
 ## Progress Tracking
 
 | Phase | Description | Status | Completed |
-|-------|-------------|--------|-----------|
+|-------|-------------|--------|-----------||
 | 1 | Date/Time Parameters | ✅ Complete | Dec 6, 2025 |
 | 2 | Risk-Free Rate & Vol Controls | ✅ Complete | Dec 6, 2025 |
-| 3 | Fund Holding Rules | 🔴 Not Started | - |
-| 4 | Trend Signal Parameters | 🔴 Not Started | - |
-| 5 | Entry/Exit Thresholds | 🔴 Not Started | - |
-| 6 | Regime Analysis | 🔴 Not Started | - |
-| 7 | Robustness & Expert | 🔴 Not Started | - |
+| 3 | Fund Holding Rules | ✅ Complete | Dec 7, 2025 |
+| 4 | Trend Signal Parameters | ✅ Complete | Dec 7, 2025 |
+| 5 | Entry/Exit Thresholds | ⏸️ Skipped | - |
+| 6 | Regime Analysis | ✅ Complete | Dec 7, 2025 |
+| 7 | Robustness & Expert | ✅ Complete | Dec 7, 2025 |
 
 ---
 
 ## Changelog
+
+**December 7, 2025 - Phases 3, 4, 6, 7 Complete:**
+- **Phase 3: Fund Holding Rules**
+  - Added `min_tenure_periods` input
+  - Added `max_changes_per_period` input  
+  - Added `max_active_positions` input
+  - New "Fund Holding Rules" section in UI
+  
+- **Phase 4: Trend Signal Parameters**
+  - Added `trend_window`, `trend_lag`, `trend_min_periods` inputs
+  - Added `trend_zscore`, `trend_vol_adjust` checkboxes
+  - Added `trend_vol_target` input
+  - New collapsible "Signal Settings" section
+  - Updated analysis_runner to build TrendSpec from UI params
+  
+- **Phase 6: Regime Analysis**
+  - Added `regime_enabled` checkbox
+  - Added `regime_proxy` dropdown (uses benchmark columns from data)
+  - New collapsible "Regime Analysis" section
+  
+- **Phase 7: Robustness & Expert Settings**
+  - Added `shrinkage_enabled` checkbox and `shrinkage_method` dropdown
+  - Added `leverage_cap` input
+  - Added `random_seed` input
+  - New collapsible "Expert Settings" section
+  - Updated analysis_runner with robustness config
 
 **December 6, 2025 - Phase 1 & 2 Complete:**
 - Added `date_mode` radio selector (relative vs explicit)
@@ -334,4 +370,5 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 - Updated `analysis_runner.py` to support explicit date mode
 - Updated presets with new parameters
 
-- **2025-12-06:** Initial audit completed. 75 parameters identified, 20 currently in UI.
+**December 6, 2025:**
+- Initial audit completed. 75 parameters identified, 20 currently in UI.

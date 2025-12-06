@@ -61,6 +61,25 @@ PRESET_CONFIGS = {
         "rebalance_freq": "M",
         "max_turnover": 1.0,
         "transaction_cost_bps": 0,
+        # Fund holding rules (Phase 3)
+        "min_tenure_periods": 3,
+        "max_changes_per_period": 0,  # 0 = unlimited
+        "max_active_positions": 0,  # 0 = unlimited (uses selection_count)
+        # Trend signal parameters (Phase 4)
+        "trend_window": 63,
+        "trend_lag": 1,
+        "trend_min_periods": None,
+        "trend_zscore": False,
+        "trend_vol_adjust": False,
+        "trend_vol_target": None,
+        # Regime analysis (Phase 6)
+        "regime_enabled": False,
+        "regime_proxy": "SPX",
+        # Robustness & Expert settings (Phase 7)
+        "shrinkage_enabled": True,
+        "shrinkage_method": "ledoit_wolf",
+        "leverage_cap": 2.0,
+        "random_seed": 42,
     },
     "Conservative": {
         "lookback_months": 48,
@@ -92,6 +111,25 @@ PRESET_CONFIGS = {
         "rebalance_freq": "Q",
         "max_turnover": 0.50,
         "transaction_cost_bps": 10,
+        # Fund holding rules - conservative: higher tenure, limited changes
+        "min_tenure_periods": 6,
+        "max_changes_per_period": 2,
+        "max_active_positions": 10,
+        # Trend signal parameters - longer window for stability
+        "trend_window": 126,
+        "trend_lag": 1,
+        "trend_min_periods": None,
+        "trend_zscore": True,
+        "trend_vol_adjust": False,
+        "trend_vol_target": None,
+        # Regime analysis - enabled for defensive positioning
+        "regime_enabled": True,
+        "regime_proxy": "SPX",
+        # Robustness & Expert settings - more conservative
+        "shrinkage_enabled": True,
+        "shrinkage_method": "ledoit_wolf",
+        "leverage_cap": 1.5,
+        "random_seed": 42,
     },
     "Aggressive": {
         "lookback_months": 24,
@@ -123,6 +161,25 @@ PRESET_CONFIGS = {
         "rebalance_freq": "M",
         "max_turnover": 1.0,
         "transaction_cost_bps": 0,
+        # Fund holding rules - aggressive: minimal constraints
+        "min_tenure_periods": 1,
+        "max_changes_per_period": 0,  # unlimited
+        "max_active_positions": 0,  # unlimited
+        # Trend signal parameters - shorter window for responsiveness
+        "trend_window": 42,
+        "trend_lag": 1,
+        "trend_min_periods": None,
+        "trend_zscore": False,
+        "trend_vol_adjust": True,
+        "trend_vol_target": 0.10,
+        # Regime analysis - disabled for pure momentum
+        "regime_enabled": False,
+        "regime_proxy": "SPX",
+        # Robustness & Expert settings - more flexibility
+        "shrinkage_enabled": True,
+        "shrinkage_method": "ledoit_wolf",
+        "leverage_cap": 3.0,
+        "random_seed": 42,
     },
     "Custom": None,  # Custom means keep current values
 }
@@ -161,6 +218,25 @@ HELP_TEXT = {
     "rebalance_freq": "How often to rebalance the portfolio weights.",
     "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
     "transaction_cost_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
+    # Phase 3: Fund holding rules
+    "min_tenure": "Minimum periods a fund must be held before it can be removed.",
+    "max_changes": "Maximum number of fund additions/removals per rebalance. 0 = unlimited.",
+    "max_active": "Maximum active positions in portfolio. 0 = use selection count.",
+    # Phase 4: Trend signal parameters
+    "trend_window": "Rolling window size for computing momentum signals (in periods).",
+    "trend_lag": "Number of periods to lag the signal (minimum 1 for causality).",
+    "trend_min_periods": "Minimum observations required in rolling window. Blank = use window.",
+    "trend_zscore": "Cross-sectionally standardize signals at each time step.",
+    "trend_vol_adjust": "Scale signals by volatility to normalize across assets.",
+    "trend_vol_target": "Target volatility for vol-adjusted signals.",
+    # Phase 6: Regime analysis
+    "regime_enabled": "Enable regime detection to adjust behavior in risk-on/risk-off environments.",
+    "regime_proxy": "Market index used to detect risk-on/risk-off regimes.",
+    # Phase 7: Robustness & Expert settings
+    "shrinkage_enabled": "Apply covariance matrix shrinkage to improve stability.",
+    "shrinkage_method": "Shrinkage method: Ledoit-Wolf or Oracle Approximating Shrinkage.",
+    "leverage_cap": "Maximum gross exposure (1.0 = no leverage).",
+    "random_seed": "Random seed for reproducibility. Change for different random selections.",
 }
 
 
@@ -237,6 +313,25 @@ def _initial_model_state() -> dict[str, Any]:
         "rebalance_freq": baseline["rebalance_freq"],
         "max_turnover": baseline["max_turnover"],
         "transaction_cost_bps": baseline["transaction_cost_bps"],
+        # Fund holding rules (Phase 3)
+        "min_tenure_periods": baseline["min_tenure_periods"],
+        "max_changes_per_period": baseline["max_changes_per_period"],
+        "max_active_positions": baseline["max_active_positions"],
+        # Trend signal parameters (Phase 4)
+        "trend_window": baseline["trend_window"],
+        "trend_lag": baseline["trend_lag"],
+        "trend_min_periods": baseline["trend_min_periods"],
+        "trend_zscore": baseline["trend_zscore"],
+        "trend_vol_adjust": baseline["trend_vol_adjust"],
+        "trend_vol_target": baseline["trend_vol_target"],
+        # Regime analysis (Phase 6)
+        "regime_enabled": baseline["regime_enabled"],
+        "regime_proxy": baseline["regime_proxy"],
+        # Robustness & Expert settings (Phase 7)
+        "shrinkage_enabled": baseline["shrinkage_enabled"],
+        "shrinkage_method": baseline["shrinkage_method"],
+        "leverage_cap": baseline["leverage_cap"],
+        "random_seed": baseline["random_seed"],
     }
 
 
@@ -543,6 +638,25 @@ def render_model_page() -> None:
                 "rebalance_freq": preset_config["rebalance_freq"],
                 "max_turnover": preset_config["max_turnover"],
                 "transaction_cost_bps": preset_config["transaction_cost_bps"],
+                # Fund holding rules (Phase 3)
+                "min_tenure_periods": preset_config["min_tenure_periods"],
+                "max_changes_per_period": preset_config["max_changes_per_period"],
+                "max_active_positions": preset_config["max_active_positions"],
+                # Trend signal parameters (Phase 4)
+                "trend_window": preset_config["trend_window"],
+                "trend_lag": preset_config["trend_lag"],
+                "trend_min_periods": preset_config["trend_min_periods"],
+                "trend_zscore": preset_config["trend_zscore"],
+                "trend_vol_adjust": preset_config["trend_vol_adjust"],
+                "trend_vol_target": preset_config["trend_vol_target"],
+                # Regime analysis (Phase 6)
+                "regime_enabled": preset_config["regime_enabled"],
+                "regime_proxy": preset_config["regime_proxy"],
+                # Robustness & Expert settings (Phase 7)
+                "shrinkage_enabled": preset_config["shrinkage_enabled"],
+                "shrinkage_method": preset_config["shrinkage_method"],
+                "leverage_cap": preset_config["leverage_cap"],
+                "random_seed": preset_config["random_seed"],
             }
             st.rerun()
 
@@ -853,6 +967,235 @@ def render_model_page() -> None:
                 f"Each trade incurs a {transaction_cost_bps} bp ({transaction_cost_bps/100:.2f}%) cost."
             )
 
+        # Section 6: Fund Holding Rules (Phase 3)
+        st.divider()
+        st.subheader("🔒 Fund Holding Rules")
+        st.caption("Control fund tenure and portfolio churn limits.")
+
+        hold_c1, hold_c2, hold_c3 = st.columns(3)
+        with hold_c1:
+            min_tenure_periods = st.number_input(
+                "Min Tenure (periods)",
+                min_value=0,
+                max_value=24,
+                value=int(model_state.get("min_tenure_periods", 3)),
+                help=HELP_TEXT["min_tenure"],
+            )
+            if min_tenure_periods > 0:
+                st.caption(f"Funds held for at least {min_tenure_periods} periods")
+
+        with hold_c2:
+            max_changes_per_period = st.number_input(
+                "Max Changes/Period",
+                min_value=0,
+                max_value=50,
+                value=int(model_state.get("max_changes_per_period", 0)),
+                help=HELP_TEXT["max_changes"],
+            )
+            if max_changes_per_period == 0:
+                st.caption("Unlimited changes allowed")
+            else:
+                st.caption(f"Max {max_changes_per_period} adds/removes")
+
+        with hold_c3:
+            max_active_positions = st.number_input(
+                "Max Active Positions",
+                min_value=0,
+                max_value=100,
+                value=int(model_state.get("max_active_positions", 0)),
+                help=HELP_TEXT["max_active"],
+            )
+            if max_active_positions == 0:
+                st.caption("Uses selection count")
+            else:
+                st.caption(f"Capped at {max_active_positions} funds")
+
+        # Section 7: Trend Signal Settings (Phase 4) - collapsible
+        st.divider()
+        with st.expander("📈 Trend Signal Settings (Advanced)", expanded=False):
+            st.caption(
+                "Configure the momentum signal generation parameters. "
+                "These control how trend signals are computed for fund ranking."
+            )
+
+            sig_c1, sig_c2, sig_c3 = st.columns(3)
+            with sig_c1:
+                trend_window = st.number_input(
+                    "Signal Window (periods)",
+                    min_value=5,
+                    max_value=252,
+                    value=int(model_state.get("trend_window", 63)),
+                    help=HELP_TEXT["trend_window"],
+                )
+                st.caption(
+                    f"~{trend_window // 21} months"
+                    if trend_window >= 21
+                    else f"{trend_window} days"
+                )
+
+            with sig_c2:
+                trend_lag = st.number_input(
+                    "Signal Lag",
+                    min_value=1,
+                    max_value=10,
+                    value=int(model_state.get("trend_lag", 1)),
+                    help=HELP_TEXT["trend_lag"],
+                )
+
+            with sig_c3:
+                trend_min_periods_val = model_state.get("trend_min_periods")
+                trend_min_periods = st.number_input(
+                    "Min Periods",
+                    min_value=0,
+                    max_value=252,
+                    value=int(trend_min_periods_val) if trend_min_periods_val else 0,
+                    help=HELP_TEXT["trend_min_periods"],
+                )
+                # Convert 0 to None for storage
+                trend_min_periods_out = (
+                    trend_min_periods if trend_min_periods > 0 else None
+                )
+                if trend_min_periods == 0:
+                    st.caption("Uses full window")
+
+            sig_c4, sig_c5 = st.columns(2)
+            with sig_c4:
+                trend_zscore = st.checkbox(
+                    "Cross-sectional Z-score",
+                    value=bool(model_state.get("trend_zscore", False)),
+                    help=HELP_TEXT["trend_zscore"],
+                )
+
+            with sig_c5:
+                trend_vol_adjust = st.checkbox(
+                    "Volatility adjust signals",
+                    value=bool(model_state.get("trend_vol_adjust", False)),
+                    help=HELP_TEXT["trend_vol_adjust"],
+                )
+
+            # Show vol target only if vol adjust is enabled
+            trend_vol_target_out = None
+            if trend_vol_adjust:
+                vol_tgt_val = model_state.get("trend_vol_target")
+                trend_vol_target = st.number_input(
+                    "Signal Vol Target",
+                    min_value=0.01,
+                    max_value=0.50,
+                    value=float(vol_tgt_val) if vol_tgt_val else 0.10,
+                    step=0.01,
+                    format="%.2f",
+                    help=HELP_TEXT["trend_vol_target"],
+                )
+                trend_vol_target_out = trend_vol_target
+                st.caption(f"Target: {trend_vol_target:.0%} annualized")
+
+        # Section 8: Regime Analysis (Phase 6) - collapsible
+        st.divider()
+        with st.expander("🔄 Regime Analysis (Advanced)", expanded=False):
+            st.caption(
+                "Enable regime detection to adjust portfolio behavior based on "
+                "market conditions (risk-on vs risk-off)."
+            )
+
+            reg_c1, reg_c2 = st.columns(2)
+            with reg_c1:
+                regime_enabled = st.checkbox(
+                    "Enable Regime Detection",
+                    value=bool(model_state.get("regime_enabled", False)),
+                    help=HELP_TEXT["regime_enabled"],
+                )
+
+            with reg_c2:
+                # Use benchmark columns as regime proxy options
+                regime_proxy_options = ["SPX", "TSX", "MSCI", "ACWI"] + [
+                    c
+                    for c in benchmark_options
+                    if c.upper() not in ["SPX", "TSX", "MSCI", "ACWI"]
+                ][
+                    :10
+                ]  # Limit to 14 options
+                current_regime_proxy = model_state.get("regime_proxy", "SPX")
+                regime_proxy = st.selectbox(
+                    "Regime Proxy Index",
+                    options=regime_proxy_options,
+                    index=(
+                        regime_proxy_options.index(current_regime_proxy)
+                        if current_regime_proxy in regime_proxy_options
+                        else 0
+                    ),
+                    help=HELP_TEXT["regime_proxy"],
+                    disabled=not regime_enabled,
+                )
+
+            if regime_enabled:
+                st.info(
+                    "📊 Regime detection will classify periods as risk-on or risk-off "
+                    f"based on {regime_proxy} returns and volatility."
+                )
+
+        # Section 9: Expert Settings (Phase 7) - collapsible
+        st.divider()
+        with st.expander("🔧 Expert Settings", expanded=False):
+            st.caption(
+                "Advanced settings for covariance matrix handling, leverage limits, "
+                "and reproducibility. Most users can leave these at defaults."
+            )
+
+            # Covariance shrinkage settings
+            st.markdown("**Covariance Matrix Robustness**")
+            exp_c1, exp_c2 = st.columns(2)
+            with exp_c1:
+                shrinkage_enabled = st.checkbox(
+                    "Enable Shrinkage",
+                    value=bool(model_state.get("shrinkage_enabled", True)),
+                    help=HELP_TEXT["shrinkage_enabled"],
+                )
+
+            with exp_c2:
+                shrinkage_methods = ["ledoit_wolf", "oas", "none"]
+                shrinkage_labels = {
+                    "ledoit_wolf": "Ledoit-Wolf",
+                    "oas": "Oracle Approximating (OAS)",
+                    "none": "None (raw)",
+                }
+                current_shrinkage = model_state.get("shrinkage_method", "ledoit_wolf")
+                shrinkage_method = st.selectbox(
+                    "Shrinkage Method",
+                    options=shrinkage_methods,
+                    format_func=lambda x: shrinkage_labels.get(x, x),
+                    index=(
+                        shrinkage_methods.index(current_shrinkage)
+                        if current_shrinkage in shrinkage_methods
+                        else 0
+                    ),
+                    help=HELP_TEXT["shrinkage_method"],
+                    disabled=not shrinkage_enabled,
+                )
+
+            # Leverage and seed
+            st.markdown("**Portfolio Limits & Reproducibility**")
+            exp_c3, exp_c4 = st.columns(2)
+            with exp_c3:
+                leverage_cap = st.number_input(
+                    "Leverage Cap",
+                    min_value=1.0,
+                    max_value=5.0,
+                    value=float(model_state.get("leverage_cap", 2.0)),
+                    step=0.5,
+                    format="%.1f",
+                    help=HELP_TEXT["leverage_cap"],
+                )
+                st.caption(f"Max gross exposure: {leverage_cap:.1f}x")
+
+            with exp_c4:
+                random_seed = st.number_input(
+                    "Random Seed",
+                    min_value=0,
+                    max_value=99999,
+                    value=int(model_state.get("random_seed", 42)),
+                    help=HELP_TEXT["random_seed"],
+                )
+
         submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
@@ -884,6 +1227,25 @@ def render_model_page() -> None:
                 "rebalance_freq": rebalance_freq,
                 "max_turnover": max_turnover,
                 "transaction_cost_bps": transaction_cost_bps,
+                # Fund holding rules (Phase 3)
+                "min_tenure_periods": min_tenure_periods,
+                "max_changes_per_period": max_changes_per_period,
+                "max_active_positions": max_active_positions,
+                # Trend signal parameters (Phase 4)
+                "trend_window": trend_window,
+                "trend_lag": trend_lag,
+                "trend_min_periods": trend_min_periods_out,
+                "trend_zscore": trend_zscore,
+                "trend_vol_adjust": trend_vol_adjust,
+                "trend_vol_target": trend_vol_target_out,
+                # Regime analysis (Phase 6)
+                "regime_enabled": regime_enabled,
+                "regime_proxy": regime_proxy,
+                # Robustness & Expert settings (Phase 7)
+                "shrinkage_enabled": shrinkage_enabled,
+                "shrinkage_method": shrinkage_method,
+                "leverage_cap": leverage_cap,
+                "random_seed": random_seed,
             }
             errors = _validate_model(
                 candidate_state, len(fund_cols) if fund_cols else 0

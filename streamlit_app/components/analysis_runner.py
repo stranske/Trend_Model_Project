@@ -245,7 +245,18 @@ def _build_portfolio_config(
     )
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
-    return {
+    # Fund holding rules (Phase 3)
+    min_tenure_periods = _coerce_positive_int(
+        config.get("min_tenure_periods"), default=0, minimum=0
+    )
+    max_changes_per_period = _coerce_positive_int(
+        config.get("max_changes_per_period"), default=0, minimum=0
+    )
+    max_active_positions = _coerce_positive_int(
+        config.get("max_active_positions"), default=0, minimum=0
+    )
+
+    portfolio_cfg: dict[str, Any] = {
         "selection_mode": "rank",
         "rank": {
             "inclusion_approach": "top_n",
@@ -263,6 +274,16 @@ def _build_portfolio_config(
         },
     }
 
+    # Add fund holding rules if set (0 means unlimited/disabled)
+    if min_tenure_periods > 0:
+        portfolio_cfg["min_tenure_n"] = min_tenure_periods
+    if max_changes_per_period > 0:
+        portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
+    if max_active_positions > 0:
+        portfolio_cfg["max_active"] = max_active_positions
+
+    return portfolio_cfg
+
 
 def _build_config(payload: AnalysisPayload) -> Config:
     state = payload.model_state
@@ -277,8 +298,15 @@ def _build_config(payload: AnalysisPayload) -> Config:
     )
     rf_rate_annual = _coerce_positive_float(state.get("rf_rate_annual"), default=0.0)
 
-    # Build signals config - use trend_spec if provided, otherwise use defaults
-    trend_spec = state.get("trend_spec", {})
+    # Build signals config - use Phase 4 parameters or defaults
+    trend_spec = {
+        "window": state.get("trend_window"),
+        "lag": state.get("trend_lag"),
+        "min_periods": state.get("trend_min_periods"),
+        "zscore": state.get("trend_zscore"),
+        "vol_adjust": state.get("trend_vol_adjust"),
+        "vol_target": state.get("trend_vol_target"),
+    }
     signals_cfg = _build_signals_config(trend_spec)
 
     portfolio_cfg = _build_portfolio_config(state, weights)
@@ -300,6 +328,31 @@ def _build_config(payload: AnalysisPayload) -> Config:
     # Get preset name from either new or old format
     preset_name = state.get("preset") or state.get("trend_spec_preset")
 
+    # Regime analysis settings (Phase 6)
+    regime_enabled = bool(state.get("regime_enabled", False))
+    regime_proxy = str(state.get("regime_proxy", "SPX") or "SPX")
+    regime_cfg = {
+        "enabled": regime_enabled,
+        "proxy": regime_proxy,
+    }
+
+    # Robustness settings (Phase 7)
+    shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
+    shrinkage_method = str(
+        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
+    )
+    leverage_cap = _coerce_positive_float(state.get("leverage_cap"), default=2.0)
+
+    robustness_cfg = {
+        "shrinkage": {
+            "enabled": shrinkage_enabled,
+            "method": shrinkage_method,
+        },
+    }
+
+    # Update portfolio config with leverage cap
+    portfolio_cfg["leverage_cap"] = leverage_cap
+
     return Config(
         version="1",
         data={"allow_risk_free_fallback": True},
@@ -313,6 +366,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         portfolio=portfolio_cfg,
         signals=signals_cfg,
         benchmarks=benchmark_map,
+        regime=regime_cfg,
+        robustness=robustness_cfg,
         metrics={
             "registry": metrics_registry,
             "rf_rate_annual": rf_rate_annual,
