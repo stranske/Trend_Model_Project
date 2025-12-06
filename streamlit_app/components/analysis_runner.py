@@ -98,7 +98,7 @@ def _build_sample_split(
                     end_ts = pd.Timestamp(user_end)
             except (ValueError, TypeError):
                 # Fall back to relative mode on parse error
-                date_mode = "relative"
+                # (No need to assign date_mode; just continue to relative mode)
             else:
                 # Clamp to data boundaries
                 data_start = index.min()
