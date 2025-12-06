@@ -86,7 +86,9 @@ def _build_sample_split(
         user_end = config.get("end_date")
 
         if not user_start or not user_end:
-            raise ValueError("Explicit date mode requires both start_date and end_date to be specified")
+            raise ValueError(
+                "Explicit date mode requires both start_date and end_date to be specified"
+            )
 
         # Parse user dates
         try:
