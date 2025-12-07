@@ -4,11 +4,11 @@ import streamlit as st
 from streamlit_app.components.demo_runner import run_one_click_demo
 
 st.set_page_config(
-    page_title="Trend Portfolio Simulator",
+    page_title="Portfolio Simulator",
     page_icon=":chart_with_upwards_trend:",
     layout="wide",
 )
-st.title("Trend Portfolio Simulator")
+st.title("Portfolio Simulator")
 st.markdown(
     """
 Welcome! This app analyzes trend-following fund portfolios with volatility adjustment.

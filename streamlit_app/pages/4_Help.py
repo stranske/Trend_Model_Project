@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import streamlit as st
 
-st.set_page_config(page_title="Help - Trend Portfolio", page_icon="📖", layout="wide")
+st.set_page_config(
+    page_title="Help - Portfolio Simulator", page_icon="📖", layout="wide"
+)
 
 
 def render_help_page() -> None:
