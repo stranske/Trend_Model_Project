@@ -310,7 +310,7 @@ jobs:
         run: |
           set -euo pipefail
           targets=()
-          for path in src tests tools .github/scripts; do
+          for path in src tests tools streamlit_app .github/scripts; do
             if [ -d "$path" ]; then
               targets+=("$path")
             fi
@@ -342,6 +342,9 @@ jobs:
           fi
           if [ -d tests ]; then
             targets+=("tests")
+          fi
+          if [ -d streamlit_app ]; then
+            targets+=("streamlit_app")
           fi
           if [ ${#targets[@]} -eq 0 ]; then
             echo "[autofix-clean] No src/ or tests/ directory detected; skipping"
