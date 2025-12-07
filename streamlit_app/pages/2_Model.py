@@ -1159,6 +1159,7 @@ def render_model_page() -> None:
                         st.caption(f"Half-life: ~{half_life:.0f} periods")
             else:
                 vol_window_length = int(model_state.get("vol_window_length", 63))
+                vol_ewma_lambda = float(model_state.get("vol_ewma_lambda", 0.94))
 
         max_weight = st.number_input(
             "Maximum Weight per Fund (%)",
