@@ -1160,7 +1160,6 @@ def render_model_page() -> None:
             else:
                 vol_window_length = int(model_state.get("vol_window_length", 63))
                 vol_window_decay = model_state.get("vol_window_decay", "ewma")
-                vol_ewma_lambda = float(model_state.get("vol_ewma_lambda", 0.94))
 
         max_weight = st.number_input(
             "Maximum Weight per Fund (%)",
