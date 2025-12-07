@@ -1161,6 +1161,12 @@ def render_model_page() -> None:
                 vol_window_length = int(model_state.get("vol_window_length", 63))
                 vol_ewma_lambda = float(model_state.get("vol_ewma_lambda", 0.94))
 
+        # Store volatility adjustment parameters in model_state
+        model_state["vol_adjust_enabled"] = vol_adj_enabled
+        model_state["vol_window_length"] = vol_window_length
+        model_state["vol_window_decay"] = vol_window_decay
+        if 'vol_ewma_lambda' in locals():
+            model_state["vol_ewma_lambda"] = vol_ewma_lambda
         max_weight = st.number_input(
             "Maximum Weight per Fund (%)",
             min_value=5,
