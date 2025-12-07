@@ -26,10 +26,6 @@ def _run(
 
 
 @pytest.mark.integration
-@pytest.mark.quarantine
-@pytest.mark.skip(
-    reason="Autofix workflow test - Optional import not being added correctly"
-)
 def test_autofix_pipeline_resolves_lint_and_typing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

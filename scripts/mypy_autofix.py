@@ -143,10 +143,14 @@ def _run_mypy_subprocess(args: list[str]) -> tuple[str, str, int]:
 def run_mypy(
     config_file: str | None, targets: Iterable[Path]
 ) -> tuple[str, str, int, bool]:
+    # Use ROOT-relative cache to avoid test pollution across runs
+    cache_dir = ROOT / ".mypy_cache"
     args: list[str] = [
         "--hide-error-context",
         "--show-column-numbers",
         "--error-format=json",
+        "--cache-dir",
+        str(cache_dir),
     ]
     cfg = Path(config_file) if config_file else None
     if cfg and cfg.exists():
@@ -159,6 +163,8 @@ def run_mypy(
         fallback_args = [
             "--hide-error-context",
             "--show-column-numbers",
+            "--cache-dir",
+            str(cache_dir),
         ]
         if cfg and cfg.exists():
             fallback_args += ["--config-file", str(cfg)]

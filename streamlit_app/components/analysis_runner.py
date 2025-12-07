@@ -245,23 +245,75 @@ def _build_portfolio_config(
     )
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
-    return {
+    # Fund holding rules (Phase 3)
+    min_tenure_periods = _coerce_positive_int(
+        config.get("min_tenure_periods"), default=0, minimum=0
+    )
+    max_changes_per_period = _coerce_positive_int(
+        config.get("max_changes_per_period"), default=0, minimum=0
+    )
+    max_active_positions = _coerce_positive_int(
+        config.get("max_active_positions"), default=0, minimum=0
+    )
+
+    # Phase 8: Selection approach settings (accept both naming conventions)
+    selection_approach = str(
+        config.get("inclusion_approach") or config.get("selection_approach") or "top_n"
+    )
+    rank_transform = str(config.get("rank_transform", "zscore") or "zscore")
+    slippage_bps = _coerce_positive_int(
+        config.get("slippage_bps"), default=0, minimum=0
+    )
+    bottom_k = _coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
+
+    # Phase 9: Selection approach parameters
+    rank_pct = _coerce_positive_float(config.get("rank_pct"), default=0.10)
+    rank_threshold = _coerce_positive_float(config.get("rank_threshold"), default=1.5)
+
+    # Phase 15: Constraints
+    long_only = bool(config.get("long_only", True))
+
+    portfolio_cfg: dict[str, Any] = {
         "selection_mode": "rank",
         "rank": {
-            "inclusion_approach": "top_n",
+            "inclusion_approach": selection_approach,
             "n": selection_count,
+            "pct": rank_pct,
+            "threshold": rank_threshold,
             "score_by": "blended",
             "blended_weights": registry_weights,
+            "transform": rank_transform,
         },
         "weighting_scheme": weighting_scheme,
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
         "transaction_cost_bps": transaction_cost_bps,
         "constraints": {
-            "long_only": True,
+            "long_only": long_only,
             "max_weight": max_weight,
         },
     }
+
+    # Add slippage_bps to cost_model if specified
+    if slippage_bps > 0:
+        portfolio_cfg["cost_model"] = {
+            "bps_per_trade": transaction_cost_bps,
+            "slippage_bps": slippage_bps,
+        }
+
+    # Add bottom_k exclusion if specified
+    if bottom_k > 0:
+        portfolio_cfg["rank"]["bottom_k"] = bottom_k
+
+    # Add fund holding rules if set (0 means unlimited/disabled)
+    if min_tenure_periods > 0:
+        portfolio_cfg["min_tenure_n"] = min_tenure_periods
+    if max_changes_per_period > 0:
+        portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
+    if max_active_positions > 0:
+        portfolio_cfg["max_active"] = max_active_positions
+
+    return portfolio_cfg
 
 
 def _build_config(payload: AnalysisPayload) -> Config:
@@ -277,8 +329,15 @@ def _build_config(payload: AnalysisPayload) -> Config:
     )
     rf_rate_annual = _coerce_positive_float(state.get("rf_rate_annual"), default=0.0)
 
-    # Build signals config - use trend_spec if provided, otherwise use defaults
-    trend_spec = state.get("trend_spec", {})
+    # Build signals config - use Phase 4 parameters or defaults
+    trend_spec = {
+        "window": state.get("trend_window"),
+        "lag": state.get("trend_lag"),
+        "min_periods": state.get("trend_min_periods"),
+        "zscore": state.get("trend_zscore"),
+        "vol_adjust": state.get("trend_vol_adjust"),
+        "vol_target": state.get("trend_vol_target"),
+    }
     signals_cfg = _build_signals_config(trend_spec)
 
     portfolio_cfg = _build_portfolio_config(state, weights)
@@ -300,10 +359,122 @@ def _build_config(payload: AnalysisPayload) -> Config:
     # Get preset name from either new or old format
     preset_name = state.get("preset") or state.get("trend_spec_preset")
 
+    # Regime analysis settings (Phase 6)
+    regime_enabled = bool(state.get("regime_enabled", False))
+    regime_proxy = str(state.get("regime_proxy", "SPX") or "SPX")
+    regime_cfg = {
+        "enabled": regime_enabled,
+        "proxy": regime_proxy,
+    }
+
+    # Robustness settings (Phase 7)
+    shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
+    shrinkage_method = str(
+        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
+    )
+    leverage_cap = _coerce_positive_float(state.get("leverage_cap"), default=2.0)
+
+    robustness_cfg = {
+        "shrinkage": {
+            "enabled": shrinkage_enabled,
+            "method": shrinkage_method,
+        },
+    }
+
+    # Phase 14: Robustness fallbacks
+    condition_threshold = float(state.get("condition_threshold", 1.0e12) or 1.0e12)
+    safe_mode = str(state.get("safe_mode", "hrp") or "hrp")
+    robustness_cfg["condition_check"] = {
+        "enabled": True,
+        "threshold": condition_threshold,
+        "safe_mode": safe_mode,
+    }
+
+    # Entry/Exit thresholds (Phase 5)
+    z_entry_soft = float(state.get("z_entry_soft", 1.0) or 1.0)
+    z_exit_soft = float(state.get("z_exit_soft", -1.0) or -1.0)
+    soft_strikes = int(state.get("soft_strikes", 2) or 2)
+    entry_soft_strikes = int(state.get("entry_soft_strikes", 1) or 1)
+    sticky_add_periods = int(state.get("sticky_add_periods", 1) or 1)
+    sticky_drop_periods = int(state.get("sticky_drop_periods", 1) or 1)
+    ci_level = float(state.get("ci_level", 0.0) or 0.0)
+
+    # Phase 13: Hard entry/exit thresholds
+    z_entry_hard_val = state.get("z_entry_hard")
+    z_exit_hard_val = state.get("z_exit_hard")
+    z_entry_hard = float(z_entry_hard_val) if z_entry_hard_val is not None else None
+    z_exit_hard = float(z_exit_hard_val) if z_exit_hard_val is not None else None
+
+    # Build threshold_hold config for portfolio
+    threshold_hold_cfg = {
+        "z_entry_soft": z_entry_soft,
+        "z_exit_soft": z_exit_soft,
+        "soft_strikes": soft_strikes,
+        "entry_soft_strikes": entry_soft_strikes,
+    }
+    # Add hard thresholds if enabled (Phase 13)
+    if z_entry_hard is not None:
+        threshold_hold_cfg["z_entry_hard"] = z_entry_hard
+    if z_exit_hard is not None:
+        threshold_hold_cfg["z_exit_hard"] = z_exit_hard
+
+    # Add threshold_hold and policy settings to portfolio config
+    portfolio_cfg["policy"] = "threshold_hold"
+    portfolio_cfg["threshold_hold"] = threshold_hold_cfg
+
+    # Add sticky periods and CI to policy config (for PolicyConfig in simulator)
+    portfolio_cfg["sticky_add_x"] = sticky_add_periods
+    portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
+    portfolio_cfg["ci_level"] = ci_level
+
+    # Update portfolio config with leverage cap
+    portfolio_cfg["leverage_cap"] = leverage_cap
+
+    # Phase 8: Multi-period settings
+    multi_period_enabled = bool(state.get("multi_period_enabled", False))
+    multi_period_cfg = None
+    if multi_period_enabled:
+        multi_period_frequency = str(state.get("multi_period_frequency", "A") or "A")
+        # Accept both naming conventions (UI uses shorter keys)
+        multi_period_in_sample_years = _coerce_positive_int(
+            state.get("in_sample_years") or state.get("multi_period_in_sample_years"),
+            default=3,
+            minimum=1,
+        )
+        multi_period_out_sample_years = _coerce_positive_int(
+            state.get("out_sample_years") or state.get("multi_period_out_sample_years"),
+            default=1,
+            minimum=1,
+        )
+        multi_period_cfg = {
+            "frequency": multi_period_frequency,
+            "in_sample_len": multi_period_in_sample_years,
+            "out_sample_len": multi_period_out_sample_years,
+        }
+
+    # Phase 16: Data/Preprocessing settings
+    missing_policy = str(state.get("missing_policy", "ffill") or "ffill")
+    winsorize_enabled = bool(state.get("winsorize_enabled", True))
+    winsorize_lower = (
+        float(state.get("winsorize_lower", 1.0) or 1.0) / 100.0
+    )  # Convert to decimal
+    winsorize_upper = float(state.get("winsorize_upper", 99.0) or 99.0) / 100.0
+
+    data_cfg = {
+        "allow_risk_free_fallback": True,
+        "missing_policy": missing_policy,
+    }
+    preprocessing_cfg = {
+        "winsorise": {
+            "enabled": winsorize_enabled,
+            "limits": [winsorize_lower, winsorize_upper],
+        },
+    }
+
     return Config(
         version="1",
-        data={"allow_risk_free_fallback": True},
-        preprocessing={},
+        data=data_cfg,
+        preprocessing=preprocessing_cfg,
         vol_adjust={
             "target_vol": vol_target,
             "floor_vol": vol_floor,
@@ -313,6 +484,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         portfolio=portfolio_cfg,
         signals=signals_cfg,
         benchmarks=benchmark_map,
+        regime=regime_cfg,
+        robustness=robustness_cfg,
         metrics={
             "registry": metrics_registry,
             "rf_rate_annual": rf_rate_annual,
@@ -320,6 +493,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
         export={},
         run={"trend_preset": preset_name},
         seed=seed,
+        multi_period=multi_period_cfg,
     )
 
 

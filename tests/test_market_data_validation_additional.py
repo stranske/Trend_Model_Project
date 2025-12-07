@@ -284,47 +284,6 @@ def test_resolve_datetime_index_drops_unparseable_values_partial(caplog) -> None
     assert len(result) == 1  # Only the valid date row remains
 
 
-@pytest.mark.skip(reason="Implementation changed - now catches exceptions differently")
-def test_resolve_datetime_index_handles_parser_exception(monkeypatch) -> None:
-    df = pd.DataFrame(
-        {
-            "Date": [f"bad-{i}" for i in range(6)],
-            "FundA": [0.1] * 6,
-        }
-    )
-
-    def raise_value_error(*args: object, **kwargs: object) -> pd.Series:
-        raise ValueError("boom")
-
-    monkeypatch.setattr(market_data.pd, "to_datetime", raise_value_error)
-
-    with pytest.raises(market_data.MarketDataValidationError) as exc:
-        market_data._resolve_datetime_index(df, source="upload.csv")
-
-    message = str(exc.value)
-    assert "Found dates that could not be parsed" in message
-    assert "…" in message
-
-
-@pytest.mark.skip(reason="Implementation changed - now catches exceptions differently")
-def test_resolve_datetime_index_handles_parser_exception_without_ellipsis(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    df = pd.DataFrame({"Date": ["bad", "alsobad", "oops"], "FundA": [0.1, 0.2, 0.3]})
-
-    def raise_type_error(*args: object, **kwargs: object) -> pd.Series:
-        raise TypeError("boom")
-
-    monkeypatch.setattr(market_data.pd, "to_datetime", raise_type_error)
-
-    with pytest.raises(market_data.MarketDataValidationError) as exc:
-        market_data._resolve_datetime_index(df, source="upload.csv")
-
-    message = str(exc.value)
-    assert "Found dates that could not be parsed" in message
-    assert "…" not in message
-
-
 def test_resolve_datetime_index_without_data_columns() -> None:
     df = pd.DataFrame({"Date": ["2024-01-31", "2024-02-29"]})
 

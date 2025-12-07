@@ -7,12 +7,6 @@ from types import ModuleType, SimpleNamespace
 import pandas as pd
 import pytest
 
-# Mark tests that rely on old Model page structure
-# The Model page has been restructured and some internal functions have changed
-pytestmark_obsolete = pytest.mark.skip(
-    reason="Model page restructured - test relies on old internal functions"
-)
-
 
 @pytest.fixture()
 def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
@@ -64,6 +58,7 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.selectbox = lambda _label, options, index=0, **_kwargs: options[index]
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)
     stub.checkbox = lambda _label, value=False, **_kwargs: value
+    stub.slider = lambda _label, **kwargs: kwargs.get("value", 0)
 
     monkeypatch.setitem(sys.modules, "streamlit", stub)
 
@@ -94,53 +89,6 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     module = importlib.reload(importlib.import_module("streamlit_app.pages.2_Model"))
     return module
-
-
-@pytest.mark.skip(reason="Model page restructured - TrendSpecPreset no longer in page")
-def test_preset_defaults_uses_preset(
-    monkeypatch: pytest.MonkeyPatch, model_module: ModuleType
-) -> None:
-    fake = model_module.TrendSpecPreset(
-        name="Test",
-        description="",
-        spec=model_module.TrendSpec(
-            window=120,
-            lag=2,
-            min_periods=60,
-            vol_adjust=True,
-            vol_target=0.15,
-            zscore=True,
-        ),
-    )
-
-    monkeypatch.setattr(model_module, "get_trend_spec_preset", lambda name: fake)
-    defaults = model_module._preset_defaults("CustomPreset")
-    assert defaults["window"] == 120
-    assert defaults["lag"] == 2
-    assert defaults["min_periods"] == 60
-    assert defaults["vol_adjust"] is True
-    assert defaults["vol_target"] == 0.15
-    assert defaults["zscore"] is True
-
-
-@pytest.mark.skip(
-    reason="Model page restructured - _trend_spec_from_form no longer exists"
-)
-def test_trend_spec_from_form_normalises_inputs(model_module: ModuleType) -> None:
-    values = {
-        "window": 50,
-        "lag": 75,
-        "min_periods": 120,
-        "vol_adjust": True,
-        "vol_target": 0.02,
-        "zscore": True,
-    }
-    spec = model_module._trend_spec_from_form(values)
-    assert spec["window"] == 50
-    assert spec["lag"] == 50  # coerced to window size
-    assert spec["min_periods"] == 50
-    assert spec["vol_target"] == 0.02
-    assert spec["zscore"] is True
 
 
 def test_validate_model_catches_errors(model_module: ModuleType) -> None:
