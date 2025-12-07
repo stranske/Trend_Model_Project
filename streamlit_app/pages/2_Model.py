@@ -1165,7 +1165,7 @@ def render_model_page() -> None:
         model_state["vol_adjust_enabled"] = vol_adj_enabled
         model_state["vol_window_length"] = vol_window_length
         model_state["vol_window_decay"] = vol_window_decay
-        if 'vol_ewma_lambda' in locals():
+        if "vol_ewma_lambda" in locals():
             model_state["vol_ewma_lambda"] = vol_ewma_lambda
         max_weight = st.number_input(
             "Maximum Weight per Fund (%)",
