@@ -45,9 +45,9 @@ with col2:
     if st.button("⚙️ Configure Demo First", use_container_width=True):
         # Load demo data but go to Model page for configuration
         with st.spinner("Loading demo data..."):
-            from streamlit_app.components.demo_runner import _load_demo_returns
-            from streamlit_app.components.data_cache import cache_key_for_frame
             from streamlit_app import state as app_state
+            from streamlit_app.components.data_cache import cache_key_for_frame
+            from streamlit_app.components.demo_runner import _load_demo_returns
             from trend_portfolio_app.data_schema import infer_benchmarks
 
             try:
