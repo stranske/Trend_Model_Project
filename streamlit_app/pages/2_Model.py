@@ -51,6 +51,7 @@ PRESET_CONFIGS = {
         "start_date": None,
         "end_date": None,
         # Risk settings
+        "rf_override_enabled": False,
         "rf_rate_annual": 0.0,
         "vol_floor": 0.015,
         "warmup_periods": 0,
@@ -70,7 +71,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 3,
         "max_changes_per_period": 0,  # 0 = unlimited
         "max_active_positions": 0,  # 0 = unlimited (uses selection_count)
-        # Trend signal parameters (Phase 4)
+        # Portfolio signal parameters (Phase 4)
         "trend_window": 63,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -156,7 +157,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 6,
         "max_changes_per_period": 2,
         "max_active_positions": 10,
-        # Trend signal parameters - longer window for stability
+        # Portfolio signal parameters - longer window for stability
         "trend_window": 126,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -242,7 +243,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 1,
         "max_changes_per_period": 0,  # unlimited
         "max_active_positions": 0,  # unlimited
-        # Trend signal parameters - shorter window for responsiveness
+        # Portfolio signal parameters - shorter window for responsiveness
         "trend_window": 42,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -321,9 +322,10 @@ HELP_TEXT = {
     "start_date": "Simulation start date. Data before this date will be excluded.",
     "end_date": "Simulation end date. Data after this date will be excluded.",
     # Risk settings
-    "rf_rate": "Annual risk-free rate used for Sharpe/Sortino calculations. Default: 0%.",
+    "rf_override": "Override the risk-free rate from data with a constant value. ⚠️ Using a constant rate reduces accuracy vs. time-varying rates.",
+    "rf_rate": "Constant annual risk-free rate fallback. Only used when override is enabled and no RF column is in the data.",
     "vol_floor": "Minimum volatility floor for scaling. Prevents extreme weights on low-vol assets.",
-    "warmup_periods": "Initial periods with zero portfolio weight (warm-up for signals).",
+    "warmup_periods": "Initial periods where returns are zeroed out to allow volatility estimates to stabilize before calculating performance metrics.",
     # Phase 10: Volatility adjustment details
     "vol_adjust_enabled": "Enable volatility adjustment to scale returns to target vol.",
     "vol_window_length": "Rolling window for volatility estimation (periods). ~63 = 3 months.",
@@ -471,7 +473,7 @@ def _initial_model_state() -> dict[str, Any]:
         "min_tenure_periods": baseline["min_tenure_periods"],
         "max_changes_per_period": baseline["max_changes_per_period"],
         "max_active_positions": baseline["max_active_positions"],
-        # Trend signal parameters (Phase 4)
+        # Portfolio signal parameters (Phase 4)
         "trend_window": baseline["trend_window"],
         "trend_lag": baseline["trend_lag"],
         "trend_min_periods": baseline["trend_min_periods"],
@@ -832,7 +834,7 @@ def render_model_page() -> None:
                 "min_tenure_periods": preset_config["min_tenure_periods"],
                 "max_changes_per_period": preset_config["max_changes_per_period"],
                 "max_active_positions": preset_config["max_active_positions"],
-                # Trend signal parameters (Phase 4)
+                # Portfolio signal parameters (Phase 4)
                 "trend_window": preset_config["trend_window"],
                 "trend_lag": preset_config["trend_lag"],
                 "trend_min_periods": preset_config["trend_min_periods"],
@@ -1058,18 +1060,31 @@ def render_model_page() -> None:
             st.caption(f"Target: {risk_target:.0%} annualized vol")
 
         with risk_c2:
-            rf_rate_pct = st.number_input(
-                "Risk-Free Rate (%)",
-                min_value=0.0,
-                max_value=20.0,
-                value=float(model_state.get("rf_rate_annual", 0.0)) * 100,
-                step=0.25,
-                format="%.2f",
-                help=HELP_TEXT["rf_rate"],
+            rf_override_enabled = st.checkbox(
+                "Override Risk-Free Rate",
+                value=bool(model_state.get("rf_override_enabled", False)),
+                help=HELP_TEXT["rf_override"],
             )
-            # Convert to decimal for storage
-            rf_rate_annual = rf_rate_pct / 100.0
-            st.caption(f"Used for Sharpe/Sortino: {rf_rate_pct:.2f}%")
+            # Only show RF rate input when override is enabled
+            if rf_override_enabled:
+                rf_rate_pct = st.number_input(
+                    "Constant RF Rate (%)",
+                    min_value=0.0,
+                    max_value=20.0,
+                    value=float(model_state.get("rf_rate_annual", 0.0)) * 100,
+                    step=0.25,
+                    format="%.2f",
+                    help=HELP_TEXT["rf_rate"],
+                )
+                rf_rate_annual = rf_rate_pct / 100.0
+                st.warning(
+                    "⚠️ Using constant RF rate. Time-varying rates from data "
+                    "provide more accurate Sharpe/Sortino calculations.",
+                    icon="⚠️",
+                )
+            else:
+                rf_rate_annual = 0.0
+                st.caption("RF rate from data column (recommended)")
 
         # Volatility floor and warmup
         vol_c1, vol_c2 = st.columns(2)
@@ -1279,12 +1294,12 @@ def render_model_page() -> None:
             else:
                 st.caption(f"Capped at {max_active_positions} funds")
 
-        # Section 7: Trend Signal Settings (Phase 4) - collapsible
+        # Section 7: Portfolio Signal Settings (Phase 4) - collapsible
         st.divider()
-        with st.expander("📈 Trend Signal Settings (Advanced)", expanded=False):
+        with st.expander("📈 Portfolio Signal Settings (Advanced)", expanded=False):
             st.caption(
                 "Configure the momentum signal generation parameters. "
-                "These control how trend signals are computed for fund ranking."
+                "These control how portfolio signals are computed for fund ranking."
             )
 
             sig_c1, sig_c2, sig_c3 = st.columns(3)
@@ -1952,6 +1967,7 @@ def render_model_page() -> None:
                 "start_date": model_state.get("start_date"),
                 "end_date": model_state.get("end_date"),
                 # Risk settings
+                "rf_override_enabled": rf_override_enabled,
                 "rf_rate_annual": rf_rate_annual,
                 "vol_floor": vol_floor,
                 "warmup_periods": warmup_periods,
@@ -1966,7 +1982,7 @@ def render_model_page() -> None:
                 "min_tenure_periods": min_tenure_periods,
                 "max_changes_per_period": max_changes_per_period,
                 "max_active_positions": max_active_positions,
-                # Trend signal parameters (Phase 4)
+                # Portfolio signal parameters (Phase 4)
                 "trend_window": trend_window,
                 "trend_lag": trend_lag,
                 "trend_min_periods": trend_min_periods_out,

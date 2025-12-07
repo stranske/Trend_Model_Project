@@ -127,13 +127,18 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
 
     split = config.sample_split
     metrics_list = config.metrics.get("registry")
+    # Use rf_rate_annual from config as fallback when override is enabled
+    rf_override_enabled = config.metrics.get("rf_override_enabled", False)
+    rf_rate_fallback = (
+        float(config.metrics.get("rf_rate_annual", 0.0)) if rf_override_enabled else 0.0
+    )
     stats_cfg = None
     if metrics_list:
         from .core.rank_selection import RiskStatsConfig, canonical_metric_list
 
         stats_cfg = RiskStatsConfig(
             metrics_to_run=canonical_metric_list(metrics_list),
-            risk_free=0.0,
+            risk_free=rf_rate_fallback,
         )
 
     regime_cfg = getattr(config, "regime", {}) or {}

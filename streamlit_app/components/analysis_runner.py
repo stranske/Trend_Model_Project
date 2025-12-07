@@ -327,6 +327,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
     warmup_periods = _coerce_positive_int(
         state.get("warmup_periods"), default=0, minimum=0
     )
+    rf_override_enabled = bool(state.get("rf_override_enabled", False))
     rf_rate_annual = _coerce_positive_float(state.get("rf_rate_annual"), default=0.0)
 
     # Build signals config - use Phase 4 parameters or defaults
@@ -489,6 +490,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
         metrics={
             "registry": metrics_registry,
             "rf_rate_annual": rf_rate_annual,
+            "rf_override_enabled": rf_override_enabled,
         },
         export={},
         run={"trend_preset": preset_name},

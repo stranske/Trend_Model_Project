@@ -51,6 +51,8 @@ class Config(BaseModel):
     output: dict[str, Any] | None = None
     run: dict[str, Any]
     multi_period: dict[str, Any] | None = None
+    regime: dict[str, Any] | None = None
+    robustness: dict[str, Any] | None = None
     jobs: int | None = None
     checkpoint_dir: str | None = None
     random_seed: int | None = None
