@@ -373,7 +373,7 @@ jobs:
             if [[ -z "$path" ]]; then
               continue
             fi
-            if [[ "$path" == tests/* ]] || [[ "$path" == src/* ]]; then
+            if [[ "$path" == tests/* ]] || [[ "$path" == src/* ]] || [[ "$path" == streamlit_app/* ]]; then
               allowed_changes+=("$path")
             else
               other_changes+=("$path")
@@ -381,7 +381,7 @@ jobs:
           done
           if [ ${#other_changes[@]} -gt 0 ]; then
             {
-              echo "[autofix-clean] ERROR: clean mode produced changes outside src/ and tests/:" >&2
+              echo "[autofix-clean] ERROR: clean mode produced changes outside src/, tests/, and streamlit_app/:" >&2
               printf '  - %s\n' "${other_changes[@]}" >&2
             }
             exit 1
