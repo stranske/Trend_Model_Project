@@ -54,6 +54,11 @@ PRESET_CONFIGS = {
         "rf_rate_annual": 0.0,
         "vol_floor": 0.015,
         "warmup_periods": 0,
+        # Volatility adjustment details (Phase 10)
+        "vol_adjust_enabled": True,
+        "vol_window_length": 63,
+        "vol_window_decay": "ewma",
+        "vol_ewma_lambda": 0.94,
         # Advanced settings
         "max_weight": 0.20,
         "cooldown_months": 3,
@@ -80,6 +85,16 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 2.0,
         "random_seed": 42,
+        # Robustness fallbacks (Phase 14)
+        "condition_threshold": 1.0e12,
+        "safe_mode": "hrp",
+        # Constraints (Phase 15)
+        "long_only": True,
+        # Data/Preprocessing (Phase 16)
+        "missing_policy": "ffill",
+        "winsorize_enabled": True,
+        "winsorize_lower": 1.0,
+        "winsorize_upper": 99.0,
         # Entry/Exit thresholds (Phase 5)
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
@@ -88,6 +103,24 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
+        # Multi-period & Selection settings (Phase 8)
+        "multi_period_enabled": False,
+        "multi_period_frequency": "A",
+        "in_sample_years": 3,
+        "out_sample_years": 1,
+        "inclusion_approach": "top_n",
+        "rank_transform": "none",
+        "slippage_bps": 0,
+        "bottom_k": 0,
+        # Selection approach details (Phase 9)
+        "rank_pct": 0.10,
+        "rank_threshold": 1.5,
+        # Multi-period bounds (Phase 12)
+        "mp_min_funds": 10,
+        "mp_max_funds": 25,
+        # Hard thresholds (Phase 13)
+        "z_entry_hard": None,
+        "z_exit_hard": None,
     },
     "Conservative": {
         "lookback_months": 48,
@@ -138,6 +171,16 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 1.5,
         "random_seed": 42,
+        # Robustness fallbacks (Phase 14) - conservative: stricter threshold
+        "condition_threshold": 1.0e10,
+        "safe_mode": "risk_parity",
+        # Constraints (Phase 15)
+        "long_only": True,
+        # Data/Preprocessing (Phase 16) - conservative: stricter cleaning
+        "missing_policy": "drop",
+        "winsorize_enabled": True,
+        "winsorize_lower": 2.0,
+        "winsorize_upper": 98.0,
         # Entry/Exit thresholds - conservative: stricter entry, lenient exit
         "z_entry_soft": 1.5,
         "z_exit_soft": -1.0,
@@ -146,6 +189,24 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 2,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
+        # Multi-period & Selection settings (Phase 8) - conservative: longer periods
+        "multi_period_enabled": False,
+        "multi_period_frequency": "A",
+        "in_sample_years": 5,
+        "out_sample_years": 1,
+        "inclusion_approach": "top_n",
+        "rank_transform": "zscore",
+        "slippage_bps": 5,
+        "bottom_k": 0,
+        # Selection approach details (Phase 9)
+        "rank_pct": 0.10,
+        "rank_threshold": 2.0,  # stricter for conservative
+        # Multi-period bounds (Phase 12) - conservative: narrower range
+        "mp_min_funds": 8,
+        "mp_max_funds": 15,
+        # Hard thresholds (Phase 13) - conservative: enabled, stricter
+        "z_entry_hard": 2.5,
+        "z_exit_hard": -2.5,
     },
     "Aggressive": {
         "lookback_months": 24,
@@ -196,6 +257,16 @@ PRESET_CONFIGS = {
         "shrinkage_method": "ledoit_wolf",
         "leverage_cap": 3.0,
         "random_seed": 42,
+        # Robustness fallbacks (Phase 14) - aggressive: higher tolerance
+        "condition_threshold": 1.0e14,
+        "safe_mode": "hrp",
+        # Constraints (Phase 15)
+        "long_only": True,
+        # Data/Preprocessing (Phase 16) - aggressive: less cleaning
+        "missing_policy": "ffill",
+        "winsorize_enabled": False,
+        "winsorize_lower": 1.0,
+        "winsorize_upper": 99.0,
         # Entry/Exit thresholds - aggressive: lenient entry, quick exit
         "z_entry_soft": 0.5,
         "z_exit_soft": -0.5,
@@ -204,6 +275,24 @@ PRESET_CONFIGS = {
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
+        # Multi-period & Selection settings (Phase 8) - aggressive: shorter periods
+        "multi_period_enabled": False,
+        "multi_period_frequency": "Q",
+        "in_sample_years": 2,
+        "out_sample_years": 1,
+        "inclusion_approach": "top_n",
+        "rank_transform": "none",
+        "slippage_bps": 0,
+        "bottom_k": 0,
+        # Selection approach details (Phase 9)
+        "rank_pct": 0.15,  # more aggressive percentage
+        "rank_threshold": 1.0,  # lower threshold for aggressive
+        # Multi-period bounds (Phase 12) - aggressive: wider range
+        "mp_min_funds": 15,
+        "mp_max_funds": 40,
+        # Hard thresholds (Phase 13) - aggressive: disabled
+        "z_entry_hard": None,
+        "z_exit_hard": None,
     },
     "Custom": None,  # Custom means keep current values
 }
@@ -235,6 +324,11 @@ HELP_TEXT = {
     "rf_rate": "Annual risk-free rate used for Sharpe/Sortino calculations. Default: 0%.",
     "vol_floor": "Minimum volatility floor for scaling. Prevents extreme weights on low-vol assets.",
     "warmup_periods": "Initial periods with zero portfolio weight (warm-up for signals).",
+    # Phase 10: Volatility adjustment details
+    "vol_adjust_enabled": "Enable volatility adjustment to scale returns to target vol.",
+    "vol_window_length": "Rolling window for volatility estimation (periods). ~63 = 3 months.",
+    "vol_window_decay": "EWMA weights recent data more; Simple uses equal weights.",
+    "vol_ewma_lambda": "EWMA decay factor. Higher = longer memory. 0.94 is RiskMetrics standard.",
     # Advanced settings
     "max_weight": "Maximum allocation to any single fund. Prevents concentration risk.",
     "cooldown_months": "After a fund is removed, it cannot be re-added for this many months.",
@@ -269,6 +363,34 @@ HELP_TEXT = {
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for entry gate (0 = disabled, 0.9 = 90% CI).",
+    # Phase 8: Multi-period & Selection settings
+    "multi_period_enabled": "Enable rolling multi-period walk-forward analysis.",
+    "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
+    "in_sample_years": "Number of years for in-sample (training) window.",
+    "out_sample_years": "Number of years for out-of-sample (testing) window.",
+    "inclusion_approach": "How to select funds: Top N, Top Percentage, or Z-score Threshold.",
+    "rank_transform": "Transform scores before ranking: None, Z-score, or Percentile Rank.",
+    "slippage_bps": "Additional slippage cost in basis points (market impact).",
+    "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
+    # Phase 9: Selection approach details
+    "rank_pct": "Percentage of funds to include (0.10 = top 10%). Used with Top Percentage approach.",
+    "rank_threshold": "Z-score threshold for inclusion. Funds scoring above this are selected.",
+    # Phase 12: Multi-period bounds
+    "mp_min_funds": "Minimum number of funds to hold in multi-period analysis.",
+    "mp_max_funds": "Maximum number of funds to hold in multi-period analysis.",
+    # Phase 13: Hard entry/exit thresholds
+    "z_entry_hard": "Hard entry: Z-score for immediate addition (bypasses strikes).",
+    "z_exit_hard": "Hard exit: Z-score for immediate removal (bypasses strikes).",
+    # Phase 14: Robustness fallbacks
+    "condition_threshold": "Maximum acceptable condition number for covariance matrix.",
+    "safe_mode": "Fallback weighting method when matrix is ill-conditioned.",
+    # Phase 15: Constraints
+    "long_only": "Enforce long-only positions (no short selling).",
+    # Phase 16: Data/Preprocessing
+    "missing_policy": "How to handle missing data: drop rows, forward-fill, or replace with zero.",
+    "winsorize_enabled": "Clip extreme returns to reduce impact of outliers.",
+    "winsorize_lower": "Lower percentile cutoff for winsorization (e.g., 1% = clip below 1st percentile).",
+    "winsorize_upper": "Upper percentile cutoff for winsorization (e.g., 99% = clip above 99th percentile).",
 }
 
 
@@ -364,6 +486,16 @@ def _initial_model_state() -> dict[str, Any]:
         "shrinkage_method": baseline["shrinkage_method"],
         "leverage_cap": baseline["leverage_cap"],
         "random_seed": baseline["random_seed"],
+        # Robustness fallbacks (Phase 14)
+        "condition_threshold": baseline["condition_threshold"],
+        "safe_mode": baseline["safe_mode"],
+        # Constraints (Phase 15)
+        "long_only": baseline["long_only"],
+        # Data/Preprocessing (Phase 16)
+        "missing_policy": baseline["missing_policy"],
+        "winsorize_enabled": baseline["winsorize_enabled"],
+        "winsorize_lower": baseline["winsorize_lower"],
+        "winsorize_upper": baseline["winsorize_upper"],
         # Entry/Exit thresholds (Phase 5)
         "z_entry_soft": baseline["z_entry_soft"],
         "z_exit_soft": baseline["z_exit_soft"],
@@ -372,6 +504,24 @@ def _initial_model_state() -> dict[str, Any]:
         "sticky_add_periods": baseline["sticky_add_periods"],
         "sticky_drop_periods": baseline["sticky_drop_periods"],
         "ci_level": baseline["ci_level"],
+        # Multi-period & Selection settings (Phase 8)
+        "multi_period_enabled": baseline["multi_period_enabled"],
+        "multi_period_frequency": baseline["multi_period_frequency"],
+        "in_sample_years": baseline["in_sample_years"],
+        "out_sample_years": baseline["out_sample_years"],
+        "inclusion_approach": baseline["inclusion_approach"],
+        "rank_transform": baseline["rank_transform"],
+        "slippage_bps": baseline["slippage_bps"],
+        "bottom_k": baseline["bottom_k"],
+        # Selection approach details (Phase 9)
+        "rank_pct": baseline["rank_pct"],
+        "rank_threshold": baseline["rank_threshold"],
+        # Multi-period bounds (Phase 12)
+        "mp_min_funds": baseline["mp_min_funds"],
+        "mp_max_funds": baseline["mp_max_funds"],
+        # Hard thresholds (Phase 13)
+        "z_entry_hard": baseline["z_entry_hard"],
+        "z_exit_hard": baseline["z_exit_hard"],
     }
 
 
@@ -945,6 +1095,73 @@ def render_model_page() -> None:
                 help=HELP_TEXT["warmup_periods"],
             )
 
+        # Volatility Adjustment Settings (Phase 10) - collapsible
+        with st.expander("📊 Volatility Adjustment Details", expanded=False):
+            st.caption(
+                "Configure how volatility scaling is applied to returns. "
+                "These settings control the rolling window for volatility estimation."
+            )
+
+            vol_adj_enabled = st.checkbox(
+                "Enable Volatility Adjustment",
+                value=bool(model_state.get("vol_adjust_enabled", True)),
+                help=HELP_TEXT["vol_adjust_enabled"],
+            )
+
+            if vol_adj_enabled:
+                va_c1, va_c2, va_c3 = st.columns(3)
+                with va_c1:
+                    vol_window_length = st.number_input(
+                        "Vol Window (periods)",
+                        min_value=10,
+                        max_value=252,
+                        value=int(model_state.get("vol_window_length", 63)),
+                        help=HELP_TEXT["vol_window_length"],
+                    )
+                    st.caption(
+                        f"~{vol_window_length // 21} months"
+                        if vol_window_length >= 21
+                        else f"{vol_window_length} days"
+                    )
+
+                with va_c2:
+                    decay_methods = ["ewma", "simple"]
+                    decay_labels = {
+                        "ewma": "EWMA (Exponential)",
+                        "simple": "Simple (Equal Weight)",
+                    }
+                    current_decay = model_state.get("vol_window_decay", "ewma")
+                    vol_window_decay = st.selectbox(
+                        "Decay Method",
+                        options=decay_methods,
+                        format_func=lambda x: decay_labels.get(x, x),
+                        index=(
+                            decay_methods.index(current_decay)
+                            if current_decay in decay_methods
+                            else 0
+                        ),
+                        help=HELP_TEXT["vol_window_decay"],
+                    )
+
+                with va_c3:
+                    vol_ewma_lambda = st.number_input(
+                        "EWMA Lambda",
+                        min_value=0.80,
+                        max_value=0.99,
+                        value=float(model_state.get("vol_ewma_lambda", 0.94)),
+                        step=0.01,
+                        format="%.2f",
+                        help=HELP_TEXT["vol_ewma_lambda"],
+                        disabled=(vol_window_decay != "ewma"),
+                    )
+                    if vol_window_decay == "ewma":
+                        half_life = round(-1 / (1 + 1e-9 - vol_ewma_lambda), 1)
+                        st.caption(f"Half-life: ~{half_life:.0f} periods")
+            else:
+                vol_window_length = int(model_state.get("vol_window_length", 63))
+                vol_window_decay = model_state.get("vol_window_decay", "ewma")
+                vol_ewma_lambda = float(model_state.get("vol_ewma_lambda", 0.94))
+
         max_weight = st.number_input(
             "Maximum Weight per Fund (%)",
             min_value=5,
@@ -1220,6 +1437,42 @@ def render_model_page() -> None:
                     disabled=not shrinkage_enabled,
                 )
 
+            # Phase 14: Robustness fallbacks
+            st.markdown("**Numerical Stability & Fallback**")
+            rob_c1, rob_c2 = st.columns(2)
+            with rob_c1:
+                condition_threshold = st.number_input(
+                    "Condition Number Threshold",
+                    min_value=1.0e6,
+                    max_value=1.0e15,
+                    value=float(model_state.get("condition_threshold", 1.0e12)),
+                    format="%.0e",
+                    help=HELP_TEXT["condition_threshold"],
+                )
+            with rob_c2:
+                safe_modes = ["hrp", "risk_parity", "equal"]
+                safe_mode_labels = {
+                    "hrp": "HRP (Hierarchical Risk Parity)",
+                    "risk_parity": "Risk Parity",
+                    "equal": "Equal Weight",
+                }
+                current_safe_mode = model_state.get("safe_mode", "hrp")
+                safe_mode = st.selectbox(
+                    "Fallback Method",
+                    options=safe_modes,
+                    format_func=lambda x: safe_mode_labels.get(x, x),
+                    index=(
+                        safe_modes.index(current_safe_mode)
+                        if current_safe_mode in safe_modes
+                        else 0
+                    ),
+                    help=HELP_TEXT["safe_mode"],
+                )
+            st.caption(
+                f"If condition number exceeds {condition_threshold:.0e}, "
+                f"fallback to {safe_mode_labels.get(safe_mode, safe_mode)}."
+            )
+
             # Leverage and seed
             st.markdown("**Portfolio Limits & Reproducibility**")
             exp_c3, exp_c4 = st.columns(2)
@@ -1243,6 +1496,78 @@ def render_model_page() -> None:
                     value=int(model_state.get("random_seed", 42)),
                     help=HELP_TEXT["random_seed"],
                 )
+
+            # Phase 15: Constraints
+            st.markdown("**Constraints**")
+            long_only = st.checkbox(
+                "Long-Only Portfolio",
+                value=bool(model_state.get("long_only", True)),
+                help=HELP_TEXT["long_only"],
+            )
+            if not long_only:
+                st.warning(
+                    "⚠️ Short positions enabled. Ensure your data and strategy "
+                    "support short selling."
+                )
+
+            # Phase 16: Data/Preprocessing
+            st.markdown("**Data Preprocessing**")
+            prep_c1, prep_c2 = st.columns(2)
+            with prep_c1:
+                missing_policies = ["drop", "ffill", "zero"]
+                missing_labels = {
+                    "drop": "Drop Missing",
+                    "ffill": "Forward Fill",
+                    "zero": "Replace with Zero",
+                }
+                current_missing = model_state.get("missing_policy", "ffill")
+                missing_policy = st.selectbox(
+                    "Missing Data Policy",
+                    options=missing_policies,
+                    format_func=lambda x: missing_labels.get(x, x),
+                    index=(
+                        missing_policies.index(current_missing)
+                        if current_missing in missing_policies
+                        else 1
+                    ),
+                    help=HELP_TEXT["missing_policy"],
+                )
+            with prep_c2:
+                winsorize_enabled = st.checkbox(
+                    "Enable Winsorization",
+                    value=bool(model_state.get("winsorize_enabled", True)),
+                    help=HELP_TEXT["winsorize_enabled"],
+                )
+
+            if winsorize_enabled:
+                win_c1, win_c2 = st.columns(2)
+                with win_c1:
+                    winsorize_lower = st.number_input(
+                        "Lower Limit (%)",
+                        min_value=0.0,
+                        max_value=10.0,
+                        value=float(model_state.get("winsorize_lower", 1.0)),
+                        step=0.5,
+                        format="%.1f",
+                        help=HELP_TEXT["winsorize_lower"],
+                    )
+                with win_c2:
+                    winsorize_upper = st.number_input(
+                        "Upper Limit (%)",
+                        min_value=90.0,
+                        max_value=100.0,
+                        value=float(model_state.get("winsorize_upper", 99.0)),
+                        step=0.5,
+                        format="%.1f",
+                        help=HELP_TEXT["winsorize_upper"],
+                    )
+                st.caption(
+                    f"Extreme returns clipped to [{winsorize_lower:.1f}%, "
+                    f"{winsorize_upper:.1f}%] percentiles."
+                )
+            else:
+                winsorize_lower = float(model_state.get("winsorize_lower", 1.0))
+                winsorize_upper = float(model_state.get("winsorize_upper", 99.0))
 
         # Section 10: Entry/Exit Rules (Phase 5) - collapsible
         st.divider()
@@ -1287,6 +1612,56 @@ def render_model_page() -> None:
                     f"Fund scoring ≤ {z_exit_soft:.2f}σ below average may be "
                     "considered for removal."
                 )
+
+            # Phase 13: Hard thresholds (immediate action)
+            st.markdown("**Hard Thresholds (Immediate Action)**")
+            st.caption(
+                "Hard thresholds trigger immediate action without waiting for "
+                "consecutive strikes. Leave blank to disable."
+            )
+            hard_c1, hard_c2 = st.columns(2)
+            with hard_c1:
+                z_entry_hard_val = model_state.get("z_entry_hard")
+                z_entry_hard_enabled = st.checkbox(
+                    "Enable Hard Entry Threshold",
+                    value=z_entry_hard_val is not None,
+                )
+                if z_entry_hard_enabled:
+                    z_entry_hard = st.number_input(
+                        "Hard Entry Threshold",
+                        min_value=0.0,
+                        max_value=4.0,
+                        value=float(
+                            z_entry_hard_val if z_entry_hard_val is not None else 2.0
+                        ),
+                        step=0.25,
+                        format="%.2f",
+                        help=HELP_TEXT["z_entry_hard"],
+                    )
+                    st.caption(f"Fund scoring ≥ {z_entry_hard:.2f}σ instantly added.")
+                else:
+                    z_entry_hard = None
+            with hard_c2:
+                z_exit_hard_val = model_state.get("z_exit_hard")
+                z_exit_hard_enabled = st.checkbox(
+                    "Enable Hard Exit Threshold",
+                    value=z_exit_hard_val is not None,
+                )
+                if z_exit_hard_enabled:
+                    z_exit_hard = st.number_input(
+                        "Hard Exit Threshold",
+                        min_value=-4.0,
+                        max_value=0.0,
+                        value=float(
+                            z_exit_hard_val if z_exit_hard_val is not None else -2.0
+                        ),
+                        step=0.25,
+                        format="%.2f",
+                        help=HELP_TEXT["z_exit_hard"],
+                    )
+                    st.caption(f"Fund scoring ≤ {z_exit_hard:.2f}σ instantly removed.")
+                else:
+                    z_exit_hard = None
 
             st.markdown("**Consecutive Period Requirements**")
             ee_c3, ee_c4 = st.columns(2)
@@ -1361,6 +1736,197 @@ def render_model_page() -> None:
             else:
                 st.caption("Confidence interval gate is disabled.")
 
+        # Section 11: Multi-Period & Selection Settings (Phase 8) - collapsible
+        st.divider()
+        with st.expander("📊 Multi-Period & Selection Settings", expanded=False):
+            st.caption(
+                "Configure rolling walk-forward analysis and fund selection approach. "
+                "Multi-period analysis tests the strategy across multiple time windows."
+            )
+
+            # Multi-period toggle
+            multi_period_enabled = st.checkbox(
+                "Enable Multi-Period Walk-Forward Analysis",
+                value=bool(model_state.get("multi_period_enabled", False)),
+                help=HELP_TEXT["multi_period_enabled"],
+            )
+
+            if multi_period_enabled:
+                st.markdown("**Rolling Window Settings**")
+                mp_c1, mp_c2, mp_c3 = st.columns(3)
+                with mp_c1:
+                    multi_period_frequencies = ["M", "Q", "A"]
+                    freq_labels = {
+                        "M": "Monthly",
+                        "Q": "Quarterly",
+                        "A": "Annual",
+                    }
+                    current_mp_freq = model_state.get("multi_period_frequency", "A")
+                    multi_period_frequency = st.selectbox(
+                        "Period Frequency",
+                        options=multi_period_frequencies,
+                        format_func=lambda x: freq_labels.get(x, x),
+                        index=(
+                            multi_period_frequencies.index(current_mp_freq)
+                            if current_mp_freq in multi_period_frequencies
+                            else 2
+                        ),
+                        help=HELP_TEXT["multi_period_frequency"],
+                    )
+
+                with mp_c2:
+                    in_sample_years = st.number_input(
+                        "In-Sample Window (Years)",
+                        min_value=1,
+                        max_value=10,
+                        value=int(model_state.get("in_sample_years", 3)),
+                        help=HELP_TEXT["in_sample_years"],
+                    )
+
+                with mp_c3:
+                    out_sample_years = st.number_input(
+                        "Out-Sample Window (Years)",
+                        min_value=1,
+                        max_value=5,
+                        value=int(model_state.get("out_sample_years", 1)),
+                        help=HELP_TEXT["out_sample_years"],
+                    )
+
+                st.caption(
+                    f"Strategy will be tested using {in_sample_years}-year training "
+                    f"periods, evaluated on {out_sample_years}-year test periods, "
+                    f"rolled forward {freq_labels[multi_period_frequency].lower()}."
+                )
+
+                # Multi-period bounds (Phase 12)
+                st.markdown("**Fund Count Bounds**")
+                bounds_c1, bounds_c2 = st.columns(2)
+                with bounds_c1:
+                    mp_min_funds = st.number_input(
+                        "Minimum Funds",
+                        min_value=1,
+                        max_value=50,
+                        value=int(model_state.get("mp_min_funds", 10)),
+                        help=HELP_TEXT["mp_min_funds"],
+                    )
+                with bounds_c2:
+                    mp_max_funds = st.number_input(
+                        "Maximum Funds",
+                        min_value=5,
+                        max_value=100,
+                        value=int(model_state.get("mp_max_funds", 25)),
+                        help=HELP_TEXT["mp_max_funds"],
+                    )
+                if mp_min_funds > mp_max_funds:
+                    st.warning(
+                        "⚠️ Minimum funds exceeds maximum. Values will be swapped."
+                    )
+            else:
+                multi_period_frequency = model_state.get("multi_period_frequency", "A")
+                in_sample_years = int(model_state.get("in_sample_years", 3))
+                out_sample_years = int(model_state.get("out_sample_years", 1))
+                mp_min_funds = int(model_state.get("mp_min_funds", 10))
+                mp_max_funds = int(model_state.get("mp_max_funds", 25))
+
+            st.markdown("**Fund Selection Approach**")
+            sel_c1, sel_c2 = st.columns(2)
+            with sel_c1:
+                inclusion_approaches = ["top_n", "top_pct", "threshold"]
+                inclusion_labels = {
+                    "top_n": "Top N Funds",
+                    "top_pct": "Top Percentage",
+                    "threshold": "Z-Score Threshold",
+                }
+                current_inclusion = model_state.get("inclusion_approach", "top_n")
+                inclusion_approach = st.selectbox(
+                    "Inclusion Approach",
+                    options=inclusion_approaches,
+                    format_func=lambda x: inclusion_labels.get(x, x),
+                    index=(
+                        inclusion_approaches.index(current_inclusion)
+                        if current_inclusion in inclusion_approaches
+                        else 0
+                    ),
+                    help=HELP_TEXT["inclusion_approach"],
+                )
+
+            with sel_c2:
+                rank_transforms = ["none", "zscore", "rank"]
+                transform_labels = {
+                    "none": "None (Raw Scores)",
+                    "zscore": "Z-Score Normalize",
+                    "rank": "Percentile Rank",
+                }
+                current_transform = model_state.get("rank_transform", "none")
+                rank_transform = st.selectbox(
+                    "Score Transform",
+                    options=rank_transforms,
+                    format_func=lambda x: transform_labels.get(x, x),
+                    index=(
+                        rank_transforms.index(current_transform)
+                        if current_transform in rank_transforms
+                        else 0
+                    ),
+                    help=HELP_TEXT["rank_transform"],
+                )
+
+            # Conditional inputs based on inclusion approach (Phase 9)
+            rank_pct = float(model_state.get("rank_pct", 0.10))
+            rank_threshold = float(model_state.get("rank_threshold", 1.5))
+            if inclusion_approach == "top_pct":
+                rank_pct = st.number_input(
+                    "Top Percentage",
+                    min_value=0.01,
+                    max_value=0.50,
+                    value=rank_pct,
+                    step=0.01,
+                    format="%.2f",
+                    help=HELP_TEXT["rank_pct"],
+                )
+                st.caption(f"Select top {rank_pct * 100:.0f}% of funds by score")
+            elif inclusion_approach == "threshold":
+                rank_threshold = st.number_input(
+                    "Z-Score Threshold",
+                    min_value=0.0,
+                    max_value=3.0,
+                    value=rank_threshold,
+                    step=0.1,
+                    format="%.1f",
+                    help=HELP_TEXT["rank_threshold"],
+                )
+                st.caption(
+                    f"Include funds with score ≥ {rank_threshold:.1f}σ above mean"
+                )
+
+            st.markdown("**Additional Cost & Exclusion Settings**")
+            cost_c1, cost_c2 = st.columns(2)
+            with cost_c1:
+                slippage_bps = st.number_input(
+                    "Slippage (bps)",
+                    min_value=0,
+                    max_value=50,
+                    value=int(model_state.get("slippage_bps", 0)),
+                    help=HELP_TEXT["slippage_bps"],
+                )
+                if slippage_bps > 0:
+                    st.caption(
+                        f"Additional {slippage_bps} bps ({slippage_bps / 100:.2f}%) "
+                        "market impact cost per trade."
+                    )
+
+            with cost_c2:
+                bottom_k = st.number_input(
+                    "Exclude Bottom K Funds",
+                    min_value=0,
+                    max_value=10,
+                    value=int(model_state.get("bottom_k", 0)),
+                    help=HELP_TEXT["bottom_k"],
+                )
+                if bottom_k > 0:
+                    st.caption(
+                        f"Bottom {bottom_k} ranked funds will always be excluded."
+                    )
+
         submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
@@ -1411,6 +1977,16 @@ def render_model_page() -> None:
                 "shrinkage_method": shrinkage_method,
                 "leverage_cap": leverage_cap,
                 "random_seed": random_seed,
+                # Robustness fallbacks (Phase 14)
+                "condition_threshold": condition_threshold,
+                "safe_mode": safe_mode,
+                # Constraints (Phase 15)
+                "long_only": long_only,
+                # Data/Preprocessing (Phase 16)
+                "missing_policy": missing_policy,
+                "winsorize_enabled": winsorize_enabled,
+                "winsorize_lower": winsorize_lower,
+                "winsorize_upper": winsorize_upper,
                 # Entry/Exit thresholds (Phase 5)
                 "z_entry_soft": z_entry_soft,
                 "z_exit_soft": z_exit_soft,
@@ -1419,6 +1995,24 @@ def render_model_page() -> None:
                 "sticky_add_periods": sticky_add_periods,
                 "sticky_drop_periods": sticky_drop_periods,
                 "ci_level": ci_level,
+                # Multi-period & Selection settings (Phase 8)
+                "multi_period_enabled": multi_period_enabled,
+                "multi_period_frequency": multi_period_frequency,
+                "in_sample_years": in_sample_years,
+                "out_sample_years": out_sample_years,
+                "inclusion_approach": inclusion_approach,
+                "rank_transform": rank_transform,
+                "slippage_bps": slippage_bps,
+                "bottom_k": bottom_k,
+                # Selection approach details (Phase 9)
+                "rank_pct": rank_pct,
+                "rank_threshold": rank_threshold,
+                # Multi-period bounds (Phase 12)
+                "mp_min_funds": mp_min_funds,
+                "mp_max_funds": mp_max_funds,
+                # Hard thresholds (Phase 13)
+                "z_entry_hard": z_entry_hard,
+                "z_exit_hard": z_exit_hard,
             }
             errors = _validate_model(
                 candidate_state, len(fund_cols) if fund_cols else 0
