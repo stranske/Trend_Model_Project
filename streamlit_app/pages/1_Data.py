@@ -15,6 +15,11 @@ from streamlit_app.components.csv_validation import (
     DateCorrectionNeeded,
     validate_uploaded_csv,
 )
+from streamlit_app.components.data_schema import (
+    SchemaMeta,
+    infer_benchmarks,
+    infer_risk_free_candidates,
+)
 from streamlit_app.components.date_correction import (
     apply_date_corrections,
     format_corrections_for_display,
@@ -23,11 +28,6 @@ from streamlit_app.components.upload_guard import (
     UploadViolation,
     guard_and_buffer_upload,
     hash_path,
-)
-from streamlit_app.components.data_schema import (
-    SchemaMeta,
-    infer_benchmarks,
-    infer_risk_free_candidates,
 )
 from trend.input_validation import InputValidationError
 from trend_analysis.io.market_data import MarketDataValidationError

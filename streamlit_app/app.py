@@ -2,9 +2,9 @@
 import streamlit as st
 
 from streamlit_app.components.demo_runner import (
-    run_demo_with_overrides,
     list_presets,
     load_preset_config,
+    run_demo_with_overrides,
 )
 
 st.set_page_config(

@@ -12,7 +12,6 @@ import streamlit as st
 from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, charts
 
-
 # =============================================================================
 # Formatting Helpers
 # =============================================================================
