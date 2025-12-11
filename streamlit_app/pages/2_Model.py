@@ -70,7 +70,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 3,
         "max_changes_per_period": 0,  # 0 = unlimited
         "max_active_positions": 0,  # 0 = unlimited (uses selection_count)
-        # Trend signal parameters (Phase 4)
+        # Portfolio signal parameters (Phase 4)
         "trend_window": 63,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -151,7 +151,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 6,
         "max_changes_per_period": 2,
         "max_active_positions": 10,
-        # Trend signal parameters - longer window for stability
+        # Portfolio signal parameters - longer window for stability
         "trend_window": 126,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -232,7 +232,7 @@ PRESET_CONFIGS = {
         "min_tenure_periods": 1,
         "max_changes_per_period": 0,  # unlimited
         "max_active_positions": 0,  # unlimited
-        # Trend signal parameters - shorter window for responsiveness
+        # Portfolio signal parameters - shorter window for responsiveness
         "trend_window": 42,
         "trend_lag": 1,
         "trend_min_periods": None,
@@ -454,7 +454,7 @@ def _initial_model_state() -> dict[str, Any]:
         "min_tenure_periods": baseline["min_tenure_periods"],
         "max_changes_per_period": baseline["max_changes_per_period"],
         "max_active_positions": baseline["max_active_positions"],
-        # Trend signal parameters (Phase 4)
+        # Portfolio signal parameters (Phase 4)
         "trend_window": baseline["trend_window"],
         "trend_lag": baseline["trend_lag"],
         "trend_min_periods": baseline["trend_min_periods"],
@@ -859,7 +859,7 @@ def render_model_page() -> None:
                 "min_tenure_periods": preset_config["min_tenure_periods"],
                 "max_changes_per_period": preset_config["max_changes_per_period"],
                 "max_active_positions": preset_config["max_active_positions"],
-                # Trend signal parameters (Phase 4)
+                # Portfolio signal parameters (Phase 4)
                 "trend_window": preset_config["trend_window"],
                 "trend_lag": preset_config["trend_lag"],
                 "trend_min_periods": preset_config["trend_min_periods"],
@@ -1981,7 +1981,7 @@ def render_model_page() -> None:
                 "min_tenure_periods": min_tenure_periods,
                 "max_changes_per_period": max_changes_per_period,
                 "max_active_positions": max_active_positions,
-                # Trend signal parameters (Phase 4)
+                # Portfolio signal parameters (Phase 4)
                 "trend_window": trend_window,
                 "trend_lag": trend_lag,
                 "trend_min_periods": trend_min_periods_out,
