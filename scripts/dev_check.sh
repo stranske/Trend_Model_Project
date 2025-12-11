@@ -293,7 +293,7 @@ quick_check "Basic type check" "$TYPE_CMD" "mypy --install-types --non-interacti
 
 echo -e "${BLUE}6. Keepalive harness tests...${NC}"
 if command -v node >/dev/null 2>&1; then
-    quick_check "Keepalive workflow harness" "pytest tests/test_keepalive_workflow.py" ""
+    quick_check "Keepalive workflow harness" "pytest tests/workflows/test_keepalive_workflow.py" ""
 else
     echo -e "${YELLOW}⚠ Node.js not available; skipping keepalive harness tests${NC}"
 fi
