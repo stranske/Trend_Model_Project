@@ -733,13 +733,43 @@ def _infer_frequency(
     return info["canonical"], info["label"], info
 
 
+def _strip_percent(series: pd.Series) -> Tuple[pd.Series, bool]:
+    """Strip trailing '%' from string values and divide by 100 if needed.
+
+    Returns
+    -------
+    Tuple[pd.Series, bool]
+        The converted series and whether any '%' signs were stripped.
+    """
+    if not hasattr(series, "str"):
+        return series, False
+
+    str_series = series.astype(str)
+    has_percent = str_series.str.endswith("%")
+    if not has_percent.any():
+        return series, False
+
+    # Strip the '%' and convert to numeric, then divide by 100
+    stripped = str_series.str.rstrip("%")
+    numeric = pd.to_numeric(stripped, errors="coerce")
+
+    # Only divide by 100 for values that originally had '%'
+    result = numeric.where(~has_percent, numeric / 100)
+    return result, True
+
+
 def _coerce_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
     numeric = pd.DataFrame(index=df.index)
     issues: list[str] = []
 
     for column in df.columns:
         series = df[column]
-        coerced = pd.to_numeric(series, errors="coerce")
+        # First, try stripping percentage signs
+        stripped, had_percent = _strip_percent(series)
+        if had_percent:
+            coerced = stripped
+        else:
+            coerced = pd.to_numeric(series, errors="coerce")
         if coerced.notna().sum() == 0:
             issues.append(f"Column '{column}' contains no numeric data after coercion.")
         numeric[column] = coerced

@@ -10,14 +10,14 @@ import pandas as pd
 import yaml
 
 from streamlit_app.components.analysis_runner import ModelSettings
-from trend_analysis.api import run_simulation
-from trend_analysis.config import Config
-from trend_portfolio_app.data_schema import (
+from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
     load_and_validate_file,
 )
-from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig
+from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
+from trend_analysis.api import run_simulation
+from trend_analysis.config import Config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = REPO_ROOT / "demo"
@@ -389,4 +389,172 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
     from streamlit_app.components.data_cache import cache_key_for_frame
 
     st_module.session_state["data_fingerprint"] = cache_key_for_frame(df)
+    return True
+
+
+def list_presets() -> list[Dict[str, Any]]:
+    """Return a list of available preset configurations."""
+    presets = []
+    if not PRESET_DIR.exists():
+        return [{"name": "Balanced", "description": "Default balanced preset"}]
+
+    for path in sorted(PRESET_DIR.glob("*.yml")):
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                data = yaml.safe_load(fh) or {}
+            presets.append(
+                {
+                    "name": data.get("name", path.stem.title()),
+                    "description": data.get("description", ""),
+                    "file": path.name,
+                }
+            )
+        except Exception:
+            continue
+
+    if not presets:
+        presets.append({"name": "Balanced", "description": "Default balanced preset"})
+
+    return presets
+
+
+def load_preset_config(name: str) -> Dict[str, Any]:
+    """Load a preset configuration by name."""
+    return _load_preset(name)
+
+
+def run_demo_with_overrides(
+    preset_name: str = "Balanced",
+    overrides: Dict[str, Any] | None = None,
+    st_module: Any | None = None,
+) -> bool:
+    """Execute the demo pipeline with user-specified overrides.
+
+    Parameters
+    ----------
+    preset_name
+        Name of the preset to use as base configuration.
+    overrides
+        Dictionary of parameter overrides (lookback_months, selection_count, etc.)
+    st_module
+        Streamlit module for error display (defaults to st).
+
+    Returns
+    -------
+    bool
+        True if demo completed successfully.
+    """
+    if st_module is None:
+        import streamlit as st  # noqa: E402
+
+        st_module = st
+
+    overrides = overrides or {}
+
+    # Load demo data
+    try:
+        df, meta = _load_demo_returns()
+    except Exception as exc:
+        st_module.error(f"Unable to load demo returns data: {exc}")
+        return False
+
+    # Load preset and apply overrides
+    preset_data = _load_preset(preset_name)
+
+    # Deep merge overrides into preset
+    merged = dict(preset_data)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and key in merged and isinstance(merged[key], dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+
+    # Normalize metric weights
+    raw_metrics = merged.get("metrics", {})
+    metric_weights = _normalise_metric_weights(raw_metrics)
+
+    # Derive time window
+    lookback = int(merged.get("lookback_months", 36))
+    start, end = _derive_window(df, lookback)
+    benchmark = _select_benchmark(df.columns)
+    return_cols = [c for c in df.columns if c != benchmark]
+
+    column_mapping = {
+        "date_column": "Date",
+        "return_columns": return_cols,
+        "benchmark_column": benchmark,
+        "risk_free_column": None,
+        "column_display_names": {col: col for col in return_cols},
+        "column_tickers": {},
+    }
+
+    # Build policy with merged settings
+    policy = _build_policy(metric_weights, merged)
+
+    # Update policy with additional overrides
+    portfolio_overrides = merged.get("portfolio", {})
+    if "max_weight" in portfolio_overrides:
+        policy = PolicyConfig(
+            top_k=policy.top_k,
+            bottom_k=policy.bottom_k,
+            cooldown_months=int(
+                portfolio_overrides.get("cooldown_months", policy.cooldown_months)
+            ),
+            min_track_months=policy.min_track_months,
+            max_active=policy.max_active,
+            max_weight=float(portfolio_overrides.get("max_weight", policy.max_weight)),
+            metrics=policy.metrics,
+        )
+
+    # Build config state
+    config_state = {
+        "preset_name": preset_name,
+        "preset_config": merged,
+        "column_mapping": column_mapping,
+        "custom_overrides": merged,
+        "validation_errors": [],
+        "is_valid": True,
+    }
+
+    sim_config = {
+        "start": start,
+        "end": end,
+        "freq": merged.get("rebalance_frequency", "monthly"),
+        "lookback_months": lookback,
+        "benchmark": benchmark,
+        "cash_rate": 0.0,
+        "policy": policy.dict(),
+        "rebalance": {
+            "bayesian_only": True,
+            "strategies": ["drift_band"],
+            "params": {},
+        },
+        "risk_target": float(merged.get("risk_target", 0.10)),
+        "column_mapping": column_mapping,
+        "preset_name": preset_name,
+        "portfolio": {"weighting_scheme": merged.get("weighting_scheme", "equal")},
+    }
+
+    pipeline_config = _build_pipeline_config(sim_config, metric_weights, benchmark)
+
+    setup = DemoSetup(config_state, sim_config, pipeline_config, benchmark)
+
+    # Run simulation
+    returns = df.reset_index().rename(columns={df.index.name or "index": "Date"})
+
+    try:
+        result = run_simulation(setup.pipeline_config, returns)
+    except Exception as exc:
+        st_module.error(f"Demo simulation failed: {exc}")
+        return False
+
+    # Update session state
+    _update_session_state(st_module, setup, df, meta)
+    st_module.session_state["sim_results"] = result
+    st_module.session_state["analysis_result"] = result
+
+    from streamlit_app.components.data_cache import cache_key_for_frame
+
+    st_module.session_state["data_fingerprint"] = cache_key_for_frame(df)
+
     return True

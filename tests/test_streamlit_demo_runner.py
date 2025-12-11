@@ -81,6 +81,13 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
         def subheader(self, *_, **__):  # noqa: D401 - stub
             return None
 
+        def selectbox(self, label, options, *_, **kwargs):  # noqa: D401 - stub
+            idx = kwargs.get("index", 0)
+            return options[idx] if options else None
+
+        def number_input(self, label, *_, **kwargs):  # noqa: D401 - stub
+            return kwargs.get("value", 0)
+
         class _Spinner:
             def __enter__(self):  # noqa: D401 - context helper
                 return None
@@ -97,6 +104,9 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
 
         def spinner(self, *_, **__):  # noqa: D401 - stub
             return self._Spinner()
+
+        def expander(self, *_, **__):  # noqa: D401 - stub
+            return self._Ctx()
 
         def columns(self, spec, **__):  # noqa: D401 - stub
             if isinstance(spec, int):
@@ -137,7 +147,7 @@ def test_app_demo_button_triggers_navigation(monkeypatch):
         return True
 
     monkeypatch.setattr(
-        "streamlit_app.components.demo_runner.run_one_click_demo",
+        "streamlit_app.components.demo_runner.run_demo_with_overrides",
         fake_run_demo,
     )
 

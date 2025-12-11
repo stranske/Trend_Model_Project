@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_portfolio_app import data_schema
-from trend_portfolio_app.data_schema import load_and_validate_csv
+from streamlit_app.components import data_schema
+from streamlit_app.components.data_schema import load_and_validate_csv
 
 
 def test_extract_headers_from_csv_bytes_with_bom() -> None:

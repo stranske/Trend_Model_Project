@@ -205,7 +205,7 @@ Run with your own configuration file:
 # Mount config directory and specify custom config
 docker run -p 8501:8501 -v $(pwd)/my-configs:/app/config \
   trend-model:local \
-  streamlit run src/trend_portfolio_app/app.py
+  streamlit run streamlit_app/app.py
 ```
 
 ### Data Persistence

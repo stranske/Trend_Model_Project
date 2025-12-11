@@ -9,7 +9,6 @@ import asyncio
 import signal
 import subprocess
 import sys
-from importlib import util
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -18,13 +17,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def _discover_streamlit_app() -> Path | None:
     """Return the Streamlit app path bundled with the install."""
 
-    spec = util.find_spec("trend_portfolio_app.app")
-    if spec and spec.origin:
-        return Path(spec.origin)
-
-    fallback = REPO_ROOT / "streamlit_app" / "app.py"
-    if fallback.exists():
-        return fallback
+    # Primary location: streamlit_app/app.py
+    primary = REPO_ROOT / "streamlit_app" / "app.py"
+    if primary.exists():
+        return primary
     return None
 
 

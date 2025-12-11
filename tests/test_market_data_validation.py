@@ -8,6 +8,7 @@ from trend_analysis.io.market_data import (
     _infer_mode,
     _normalise_policy_value,
     _resolve_datetime_index,
+    _strip_percent,
     _summarise_missing_policy,
     apply_missing_policy,
     classify_frequency,
@@ -370,3 +371,52 @@ def test_validate_market_data_policy_drops_everything() -> None:
     df = pd.DataFrame({"Date": dates, "A": [None, None, None]})
     with pytest.raises(MarketDataValidationError):
         validate_market_data(df, missing_policy="drop")
+
+
+class TestStripPercent:
+    """Tests for _strip_percent helper function."""
+
+    def test_strips_percentage_signs_and_divides_by_100(self) -> None:
+        series = pd.Series(["0.37%", "1.5%", "-2.3%", "10%"])
+        result, had_percent = _strip_percent(series)
+        assert had_percent is True
+        assert result.iloc[0] == pytest.approx(0.0037, rel=1e-6)
+        assert result.iloc[1] == pytest.approx(0.015, rel=1e-6)
+        assert result.iloc[2] == pytest.approx(-0.023, rel=1e-6)
+        assert result.iloc[3] == pytest.approx(0.10, rel=1e-6)
+
+    def test_returns_original_series_when_no_percents(self) -> None:
+        series = pd.Series([0.5, 1.0, -0.3])
+        result, had_percent = _strip_percent(series)
+        assert had_percent is False
+        # Original series should be returned unchanged
+        assert list(result) == [0.5, 1.0, -0.3]
+
+    def test_handles_mixed_percent_and_non_percent(self) -> None:
+        series = pd.Series(["0.5%", "1.0", "-0.3%"])
+        result, had_percent = _strip_percent(series)
+        assert had_percent is True
+        # "0.5%" -> 0.005, "1.0" -> 1.0 (not divided), "-0.3%" -> -0.003
+        assert result.iloc[0] == pytest.approx(0.005, rel=1e-6)
+        assert result.iloc[1] == pytest.approx(1.0, rel=1e-6)  # No % so not divided
+        assert result.iloc[2] == pytest.approx(-0.003, rel=1e-6)
+
+    def test_handles_nan_values(self) -> None:
+        series = pd.Series(["1.5%", None, "-2.3%"])
+        result, had_percent = _strip_percent(series)
+        assert had_percent is True
+        assert result.iloc[0] == pytest.approx(0.015, rel=1e-6)
+        assert pd.isna(result.iloc[1])
+        assert result.iloc[2] == pytest.approx(-0.023, rel=1e-6)
+
+
+def test_coerce_numeric_handles_percentage_strings() -> None:
+    """Test that _coerce_numeric correctly handles percentage strings."""
+    df = pd.DataFrame({"A": ["0.37%", "1.5%"], "B": [1.0, 2.0]})
+    numeric, issues = _coerce_numeric(df)
+    assert len(issues) == 0
+    assert numeric.shape == (2, 2)
+    assert numeric["A"].iloc[0] == pytest.approx(0.0037, rel=1e-6)
+    assert numeric["A"].iloc[1] == pytest.approx(0.015, rel=1e-6)
+    assert numeric["B"].iloc[0] == 1.0
+    assert numeric["B"].iloc[1] == 2.0

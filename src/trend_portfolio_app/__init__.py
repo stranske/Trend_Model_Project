@@ -1,1 +1,0 @@
-"""Trend portfolio application package."""

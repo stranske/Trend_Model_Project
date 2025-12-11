@@ -1,4 +1,4 @@
-"""Coverage-focused tests for ``trend_portfolio_app.data_schema``."""
+"""Coverage-focused tests for ``streamlit_app.components.data_schema``."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import pytest
 
 @pytest.fixture
 def schema_module() -> Any:
-    import trend_portfolio_app.data_schema as data_schema
+    import streamlit_app.components.data_schema as data_schema
 
     return data_schema
 

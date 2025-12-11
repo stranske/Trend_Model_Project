@@ -10,7 +10,7 @@ from trend_analysis.io.market_data import (
     MissingPolicyFillDetails,
     ValidatedMarketData,
 )
-from trend_portfolio_app.data_schema import (
+from streamlit_app.components.data_schema import (
     DATE_COL,
     _build_meta,
     _sanitize_formula_headers,

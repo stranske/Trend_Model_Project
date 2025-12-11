@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from trend_portfolio_app.policy_engine import (
+from streamlit_app.components.policy_engine import (
     CooldownBook,
     MetricSpec,
     PolicyConfig,
@@ -88,7 +88,7 @@ def test_decide_hires_fires_diversification_and_turnover(monkeypatch):
         return pd.Series({"a": 2.0, "b": 1.2, "c": -0.5, "d": 1.0}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -129,7 +129,7 @@ def test_decide_hires_fires_turnover_budget_prioritises(monkeypatch):
         return pd.Series({"a": -1.0, "b": 2.0, "c": 1.5}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -168,7 +168,7 @@ def test_decide_hires_fires_turnover_budget_mixed_moves(monkeypatch):
         return pd.Series({"hire1": 2.0, "hire2": 1.0, "drop": -1.5}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -206,7 +206,7 @@ def test_decide_hires_fires_turnover_budget_trims_mixed(monkeypatch):
         return pd.Series({"a": 1.0, "b": 2.0, "c": -1.0}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -243,7 +243,7 @@ def test_decide_hires_fires_turnover_budget_mixes_hires_and_fires(monkeypatch):
         return pd.Series({"a": -0.5, "b": 1.5, "c": 1.0}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -282,7 +282,7 @@ def test_decide_hires_fires_bucket_skip_and_nan_priorities(monkeypatch):
         return pd.Series({"a": 5.0, "b": 4.0, "c": 3.0, "d": np.nan}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(
@@ -321,7 +321,7 @@ def test_decide_hires_fires_unknown_bucket_defaults_to_name(monkeypatch):
         return pd.Series({"known": 0.5, "mystery": 2.0}, index=sf.index)
 
     monkeypatch.setattr(
-        "trend_portfolio_app.policy_engine.rank_scores", fake_rank_scores
+        "streamlit_app.components.policy_engine.rank_scores", fake_rank_scores
     )
 
     decisions = decide_hires_fires(

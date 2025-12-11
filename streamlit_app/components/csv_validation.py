@@ -6,13 +6,18 @@ import io
 import logging
 import re
 from collections import Counter
+from dataclasses import dataclass
 from typing import IO, Sequence
 
 import pandas as pd
 
-from trend_portfolio_app.data_schema import (
+from streamlit_app.components.data_schema import (
     apply_original_headers,
     extract_headers_from_bytes,
+)
+from streamlit_app.components.date_correction import (
+    DateCorrection,
+    analyze_date_column,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,6 +25,24 @@ logger = logging.getLogger(__name__)
 _SAMPLE_PREVIEW = (
     """Date,Firm_A,Firm_B\n2020-01-31,0.012,-0.004\n2020-02-29,-0.003,0.011\n"""
 )
+
+
+@dataclass
+class DateCorrectionNeeded:
+    """Raised when dates can be corrected with user approval."""
+
+    corrections: list[DateCorrection]
+    unfixable: list[tuple[int, str]]
+    trailing_empty_rows: list[int]
+    droppable_empty_rows: list[int]
+    raw_data: bytes
+    original_name: str
+    date_column: str
+
+    @property
+    def all_rows_to_drop(self) -> list[int]:
+        """All row indices that will be dropped."""
+        return self.trailing_empty_rows + self.droppable_empty_rows
 
 
 class CSVValidationError(ValueError):
@@ -31,12 +54,14 @@ class CSVValidationError(ValueError):
         *,
         issues: Sequence[str] | None = None,
         sample_preview: str | None = None,
+        date_correction: DateCorrectionNeeded | None = None,
     ) -> None:
         formatted = message.strip()
         super().__init__(formatted)
         self.user_message = formatted
         self.issues = list(issues or [])
         self.sample_preview = sample_preview
+        self.date_correction = date_correction
 
 
 def _buffer_from_upload(file: bytes | IO[bytes]) -> io.BytesIO:
@@ -175,15 +200,81 @@ def validate_uploaded_csv(
             ) from exc
 
         if parsed.isna().any():
-            first_bad = int(parsed[parsed.isna()].index[0])
-            example = df[date_column].iloc[first_bad]
-            raise CSVValidationError(
-                "Some rows have invalid dates.",
-                issues=[
-                    f"Row {first_bad + 1} contains '{example}' which cannot be parsed as a date."
-                ],
-                sample_preview=_SAMPLE_PREVIEW,
-            )
+            # Check if the invalid dates can be corrected
+            correction_result = analyze_date_column(df, date_column)
+
+            if correction_result.all_fixable:
+                # All issues can be resolved (corrections + row drops)
+                correction_info = DateCorrectionNeeded(
+                    corrections=correction_result.corrections,
+                    unfixable=correction_result.unfixable,
+                    trailing_empty_rows=correction_result.trailing_empty_rows,
+                    droppable_empty_rows=correction_result.droppable_empty_rows,
+                    raw_data=raw,
+                    original_name=buffer.name,
+                    date_column=date_column,
+                )
+
+                # Build descriptive issue list
+                issues = []
+                if correction_result.corrections:
+                    issues.append(
+                        f"{len(correction_result.corrections)} date(s) need correction "
+                        "(e.g., November 31 → November 30)."
+                    )
+                total_drops = correction_result.total_droppable_rows
+                if total_drops > 0:
+                    issues.append(
+                        f"{total_drops} row(s) with empty/NaN dates will be removed."
+                    )
+
+                raise CSVValidationError(
+                    "Some dates have issues that can be automatically corrected.",
+                    issues=issues,
+                    sample_preview=_SAMPLE_PREVIEW,
+                    date_correction=correction_info,
+                )
+            elif (
+                correction_result.has_corrections
+                or correction_result.has_trailing_empty
+                or correction_result.has_droppable_empty
+            ):
+                # Some can be fixed, some cannot
+                correction_info = DateCorrectionNeeded(
+                    corrections=correction_result.corrections,
+                    unfixable=correction_result.unfixable,
+                    trailing_empty_rows=correction_result.trailing_empty_rows,
+                    droppable_empty_rows=correction_result.droppable_empty_rows,
+                    raw_data=raw,
+                    original_name=buffer.name,
+                    date_column=date_column,
+                )
+                first_unfixable = correction_result.unfixable[0]
+                fixable_count = len(correction_result.corrections) + len(
+                    correction_result.trailing_empty_rows
+                )
+                raise CSVValidationError(
+                    "Some dates have issues. Some can be corrected, but others cannot be parsed.",
+                    issues=[
+                        f"{fixable_count} issue(s) can be auto-fixed, "
+                        f"but {len(correction_result.unfixable)} cannot be parsed.",
+                        f"Row {first_unfixable[0] + 1} contains '{first_unfixable[1]}' "
+                        "which cannot be interpreted as a date.",
+                    ],
+                    sample_preview=_SAMPLE_PREVIEW,
+                    date_correction=correction_info,
+                )
+            else:
+                # No corrections possible - original error
+                first_bad = int(parsed[parsed.isna()].index[0])
+                example = df[date_column].iloc[first_bad]
+                raise CSVValidationError(
+                    "Some rows have invalid dates.",
+                    issues=[
+                        f"Row {first_bad + 1} contains '{example}' which cannot be parsed as a date."
+                    ],
+                    sample_preview=_SAMPLE_PREVIEW,
+                )
 
         duplicates = parsed.duplicated()
         if duplicates.any():

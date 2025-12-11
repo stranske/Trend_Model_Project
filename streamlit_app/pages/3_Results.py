@@ -13,10 +13,33 @@ from streamlit_app import state as app_state
 from streamlit_app.components import analysis_runner, charts
 
 
+# =============================================================================
+# Formatting Helpers
+# =============================================================================
+
+
+def _fmt_pct(x: float, decimals: int = 1) -> str:
+    """Format as percentage with specified decimals."""
+    if pd.isna(x) or not np.isfinite(x):
+        return "—"
+    return f"{x * 100:.{decimals}f}%"
+
+
+def _fmt_ratio(x: float) -> str:
+    """Format ratios (Sharpe, Sortino) to 2 decimal places."""
+    if pd.isna(x) or not np.isfinite(x):
+        return "—"
+    return f"{x:.2f}"
+
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+
 def _should_auto_render() -> bool:
     """Return True when running inside an active Streamlit session."""
-
-    try:  # pragma: no cover - runtime detection only
+    try:
         from streamlit.runtime.scriptrunner import get_script_run_ctx
     except Exception:
         return False
@@ -25,7 +48,6 @@ def _should_auto_render() -> bool:
 
 def _analysis_error_messages(error: Exception) -> tuple[str, str | None]:
     """Return a user-friendly summary and optional detail for analysis failures."""
-
     detail = str(error).strip() or None
     if isinstance(error, ValueError):
         summary = (
@@ -50,7 +72,7 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
     filled = returns.fillna(0.0)
     equity = (1.0 + filled).cumprod()
-    equity.name = "Equity"
+    equity.name = "Cumulative Return"
     return equity
 
 
@@ -71,73 +93,1049 @@ def _rolling_sharpe(returns: pd.Series, window: int = 12) -> pd.Series:
     return sharpe.dropna()
 
 
-def _render_summary(result) -> None:
-    metrics = result.metrics
-    if metrics is not None and not metrics.empty:
-        st.subheader("Summary metrics")
-        st.dataframe(metrics)
+def _get_simulation_date_range(result) -> tuple[str | None, str | None]:
+    """Extract the simulation start and end dates from multi-period results."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return None, None
+
+    # Get first period's out-sample start and last period's out-sample end
+    first_period = period_results[0].get("period", ("", "", "", ""))
+    last_period = period_results[-1].get("period", ("", "", "", ""))
+
+    sim_start = first_period[2] if len(first_period) > 2 else None
+    sim_end = last_period[3] if len(last_period) > 3 else None
+
+    return sim_start, sim_end
+
+
+def _get_portfolio_funds_by_period(result) -> dict[str, set[str]]:
+    """Get the set of funds in portfolio at each period."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    portfolio_by_period: dict[str, set[str]] = {}
+    current_portfolio: set[str] = set()
+
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        changes = res.get("manager_changes", [])
+
+        # Apply changes to current portfolio
+        for change in changes:
+            manager = change.get("manager", "")
+            action = change.get("action", "")
+            if action == "added":
+                current_portfolio.add(manager)
+            elif action == "dropped":
+                current_portfolio.discard(manager)
+
+        portfolio_by_period[out_start] = current_portfolio.copy()
+
+    return portfolio_by_period
+
+
+def _get_final_portfolio(result) -> set[str]:
+    """Get the funds in the final portfolio."""
+    portfolio_by_period = _get_portfolio_funds_by_period(result)
+    if not portfolio_by_period:
+        return set()
+    last_date = max(portfolio_by_period.keys())
+    return portfolio_by_period[last_date]
+
+
+# =============================================================================
+# Trailing Period Stats (1, 3, 5, 10, LOF)
+# =============================================================================
+
+
+def _compute_trailing_stats(returns: pd.Series) -> pd.DataFrame:
+    """Compute trailing period statistics for 1, 3, 5, 10 years and life-of-fund."""
+    if returns.empty:
+        return pd.DataFrame()
+
+    periods = {
+        "1Y": 12,
+        "3Y": 36,
+        "5Y": 60,
+        "10Y": 120,
+        "LOF": len(returns),
+    }
+
+    stats_data = []
+    for label, months in periods.items():
+        if months > len(returns):
+            if label != "LOF":
+                continue
+            months = len(returns)
+
+        subset = returns.iloc[-months:]
+        if subset.empty:
+            continue
+
+        total_return = (1 + subset).prod() - 1
+        years = months / 12
+        cagr = (1 + total_return) ** (1 / years) - 1 if years > 0 else 0
+        vol = subset.std() * np.sqrt(12)
+        sharpe = (cagr / vol) if vol > 0 else 0
+
+        downside = subset[subset < 0]
+        downside_std = downside.std() * np.sqrt(12) if len(downside) > 0 else 0
+        sortino = (cagr / downside_std) if downside_std > 0 else 0
+
+        equity = (1 + subset).cumprod()
+        rolling_max = equity.cummax()
+        drawdown = equity / rolling_max - 1
+        max_dd = drawdown.min()
+
+        stats_data.append(
+            {
+                "Period": label,
+                "CAGR": cagr,
+                "Volatility": vol,
+                "Sharpe": sharpe,
+                "Sortino": sortino,
+                "Max DD": max_dd,
+            }
+        )
+
+    if not stats_data:
+        return pd.DataFrame()
+
+    return pd.DataFrame(stats_data).set_index("Period")
+
+
+def _render_trailing_stats(returns: pd.Series) -> None:
+    """Render trailing period statistics table."""
+    stats_df = _compute_trailing_stats(returns)
+    if stats_df.empty:
+        st.caption("Insufficient data for trailing statistics.")
+        return
+
+    formatted = stats_df.copy()
+    for col in ["CAGR", "Volatility", "Max DD"]:
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(lambda x: _fmt_pct(x, 1))
+    for col in ["Sharpe", "Sortino"]:
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(_fmt_ratio)
+
+    st.dataframe(formatted, use_container_width=True)
+
+
+# =============================================================================
+# Manager Changes / Hiring & Firing Decisions
+# =============================================================================
+
+
+def _extract_manager_changes(result) -> pd.DataFrame:
+    """Extract manager changes that occurred during simulation period.
+
+    Includes seed entries as 'Initial Portfolio' for the first period.
+    """
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame()
+
+    sim_start, _ = _get_simulation_date_range(result)
+
+    all_changes = []
+    seed_funds = []  # Track seed funds separately
+
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        changes = res.get("manager_changes", [])
+
+        for change in changes:
+            reason = change.get("reason", "")
+            manager = change.get("manager", "")
+            action = change.get("action", "")
+            detail = change.get("detail", "")
+
+            # Track seed entries separately to show at top
+            if reason == "seed":
+                seed_funds.append(manager)
+                continue
+
+            # Create more informative reason text
+            reason_display = _format_change_reason(reason, detail, action)
+
+            all_changes.append(
+                {
+                    "Date": out_start,
+                    "Action": "Hired" if action == "added" else "Terminated",
+                    "Manager": manager,
+                    "Reason": reason_display,
+                }
+            )
+
+    # Add seed funds as initial portfolio entry
+    if seed_funds and sim_start:
+        for fund in sorted(seed_funds):
+            all_changes.insert(
+                0,
+                {
+                    "Date": sim_start,
+                    "Action": "Initial",
+                    "Manager": fund,
+                    "Reason": "Initial portfolio selection",
+                },
+            )
+
+    if not all_changes:
+        return pd.DataFrame()
+
+    return pd.DataFrame(all_changes)
+
+
+def _format_change_reason(reason: str, detail: str, action: str) -> str:
+    """Format the reason into a readable explanation."""
+    reason_map = {
+        "z_exit": "Performance below threshold",
+        "z_entry": "Performance above threshold",
+        "rebalance": "Portfolio rebalance",
+        "one_per_firm": "Firm concentration limit",
+        "low_weight_strikes": "Persistent underweight",
+        "replacement": "Replaced underperformer",
+        "reseat": "Portfolio reconstruction",
+    }
+
+    base_reason = reason_map.get(reason, reason.replace("_", " ").title())
+
+    # Extract z-score if available
+    if "zscore=" in detail:
+        try:
+            z_val = float(detail.split("zscore=")[1].split()[0])
+            if action == "dropped":
+                return f"{base_reason} (z={z_val:.2f})"
+            else:
+                return f"{base_reason} (z={z_val:.2f})"
+        except (ValueError, IndexError):
+            pass
+
+    return base_reason
+
+
+def _render_manager_changes(result) -> None:
+    """Render manager hiring/firing decisions table."""
+    changes_df = _extract_manager_changes(result)
+
+    if changes_df.empty:
+        st.caption("No manager changes during simulation period.")
+        return
+
+    initial = len(changes_df[changes_df["Action"] == "Initial"])
+    hired = len(changes_df[changes_df["Action"] == "Hired"])
+    terminated = len(changes_df[changes_df["Action"] == "Terminated"])
+
+    summary_parts = []
+    if initial > 0:
+        summary_parts.append(f"{initial} initial")
+    if hired > 0:
+        summary_parts.append(f"{hired} hired")
+    if terminated > 0:
+        summary_parts.append(f"{terminated} terminated")
+
+    st.caption(f"Total: {len(changes_df)} ({', '.join(summary_parts)})")
+
+    def highlight_action(row):
+        if row["Action"] == "Initial":
+            return ["background-color: #cce5ff"] * len(row)  # Blue for initial
+        elif row["Action"] == "Hired":
+            return ["background-color: #d4edda"] * len(row)  # Green for hired
+        elif row["Action"] == "Terminated":
+            return ["background-color: #f8d7da"] * len(row)  # Red for terminated
+        return [""] * len(row)
+
+    styled = changes_df.style.apply(highlight_action, axis=1)
+    st.dataframe(styled, use_container_width=True, height=300)
+
+
+# =============================================================================
+# Fund Holding Periods with Risk Stats
+# =============================================================================
+
+
+def _compute_fund_stats(returns: pd.Series) -> dict[str, float]:
+    """Compute risk statistics for a fund's return series."""
+    if returns.empty or len(returns) < 2:
+        return {}
+
+    # Annualized return
+    total_return = (1 + returns).prod() - 1
+    years = len(returns) / 12
+    cagr = (1 + total_return) ** (1 / years) - 1 if years > 0 else 0
+
+    # Volatility
+    vol = returns.std() * np.sqrt(12)
+
+    # Sharpe
+    sharpe = (cagr / vol) if vol > 0 else 0
+
+    # Sortino
+    downside = returns[returns < 0]
+    downside_std = downside.std() * np.sqrt(12) if len(downside) > 0 else 0
+    sortino = (cagr / downside_std) if downside_std > 0 else 0
+
+    # Max drawdown
+    equity = (1 + returns).cumprod()
+    rolling_max = equity.cummax()
+    drawdown = equity / rolling_max - 1
+    max_dd = drawdown.min()
+
+    return {
+        "CAGR": cagr,
+        "Vol": vol,
+        "Sharpe": sharpe,
+        "Sortino": sortino,
+        "Max DD": max_dd,
+    }
+
+
+def _compute_fund_holding_periods(result) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute holding periods and stats for each fund.
+
+    Returns:
+        tuple: (summary_df, risk_stats_df)
+    """
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Get frequency to properly calculate years
+    # Default to annual (A) if not specified
+    model_state = st.session_state.get("model_state", {})
+    frequency = model_state.get("multi_period_frequency", "A") or "A"
+
+    # Determine months per period based on frequency
+    freq_to_months = {
+        "A": 12,  # Annual = 12 months
+        "S": 6,  # Semi-annual = 6 months
+        "Q": 3,  # Quarterly = 3 months
+        "M": 1,  # Monthly = 1 month
+    }
+    months_per_period = freq_to_months.get(frequency, 12)
+
+    # Get simulation start date for seed funds
+    sim_start, _ = _get_simulation_date_range(result)
+
+    # Track fund entry/exit and accumulate returns
+    fund_tenures: dict[str, dict] = {}
+    fund_returns: dict[str, list[float]] = {}
+
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        changes = res.get("manager_changes", [])
+        out_df = res.get("out_sample_scaled")
+
+        for change in changes:
+            manager = change.get("manager", "")
+            action = change.get("action", "")
+            reason = change.get("reason", "")
+
+            if action == "added":
+                if manager not in fund_tenures:
+                    # Use simulation start for seed funds, out_start for others
+                    entry_date = sim_start if reason == "seed" else out_start
+                    fund_tenures[manager] = {
+                        "Manager": manager,
+                        "Entry Date": entry_date,
+                        "Exit Date": None,
+                        "periods_held": 0,
+                        "is_seed": reason == "seed",
+                    }
+                    fund_returns[manager] = []
+            elif action == "dropped":
+                if (
+                    manager in fund_tenures
+                    and fund_tenures[manager]["Exit Date"] is None
+                ):
+                    fund_tenures[manager]["Exit Date"] = out_start
+
+        # Accumulate returns for funds held this period
+        for manager in fund_tenures:
+            tenure = fund_tenures[manager]
+            if tenure["Exit Date"] is None or tenure["Exit Date"] >= out_start:
+                tenure["periods_held"] += 1
+                if isinstance(out_df, pd.DataFrame) and manager in out_df.columns:
+                    fund_returns[manager].extend(out_df[manager].dropna().tolist())
+
+    # Build summary and risk stats DataFrames
+    summary_rows = []
+    risk_rows = []
+
+    for manager, tenure in fund_tenures.items():
+        periods = tenure["periods_held"]
+        # Calculate years based on frequency (periods * months_per_period / 12)
+        years_held = (periods * months_per_period) / 12
+
+        summary_rows.append(
+            {
+                "Manager": manager,
+                "Years Held": years_held,
+                "Entry": tenure["Entry Date"] or "",
+                "Exit": tenure["Exit Date"] or "Current",
+            }
+        )
+
+        # Compute risk stats if we have returns
+        if manager in fund_returns and fund_returns[manager]:
+            returns_series = pd.Series(fund_returns[manager])
+            stats = _compute_fund_stats(returns_series)
+            risk_rows.append({"Manager": manager, "Years": years_held, **stats})
+
+    summary_df = pd.DataFrame(summary_rows) if summary_rows else pd.DataFrame()
+    risk_df = pd.DataFrame(risk_rows) if risk_rows else pd.DataFrame()
+
+    if not summary_df.empty:
+        summary_df = summary_df.sort_values("Entry")
+    if not risk_df.empty:
+        risk_df = risk_df.sort_values("Years", ascending=False)
+
+    return summary_df, risk_df
+
+
+def _render_fund_holdings(result) -> None:
+    """Render fund holding periods and risk statistics."""
+    summary_df, risk_df = _compute_fund_holding_periods(result)
+
+    if summary_df.empty:
+        st.caption("No fund holding data available.")
+        return
+
+    # Format summary
+    display_summary = summary_df.copy()
+    display_summary["Years Held"] = display_summary["Years Held"].apply(
+        lambda x: f"{x:.1f}"
+    )
+
+    def highlight_current(row):
+        if row["Exit"] == "Current":
+            return ["background-color: #cce5ff"] * len(row)
+        return [""] * len(row)
+
+    st.markdown("**Holding Summary**")
+    styled = display_summary.style.apply(highlight_current, axis=1)
+    st.dataframe(styled, use_container_width=True, height=200)
+
+    # Risk stats section
+    if not risk_df.empty:
+        st.markdown("**Out-of-Sample Risk Statistics**")
+        display_risk = risk_df.copy()
+        display_risk["Years"] = display_risk["Years"].apply(lambda x: f"{x:.1f}")
+        for col in ["CAGR", "Vol", "Max DD"]:
+            if col in display_risk.columns:
+                display_risk[col] = display_risk[col].apply(lambda x: _fmt_pct(x, 1))
+        for col in ["Sharpe", "Sortino"]:
+            if col in display_risk.columns:
+                display_risk[col] = display_risk[col].apply(_fmt_ratio)
+
+        st.dataframe(display_risk, use_container_width=True, height=200)
+
+
+# =============================================================================
+# Period-by-Period Reproducibility Section
+# =============================================================================
+
+
+def _get_selection_config(result) -> dict[str, Any]:
+    """Extract selection configuration parameters for display."""
+    # Try to get from model_state in session
+    model_state = st.session_state.get("model_state", {})
+
+    config = {
+        "target_n": model_state.get("random_n", 8),
+        "z_entry_soft": model_state.get("z_entry_soft", 1.0),
+        "z_exit_soft": model_state.get("z_exit_soft", -1.0),
+        "min_weight": model_state.get("min_weight", 0.05),
+        "max_weight": model_state.get("max_weight", 0.18),
+        "max_funds": model_state.get("max_funds", 10),
+        "selection_metric": model_state.get("selection_metric", "Sharpe"),
+        "weighting_scheme": model_state.get("weighting_scheme", "equal"),
+        "lookback_periods": model_state.get("lookback_periods", 3),
+        "evaluation_periods": model_state.get("evaluation_periods", 1),
+        "frequency": model_state.get("multi_period_frequency", "A"),
+    }
+
+    return config
+
+
+def _render_selection_criteria(result) -> None:
+    """Render the selection criteria used in the simulation."""
+    config = _get_selection_config(result)
+
+    freq_labels = {"A": "Annual", "S": "Semi-Annual", "Q": "Quarterly", "M": "Monthly"}
+    freq = freq_labels.get(config["frequency"], config["frequency"])
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Selection Parameters**")
+        st.markdown(f"- Target portfolio size: **{config['target_n']}** funds")
+        st.markdown(f"- Max funds allowed: **{config['max_funds']}**")
+        st.markdown(f"- Selection metric: **{config['selection_metric']}**")
+        st.markdown(f"- Weighting: **{config['weighting_scheme']}**")
+
+    with col2:
+        st.markdown("**Z-Score Thresholds**")
+        st.markdown(f"- Entry threshold: **z ≥ {config['z_entry_soft']:.2f}**")
+        st.markdown(f"- Exit threshold: **z ≤ {config['z_exit_soft']:.2f}**")
+        st.markdown("*(Higher z-score = better relative performance)*")
+
+    with col3:
+        st.markdown("**Time Parameters**")
+        st.markdown(f"- Rebalance frequency: **{freq}**")
+        st.markdown(f"- In-sample (lookback): **{config['lookback_periods']}** periods")
+        st.markdown(
+            f"- Out-of-sample (eval): **{config['evaluation_periods']}** period(s)"
+        )
+
+
+def _build_period_detail(res: dict[str, Any], period_num: int) -> dict[str, Any]:
+    """Build detailed data for a single period."""
+    period = res.get("period", ("", "", "", ""))
+    in_start = period[0] if len(period) > 0 else ""
+    in_end = period[1] if len(period) > 1 else ""
+    out_start = period[2] if len(period) > 2 else ""
+    out_end = period[3] if len(period) > 3 else ""
+
+    # Score frame contains in-sample metrics for all candidates
+    score_frame = res.get("score_frame")
+    if score_frame is None:
+        score_frame = pd.DataFrame()
+
+    # Selected funds for this period
+    selected_funds = res.get("selected_funds", [])
+
+    # Weights applied
+    fund_weights = res.get("fund_weights", {})
+    ew_weights = res.get("ew_weights", {})
+
+    # In-sample and out-sample stats
+    in_sample_stats = res.get("in_sample_stats", {})
+    out_sample_stats = res.get("out_sample_stats", {})
+
+    # Manager changes
+    changes = res.get("manager_changes", [])
+
+    # Out-of-sample returns
+    out_sample_scaled = res.get("out_sample_scaled")
+    if out_sample_scaled is None:
+        out_sample_scaled = pd.DataFrame()
+
+    # Portfolio stats for this period
+    out_user_stats = res.get("out_user_stats")
+    out_ew_stats = res.get("out_ew_stats")
+
+    return {
+        "period_num": period_num,
+        "in_start": in_start,
+        "in_end": in_end,
+        "out_start": out_start,
+        "out_end": out_end,
+        "score_frame": score_frame,
+        "selected_funds": selected_funds,
+        "fund_weights": fund_weights,
+        "ew_weights": ew_weights,
+        "in_sample_stats": in_sample_stats,
+        "out_sample_stats": out_sample_stats,
+        "changes": changes,
+        "out_sample_scaled": out_sample_scaled,
+        "out_user_stats": out_user_stats,
+        "out_ew_stats": out_ew_stats,
+    }
+
+
+def _render_single_period(period_data: dict[str, Any]) -> None:
+    """Render detailed view for a single period."""
+    pn = period_data["period_num"]
+
+    st.markdown(
+        f"### Period {pn}: {period_data['out_start']} to {period_data['out_end']}"
+    )
+    st.caption(
+        f"In-sample window: {period_data['in_start']} to {period_data['in_end']}"
+    )
+
+    tabs = st.tabs(
+        ["📊 In-Sample Metrics", "✅ Selection", "📈 Out-of-Sample", "💰 Period Return"]
+    )
+
+    with tabs[0]:
+        # In-sample metrics (score frame)
+        score_frame = period_data["score_frame"]
+        if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
+            # Sort by primary metric (usually Sharpe) descending
+            display_cols = [c for c in score_frame.columns if c not in ["zscore"]]
+            if "zscore" in score_frame.columns:
+                display_cols.append("zscore")
+
+            sf_display = score_frame[display_cols].copy()
+
+            # Highlight selected funds
+            selected = set(period_data["selected_funds"])
+
+            def highlight_selected(row):
+                if row.name in selected:
+                    return ["background-color: #d4edda"] * len(row)
+                return [""] * len(row)
+
+            # Sort by zscore if available, else by first column
+            sort_col = (
+                "zscore" if "zscore" in sf_display.columns else sf_display.columns[0]
+            )
+            sf_sorted = sf_display.sort_values(sort_col, ascending=False)
+
+            # Format numeric columns
+            for col in sf_sorted.columns:
+                if col == "zscore":
+                    sf_sorted[col] = sf_sorted[col].apply(
+                        lambda x: f"{x:.2f}" if pd.notna(x) else "—"
+                    )
+                elif col in ["Sharpe", "Sortino", "InformationRatio"]:
+                    sf_sorted[col] = sf_sorted[col].apply(
+                        lambda x: f"{x:.2f}" if pd.notna(x) else "—"
+                    )
+                elif col in [
+                    "AnnualReturn",
+                    "Volatility",
+                    "MaxDrawdown",
+                    "CAGR",
+                    "Vol",
+                ]:
+                    sf_sorted[col] = sf_sorted[col].apply(
+                        lambda x: _fmt_pct(x, 1) if pd.notna(x) else "—"
+                    )
+
+            st.markdown(
+                "**All candidates ranked by in-sample metrics** (green = selected)"
+            )
+            styled = sf_sorted.style.apply(highlight_selected, axis=1)
+            st.dataframe(styled, use_container_width=True, height=300)
+        else:
+            st.caption("No in-sample metrics available for this period.")
+
+    with tabs[1]:
+        # Selection decisions
+        changes = period_data["changes"]
+        if changes:
+            st.markdown("**Selection Decisions for This Period**")
+
+            added = [c for c in changes if c.get("action") == "added"]
+            dropped = [c for c in changes if c.get("action") == "dropped"]
+
+            if added:
+                st.markdown("**Added:**")
+                for c in added:
+                    reason = c.get("reason", "")
+                    detail = c.get("detail", "")
+                    st.markdown(
+                        f"- ✅ **{c.get('manager', '')}** — {_format_change_reason(reason, detail, 'added')}"
+                    )
+
+            if dropped:
+                st.markdown("**Dropped:**")
+                for c in dropped:
+                    reason = c.get("reason", "")
+                    detail = c.get("detail", "")
+                    st.markdown(
+                        f"- ❌ **{c.get('manager', '')}** — {_format_change_reason(reason, detail, 'dropped')}"
+                    )
+        else:
+            st.caption("No changes this period (portfolio unchanged).")
+
+        # Show final portfolio weights
+        weights = period_data["fund_weights"]
+        if weights:
+            st.markdown("**Portfolio Weights Applied:**")
+            w_df = pd.DataFrame(
+                [
+                    {"Fund": k, "Weight": f"{v*100:.1f}%"}
+                    for k, v in sorted(weights.items(), key=lambda x: -x[1])
+                ]
+            )
+            st.dataframe(w_df, use_container_width=True, hide_index=True, height=200)
+
+    with tabs[2]:
+        # Out-of-sample returns
+        out_df = period_data["out_sample_scaled"]
+        selected = period_data["selected_funds"]
+
+        if isinstance(out_df, pd.DataFrame) and not out_df.empty and selected:
+            cols_to_show = [c for c in selected if c in out_df.columns]
+            if cols_to_show:
+                st.markdown("**Out-of-Sample Monthly Returns (Volatility-Adjusted)**")
+
+                # Show summary stats
+                oos_summary = []
+                for col in cols_to_show:
+                    returns = out_df[col].dropna()
+                    if len(returns) > 0:
+                        total_ret = (1 + returns).prod() - 1
+                        vol = returns.std() * np.sqrt(12)
+                        oos_summary.append(
+                            {
+                                "Fund": col,
+                                "Total Return": _fmt_pct(total_ret, 1),
+                                "Ann. Vol": _fmt_pct(vol, 1),
+                                "Months": len(returns),
+                            }
+                        )
+
+                if oos_summary:
+                    st.dataframe(
+                        pd.DataFrame(oos_summary),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                # Show raw returns in expander
+                with st.expander("View monthly returns detail"):
+                    display_oos = out_df[cols_to_show].copy()
+                    display_oos.index = pd.to_datetime(display_oos.index).strftime(
+                        "%Y-%m"
+                    )
+                    for col in display_oos.columns:
+                        display_oos[col] = display_oos[col].apply(
+                            lambda x: _fmt_pct(x, 2) if pd.notna(x) else "—"
+                        )
+                    st.dataframe(display_oos, use_container_width=True)
+        else:
+            st.caption("No out-of-sample returns available.")
+
+    with tabs[3]:
+        # Period portfolio return
+        out_user = period_data["out_user_stats"]
+        out_ew = period_data["out_ew_stats"]
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Weighted Portfolio (This Period)**")
+            if out_user:
+                stats = out_user if isinstance(out_user, dict) else vars(out_user)
+                metrics_to_show = ["cagr", "vol", "sharpe", "sortino", "max_dd"]
+                for m in metrics_to_show:
+                    val = stats.get(m) or stats.get(m.replace("_", ""))
+                    if val is not None:
+                        if m in ["cagr", "vol", "max_dd"]:
+                            st.metric(m.upper().replace("_", " "), _fmt_pct(val, 1))
+                        else:
+                            st.metric(m.title().replace("_", " "), _fmt_ratio(val))
+            else:
+                st.caption("No weighted portfolio stats available.")
+
+        with col2:
+            st.markdown("**Equal-Weight Portfolio (This Period)**")
+            if out_ew:
+                stats = out_ew if isinstance(out_ew, dict) else vars(out_ew)
+                metrics_to_show = ["cagr", "vol", "sharpe", "sortino", "max_dd"]
+                for m in metrics_to_show:
+                    val = stats.get(m) or stats.get(m.replace("_", ""))
+                    if val is not None:
+                        if m in ["cagr", "vol", "max_dd"]:
+                            st.metric(m.upper().replace("_", " "), _fmt_pct(val, 1))
+                        else:
+                            st.metric(m.title().replace("_", " "), _fmt_ratio(val))
+            else:
+                st.caption("No equal-weight portfolio stats available.")
+
+
+def _render_period_breakdown(result) -> None:
+    """Render period-by-period breakdown with full reproducibility data."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        st.caption("No period-by-period data available.")
+        return
+
+    # Build period data
+    periods_data = [
+        _build_period_detail(res, i + 1) for i, res in enumerate(period_results)
+    ]
+
+    # Period selector
+    period_options = [
+        f"Period {p['period_num']}: {p['out_start']} to {p['out_end']}"
+        for p in periods_data
+    ]
+
+    selected_period = st.selectbox(
+        "Select period to examine:",
+        options=range(len(period_options)),
+        format_func=lambda x: period_options[x],
+    )
+
+    if selected_period is not None:
+        _render_single_period(periods_data[selected_period])
+
+
+# =============================================================================
+# Portfolio by Period (Download) - Fixed to only include portfolio funds
+# =============================================================================
+
+
+def _build_period_weights_df(result) -> pd.DataFrame:
+    """Build DataFrame of weights by period for download - only portfolio funds."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame()
+
+    portfolio_by_period = _get_portfolio_funds_by_period(result)
+
+    rows = []
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        ew_weights = res.get("ew_weights", {})
+        fund_weights = res.get("fund_weights", {})
+
+        # Get funds actually in portfolio this period
+        portfolio_funds = portfolio_by_period.get(out_start, set())
+        weights = fund_weights or ew_weights or {}
+
+        for fund in portfolio_funds:
+            weight = weights.get(fund, 0.0)
+            rows.append(
+                {
+                    "Period Start": out_start,
+                    "Period End": period[3] if len(period) > 3 else "",
+                    "Fund": fund,
+                    "Weight": weight,
+                }
+            )
+
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df["Weight"] = df["Weight"].apply(lambda x: _fmt_pct(x, 1))
+    return df
+
+
+def _build_period_returns_df(result) -> pd.DataFrame:
+    """Build DataFrame of returns by period for download - only portfolio funds."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        return pd.DataFrame()
+
+    portfolio_by_period = _get_portfolio_funds_by_period(result)
+
+    all_dfs = []
+    for res in period_results:
+        period = res.get("period", ("", "", "", ""))
+        out_start = period[2] if len(period) > 2 else ""
+        out_df = res.get("out_sample_scaled")
+
+        # Get funds actually in portfolio this period
+        portfolio_funds = portfolio_by_period.get(out_start, set())
+
+        if isinstance(out_df, pd.DataFrame) and not out_df.empty:
+            # Filter to only portfolio funds
+            cols = [c for c in out_df.columns if c in portfolio_funds]
+            if cols:
+                oos = out_df[cols].copy()
+                oos["Period Start"] = out_start
+                oos["Period End"] = period[3] if len(period) > 3 else ""
+                all_dfs.append(oos.reset_index())
+
+    if not all_dfs:
+        return pd.DataFrame()
+
+    return pd.concat(all_dfs, ignore_index=True)
+
+
+def _render_download_section(result) -> None:
+    """Render download buttons for portfolio data."""
+    weights_df = _build_period_weights_df(result)
+    returns_df = _build_period_returns_df(result)
+    changes_df = _extract_manager_changes(result)
+    summary_df, risk_df = _compute_fund_holding_periods(result)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if not weights_df.empty:
+            csv = weights_df.to_csv(index=False)
+            st.download_button(
+                "📊 Weights",
+                csv,
+                "portfolio_weights.csv",
+                "text/csv",
+            )
+        else:
+            st.caption("No weights")
+
+    with col2:
+        if not returns_df.empty:
+            csv = returns_df.to_csv(index=False)
+            st.download_button(
+                "📈 Returns",
+                csv,
+                "portfolio_returns.csv",
+                "text/csv",
+            )
+        else:
+            st.caption("No returns")
+
+    with col3:
+        if not changes_df.empty:
+            csv = changes_df.to_csv(index=False)
+            st.download_button(
+                "🔄 Changes",
+                csv,
+                "manager_changes.csv",
+                "text/csv",
+            )
+        else:
+            st.caption("No changes")
+
+    with col4:
+        if not summary_df.empty:
+            # Combine summary and risk stats
+            if not risk_df.empty:
+                combined = summary_df.merge(risk_df, on="Manager", how="left")
+            else:
+                combined = summary_df
+            csv = combined.to_csv(index=False)
+            st.download_button(
+                "📋 Holdings",
+                csv,
+                "fund_holdings.csv",
+                "text/csv",
+            )
+        else:
+            st.caption("No holdings")
+
+
+# =============================================================================
+# Current Exposures - Fixed to get from last period
+# =============================================================================
+
+
+def _get_current_exposures(result) -> pd.Series | None:
+    """Get current portfolio exposures from the last period."""
+    details = getattr(result, "details", {}) or {}
+    period_results = details.get("period_results", [])
+
+    if not period_results:
+        # Try other sources
+        analysis = getattr(result, "analysis", None)
+        if analysis is not None:
+            return analysis.exposures
+        risk_diag = details.get("risk_diagnostics")
+        if isinstance(risk_diag, dict):
+            return risk_diag.get("final_weights")
+        return None
+
+    # Get weights from last period
+    last_period = period_results[-1]
+    fund_weights = last_period.get("fund_weights") or last_period.get("ew_weights")
+
+    if fund_weights:
+        return pd.Series(fund_weights, name="Weight").sort_values(ascending=False)
+
+    return None
+
+
+# =============================================================================
+# Charts
+# =============================================================================
 
 
 def _render_charts(result) -> None:
+    """Render portfolio charts."""
     analysis = getattr(result, "analysis", None)
     details = result.details if hasattr(result, "details") else {}
     returns = None
+
     if analysis is not None:
         returns = analysis.returns
     if returns is None:
+        returns = getattr(result, "portfolio", None)
+    if returns is None:
         returns = details.get("portfolio_equal_weight_combined")
-    if isinstance(returns, pd.Series) and not returns.empty:
-        equity = _prepare_equity_series(returns)
-        drawdown = _prepare_drawdown(equity)
-        rolling = _rolling_sharpe(returns)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("Equity curve")
-            st.altair_chart(charts.equity_chart(equity), use_container_width=True)
-        with c2:
-            st.subheader("Drawdown")
-            st.altair_chart(charts.drawdown_chart(drawdown), use_container_width=True)
-
-        c3, c4 = st.columns(2)
-        with c3:
-            st.subheader("Rolling Sharpe (12m)")
-            st.altair_chart(
-                charts.rolling_sharpe_chart(rolling), use_container_width=True
-            )
-        with c4:
-            turnover = None
-            if analysis is not None:
-                turnover = analysis.turnover
-            if turnover is None:
-                diag_obj = details.get("risk_diagnostics")
-                if isinstance(diag_obj, dict):
-                    turnover = diag_obj.get("turnover")
-            st.subheader("Turnover")
-            if isinstance(turnover, pd.Series) and not turnover.empty:
-                st.altair_chart(
-                    charts.turnover_chart(turnover), use_container_width=True
-                )
-            else:
-                st.caption("Turnover data unavailable.")
-
-        exposures = None
-        if analysis is not None:
-            exposures = analysis.exposures
-        if exposures is None:
-            risk_diag = details.get("risk_diagnostics")
-            if isinstance(risk_diag, dict):
-                exposures = risk_diag.get("final_weights")
-        st.subheader("Exposures")
-        if exposures is not None:
-            st.altair_chart(charts.exposure_chart(exposures), use_container_width=True)
-        else:
-            st.caption("Exposure breakdown unavailable.")
-    else:
+    if not isinstance(returns, pd.Series) or returns.empty:
         st.info("Run the analysis to see portfolio charts.")
+        return
+
+    equity = _prepare_equity_series(returns)
+    drawdown = _prepare_drawdown(equity)
+    rolling = _rolling_sharpe(returns)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Cumulative Portfolio Returns")
+        st.altair_chart(charts.equity_chart(equity), use_container_width=True)
+    with c2:
+        st.subheader("Drawdown")
+        st.altair_chart(charts.drawdown_chart(drawdown), use_container_width=True)
+
+    c3, c4 = st.columns(2)
+    with c3:
+        st.subheader("Rolling Sharpe (12m)")
+        st.altair_chart(charts.rolling_sharpe_chart(rolling), use_container_width=True)
+    with c4:
+        turnover = getattr(result, "turnover", None)
+        if turnover is None and analysis is not None:
+            turnover = analysis.turnover
+        if turnover is None:
+            diag_obj = details.get("risk_diagnostics")
+            if isinstance(diag_obj, dict):
+                turnover = diag_obj.get("turnover")
+        st.subheader("Turnover")
+        if isinstance(turnover, pd.Series) and not turnover.empty:
+            st.altair_chart(charts.turnover_chart(turnover), use_container_width=True)
+        else:
+            st.caption("Turnover data unavailable.")
+
+    # Current Exposures - use fixed function
+    exposures = _get_current_exposures(result)
+    st.subheader("Current Exposures")
+    if exposures is not None and not exposures.empty:
+        st.altair_chart(charts.exposure_chart(exposures), use_container_width=True)
+    else:
+        st.caption("Exposure breakdown unavailable.")
+
+
+# =============================================================================
+# Summary Metrics
+# =============================================================================
+
+
+def _render_summary(result, returns: pd.Series | None) -> None:
+    """Render summary metrics section."""
+    metrics = result.metrics
+
+    st.subheader("📊 Portfolio Performance Summary")
+    if returns is not None and isinstance(returns, pd.Series) and not returns.empty:
+        _render_trailing_stats(returns)
+    elif metrics is not None and not metrics.empty:
+        st.dataframe(metrics)
+    else:
+        st.caption("No summary metrics available.")
+
+
+# =============================================================================
+# Main Render Function
+# =============================================================================
 
 
 def render_results_page() -> None:
+    """Main render function for the Results page."""
     app_state.initialize_session_state()
     st.title("Results")
 
@@ -166,7 +1164,7 @@ def render_results_page() -> None:
                 result = analysis_runner.run_analysis(
                     df, model_state, benchmark, data_hash=data_hash
                 )
-            except Exception as exc:  # pragma: no cover - defensive guard
+            except Exception as exc:
                 summary, detail = _analysis_error_messages(exc)
                 st.error(summary)
                 if detail:
@@ -183,7 +1181,7 @@ def render_results_page() -> None:
         st.session_state.pop("analysis_error", None)
 
     if result is None:
-        st.info("Click run analysis to generate a report.")
+        st.info("Click Run Analysis to generate a report.")
         return
 
     fallback = getattr(result, "fallback_info", None)
@@ -193,9 +1191,180 @@ def render_results_page() -> None:
             f"{fallback.get('engine', 'unknown engine')} failed."
         )
 
-    _render_summary(result)
-    _render_charts(result)
+    # Get returns for stats
+    analysis = getattr(result, "analysis", None)
+    details = getattr(result, "details", {}) or {}
+    returns = None
+    if analysis is not None:
+        returns = analysis.returns
+    if returns is None:
+        returns = getattr(result, "portfolio", None)
+    if returns is None:
+        returns = details.get("portfolio_equal_weight_combined")
+
+    # Multi-period info
+    period_count = getattr(result, "period_count", 0) or details.get("period_count", 0)
+    sim_start, sim_end = _get_simulation_date_range(result)
+
+    # ==========================================================================
+    # REORGANIZED LAYOUT FOR REPRODUCIBILITY
+    # ==========================================================================
+
+    # Header with simulation info
+    if period_count > 0:
+        st.success(
+            f"✅ Simulation complete: **{period_count} periods** from {sim_start} to {sim_end}"
+        )
+
+    # Create main tabs for organized navigation
+    main_tabs = st.tabs(
+        [
+            "📊 Summary",
+            "🔬 Period Analysis",
+            "📈 Visualizations",
+            "📋 Fund Details",
+            "💾 Export",
+        ]
+    )
+
+    # ==========================================================================
+    # TAB 1: SUMMARY - Total portfolio performance
+    # ==========================================================================
+    with main_tabs[0]:
+        st.header("Total Portfolio Performance")
+        st.caption("Aggregated statistics computed from all out-of-sample returns")
+
+        # Selection criteria used
+        st.subheader("🎯 Selection Criteria Used")
+        with st.expander("View selection parameters", expanded=True):
+            _render_selection_criteria(result)
+
+        st.divider()
+
+        # Overall performance metrics
+        st.subheader("📊 Cumulative Out-of-Sample Performance")
+        if returns is not None and isinstance(returns, pd.Series) and not returns.empty:
+            _render_trailing_stats(returns)
+
+            # Key metrics in prominent display
+            if len(returns) >= 12:
+                total_ret = (1 + returns).prod() - 1
+                years = len(returns) / 12
+                cagr = (1 + total_ret) ** (1 / years) - 1 if years > 0 else 0
+                vol = returns.std() * np.sqrt(12)
+                sharpe = cagr / vol if vol > 0 else 0
+
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Total Return", _fmt_pct(total_ret, 1))
+                col2.metric("CAGR", _fmt_pct(cagr, 1))
+                col3.metric("Ann. Volatility", _fmt_pct(vol, 1))
+                col4.metric("Sharpe Ratio", _fmt_ratio(sharpe))
+        else:
+            st.caption("Run analysis to see performance metrics.")
+
+    # ==========================================================================
+    # TAB 2: PERIOD ANALYSIS - Period-by-period reproducibility
+    # ==========================================================================
+    with main_tabs[1]:
+        st.header("Period-by-Period Analysis")
+        st.caption(
+            "Examine the data chain: In-sample metrics → Selection decisions → "
+            "Out-of-sample returns → Period performance"
+        )
+
+        if period_count > 0:
+            _render_period_breakdown(result)
+        else:
+            st.info("Single-period analysis does not have period breakdown.")
+            # Show single period data if available
+            if details:
+                score_frame = details.get("score_frame")
+                if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
+                    st.subheader("In-Sample Metrics (All Candidates)")
+                    st.dataframe(score_frame, use_container_width=True)
+
+    # ==========================================================================
+    # TAB 3: VISUALIZATIONS - Charts
+    # ==========================================================================
+    with main_tabs[2]:
+        st.header("Portfolio Visualizations")
+        _render_charts(result)
+
+    # ==========================================================================
+    # TAB 4: FUND DETAILS - Holdings and changes
+    # ==========================================================================
+    with main_tabs[3]:
+        st.header("Fund Details")
+
+        # Manager changes
+        st.subheader("🔄 Manager Hiring & Termination Timeline")
+        _render_manager_changes(result)
+
+        st.divider()
+
+        # Fund holding periods with risk stats
+        st.subheader("📋 Fund Holdings & Out-of-Sample Performance")
+        _render_fund_holdings(result)
+
+    # ==========================================================================
+    # TAB 5: EXPORT - Download data
+    # ==========================================================================
+    with main_tabs[4]:
+        st.header("Export Data")
+        st.caption("Download detailed data for external analysis and verification")
+
+        _render_download_section(result)
+
+        # Additional: Full period data export
+        st.divider()
+        st.subheader("📄 Complete Period Data")
+
+        if period_count > 0:
+            period_results = details.get("period_results", [])
+
+            # Build comprehensive export
+            all_period_data = []
+            for i, res in enumerate(period_results):
+                period = res.get("period", ("", "", "", ""))
+                score_frame = res.get("score_frame")
+                selected = res.get("selected_funds", [])
+                weights = res.get("fund_weights", {})
+
+                if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
+                    for fund in score_frame.index:
+                        row = {
+                            "Period": i + 1,
+                            "In-Sample Start": period[0] if len(period) > 0 else "",
+                            "In-Sample End": period[1] if len(period) > 1 else "",
+                            "Out-Sample Start": period[2] if len(period) > 2 else "",
+                            "Out-Sample End": period[3] if len(period) > 3 else "",
+                            "Fund": fund,
+                            "Selected": "Yes" if fund in selected else "No",
+                            "Weight": (
+                                f"{weights.get(fund, 0)*100:.1f}%"
+                                if fund in weights
+                                else "0.0%"
+                            ),
+                        }
+                        # Add all score columns
+                        for col in score_frame.columns:
+                            row[f"InSample_{col}"] = score_frame.loc[fund, col]
+                        all_period_data.append(row)
+
+            if all_period_data:
+                full_df = pd.DataFrame(all_period_data)
+                csv = full_df.to_csv(index=False)
+                st.download_button(
+                    "📊 Download Complete Period Analysis (CSV)",
+                    csv,
+                    "complete_period_analysis.csv",
+                    "text/csv",
+                )
+                st.caption(
+                    "Contains in-sample metrics for all candidates in all periods, "
+                    "with selection status and weights."
+                )
 
 
-if _should_auto_render():  # pragma: no cover - Streamlit runtime only
+if _should_auto_render():
     render_results_page()
