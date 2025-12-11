@@ -404,8 +404,10 @@ def _get_benchmark_columns(df) -> list[str]:
 
 def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     errors: list[str] = []
-    lookback = values.get("lookback_periods", 3)
-    min_history = values.get("min_history_periods", lookback)
+    lookback = values.get("lookback_periods", values.get("lookback_months", 3))
+    min_history = values.get(
+        "min_history_periods", values.get("min_history_months", lookback)
+    )
     if min_history > lookback:
         errors.append("Minimum history cannot exceed the lookback window.")
     selection = values.get("selection_count", 10)

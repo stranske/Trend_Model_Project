@@ -139,11 +139,12 @@ def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
                 },
             )()
 
-    def fake_validate_market_data(frame):
-        return DummyValidated(frame)
-
     monkeypatch.setattr(data_schema, "validate_input", fake_validate_input)
-    monkeypatch.setattr(data_schema, "validate_market_data", fake_validate_market_data)
+    monkeypatch.setattr(
+        data_schema,
+        "validate_market_data",
+        lambda frame, **_kwargs: DummyValidated(frame),
+    )
 
     frame, meta = data_schema.load_and_validate_file(csv_path)
 
@@ -282,7 +283,9 @@ def test_load_and_validate_file_uses_excel_branch(monkeypatch):
             )
 
     monkeypatch.setattr(
-        data_schema, "validate_market_data", lambda frame: DummyValidated(frame)
+        data_schema,
+        "validate_market_data",
+        lambda frame, **_kwargs: DummyValidated(frame),
     )
     read_excel_calls: list[str] = []
 

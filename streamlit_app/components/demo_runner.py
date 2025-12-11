@@ -312,13 +312,13 @@ def _update_session_state(
     }
 
     model_settings = ModelSettings(
-        lookback_months=lookback,
+        lookback_periods=lookback,
         rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
         selection_count=selection_count,
         risk_target=risk_target,
         weighting_scheme=weighting_scheme,
-        cooldown_months=int(overrides.get("cooldown_months", 3)),
-        min_track_months=int(overrides.get("min_track_months", 24)),
+        cooldown_periods=int(overrides.get("cooldown_months", 3)),
+        min_history_periods=int(overrides.get("min_track_months", 24)),
         metric_weights=metric_weights_dict,
         trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
         benchmark=setup.benchmark,

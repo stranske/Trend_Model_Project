@@ -85,7 +85,9 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     while True:
         # In-sample end: in_len periods after in_start
         in_end = (
-            in_start + pd.DateOffset(months=step_months * in_len) - pd.Timedelta(days=1)
+            in_start
+            + pd.DateOffset(months=step_months * max(in_len - 1, 0))
+            - pd.Timedelta(days=1)
         )
         # Align to month end
         in_end = in_end + pd.offsets.MonthEnd(0)

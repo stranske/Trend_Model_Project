@@ -25,9 +25,13 @@ class DummyStreamlit:
         self.subheaders: list[str] = []
         self.altair_payloads: list[object] = []
         self.dataframes: list[pd.DataFrame] = []
+        self.metrics: list[tuple[str, object]] = []
 
     # Basic UI primitives -------------------------------------------------
     def title(self, _text: str) -> None:  # pragma: no cover - trivial
+        return None
+
+    def header(self, _text: str) -> None:  # pragma: no cover - trivial
         return None
 
     def markdown(self, *_args, **_kwargs) -> None:  # pragma: no cover - trivial
@@ -47,10 +51,16 @@ class DummyStreamlit:
     def subheader(self, text: str) -> None:
         self.subheaders.append(text)
 
+    def success(self, _text: str) -> None:  # pragma: no cover - trivial
+        return None
+
+    def divider(self) -> None:  # pragma: no cover - trivial
+        return None
+
     def altair_chart(self, payload, **_kwargs) -> None:
         self.altair_payloads.append(payload)
 
-    def dataframe(self, df: pd.DataFrame) -> None:
+    def dataframe(self, df: pd.DataFrame, **_: object) -> None:
         self.dataframes.append(df)
 
     def error(self, message: str) -> None:
@@ -64,6 +74,15 @@ class DummyStreamlit:
 
     def caption(self, message: str) -> None:
         self.caption_messages.append(message)
+
+    def tabs(self, labels: list[str]):
+        return [ColumnContext(self) for _ in labels]
+
+    def metric(self, label: str, value: object) -> None:
+        self.metrics.append((label, value))
+
+    def expander(self, *_args, **_kwargs) -> "ColumnContext":
+        return ColumnContext(self)
 
     def cache_data(self, *_args, **_kwargs):
         def decorator(func):
@@ -97,11 +116,14 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
 
     for attr in [
         "title",
+        "header",
         "markdown",
         "button",
         "spinner",
         "columns",
         "subheader",
+        "success",
+        "divider",
         "altair_chart",
         "dataframe",
         "error",
@@ -109,8 +131,19 @@ def results_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStre
         "info",
         "caption",
         "cache_data",
+        "tabs",
+        "metric",
+        "expander",
     ]:
         setattr(module, attr, bind(attr))
+
+    def __getattr__(name: str):  # pragma: no cover - fallback
+        def _noop(*_args, **_kwargs):
+            return None
+
+        return _noop
+
+    module.__getattr__ = __getattr__
 
     module.session_state = stub.session_state
 
