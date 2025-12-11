@@ -32,9 +32,9 @@ WEIGHTING_SCHEMES = [
 # Preset configurations with default parameter values
 PRESET_CONFIGS = {
     "Baseline": {
-        "lookback_months": 36,
-        "min_history_months": 36,
-        "evaluation_months": 12,
+        "lookback_periods": 3,
+        "min_history_periods": 3,
+        "evaluation_periods": 1,
         "selection_count": 10,
         "weighting_scheme": "equal",
         "metric_weights": {
@@ -62,8 +62,7 @@ PRESET_CONFIGS = {
         "vol_ewma_lambda": 0.94,
         # Advanced settings
         "max_weight": 0.20,
-        "cooldown_months": 3,
-        "min_track_months": 24,
+        "cooldown_periods": 1,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
         "transaction_cost_bps": 0,
@@ -105,17 +104,13 @@ PRESET_CONFIGS = {
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings (Phase 8)
-        "multi_period_enabled": False,
+        "multi_period_enabled": True,
         "multi_period_frequency": "A",
-        "in_sample_years": 3,
-        "out_sample_years": 1,
         "inclusion_approach": "top_n",
-        "rank_transform": "none",
         "slippage_bps": 0,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
         "rank_pct": 0.10,
-        "rank_threshold": 1.5,
         # Multi-period bounds (Phase 12)
         "mp_min_funds": 10,
         "mp_max_funds": 25,
@@ -124,9 +119,9 @@ PRESET_CONFIGS = {
         "z_exit_hard": None,
     },
     "Conservative": {
-        "lookback_months": 48,
-        "min_history_months": 48,
-        "evaluation_months": 12,
+        "lookback_periods": 5,
+        "min_history_periods": 5,
+        "evaluation_periods": 1,
         "selection_count": 8,
         "weighting_scheme": "risk_parity",
         "metric_weights": {
@@ -148,8 +143,7 @@ PRESET_CONFIGS = {
         "warmup_periods": 6,
         # Advanced settings - more restrictive
         "max_weight": 0.15,
-        "cooldown_months": 6,
-        "min_track_months": 36,
+        "cooldown_periods": 2,
         "rebalance_freq": "Q",
         "max_turnover": 0.50,
         "transaction_cost_bps": 10,
@@ -191,17 +185,13 @@ PRESET_CONFIGS = {
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings (Phase 8) - conservative: longer periods
-        "multi_period_enabled": False,
+        "multi_period_enabled": True,
         "multi_period_frequency": "A",
-        "in_sample_years": 5,
-        "out_sample_years": 1,
         "inclusion_approach": "top_n",
-        "rank_transform": "zscore",
         "slippage_bps": 5,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
         "rank_pct": 0.10,
-        "rank_threshold": 2.0,  # stricter for conservative
         # Multi-period bounds (Phase 12) - conservative: narrower range
         "mp_min_funds": 8,
         "mp_max_funds": 15,
@@ -210,9 +200,9 @@ PRESET_CONFIGS = {
         "z_exit_hard": -2.5,
     },
     "Aggressive": {
-        "lookback_months": 24,
-        "min_history_months": 24,
-        "evaluation_months": 6,
+        "lookback_periods": 2,
+        "min_history_periods": 2,
+        "evaluation_periods": 1,
         "selection_count": 15,
         "weighting_scheme": "hrp",
         "metric_weights": {
@@ -234,8 +224,7 @@ PRESET_CONFIGS = {
         "warmup_periods": 0,
         # Advanced settings - less restrictive
         "max_weight": 0.25,
-        "cooldown_months": 1,
-        "min_track_months": 12,
+        "cooldown_periods": 0,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
         "transaction_cost_bps": 0,
@@ -277,17 +266,13 @@ PRESET_CONFIGS = {
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings (Phase 8) - aggressive: shorter periods
-        "multi_period_enabled": False,
+        "multi_period_enabled": True,
         "multi_period_frequency": "Q",
-        "in_sample_years": 2,
-        "out_sample_years": 1,
         "inclusion_approach": "top_n",
-        "rank_transform": "none",
         "slippage_bps": 0,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
         "rank_pct": 0.15,  # more aggressive percentage
-        "rank_threshold": 1.0,  # lower threshold for aggressive
         # Multi-period bounds (Phase 12) - aggressive: wider range
         "mp_min_funds": 15,
         "mp_max_funds": 40,
@@ -333,8 +318,7 @@ HELP_TEXT = {
     "vol_ewma_lambda": "EWMA decay factor. Higher = longer memory. 0.94 is RiskMetrics standard.",
     # Advanced settings
     "max_weight": "Maximum allocation to any single fund. Prevents concentration risk.",
-    "cooldown_months": "After a fund is removed, it cannot be re-added for this many months.",
-    "min_track_months": "Minimum track record (months of data) required for a fund to be eligible.",
+    "cooldown_periods": "After a fund is removed, it cannot be re-added for this many periods.",
     "rebalance_freq": "How often to rebalance the portfolio weights.",
     "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
     "transaction_cost_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
@@ -343,7 +327,7 @@ HELP_TEXT = {
     "max_changes": "Maximum number of fund additions/removals per rebalance. 0 = unlimited.",
     "max_active": "Maximum active positions in portfolio. 0 = use selection count.",
     # Phase 4: Trend signal parameters
-    "trend_window": "Rolling window size for computing momentum signals (in periods).",
+    "trend_window": "Rolling window size for computing trend signals (in periods).",
     "trend_lag": "Number of periods to lag the signal (minimum 1 for causality).",
     "trend_min_periods": "Minimum observations required in rolling window. Blank = use window.",
     "trend_zscore": "Cross-sectionally standardize signals at each time step.",
@@ -368,15 +352,13 @@ HELP_TEXT = {
     # Phase 8: Multi-period & Selection settings
     "multi_period_enabled": "Enable rolling multi-period walk-forward analysis.",
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
-    "in_sample_years": "Number of years for in-sample (training) window.",
-    "out_sample_years": "Number of years for out-of-sample (testing) window.",
+    "lookback_periods": "Number of periods for in-sample (training) window.",
+    "evaluation_periods": "Number of periods for out-of-sample (testing) window.",
     "inclusion_approach": "How to select funds: Top N, Top Percentage, or Z-score Threshold.",
-    "rank_transform": "Transform scores before ranking: None, Z-score, or Percentile Rank.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
     # Phase 9: Selection approach details
     "rank_pct": "Percentage of funds to include (0.10 = top 10%). Used with Top Percentage approach.",
-    "rank_threshold": "Z-score threshold for inclusion. Funds scoring above this are selected.",
     # Phase 12: Multi-period bounds
     "mp_min_funds": "Minimum number of funds to hold in multi-period analysis.",
     "mp_max_funds": "Maximum number of funds to hold in multi-period analysis.",
@@ -422,8 +404,10 @@ def _get_benchmark_columns(df) -> list[str]:
 
 def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     errors: list[str] = []
-    lookback = values.get("lookback_months", 36)
-    min_history = values.get("min_history_months", lookback)
+    lookback = values.get("lookback_periods", values.get("lookback_months", 3))
+    min_history = values.get(
+        "min_history_periods", values.get("min_history_months", lookback)
+    )
     if min_history > lookback:
         errors.append("Minimum history cannot exceed the lookback window.")
     selection = values.get("selection_count", 10)
@@ -446,9 +430,9 @@ def _initial_model_state() -> dict[str, Any]:
     baseline = PRESET_CONFIGS["Baseline"]
     return {
         "preset": "Baseline",
-        "lookback_months": baseline["lookback_months"],
-        "min_history_months": baseline["min_history_months"],
-        "evaluation_months": baseline["evaluation_months"],
+        "lookback_periods": baseline["lookback_periods"],
+        "min_history_periods": baseline["min_history_periods"],
+        "evaluation_periods": baseline["evaluation_periods"],
         "selection_count": baseline["selection_count"],
         "weighting_scheme": baseline["weighting_scheme"],
         "metric_weights": baseline["metric_weights"].copy(),
@@ -464,8 +448,7 @@ def _initial_model_state() -> dict[str, Any]:
         "warmup_periods": baseline["warmup_periods"],
         # Advanced settings
         "max_weight": baseline["max_weight"],
-        "cooldown_months": baseline["cooldown_months"],
-        "min_track_months": baseline["min_track_months"],
+        "cooldown_periods": baseline["cooldown_periods"],
         "rebalance_freq": baseline["rebalance_freq"],
         "max_turnover": baseline["max_turnover"],
         "transaction_cost_bps": baseline["transaction_cost_bps"],
@@ -509,15 +492,11 @@ def _initial_model_state() -> dict[str, Any]:
         # Multi-period & Selection settings (Phase 8)
         "multi_period_enabled": baseline["multi_period_enabled"],
         "multi_period_frequency": baseline["multi_period_frequency"],
-        "in_sample_years": baseline["in_sample_years"],
-        "out_sample_years": baseline["out_sample_years"],
         "inclusion_approach": baseline["inclusion_approach"],
-        "rank_transform": baseline["rank_transform"],
         "slippage_bps": baseline["slippage_bps"],
         "bottom_k": baseline["bottom_k"],
         # Selection approach details (Phase 9)
         "rank_pct": baseline["rank_pct"],
-        "rank_threshold": baseline["rank_threshold"],
         # Multi-period bounds (Phase 12)
         "mp_min_funds": baseline["mp_min_funds"],
         "mp_max_funds": baseline["mp_max_funds"],
@@ -582,6 +561,12 @@ for the covariance matrix.
 def render_model_page() -> None:
     app_state.initialize_session_state()
     st.title("Model Configuration")
+
+    # Clarify this is for custom analysis
+    st.info(
+        "💡 This page is for **custom analysis** with your own data. "
+        "For quick demos with preset configurations, use the **Run Demo** button on the Home page."
+    )
 
     # Help link - use st.page_link for proper navigation
     st.markdown(
@@ -685,8 +670,6 @@ def render_model_page() -> None:
 
     # Show date pickers when in explicit mode
     if date_mode == "explicit":
-        date_col1, date_col2 = st.columns(2)
-
         # Convert data boundaries to date objects for the date picker
         if data_start is not None and hasattr(data_start, "date"):
             min_date = data_start.date()
@@ -698,15 +681,29 @@ def render_model_page() -> None:
         else:
             max_date = None
 
+        # Show valid data range prominently
+        if min_date and max_date:
+            st.info(
+                f"📅 **Available data range:** {min_date.strftime('%b %d, %Y')} to {max_date.strftime('%b %d, %Y')}"
+            )
+
+        date_col1, date_col2 = st.columns(2)
         # Get current values from model state
         current_start = model_state.get("start_date")
         current_end = model_state.get("end_date")
+
+        # Track if dates were auto-corrected
+        start_was_corrected = False
+        end_was_corrected = False
+        original_start_str = None
+        original_end_str = None
 
         # Convert to date objects if they're strings
         if isinstance(current_start, str) and current_start:
             try:
                 import datetime
 
+                original_start_str = current_start
                 current_start = datetime.datetime.strptime(
                     current_start[:7] + "-01", "%Y-%m-%d"
                 ).date()
@@ -715,10 +712,21 @@ def render_model_page() -> None:
         elif current_start is None:
             current_start = min_date
 
+        # Ensure current_start is within valid range
+        if current_start is not None and min_date is not None:
+            if current_start < min_date:
+                start_was_corrected = True
+                current_start = min_date
+        if current_start is not None and max_date is not None:
+            if current_start > max_date:
+                start_was_corrected = True
+                current_start = max_date
+
         if isinstance(current_end, str) and current_end:
             try:
                 import datetime
 
+                original_end_str = current_end
                 current_end = datetime.datetime.strptime(
                     current_end[:7] + "-01", "%Y-%m-%d"
                 ).date()
@@ -726,6 +734,16 @@ def render_model_page() -> None:
                 current_end = max_date
         elif current_end is None:
             current_end = max_date
+
+        # Ensure current_end is within valid range
+        if current_end is not None and min_date is not None:
+            if current_end < min_date:
+                end_was_corrected = True
+                current_end = min_date
+        if current_end is not None and max_date is not None:
+            if current_end > max_date:
+                end_was_corrected = True
+                current_end = max_date
 
         with date_col1:
             sim_start_date = st.date_input(
@@ -736,6 +754,11 @@ def render_model_page() -> None:
                 help=HELP_TEXT["start_date"],
                 key="sim_start_date",
             )
+            # Show warning if date was auto-corrected
+            if start_was_corrected and original_start_str:
+                st.caption(
+                    f"⚠️ Adjusted from {original_start_str[:10]} to nearest available date"
+                )
             # Update model state
             if sim_start_date:
                 st.session_state["model_state"]["start_date"] = sim_start_date.strftime(
@@ -751,6 +774,11 @@ def render_model_page() -> None:
                 help=HELP_TEXT["end_date"],
                 key="sim_end_date",
             )
+            # Show warning if date was auto-corrected
+            if end_was_corrected and original_end_str:
+                st.caption(
+                    f"⚠️ Adjusted from {original_end_str[:10]} to nearest available date"
+                )
             # Update model state
             if sim_end_date:
                 st.session_state["model_state"]["end_date"] = sim_end_date.strftime(
@@ -807,9 +835,9 @@ def render_model_page() -> None:
         if preset_config:
             st.session_state["model_state"] = {
                 "preset": new_preset,
-                "lookback_months": preset_config["lookback_months"],
-                "min_history_months": preset_config["min_history_months"],
-                "evaluation_months": preset_config["evaluation_months"],
+                "lookback_periods": preset_config["lookback_periods"],
+                "min_history_periods": preset_config["min_history_periods"],
+                "evaluation_periods": preset_config["evaluation_periods"],
                 "selection_count": preset_config["selection_count"],
                 "weighting_scheme": preset_config["weighting_scheme"],
                 "metric_weights": preset_config["metric_weights"].copy(),
@@ -825,8 +853,7 @@ def render_model_page() -> None:
                 "warmup_periods": preset_config["warmup_periods"],
                 # Advanced settings
                 "max_weight": preset_config["max_weight"],
-                "cooldown_months": preset_config["cooldown_months"],
-                "min_track_months": preset_config["min_track_months"],
+                "cooldown_periods": preset_config["cooldown_periods"],
                 "rebalance_freq": preset_config["rebalance_freq"],
                 "max_turnover": preset_config["max_turnover"],
                 "transaction_cost_bps": preset_config["transaction_cost_bps"],
@@ -891,31 +918,151 @@ def render_model_page() -> None:
         st.session_state["model_state"]["weighting_scheme"] = weighting_value
 
     with st.form("model_settings", clear_on_submit=False):
-        # Section 1: Fund Selection Settings
-        st.subheader("📋 Fund Selection Settings")
+        # =====================================================================
+        # Section 0: Analysis Mode (Primary Choice)
+        # =====================================================================
+        st.subheader("🎯 Analysis Mode")
         st.caption(
-            "Configure how funds are evaluated and filtered for portfolio inclusion."
+            "Choose between single-period (one-time selection) or multi-period "
+            "(rolling walk-forward analysis with rebalancing)."
         )
 
-        c1, c2 = st.columns(2)
+        multi_period_enabled = st.checkbox(
+            "Enable Multi-Period Walk-Forward Analysis",
+            value=bool(model_state.get("multi_period_enabled", True)),
+            help=HELP_TEXT["multi_period_enabled"],
+        )
+        if multi_period_enabled:
+            st.success(
+                "✅ Funds will be re-evaluated at each period. Entry/exit rules and rebalancing apply."
+            )
+
+        # Fund Selection Approach - determines how funds are chosen
+        st.markdown("**Fund Selection Approach**")
+        approach_c1, approach_c2 = st.columns(2)
+        with approach_c1:
+            inclusion_approaches = ["top_n", "top_pct", "threshold"]
+            inclusion_labels = {
+                "top_n": "Top N Funds (Ranking)",
+                "top_pct": "Top Percentage (Ranking)",
+                "threshold": "Z-Score Threshold",
+            }
+            current_inclusion = model_state.get("inclusion_approach", "top_n")
+            inclusion_approach = st.selectbox(
+                "Selection Method",
+                options=inclusion_approaches,
+                format_func=lambda x: inclusion_labels.get(x, x),
+                index=(
+                    inclusion_approaches.index(current_inclusion)
+                    if current_inclusion in inclusion_approaches
+                    else 0
+                ),
+                help=HELP_TEXT["inclusion_approach"],
+            )
+
+        # Indicate whether this is ranking-based or threshold-based
+        is_ranking_mode = inclusion_approach in ["top_n", "top_pct"]
+
+        with approach_c2:
+            if is_ranking_mode:
+                st.caption(
+                    "🏆 **Ranking Mode**: Funds are ranked by score and the top performers "
+                    "are selected. Entry/exit uses ranking stability."
+                )
+            else:
+                st.caption(
+                    "📊 **Threshold Mode**: Funds must exceed a z-score threshold to enter. "
+                    "Entry/exit uses z-score thresholds."
+                )
+
+        # =====================================================================
+        # Section 1: Fund Selection Settings
+        # =====================================================================
+        st.divider()
+        st.subheader("📋 Fund Selection & Time Windows")
+        st.caption(
+            "Configure time windows for fund evaluation and walk-forward analysis."
+        )
+
+        # Row 1: Frequency (sets the period unit for all time windows)
+        # Note: This is inside the form, so labels won't update until form is submitted.
+        # We use model_state to determine the current unit for display.
+        multi_period_frequencies = ["M", "Q", "A"]
+        freq_labels = {
+            "M": "Monthly",
+            "Q": "Quarterly",
+            "A": "Annual",
+        }
+        freq_period_labels = {
+            "M": "months",
+            "Q": "quarters",
+            "A": "years",
+        }
+        current_mp_freq = model_state.get("multi_period_frequency", "A")
+        multi_period_frequency = st.selectbox(
+            "Period Frequency",
+            options=multi_period_frequencies,
+            format_func=lambda x: freq_labels.get(x, x),
+            index=(
+                multi_period_frequencies.index(current_mp_freq)
+                if current_mp_freq in multi_period_frequencies
+                else 2
+            ),
+            help=HELP_TEXT["multi_period_frequency"],
+        )
+        # Use the saved frequency from model_state for label display (shows current saved value)
+        # The new selection will take effect after save
+
+        # Row 2: Time windows
+        st.markdown("**Time Windows**")
+        c1, c2, c3 = st.columns(3)
         with c1:
             lookback = st.number_input(
-                "Lookback Window (months)",
-                min_value=12,
-                value=int(model_state.get("lookback_months", 36)),
-                help=HELP_TEXT["lookback"],
-            )
-        with c2:
-            min_history = st.number_input(
-                "Minimum History Required (months)",
+                "Lookback",
                 min_value=1,
+                max_value=20,
+                value=int(model_state.get("lookback_periods", 3)),
+                help=HELP_TEXT.get(
+                    "lookback_periods",
+                    "Number of periods for in-sample (training) window.",
+                ),
+            )
+            st.caption("In-sample history for ranking")
+        with c2:
+            evaluation = st.number_input(
+                "Evaluation",
+                min_value=1,
+                max_value=10,
+                value=int(model_state.get("evaluation_periods", 1)),
+                help=HELP_TEXT.get(
+                    "evaluation_periods",
+                    "Number of periods for out-of-sample (testing) window.",
+                ),
+            )
+            st.caption("Out-of-sample test period")
+        with c3:
+            min_history = st.number_input(
+                "Min History",
+                min_value=1,
+                max_value=20,
                 value=int(
                     model_state.get(
-                        "min_history_months", model_state.get("lookback_months", 36)
+                        "min_history_periods", model_state.get("lookback_periods", 3)
                     )
                 ),
-                help=HELP_TEXT["min_history"],
+                help=HELP_TEXT.get(
+                    "min_history",
+                    "Minimum periods of data required for a fund to be considered.",
+                ),
             )
+            st.caption("Funds with less history excluded")
+
+        # Show period summary based on selected frequency
+        selected_unit = freq_period_labels.get(multi_period_frequency, "periods")
+        st.caption(
+            f"Strategy: {lookback} {selected_unit} training → {evaluation} {selected_unit} testing, "
+            f"rebalanced {freq_labels[multi_period_frequency].lower()}."
+        )
 
         # Section 2: Portfolio Settings
         st.divider()
@@ -924,13 +1071,6 @@ def render_model_page() -> None:
 
         c3, c4 = st.columns(2)
         with c3:
-            evaluation = st.number_input(
-                "Evaluation Window (months)",
-                min_value=3,
-                value=int(model_state.get("evaluation_months", 12)),
-                help=HELP_TEXT["evaluation"],
-            )
-        with c4:
             selection = st.number_input(
                 "Selection Count",
                 min_value=1,
@@ -1065,26 +1205,22 @@ def render_model_page() -> None:
                 value=bool(model_state.get("rf_override_enabled", False)),
                 help=HELP_TEXT["rf_override"],
             )
-            # Only show RF rate input when override is enabled
+            # Use checkbox value directly - it's available immediately within form
+            rf_rate_pct = st.number_input(
+                "Constant RF Rate (%)",
+                min_value=0.0,
+                max_value=20.0,
+                value=float(model_state.get("rf_rate_annual", 0.0)) * 100,
+                step=0.25,
+                format="%.2f",
+                help=HELP_TEXT["rf_rate"],
+                disabled=not rf_override_enabled,
+            )
+            rf_rate_annual = rf_rate_pct / 100.0 if rf_override_enabled else 0.0
             if rf_override_enabled:
-                rf_rate_pct = st.number_input(
-                    "Constant RF Rate (%)",
-                    min_value=0.0,
-                    max_value=20.0,
-                    value=float(model_state.get("rf_rate_annual", 0.0)) * 100,
-                    step=0.25,
-                    format="%.2f",
-                    help=HELP_TEXT["rf_rate"],
-                )
-                rf_rate_annual = rf_rate_pct / 100.0
-                st.warning(
-                    "⚠️ Using constant RF rate. Time-varying rates from data "
-                    "provide more accurate Sharpe/Sortino calculations.",
-                    icon="⚠️",
-                )
+                st.caption("⚠️ Using constant RF rate instead of data column.")
             else:
-                rf_rate_annual = 0.0
-                st.caption("RF rate from data column (recommended)")
+                st.caption("Enable override to enter a constant RF rate.")
 
         # Volatility floor and warmup
         vol_c1, vol_c2 = st.columns(2)
@@ -1123,58 +1259,60 @@ def render_model_page() -> None:
                 help=HELP_TEXT["vol_adjust_enabled"],
             )
 
-            if vol_adj_enabled:
-                va_c1, va_c2, va_c3 = st.columns(3)
-                with va_c1:
-                    vol_window_length = st.number_input(
-                        "Vol Window (periods)",
-                        min_value=10,
-                        max_value=252,
-                        value=int(model_state.get("vol_window_length", 63)),
-                        help=HELP_TEXT["vol_window_length"],
-                    )
+            # Always show vol settings, disabled when checkbox is off (forms don't rerun)
+            va_c1, va_c2, va_c3 = st.columns(3)
+            with va_c1:
+                vol_window_length = st.number_input(
+                    "Vol Window (periods)",
+                    min_value=10,
+                    max_value=252,
+                    value=int(model_state.get("vol_window_length", 63)),
+                    help=HELP_TEXT["vol_window_length"],
+                    disabled=not vol_adj_enabled,
+                )
+                if vol_adj_enabled:
                     st.caption(
                         f"~{vol_window_length // 21} months"
                         if vol_window_length >= 21
                         else f"{vol_window_length} days"
                     )
+                else:
+                    st.caption("Enable volatility adjustment to configure")
 
-                with va_c2:
-                    decay_methods = ["ewma", "simple"]
-                    decay_labels = {
-                        "ewma": "EWMA (Exponential)",
-                        "simple": "Simple (Equal Weight)",
-                    }
-                    current_decay = model_state.get("vol_window_decay", "ewma")
-                    vol_window_decay = st.selectbox(
-                        "Decay Method",
-                        options=decay_methods,
-                        format_func=lambda x: decay_labels.get(x, x),
-                        index=(
-                            decay_methods.index(current_decay)
-                            if current_decay in decay_methods
-                            else 0
-                        ),
-                        help=HELP_TEXT["vol_window_decay"],
-                    )
+            with va_c2:
+                decay_methods = ["ewma", "simple"]
+                decay_labels = {
+                    "ewma": "EWMA (Exponential)",
+                    "simple": "Simple (Equal Weight)",
+                }
+                current_decay = model_state.get("vol_window_decay", "ewma")
+                vol_window_decay = st.selectbox(
+                    "Decay Method",
+                    options=decay_methods,
+                    format_func=lambda x: decay_labels.get(x, x),
+                    index=(
+                        decay_methods.index(current_decay)
+                        if current_decay in decay_methods
+                        else 0
+                    ),
+                    help=HELP_TEXT["vol_window_decay"],
+                    disabled=not vol_adj_enabled,
+                )
 
-                with va_c3:
-                    vol_ewma_lambda = st.number_input(
-                        "EWMA Lambda",
-                        min_value=0.80,
-                        max_value=0.99,
-                        value=float(model_state.get("vol_ewma_lambda", 0.94)),
-                        step=0.01,
-                        format="%.2f",
-                        help=HELP_TEXT["vol_ewma_lambda"],
-                        disabled=(vol_window_decay != "ewma"),
-                    )
-                    if vol_window_decay == "ewma":
-                        half_life = round(-1 / (1 + 1e-9 - vol_ewma_lambda), 1)
-                        st.caption(f"Half-life: ~{half_life:.0f} periods")
-            else:
-                vol_window_length = int(model_state.get("vol_window_length", 63))
-                vol_ewma_lambda = float(model_state.get("vol_ewma_lambda", 0.94))
+            with va_c3:
+                vol_ewma_lambda = st.number_input(
+                    "EWMA Lambda",
+                    min_value=0.80,
+                    max_value=0.99,
+                    value=float(model_state.get("vol_ewma_lambda", 0.94)),
+                    step=0.01,
+                    format="%.2f",
+                    help=HELP_TEXT["vol_ewma_lambda"],
+                    disabled=(not vol_adj_enabled or vol_window_decay != "ewma"),
+                )
+                if vol_adj_enabled and vol_window_decay == "ewma":
+                    half_life = round(-1 / (1 + 1e-9 - vol_ewma_lambda), 1)
+                    st.caption(f"Half-life: ~{half_life:.0f} periods")
 
         # Store volatility adjustment parameters in model_state
         model_state["vol_adjust_enabled"] = vol_adj_enabled
@@ -1199,19 +1337,21 @@ def render_model_page() -> None:
 
         adv_c1, adv_c2 = st.columns(2)
         with adv_c1:
-            cooldown_months = st.number_input(
-                "Cooldown Period (months)",
+            cooldown_periods = st.number_input(
+                "Cooldown Period",
                 min_value=0,
-                max_value=24,
-                value=int(model_state.get("cooldown_months", 3)),
-                help=HELP_TEXT["cooldown_months"],
+                max_value=20,
+                value=int(model_state.get("cooldown_periods", 1)),
+                help=HELP_TEXT["cooldown_periods"],
             )
-            min_track_months = st.number_input(
-                "Minimum Track Record (months)",
-                min_value=1,
-                max_value=120,
-                value=int(model_state.get("min_track_months", 24)),
-                help=HELP_TEXT["min_track_months"],
+            max_turnover = st.number_input(
+                "Maximum Turnover",
+                min_value=0.0,
+                max_value=2.0,
+                value=float(model_state.get("max_turnover", 1.0)),
+                step=0.1,
+                format="%.1f",
+                help=HELP_TEXT["max_turnover"],
             )
 
         with adv_c2:
@@ -1229,27 +1369,15 @@ def render_model_page() -> None:
                 ),
                 help=HELP_TEXT["rebalance_freq"],
             )
-            max_turnover = st.number_input(
-                "Maximum Turnover",
-                min_value=0.0,
-                max_value=2.0,
-                value=float(model_state.get("max_turnover", 1.0)),
-                step=0.1,
-                format="%.1f",
-                help=HELP_TEXT["max_turnover"],
+            transaction_cost_bps = st.number_input(
+                "Transaction Cost (bps)",
+                min_value=0,
+                max_value=100,
+                value=int(model_state.get("transaction_cost_bps", 0)),
+                help=HELP_TEXT["transaction_cost_bps"],
             )
-
-        transaction_cost_bps = st.number_input(
-            "Transaction Cost (basis points)",
-            min_value=0,
-            max_value=100,
-            value=int(model_state.get("transaction_cost_bps", 0)),
-            help=HELP_TEXT["transaction_cost_bps"],
-        )
-        if transaction_cost_bps > 0:
-            st.caption(
-                f"Each trade incurs a {transaction_cost_bps} bp ({transaction_cost_bps/100:.2f}%) cost."
-            )
+            if transaction_cost_bps > 0:
+                st.caption(f"Each trade incurs a {transaction_cost_bps} bp cost.")
 
         # Section 6: Fund Holding Rules (Phase 3)
         st.divider()
@@ -1294,84 +1422,16 @@ def render_model_page() -> None:
             else:
                 st.caption(f"Capped at {max_active_positions} funds")
 
-        # Section 7: Portfolio Signal Settings (Phase 4) - collapsible
-        st.divider()
-        with st.expander("📈 Portfolio Signal Settings (Advanced)", expanded=False):
-            st.caption(
-                "Configure the momentum signal generation parameters. "
-                "These control how portfolio signals are computed for fund ranking."
-            )
-
-            sig_c1, sig_c2, sig_c3 = st.columns(3)
-            with sig_c1:
-                trend_window = st.number_input(
-                    "Signal Window (periods)",
-                    min_value=5,
-                    max_value=252,
-                    value=int(model_state.get("trend_window", 63)),
-                    help=HELP_TEXT["trend_window"],
-                )
-                st.caption(
-                    f"~{trend_window // 21} months"
-                    if trend_window >= 21
-                    else f"{trend_window} days"
-                )
-
-            with sig_c2:
-                trend_lag = st.number_input(
-                    "Signal Lag",
-                    min_value=1,
-                    max_value=10,
-                    value=int(model_state.get("trend_lag", 1)),
-                    help=HELP_TEXT["trend_lag"],
-                )
-
-            with sig_c3:
-                trend_min_periods_val = model_state.get("trend_min_periods")
-                trend_min_periods = st.number_input(
-                    "Min Periods",
-                    min_value=0,
-                    max_value=252,
-                    value=int(trend_min_periods_val) if trend_min_periods_val else 0,
-                    help=HELP_TEXT["trend_min_periods"],
-                )
-                # Convert 0 to None for storage
-                trend_min_periods_out = (
-                    trend_min_periods if trend_min_periods > 0 else None
-                )
-                if trend_min_periods == 0:
-                    st.caption("Uses full window")
-
-            sig_c4, sig_c5 = st.columns(2)
-            with sig_c4:
-                trend_zscore = st.checkbox(
-                    "Cross-sectional Z-score",
-                    value=bool(model_state.get("trend_zscore", False)),
-                    help=HELP_TEXT["trend_zscore"],
-                )
-
-            with sig_c5:
-                trend_vol_adjust = st.checkbox(
-                    "Volatility adjust signals",
-                    value=bool(model_state.get("trend_vol_adjust", False)),
-                    help=HELP_TEXT["trend_vol_adjust"],
-                )
-
-            # Show vol target only if vol adjust is enabled
-            trend_vol_target_out = None
-            if trend_vol_adjust:
-                vol_tgt_val = model_state.get("trend_vol_target")
-                trend_vol_target = st.number_input(
-                    "Signal Vol Target",
-                    min_value=0.01,
-                    max_value=0.50,
-                    value=float(vol_tgt_val) if vol_tgt_val else 0.10,
-                    step=0.01,
-                    format="%.2f",
-                    help=HELP_TEXT["trend_vol_target"],
-                )
-                trend_vol_target_out = trend_vol_target
-                st.caption(f"Target: {trend_vol_target:.0%} annualized")
+        # Section 7: Trend Signal Settings - REMOVED FROM UI
+        # These settings require daily returns to be meaningful.
+        # With monthly returns, they would be inappropriate.
+        # Using default values; see docs/TrendSignalSettings.md for documentation.
+        trend_window = int(model_state.get("trend_window", 63))
+        trend_lag = int(model_state.get("trend_lag", 1))
+        trend_min_periods_out = model_state.get("trend_min_periods")
+        trend_zscore = bool(model_state.get("trend_zscore", False))
+        trend_vol_adjust = bool(model_state.get("trend_vol_adjust", False))
+        trend_vol_target_out = model_state.get("trend_vol_target")
 
         # Section 8: Regime Analysis (Phase 6) - collapsible
         st.divider()
@@ -1558,49 +1618,105 @@ def render_model_page() -> None:
                     help=HELP_TEXT["winsorize_enabled"],
                 )
 
+            # Always show winsorize settings, disabled when checkbox is off (forms don't rerun)
+            win_c1, win_c2 = st.columns(2)
+            with win_c1:
+                winsorize_lower = st.number_input(
+                    "Lower Limit (%)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    value=float(model_state.get("winsorize_lower", 1.0)),
+                    step=0.5,
+                    format="%.1f",
+                    help=HELP_TEXT["winsorize_lower"],
+                    disabled=not winsorize_enabled,
+                )
+            with win_c2:
+                winsorize_upper = st.number_input(
+                    "Upper Limit (%)",
+                    min_value=90.0,
+                    max_value=100.0,
+                    value=float(model_state.get("winsorize_upper", 99.0)),
+                    step=0.5,
+                    format="%.1f",
+                    help=HELP_TEXT["winsorize_upper"],
+                    disabled=not winsorize_enabled,
+                )
             if winsorize_enabled:
-                win_c1, win_c2 = st.columns(2)
-                with win_c1:
-                    winsorize_lower = st.number_input(
-                        "Lower Limit (%)",
-                        min_value=0.0,
-                        max_value=10.0,
-                        value=float(model_state.get("winsorize_lower", 1.0)),
-                        step=0.5,
-                        format="%.1f",
-                        help=HELP_TEXT["winsorize_lower"],
-                    )
-                with win_c2:
-                    winsorize_upper = st.number_input(
-                        "Upper Limit (%)",
-                        min_value=90.0,
-                        max_value=100.0,
-                        value=float(model_state.get("winsorize_upper", 99.0)),
-                        step=0.5,
-                        format="%.1f",
-                        help=HELP_TEXT["winsorize_upper"],
-                    )
                 st.caption(
                     f"Extreme returns clipped to [{winsorize_lower:.1f}%, "
                     f"{winsorize_upper:.1f}%] percentiles."
                 )
             else:
-                winsorize_lower = float(model_state.get("winsorize_lower", 1.0))
-                winsorize_upper = float(model_state.get("winsorize_upper", 99.0))
+                st.caption("Enable winsorization to clip extreme returns.")
 
-        # Section 10: Entry/Exit Rules (Phase 5) - collapsible
+        # =====================================================================
+        # Section 10: Entry/Exit Rules (Phase 5) - conditional on selection mode
+        # =====================================================================
         st.divider()
         with st.expander("🚪 Entry/Exit Rules", expanded=False):
+            # Use model_state for disabled since form checkbox changes don't apply until save
+            mp_enabled_state = bool(model_state.get("multi_period_enabled", True))
+
+            if not mp_enabled_state:
+                st.warning(
+                    "⚠️ Entry/exit rules only apply in multi-period mode. "
+                    "Enable multi-period above, save config, then configure these settings."
+                )
+
             st.caption(
                 "Configure how funds are added to and removed from the portfolio. "
                 "These settings control manager hiring and firing decisions."
             )
 
+            # RANKING STABILITY - applies to ranking modes (Top-N, Top-%)
+            if is_ranking_mode:
+                st.markdown("**Ranking Stability (for Top-N / Top-% modes)**")
+                st.info(
+                    "Stability settings prevent churning by requiring consistent ranking "
+                    "before adding or removing a fund."
+                )
+
+                rank_c1, rank_c2 = st.columns(2)
+                with rank_c1:
+                    sticky_add_periods = st.number_input(
+                        "Periods in Top-K Before Entry",
+                        min_value=1,
+                        max_value=12,
+                        value=int(model_state.get("sticky_add_periods", 1)),
+                        help=HELP_TEXT["sticky_add_periods"],
+                        disabled=not mp_enabled_state,
+                    )
+                    st.caption(
+                        f"Fund must rank in top-K for {sticky_add_periods} period(s)."
+                    )
+
+                with rank_c2:
+                    sticky_drop_periods = st.number_input(
+                        "Periods Outside Top-K Before Exit",
+                        min_value=1,
+                        max_value=12,
+                        value=int(model_state.get("sticky_drop_periods", 1)),
+                        help=HELP_TEXT["sticky_drop_periods"],
+                        disabled=not mp_enabled_state,
+                    )
+                    st.caption(
+                        f"Fund must fall out of top-K for {sticky_drop_periods} period(s)."
+                    )
+            else:
+                # Defaults for threshold mode
+                sticky_add_periods = 1
+                sticky_drop_periods = 1
+
+            # Z-SCORE THRESHOLDS - apply to ALL modes (important for scoring)
             st.markdown("**Z-Score Thresholds**")
             st.info(
-                "Z-scores measure how a fund's performance compares to peers. "
-                "Positive = above average, Negative = below average."
+                "Z-scores measure fund performance vs peers. Soft thresholds require "
+                "consecutive periods; hard thresholds trigger immediate action."
             )
+
+            # Soft thresholds
+            st.markdown("*Soft Thresholds (consecutive periods required)*")
             ee_c1, ee_c2 = st.columns(2)
             with ee_c1:
                 z_entry_soft = st.number_input(
@@ -1611,10 +1727,18 @@ def render_model_page() -> None:
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_entry_soft"],
+                    disabled=not mp_enabled_state,
+                )
+                entry_soft_strikes = st.number_input(
+                    "Entry Consecutive Periods",
+                    min_value=1,
+                    max_value=12,
+                    value=int(model_state.get("entry_soft_strikes", 1)),
+                    help="Fund must pass threshold for this many consecutive periods.",
+                    disabled=not mp_enabled_state,
                 )
                 st.caption(
-                    f"Fund must score ≥ {z_entry_soft:.2f}σ above average to be "
-                    "considered for addition."
+                    f"Score ≥ {z_entry_soft:.2f}σ for {entry_soft_strikes} period(s) to enter."
                 )
 
             with ee_c2:
@@ -1626,118 +1750,79 @@ def render_model_page() -> None:
                     step=0.25,
                     format="%.2f",
                     help=HELP_TEXT["z_exit_soft"],
+                    disabled=not mp_enabled_state,
+                )
+                soft_strikes = st.number_input(
+                    "Exit Consecutive Periods",
+                    min_value=1,
+                    max_value=12,
+                    value=int(model_state.get("soft_strikes", 2)),
+                    help="Fund must fail threshold for this many consecutive periods.",
+                    disabled=not mp_enabled_state,
                 )
                 st.caption(
-                    f"Fund scoring ≤ {z_exit_soft:.2f}σ below average may be "
-                    "considered for removal."
+                    f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit."
                 )
 
-            # Phase 13: Hard thresholds (immediate action)
-            st.markdown("**Hard Thresholds (Immediate Action)**")
-            st.caption(
-                "Hard thresholds trigger immediate action without waiting for "
-                "consecutive strikes. Leave blank to disable."
-            )
+            # Hard thresholds
+            st.markdown("*Hard Thresholds (immediate action)*")
             hard_c1, hard_c2 = st.columns(2)
             with hard_c1:
                 z_entry_hard_val = model_state.get("z_entry_hard")
                 z_entry_hard_enabled = st.checkbox(
-                    "Enable Hard Entry Threshold",
+                    "Enable Hard Entry",
                     value=z_entry_hard_val is not None,
+                    disabled=not mp_enabled_state,
                 )
-                if z_entry_hard_enabled:
-                    z_entry_hard = st.number_input(
-                        "Hard Entry Threshold",
-                        min_value=0.0,
-                        max_value=4.0,
-                        value=float(
-                            z_entry_hard_val if z_entry_hard_val is not None else 2.0
-                        ),
-                        step=0.25,
-                        format="%.2f",
-                        help=HELP_TEXT["z_entry_hard"],
-                    )
-                    st.caption(f"Fund scoring ≥ {z_entry_hard:.2f}σ instantly added.")
-                else:
+                z_entry_hard = st.number_input(
+                    "Hard Entry Z-Score",
+                    min_value=0.0,
+                    max_value=5.0,
+                    value=float(
+                        z_entry_hard_val if z_entry_hard_val is not None else 2.0
+                    ),
+                    step=0.25,
+                    format="%.2f",
+                    help=HELP_TEXT["z_entry_hard"],
+                    disabled=not (mp_enabled_state and z_entry_hard_enabled),
+                )
+                if not z_entry_hard_enabled:
                     z_entry_hard = None
+                st.caption(
+                    f"Score ≥ {z_entry_hard or 2.0:.2f}σ enters instantly."
+                    if z_entry_hard_enabled
+                    else "Hard entry disabled."
+                )
+
             with hard_c2:
                 z_exit_hard_val = model_state.get("z_exit_hard")
                 z_exit_hard_enabled = st.checkbox(
-                    "Enable Hard Exit Threshold",
+                    "Enable Hard Exit",
                     value=z_exit_hard_val is not None,
+                    disabled=not mp_enabled_state,
                 )
-                if z_exit_hard_enabled:
-                    z_exit_hard = st.number_input(
-                        "Hard Exit Threshold",
-                        min_value=-4.0,
-                        max_value=0.0,
-                        value=float(
-                            z_exit_hard_val if z_exit_hard_val is not None else -2.0
-                        ),
-                        step=0.25,
-                        format="%.2f",
-                        help=HELP_TEXT["z_exit_hard"],
-                    )
-                    st.caption(f"Fund scoring ≤ {z_exit_hard:.2f}σ instantly removed.")
-                else:
+                z_exit_hard = st.number_input(
+                    "Hard Exit Z-Score",
+                    min_value=-5.0,
+                    max_value=0.0,
+                    value=float(
+                        z_exit_hard_val if z_exit_hard_val is not None else -2.0
+                    ),
+                    step=0.25,
+                    format="%.2f",
+                    help=HELP_TEXT["z_exit_hard"],
+                    disabled=not (mp_enabled_state and z_exit_hard_enabled),
+                )
+                if not z_exit_hard_enabled:
                     z_exit_hard = None
-
-            st.markdown("**Consecutive Period Requirements**")
-            ee_c3, ee_c4 = st.columns(2)
-            with ee_c3:
-                soft_strikes = st.number_input(
-                    "Exit Strikes",
-                    min_value=1,
-                    max_value=6,
-                    value=int(model_state.get("soft_strikes", 2)),
-                    help=HELP_TEXT["soft_strikes"],
-                )
                 st.caption(
-                    f"Fund must fail {soft_strikes} consecutive periods before removal."
+                    f"Score ≤ {z_exit_hard or -2.0:.2f}σ exits instantly."
+                    if z_exit_hard_enabled
+                    else "Hard exit disabled."
                 )
 
-            with ee_c4:
-                entry_soft_strikes = st.number_input(
-                    "Entry Strikes",
-                    min_value=1,
-                    max_value=6,
-                    value=int(model_state.get("entry_soft_strikes", 1)),
-                    help=HELP_TEXT["entry_soft_strikes"],
-                )
-                st.caption(
-                    f"Fund must pass {entry_soft_strikes} consecutive periods "
-                    "before addition."
-                )
-
-            st.markdown("**Sticky Ranking (Policy Engine)**")
-            ee_c5, ee_c6 = st.columns(2)
-            with ee_c5:
-                sticky_add_periods = st.number_input(
-                    "Sticky Add Periods",
-                    min_value=1,
-                    max_value=6,
-                    value=int(model_state.get("sticky_add_periods", 1)),
-                    help=HELP_TEXT["sticky_add_periods"],
-                )
-                st.caption(
-                    f"Fund must rank in top-K for {sticky_add_periods} periods "
-                    "before hiring."
-                )
-
-            with ee_c6:
-                sticky_drop_periods = st.number_input(
-                    "Sticky Drop Periods",
-                    min_value=1,
-                    max_value=6,
-                    value=int(model_state.get("sticky_drop_periods", 1)),
-                    help=HELP_TEXT["sticky_drop_periods"],
-                )
-                st.caption(
-                    f"Fund must rank in bottom-K for {sticky_drop_periods} periods "
-                    "before firing."
-                )
-
-            st.markdown("**Confidence Interval Gate**")
+            # Confidence Interval Gate
+            st.markdown("**Confidence Interval Gate (Optional)**")
             ci_level = st.slider(
                 "Confidence Interval Level",
                 min_value=0.0,
@@ -1746,175 +1831,47 @@ def render_model_page() -> None:
                 step=0.05,
                 format="%.2f",
                 help=HELP_TEXT["ci_level"],
+                disabled=not mp_enabled_state,
             )
             if ci_level > 0:
                 st.caption(
-                    f"Fund entry requires {ci_level * 100:.0f}% confidence that "
-                    "score exceeds threshold."
+                    f"Entry requires {ci_level * 100:.0f}% confidence score exceeds threshold."
                 )
             else:
                 st.caption("Confidence interval gate is disabled.")
 
-        # Section 11: Multi-Period & Selection Settings (Phase 8) - collapsible
+        # =====================================================================
+        # Section 11: Advanced Selection Settings
+        # =====================================================================
         st.divider()
-        with st.expander("📊 Multi-Period & Selection Settings", expanded=False):
-            st.caption(
-                "Configure rolling walk-forward analysis and fund selection approach. "
-                "Multi-period analysis tests the strategy across multiple time windows."
-            )
+        with st.expander("⚙️ Advanced Selection Settings", expanded=False):
+            st.caption("Additional selection parameters for specific modes.")
 
-            # Multi-period toggle
-            multi_period_enabled = st.checkbox(
-                "Enable Multi-Period Walk-Forward Analysis",
-                value=bool(model_state.get("multi_period_enabled", False)),
-                help=HELP_TEXT["multi_period_enabled"],
-            )
+            # Use selection_count for fund count - mp_min/max are deprecated
+            mp_min_funds = int(model_state.get("mp_min_funds", 10))
+            mp_max_funds = int(model_state.get("mp_max_funds", 25))
 
-            if multi_period_enabled:
-                st.markdown("**Rolling Window Settings**")
-                mp_c1, mp_c2, mp_c3 = st.columns(3)
-                with mp_c1:
-                    multi_period_frequencies = ["M", "Q", "A"]
-                    freq_labels = {
-                        "M": "Monthly",
-                        "Q": "Quarterly",
-                        "A": "Annual",
-                    }
-                    current_mp_freq = model_state.get("multi_period_frequency", "A")
-                    multi_period_frequency = st.selectbox(
-                        "Period Frequency",
-                        options=multi_period_frequencies,
-                        format_func=lambda x: freq_labels.get(x, x),
-                        index=(
-                            multi_period_frequencies.index(current_mp_freq)
-                            if current_mp_freq in multi_period_frequencies
-                            else 2
-                        ),
-                        help=HELP_TEXT["multi_period_frequency"],
-                    )
-
-                with mp_c2:
-                    in_sample_years = st.number_input(
-                        "In-Sample Window (Years)",
-                        min_value=1,
-                        max_value=10,
-                        value=int(model_state.get("in_sample_years", 3)),
-                        help=HELP_TEXT["in_sample_years"],
-                    )
-
-                with mp_c3:
-                    out_sample_years = st.number_input(
-                        "Out-Sample Window (Years)",
-                        min_value=1,
-                        max_value=5,
-                        value=int(model_state.get("out_sample_years", 1)),
-                        help=HELP_TEXT["out_sample_years"],
-                    )
-
-                st.caption(
-                    f"Strategy will be tested using {in_sample_years}-year training "
-                    f"periods, evaluated on {out_sample_years}-year test periods, "
-                    f"rolled forward {freq_labels[multi_period_frequency].lower()}."
-                )
-
-                # Multi-period bounds (Phase 12)
-                st.markdown("**Fund Count Bounds**")
-                bounds_c1, bounds_c2 = st.columns(2)
-                with bounds_c1:
-                    mp_min_funds = st.number_input(
-                        "Minimum Funds",
-                        min_value=1,
-                        max_value=50,
-                        value=int(model_state.get("mp_min_funds", 10)),
-                        help=HELP_TEXT["mp_min_funds"],
-                    )
-                with bounds_c2:
-                    mp_max_funds = st.number_input(
-                        "Maximum Funds",
-                        min_value=5,
-                        max_value=100,
-                        value=int(model_state.get("mp_max_funds", 25)),
-                        help=HELP_TEXT["mp_max_funds"],
-                    )
-                if mp_min_funds > mp_max_funds:
-                    st.warning(
-                        "⚠️ Minimum funds exceeds maximum. Values will be swapped."
-                    )
-            else:
-                multi_period_frequency = model_state.get("multi_period_frequency", "A")
-                in_sample_years = int(model_state.get("in_sample_years", 3))
-                out_sample_years = int(model_state.get("out_sample_years", 1))
-                mp_min_funds = int(model_state.get("mp_min_funds", 10))
-                mp_max_funds = int(model_state.get("mp_max_funds", 25))
-
-            st.markdown("**Fund Selection Approach**")
-            sel_c1, sel_c2 = st.columns(2)
-            with sel_c1:
-                inclusion_approaches = ["top_n", "top_pct", "threshold"]
-                inclusion_labels = {
-                    "top_n": "Top N Funds",
-                    "top_pct": "Top Percentage",
-                    "threshold": "Z-Score Threshold",
-                }
-                current_inclusion = model_state.get("inclusion_approach", "top_n")
-                inclusion_approach = st.selectbox(
-                    "Inclusion Approach",
-                    options=inclusion_approaches,
-                    format_func=lambda x: inclusion_labels.get(x, x),
-                    index=(
-                        inclusion_approaches.index(current_inclusion)
-                        if current_inclusion in inclusion_approaches
-                        else 0
-                    ),
-                    help=HELP_TEXT["inclusion_approach"],
-                )
-
-            with sel_c2:
-                rank_transforms = ["none", "zscore", "rank"]
-                transform_labels = {
-                    "none": "None (Raw Scores)",
-                    "zscore": "Z-Score Normalize",
-                    "rank": "Percentile Rank",
-                }
-                current_transform = model_state.get("rank_transform", "none")
-                rank_transform = st.selectbox(
-                    "Score Transform",
-                    options=rank_transforms,
-                    format_func=lambda x: transform_labels.get(x, x),
-                    index=(
-                        rank_transforms.index(current_transform)
-                        if current_transform in rank_transforms
-                        else 0
-                    ),
-                    help=HELP_TEXT["rank_transform"],
-                )
-
-            # Conditional inputs based on inclusion approach (Phase 9)
-            rank_pct = float(model_state.get("rank_pct", 0.10))
-            rank_threshold = float(model_state.get("rank_threshold", 1.5))
+            # Additional parameters for specific selection modes
             if inclusion_approach == "top_pct":
+                st.markdown("**Top Percentage Settings**")
                 rank_pct = st.number_input(
                     "Top Percentage",
                     min_value=0.01,
                     max_value=0.50,
-                    value=rank_pct,
+                    value=float(model_state.get("rank_pct", 0.10)),
                     step=0.01,
                     format="%.2f",
                     help=HELP_TEXT["rank_pct"],
                 )
                 st.caption(f"Select top {rank_pct * 100:.0f}% of funds by score")
-            elif inclusion_approach == "threshold":
-                rank_threshold = st.number_input(
-                    "Z-Score Threshold",
-                    min_value=0.0,
-                    max_value=3.0,
-                    value=rank_threshold,
-                    step=0.1,
-                    format="%.1f",
-                    help=HELP_TEXT["rank_threshold"],
-                )
-                st.caption(
-                    f"Include funds with score ≥ {rank_threshold:.1f}σ above mean"
+            else:
+                rank_pct = float(model_state.get("rank_pct", 0.10))
+
+            if inclusion_approach == "threshold":
+                st.info(
+                    "💡 Z-Score Entry Threshold is configured in the **Entry/Exit Rules** "
+                    "section below. The Entry Threshold (Z-Score) setting controls "
+                    "which funds are selected."
                 )
 
             st.markdown("**Additional Cost & Exclusion Settings**")
@@ -1946,6 +1903,50 @@ def render_model_page() -> None:
                         f"Bottom {bottom_k} ranked funds will always be excluded."
                     )
 
+        # =====================================================================
+        # Reporting Options
+        # =====================================================================
+        st.markdown("---")
+        with st.expander("📊 Reporting Options", expanded=False):
+            st.markdown(
+                "Configure what additional information to include in the Results page."
+            )
+
+            report_c1, report_c2 = st.columns(2)
+            with report_c1:
+                show_regime_analysis = st.checkbox(
+                    "Regime Performance Breakdown",
+                    value=bool(model_state.get("report_regime_analysis", False)),
+                    help="Show portfolio performance across different market regimes.",
+                )
+                show_concentration = st.checkbox(
+                    "Concentration Metrics",
+                    value=bool(model_state.get("report_concentration", True)),
+                    help="Show HHI and effective N for portfolio concentration.",
+                )
+                show_benchmark_comparison = st.checkbox(
+                    "Benchmark Comparison Table",
+                    value=bool(model_state.get("report_benchmark_comparison", True)),
+                    help="Side-by-side comparison with selected benchmarks.",
+                )
+
+            with report_c2:
+                show_factor_exposures = st.checkbox(
+                    "Factor Exposures",
+                    value=bool(model_state.get("report_factor_exposures", False)),
+                    help="Show factor exposure analysis (requires factor data).",
+                )
+                show_attribution = st.checkbox(
+                    "Volatility-Adjusted Attribution",
+                    value=bool(model_state.get("report_attribution", False)),
+                    help="Contribution to return by fund, adjusted for volatility.",
+                )
+                show_rolling_metrics = st.checkbox(
+                    "Rolling Performance Metrics",
+                    value=bool(model_state.get("report_rolling_metrics", True)),
+                    help="Show rolling Sharpe, IR, and other metrics over time.",
+                )
+
         submitted = st.form_submit_button("💾 Save Configuration", type="primary")
 
         if submitted:
@@ -1954,9 +1955,10 @@ def render_model_page() -> None:
 
             candidate_state = {
                 "preset": effective_preset,
-                "lookback_months": lookback,
-                "min_history_months": min_history,
-                "evaluation_months": evaluation,
+                "lookback_periods": lookback,
+                "min_history_periods": min_history,
+                "evaluation_periods": evaluation,
+                "multi_period_frequency": multi_period_frequency,
                 "selection_count": selection,
                 "weighting_scheme": weighting_value,
                 "metric_weights": metric_weights,
@@ -1973,8 +1975,7 @@ def render_model_page() -> None:
                 "warmup_periods": warmup_periods,
                 # Advanced settings
                 "max_weight": max_weight_decimal,
-                "cooldown_months": cooldown_months,
-                "min_track_months": min_track_months,
+                "cooldown_periods": cooldown_periods,
                 "rebalance_freq": rebalance_freq,
                 "max_turnover": max_turnover,
                 "transaction_cost_bps": transaction_cost_bps,
@@ -2017,22 +2018,24 @@ def render_model_page() -> None:
                 "ci_level": ci_level,
                 # Multi-period & Selection settings (Phase 8)
                 "multi_period_enabled": multi_period_enabled,
-                "multi_period_frequency": multi_period_frequency,
-                "in_sample_years": in_sample_years,
-                "out_sample_years": out_sample_years,
                 "inclusion_approach": inclusion_approach,
-                "rank_transform": rank_transform,
                 "slippage_bps": slippage_bps,
                 "bottom_k": bottom_k,
                 # Selection approach details (Phase 9)
                 "rank_pct": rank_pct,
-                "rank_threshold": rank_threshold,
                 # Multi-period bounds (Phase 12)
                 "mp_min_funds": mp_min_funds,
                 "mp_max_funds": mp_max_funds,
                 # Hard thresholds (Phase 13)
                 "z_entry_hard": z_entry_hard,
                 "z_exit_hard": z_exit_hard,
+                # Reporting options
+                "report_regime_analysis": show_regime_analysis,
+                "report_concentration": show_concentration,
+                "report_benchmark_comparison": show_benchmark_comparison,
+                "report_factor_exposures": show_factor_exposures,
+                "report_attribution": show_attribution,
+                "report_rolling_metrics": show_rolling_metrics,
             }
             errors = _validate_model(
                 candidate_state, len(fund_cols) if fund_cols else 0

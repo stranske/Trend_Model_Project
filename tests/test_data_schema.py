@@ -3,14 +3,7 @@ import io
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import (
-    MarketDataMetadata,
-    MarketDataMode,
-    MarketDataValidationError,
-    MissingPolicyFillDetails,
-    ValidatedMarketData,
-)
-from trend_portfolio_app.data_schema import (
+from streamlit_app.components.data_schema import (
     DATE_COL,
     _build_meta,
     _sanitize_formula_headers,
@@ -20,6 +13,13 @@ from trend_portfolio_app.data_schema import (
     infer_benchmarks,
     load_and_validate_csv,
     load_and_validate_file,
+)
+from trend_analysis.io.market_data import (
+    MarketDataMetadata,
+    MarketDataMode,
+    MarketDataValidationError,
+    MissingPolicyFillDetails,
+    ValidatedMarketData,
 )
 
 

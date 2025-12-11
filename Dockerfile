@@ -108,12 +108,15 @@ EXPOSE 8000
 
 # Healthcheck using the FastAPI /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8000/health || exit 1
+    CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
-# Default command runs the health wrapper (which starts Streamlit internally)
-ENV PYTHONPATH="/app/src"
-ENV STREAMLIT_APP_PATH="/app/src/trend_portfolio_app/app.py"
-ENV HEALTH_PORT="8000"
-ENV STREAMLIT_PORT="8502"
+# Default command runs the Streamlit app directly
+ENV PYTHONPATH="/app:/app/src"
+ENV STREAMLIT_APP_PATH="/app/streamlit_app/app.py"
+ENV STREAMLIT_PORT="8501"
 ENV STREAMLIT_SERVER_HEADLESS="true"
-CMD ["python", "-m", "trend_portfolio_app.health_wrapper"]
+
+# Expose Streamlit port
+EXPOSE 8501
+
+CMD ["streamlit", "run", "streamlit_app/app.py", "--server.port=8501", "--server.headless=true"]

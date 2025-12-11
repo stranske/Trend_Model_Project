@@ -51,7 +51,7 @@ from ..weighting import (
 )
 from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
-from .scheduler import generate_periods
+from .scheduler import PeriodTuple, generate_periods
 
 # ``trend_analysis.typing`` does not exist in this project; keep the structural
 # intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
@@ -780,7 +780,49 @@ def run(
     }
 
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
-        periods = generate_periods(cfg.model_dump())
+        cfg_dump: dict[str, Any] = {}
+        try:
+            cfg_dump = cfg.model_dump()
+        except Exception:  # pragma: no cover - defensive
+            cfg_dump = {}
+
+        periods = generate_periods(cfg_dump)
+        if not periods:
+            mp_cfg = cfg_dump.get("multi_period") if isinstance(cfg_dump, dict) else {}
+            if user_supplied_df:
+                start = None
+                end = None
+                if isinstance(mp_cfg, dict):
+                    start = mp_cfg.get("start")
+                    end = mp_cfg.get("end")
+
+                if (
+                    (start is None or end is None)
+                    and "Date" in df.columns
+                    and not df.empty
+                ):
+                    start = start or str(pd.to_datetime(df["Date"].min()).date())
+                    end = end or str(pd.to_datetime(df["Date"].max()).date())
+
+                if start is None or end is None:
+                    logger.warning(
+                        "generate_periods produced no periods and no fallback dates; skipping multi-period run"
+                    )
+                    return []
+
+                periods = [
+                    PeriodTuple(
+                        in_start=str(start),
+                        in_end=str(end),
+                        out_start=str(end),
+                        out_end=str(end),
+                    )
+                ]
+            else:
+                logger.warning(
+                    "generate_periods produced no periods; skipping multi-period run"
+                )
+                return []
         out_results: List[MultiPeriodPeriodResult] = []
         # Performance flags
         perf_flags = getattr(cfg, "performance", {}) or {}

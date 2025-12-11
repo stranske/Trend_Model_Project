@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 LEGACY_MODULE_ROOTS = ("Old", "retired")
-PACKAGE_NAMES = ("trend_analysis", "trend_model", "trend_portfolio_app")
+PACKAGE_NAMES = ("trend_analysis", "trend_model")
 
 
 def _collect_package_modules(package_name: str) -> list[str]:

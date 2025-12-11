@@ -9,11 +9,11 @@ from streamlit_app.components.csv_validation import (
     CSVValidationError,
     validate_uploaded_csv,
 )
+from streamlit_app.components.data_schema import load_and_validate_csv
 from streamlit_app.components.upload_guard import (
     UploadViolation,
     guard_and_buffer_upload,
 )
-from trend_portfolio_app.data_schema import load_and_validate_csv
 
 
 class _FakeUpload:

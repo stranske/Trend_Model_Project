@@ -22,7 +22,6 @@ def _has_legacy_segment(module_name: str) -> bool:
     [
         "trend_model",
         "trend_analysis",
-        "trend_portfolio_app",
     ],
 )
 def test_import_does_not_register_legacy_modules(package_name: str) -> None:
@@ -48,7 +47,6 @@ def test_import_does_not_register_legacy_modules(package_name: str) -> None:
     [
         "trend_model",
         "trend_analysis",
-        "trend_portfolio_app",
     ],
 )
 def test_pkgutil_cannot_discover_legacy_modules(package_name: str) -> None:

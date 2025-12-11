@@ -11,7 +11,7 @@ validate_streamlit_setup() {
     # Validate APP_PATH exists and is readable
     if [[ ! -f "$app_path" ]]; then
         echo "ERROR: Streamlit app not found at: $app_path" >&2
-        echo "Expected location: $ROOT_DIR/src/trend_portfolio_app/app.py" >&2
+        echo "Expected location: $ROOT_DIR/streamlit_app/app.py" >&2
         return 1
     fi
     
@@ -29,7 +29,7 @@ validate_streamlit_setup() {
         return 1
     fi
     local expected_path
-    expected_path="$(realpath "$ROOT_DIR/src/trend_portfolio_app/app.py" 2>/dev/null || echo "$ROOT_DIR/src/trend_portfolio_app/app.py")"
+    expected_path="$(realpath "$ROOT_DIR/streamlit_app/app.py" 2>/dev/null || echo "$ROOT_DIR/streamlit_app/app.py")"
     if [[ "$resolved_path" != "$expected_path" ]]; then
         echo "ERROR: APP_PATH security validation failed." >&2
         echo "Expected: $expected_path" >&2

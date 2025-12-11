@@ -28,13 +28,13 @@ METRIC_REGISTRY = {
 class ModelSettings:
     """Compatibility shim for legacy demo code expecting ``ModelSettings``."""
 
-    lookback_months: int
+    lookback_periods: int
     rebalance_frequency: str
     selection_count: int
     risk_target: float
     weighting_scheme: str
-    cooldown_months: int
-    min_track_months: int
+    cooldown_periods: int
+    min_history_periods: int
     metric_weights: Mapping[str, float]
     trend_spec: Mapping[str, Any]
     benchmark: str | None = None
@@ -104,10 +104,22 @@ def _build_sample_split(
             start_ts = max(start_ts, data_start)
             end_ts = min(end_ts, data_end)
 
-            # For explicit mode, use lookback_months to determine in-sample split
-            lookback_months = _coerce_positive_int(
-                config.get("lookback_months"), default=36, minimum=1
+            # Convert periods to months based on frequency
+            frequency = str(config.get("multi_period_frequency", "A") or "A")
+            period_to_months = {"M": 1, "Q": 3, "A": 12}
+            months_per_period = period_to_months.get(frequency, 12)
+
+            # Use new unified variable names with fallback to legacy names
+            lookback_periods = _coerce_positive_int(
+                config.get("lookback_periods") or config.get("lookback_months"),
+                default=3 if frequency != "M" else 36,
+                minimum=1,
             )
+            # If legacy lookback_months was used, it's already in months
+            if config.get("lookback_months") and not config.get("lookback_periods"):
+                lookback_months = lookback_periods
+            else:
+                lookback_months = lookback_periods * months_per_period
 
             # Calculate date boundaries for explicit mode
             # out_start and out_end come from user-specified dates
@@ -132,12 +144,29 @@ def _build_sample_split(
             }
 
     # Relative mode (default): compute from lookback/evaluation windows
-    lookback_months = _coerce_positive_int(
-        config.get("lookback_months"), default=36, minimum=1
+    # Convert periods to months based on frequency
+    frequency = str(config.get("multi_period_frequency", "A") or "A")
+    period_to_months = {"M": 1, "Q": 3, "A": 12}
+    months_per_period = period_to_months.get(frequency, 12)
+
+    # Use new unified variable names with fallback to legacy names
+    lookback_periods = _coerce_positive_int(
+        config.get("lookback_periods") or config.get("lookback_months"),
+        default=3 if frequency != "M" else 36,
+        minimum=1,
     )
-    evaluation_months = _coerce_positive_int(
-        config.get("evaluation_months"), default=12, minimum=1
+    evaluation_periods = _coerce_positive_int(
+        config.get("evaluation_periods") or config.get("evaluation_months"),
+        default=1 if frequency != "M" else 12,
+        minimum=1,
     )
+    # If legacy names were used, they're already in months
+    if config.get("lookback_months") and not config.get("lookback_periods"):
+        lookback_months = lookback_periods
+        evaluation_months = evaluation_periods
+    else:
+        lookback_months = lookback_periods * months_per_period
+        evaluation_months = evaluation_periods * months_per_period
 
     last = _month_end(index.max())
     first = _month_end(index.min())
@@ -260,7 +289,8 @@ def _build_portfolio_config(
     selection_approach = str(
         config.get("inclusion_approach") or config.get("selection_approach") or "top_n"
     )
-    rank_transform = str(config.get("rank_transform", "zscore") or "zscore")
+    # Transform is now implicit: threshold mode uses zscore, ranking modes use none
+    rank_transform = "zscore" if selection_approach == "threshold" else "raw"
     slippage_bps = _coerce_positive_int(
         config.get("slippage_bps"), default=0, minimum=0
     )
@@ -268,7 +298,10 @@ def _build_portfolio_config(
 
     # Phase 9: Selection approach parameters
     rank_pct = _coerce_positive_float(config.get("rank_pct"), default=0.10)
-    rank_threshold = _coerce_positive_float(config.get("rank_threshold"), default=1.5)
+    # For threshold mode, use z_entry_soft as the threshold
+    rank_threshold = _coerce_positive_float(
+        config.get("z_entry_soft") or config.get("rank_threshold"), default=1.0
+    )
 
     # Phase 15: Constraints
     long_only = bool(config.get("long_only", True))
@@ -436,21 +469,59 @@ def _build_config(payload: AnalysisPayload) -> Config:
     multi_period_cfg = None
     if multi_period_enabled:
         multi_period_frequency = str(state.get("multi_period_frequency", "A") or "A")
-        # Accept both naming conventions (UI uses shorter keys)
-        multi_period_in_sample_years = _coerce_positive_int(
-            state.get("in_sample_years") or state.get("multi_period_in_sample_years"),
+        # Use unified lookback_periods/evaluation_periods (fallback to legacy names)
+        in_sample_len = _coerce_positive_int(
+            state.get("lookback_periods")
+            or state.get("in_sample_years")
+            or state.get("multi_period_in_sample_years"),
             default=3,
             minimum=1,
         )
-        multi_period_out_sample_years = _coerce_positive_int(
-            state.get("out_sample_years") or state.get("multi_period_out_sample_years"),
+        out_sample_len = _coerce_positive_int(
+            state.get("evaluation_periods")
+            or state.get("out_sample_years")
+            or state.get("multi_period_out_sample_years"),
             default=1,
             minimum=1,
         )
+
+        # Get date range for multi-period scheduling
+        # Priority: user's explicit start/end dates > data range
+        data_index = payload.returns.index
+        data_start = data_index.min()
+        data_end = data_index.max()
+
+        # Check for user-specified dates (from explicit date mode)
+        user_start = state.get("start_date")
+        user_end = state.get("end_date")
+
+        # Use user dates if available, otherwise fall back to data range
+        if user_start:
+            try:
+                sim_start = pd.Timestamp(user_start)
+            except (ValueError, TypeError):
+                sim_start = data_start
+        else:
+            sim_start = data_start
+
+        if user_end:
+            try:
+                sim_end = pd.Timestamp(user_end)
+            except (ValueError, TypeError):
+                sim_end = data_end
+        else:
+            sim_end = data_end
+
+        # Format dates as YYYY-MM strings for the scheduler
+        start_str = str(sim_start.date())[:7]  # YYYY-MM
+        end_str = str(sim_end.date())[:7]  # YYYY-MM
+
         multi_period_cfg = {
             "frequency": multi_period_frequency,
-            "in_sample_len": multi_period_in_sample_years,
-            "out_sample_len": multi_period_out_sample_years,
+            "in_sample_len": in_sample_len,
+            "out_sample_len": out_sample_len,
+            "start": start_str,
+            "end": end_str,
         }
 
     # Phase 16: Data/Preprocessing settings

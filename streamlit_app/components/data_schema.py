@@ -256,7 +256,10 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
         normalised = validate_input(sanitized_source, UPLOAD_SCHEMA)
     except InputValidationError as exc:
         raise MarketDataValidationError(exc.user_message, exc.issues) from exc
-    validated = validate_market_data(normalised)
+    # Use 'zero' policy for missing data: treat missing returns as 0%
+    # This is appropriate for sparse financial data where managers may not
+    # have returns for all periods.
+    validated = validate_market_data(normalised, missing_policy="zero")
     meta = _build_meta(validated, sanitized_columns=sanitized_columns)
     return validated.frame, meta
 
@@ -296,6 +299,10 @@ def load_and_validate_file(
 
 
 def infer_benchmarks(columns: List[str]) -> List[str]:
+    """Infer benchmark candidates from column names.
+
+    Excludes columns that look like risk-free rate proxies.
+    """
     hints = [
         "SPX",
         "S&P",
@@ -307,6 +314,54 @@ def infer_benchmarks(columns: List[str]) -> List[str]:
         "BENCH",
         "IDX",
         "INDEX",
+    ]
+    # Exclude risk-free patterns from benchmarks
+    rf_exclusions = [
+        "TBILL",
+        "T-BILL",
+        "T BILL",
+        "TREASURY",
+        "RISK-FREE",
+        "RISK FREE",
+        "RISKFREE",
+        "CASH",
+        "LIBOR",
+        "SOFR",
+        "FED FUND",
+        "FEDFUND",
+        "MONEY MARKET",
+    ]
+    cands = []
+    for c in columns:
+        uc = c.upper()
+        # Skip if it looks like a risk-free column
+        if any(rf in uc for rf in rf_exclusions):
+            continue
+        if any(h in uc for h in hints):
+            cands.append(c)
+    return cands
+
+
+def infer_risk_free_candidates(columns: List[str]) -> List[str]:
+    """Infer risk-free rate candidates from column names.
+
+    Looks for common patterns like TBILL, Treasury, Risk-Free, etc.
+    """
+    hints = [
+        "TBILL",
+        "T-BILL",
+        "T BILL",
+        "TREASURY",
+        "RISK-FREE",
+        "RISK FREE",
+        "RISKFREE",
+        "RF",
+        "CASH",
+        "LIBOR",
+        "SOFR",
+        "FED FUND",
+        "FEDFUND",
+        "MONEY MARKET",
     ]
     cands = []
     for c in columns:

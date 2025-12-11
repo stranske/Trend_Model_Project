@@ -1,4 +1,4 @@
-"""Coverage-focused tests for ``trend_portfolio_app.data_schema``."""
+"""Coverage-focused tests for ``streamlit_app.components.data_schema``."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import pytest
 
 @pytest.fixture
 def schema_module() -> Any:
-    import trend_portfolio_app.data_schema as data_schema
+    import streamlit_app.components.data_schema as data_schema
 
     return data_schema
 
@@ -57,7 +57,11 @@ def test_build_meta_and_validate_df(
     raw = pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
     processed = raw.set_index("Date")
     validated = _dummy_validated(processed)
-    monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
+    monkeypatch.setattr(
+        schema_module,
+        "validate_market_data",
+        lambda df, **_kwargs: validated,
+    )
 
     result_frame, meta = schema_module._validate_df(raw)
     assert result_frame.equals(processed)
@@ -70,7 +74,11 @@ def test_load_and_validate_csv(
 ) -> None:
     csv_buffer = io.StringIO("Date,A,B\n2020-01-31,1.0,2.0\n")
     validated = _dummy_validated(pd.DataFrame({"A": [1.0], "B": [2.0]}))
-    monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
+    monkeypatch.setattr(
+        schema_module,
+        "validate_market_data",
+        lambda df, **_kwargs: validated,
+    )
 
     frame, meta = schema_module.load_and_validate_csv(csv_buffer)
     assert not frame.empty and meta["symbols"] == ["A", "B"]
@@ -89,7 +97,11 @@ def test_load_and_validate_excel(
         return pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
 
     monkeypatch.setattr(pd, "read_excel", fake_read_excel)
-    monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
+    monkeypatch.setattr(
+        schema_module,
+        "validate_market_data",
+        lambda df, **_kwargs: validated,
+    )
 
     frame, meta = schema_module.load_and_validate_file(excel_buffer)
     assert list(frame.columns) == ["A", "B"]
@@ -103,7 +115,11 @@ def test_load_and_validate_unknown_extension(
     csv_buffer.name = "data.unknown"  # type: ignore[attr-defined]
 
     validated = _dummy_validated(pd.DataFrame({"A": [1.0]}))
-    monkeypatch.setattr(schema_module, "validate_market_data", lambda df: validated)
+    monkeypatch.setattr(
+        schema_module,
+        "validate_market_data",
+        lambda df, **_kwargs: validated,
+    )
 
     frame, _ = schema_module.load_and_validate_file(csv_buffer)
     assert "A" in frame.columns

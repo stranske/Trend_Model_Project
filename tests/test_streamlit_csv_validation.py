@@ -4,6 +4,7 @@ import pytest
 
 from streamlit_app.components.csv_validation import (
     CSVValidationError,
+    DateCorrectionNeeded,
     validate_uploaded_csv,
 )
 
@@ -76,3 +77,32 @@ def test_validate_uploaded_csv_rejects_duplicate_headers() -> None:
     with pytest.raises(CSVValidationError) as excinfo:
         validate_uploaded_csv(payload.encode("utf-8"), ("Date",), max_rows=10)
     assert "Duplicate headers" in excinfo.value.issues[0]
+
+
+def test_validate_uploaded_csv_offers_date_correction() -> None:
+    """When a date like 11/31 is found, validation should offer correction."""
+    content = _csv(["11/30/2017,0.01,0.02", "11/31/2017,0.03,0.04"])
+    with pytest.raises(CSVValidationError) as excinfo:
+        validate_uploaded_csv(content, ("Date",), max_rows=10)
+
+    # Should have date_correction populated
+    error = excinfo.value
+    assert error.date_correction is not None
+    assert isinstance(error.date_correction, DateCorrectionNeeded)
+    assert len(error.date_correction.corrections) == 1
+    assert error.date_correction.corrections[0].corrected_value == "11/30/2017"
+
+
+def test_validate_uploaded_csv_date_correction_with_unfixable() -> None:
+    """When some dates can be fixed and some cannot, both are reported."""
+    content = _csv(
+        ["11/30/2017,0.01,0.02", "11/31/2017,0.03,0.04", "garbage,0.05,0.06"]
+    )
+    with pytest.raises(CSVValidationError) as excinfo:
+        validate_uploaded_csv(content, ("Date",), max_rows=10)
+
+    error = excinfo.value
+    assert error.date_correction is not None
+    assert len(error.date_correction.corrections) == 1
+    assert len(error.date_correction.unfixable) == 1
+    assert error.date_correction.unfixable[0][1] == "garbage"

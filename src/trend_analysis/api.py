@@ -79,6 +79,207 @@ class RunResult:
     metadata: dict[str, Any] | None = None
     details_sanitized: Any | None = None
     diagnostic: DiagnosticPayload | None = None
+    # Multi-period specific fields
+    period_results: list[dict[str, Any]] | None = None
+    period_count: int = 0
+
+
+def _run_multi_period_simulation(
+    config: ConfigType,
+    returns: pd.DataFrame,
+    env: dict[str, Any],
+    seed: int,
+) -> RunResult:
+    """Execute multi-period simulation and aggregate results.
+
+    Parameters
+    ----------
+    config : Config
+        Configuration object with multi_period settings.
+    returns : pd.DataFrame
+        DataFrame of returns including a ``Date`` column.
+    env : dict
+        Environment metadata.
+    seed : int
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    RunResult
+        Aggregated results from all periods.
+    """
+    from .export import combined_summary_result
+    from .multi_period import run as run_multi_period
+
+    run_id = getattr(config, "run_id", None) or "api_multi_run"
+    _log_step(run_id, "multi_period_start", "Starting multi-period simulation")
+
+    try:
+        period_results = run_multi_period(config, returns)
+    except Exception as exc:
+        logger.error("Multi-period simulation failed: %s", exc)
+        return RunResult(
+            metrics=pd.DataFrame(),
+            details={"error": str(exc)},
+            seed=seed,
+            environment=env,
+        )
+
+    if not period_results:
+        logger.warning("Multi-period simulation returned no results")
+        return RunResult(
+            metrics=pd.DataFrame(),
+            details={},
+            seed=seed,
+            environment=env,
+        )
+
+    _log_step(
+        run_id,
+        "multi_period_complete",
+        f"Multi-period simulation complete with {len(period_results)} periods",
+    )
+
+    # Build combined turnover series from all periods
+    turnover_series = _build_multi_period_turnover(period_results)
+
+    # Build combined portfolio returns series
+    portfolio_series = _build_multi_period_portfolio(period_results)
+
+    # Aggregate results across all periods (may fail if period results lack keys)
+    try:
+        summary = combined_summary_result(period_results)
+        summary = dict(summary)
+    except Exception as exc:
+        logger.warning("Failed to aggregate multi-period results: %s", exc)
+        summary = {}
+
+    # Build metrics DataFrame from aggregated stats
+    stats_obj = summary.get("out_sample_stats")
+    if isinstance(stats_obj, dict):
+        stats_items = list(stats_obj.items())
+    else:
+        stats_items = list(getattr(stats_obj, "items", lambda: [])())
+
+    metrics_df = pd.DataFrame()
+    if stats_items:
+        try:
+            metrics_df = pd.DataFrame({k: vars(v) for k, v in stats_items}).T
+        except Exception as exc:
+            logger.warning("Failed to build metrics DataFrame: %s", exc)
+
+    # Combine all period details into the summary
+    details = dict(summary)
+    details["period_results"] = period_results
+    details["period_count"] = len(period_results)
+    if portfolio_series is not None:
+        details["portfolio_equal_weight_combined"] = portfolio_series
+
+    # Build structured Results object if possible
+    structured: Results | None = None
+    try:
+        structured = Results.from_payload(details)
+    except Exception as exc:
+        logger.debug("Failed to build structured Results for multi-period: %s", exc)
+
+    rr = RunResult(
+        metrics=metrics_df,
+        details=details,
+        seed=seed,
+        environment=env,
+        analysis=structured,
+        turnover=turnover_series,
+        portfolio=portfolio_series,
+        period_results=period_results,
+        period_count=len(period_results),
+    )
+
+    if structured is not None:
+        try:
+            rr.weights = structured.weights
+            rr.exposures = structured.exposures
+            if rr.turnover is None:
+                rr.turnover = structured.turnover
+            rr.costs = dict(structured.costs)
+            rr.metadata = structured.metadata
+        except Exception:
+            pass
+
+    return rr
+
+
+def _build_multi_period_turnover(
+    period_results: list[dict[str, Any]],
+) -> pd.Series | None:
+    """Build a combined turnover series from multi-period results."""
+    turnover_data: dict[str, float] = {}
+
+    for res in period_results:
+        period = res.get("period")
+        if period is None:
+            continue
+        # Use out-sample start date as the rebalance date
+        out_start = period[2] if len(period) > 2 else None
+        if out_start is None:
+            continue
+
+        # Try to extract turnover from various possible locations
+        turnover_val = res.get("turnover")
+        if turnover_val is None:
+            risk_diag = res.get("risk_diagnostics")
+            if isinstance(risk_diag, dict):
+                turnover_val = risk_diag.get("turnover")
+
+        if isinstance(turnover_val, (int, float)):
+            turnover_data[out_start] = float(turnover_val)
+        elif isinstance(turnover_val, pd.Series) and not turnover_val.empty:
+            # Take the last turnover value from this period
+            turnover_data[out_start] = float(turnover_val.iloc[-1])
+
+    if not turnover_data:
+        return None
+
+    return pd.Series(turnover_data, name="turnover").sort_index()
+
+
+def _build_multi_period_portfolio(
+    period_results: list[dict[str, Any]],
+) -> pd.Series | None:
+    """Build combined portfolio returns from multi-period out-sample results.
+
+    Uses the actual fund weights applied during the simulation (not equal weights)
+    to compute the weighted portfolio returns for each out-of-sample period.
+    """
+    from .pipeline import calc_portfolio_returns
+
+    out_series_list: list[pd.Series] = []
+
+    for res in period_results:
+        out_df = res.get("out_sample_scaled")
+        # Use actual fund weights (user weights) instead of equal weights
+        # fund_weights contains the weights actually applied during the simulation
+        fund_weights = res.get("fund_weights", {})
+        # Fall back to ew_weights only if fund_weights is empty
+        if not fund_weights:
+            fund_weights = res.get("ew_weights", {})
+
+        if not isinstance(out_df, pd.DataFrame) or out_df.empty:
+            continue
+        if not fund_weights:
+            continue
+
+        try:
+            cols = list(out_df.columns)
+            w = np.array([fund_weights.get(c, 0.0) for c in cols])
+            port_ret = calc_portfolio_returns(w, out_df)
+            out_series_list.append(port_ret)
+        except Exception:
+            continue
+
+    if not out_series_list:
+        return None
+
+    return pd.concat(out_series_list).sort_index()
 
 
 def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
@@ -109,6 +310,11 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         "numpy": np.__version__,
         "pandas": pd.__version__,
     }
+
+    # Check for multi-period mode and delegate if enabled
+    multi_period_cfg = getattr(config, "multi_period", None)
+    if multi_period_cfg is not None and isinstance(multi_period_cfg, dict):
+        return _run_multi_period_simulation(config, returns, env, seed)
 
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 

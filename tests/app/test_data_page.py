@@ -29,6 +29,28 @@ class DummyUpload:
 
 
 class DummyStreamlit:
+    class _Column:
+        def __init__(self, parent: "DummyStreamlit") -> None:
+            self._parent = parent
+
+        def __enter__(self) -> "DummyStreamlit._Column":  # pragma: no cover - trivial
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:  # pragma: no cover - trivial
+            return False
+
+        def __getattr__(self, name: str):
+            return getattr(self._parent, name)
+
+    class _ColumnConfig:
+        class CheckboxColumn:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+        class TextColumn:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
     def __init__(self) -> None:
         self.session_state: dict[str, Any] = {}
         self.radio_value = "Sample dataset"
@@ -44,12 +66,19 @@ class DummyStreamlit:
         self.code_blocks: list[tuple[str, str | None]] = []
         self.dataframes: list[pd.DataFrame] = []
         self.selectbox_map: dict[str, Any] = {}
+        self.subheaders: list[str] = []
+        self.column_config = DummyStreamlit._ColumnConfig()
+        self.rerun_called = False
+        self.metrics: list[tuple[str, Any]] = []
 
     def title(self, text: str) -> None:
         self.title_calls.append(text)
 
     def write(self, text: str) -> None:
         self.write_calls.append(str(text))
+
+    def subheader(self, text: str) -> None:
+        self.subheaders.append(text)
 
     def radio(self, *args: Any, **kwargs: Any) -> str:
         return self.radio_value
@@ -99,6 +128,19 @@ class DummyStreamlit:
 
         return decorator
 
+    def columns(self, spec: int | list[int]) -> list["DummyStreamlit"]:
+        count = spec if isinstance(spec, int) else len(spec)
+        return [DummyStreamlit._Column(self) for _ in range(count)]
+
+    def data_editor(self, df: pd.DataFrame, **_: Any) -> pd.DataFrame:
+        return df
+
+    def rerun(self) -> None:
+        self.rerun_called = True
+
+    def metric(self, label: str, value: Any) -> None:
+        self.metrics.append((label, value))
+
 
 @pytest.fixture
 def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreamlit]:
@@ -127,8 +169,14 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
         "dataframe",
         "markdown",
         "cache_data",
+        "subheader",
+        "columns",
+        "data_editor",
+        "rerun",
+        "metric",
     ]:
         setattr(module, attr, bind(attr))
+    module.column_config = stub.column_config
     module.session_state = stub.session_state
 
     monkeypatch.setitem(sys.modules, "streamlit", module)
