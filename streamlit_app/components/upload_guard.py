@@ -138,6 +138,49 @@ def guard_and_buffer_upload(
             f"File too large: {_format_size(size)} (limit {_format_size(limit)})."
         )
 
+    return store_buffered_upload(
+        data,
+        original_name,
+        allowed_extensions=allowed_extensions,
+        max_bytes=limit,
+        upload_dir=upload_dir,
+    )
+
+
+def store_buffered_upload(
+    data: bytes,
+    original_name: str,
+    *,
+    allowed_extensions: Iterable[str] = ALLOWED_EXTENSIONS,
+    max_bytes: int | None = None,
+    upload_dir: Path | None = None,
+) -> GuardedUpload:
+    """Persist pre-buffered upload bytes to disk using the same guardrails.
+
+    This is used for workflows that produce a corrected dataset (e.g. date fixes)
+    where we already have the bytes and still want a stable on-disk artifact.
+    """
+
+    if not isinstance(original_name, str) or not original_name:
+        raise UploadViolation("Upload must have a filename.")
+
+    extension = _normalise_extension(original_name)
+    allowed_normalised = {ext.lower() for ext in allowed_extensions}
+    if extension not in allowed_normalised:
+        raise UploadViolation(
+            "Unsupported file type. Please upload a CSV or Excel file."
+        )
+
+    if not data:
+        raise UploadViolation("Uploaded file is empty.")
+
+    limit = max_bytes if max_bytes is not None else configured_max_upload_bytes()
+    size = len(data)
+    if size > limit:
+        raise UploadViolation(
+            f"File too large: {_format_size(size)} (limit {_format_size(limit)})."
+        )
+
     content_hash = hash_bytes(data)
     upload_base = _ensure_upload_dir(upload_dir)
     stem = _sanitize_stem(Path(original_name).stem)
@@ -150,7 +193,6 @@ def guard_and_buffer_upload(
             handle.write(data)
         os.replace(tmp_path, target)
     except Exception:
-        # Best-effort cleanup on failure
         try:
             os.remove(tmp_path)
         except OSError:

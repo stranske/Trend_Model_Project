@@ -409,8 +409,8 @@ def test_summary_frame_from_result_handles_mixed_stats():
     assert {"OS IR Bench", "OS MaxDD"}.issubset(frame.columns)
     fund_row = frame[frame["Name"] == "FundA"].iloc[0]
     assert fund_row["Weight"] == pytest.approx(50.0)
-    assert fund_row["OS IR Bench"] == pytest.approx(20.0)
-    assert fund_row["OS MaxDD"] == pytest.approx(0.4)
+    assert fund_row["OS IR Bench"] == pytest.approx(0.4)
+    assert fund_row["OS MaxDD"] == pytest.approx(20.0)
 
 
 def test_manager_contrib_table_computes_shares_and_handles_empty():
@@ -872,8 +872,8 @@ def test_summary_frame_from_result_includes_diagnostics():
     assert "Equal Weight" in frame["Name"].tolist()
     fund_row = frame.loc[frame["Name"] == "FundA"].iloc[0]
     assert fund_row["Weight"] == pytest.approx(60.0)
-    assert fund_row["OS IR Bench"] == pytest.approx(-30.0)
-    assert fund_row["OS MaxDD"] == pytest.approx(0.2)
+    assert fund_row["OS IR Bench"] == pytest.approx(0.2)
+    assert fund_row["OS MaxDD"] == pytest.approx(-30.0)
 
 
 def test_export_phase1_workbook_without_summary(monkeypatch, tmp_path):

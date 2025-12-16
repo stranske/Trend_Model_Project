@@ -79,7 +79,7 @@ def test_derive_window_caps_start_bounds(sample_returns: pd.DataFrame) -> None:
     """Month-end windows should respect the available history and OOS
     length."""
 
-    start, end = demo_runner._derive_window(sample_returns, lookback_months=48)
+    start, end = demo_runner._derive_window(sample_returns, lookback_periods=48)
 
     # With a long lookback the function should clamp start to the data's end
     assert end == pd.Timestamp("2020-06-30 23:59:59.999999999")
@@ -93,7 +93,7 @@ def test_derive_window_respects_earliest_bound() -> None:
     dates = pd.date_range("2022-01-31", periods=12, freq="ME")
     df = pd.DataFrame({"Alpha": range(12)}, index=dates)
 
-    start, end = demo_runner._derive_window(df, lookback_months=10)
+    start, end = demo_runner._derive_window(df, lookback_periods=10)
 
     assert start == pd.Timestamp("2022-11-30 23:59:59.999999999")
     assert end == pd.Timestamp("2022-12-31 23:59:59.999999999")
@@ -106,7 +106,7 @@ def test_derive_window_handles_single_period() -> None:
     dates = pd.date_range("2020-01-31", periods=1, freq="ME")
     df = pd.DataFrame({"Alpha": [0.1]}, index=dates)
 
-    start, end = demo_runner._derive_window(df, lookback_months=1)
+    start, end = demo_runner._derive_window(df, lookback_periods=1)
 
     assert start == end
     assert end == pd.Timestamp("2020-01-31 23:59:59.999999999")
@@ -119,7 +119,7 @@ def test_derive_window_no_adjustment_needed() -> None:
     dates = pd.date_range("2020-01-31", periods=24, freq="ME")
     df = pd.DataFrame({"Alpha": range(24)}, index=dates)
 
-    start, end = demo_runner._derive_window(df, lookback_months=6)
+    start, end = demo_runner._derive_window(df, lookback_periods=6)
 
     assert start == pd.Timestamp("2021-01-31 23:59:59.999999999")
     assert end == pd.Timestamp("2021-12-31 23:59:59.999999999")
@@ -150,7 +150,7 @@ def test_build_pipeline_config_translates_weights() -> None:
     sim_cfg = {
         "start": "2020-03-31",
         "end": "2020-06-30",
-        "lookback_months": 3,
+        "lookback_periods": 3,
         "policy": {"top_k": 5},
         "portfolio": {"weighting_scheme": "equal"},
         "risk_target": 0.12,
@@ -182,7 +182,7 @@ def test_prepare_demo_setup_builds_consistent_state(
 
     preset = {
         "metrics": {"sharpe": 0.7, "return_ann": 0.2, "drawdown": 0.1},
-        "lookback_months": 3,
+        "lookback_periods": 3,
         "selection_count": 6,
         "min_track_months": 12,
         "risk_target": 0.11,
@@ -195,7 +195,7 @@ def test_prepare_demo_setup_builds_consistent_state(
 
     assert setup.benchmark == "SPX Index"
     assert setup.config_state["preset_name"] == "Balanced"
-    assert setup.sim_config["lookback_months"] == 3
+    assert setup.sim_config["lookback_periods"] == 3
     assert setup.sim_config["policy"]["top_k"] == 6
     assert setup.pipeline_config.sample_split["out_end"] == "2020-06"
 

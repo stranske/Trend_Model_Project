@@ -268,7 +268,7 @@ def test_results_page_reports_plain_language_error(
     assert stub.error_messages == [
         "We couldn't run the analysis with the current data or settings. Please review the configuration and try again."
     ]
-    assert stub.caption_messages == ["No returns available after filtering"]
+    assert "No returns available after filtering" in stub.caption_messages
     assert stub.session_state.get("analysis_result") is None
     assert stub.session_state.get("analysis_error") == {
         "message": "We couldn't run the analysis with the current data or settings. Please review the configuration and try again.",

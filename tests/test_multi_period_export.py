@@ -67,6 +67,18 @@ def test_summary_frame_from_result_basic():
     results = run_mp(cfg, df)
     df_sum = summary_frame_from_result(results[0])
     assert "OS MaxDD" in df_sum.columns
+    assert list(df_sum.columns[:2]) == ["Name", "Weight"]
+    assert list(df_sum.columns[2:9]) == [
+        "OS Total Return",
+        "OS Months",
+        "OS CAGR",
+        "OS Vol",
+        "OS Sharpe",
+        "OS Sortino",
+        "OS IR",
+    ]
+    assert df_sum.columns[9] == "OS MaxDD"
+    assert df_sum.columns[10] == "IS Total Return"
     assert df_sum.iloc[0, 0] == "Equal Weight"
 
 

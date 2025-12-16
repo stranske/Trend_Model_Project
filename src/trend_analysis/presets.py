@@ -153,8 +153,8 @@ class TrendPreset:
             portfolio = {}
 
         defaults = {
-            "lookback_months": _coerce_int(
-                preset.get("lookback_months"), default=36, minimum=1
+            "lookback_periods": _coerce_int(
+                preset.get("lookback_periods"), default=36, minimum=1
             ),
             "rebalance_frequency": str(preset.get("rebalance_frequency", "monthly")),
             "min_track_months": _coerce_int(

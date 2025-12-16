@@ -51,3 +51,19 @@ def test_weights_normalised():
     sf = make_score(0.0, -0.5, 1.5)
     out = reb.apply_triggers(prev, sf)
     assert np.isclose(out.sum(), 1.0, atol=NUMERICAL_TOLERANCE_MEDIUM)
+
+
+def test_root_level_exit_thresholds_respected():
+    cfg = {
+        "portfolio": {
+            # Legacy placement (outside portfolio.threshold_hold)
+            "z_exit_soft": -0.1,
+            "soft_strikes": 1,
+            "constraints": {"max_funds": 3},
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = pd.Series({"A": 1.0})
+    sf = pd.DataFrame({"zscore": [-0.2], "rank": [1]}, index=["A"])
+    out = reb.apply_triggers(prev, sf)
+    assert out.empty

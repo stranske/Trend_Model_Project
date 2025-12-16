@@ -34,7 +34,7 @@ from .metrics import (
     sortino_ratio,
     volatility,
 )
-from .perf.rolling_cache import compute_dataset_hash, get_cache
+from .perf.rolling_cache import compute_dataset_hash, get_cache  # noqa: F401
 from .portfolio import apply_weight_policy
 from .regimes import build_regime_payload
 from .risk import (
@@ -372,6 +372,95 @@ def _build_sample_windows(
     out_start: str,
     out_end: str,
 ) -> _WindowStage | PipelineResult:
+    def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
+        # Align arbitrary timestamps to month-end while preserving timezone.
+        return ts + pd.offsets.MonthEnd(0)
+
+    def _window_month_ends(start: pd.Timestamp, end: pd.Timestamp) -> pd.DatetimeIndex:
+        # Build an inclusive month-end index for the window.
+        start_me = _month_end(pd.Timestamp(start))
+        end_me = _month_end(pd.Timestamp(end))
+        if start_me > end_me:
+            return pd.DatetimeIndex([], name=preprocess.date_col)
+        return pd.date_range(start=start_me, end=end_me, freq=MONTHLY_DATE_FREQ)
+
+    def _fill_missing_months(
+        frame: pd.DataFrame,
+        *,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+        allow_empty_reindex: bool,
+    ) -> pd.DataFrame:
+        """Ensure the frame contains every month-end between start and end.
+
+        Even after monthly resampling, certain upstream operations (e.g., strict
+        completeness enforcement) can remove entire month rows. When the
+        configured missing-data policy is not "drop", we want windows to retain
+        a contiguous monthly index so both in-sample and out-of-sample blocks
+        line up with the requested calendar.
+        """
+
+        expected = _window_month_ends(start, end)
+        if expected.empty:
+            return frame
+        if frame.empty:
+            # Only reindex an empty slice when the caller explicitly allows it.
+            # This is used when one side of the sample split has data and we
+            # want to preserve calendar alignment for downstream diagnostics.
+            return frame.reindex(expected) if allow_empty_reindex else frame
+        if (
+            isinstance(frame.index, pd.DatetimeIndex)
+            and frame.index.tz is not None
+            and expected.tz is None
+        ):
+            # If the data is tz-aware, keep the expected range consistent.
+            expected = expected.tz_localize(frame.index.tz)
+
+        reindexed = frame.reindex(expected)
+
+        policy_default = str(
+            getattr(preprocess.missing_result, "default_policy", "drop") or "drop"
+        ).lower()
+        if policy_default == "drop":
+            return reindexed
+
+        # Re-apply missing policy to fill any newly inserted rows.
+        # Use a reconstructed mapping so per-column overrides remain intact.
+        try:
+            policy_map = dict(getattr(preprocess.missing_result, "policy", {}) or {})
+            default_policy = str(
+                getattr(preprocess.missing_result, "default_policy", "drop") or "drop"
+            )
+            overrides = {k: v for k, v in policy_map.items() if v != default_policy}
+            policy_spec: dict[str, str] | str = (
+                {"default": default_policy, **overrides}
+                if overrides
+                else default_policy
+            )
+
+            limit_map = dict(getattr(preprocess.missing_result, "limit", {}) or {})
+            default_limit = getattr(preprocess.missing_result, "default_limit", None)
+            limit_overrides = {
+                k: v
+                for k, v in limit_map.items()
+                if v is not None and default_limit is not None and v != default_limit
+            }
+            if default_limit is not None or limit_overrides:
+                limit_spec: dict[str, int | None] | int | None
+                limit_spec = {"default": default_limit, **limit_overrides}
+            else:
+                limit_spec = None
+
+            reindexed, _ = apply_missing_policy(
+                reindexed,
+                policy=policy_spec,
+                limit=limit_spec,
+                enforce_completeness=False,
+            )
+        except Exception:  # pragma: no cover - defensive
+            return reindexed
+        return reindexed
+
     def _is_month_label(label: str) -> bool:
         text = str(label).strip()
         return len(text) == 7 and text.count("-") == 1
@@ -410,10 +499,39 @@ def _build_sample_windows(
     out_mask = (preprocess.df[preprocess.date_col] >= out_sdate) & (
         preprocess.df[preprocess.date_col] <= out_edate
     )
-    in_df = preprocess.df.loc[in_mask].set_index(preprocess.date_col)
-    out_df = preprocess.df.loc[out_mask].set_index(preprocess.date_col)
+    in_df_raw = preprocess.df.loc[in_mask].set_index(preprocess.date_col)
+    out_df_raw = preprocess.df.loc[out_mask].set_index(preprocess.date_col)
 
-    if in_df.empty or out_df.empty:
+    # Ensure monthly continuity inside each window.
+    # If one side of the split is empty but the other has data, allow reindexing
+    # to preserve the expected calendar. If both sides are empty (or the in
+    # window is empty), keep empties so callers receive SAMPLE_WINDOW_EMPTY.
+    allow_in_empty = not out_df_raw.empty
+    allow_out_empty = not in_df_raw.empty
+    in_df = _fill_missing_months(
+        in_df_raw,
+        start=in_sdate,
+        end=in_edate,
+        allow_empty_reindex=allow_in_empty,
+    )
+    out_df = _fill_missing_months(
+        out_df_raw,
+        start=out_sdate,
+        end=out_edate,
+        allow_empty_reindex=allow_out_empty,
+    )
+
+    def _is_effectively_empty(frame: pd.DataFrame) -> bool:
+        if frame.empty:
+            return True
+        # A reindexed-but-empty slice can have rows but no data (all NaNs).
+        # Treat that as an empty window for diagnostics.
+        try:
+            return bool(frame.dropna(how="all").empty)
+        except Exception:  # pragma: no cover - defensive
+            return bool(frame.empty)
+
+    if _is_effectively_empty(in_df) or _is_effectively_empty(out_df):
         return pipeline_failure(
             PipelineReasonCode.SAMPLE_WINDOW_EMPTY,
             context={
@@ -486,6 +604,11 @@ def _select_universe(
         [window.in_df.reset_index(), window.out_df.reset_index()],
         ignore_index=True,
     )
+    if (
+        preprocess.date_col not in fallback_window.columns
+        and "index" in fallback_window.columns
+    ):
+        fallback_window = fallback_window.rename(columns={"index": preprocess.date_col})
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         preprocess.df,
         date_col=preprocess.date_col,
@@ -1482,16 +1605,25 @@ def _prepare_input_data(
         resampled = numeric.resample(MONTHLY_DATE_FREQ).last()
         normalised = False
 
-    resampled = resampled.dropna(how="all")
+    policy_spec: str | Mapping[str, str] | None = missing_policy or "drop"
+    preserve_empty_periods = True
+    if isinstance(policy_spec, str):
+        preserve_empty_periods = policy_spec.lower() != "drop"
+    elif isinstance(policy_spec, Mapping):
+        values = [str(v or "").lower() for v in policy_spec.values()]
+        preserve_empty_periods = any(v and v != "drop" for v in values)
+
+    if not preserve_empty_periods:
+        resampled = resampled.dropna(how="all")
     resampled.index.name = date_col
 
-    policy_spec: str | Mapping[str, str] | None = missing_policy or "drop"
     filled, missing_result = apply_missing_policy(
         resampled,
         policy=policy_spec,
         limit=missing_limit,
         enforce_completeness=enforce_completeness,
     )
+    # Only drop rows that remain completely empty after the missing-data policy.
     filled = filled.dropna(how="all")
 
     if filled.empty:
@@ -1542,17 +1674,47 @@ def _resolve_risk_free_column(
     candidate_df[date_col] = pd.to_datetime(candidate_df[date_col])
     candidate_df.sort_values(date_col, inplace=True)
 
+    configured_rf = (risk_free_column or "").strip()
+
     numeric_cols = [
         c for c in candidate_df.select_dtypes("number").columns if c != date_col
     ]
+    if not numeric_cols:
+        raise ValueError(
+            "No numeric return columns were found in the requested window; cannot select risk-free series"
+        )
 
     expanded_df = candidate_df.set_index(date_col)
     if not expanded_df.index.is_monotonic_increasing:
         expanded_df = expanded_df.sort_index()
+
+    # Align observed dates to calendar month-end without dropping values.
+    # This handles inputs keyed on business month-end or daily observations.
+    try:
+        idx = pd.DatetimeIndex(pd.to_datetime(expanded_df.index))
+        # Map observations to month-end dates at midnight so they align with
+        # `pd.date_range(..., freq=MONTHLY_DATE_FREQ)`.
+        idx_me = idx.to_period("M").to_timestamp(how="end").normalize()
+        expanded_df.index = idx_me
+        if expanded_df.index.has_duplicates:
+            expanded_df = expanded_df.groupby(level=0).last()
+    except Exception:  # pragma: no cover - best-effort alignment
+        pass
+
     if not expanded_df.empty:
-        full_index = pd.date_range(
-            expanded_df.index.min(), expanded_df.index.max(), freq=MONTHLY_DATE_FREQ
-        )
+        start_me = pd.Timestamp(expanded_df.index.min())
+        end_me = pd.Timestamp(expanded_df.index.max())
+        # If the risk-free series is explicitly configured, compute coverage
+        # over the span where that series actually has observations. This avoids
+        # penalising coverage for trailing empty months that can be introduced
+        # by window reindexing elsewhere in the pipeline.
+        if configured_rf and configured_rf in expanded_df.columns:
+            observed_idx = expanded_df.index[expanded_df[configured_rf].notna()]
+            if len(observed_idx) > 0:
+                start_me = pd.Timestamp(observed_idx.min())
+                end_me = pd.Timestamp(observed_idx.max())
+
+        full_index = pd.date_range(start=start_me, end=end_me, freq=MONTHLY_DATE_FREQ)
         expanded_df = expanded_df.reindex(full_index)
     expanded_df.index.name = date_col
 
@@ -1560,26 +1722,14 @@ def _resolve_risk_free_column(
     if total_rows == 0:
         raise ValueError("Requested window is empty; cannot select risk-free series")
 
-    min_non_null = max(2, math.ceil(total_rows * _MIN_FALLBACK_COVERAGE_RATIO))
+    # Coverage threshold for selecting a risk-free proxy. Clamp to the window
+    # length so truncated/short windows (e.g., a 1-month final OOS period)
+    # don't fail with an impossible requirement like 2/1 observations.
+    min_non_null = math.ceil(total_rows * _MIN_FALLBACK_COVERAGE_RATIO)
+    min_non_null = max(1, min(total_rows, min_non_null))
     coverage_counts = expanded_df[numeric_cols].notna().sum()
     coverage_mask = coverage_counts >= min_non_null
 
-    # Restrict candidates to columns with sufficient non-null coverage within
-    # the requested windows. This keeps the fallback selection aligned with the
-    # analysis slice rather than the full dataset.
-    ret_cols = [
-        c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)
-    ]
-
-    if not ret_cols:
-        raise ValueError(
-            (
-                "No numeric return columns meet the coverage requirement "
-                f"({min_non_null}/{total_rows} non-null observations) in the requested window"
-            )
-        )
-
-    configured_rf = (risk_free_column or "").strip()
     if configured_rf:
         if configured_rf == date_col:
             raise ValueError("Risk-free column cannot reuse the date column")
@@ -1595,8 +1745,20 @@ def _resolve_risk_free_column(
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
             )
+
+        # Fund candidates come from all numeric columns (excluding indices and rf).
+        ret_cols = [c for c in numeric_cols if c not in idx_set]
+
         configured_coverage = int(coverage_counts.get(configured_rf, 0))
-        if configured_coverage < min_non_null:
+        if configured_coverage == 0:
+            # Window may be out of data range (common in multi-period schedules).
+            # Let the pipeline proceed so the period can be skipped with a
+            # diagnostic instead of raising here.
+            logger.warning(
+                "Configured risk-free column '%s' has no coverage in the requested window; proceeding",
+                configured_rf,
+            )
+        elif configured_coverage < min_non_null:
             raise ValueError(
                 (
                     f"Configured risk-free column '{configured_rf}' has insufficient coverage "
@@ -1607,6 +1769,21 @@ def _resolve_risk_free_column(
         rf_col = configured_rf
         source = "configured"
     else:
+        # Restrict candidates to columns with sufficient non-null coverage within
+        # the requested windows. This keeps the fallback selection aligned with the
+        # analysis slice rather than the full dataset.
+        ret_cols = [
+            c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)
+        ]
+
+        if not ret_cols:
+            raise ValueError(
+                (
+                    "No numeric return columns meet the coverage requirement "
+                    f"({min_non_null}/{total_rows} non-null observations) in the requested window"
+                )
+            )
+
         # BREAKING CHANGE: The default behavior of allow_risk_free_fallback has changed.
         # Previously, fallback was only enabled if explicitly set to True.
         # Now, fallback is enabled unless explicitly set to False.
@@ -1615,7 +1792,8 @@ def _resolve_risk_free_column(
         fallback_enabled = allow_risk_free_fallback is not False
         if fallback_enabled and allow_risk_free_fallback is None:
             logger.warning(
-                "Risk-free fallback is enabled by default. This is a breaking change from previous versions. Please review your configuration."
+                "Risk-free fallback is enabled by default. This is a breaking change "
+                "from previous versions. Please review your configuration."
             )
         if not fallback_enabled:
             raise ValueError(
@@ -1625,17 +1803,47 @@ def _resolve_risk_free_column(
         probe_cols = (
             [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
         )
-        detected = identify_risk_free_fund(window_df[probe_cols])
-        if detected is None:
-            raise ValueError(
-                "Risk-free fallback could not find a numeric return series in the requested window"
+
+        # With <2 observations, volatility is undefined (std = NaN), which can
+        # cause the fallback heuristic to return NaN. Prefer obvious RF-like
+        # columns or fall back deterministically.
+        if total_rows < 2:
+            rf_like = (
+                "RF",
+                "RISK_FREE",
+                "RISK-FREE",
+                "CASH",
+                "TBILL",
+                "TBILLS",
+                "T-BILL",
+                "T-BILLS",
             )
-        rf_col = detected
-        source = "fallback"
-        logger.info(
-            "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
-            rf_col,
-        )
+            by_upper = {str(c).upper(): str(c) for c in ret_cols}
+            pick = None
+            for key in rf_like:
+                if key in by_upper:
+                    pick = by_upper[key]
+                    break
+            rf_col = pick or sorted(map(str, ret_cols))[0]
+            source = "fallback"
+            logger.info(
+                "Using '%s' as risk-free (fallback short-window)",
+                rf_col,
+            )
+        else:
+            detected = identify_risk_free_fund(window_df[probe_cols])
+            if detected is None or (
+                isinstance(detected, float) and math.isnan(detected)
+            ):
+                raise ValueError(
+                    "Risk-free fallback could not find a numeric return series in the requested window"
+                )
+            rf_col = str(detected)
+            source = "fallback"
+            logger.info(
+                "Using lowest-volatility column '%s' as risk-free (fallback enabled)",
+                rf_col,
+            )
 
     fund_cols = [c for c in ret_cols if c != rf_col]
     return rf_col, fund_cols, source
@@ -2333,39 +2541,49 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
-    cache = get_cache()
-
     def _compute() -> pd.Series:
-        spec = TrendSpec(
-            window=window,
-            min_periods=effective_min_periods,
-            lag=1,
-            vol_adjust=False,
-            zscore=False,
+        signal = (
+            base.rolling(window=window, min_periods=effective_min_periods)
+            .mean()
+            .shift(1)
+            .rename(f"{column}_signal")
         )
-        frame = compute_trend_signals(df[[column]].astype(float), spec)
-        series = frame[column].rename(f"{column}_signal")
-        return series.astype(float)
+        return signal.astype(float)
 
-    if cache.is_enabled():
-        dataset_hash = compute_dataset_hash([base])
-        idx = base.index
-        # Best-effort frequency tag; keep simple to satisfy type checker
-        try:  # pragma: no cover - heuristic only
-            freq = getattr(idx, "freq", None)
-            if freq is not None:
-                freq = str(freq)
-            else:
-                freq = None
-        except Exception:  # noqa: BLE001
-            freq = None
-        freq_tag = freq or "unknown"
-        method_tag = f"trend_spec_window{window}_min{effective_min_periods}"
-        return cache.get_or_compute(
-            dataset_hash, int(window), freq_tag, method_tag, _compute
-        )
+    try:
+        cache = get_cache()
+    except Exception:  # pragma: no cover - defensive
+        return _compute()
 
-    return _compute()
+    if not getattr(cache, "is_enabled", lambda: False)():
+        return _compute()
+
+    # For small series, the rolling mean is cheap and a filesystem-backed cache
+    # can add overhead (hashing + IO) that dominates runtime and makes
+    # property-based tests flaky on constrained runners.
+    #
+    # Still call into non-filesystem caches (e.g. test doubles) so cache
+    # integration can be verified independently.
+    try:
+        from .perf.rolling_cache import RollingCache as _RollingCache
+
+        if isinstance(cache, _RollingCache) and len(base) < 256:
+            return _compute()
+    except Exception:  # pragma: no cover - best-effort guard
+        pass
+
+    # Avoid relying on index .freq (tests may supply an index that raises).
+    freq = "unknown"
+    try:
+        freq_str = getattr(df.index, "freqstr", None)
+        if isinstance(freq_str, str) and freq_str:
+            freq = freq_str
+    except Exception:
+        pass
+
+    dataset_hash = compute_dataset_hash([base])
+    method = f"compute_signal:{column}:min{effective_min_periods}"
+    return cache.get_or_compute(dataset_hash, window, freq, method, _compute)
 
 
 def position_from_signal(

@@ -22,7 +22,7 @@ class TestPresetLoading:
         """Test that all preset YAML files are valid and have required
         fields."""
         presets_dir = Path(__file__).parent.parent / "config" / "presets"
-        required_fields = ["name", "description", "lookback_months", "risk_target"]
+        required_fields = ["name", "description", "lookback_periods", "risk_target"]
 
         for preset_file in presets_dir.glob("*.yml"):
             with preset_file.open("r") as f:
@@ -35,11 +35,11 @@ class TestPresetLoading:
 
             # Test specific field types and ranges
             assert isinstance(
-                data["lookback_months"], int
-            ), "lookback_months should be int"
+                data["lookback_periods"], int
+            ), "lookback_periods should be int"
             assert (
-                12 <= data["lookback_months"] <= 240
-            ), "lookback_months should be reasonable"
+                12 <= data["lookback_periods"] <= 240
+            ), "lookback_periods should be reasonable"
 
             assert isinstance(
                 data["risk_target"], (int, float)
@@ -69,8 +69,8 @@ class TestPresetLoading:
 
         # Conservative should have higher lookback than aggressive
         assert (
-            presets["conservative"]["lookback_months"]
-            > presets["aggressive"]["lookback_months"]
+            presets["conservative"]["lookback_periods"]
+            > presets["aggressive"]["lookback_periods"]
         )
 
         # Conservative should have lower risk target than aggressive

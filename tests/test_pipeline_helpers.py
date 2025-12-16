@@ -13,7 +13,9 @@ from trend_analysis.pipeline import (
     _derive_split_from_periods,
     _frequency_label,
     _policy_from_config,
+    _prepare_preprocess_stage,
     _prepare_input_data,
+    _build_sample_windows,
     _resolve_sample_split,
     _section_get,
     _unwrap_cfg,
@@ -105,3 +107,96 @@ def test_prepare_input_data_applies_missing_policy() -> None:
     assert normalised is False
     assert "FundA" in processed.columns
     assert missing.policy["FundA"] == "ffill"
+
+
+def test_prepare_input_data_preserves_missing_period_rows_for_ffill() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": [
+                pd.Timestamp("2020-01-31"),
+                pd.Timestamp("2020-03-31"),
+            ],
+            "FundA": [0.1, 0.2],
+            "FundB": [0.05, 0.07],
+        }
+    )
+
+    processed, _, _, _ = _prepare_input_data(
+        df,
+        date_col="Date",
+        missing_policy={"default": "ffill"},
+        missing_limit={"default": 12},
+    )
+
+    # Resampling to month-end should include the missing February row.
+    dates = pd.to_datetime(processed["Date"]).dt.strftime("%Y-%m-%d").tolist()
+    assert dates == ["2020-01-31", "2020-02-29", "2020-03-31"]
+
+
+def test_prepare_input_data_drops_missing_period_rows_for_drop_policy() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": [
+                pd.Timestamp("2020-01-31"),
+                pd.Timestamp("2020-03-31"),
+            ],
+            "FundA": [0.1, 0.2],
+        }
+    )
+
+    processed, _, _, _ = _prepare_input_data(
+        df,
+        date_col="Date",
+        missing_policy="drop",
+        missing_limit=None,
+    )
+
+    dates = pd.to_datetime(processed["Date"]).dt.strftime("%Y-%m-%d").tolist()
+    assert dates == ["2020-01-31", "2020-03-31"]
+
+
+def test_build_sample_windows_reinserts_missing_months_in_and_out_sample() -> None:
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=5, freq="ME"),
+            "FundA": [0.1, 0.2, 0.3, 0.4, 0.5],
+            "FundB": [0.05, 0.06, 0.07, 0.08, 0.09],
+        }
+    )
+
+    preprocess = _prepare_preprocess_stage(
+        df,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy={"default": "ffill"},
+        missing_limit=None,
+        stats_cfg=None,
+        periods_per_year_override=None,
+        allow_risk_free_fallback=True,
+    )
+    # _prepare_preprocess_stage returns either a _PreprocessStage or a PipelineResult
+    assert hasattr(preprocess, "df")
+
+    # Simulate an upstream removal of a month row inside each window.
+    dropped = preprocess.df.copy()
+    dropped = dropped[
+        ~pd.to_datetime(dropped["Date"]).isin(
+            [pd.Timestamp("2020-02-29"), pd.Timestamp("2020-04-30")]
+        )
+    ].reset_index(drop=True)
+    preprocess.df = dropped
+
+    window = _build_sample_windows(
+        preprocess,
+        in_start="2020-01",
+        in_end="2020-03",
+        out_start="2020-04",
+        out_end="2020-05",
+    )
+    assert hasattr(window, "in_df") and hasattr(window, "out_df")
+
+    in_labels = pd.to_datetime(window.in_df.index).strftime("%Y-%m-%d").tolist()
+    out_labels = pd.to_datetime(window.out_df.index).strftime("%Y-%m-%d").tolist()
+
+    assert in_labels == ["2020-01-31", "2020-02-29", "2020-03-31"]
+    assert out_labels == ["2020-04-30", "2020-05-31"]

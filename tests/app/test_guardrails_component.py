@@ -25,7 +25,7 @@ def test_prepare_dry_run_plan_builds_monotonic_windows():
         {"A": range(len(periods)), "B": range(len(periods))},
         index=periods.to_timestamp("M", "end"),
     )
-    plan = prepare_dry_run_plan(df, lookback_months=12)
+    plan = prepare_dry_run_plan(df, lookback_periods=12)
     assert plan.frame.index.is_monotonic_increasing
     assert plan.in_start <= plan.in_end < plan.out_start <= plan.out_end
 

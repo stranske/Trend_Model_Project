@@ -308,4 +308,4 @@ def test_run_simulation_returns_diagnostic_for_empty_universe():
     assert result.metrics.empty
     assert result.details == {}
     assert result.diagnostic is not None
-    assert result.diagnostic.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value
+    assert result.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value

@@ -35,7 +35,7 @@ def _build_default_yaml() -> str:
     return """
     name: Alpha Preset
     description: Primary preset description
-    lookback_months: 24
+    lookback_periods: 24
     selection_count: 5
     rebalance_frequency: monthly
     metrics:
@@ -61,7 +61,7 @@ def _build_override_yaml() -> str:
     return """
     name: Override Label
     description: Override preset description
-    lookback_months: 36
+    lookback_periods: 36
     selection_count: 8
     metrics:
       volatility: 2.0
@@ -123,7 +123,7 @@ def test_trend_preset_helpers_produce_expected_defaults(
 
     preset = presets.get_trend_preset("alpha")
     defaults = preset.form_defaults()
-    assert defaults["lookback_months"] == 36  # override applied
+    assert defaults["lookback_periods"] == 36  # override applied
     assert defaults["selection_count"] == 8
     assert defaults["metrics"] == {"vol": 2.0}
 
@@ -307,7 +307,7 @@ def test_form_defaults_clamps_negative_and_missing_values() -> None:
         trend_spec=presets.TrendSpec(),
         _config=presets._freeze_mapping(
             {
-                "lookback_months": -12,
+                "lookback_periods": -12,
                 "min_track_months": "0",
                 "selection_count": 0,
                 "risk_target": "invalid",
@@ -319,7 +319,7 @@ def test_form_defaults_clamps_negative_and_missing_values() -> None:
 
     defaults = preset.form_defaults()
 
-    assert defaults["lookback_months"] == 1
+    assert defaults["lookback_periods"] == 1
     assert defaults["min_track_months"] == 1
     assert defaults["selection_count"] == 1
     assert defaults["cooldown_months"] == 0

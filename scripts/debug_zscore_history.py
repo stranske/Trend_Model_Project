@@ -8,19 +8,16 @@ Displays for each year from 2009-2019:
 
 from __future__ import annotations
 
-import sys
+# mypy: ignore-errors
+
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# Ensure src is on path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
 from trend_analysis.config import load
 from trend_analysis.core.rank_selection import RiskStatsConfig, _compute_metric_series
 from trend_analysis.data import load_csv
-from trend_analysis.multi_period.scheduler import generate_periods
 
 
 def compute_score_frame(returns_df: pd.DataFrame, funds: list[str]) -> pd.DataFrame:
@@ -162,7 +159,7 @@ def main():
         sf = add_zscore(sf, "Sharpe")
 
         # Universe stats
-        print(f"\n  Universe z-score stats:")
+        print("\n  Universe z-score stats:")
         print(f"    Mean Sharpe: {sf['Sharpe'].mean():.3f}")
         print(f"    Std Sharpe:  {sf['Sharpe'].std():.3f}")
         print(
@@ -208,7 +205,7 @@ def main():
         if candidates:
             candidate_sf = sf.loc[candidates].nlargest(5, "zscore")
 
-            print(f"\n  TOP 5 CANDIDATES (not in portfolio):")
+            print("\n  TOP 5 CANDIDATES (not in portfolio):")
             print("-" * 75)
             print(
                 f"  {'Fund':<20} {'CAGR':>8} {'Vol':>8} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8} {'Z':>8}"

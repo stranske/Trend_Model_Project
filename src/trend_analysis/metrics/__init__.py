@@ -11,7 +11,7 @@ import builtins as _bi
 import sys
 import types
 from importlib import import_module
-from typing import Callable, cast
+from typing import Any, Callable, cast
 
 import numpy as np
 import pandas as pd
@@ -168,8 +168,11 @@ def annual_return(
     if returns.empty:
         return _empty_like(returns, "annual_return")
 
-    n_periods = max(returns.shape[0], 1)
     if isinstance(returns, Series):
+        valid_n = int(returns.notna().sum())
+        if valid_n == 0:
+            return np.nan
+        n_periods = max(valid_n, 1)
         prod_val = (1 + returns).prod()
         # Use numpy.asarray(...).item() to obtain a native Python scalar
         compounded_scalar = np.asarray(prod_val).item()
@@ -180,14 +183,28 @@ def annual_return(
         out = compounded ** (periods_per_year / n_periods) - 1.0
         return float(out)
     else:
-        compounded_df = (1 + returns).prod()
-        k = periods_per_year / n_periods
+        valid_n_series = cast(Series, returns.notna().sum(axis=0)).astype(int)
+        compounded_series = cast(Series, (1 + returns).prod())
+
+        # Note: mypy+pandas stubs can mis-type numpy/pandas boolean masks as scalars.
+        # Treat intermediate numpy arrays/masks as Any to keep static checks stable.
+        valid_n_arr: Any = np.asarray(valid_n_series.to_numpy(dtype=float))
+        compounded_arr: Any = np.asarray(compounded_series.to_numpy(dtype=float))
+
         res = pd.Series(index=returns.columns, dtype=float)
-        mask = compounded_df <= 0
-        if mask.any():
-            res[mask] = -1.0
-        if (~mask).any():
-            res[~mask] = compounded_df[~mask] ** k - 1.0
+        # Columns with no data -> NaN
+        empty_mask: Any = valid_n_arr <= 0
+        if bool(np.any(empty_mask)):
+            res.iloc[empty_mask] = np.nan
+
+        nonpos_mask: Any = compounded_arr <= 0
+        if bool(np.any(nonpos_mask)):
+            res.iloc[nonpos_mask] = -1.0
+
+        ok: Any = (~nonpos_mask) & (~empty_mask)
+        if bool(np.any(ok)):
+            k = periods_per_year / valid_n_arr[ok]
+            res.iloc[ok] = compounded_arr[ok] ** k - 1.0
         return res.astype(float)
 
 

@@ -24,7 +24,7 @@ from trend.validation import (
     validate_prices_frame,
 )
 
-from .diagnostics import coerce_pipeline_result
+from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (
     _policy_from_config,
@@ -418,6 +418,25 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         )
         return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag_hint)
     if payload is None:
+        # Prefer NO_FUNDS_SELECTED when the input has no investable fund columns
+        # (e.g. Date + RF only), even if the configured split yields an empty
+        # window. This is the most actionable diagnostic for API callers.
+        if diag and diag.reason_code == PipelineReasonCode.SAMPLE_WINDOW_EMPTY.value:
+            date_col = str(data_settings.get("date_column", "Date") or "Date")
+            excluded = {date_col}
+            if risk_free_column:
+                excluded.add(str(risk_free_column))
+            indices_list = config.portfolio.get("indices_list")
+            if isinstance(indices_list, list):
+                excluded |= {str(x) for x in indices_list}
+            investable_cols = [c for c in returns.columns if str(c) not in excluded]
+            if not investable_cols:
+                diag = DiagnosticPayload(
+                    reason_code=PipelineReasonCode.NO_FUNDS_SELECTED.value,
+                    message="No investable funds satisfy the selection filters.",
+                    context=getattr(diag, "context", None),
+                )
+
         if diag:
             logger.warning(
                 "run_simulation produced no result (%s): %s",

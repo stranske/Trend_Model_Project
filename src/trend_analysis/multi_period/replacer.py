@@ -27,12 +27,24 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self.cfg = cfg or {}
         self._strikes: dict[str, int] = {}
         self._entry_strikes: dict[str, int] = {}
-        # Read thresholds from config if available (backward compatible)
-        th = (
-            self.cfg.get("portfolio", {}).get("threshold_hold", {})
-            if isinstance(self.cfg, dict)
-            else {}
-        )
+        # Read thresholds from config if available (backward compatible).
+        # Some configs historically placed threshold-hold knobs at the
+        # portfolio root (e.g. portfolio.z_exit_soft) instead of under
+        # portfolio.threshold_hold.*.
+        portfolio = self.cfg.get("portfolio", {}) if isinstance(self.cfg, dict) else {}
+        th = dict(portfolio.get("threshold_hold", {}) or {})
+        for key in (
+            "z_exit_soft",
+            "z_exit_hard",
+            "z_entry_soft",
+            "z_entry_hard",
+            "soft_strikes",
+            "entry_soft_strikes",
+            "entry_eligible_strikes",
+            "target_n",
+        ):
+            if key not in th and key in portfolio:
+                th[key] = portfolio[key]
         # Soft/hard exits and entries; default to legacy constants
         self.low_z_soft = float(th.get("z_exit_soft", _LOW_Z))
         self.low_z_hard = float(th["z_exit_hard"]) if "z_exit_hard" in th else None
@@ -46,23 +58,20 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
             th.get("entry_eligible_strikes", max(1, self.entry_soft_strikes - 1))
         )
         constraints = (
-            self.cfg.get("portfolio", {}).get("constraints", {})
-            if isinstance(self.cfg, dict)
-            else {}
+            portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
         )
-        self.max_funds = int(constraints.get("max_funds", 10))
+        mp_cfg = self.cfg.get("multi_period", {}) if isinstance(self.cfg, dict) else {}
+        self.max_funds = int(constraints.get("max_funds", mp_cfg.get("max_funds", 10)))
         # Weighting behaviour for survivors during run_schedule
         th_name = (
-            self.cfg.get("portfolio", {})
-            .get("threshold_hold", {})
-            .get("weighting", "equal")
-            if isinstance(self.cfg, dict)
+            portfolio.get("threshold_hold", {}).get("weighting", "equal")
+            if isinstance(portfolio, dict)
             else "equal"
         )
         self.weighting_name = str(th_name).lower()
         self.weighting_params = (
-            self.cfg.get("portfolio", {}).get("weighting", {}).get("params", {})
-            if isinstance(self.cfg, dict)
+            portfolio.get("weighting", {}).get("params", {})
+            if isinstance(portfolio, dict)
             else {}
         )
 

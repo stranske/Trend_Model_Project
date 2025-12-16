@@ -95,8 +95,8 @@ def test_validate_model_catches_errors(model_module: ModuleType) -> None:
     """Test that _validate_model catches various validation errors."""
     # Test 1: Selection count exceeds column count
     values = {
-        "lookback_months": 36,
-        "min_history_months": 36,
+        "lookback_periods": 36,
+        "min_history_periods": 36,
         "selection_count": 15,  # Exceeds column_count=10
         "metric_weights": {"sharpe": 1.0},
     }
@@ -105,8 +105,8 @@ def test_validate_model_catches_errors(model_module: ModuleType) -> None:
 
     # Test 2: No positive metric weights
     values = {
-        "lookback_months": 36,
-        "min_history_months": 36,
+        "lookback_periods": 36,
+        "min_history_periods": 36,
         "selection_count": 5,
         "metric_weights": {"sharpe": 0.0, "return_ann": 0.0},
     }
@@ -115,8 +115,8 @@ def test_validate_model_catches_errors(model_module: ModuleType) -> None:
 
     # Test 3: Min history exceeds lookback
     values = {
-        "lookback_months": 24,
-        "min_history_months": 36,  # Exceeds lookback
+        "lookback_periods": 24,
+        "min_history_periods": 36,  # Exceeds lookback
         "selection_count": 5,
         "metric_weights": {"sharpe": 1.0},
     }

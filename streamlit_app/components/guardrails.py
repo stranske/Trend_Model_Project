@@ -22,8 +22,8 @@ import pandas as pd
 from streamlit_app.config_bridge import build_config_payload, validate_payload
 from utils.paths import proj_path
 
-MAX_DRY_RUN_LOOKBACK_MONTHS = 12
-MAX_DRY_RUN_OUT_MONTHS = 3
+MAX_DRY_RUN_LOOKBACK_PERIODS = 12
+MAX_DRY_RUN_OUT_PERIODS = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +42,7 @@ class DryRunPlan:
     """Container describing the sample extracted for a dry run."""
 
     frame: pd.DataFrame
-    lookback_months: int
+    lookback_periods: int
     in_start: pd.Timestamp
     in_end: pd.Timestamp
     out_start: pd.Timestamp
@@ -64,7 +64,7 @@ class DryRunPlan:
         return {
             "rows": int(self.frame.shape[0]),
             "columns": int(self.frame.shape[1]),
-            "lookback_months": int(self.lookback_months),
+            "lookback_periods": int(self.lookback_periods),
             "window": {
                 "in_start": self.in_start.strftime("%Y-%m-%d"),
                 "in_end": self.in_end.strftime("%Y-%m-%d"),
@@ -196,9 +196,9 @@ def validate_startup_payload(
 
 def prepare_dry_run_plan(
     df: pd.DataFrame,
-    lookback_months: int,
+    lookback_periods: int,
     *,
-    horizon_months: int = 6,
+    horizon_periods: int = 6,
 ) -> DryRunPlan:
     """Prepare a sample window for a dry run.
 
@@ -218,17 +218,17 @@ def prepare_dry_run_plan(
     horizon = max(
         1,
         min(
-            int(horizon_months),
-            MAX_DRY_RUN_OUT_MONTHS,
+            int(horizon_periods),
+            MAX_DRY_RUN_OUT_PERIODS,
             max(len(unique_periods) // 3, 1),
         ),
     )
     adjusted_lookback = max(
         3,
         min(
-            int(lookback_months),
+            int(lookback_periods),
             len(unique_periods) - horizon,
-            MAX_DRY_RUN_LOOKBACK_MONTHS,
+            MAX_DRY_RUN_LOOKBACK_PERIODS,
         ),
     )
     total_needed = adjusted_lookback + horizon
@@ -254,7 +254,7 @@ def prepare_dry_run_plan(
         raise ValueError("Insufficient history to support the requested lookback.")
     return DryRunPlan(
         frame=sample,
-        lookback_months=int(adjusted_lookback),
+        lookback_periods=int(adjusted_lookback),
         in_start=in_start,
         in_end=in_end,
         out_start=out_start,

@@ -5,7 +5,7 @@ name: "Aggressive"
 description: "High risk-return profile for performance-oriented users"
 
 # Shorter lookback for responsiveness
-lookback_months: 24
+lookback_periods: 24
 rebalance_frequency: "monthly"  # Frequent rebalancing for agility  
 min_track_months: 18
 

@@ -122,6 +122,22 @@ class DummyStreamlit:
     def markdown(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
         return None
 
+    def expander(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
+        return DummyStreamlit._Column(self)
+
+    def container(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
+        return DummyStreamlit._Column(self)
+
+    def checkbox(self, label: str, *, key: str | None = None, **_kwargs: Any) -> bool:
+        if key is None:
+            return False
+        current = bool(self.session_state.get(key, False))
+        self.session_state.setdefault(key, current)
+        return bool(self.session_state.get(key, False))
+
+    def json(self, *_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - trivial
+        return None
+
     def cache_data(self, *args: Any, **kwargs: Any):
         def decorator(func):
             return func
@@ -168,6 +184,10 @@ def data_page(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, DummyStreaml
         "code",
         "dataframe",
         "markdown",
+        "expander",
+        "container",
+        "checkbox",
+        "json",
         "cache_data",
         "subheader",
         "columns",

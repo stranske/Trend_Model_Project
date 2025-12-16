@@ -18,6 +18,7 @@ from .io.market_data import (
     ValidatedMarketData,
     validate_market_data,
 )
+from .constants import NUMERICAL_TOLERANCE_HIGH
 
 MissingLimitArg = int | str | Mapping[str, int | str | None] | None
 
@@ -85,6 +86,77 @@ logger = logging.getLogger(__name__)
 ValidationErrorMode = Literal["raise", "log"]
 
 
+def compute_inception_dates(
+    frame: pd.DataFrame,
+    *,
+    date_col: str = "Date",
+    columns: list[str] | None = None,
+    nonzero_tol: float = NUMERICAL_TOLERANCE_HIGH,
+) -> dict[str, pd.Timestamp | None]:
+    """Return per-column inception dates inferred from first non-zero return.
+
+    Many vendor datasets encode "pre-inception" history as a flat line of
+    zeros instead of NaN. For universe construction we must treat those rows
+    as missing; this helper infers the effective inception date as the first
+    timestamp where ``abs(return) > nonzero_tol``.
+
+    Parameters
+    ----------
+    frame:
+        Input frame containing a ``date_col`` column or a DatetimeIndex.
+    date_col:
+        Name of the date column when present.
+    columns:
+        Optional list of columns to compute inception dates for. Defaults to
+        all numeric columns except ``date_col``.
+    nonzero_tol:
+        Absolute tolerance used to treat tiny values as zero.
+
+    Returns
+    -------
+    dict[str, pd.Timestamp | None]
+        Mapping from column name to inception timestamp (month-end aligned
+        as stored in the input). Columns with no non-zero observations return
+        ``None``.
+    """
+
+    if frame.empty:
+        return {}
+
+    if date_col in frame.columns:
+        dates = pd.to_datetime(frame[date_col], errors="coerce")
+        values = frame.drop(columns=[date_col])
+    else:
+        if not isinstance(frame.index, pd.DatetimeIndex):
+            raise TypeError(
+                "compute_inception_dates requires a Date column or DatetimeIndex"
+            )
+        dates = pd.to_datetime(frame.index, errors="coerce")
+        values = frame
+
+    out: dict[str, pd.Timestamp | None] = {}
+    if columns is None:
+        columns = [
+            str(c)
+            for c in values.select_dtypes("number").columns
+            if str(c) != str(date_col)
+        ]
+
+    for col in columns:
+        if col not in values.columns:
+            continue
+        s = pd.to_numeric(values[col], errors="coerce")
+        active = s.abs() > float(nonzero_tol)
+        if not active.any():
+            out[col] = None
+            continue
+        # First active timestamp
+        first_idx = int(active.to_numpy().argmax())
+        ts = dates.iloc[first_idx]
+        out[col] = None if pd.isna(ts) else pd.Timestamp(ts)
+    return out
+
+
 def _finalise_validated_frame(
     validated: ValidatedMarketData, *, include_date_column: bool
 ) -> pd.DataFrame:
@@ -121,6 +193,23 @@ def _finalise_validated_frame(
     attrs["market_data_missing_policy_summary"] = (
         validated.metadata.missing_policy_summary
     )
+
+    # Infer inception dates (first non-zero observation) once at ingestion time.
+    # This is used by the multi-period engine to exclude pre-inception series
+    # even when a vendor encodes them as flat zeros.
+    try:
+        inception = compute_inception_dates(
+            base_frame,
+            date_col="Date",
+        )
+        # Store as ISO strings for JSON friendliness.
+        attrs["inception_dates"] = {
+            k: (v.strftime("%Y-%m-%d") if v is not None else None)
+            for k, v in inception.items()
+        }
+    except Exception:  # pragma: no cover - best effort metadata
+        attrs.setdefault("inception_dates", {})
+
     result.attrs = attrs
     return result
 

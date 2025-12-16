@@ -109,17 +109,12 @@ def _build_sample_split(
             period_to_months = {"M": 1, "Q": 3, "A": 12}
             months_per_period = period_to_months.get(frequency, 12)
 
-            # Use new unified variable names with fallback to legacy names
             lookback_periods = _coerce_positive_int(
-                config.get("lookback_periods") or config.get("lookback_months"),
+                config.get("lookback_periods"),
                 default=3 if frequency != "M" else 36,
                 minimum=1,
             )
-            # If legacy lookback_months was used, it's already in months
-            if config.get("lookback_months") and not config.get("lookback_periods"):
-                lookback_months = lookback_periods
-            else:
-                lookback_months = lookback_periods * months_per_period
+            lookback_months = lookback_periods * months_per_period
 
             # Calculate date boundaries for explicit mode
             # out_start and out_end come from user-specified dates
@@ -149,24 +144,18 @@ def _build_sample_split(
     period_to_months = {"M": 1, "Q": 3, "A": 12}
     months_per_period = period_to_months.get(frequency, 12)
 
-    # Use new unified variable names with fallback to legacy names
     lookback_periods = _coerce_positive_int(
-        config.get("lookback_periods") or config.get("lookback_months"),
+        config.get("lookback_periods"),
         default=3 if frequency != "M" else 36,
         minimum=1,
     )
     evaluation_periods = _coerce_positive_int(
-        config.get("evaluation_periods") or config.get("evaluation_months"),
+        config.get("evaluation_periods"),
         default=1 if frequency != "M" else 12,
         minimum=1,
     )
-    # If legacy names were used, they're already in months
-    if config.get("lookback_months") and not config.get("lookback_periods"):
-        lookback_months = lookback_periods
-        evaluation_months = evaluation_periods
-    else:
-        lookback_months = lookback_periods * months_per_period
-        evaluation_months = evaluation_periods * months_per_period
+    lookback_months = lookback_periods * months_per_period
+    evaluation_months = evaluation_periods * months_per_period
 
     last = _month_end(index.max())
     first = _month_end(index.min())
@@ -281,9 +270,6 @@ def _build_portfolio_config(
     max_changes_per_period = _coerce_positive_int(
         config.get("max_changes_per_period"), default=0, minimum=0
     )
-    max_active_positions = _coerce_positive_int(
-        config.get("max_active_positions"), default=0, minimum=0
-    )
 
     # Phase 8: Selection approach settings (accept both naming conventions)
     selection_approach = str(
@@ -343,8 +329,6 @@ def _build_portfolio_config(
         portfolio_cfg["min_tenure_n"] = min_tenure_periods
     if max_changes_per_period > 0:
         portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
-    if max_active_positions > 0:
-        portfolio_cfg["max_active"] = max_active_positions
 
     return portfolio_cfg
 
@@ -375,6 +359,36 @@ def _build_config(payload: AnalysisPayload) -> Config:
     signals_cfg = _build_signals_config(trend_spec)
 
     portfolio_cfg = _build_portfolio_config(state, weights)
+
+    # Multi-period capacity cap (used by threshold-hold engine/rebalancer)
+    mp_max_funds = _coerce_positive_int(state.get("mp_max_funds"), default=0, minimum=0)
+    if mp_max_funds > 0:
+        portfolio_cfg.setdefault("constraints", {})
+        portfolio_cfg["constraints"]["max_funds"] = mp_max_funds
+
+    mp_min_funds = _coerce_positive_int(state.get("mp_min_funds"), default=0, minimum=0)
+    if mp_min_funds > 0:
+        portfolio_cfg.setdefault("constraints", {})
+        portfolio_cfg["constraints"]["min_funds"] = mp_min_funds
+
+    min_weight_raw = state.get("min_weight")
+    if min_weight_raw is not None:
+        min_weight = _coerce_positive_float(min_weight_raw, default=0.05)
+        portfolio_cfg.setdefault("constraints", {})
+        portfolio_cfg["constraints"]["min_weight"] = min_weight
+
+    min_weight_strikes = _coerce_positive_int(
+        state.get("min_weight_strikes"), default=0, minimum=0
+    )
+    if min_weight_strikes > 0:
+        portfolio_cfg.setdefault("constraints", {})
+        portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
+
+    cooldown_periods = _coerce_positive_int(
+        state.get("cooldown_periods"), default=0, minimum=0
+    )
+    if cooldown_periods > 0:
+        portfolio_cfg["cooldown_periods"] = cooldown_periods
 
     metrics_registry = [METRIC_REGISTRY.get(name, name) for name in weights]
 
@@ -446,6 +460,16 @@ def _build_config(payload: AnalysisPayload) -> Config:
         "soft_strikes": soft_strikes,
         "entry_soft_strikes": entry_soft_strikes,
     }
+
+    # Make threshold-hold exits/entries operate on the same blended signal as
+    # the selection UI (rather than defaulting to Sharpe).
+    selection_count = _coerce_positive_int(state.get("selection_count"), default=10)
+    threshold_hold_cfg["metric"] = "blended"
+    threshold_hold_cfg["blended_weights"] = {
+        METRIC_REGISTRY.get(metric, metric): float(weight)
+        for metric, weight in weights.items()
+    }
+    threshold_hold_cfg["target_n"] = selection_count
     # Add hard thresholds if enabled (Phase 13)
     if z_entry_hard is not None:
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
@@ -485,8 +509,20 @@ def _build_config(payload: AnalysisPayload) -> Config:
             minimum=1,
         )
 
-        # Get date range for multi-period scheduling
-        # Priority: user's explicit start/end dates > data range
+        # Minimum history is a user-selectable parameter (in the same units as
+        # the multi-period frequency). Keep it in config so the engine can
+        # enforce eligibility without hard-coding.
+        min_history_len = _coerce_positive_int(
+            state.get("min_history_periods"),
+            default=in_sample_len,
+            minimum=1,
+        )
+        # Safety: never allow min history to exceed the configured lookback.
+        min_history_len = min(min_history_len, in_sample_len)
+
+        # Get date range for multi-period scheduling.
+        # In explicit date mode, user_start is interpreted as the FIRST OOS month
+        # and user_end as the final OOS month.
         data_index = payload.returns.index
         data_start = data_index.min()
         data_end = data_index.max()
@@ -494,6 +530,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         # Check for user-specified dates (from explicit date mode)
         user_start = state.get("start_date")
         user_end = state.get("end_date")
+
+        date_mode = str(state.get("date_mode", "relative") or "relative").lower()
 
         # Use user dates if available, otherwise fall back to data range
         if user_start:
@@ -512,16 +550,20 @@ def _build_config(payload: AnalysisPayload) -> Config:
         else:
             sim_end = data_end
 
-        # Format dates as YYYY-MM strings for the scheduler
-        start_str = str(sim_start.date())[:7]  # YYYY-MM
-        end_str = str(sim_end.date())[:7]  # YYYY-MM
+        # Pass month-end boundaries through to the scheduler.
+        start_me = _month_end(sim_start)
+        end_me = _month_end(sim_end)
+        start_str = start_me.strftime("%Y-%m-%d")
+        end_str = end_me.strftime("%Y-%m-%d")
 
         multi_period_cfg = {
             "frequency": multi_period_frequency,
             "in_sample_len": in_sample_len,
             "out_sample_len": out_sample_len,
+            "min_history_periods": min_history_len,
             "start": start_str,
             "end": end_str,
+            "start_mode": "oos" if date_mode == "explicit" else "in",
         }
 
     # Phase 16: Data/Preprocessing settings
@@ -532,10 +574,17 @@ def _build_config(payload: AnalysisPayload) -> Config:
     )  # Convert to decimal
     winsorize_upper = float(state.get("winsorize_upper", 99.0) or 99.0) / 100.0
 
-    data_cfg = {
+    data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
         "missing_policy": missing_policy,
     }
+
+    # Optional: allow the UI to explicitly choose the risk-free column.
+    # This makes runs reproducible and avoids the fallback heuristic picking a
+    # different proxy when the investable universe changes.
+    risk_free_column = state.get("risk_free_column")
+    if isinstance(risk_free_column, str) and risk_free_column.strip():
+        data_cfg["risk_free_column"] = risk_free_column.strip()
     preprocessing_cfg = {
         "winsorise": {
             "enabled": winsorize_enabled,
