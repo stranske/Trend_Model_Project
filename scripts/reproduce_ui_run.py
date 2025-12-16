@@ -20,7 +20,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -220,7 +220,10 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _load_params(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload_any, dict):
+        raise ValueError("params must be a JSON object")
+    payload = cast(dict[str, Any], payload_any)
     if "model_state" not in payload:
         raise ValueError("params missing model_state")
     return payload
@@ -339,9 +342,9 @@ def main() -> int:
                 selector = port.get("selector") if isinstance(port, dict) else None
                 if isinstance(selector, dict):
                     selector = dict(selector)
-                    params = selector.get("params")
-                    if isinstance(params, dict):
-                        params = dict(params)
+                    params_any = selector.get("params")
+                    if isinstance(params_any, dict):
+                        params = dict(params_any)
                     else:
                         params = {}
                     params["rank_column"] = metric
@@ -359,7 +362,9 @@ def main() -> int:
                 else:
                     setattr(cfg, "portfolio", port)
 
-    result = run_simulation(cfg, _prepare_returns(returns))
+    # run_simulation is typed against a protocol; the runtime config object is
+    # compatible, but mypy can't always prove it here.
+    result = run_simulation(cast(Any, cfg), _prepare_returns(returns))
 
     # Persist a minimal baseline bundle (avoid pickling large/un-stable objects).
     def _dump_cfg(obj: Any) -> str:
@@ -375,9 +380,9 @@ def main() -> int:
                 pass
         if hasattr(obj, "json"):
             try:
-                return obj.json(indent=2)
+                return str(obj.json(indent=2))
             except TypeError:
-                return obj.json()
+                return str(obj.json())
             except Exception:
                 pass
         return json.dumps({"repr": repr(obj)}, indent=2, default=str)
@@ -503,20 +508,20 @@ def main() -> int:
                 isinstance(selection_scores, pd.DataFrame)
                 and not selection_scores.empty
             ):
-                metric = item.get("selection_metric")
+                selection_metric = item.get("selection_metric")
                 for manager, row in selection_scores.iterrows():
-                    payload: dict[str, Any] = {
+                    row_payload: dict[str, Any] = {
                         "period": period_label,
                         "manager": str(manager),
-                        "selection_metric": metric,
+                        "selection_metric": selection_metric,
                     }
                     # Export full selection-score frame columns so downstream
                     # audits can reproduce z-score calculations (metric value +
                     # universe mean/std) without re-running the simulation.
                     for col, val in row.to_dict().items():
                         # Preserve column names as-is.
-                        payload[str(col)] = val
-                    selection_score_rows.append(payload)
+                        row_payload[str(col)] = val
+                    selection_score_rows.append(row_payload)
 
             summary_rows.append(
                 {
