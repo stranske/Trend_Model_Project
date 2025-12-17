@@ -541,6 +541,12 @@ def _compute_fund_stats(returns: pd.Series) -> dict[str, float]:
     downside_std = downside.std() * np.sqrt(12) if len(downside) > 0 else 0
     sortino = (cagr / downside_std) if downside_std > 0 else 0
 
+    # Information Ratio (using mean excess return / tracking error)
+    # Without a benchmark, IR is similar to Sharpe
+    mean_return = returns.mean() * 12  # annualized
+    tracking_error = returns.std() * np.sqrt(12)
+    ir = (mean_return / tracking_error) if tracking_error > 0 else 0
+
     # Max drawdown
     equity = (1 + returns).cumprod()
     rolling_max = equity.cummax()
@@ -552,6 +558,7 @@ def _compute_fund_stats(returns: pd.Series) -> dict[str, float]:
         "Vol": vol,
         "Sharpe": sharpe,
         "Sortino": sortino,
+        "IR": ir,
         "Max DD": max_dd,
     }
 
@@ -1239,6 +1246,65 @@ def _build_period_returns_df(result) -> pd.DataFrame:
     return pd.concat(all_dfs, ignore_index=True)
 
 
+def _format_weights_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+    """Format weights DataFrame for CSV export matching Excel style."""
+    if df.empty:
+        return df
+    out = df.copy()
+    # Format weights as percentage strings (e.g., "25.0%")
+    if "Weight" in out.columns:
+        out["Weight"] = out["Weight"].apply(
+            lambda x: f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else ""
+        )
+    return out
+
+
+def _format_returns_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+    """Format returns DataFrame for CSV export matching Excel style."""
+    if df.empty:
+        return df
+    out = df.copy()
+    # Format fund return columns as percentage strings (e.g., "1.25%")
+    exclude_cols = {"Period Start", "Period End", "index", "Date"}
+    for col in out.columns:
+        if col not in exclude_cols:
+            out[col] = out[col].apply(
+                lambda x: f"{x * 100:.2f}%" if pd.notna(x) and np.isfinite(x) else ""
+            )
+    return out
+
+
+def _format_holdings_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+    """Format holdings/risk DataFrame for CSV export matching Excel style."""
+    if df.empty:
+        return df
+    out = df.copy()
+    # Format percentage columns (values are decimals like 0.125 for 12.5%)
+    pct_cols = ["CAGR", "Vol", "Max DD"]
+    for col in pct_cols:
+        if col in out.columns:
+            out[col] = out[col].apply(
+                lambda x: f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else ""
+            )
+    # Format ratio columns (Sharpe, Sortino, IR)
+    ratio_cols = ["Sharpe", "Sortino", "IR"]
+    for col in ratio_cols:
+        if col in out.columns:
+            out[col] = out[col].apply(
+                lambda x: f"{x:.2f}" if pd.notna(x) and np.isfinite(x) else ""
+            )
+    # Format years to tenths place
+    if "Years Held" in out.columns:
+        out["Years Held"] = out["Years Held"].apply(
+            lambda x: f"{x:.1f}" if pd.notna(x) and np.isfinite(x) else ""
+        )
+    if "Years" in out.columns:
+        out["Years"] = out["Years"].apply(
+            lambda x: f"{x:.1f}" if pd.notna(x) and np.isfinite(x) else ""
+        )
+    return out
+
+
 def _render_download_section(result) -> None:
     """Render download buttons for portfolio data."""
     weights_df = _build_period_weights_df(result)
@@ -1250,7 +1316,8 @@ def _render_download_section(result) -> None:
 
     with col1:
         if not weights_df.empty:
-            csv = weights_df.to_csv(index=False)
+            formatted = _format_weights_for_csv(weights_df)
+            csv = formatted.to_csv(index=False)
             st.download_button(
                 "📊 Weights",
                 csv,
@@ -1262,7 +1329,8 @@ def _render_download_section(result) -> None:
 
     with col2:
         if not returns_df.empty:
-            csv = returns_df.to_csv(index=False)
+            formatted = _format_returns_for_csv(returns_df)
+            csv = formatted.to_csv(index=False)
             st.download_button(
                 "📈 Returns",
                 csv,
@@ -1291,7 +1359,8 @@ def _render_download_section(result) -> None:
                 combined = summary_df.merge(risk_df, on="Manager", how="left")
             else:
                 combined = summary_df
-            csv = combined.to_csv(index=False)
+            formatted = _format_holdings_for_csv(combined)
+            csv = formatted.to_csv(index=False)
             st.download_button(
                 "📋 Holdings",
                 csv,
@@ -1340,6 +1409,195 @@ def _render_download_section(result) -> None:
         )
     else:
         st.caption("Run a multi-period analysis to enable workbook export.")
+
+    # CSV equivalent of the Excel workbook
+    st.divider()
+    st.subheader("📄 CSV Export (Phase-1 Style)")
+    st.caption(
+        "Downloads CSV files with the same content as the Excel workbook: "
+        "summary metrics, per-period data, execution metrics, and manager changes."
+    )
+
+    def _format_phase1_frame(name: str, df: pd.DataFrame) -> pd.DataFrame:
+        """Format Phase-1 export frame to match Excel number formatting.
+
+        Note: In summary/periods frames, CAGR/Vol/MaxDD/Total Return/Weight are already
+        multiplied by 100 (so 12.5 means 12.5%).
+        In manager_contrib, Contribution Share is raw decimal.
+        In execution_metrics, Turnover/Transaction Cost are raw decimals.
+        """
+        if df.empty:
+            return df
+        out = df.copy()
+
+        # Columns where value is ALREADY multiplied by 100 (display as "12.5%")
+        # These are in summary and periods frames
+        already_pct_cols = [
+            "OS Total Return",
+            "OS CAGR",
+            "OS Vol",
+            "OS MaxDD",
+            "IS Total Return",
+            "IS CAGR",
+            "IS Vol",
+            "IS MaxDD",
+            "Weight",  # Weight is already multiplied by 100 in summary_frame_from_result
+        ]
+        # Patterns for already-multiplied percentage columns
+        already_pct_patterns = []
+        if name in ("summary", "periods"):
+            already_pct_patterns = ["CAGR", "Vol", "MaxDD", "Total Return"]
+
+        # Columns where value is a raw decimal (0.25 for 25%) - need to multiply by 100
+        raw_pct_cols = [
+            "Contribution Share",
+            "Turnover",
+            "OOS CAGR",
+            "Transaction Cost",
+        ]
+
+        # Ratio columns (displayed as "1.25")
+        ratio_cols = [
+            "OS Sharpe",
+            "OS Sortino",
+            "OS IR",
+            "IS Sharpe",
+            "IS Sortino",
+            "IS IR",
+        ]
+        ratio_patterns = ["Sharpe", "Sortino"]
+        # IR patterns - but not "OS IR xyz" benchmark columns which are ratios
+        ir_pattern = " IR"
+
+        # Decimal columns to tenths place
+        decimal_1_cols = ["Years"]
+
+        # Decimal columns to hundredths place (z-scores)
+        decimal_2_cols = ["z_score", "z-score", "zscore", "blended"]
+        decimal_2_patterns = ["z_", "z-", "_z", "blended", "score"]
+
+        # Integer columns
+        int_cols = ["OS Months", "IS Months"]
+        int_patterns = ["Months"]
+
+        for col in out.columns:
+            col_lower = col.lower()
+
+            # Check column type
+            is_already_pct = col in already_pct_cols or any(
+                p in col for p in already_pct_patterns
+            )
+            is_raw_pct = col in raw_pct_cols
+            is_ratio = (
+                col in ratio_cols
+                or any(p in col for p in ratio_patterns)
+                or ir_pattern in col
+            )
+            is_decimal_1 = col in decimal_1_cols
+            is_decimal_2 = col in decimal_2_cols or any(
+                p in col_lower for p in decimal_2_patterns
+            )
+            is_int = col in int_cols or any(p in col for p in int_patterns)
+
+            if is_already_pct and not is_ratio:
+                # Value is already like 12.5 for 12.5%, just add % symbol
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{float(x):.1f}%"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+            elif is_raw_pct and not is_ratio:
+                # Value is raw decimal like 0.125 for 12.5%, multiply by 100
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{float(x) * 100:.1f}%"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+            elif is_ratio:
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{float(x):.2f}"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+            elif is_decimal_1:
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{float(x):.1f}"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+            elif is_decimal_2:
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{float(x):.2f}"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+            elif is_int:
+                out[col] = out[col].apply(
+                    lambda x: (
+                        f"{int(x)}"
+                        if pd.notna(x)
+                        and isinstance(x, (int, float))
+                        and np.isfinite(x)
+                        else ""
+                    )
+                )
+        return out
+
+    def _build_csv_zip_bytes() -> bytes:
+        import io
+        import zipfile
+
+        from trend_analysis.export import flat_frames_from_results
+
+        details = getattr(result, "details", {}) or {}
+        period_results = details.get("period_results", [])
+        if not isinstance(period_results, list) or not period_results:
+            return b""
+
+        frames = flat_frames_from_results(period_results)
+        if not frames:
+            return b""
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name, df in frames.items():
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    formatted = _format_phase1_frame(name, df)
+                    csv_content = formatted.to_csv(index=False)
+                    zf.writestr(f"trend_phase1_{name}.csv", csv_content)
+        zip_buffer.seek(0)
+        return zip_buffer.getvalue()
+
+    csv_zip_bytes = _build_csv_zip_bytes()
+    if csv_zip_bytes:
+        st.download_button(
+            "⬇️ Download Phase-1 CSV Bundle (ZIP)",
+            data=csv_zip_bytes,
+            file_name="trend_phase1_csv_bundle.zip",
+            mime="application/zip",
+        )
+    else:
+        st.caption("Run a multi-period analysis to enable CSV export.")
 
 
 # =============================================================================
@@ -1874,7 +2132,43 @@ def render_results_page() -> None:
                     c for c in base_cols if c in full_df.columns
                 ] + metric_cols
                 full_df = full_df.loc[:, ordered_cols]
-                csv = full_df.to_csv(index=False)
+
+                # Format the DataFrame to match Excel styling
+                export_df = full_df.copy()
+                # Format Weight as percentage
+                if "Weight" in export_df.columns:
+                    export_df["Weight"] = export_df["Weight"].apply(
+                        lambda x: (
+                            f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else ""
+                        )
+                    )
+                # Format metric columns based on their names
+                for col in metric_cols:
+                    col_lower = col.lower()
+                    if any(p in col_lower for p in ["cagr", "vol", "maxdd", "max_dd"]):
+                        # Percentage format
+                        export_df[col] = export_df[col].apply(
+                            lambda x: (
+                                f"{float(x) * 100:.1f}%"
+                                if pd.notna(x)
+                                and isinstance(x, (int, float))
+                                and np.isfinite(x)
+                                else ""
+                            )
+                        )
+                    elif any(p in col_lower for p in ["sharpe", "sortino", "ir"]):
+                        # Ratio format
+                        export_df[col] = export_df[col].apply(
+                            lambda x: (
+                                f"{float(x):.2f}"
+                                if pd.notna(x)
+                                and isinstance(x, (int, float))
+                                and np.isfinite(x)
+                                else ""
+                            )
+                        )
+
+                csv = export_df.to_csv(index=False)
                 st.download_button(
                     "📊 Download Complete Period Analysis (CSV)",
                     csv,
