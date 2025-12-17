@@ -42,7 +42,7 @@ Acceptance criteria
 Implementation notes
 - Reuse/align with the JSON diff logic from `scripts/diff_ui_runs.py` where possible (but keep UI logic dependency-free).
 
-2) Implement A/B simulation compare workflow in Streamlit
+3) Implement A/B simulation compare workflow in Streamlit
 Labels: agent:codex, enhancement, app, backend
 Why
 Users want to compare outcomes (metrics, holdings, turnover, manager changes) between two parameter sets to understand sensitivity and validate changes.
