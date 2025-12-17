@@ -19,7 +19,7 @@ portfolio:
       FundC: Macro
       FundD: Macro
     cash_weight: 0.10
-lookback_months: 36
+lookback_periods: 36
 rebalance_frequency: monthly
 min_track_months: 24
 selection_count: 8

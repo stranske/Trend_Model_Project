@@ -77,3 +77,77 @@ Acceptance criteria
 - Tests cover simple and default modes and pass without changing existing app behaviour for users who do not set the flag.
 Implementation notes
 - Keep the change minimal and focused on proxy resolution; avoid touching unrelated Streamlit app logic.
+
+6) Add saved parameter sets (named configs) to Streamlit UI
+Labels: agent:codex, enhancement, app, ui
+Why
+Users need to compare outcomes across multiple parameter sets. Today, the app has a single mutable `model_state`; users have to manually screenshot/copy settings, making A/B comparison error-prone.
+Scope
+- Streamlit session state management for storing multiple named parameter sets.
+- UI controls on the Model page for save/load/rename/delete parameter sets.
+Tasks
+- Define a session-state schema for saved parameter sets (e.g., `st.session_state["saved_model_states"][name] = model_state_payload`).
+- Add UI controls on `streamlit_app/pages/2_Model.py`:
+	- Save current config as name (with overwrite confirmation).
+	- Load a saved config into the current form.
+	- Rename and delete saved configs.
+- Add minimal serialization (optional) so users can export/import a parameter set as JSON (no persistence required beyond session state unless explicitly chosen).
+- Add tests under `tests/app/` to ensure save/load preserves all model_state keys and does not mutate other saved sets.
+Acceptance criteria
+- A user can save at least two named parameter sets in a session, load either into the Model page, and see the current UI reflect the loaded values.
+- Export/import (if implemented) round-trips with no loss of keys and maintains type correctness (ints remain ints, booleans remain booleans).
+- Tests cover save/load/rename/delete behaviours.
+Implementation notes
+- Keep persistence optional; start with session-state-only to avoid file I/O complexity.
+- Use the same captured payload structure as `docs/debugging/ui_run_2025-12-15.json` where feasible.
+
+7) Add in-app parameter diff view (A vs B)
+Labels: agent:codex, enhancement, app, ui
+Why
+Before running expensive simulations, users should be able to verify what actually differs between two parameter sets. This also strengthens the debugging workflow by making “what changed?” explicit.
+Scope
+- UI compare view between two saved parameter sets.
+- Shared diff logic for nested model_state/config payloads.
+Tasks
+- Implement a deterministic diff function for two model_state dictionaries (recursive key paths, ignore cosmetic ordering).
+- Add a UI section (preferably on `streamlit_app/pages/2_Model.py` or a small compare panel on Results) to:
+	- Select config A and config B from saved sets.
+	- Show a table of changed keys with A/B values.
+	- Support a "copy diff" output for issue/debugging notes.
+- Add tests for diff correctness (added/removed keys, type changes, float tolerances if applicable).
+Acceptance criteria
+- Selecting two saved parameter sets shows a stable, deterministic diff of all changed keys.
+- The diff view is usable without running simulations and can be copied for debugging.
+- Tests cover core diff semantics.
+Implementation notes
+- Reuse/align with the JSON diff logic from `scripts/diff_ui_runs.py` where possible (but keep UI logic dependency-free).
+
+8) Implement A/B simulation compare workflow in Streamlit
+Labels: agent:codex, enhancement, app, backend
+Why
+Users want to compare outcomes (metrics, holdings, turnover, manager changes) between two parameter sets to understand sensitivity and validate changes.
+Scope
+- Run two simulations from two saved parameter sets against the same dataset.
+- Present side-by-side and diff views for top-level metrics and multi-period outputs.
+Tasks
+- Add a Results-page compare mode (likely `streamlit_app/pages/3_Results.py`):
+	- Select A and B parameter sets.
+	- Run both simulations with the same input data and benchmark/RF selections.
+	- Cache results separately (cache key should include a hash of the parameter set + dataset).
+- Produce comparison outputs:
+	- Top-level metrics: side-by-side table + delta column.
+	- Multi-period summary: `period_results_summary` side-by-side + delta for key columns.
+	- Manager change counts by reason (e.g., `z_exit`, `cooldown`, `min_funds`, `low_weight_strikes`).
+- Add an “export comparison bundle” option:
+	- Write `config_A.json`, `config_B.json`, and a diff report similar to `scripts/diff_ui_runs.py`.
+- Add regression tests that run small synthetic datasets twice with slightly different configs and assert the compare UI/controller produces:
+	- distinct cache entries
+	- stable delta calculations
+Acceptance criteria
+- A user can select two saved parameter sets and run A/B; the app shows both outputs and a clear delta.
+- Caching prevents unnecessary recomputation when rerunning the same A/B selection.
+- Exported comparison bundle contains both configs and a diff summary.
+- Tests cover A/B run separation and basic delta correctness.
+Implementation notes
+- Start with comparing stable outputs already produced by the API (`metrics`, `period_results_summary`, `period_manager_changes`).
+- Avoid adding new analytics; focus on wiring, caching, and diff presentation.

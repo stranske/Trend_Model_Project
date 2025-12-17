@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pandas as pd
 import pandas.testing as tm
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from trend_analysis.pipeline import compute_signal, position_from_signal
@@ -24,7 +24,7 @@ def _random_returns(
 
 
 @given(_random_returns(), st.integers(min_value=1, max_value=6))
-@settings(max_examples=75)
+@settings(max_examples=75, suppress_health_check=[HealthCheck.too_slow])
 def test_compute_signal_is_strictly_causal(returns: list[float], window: int) -> None:
     df = pd.DataFrame({"returns": returns})
     signal = compute_signal(df, window=window)
@@ -36,7 +36,7 @@ def test_compute_signal_is_strictly_causal(returns: list[float], window: int) ->
 
 
 @given(_random_returns(min_size=8, max_size=32), st.integers(min_value=2, max_value=6))
-@settings(max_examples=60)
+@settings(max_examples=60, suppress_health_check=[HealthCheck.too_slow])
 def test_intentional_leak_is_detected(returns: list[float], window: int) -> None:
     df = pd.DataFrame({"returns": returns})
     signal = compute_signal(df, window=window)

@@ -74,6 +74,10 @@ class MissingPolicyResult(Mapping[str, Any]):
 
 def _coerce_policy(policy: str | None) -> str:
     value = (policy or "drop").strip().lower()
+    if value in {"both", "bfill", "backfill"}:
+        value = "ffill"
+    if value in {"zeros", "zero_fill", "fillzero"}:
+        value = "zero"
     if value not in {"drop", "ffill", "zero"}:
         raise ValueError(f"Unsupported missing-data policy: {policy!r}")
     return value

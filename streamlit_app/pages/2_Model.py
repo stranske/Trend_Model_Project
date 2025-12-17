@@ -62,6 +62,7 @@ PRESET_CONFIGS = {
         "vol_ewma_lambda": 0.94,
         # Advanced settings
         "max_weight": 0.20,
+        "min_weight": 0.05,
         "cooldown_periods": 1,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
@@ -100,6 +101,7 @@ PRESET_CONFIGS = {
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
         "entry_soft_strikes": 1,
+        "min_weight_strikes": 2,
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
@@ -143,6 +145,7 @@ PRESET_CONFIGS = {
         "warmup_periods": 6,
         # Advanced settings - more restrictive
         "max_weight": 0.15,
+        "min_weight": 0.05,
         "cooldown_periods": 2,
         "rebalance_freq": "Q",
         "max_turnover": 0.50,
@@ -181,6 +184,7 @@ PRESET_CONFIGS = {
         "z_exit_soft": -1.0,
         "soft_strikes": 3,
         "entry_soft_strikes": 2,
+        "min_weight_strikes": 2,
         "sticky_add_periods": 2,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
@@ -224,6 +228,7 @@ PRESET_CONFIGS = {
         "warmup_periods": 0,
         # Advanced settings - less restrictive
         "max_weight": 0.25,
+        "min_weight": 0.05,
         "cooldown_periods": 0,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
@@ -262,6 +267,7 @@ PRESET_CONFIGS = {
         "z_exit_soft": -0.5,
         "soft_strikes": 1,
         "entry_soft_strikes": 1,
+        "min_weight_strikes": 2,
         "sticky_add_periods": 1,
         "sticky_drop_periods": 1,
         "ci_level": 0.0,
@@ -318,6 +324,7 @@ HELP_TEXT = {
     "vol_ewma_lambda": "EWMA decay factor. Higher = longer memory. 0.94 is RiskMetrics standard.",
     # Advanced settings
     "max_weight": "Maximum allocation to any single fund. Prevents concentration risk.",
+    "min_weight": "Minimum allocation per fund. Used as a weight floor and for underweight exit detection.",
     "cooldown_periods": "After a fund is removed, it cannot be re-added for this many periods.",
     "rebalance_freq": "How often to rebalance the portfolio weights.",
     "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
@@ -346,6 +353,7 @@ HELP_TEXT = {
     "z_exit_soft": "Z-score threshold for fund exit consideration. Lower = stricter exit.",
     "soft_strikes": "Consecutive periods below exit threshold before removing a fund.",
     "entry_soft_strikes": "Consecutive periods above entry threshold before adding a fund.",
+    "min_weight_strikes": "Underweight exit: consecutive periods a fund's natural weight stays below the minimum weight before it is replaced. 0 = disable.",
     "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
     "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for entry gate (0 = disabled, 0.9 = 90% CI).",
@@ -404,10 +412,8 @@ def _get_benchmark_columns(df) -> list[str]:
 
 def _validate_model(values: Mapping[str, Any], column_count: int) -> list[str]:
     errors: list[str] = []
-    lookback = values.get("lookback_periods", values.get("lookback_months", 3))
-    min_history = values.get(
-        "min_history_periods", values.get("min_history_months", lookback)
-    )
+    lookback = values.get("lookback_periods", 3)
+    min_history = values.get("min_history_periods", lookback)
     if min_history > lookback:
         errors.append("Minimum history cannot exceed the lookback window.")
     selection = values.get("selection_count", 10)
@@ -448,6 +454,7 @@ def _initial_model_state() -> dict[str, Any]:
         "warmup_periods": baseline["warmup_periods"],
         # Advanced settings
         "max_weight": baseline["max_weight"],
+        "min_weight": baseline.get("min_weight", 0.05),
         "cooldown_periods": baseline["cooldown_periods"],
         "rebalance_freq": baseline["rebalance_freq"],
         "max_turnover": baseline["max_turnover"],
@@ -486,6 +493,7 @@ def _initial_model_state() -> dict[str, Any]:
         "z_exit_soft": baseline["z_exit_soft"],
         "soft_strikes": baseline["soft_strikes"],
         "entry_soft_strikes": baseline["entry_soft_strikes"],
+        "min_weight_strikes": baseline.get("min_weight_strikes", 2),
         "sticky_add_periods": baseline["sticky_add_periods"],
         "sticky_drop_periods": baseline["sticky_drop_periods"],
         "ci_level": baseline["ci_level"],
@@ -590,13 +598,35 @@ def render_model_page() -> None:
 
     col_info1, col_info2, col_info3, col_info4 = st.columns(4)
     with col_info1:
-        # Count only fund columns (exclude benchmarks/indices)
-        fund_cols = [
-            c
-            for c in df.columns
-            if c.upper()
-            not in ("DATE", "SPX", "TSX", "RF", "CASH", "TBILL", "TBILLS", "T-BILL")
-        ]
+        selected_rf = st.session_state.get("selected_risk_free")
+        selected_bench = st.session_state.get("selected_benchmark")
+        system_cols = {selected_rf, selected_bench, "Date", "DATE"} - {None}
+
+        applied_funds = st.session_state.get("analysis_fund_columns")
+        if not isinstance(applied_funds, list):
+            applied_funds = st.session_state.get("fund_columns")
+
+        if isinstance(applied_funds, list) and applied_funds:
+            fund_cols = [
+                c for c in applied_funds if c in df.columns and c not in system_cols
+            ]
+        else:
+            # Fallback: count only fund columns (exclude benchmarks/indices)
+            fund_cols = [
+                c
+                for c in df.columns
+                if c not in system_cols
+                and c.upper()
+                not in (
+                    "SPX",
+                    "TSX",
+                    "RF",
+                    "CASH",
+                    "TBILL",
+                    "TBILLS",
+                    "T-BILL",
+                )
+            ]
         st.metric("Funds", len(fund_cols))
     with col_info2:
         st.metric("Time Periods", len(df))
@@ -853,6 +883,7 @@ def render_model_page() -> None:
                 "warmup_periods": preset_config["warmup_periods"],
                 # Advanced settings
                 "max_weight": preset_config["max_weight"],
+                "min_weight": preset_config.get("min_weight", 0.05),
                 "cooldown_periods": preset_config["cooldown_periods"],
                 "rebalance_freq": preset_config["rebalance_freq"],
                 "max_turnover": preset_config["max_turnover"],
@@ -881,6 +912,7 @@ def render_model_page() -> None:
                 "z_exit_soft": preset_config["z_exit_soft"],
                 "soft_strikes": preset_config["soft_strikes"],
                 "entry_soft_strikes": preset_config["entry_soft_strikes"],
+                "min_weight_strikes": preset_config.get("min_weight_strikes", 2),
                 "sticky_add_periods": preset_config["sticky_add_periods"],
                 "sticky_drop_periods": preset_config["sticky_drop_periods"],
                 "ci_level": preset_config["ci_level"],
@@ -1069,18 +1101,74 @@ def render_model_page() -> None:
         st.subheader("📈 Portfolio Settings")
         st.caption("Configure how the portfolio is constructed from selected funds.")
 
-        c3, c4 = st.columns(2)
-        with c3:
+        # Used by multiple controls: multi-period toggles are stored in model_state
+        mp_enabled_state = bool(model_state.get("multi_period_enabled", True))
+
+        st.markdown("**Portfolio size (target / min / max)**")
+        size_c1, size_c2, size_c3 = st.columns(3)
+        with size_c1:
             selection = st.number_input(
-                "Selection Count",
+                "Target Funds (Initial N)",
                 min_value=1,
                 max_value=len(fund_cols) if fund_cols else 100,
                 value=min(
                     int(model_state.get("selection_count", 10)),
                     len(fund_cols) if fund_cols else 10,
                 ),
-                help=HELP_TEXT["selection"],
+                help=(
+                    "Target number of funds to hold (initial selection size). "
+                    "Other constraints (min/max) may expand or cap holdings."
+                ),
             )
+            st.caption("Target holdings (initial selection size)")
+
+        with size_c2:
+            mp_min_funds = st.number_input(
+                "Minimum Funds",
+                min_value=0,
+                max_value=len(fund_cols) if fund_cols else 100,
+                value=int(model_state.get("mp_min_funds", 0)),
+                help=HELP_TEXT["mp_min_funds"],
+                disabled=not mp_enabled_state,
+            )
+            st.caption("Floor (0 = disabled)")
+
+        with size_c3:
+            mp_max_funds = st.number_input(
+                "Maximum Funds",
+                min_value=0,
+                max_value=len(fund_cols) if fund_cols else 100,
+                value=int(model_state.get("mp_max_funds", 0)),
+                help=HELP_TEXT["mp_max_funds"],
+                disabled=not mp_enabled_state,
+            )
+            st.caption("Cap (0 = disabled)")
+
+        st.markdown("**Portfolio weight constraints**")
+        w_c1, w_c2 = st.columns(2)
+        with w_c1:
+            min_weight_pct = st.number_input(
+                "Portfolio Weight Minimum per Fund (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(model_state.get("min_weight", 0.05)) * 100,
+                step=0.5,
+                format="%.2f",
+                help=HELP_TEXT["min_weight"],
+            )
+            min_weight_decimal = min_weight_pct / 100.0
+
+        with w_c2:
+            max_weight = st.number_input(
+                "Maximum Weight per Fund (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(model_state.get("max_weight", 0.20)) * 100,
+                step=1.0,
+                format="%.2f",
+                help=HELP_TEXT["max_weight"],
+            )
+            max_weight_decimal = max_weight / 100.0
 
         # Section 3: Metric Weights
         st.divider()
@@ -1319,16 +1407,6 @@ def render_model_page() -> None:
         model_state["vol_window_length"] = vol_window_length
         model_state["vol_window_decay"] = vol_window_decay
         model_state["vol_ewma_lambda"] = vol_ewma_lambda
-        max_weight = st.number_input(
-            "Maximum Weight per Fund (%)",
-            min_value=5,
-            max_value=100,
-            value=int(model_state.get("max_weight", 0.20) * 100),
-            step=5,
-            help=HELP_TEXT["max_weight"],
-        )
-        # Convert back to decimal for storage
-        max_weight_decimal = max_weight / 100.0
 
         # Section 5: Advanced Settings
         st.divider()
@@ -1384,7 +1462,7 @@ def render_model_page() -> None:
         st.subheader("🔒 Fund Holding Rules")
         st.caption("Control fund tenure and portfolio churn limits.")
 
-        hold_c1, hold_c2, hold_c3 = st.columns(3)
+        hold_c1, hold_c2 = st.columns(2)
         with hold_c1:
             min_tenure_periods = st.number_input(
                 "Min Tenure (periods)",
@@ -1409,18 +1487,12 @@ def render_model_page() -> None:
             else:
                 st.caption(f"Max {max_changes_per_period} adds/removes")
 
-        with hold_c3:
-            max_active_positions = st.number_input(
-                "Max Active Positions",
-                min_value=0,
-                max_value=100,
-                value=int(model_state.get("max_active_positions", 0)),
-                help=HELP_TEXT["max_active"],
-            )
-            if max_active_positions == 0:
-                st.caption("Uses selection count")
-            else:
-                st.caption(f"Capped at {max_active_positions} funds")
+        # NOTE: Legacy "max_active_positions" UI control removed.
+        # Portfolio sizing should be configured via:
+        # - Target Funds (initial): selection_count
+        # - Minimum Funds: mp_min_funds
+        # - Maximum Funds: mp_max_funds
+        max_active_positions = 0
 
         # Section 7: Trend Signal Settings - REMOVED FROM UI
         # These settings require daily returns to be meaningful.
@@ -1764,6 +1836,23 @@ def render_model_page() -> None:
                     f"Score ≤ {z_exit_soft:.2f}σ for {soft_strikes} period(s) to exit."
                 )
 
+            st.markdown("**Underweight Exit (Weight-based)**")
+            min_weight_strikes = st.number_input(
+                "Periods Underweight Before Forced Exit",
+                min_value=0,
+                max_value=12,
+                value=int(model_state.get("min_weight_strikes", 2) or 2),
+                help=HELP_TEXT["min_weight_strikes"],
+                disabled=not mp_enabled_state,
+            )
+            st.caption(
+                (
+                    f"Same rule as engine log reason=low_weight_strikes; triggers after {min_weight_strikes} period(s)."
+                    if min_weight_strikes > 0
+                    else "Underweight exit is disabled."
+                )
+            )
+
             # Hard thresholds
             st.markdown("*Hard Thresholds (immediate action)*")
             hard_c1, hard_c2 = st.columns(2)
@@ -1846,10 +1935,6 @@ def render_model_page() -> None:
         st.divider()
         with st.expander("⚙️ Advanced Selection Settings", expanded=False):
             st.caption("Additional selection parameters for specific modes.")
-
-            # Use selection_count for fund count - mp_min/max are deprecated
-            mp_min_funds = int(model_state.get("mp_min_funds", 10))
-            mp_max_funds = int(model_state.get("mp_max_funds", 25))
 
             # Additional parameters for specific selection modes
             if inclusion_approach == "top_pct":
@@ -1975,6 +2060,7 @@ def render_model_page() -> None:
                 "warmup_periods": warmup_periods,
                 # Advanced settings
                 "max_weight": max_weight_decimal,
+                "min_weight": min_weight_decimal,
                 "cooldown_periods": cooldown_periods,
                 "rebalance_freq": rebalance_freq,
                 "max_turnover": max_turnover,
@@ -2013,6 +2099,7 @@ def render_model_page() -> None:
                 "z_exit_soft": z_exit_soft,
                 "soft_strikes": soft_strikes,
                 "entry_soft_strikes": entry_soft_strikes,
+                "min_weight_strikes": min_weight_strikes,
                 "sticky_add_periods": sticky_add_periods,
                 "sticky_drop_periods": sticky_drop_periods,
                 "ci_level": ci_level,

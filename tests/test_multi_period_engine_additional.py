@@ -719,6 +719,148 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     assert pytest.approx(sum(final_weights.values()), rel=1e-9) == 100.0
 
 
+def test_run_reconciles_manager_changes_to_pipeline_fund_weights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure `manager_changes` matches realised holdings (pipeline fund_weights).
+
+    This guards against the user-facing bug where a manager appears to be fired
+    and then silently returns without a corresponding "added" event (or vice
+    versa when the pipeline drops a fund due to missing-data filters).
+    """
+
+    class THConfig(DummyCfg):
+        def __init__(self) -> None:
+            super().__init__()
+            self.data = {"missing_policy": "ffill", "risk_free_column": "RF"}
+            self.portfolio.update(
+                {
+                    "policy": "threshold_hold",
+                    "threshold_hold": {"metric": "Sharpe", "target_n": 2},
+                    "constraints": {
+                        "min_weight": 0.01,
+                        "max_weight": 0.99,
+                        "max_funds": 2,
+                    },
+                    "weighting": {"name": "equal"},
+                    "max_turnover": 1.0,
+                }
+            )
+
+    cfg = THConfig()
+
+    periods = [
+        SimpleNamespace(
+            in_start="2020-01",
+            in_end="2020-02",
+            out_start="2020-03",
+            out_end="2020-03",
+        ),
+        SimpleNamespace(
+            in_start="2020-02",
+            in_end="2020-03",
+            out_start="2020-04",
+            out_end="2020-04",
+        ),
+        SimpleNamespace(
+            in_start="2020-03",
+            in_end="2020-04",
+            out_start="2020-05",
+            out_end="2020-05",
+        ),
+    ]
+    monkeypatch.setattr(engine, "generate_periods", lambda _: periods)
+
+    df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2020-01-31", periods=5, freq="ME"),
+            "FundA": [0.01, 0.02, 0.015, 0.01, 0.02],
+            "FundB": [0.03, 0.025, 0.02, 0.03, 0.025],
+            "RF": 0.001,
+        }
+    )
+
+    monkeypatch.setattr(
+        engine,
+        "apply_missing_policy",
+        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+    )
+
+    from trend_analysis import selector as selector_mod
+
+    class SelectorStub:
+        def select(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+            selected = frame.loc[["FundA", "FundB"]]
+            return selected, selected
+
+    monkeypatch.setattr(
+        selector_mod, "create_selector_by_name", lambda *a, **k: SelectorStub()
+    )
+
+    class RebalancerStub:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        def apply_triggers(
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        ) -> pd.Series:
+            del score_frame
+            return prev_weights
+
+    monkeypatch.setattr(engine, "Rebalancer", lambda *a, **k: RebalancerStub())
+
+    call_idx = {"n": 0}
+
+    def fake_run_analysis(
+        df_arg: pd.DataFrame,
+        in_start: str,
+        in_end: str,
+        out_start: str,
+        out_end: str,
+        *_args: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        del df_arg, in_start, in_end, out_start, out_end
+        # Period 1: FundA+FundB held
+        # Period 2: pipeline drops FundB (e.g. missing-data filter)
+        # Period 3: pipeline re-adds FundB
+        i = call_idx["n"]
+        call_idx["n"] += 1
+        if i == 0:
+            weights = {"FundA": 0.5, "FundB": 0.5}
+        elif i == 1:
+            weights = {"FundA": 1.0}
+        else:
+            weights = {"FundA": 0.5, "FundB": 0.5}
+        # Preserve expected keys used by downstream UI/export.
+        return {
+            "fund_weights": weights,
+            "selected_funds": list(weights.keys()),
+            "ok": True,
+        }
+
+    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+
+    results = engine.run(cfg, df=df)
+    assert len(results) == 3
+
+    second_events = results[1]["manager_changes"]
+    assert any(
+        ev.get("action") == "dropped"
+        and ev.get("manager") == "FundB"
+        and ev.get("detail") == "realised holdings delta"
+        for ev in second_events
+    )
+
+    third_events = results[2]["manager_changes"]
+    assert any(
+        ev.get("action") == "added"
+        and ev.get("manager") == "FundB"
+        and ev.get("detail") == "realised holdings delta"
+        for ev in third_events
+    )
+
+
 def test_run_threshold_hold_reseeds_and_skips_period(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

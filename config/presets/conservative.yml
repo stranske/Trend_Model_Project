@@ -5,7 +5,7 @@ name: "Conservative"
 description: "Low risk profile with stable selection criteria"
 
 # Extended lookback for stability
-lookback_months: 60
+lookback_periods: 60
 rebalance_frequency: "quarterly"  # Less frequent rebalancing
 min_track_months: 36
 

@@ -5,7 +5,7 @@ name: "Balanced"
 description: "Balanced risk-return profile suitable for most users"
 
 # Standard lookback periods
-lookback_months: 36
+lookback_periods: 36
 rebalance_frequency: "monthly"  # Regular rebalancing
 min_track_months: 24
 

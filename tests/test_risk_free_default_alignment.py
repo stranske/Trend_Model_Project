@@ -87,6 +87,34 @@ def _make_frame() -> pd.DataFrame:
     )
 
 
+def test_resolve_risk_free_column_handles_business_month_end_bounds() -> None:
+    # Regression test: when the input lands on business month-end (e.g. Feb-28)
+    # the risk-free coverage expansion must still build a non-empty month-end
+    # index for freq='ME'.
+    frame = pd.DataFrame(
+        {
+            "Date": [
+                pd.Timestamp("2020-01-31"),
+                pd.Timestamp("2020-02-28"),
+                pd.Timestamp("2020-03-31"),
+            ],
+            "AssetA": [0.01, 0.02, 0.03],
+        }
+    )
+
+    rf_col, funds, source = _resolve_risk_free_column(
+        frame,
+        date_col="Date",
+        indices_list=None,
+        risk_free_column=None,
+        allow_risk_free_fallback=True,
+    )
+
+    assert rf_col == "AssetA"
+    assert funds == []
+    assert source == "fallback"
+
+
 @pytest.mark.parametrize("risk_free_column", [None, "RF"])
 @pytest.mark.parametrize(
     "allow_value, expected",

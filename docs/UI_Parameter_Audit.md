@@ -34,8 +34,8 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 | `start_date` | UI model_state | ✅ **NEW** | Simulation start date (explicit mode) |
 | `end_date` | UI model_state | ✅ **NEW** | Simulation end date (explicit mode) |
 | `sample_split.date` | defaults.yml | ⏭️ **SKIP** | Duplicative with date_mode/start_date/end_date |
-| `lookback_months` | UI model_state | ✅ | In-sample lookback window |
-| `evaluation_months` | UI model_state | ✅ | Out-of-sample evaluation window |
+| `lookback_periods` | UI model_state | ✅ | In-sample lookback window |
+| `evaluation_periods` | UI model_state | ✅ | Out-of-sample evaluation window |
 | `multi_period.in_sample_len` | defaults.yml | ✅ **Phase 8** | Rolling in-sample length (years) |
 | `multi_period.out_sample_len` | defaults.yml | ✅ **Phase 8** | Rolling out-sample length (years) |
 | `multi_period.frequency` | defaults.yml | ✅ **Phase 8** | Period frequency (M/Q/A) |
@@ -45,7 +45,7 @@ This document catalogs all configurable parameters in the Trend Analysis codebas
 | Parameter | Location | In UI | Description |
 |-----------|----------|-------|-------------|
 | `selection_count` (top_k) | UI model_state | ✅ | Number of funds to select |
-| `min_history_months` (min_track_months) | UI model_state | ✅ | Minimum track record required |
+| `min_history_periods` (min_track_months) | UI model_state | ✅ | Minimum track record required |
 | `rank.inclusion_approach` | defaults.yml | ✅ **Phase 8** | top_n / top_pct / threshold |
 | `rank.pct` | defaults.yml | ✅ **Phase 9** | Percentage for top_pct approach |
 | `rank.threshold` | defaults.yml | ✅ **Phase 9** | Z-score threshold for threshold approach |

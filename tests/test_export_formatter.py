@@ -143,6 +143,39 @@ def test_make_summary_formatter_registers_and_runs(formatters_excel_registry):
     assert any("Fingerprint" in entry for entry in meta_entries)
 
 
+def test_make_summary_formatter_uses_expected_number_formats(formatters_excel_registry):
+    res = {
+        "in_ew_stats": (0.01, 0.02, 1.11, 1.22, 1.33, -0.10),
+        "out_ew_stats": (0.02, 0.03, 1.21, 1.32, 1.43, -0.20),
+        "in_user_stats": (0.03, 0.04, 0.90, 0.80, 0.70, -0.15),
+        "out_user_stats": (0.04, 0.05, 0.95, 0.85, 0.75, -0.25),
+        "in_sample_stats": {"fund": (0.01, 0.02, 0.5, 0.4, 0.3, -0.1)},
+        "out_sample_stats": {"fund": (0.02, 0.03, 0.6, 0.5, 0.4, -0.2)},
+        "fund_weights": {"fund": 0.5},
+        "benchmark_ir": {},
+    }
+
+    fmt = make_summary_formatter(res, "a", "b", "c", "d")
+    ws = DummyWS()
+    wb = DummyWB()
+    fmt(ws, wb)
+
+    num_formats = {
+        spec.get("num_format")
+        for spec in wb.formats
+        if isinstance(spec, dict) and spec.get("num_format")
+    }
+    assert "0.0%" in num_formats
+    assert "0.00" in num_formats
+    assert "0.00%" not in num_formats
+    assert any(
+        isinstance(spec, dict)
+        and spec.get("num_format") == "0.0%"
+        and spec.get("font_color") == "red"
+        for spec in wb.formats
+    )
+
+
 @pytest.mark.parametrize("as_dataframe", [False, True])
 def test_make_summary_formatter_writes_manager_contrib(
     formatters_excel_registry, as_dataframe

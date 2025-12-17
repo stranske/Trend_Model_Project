@@ -398,7 +398,7 @@ case "$VALIDATION_STRATEGY" in
             FAILED_CHECKS+=("All tests")
         fi
         
-        if ! run_fast_check "Test coverage" "rm -f .coverage .coverage.* && pytest --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-branch $XDIST_FLAG" ""; then then
+        if ! run_fast_check "Test coverage" "rm -f .coverage .coverage.* && pytest --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-branch $XDIST_FLAG" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Test coverage")
         fi

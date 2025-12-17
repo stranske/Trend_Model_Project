@@ -911,7 +911,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
     results = mp_engine.run(cfg, df=df)
 
     assert len(results) == 2
-    assert [len(call["manual_funds"]) for call in run_calls] == [3, 3]
+    assert [len(call["manual_funds"]) for call in run_calls] == [3, 2]
     second_weights = run_calls[1]["custom_weights"]
     assert set(second_weights) == {"Alpha One", "Bravo One", "Charlie One"}
     assert any(event["reason"] == "seed" for event in results[0]["manager_changes"])

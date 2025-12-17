@@ -261,6 +261,18 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
     # have returns for all periods.
     validated = validate_market_data(normalised, missing_policy="zero")
     meta = _build_meta(validated, sanitized_columns=sanitized_columns)
+    # Inception dates (first non-zero return) for each column.
+    # Stored as ISO dates for easy display/export.
+    try:
+        from trend_analysis.data import compute_inception_dates
+
+        inception = compute_inception_dates(validated.frame)
+        meta["inception_dates"] = {
+            k: (v.strftime("%Y-%m-%d") if v is not None else None)
+            for k, v in inception.items()
+        }
+    except Exception:
+        meta["inception_dates"] = {}
     return validated.frame, meta
 
 

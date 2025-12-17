@@ -1,7 +1,22 @@
 # --- Streamlit UI ---
-import streamlit as st
+from __future__ import annotations
 
-from streamlit_app.components.demo_runner import (
+import sys
+from pathlib import Path
+
+
+def _ensure_repo_root_on_path() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+
+
+_ensure_repo_root_on_path()
+
+import streamlit as st  # noqa: E402
+
+from streamlit_app.components.demo_runner import (  # noqa: E402
     list_presets,
     load_preset_config,
     run_demo_with_overrides,
@@ -76,10 +91,10 @@ with st.expander(
     with col1:
         st.markdown("**Time & Selection**")
         demo_lookback = st.number_input(
-            "Lookback Months",
+            "Lookback Periods",
             min_value=6,
             max_value=120,
-            value=int(preset_config.get("lookback_months", 36)),
+            value=int(preset_config.get("lookback_periods", 36)),
             key="demo_lookback",
             help="Historical period for calculating metrics",
         )
@@ -176,7 +191,7 @@ with st.expander(
 if st.button("🚀 Run Demo", type="primary", use_container_width=True):
     # Collect overrides from session state
     overrides = {
-        "lookback_months": st.session_state.get("demo_lookback", 36),
+        "lookback_periods": st.session_state.get("demo_lookback", 36),
         "selection_count": st.session_state.get("demo_selection_count", 10),
         "min_track_months": st.session_state.get("demo_min_track", 24),
         "risk_target": st.session_state.get("demo_risk_target", 0.10),

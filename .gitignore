@@ -22,6 +22,7 @@ perf/runs/
 tmp_logs/
 test_output.log
 *.log
+node_modules/
 
 # auto-generated virtual environments
 .autofix-venv/
@@ -52,6 +53,8 @@ results/
 !archives/notebooks/**/*.csv
 !archives/notebooks/**/*.xlsx
 *.json
+!package.json
+!package-lock.json
 !docs/evidence/gate-branch-protection/*.json
 !config/coverage-baseline.json
 !/.github/signature-fixtures/basic_jobs.json

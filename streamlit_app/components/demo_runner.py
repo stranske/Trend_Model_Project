@@ -99,12 +99,12 @@ def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
 
 
 def _derive_window(
-    df: pd.DataFrame, lookback_months: int, oos_months: int = 12
+    df: pd.DataFrame, lookback_periods: int, oos_periods: int = 12
 ) -> Tuple[pd.Timestamp, pd.Timestamp]:
     end = _month_end(pd.Timestamp(df.index.max()))
-    start = _month_end(end - pd.DateOffset(months=max(oos_months - 1, 0)))
+    start = _month_end(end - pd.DateOffset(months=max(oos_periods - 1, 0)))
     earliest = _month_end(
-        pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_months)
+        pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_periods)
     )
     if start < earliest:
         start = earliest
@@ -156,7 +156,7 @@ def _build_pipeline_config(
 ) -> Config:
     start = pd.Timestamp(sim_config["start"])
     end = pd.Timestamp(sim_config["end"])
-    lookback = int(sim_config["lookback_months"])
+    lookback = int(sim_config["lookback_periods"])
     policy = sim_config["policy"]
     weighting_scheme = sim_config["portfolio"]["weighting_scheme"]
 
@@ -211,7 +211,7 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
     preset_data = _load_preset(DEFAULT_PRESET)
     metric_weights = _normalise_metric_weights(preset_data.get("metrics", {}))
 
-    lookback = int(preset_data.get("lookback_months", 36))
+    lookback = int(preset_data.get("lookback_periods", 36))
     start, end = _derive_window(df, lookback)
     benchmark = _select_benchmark(df.columns)
     return_cols = [c for c in df.columns if c != benchmark]
@@ -228,7 +228,7 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
     policy = _build_policy(metric_weights, preset_data)
 
     overrides = {
-        "lookback_months": lookback,
+        "lookback_periods": lookback,
         "rebalance_frequency": preset_data.get("rebalance_frequency", "monthly"),
         "min_track_months": int(preset_data.get("min_track_months", 24)),
         "selection_count": int(preset_data.get("selection_count", 10)),
@@ -252,7 +252,7 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
         "start": start,
         "end": end,
         "freq": overrides["rebalance_frequency"],
-        "lookback_months": lookback,
+        "lookback_periods": lookback,
         "benchmark": benchmark,
         "cash_rate": 0.0,
         "policy": policy.dict(),
@@ -300,7 +300,7 @@ def _update_session_state(
         trend_payload["preset"] = setup.config_state.get("preset_name")
     # Build model_settings for legacy compatibility
     lookback = int(
-        overrides.get("lookback_months", setup.sim_config.get("lookback_months", 36))
+        overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36))
     )
     selection_count = int(overrides.get("selection_count", 10))
     risk_target = float(overrides.get("risk_target", 0.10))
@@ -329,9 +329,9 @@ def _update_session_state(
     state["model_state"] = {
         "preset": setup.config_state.get("preset_name", "Baseline"),
         "trend_spec": trend_payload if isinstance(trend_payload, Mapping) else {},
-        "lookback_months": lookback,
-        "min_history_months": lookback,
-        "evaluation_months": 12,
+        "lookback_periods": lookback,
+        "min_history_periods": lookback,
+        "evaluation_periods": 12,
         "selection_count": selection_count,
         "weighting_scheme": weighting_scheme,
         "metric_weights": (
@@ -435,7 +435,7 @@ def run_demo_with_overrides(
     preset_name
         Name of the preset to use as base configuration.
     overrides
-        Dictionary of parameter overrides (lookback_months, selection_count, etc.)
+        Dictionary of parameter overrides (lookback_periods, selection_count, etc.)
     st_module
         Streamlit module for error display (defaults to st).
 
@@ -474,7 +474,7 @@ def run_demo_with_overrides(
     metric_weights = _normalise_metric_weights(raw_metrics)
 
     # Derive time window
-    lookback = int(merged.get("lookback_months", 36))
+    lookback = int(merged.get("lookback_periods", 36))
     start, end = _derive_window(df, lookback)
     benchmark = _select_benchmark(df.columns)
     return_cols = [c for c in df.columns if c != benchmark]
@@ -520,7 +520,7 @@ def run_demo_with_overrides(
         "start": start,
         "end": end,
         "freq": merged.get("rebalance_frequency", "monthly"),
-        "lookback_months": lookback,
+        "lookback_periods": lookback,
         "benchmark": benchmark,
         "cash_rate": 0.0,
         "policy": policy.dict(),

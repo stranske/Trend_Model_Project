@@ -56,7 +56,7 @@ def test_env_override_directory_precedence(
         """
         name: Conservative
         description: Override conservative preset
-        lookback_months: 48
+        lookback_periods: 48
         rebalance_frequency: "monthly"
         min_track_months: 12
         selection_count: 8

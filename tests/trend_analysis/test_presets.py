@@ -23,7 +23,7 @@ def reset_registry(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture()
 def sample_config() -> dict[str, Any]:
     return {
-        "lookback_months": "48",
+        "lookback_periods": "48",
         "rebalance_frequency": "Weekly",
         "min_track_months": "12",
         "selection_count": "25",
@@ -122,7 +122,7 @@ def test_trend_preset_form_defaults_normalises_values(
     sample_preset: presets.TrendPreset,
 ):
     defaults = sample_preset.form_defaults()
-    assert defaults["lookback_months"] == 48
+    assert defaults["lookback_periods"] == 48
     assert defaults["rebalance_frequency"] == "Weekly"
     assert defaults["selection_count"] == 25
     assert defaults["risk_target"] == pytest.approx(0.33)

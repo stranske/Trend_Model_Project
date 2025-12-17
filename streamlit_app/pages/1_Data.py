@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,55 @@ from trend_analysis.io.market_data import MarketDataValidationError
 DATE_COLUMN = "Date"
 REQUIRED_UPLOAD_COLUMNS = (DATE_COLUMN,)
 MAX_UPLOAD_ROWS = 50_000
+
+
+def _fund_table_state_key(data_key: str) -> str:
+    return f"fund_table::{data_key}"
+
+
+def _ensure_fund_table_state(
+    *,
+    data_key: str,
+    available_funds: list[str],
+    current_selection: list[str],
+) -> str:
+    """Keep a stable, per-dataset fund Include table in session state."""
+
+    table_key = _fund_table_state_key(data_key)
+    existing = st.session_state.get(table_key)
+
+    if isinstance(existing, pd.DataFrame) and {"Include", "Fund Name"}.issubset(
+        existing.columns
+    ):
+        df_existing = existing[["Include", "Fund Name"]].copy()
+        df_existing["Fund Name"] = df_existing["Fund Name"].astype(str)
+        df_existing["Include"] = (
+            df_existing["Include"].astype("boolean").fillna(False).astype(bool)
+        )
+        if df_existing["Fund Name"].tolist() == list(available_funds):
+            st.session_state[table_key] = df_existing
+            return table_key
+
+        include_map = dict(
+            zip(df_existing["Fund Name"].tolist(), df_existing["Include"].tolist())
+        )
+        st.session_state[table_key] = pd.DataFrame(
+            {
+                "Include": [
+                    bool(include_map.get(fund, False)) for fund in available_funds
+                ],
+                "Fund Name": [str(fund) for fund in available_funds],
+            }
+        )
+        return table_key
+
+    st.session_state[table_key] = pd.DataFrame(
+        {
+            "Include": [fund in set(current_selection) for fund in available_funds],
+            "Fund Name": [str(fund) for fund in available_funds],
+        }
+    )
+    return table_key
 
 
 def _dataset_summary(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any]) -> str:
@@ -117,11 +167,19 @@ def _store_dataset(
     # Only initialize fund selection for NEW datasets
     # Preserve existing selection if same dataset
     if not is_same_dataset:
+        # Force Streamlit to clear the file_uploader selection on next rerun.
+        # This prevents re-processing the same uploaded file (and re-triggering the
+        # date-correction flow) when users interact with other widgets.
+        st.session_state["upload_widget_version"] = (
+            int(st.session_state.get("upload_widget_version", 0)) + 1
+        )
+
         selected_rf = st.session_state.get("selected_risk_free")
         selected_bench = st.session_state.get("selected_benchmark")
         system_cols = {selected_rf, selected_bench, "Date"} - {None}
         fund_cols = [c for c in all_columns if c not in system_cols]
-        st.session_state["selected_fund_columns"] = set(fund_cols)
+        st.session_state["selected_fund_columns"] = list(fund_cols)
+        st.session_state["fund_columns"] = list(fund_cols)
         st.session_state["_editor_version"] = 0
 
 
@@ -205,7 +263,7 @@ def _render_date_correction_ui(message: str, correction: DateCorrectionNeeded) -
         if st.button(
             "✅ Apply Corrections & Continue",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="apply_date_corrections",
         ):
             _apply_pending_date_corrections()
@@ -213,7 +271,7 @@ def _render_date_correction_ui(message: str, correction: DateCorrectionNeeded) -
     with col2:
         if st.button(
             "❌ Cancel",
-            use_container_width=True,
+            width="stretch",
             key="cancel_date_corrections",
         ):
             st.session_state.pop("pending_date_correction", None)
@@ -283,13 +341,21 @@ def _apply_pending_date_corrections() -> None:
             corrected_data, correction.original_name
         )
 
-        # Generate a hash for the corrected data
-        import hashlib
+        # Persist corrected bytes to disk so we can reproduce runs (especially in Codespaces).
+        from streamlit_app.components.upload_guard import store_buffered_upload
 
-        data_hash = hashlib.sha256(corrected_data).hexdigest()[:16]
+        guarded = store_buffered_upload(corrected_data, correction.original_name)
+        data_hash = guarded.content_hash[:16]
         key = f"corrected::{correction.original_name}::{data_hash}"
 
-        _store_dataset(df_final, meta, key, data_hash=data_hash, saved_path=None)
+        _store_dataset(
+            df_final,
+            meta,
+            key,
+            data_hash=data_hash,
+            saved_path=guarded.stored_path,
+        )
+        st.session_state["uploaded_file_path"] = str(guarded.stored_path)
         st.session_state.pop("pending_date_correction", None)
 
         # Build success message and store it for display after rerun
@@ -446,10 +512,14 @@ def render_data_page() -> None:
                 _render_validation(meta)
                 st.dataframe(df.head(20))
     else:
+        upload_widget_key = (
+            f"upload_returns::{st.session_state.get('upload_widget_version', 0)}"
+        )
         uploaded = st.file_uploader(
             "Upload returns (CSV or Excel with a Date column)",
             type=["csv", "xlsx", "xls"],
             accept_multiple_files=False,
+            key=upload_widget_key,
         )
         if uploaded is not None:
             _load_uploaded_dataset(uploaded)
@@ -539,97 +609,204 @@ def render_data_page() -> None:
             st.markdown("---")
             st.subheader("Fund Column Selection")
 
+            _t_fund_start = time.perf_counter()
+
             # Get all potential fund columns (excluding system columns)
             system_columns = {selected_rf, selected_bench, "Date"} - {None}
             available_funds = [c for c in all_columns if c not in system_columns]
 
-            # Initialize fund selection if needed
+            # Default: select all non-index columns.
+            # Index-like columns are inferred from benchmark/risk-free candidates.
+            index_candidates = set(
+                st.session_state.get("benchmark_candidates", [])
+            ) | set(st.session_state.get("risk_free_candidates", []))
+            default_selected_funds = [
+                c for c in available_funds if c not in index_candidates
+            ]
+
+            _t_funds_derived = time.perf_counter()
+
+            # Derive stable key per dataset to avoid stale state bleed
+            data_key = st.session_state.get("data_loaded_key", "default")
+            include_prefix = f"fund_include::{data_key}::"
+            init_key = f"fund_selection_initialized::{data_key}"
+
+            # Initialize fund selection if needed (list for order stability)
             if "selected_fund_columns" not in st.session_state:
-                st.session_state["selected_fund_columns"] = set(available_funds)
+                st.session_state["selected_fund_columns"] = list(available_funds)
+            if "fund_columns" not in st.session_state:
+                st.session_state["fund_columns"] = list(available_funds)
 
-            # Get current valid selection
-            current_selection = set(
-                st.session_state.get("selected_fund_columns", [])
-            ) & set(available_funds)
+            # Current valid selection (respect available funds)
+            current_selection = [
+                f
+                for f in st.session_state.get("selected_fund_columns", [])
+                if f in available_funds
+            ]
 
-            # Bulk action buttons
-            btn_cols = st.columns(4)
+            # Default: select all funds (everything except system/index columns).
+            # Do this once per dataset key so we don't overwrite user choices.
+            if not st.session_state.get(init_key):
+                st.session_state["selected_fund_columns"] = list(default_selected_funds)
+                st.session_state["fund_columns"] = list(default_selected_funds)
+                current_selection = list(default_selected_funds)
+                st.session_state[init_key] = True
+
+            if not st.session_state.get("fund_columns"):
+                st.session_state["fund_columns"] = list(current_selection)
+
+            # Bulk actions
+            btn_cols = st.columns(3)
             with btn_cols[0]:
                 if st.button("✅ Select All", key="btn_sel_all"):
-                    st.session_state["selected_fund_columns"] = set(available_funds)
-                    st.session_state["fund_columns"] = available_funds
+                    for fund in available_funds:
+                        st.session_state[f"{include_prefix}{fund}"] = True
+                    st.session_state["selected_fund_columns"] = list(available_funds)
+                    st.session_state["fund_columns"] = list(available_funds)
                     st.rerun()
             with btn_cols[1]:
                 if st.button("❌ Clear All", key="btn_clr_all"):
-                    st.session_state["selected_fund_columns"] = set()
+                    for fund in available_funds:
+                        st.session_state[f"{include_prefix}{fund}"] = False
+                    st.session_state["selected_fund_columns"] = []
                     st.session_state["fund_columns"] = []
                     st.rerun()
             with btn_cols[2]:
                 if st.button("🔄 Invert", key="btn_inv_sel"):
-                    inverted = set(available_funds) - current_selection
+                    inverted: list[str] = []
+                    for fund in available_funds:
+                        key = f"{include_prefix}{fund}"
+                        current_val = bool(
+                            st.session_state.get(key, fund in set(current_selection))
+                        )
+                        st.session_state[key] = not current_val
+                        if st.session_state[key] is True:
+                            inverted.append(fund)
                     st.session_state["selected_fund_columns"] = inverted
-                    st.session_state["fund_columns"] = list(inverted)
+                    st.session_state["fund_columns"] = inverted
                     st.rerun()
 
-            # Stats (before editor, shows current state)
-            n_selected = len(current_selection)
+            # Multi-select (range) — shift-click equivalent.
+            with st.expander("Bulk add/remove (range select)", expanded=True):
+                st.caption(
+                    "Select a start and end fund, then include/exclude the whole range."
+                )
+
+                range_cols = st.columns(4)
+                with range_cols[0]:
+                    start_fund = st.selectbox(
+                        "From",
+                        options=available_funds,
+                        index=0,
+                        key=f"range_from::{data_key}",
+                    )
+                with range_cols[1]:
+                    end_fund = st.selectbox(
+                        "To",
+                        options=available_funds,
+                        index=min(len(available_funds) - 1, 0),
+                        key=f"range_to::{data_key}",
+                    )
+
+                start_idx = available_funds.index(start_fund)
+                end_idx = available_funds.index(end_fund)
+                lo = min(start_idx, end_idx)
+                hi = max(start_idx, end_idx)
+                range_funds = available_funds[lo : hi + 1]
+                st.caption(f"Range size: {len(range_funds)}")
+
+                with range_cols[2]:
+                    if st.button("✅ Include range", key=f"btn_inc_range::{data_key}"):
+                        for fund in range_funds:
+                            st.session_state[f"{include_prefix}{fund}"] = True
+                        st.rerun()
+                with range_cols[3]:
+                    if st.button("❌ Exclude range", key=f"btn_exc_range::{data_key}"):
+                        for fund in range_funds:
+                            st.session_state[f"{include_prefix}{fund}"] = False
+                        st.rerun()
+
+            # Stats (live)
+            n_selected = sum(
+                1
+                for fund in available_funds
+                if bool(st.session_state.get(f"{include_prefix}{fund}", False))
+            )
             n_total = len(available_funds)
             st.markdown(f"**{n_selected} of {n_total}** funds selected")
 
-            # Build dataframe from canonical state
-            fund_df = pd.DataFrame(
-                {
-                    "Include": [fund in current_selection for fund in available_funds],
-                    "Fund Name": available_funds,
-                }
+            # Seed checkbox widget values from canonical selection (vectorized).
+            _t_seed_start = time.perf_counter()
+            defaults = {
+                f"{include_prefix}{fund}": (fund in set(current_selection))
+                for fund in available_funds
+                if f"{include_prefix}{fund}" not in st.session_state
+            }
+            if defaults:
+                st.session_state.update(defaults)
+
+            _t_seed_done = time.perf_counter()
+
+            # Faster rendering: one widget per row (avoid per-row columns/write).
+            _t_render_start = time.perf_counter()
+            with st.container(height=400):
+                for fund in available_funds:
+                    st.checkbox(
+                        fund,
+                        key=f"{include_prefix}{fund}",
+                    )
+
+            _t_render_done = time.perf_counter()
+
+            # Always-visible measurements (so you don't need to open Debug).
+            st.caption(
+                " | ".join(
+                    [
+                        f"Perf: total {(_t_render_done - _t_fund_start) * 1000:.0f}ms",
+                        f"render {(_t_render_done - _t_render_start) * 1000:.0f}ms",
+                        f"seed {(_t_seed_done - _t_seed_start) * 1000:.0f}ms",
+                        f"funds {len(available_funds)}",
+                        f"selected {n_selected}",
+                        f"default_selected {len(default_selected_funds)}",
+                        f"init_applied {bool(st.session_state.get(init_key))}",
+                        f"defaults_seeded {len(defaults)}",
+                        f"range {len(range_funds)}",
+                    ]
+                )
             )
 
-            st.write(f"DEBUG: fund_df has {fund_df['Include'].sum()} checked")
+            new_selection_list = [
+                fund
+                for fund in available_funds
+                if bool(st.session_state.get(f"{include_prefix}{fund}", False))
+            ]
 
-            # Render editor WITHOUT key - let Streamlit manage it
-            # The returned DataFrame has user's edits applied
-            edited_df = st.data_editor(
-                fund_df,
-                hide_index=True,
-                use_container_width=True,
-                height=400,
-                column_config={
-                    "Include": st.column_config.CheckboxColumn(
-                        "Include",
-                        help="Check to include fund in analysis",
-                        width="small",
-                    ),
-                    "Fund Name": st.column_config.TextColumn(
-                        "Fund Name",
-                        disabled=True,
-                        width="large",
-                    ),
-                },
-                disabled=["Fund Name"],
-            )
+            # Persist canonical state from edited table
+            if new_selection_list != st.session_state.get("selected_fund_columns", []):
+                st.session_state["selected_fund_columns"] = new_selection_list
+                st.session_state["fund_columns"] = list(new_selection_list)
+            elif st.session_state.get("fund_columns") != new_selection_list:
+                st.session_state["fund_columns"] = list(new_selection_list)
 
-            st.write(f"DEBUG: edited_df has {edited_df['Include'].sum()} checked")
-
-            # Extract selection from returned DataFrame and update canonical state
-            new_selection = set(
-                edited_df.loc[edited_df["Include"], "Fund Name"].tolist()
-            )
-
-            st.write(f"DEBUG: new_selection has {len(new_selection)} items")
-            st.write(f"DEBUG: current_selection has {len(current_selection)} items")
-            st.write(f"DEBUG: are they equal? {new_selection == current_selection}")
-
-            # Only update if changed (avoid infinite rerun)
-            if new_selection != current_selection:
-                st.write("DEBUG: UPDATING selected_fund_columns!")
-                st.session_state["selected_fund_columns"] = new_selection
-                st.session_state["fund_columns"] = list(new_selection)
+            # Explicitly apply/lock the selection for downstream pages.
+            apply_cols = st.columns([1, 3])
+            with apply_cols[0]:
+                if st.button("Apply selection", key=f"btn_apply_funds::{data_key}"):
+                    prohibited = system_columns
+                    sanitized = [c for c in new_selection_list if c not in prohibited]
+                    st.session_state["analysis_fund_columns"] = list(sanitized)
+                    analysis_runner.clear_cached_analysis()
+                    st.success("Fund selection applied for analysis.")
+            with apply_cols[1]:
+                applied = st.session_state.get("analysis_fund_columns")
+                if isinstance(applied, list):
+                    st.caption(f"Applied selection: {len(applied)} funds")
 
             # Show current configuration summary
             st.markdown("---")
             st.subheader("Data Summary")
 
-            final_count = len(new_selection)
+            final_count = len(new_selection_list)
             summary_cols = st.columns(3)
             with summary_cols[0]:
                 st.metric("Risk-Free", selected_rf or "Not selected")
@@ -637,6 +814,60 @@ def render_data_page() -> None:
                 st.metric("Benchmark", selected_bench or "Not selected")
             with summary_cols[2]:
                 st.metric("Fund Columns", final_count)
+
+            # Debug panel to inspect selection state when diagnosing persistence
+            with st.expander("Debug: Fund selection state", expanded=False):
+                st.session_state["_debug_fund_run"] = (
+                    int(st.session_state.get("_debug_fund_run", 0)) + 1
+                )
+
+                snapshot = {
+                    "run": st.session_state.get("_debug_fund_run"),
+                    "data_loaded_key": st.session_state.get("data_loaded_key"),
+                    "available_funds_count": len(available_funds),
+                    "index_candidates_count": len(index_candidates),
+                    "default_selected_funds_count": len(default_selected_funds),
+                    "checkbox_selected_count": len(new_selection_list),
+                    "range_funds_count": len(range_funds),
+                    "defaults_seeded_count": len(defaults),
+                    "perf_ms": {
+                        "derive_funds": round(
+                            (_t_funds_derived - _t_fund_start) * 1000, 2
+                        ),
+                        "seed_defaults": round(
+                            (_t_seed_done - _t_seed_start) * 1000, 2
+                        ),
+                        "render_checkboxes": round(
+                            (_t_render_done - _t_render_start) * 1000, 2
+                        ),
+                        "fund_total": round((_t_render_done - _t_fund_start) * 1000, 2),
+                    },
+                    "selected_fund_columns_count": len(
+                        st.session_state.get("selected_fund_columns") or []
+                    ),
+                    "fund_columns_count": len(
+                        st.session_state.get("fund_columns") or []
+                    ),
+                }
+
+                history = st.session_state.get("_debug_fund_history", [])
+                if not isinstance(history, list):
+                    history = []
+                history.append(snapshot)
+                st.session_state["_debug_fund_history"] = history[-8:]
+
+                st.json(
+                    {
+                        "latest": snapshot,
+                        "history": st.session_state.get("_debug_fund_history", []),
+                        "available_funds": available_funds,
+                        "selected_fund_columns": st.session_state.get(
+                            "selected_fund_columns"
+                        ),
+                        "fund_columns": st.session_state.get("fund_columns"),
+                        "checkbox_prefix": include_prefix,
+                    }
+                )
 
 
 render_data_page()

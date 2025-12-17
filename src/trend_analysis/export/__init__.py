@@ -443,8 +443,9 @@ def _build_summary_formatter(
     def fmt_summary(ws: Any, wb: Any) -> None:
         bold = wb.add_format({"bold": True})
         num2 = wb.add_format({"num_format": "0.00"})
-        pct2 = wb.add_format({"num_format": "0.00%"})
-        pct2_red = wb.add_format({"num_format": "0.00%", "font_color": "red"})
+        pct1 = wb.add_format({"num_format": "0.0%"})
+        pct1_red = wb.add_format({"num_format": "0.0%", "font_color": "red"})
+        int0 = wb.add_format({"num_format": "0"})
 
         def safe(v: float | str | None) -> str | float:
             if v is None:
@@ -486,12 +487,8 @@ def _build_summary_formatter(
         headers = [
             "Name",
             "Weight",
-            "IS CAGR",
-            "IS Vol",
-            "IS Sharpe",
-            "IS Sortino",
-            "IS IR",
-            "IS MaxDD",
+            "OS Total Return",
+            "OS Months",
             "OS CAGR",
             "OS Vol",
             "OS Sharpe",
@@ -500,6 +497,18 @@ def _build_summary_formatter(
         ]
         headers.extend([f"OS IR {b}" for b in bench_labels])
         headers.append("OS MaxDD")
+        headers.extend(
+            [
+                "IS Total Return",
+                "IS Months",
+                "IS CAGR",
+                "IS Vol",
+                "IS Sharpe",
+                "IS Sortino",
+                "IS IR",
+                "IS MaxDD",
+            ]
+        )
         header_row = start_row + len(meta_lines)
         ws.write_row(header_row, 0, headers, bold)
         for idx, h in enumerate(headers):
@@ -508,11 +517,45 @@ def _build_summary_formatter(
         numeric_fmts: list[Any] = []
         for h in headers[2:]:
             if "MaxDD" in h:
-                numeric_fmts.append(pct2_red)
-            elif "CAGR" in h or "Vol" in h:
-                numeric_fmts.append(pct2)
+                numeric_fmts.append(pct1_red)
+            elif "Months" in h:
+                numeric_fmts.append(int0)
+            elif "CAGR" in h or "Vol" in h or "Total Return" in h:
+                numeric_fmts.append(pct1)
             else:
                 numeric_fmts.append(num2)
+
+        in_df_obj = res.get("in_sample_scaled")
+        out_df_obj = res.get("out_sample_scaled")
+        in_df = in_df_obj if isinstance(in_df_obj, pd.DataFrame) else None
+        out_df = out_df_obj if isinstance(out_df_obj, pd.DataFrame) else None
+
+        def total_return_months(
+            series: pd.Series | None,
+        ) -> tuple[float | str, int | str]:
+            if series is None:
+                return ("", "")
+            s = series.dropna()
+            if s.empty:
+                return ("", 0)
+            total = float((1.0 + s.astype(float)).prod() - 1.0)
+            return (total, int(s.shape[0]))
+
+        def portfolio_series(
+            df: pd.DataFrame | None, weights: Mapping[str, float] | None
+        ) -> pd.Series | None:
+            if df is None or df.empty:
+                return None
+            if weights:
+                w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
+                s = float(w.sum())
+                if s > 0:
+                    w = w / s
+                else:
+                    w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+            else:
+                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+            return df.mul(w, axis=1).sum(axis=1)
 
         row = header_row + 1
         for label, ins, outs in [
@@ -521,11 +564,14 @@ def _build_summary_formatter(
         ]:
             ws.write(row, 0, label, bold)
             ws.write(row, 1, safe(""))
+            weights = None
+            if label == "User Weight":
+                weights = cast(Mapping[str, float], res.get("fund_weights", {}))
+            os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
+            is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
             ins_vals = metrics_list(ins)
             outs_vals = metrics_list(outs)
-            # Defer OS MaxDD to the final column after benchmark IRs
-            os_maxdd = outs_vals[-1]
-            vals = ins_vals + outs_vals[:-1]
+            vals = [os_tr, os_m, *outs_vals[:5]]
             extra = [
                 res.get("benchmark_ir", {})
                 .get(b, {})
@@ -534,7 +580,9 @@ def _build_summary_formatter(
             ]
             fmts = numeric_fmts
             vals.extend(extra)
-            vals.append(os_maxdd)
+            vals.append(outs_vals[-1])
+            vals.extend([is_tr, is_m])
+            vals.extend(ins_vals)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -546,18 +594,29 @@ def _build_summary_formatter(
             ws.write(row, 0, fund, bold)
             wt = res["fund_weights"][fund]
             # Write weights as fractions with percent formatting
-            ws.write(row, 1, safe(wt), pct2)
+            ws.write(row, 1, safe(wt), pct1)
+            os_tr, os_m = total_return_months(
+                out_df[fund]
+                if isinstance(out_df, pd.DataFrame) and fund in out_df.columns
+                else None
+            )
+            is_tr, is_m = total_return_months(
+                in_df[fund]
+                if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
+                else None
+            )
             ins_vals = metrics_list(stat_in)
             outs_vals = metrics_list(stat_out)
-            os_maxdd = outs_vals[-1]
-            vals = ins_vals + outs_vals[:-1]
+            vals = [os_tr, os_m, *outs_vals[:5]]
             extra = [
                 res.get("benchmark_ir", {}).get(b, {}).get(fund, "")
                 for b in bench_labels
             ]
             fmts = numeric_fmts
             vals.extend(extra)
-            vals.append(os_maxdd)
+            vals.append(outs_vals[-1])
+            vals.extend([is_tr, is_m])
+            vals.extend(ins_vals)
             for col, (v, fmt) in enumerate(zip(vals, fmts), start=2):
                 ws.write(row, col, safe(v), fmt)
             row += 1
@@ -617,8 +676,8 @@ def _build_summary_formatter(
                 for rec in rows:
                     ws.write(row, 0, rec.get("Manager", ""))
                     ws.write(row, 1, rec.get("Years", ""), num2)
-                    ws.write(row, 2, rec.get("OOS CAGR", ""), pct2)
-                    ws.write(row, 3, rec.get("Contribution Share", ""), pct2)
+                    ws.write(row, 2, rec.get("OOS CAGR", ""), pct1)
+                    ws.write(row, 3, rec.get("Contribution Share", ""), pct1)
                     row += 1
 
     return fmt_summary
@@ -693,12 +752,8 @@ def format_summary_text(
     columns = [
         "Name",
         "Weight",
-        "IS CAGR",
-        "IS Vol",
-        "IS Sharpe",
-        "IS Sortino",
-        "IS IR",
-        "IS MaxDD",
+        "OS Total Return",
+        "OS Months",
         "OS CAGR",
         "OS Vol",
         "OS Sharpe",
@@ -707,6 +762,50 @@ def format_summary_text(
     ]
     columns.extend([f"OS IR {b}" for b in bench_labels])
     columns.append("OS MaxDD")
+    columns.extend(
+        [
+            "IS Total Return",
+            "IS Months",
+            "IS CAGR",
+            "IS Vol",
+            "IS Sharpe",
+            "IS Sortino",
+            "IS IR",
+            "IS MaxDD",
+        ]
+    )
+
+    in_df_obj = res.get("in_sample_scaled")
+    out_df_obj = res.get("out_sample_scaled")
+    in_df = in_df_obj if isinstance(in_df_obj, pd.DataFrame) else None
+    out_df = out_df_obj if isinstance(out_df_obj, pd.DataFrame) else None
+
+    def total_return_months(
+        series: pd.Series | None,
+    ) -> tuple[float | None, int | None]:
+        if series is None:
+            return (None, None)
+        s = series.dropna()
+        if s.empty:
+            return (None, 0)
+        total = float((1.0 + s.astype(float)).prod() - 1.0)
+        return (total * 100.0, int(s.shape[0]))
+
+    def portfolio_series(
+        df: pd.DataFrame | None, weights: Mapping[str, float] | None
+    ) -> pd.Series | None:
+        if df is None or df.empty:
+            return None
+        if weights:
+            w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
+            s = float(w.sum())
+            if s > 0:
+                w = w / s
+            else:
+                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+        else:
+            w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+        return df.mul(w, axis=1).sum(axis=1)
 
     rows: list[list[str | float | None]] = []
 
@@ -714,7 +813,13 @@ def format_summary_text(
         ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
         ("User Weight", res["in_user_stats"], res["out_user_stats"]),
     ]:
-        vals = pct(ins) + pct(outs)
+        weights = None
+        if label == "User Weight":
+            weights = cast(Mapping[str, float], res.get("fund_weights", {}))
+        os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
+        is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
+        os_vals = pct(outs)
+        is_vals = pct(ins)
         extra = [
             res.get("benchmark_ir", {})
             .get(b, {})
@@ -724,7 +829,7 @@ def format_summary_text(
             )
             for b in bench_labels
         ]
-        vals.extend(extra)
+        vals = [os_tr, os_m, *os_vals[:5], *extra, os_vals[5], is_tr, is_m, *is_vals]
         rows.append([label, None, *vals])
 
     rows.append([None] * len(columns))
@@ -732,12 +837,32 @@ def format_summary_text(
     for fund, stat_in in res["in_sample_stats"].items():
         stat_out = res["out_sample_stats"][fund]
         weight = res["fund_weights"][fund] * 100
-        vals = pct(stat_in) + pct(stat_out)
         extra = [
             res.get("benchmark_ir", {}).get(b, {}).get(fund, float("nan"))
             for b in bench_labels
         ]
-        vals.extend(extra)
+        os_vals = pct(stat_out)
+        is_vals = pct(stat_in)
+        os_tr, os_m = total_return_months(
+            out_df[fund]
+            if isinstance(out_df, pd.DataFrame) and fund in out_df.columns
+            else None
+        )
+        is_tr, is_m = total_return_months(
+            in_df[fund]
+            if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
+            else None
+        )
+        vals = [
+            os_tr,
+            os_m,
+            *os_vals[:5],
+            *extra,
+            os_vals[5],
+            is_tr,
+            is_m,
+            *is_vals,
+        ]
         rows.append([fund, weight, *vals])
 
     df = pd.DataFrame(rows, columns=columns)
@@ -1123,12 +1248,8 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     columns = [
         "Name",
         "Weight",
-        "IS CAGR",
-        "IS Vol",
-        "IS Sharpe",
-        "IS Sortino",
-        "IS IR",
-        "IS MaxDD",
+        "OS Total Return",
+        "OS Months",
         "OS CAGR",
         "OS Vol",
         "OS Sharpe",
@@ -1137,6 +1258,18 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     ]
     columns.extend([f"OS IR {b}" for b in bench_labels])
     columns.append("OS MaxDD")
+    columns.extend(
+        [
+            "IS Total Return",
+            "IS Months",
+            "IS CAGR",
+            "IS Vol",
+            "IS Sharpe",
+            "IS Sortino",
+            "IS IR",
+            "IS MaxDD",
+        ]
+    )
     # Optional trailing AvgCorr if present on in_sample_stats objects (attached in pipeline)
     # Append AvgCorr columns only if stats objects carry correlation values
     try:  # pragma: no cover - data dependent
@@ -1148,18 +1281,52 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
                 getattr(probe, "is_avg_corr", None) is not None
                 or getattr(probe, "os_avg_corr", None) is not None
             ):
-                columns.append("IS AvgCorr")
                 columns.append("OS AvgCorr")
+                columns.append("IS AvgCorr")
     except Exception:  # pragma: no cover - defensive
         pass
 
     rows: list[list[Any]] = []
 
+    in_df = cast(pd.DataFrame | None, res.get("in_sample_scaled"))
+    out_df = cast(pd.DataFrame | None, res.get("out_sample_scaled"))
+
+    def total_return_months(series: pd.Series | None) -> tuple[Any, Any]:
+        if series is None:
+            return (pd.NA, pd.NA)
+        s = series.dropna()
+        if s.empty:
+            return (pd.NA, 0)
+        total = float((1.0 + s.astype(float)).prod() - 1.0)
+        return (total * 100.0, int(s.shape[0]))
+
+    def portfolio_series(
+        df: pd.DataFrame | None, weights: Mapping[str, float] | None
+    ) -> pd.Series | None:
+        if df is None or df.empty:
+            return None
+        if weights:
+            w = pd.Series({c: float(weights.get(c, 0.0)) for c in df.columns})
+            s = float(w.sum())
+            if s > 0:
+                w = w / s
+            else:
+                w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+        else:
+            w = pd.Series(1.0 / float(len(df.columns)), index=df.columns)
+        return df.mul(w, axis=1).sum(axis=1)
+
     for label, ins, outs in [
         ("Equal Weight", res["in_ew_stats"], res["out_ew_stats"]),
         ("User Weight", res["in_user_stats"], res["out_user_stats"]),
     ]:
-        vals = pct(ins) + pct(outs)
+        weights = None
+        if label == "User Weight":
+            weights = cast(Mapping[str, float], res.get("fund_weights", {}))
+        os_tr, os_m = total_return_months(portfolio_series(out_df, weights))
+        is_tr, is_m = total_return_months(portfolio_series(in_df, weights))
+        os_vals = pct(outs)
+        is_vals = pct(ins)
         extra = [
             bench_map.get(b, {}).get(
                 "equal_weight" if label == "Equal Weight" else "user_weight",
@@ -1167,22 +1334,53 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
             )
             for b in bench_labels
         ]
-        rows.append([label, pd.NA, *vals, *extra])
+        vals = [
+            os_tr,
+            os_m,
+            *os_vals[:5],
+            *extra,
+            os_vals[5],
+            is_tr,
+            is_m,
+            *is_vals,
+        ]
+        rows.append([label, pd.NA, *vals])
 
     rows.append([pd.NA] * len(columns))
 
-    include_avg = columns[-1] == "OS AvgCorr"
+    include_avg = "OS AvgCorr" in columns and "IS AvgCorr" in columns
     for fund, stat_in in cast(Mapping[str, _Stats], res["in_sample_stats"]).items():
         stat_out = cast(Mapping[str, _Stats], res["out_sample_stats"])[fund]
         weight = cast(Mapping[str, float], res["fund_weights"])[fund] * 100
-        vals = pct(stat_in) + pct(stat_out)
         extra = [bench_map.get(b, {}).get(fund, pd.NA) for b in bench_labels]
+        os_vals = pct(stat_out)
+        is_vals = pct(stat_in)
+        os_tr, os_m = total_return_months(
+            out_df[fund]
+            if isinstance(out_df, pd.DataFrame) and fund in out_df.columns
+            else None
+        )
+        is_tr, is_m = total_return_months(
+            in_df[fund]
+            if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
+            else None
+        )
+        vals = [
+            os_tr,
+            os_m,
+            *os_vals[:5],
+            *extra,
+            os_vals[5],
+            is_tr,
+            is_m,
+            *is_vals,
+        ]
         if include_avg:
             is_ac = getattr(stat_in, "is_avg_corr", None)
             os_ac = getattr(stat_out, "os_avg_corr", None)
-            rows.append([fund, weight, *vals, *extra, is_ac, os_ac])
+            rows.append([fund, weight, *vals, os_ac, is_ac])
         else:
-            rows.append([fund, weight, *vals, *extra])
+            rows.append([fund, weight, *vals])
 
     return pd.DataFrame(rows, columns=columns)
 

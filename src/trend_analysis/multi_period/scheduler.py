@@ -77,35 +77,48 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     else:  # Monthly
         step_months = 1
 
+    start_mode = str(mp.get("start_mode", "in") or "in").lower()
+    start_is_oos = start_mode in {"oos", "out", "out_sample", "out-of-sample"}
+
     periods: List[PeriodTuple] = []
 
-    # Start with in-sample period
-    in_start = start_date
+    # Work in month periods to avoid off-by-one month-end math.
+    end_period = end_date.to_period("M")
+
+    if start_is_oos:
+        out_start_period = start_date.to_period("M")
+    else:
+        in_start_period = start_date.to_period("M")
+        out_start_period = None
 
     while True:
-        # In-sample end: in_len periods after in_start
-        in_end = (
-            in_start
-            + pd.DateOffset(months=step_months * max(in_len - 1, 0))
-            - pd.Timedelta(days=1)
-        )
-        # Align to month end
-        in_end = in_end + pd.offsets.MonthEnd(0)
+        if start_is_oos:
+            in_end_period = out_start_period - 1
+            in_months = step_months * in_len
+            in_start_period = in_end_period - (in_months - 1)
+        else:
+            in_months = step_months * in_len
+            in_end_period = in_start_period + (in_months - 1)
+            out_start_period = in_end_period + 1
 
-        # Out-sample start: day after in_end
-        out_start = in_end + pd.Timedelta(days=1)
+        out_months = step_months * out_len
+        out_end_period = out_start_period + (out_months - 1)
 
-        # Out-sample end: out_len periods after out_start
-        out_end = (
-            out_start
-            + pd.DateOffset(months=step_months * out_len)
-            - pd.Timedelta(days=1)
-        )
-        out_end = out_end + pd.offsets.MonthEnd(0)
-
-        # Stop if out-sample exceeds end date
-        if out_end > end_date:
+        # Stop if we would have no out-of-sample data at all.
+        if out_start_period > end_period:
             break
+
+        # Allow a truncated final out-of-sample window.
+        # This supports partial final periods (e.g., fewer than 12 months for
+        # annual frequency) without annualising/normalising to a full window.
+        is_final_partial = out_end_period > end_period
+        if is_final_partial:
+            out_end_period = end_period
+
+        in_start = in_start_period.to_timestamp("M", how="end")
+        in_end = in_end_period.to_timestamp("M", how="end")
+        out_start = out_start_period.to_timestamp("M", how="end")
+        out_end = out_end_period.to_timestamp("M", how="end")
 
         periods.append(
             PeriodTuple(
@@ -116,7 +129,12 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
             )
         )
 
-        # Advance by out_len periods
-        in_start = in_start + pd.DateOffset(months=step_months * out_len)
+        if is_final_partial:
+            break
+
+        # Advance by out_len periods (advance OOS window start).
+        out_start_period = out_start_period + (step_months * out_len)
+        if not start_is_oos:
+            in_start_period = in_start_period + (step_months * out_len)
 
     return periods

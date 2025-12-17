@@ -136,7 +136,7 @@ def test_trend_preset_helpers_expose_expected_defaults() -> None:
         trend_spec=spec,
         _config=preset_module._freeze_mapping(
             {
-                "lookback_months": 18,
+                "lookback_periods": 18,
                 "min_track_months": 6,
                 "selection_count": 7,
                 "risk_target": 0.2,
@@ -150,7 +150,7 @@ def test_trend_preset_helpers_expose_expected_defaults() -> None:
 
     defaults = preset.form_defaults()
     assert defaults == {
-        "lookback_months": 18,
+        "lookback_periods": 18,
         "rebalance_frequency": "weekly",
         "min_track_months": 6,
         "selection_count": 7,
@@ -342,7 +342,7 @@ signals:
   vol_adjust: true
   vol_target: 0.1
   zscore: true
-lookback_months: 18
+lookback_periods: 18
 min_track_months: 6
 selection_count: 8
 risk_target: 0.25

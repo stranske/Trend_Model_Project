@@ -199,6 +199,7 @@ EXPECTED_NAMES = {
     "maint-60-release.yml": "Maint 60 Release",
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
+    "pr-12-playwright.yml": "PR 12 - Fund selector Playwright smoke",
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",

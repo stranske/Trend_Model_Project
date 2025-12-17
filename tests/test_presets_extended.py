@@ -58,7 +58,7 @@ def test_trend_preset_helpers_cover_defaults() -> None:
         window=20, min_periods=10, vol_adjust=True, vol_target=0.2, zscore=True
     )
     preset_cfg = {
-        "lookback_months": "18",
+        "lookback_periods": "18",
         "rebalance_frequency": "quarterly",
         "min_track_months": "bad",
         "selection_count": "",
@@ -77,7 +77,7 @@ def test_trend_preset_helpers_cover_defaults() -> None:
     )
 
     defaults = preset.form_defaults()
-    assert defaults["lookback_months"] == 18
+    assert defaults["lookback_periods"] == 18
     # min_track_months falls back to minimum because coercion fails
     assert defaults["min_track_months"] == 24
     assert defaults["selection_count"] == 10
@@ -207,7 +207,7 @@ def test_preset_registry_precedence_and_warning(
         base / "alpha.yml",
         """
 name: Alpha
-lookback_months: 12
+lookback_periods: 12
 signals:
   window: 18
   lag: 2
