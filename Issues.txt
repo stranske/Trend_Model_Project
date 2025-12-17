@@ -1,84 +1,4 @@
-1) Normalize risk-free defaults across single- and multi-period engines
-Labels: agent:codex, bug, backend
-Why
-Single-period (`trend_analysis.api.run_simulation`) treats missing `allow_risk_free_fallback` as False, while multi-period (`trend_analysis.multi_period.engine._resolve_risk_free_settings`) defaults it to True when data settings/flag are absent. Identical configs can therefore yield different risk-free handling depending on the entry point.
-Scope
-- Risk-free resolution paths in `trend_analysis.api.run_simulation` and `trend_analysis.multi_period.engine._resolve_risk_free_settings`, plus associated config validation defaults.
-Tasks
-- Decide on a single default for `allow_risk_free_fallback` (e.g., disabled unless explicitly set) and implement it consistently in both single- and multi-period code paths.
-- Align `TrendConfig`/`Config` validation defaults so missing flags produce the same resolved settings as the engines.
-- Add regression tests covering all combinations of `risk_free_column` and `allow_risk_free_fallback` across both entry points to assert identical behaviour and diagnostics.
-Acceptance criteria
-- Single- and multi-period runs resolve risk-free settings identically for the same config payloads (with/without `risk_free_column` and `allow_risk_free_fallback`).
-- Tests enforce the unified default and pass for both engines; diagnostics remain informative when risk-free data is absent.
-Implementation notes
-- Limit changes to risk-free resolution and validation; avoid broader pipeline refactors.
-
-2) Surface missing-data policy status when skipping enforcement on user-supplied data
-Labels: agent:codex, enhancement, data
-Why
-`trend_analysis.multi_period.engine.run` silently bypasses `apply_missing_policy` when callers supply `df`/`price_frames` and no policy/limit is set. Users can inadvertently run with raw missing data, producing different universes than validated configs.
-Scope
-- Missing-data handling branch in `trend_analysis.multi_period.engine.run` and period-level diagnostics/metadata.
-Tasks
-- Add an explicit flag or diagnostic in the per-run/per-period result indicating whether missing-data policy was applied or skipped.
-- Emit a log/diagnostic message when policy is skipped due to user-supplied data without policy/limit settings.
-- Extend tests to cover both applied and skipped paths, asserting the flag/diagnostic surfaces the decision.
-Acceptance criteria
-- Multi-period results clearly indicate whether missing-data policy ran or was skipped, without changing existing selection/output semantics.
-- Tests cover both branches and pass without altering current default behaviour beyond added observability.
-Implementation notes
-- Keep changes scoped to diagnostics/metadata and minimal logging; do not alter the policy logic itself.
-
-3) Harden weight/turnover invariants in rebalancing helpers
-Labels: agent:codex, enhancement, testing
-Why
-Weight-bound redistribution and turnover calculations (`_apply_weight_bounds`, `_apply_turnover_penalty`, `_fast_turnover`) are complex and can drift silently. Existing `DEBUG_TURNOVER_VALIDATE` hints at intended invariants but lacks direct regression tests.
-Scope
-- Rebalancing helpers in `trend_analysis.multi_period.engine` and any dedicated turnover validation hooks.
-Tasks
-- Add unit tests with synthetic inputs to assert non-negative weights, sum-to-1 behaviour, and consistent clamping under min/max weight bounds and turnover penalties.
-- Add tests comparing `_fast_turnover` against recomputed turnover (e.g., via the debug validation path) on controlled examples.
-- Ensure turnover history stored in portfolios matches recomputed values within tolerance across test cases.
-Acceptance criteria
-- Tests fail if weight bounds or turnover calculations allow negative weights, drift away from unit sum, or diverge between fast and recomputed turnover paths.
-- Existing functionality remains unchanged outside the stronger test coverage and any minimal hooks needed for testing.
-Implementation notes
-- Prefer adding tests; only adjust helper code if needed to expose hooks or fix invariant violations discovered during testing.
-
-4) Document and enforce alignment between minimal config layers
-Labels: agent:codex, enhancement, docs
-Why
-Two minimal config layers (`trend.config_schema.CoreConfig` and `trend_analysis.config.model.TrendConfig`) can drift in semantics (frequency, path resolution, risk settings). There is no explicit contract or regression test ensuring they stay aligned before building the full `Config`.
-Scope
-- Documentation under `docs/` and small test coverage for config round-tripping.
-Tasks
-- Add a short doc (or extend existing config docs) explaining the roles/invariants of CoreConfig vs TrendConfig and how they map into the full config.
-- Create a regression test that loads a canonical YAML, passes through `CoreConfig.to_payload`, then `TrendConfig`, and asserts key fields (e.g., data source, frequency, costs) remain consistent.
-- Highlight any intentional differences in the doc so future changes must update both the code and the contract.
-Acceptance criteria
-- Documentation clearly describes the two config layers, their mappings, and invariants that must be preserved.
-- Tests fail if CoreConfig and TrendConfig diverge on key fields for the same input config.
-Implementation notes
-- Keep docs concise; avoid broad rewrites. Tests should use existing fixtures or small in-repo YAMLs.
-
-5) Provide a simple pipeline proxy mode to bypass GC scanning
-Labels: agent:codex, enhancement, backend
-Why
-`trend_portfolio_app.app._PipelineProxy` scans `gc.get_objects()` to prefer patched pipeline modules, which aids testing but adds overhead and magic. Production deployments could benefit from an opt-in simple mode that imports the pipeline directly.
-Scope
-- `_PipelineProxy` in `trend_portfolio_app/app.py` and related tests.
-Tasks
-- Add an environment flag (e.g., `TREND_PIPELINE_PROXY_SIMPLE`) that, when set, skips GC scanning and directly imports `trend_analysis.pipeline`.
-- Ensure default behaviour remains unchanged (GC scanning enabled) to preserve test friendliness.
-- Add tests covering both modes to assert correct pipeline resolution and instrumentation behaviour.
-Acceptance criteria
-- Setting the new env flag yields a direct-import proxy path; default continues to honour GC-scanned modules.
-- Tests cover simple and default modes and pass without changing existing app behaviour for users who do not set the flag.
-Implementation notes
-- Keep the change minimal and focused on proxy resolution; avoid touching unrelated Streamlit app logic.
-
-6) Add saved parameter sets (named configs) to Streamlit UI
+1) Add saved parameter sets (named configs) to Streamlit UI
 Labels: agent:codex, enhancement, app, ui
 Why
 Users need to compare outcomes across multiple parameter sets. Today, the app has a single mutable `model_state`; users have to manually screenshot/copy settings, making A/B comparison error-prone.
@@ -101,7 +21,7 @@ Implementation notes
 - Keep persistence optional; start with session-state-only to avoid file I/O complexity.
 - Use the same captured payload structure as `docs/debugging/ui_run_2025-12-15.json` where feasible.
 
-7) Add in-app parameter diff view (A vs B)
+2) Add in-app parameter diff view (A vs B)
 Labels: agent:codex, enhancement, app, ui
 Why
 Before running expensive simulations, users should be able to verify what actually differs between two parameter sets. This also strengthens the debugging workflow by making “what changed?” explicit.
@@ -122,7 +42,7 @@ Acceptance criteria
 Implementation notes
 - Reuse/align with the JSON diff logic from `scripts/diff_ui_runs.py` where possible (but keep UI logic dependency-free).
 
-8) Implement A/B simulation compare workflow in Streamlit
+2) Implement A/B simulation compare workflow in Streamlit
 Labels: agent:codex, enhancement, app, backend
 Why
 Users want to compare outcomes (metrics, holdings, turnover, manager changes) between two parameter sets to understand sensitivity and validate changes.
