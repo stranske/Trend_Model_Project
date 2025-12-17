@@ -54,7 +54,8 @@ async function main() {
 
     // Wait for Fund Column Selection header and current selection count
     await page.getByText('Fund Column Selection').waitFor({ timeout: 20000 });
-    const countLocator = page.getByText(/\d+ of \d+ funds selected/);
+    // Use .first() to avoid strict mode violation when multiple matching elements exist
+    const countLocator = page.getByText(/\d+ of \d+ funds selected/).first();
 
     // Select All
     await page.getByRole('button', { name: '✅ Select All' }).first().click();
