@@ -37,7 +37,7 @@ jobs:
       - name: Install project with dev extras
         run: |
           pip install uv
-          uv pip install --system '.[dev]'
+          uv pip install --system '.[dev,app]'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
