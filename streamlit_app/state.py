@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from pathlib import Path
-import json
 from typing import Any, Mapping, Optional, Sequence
 
 import pandas as pd
