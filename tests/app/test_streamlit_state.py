@@ -292,3 +292,69 @@ def test_import_model_state_validates_payload(session_state: dict) -> None:
 
     with pytest.raises(ValueError):
         state.import_model_state("name", "[]")
+
+
+def test_diff_model_states_reports_added_removed_and_changed_values() -> None:
+    original = {
+        "lookback_periods": 3,
+        "metric_weights": {"sharpe": 1.0, "drawdown": 0.5},
+    }
+    updated = {
+        "lookback_periods": 6,
+        "metric_weights": {"drawdown": 0.4, "new_metric": 0.2},
+        "preset": "Aggressive",
+    }
+
+    diffs = state.diff_model_states(original, updated)
+
+    assert [entry.path for entry in diffs] == [
+        "lookback_periods",
+        "metric_weights.drawdown",
+        "metric_weights.new_metric",
+        "metric_weights.sharpe",
+        "preset",
+    ]
+    assert diffs[0].change_type == "changed"
+    assert diffs[1].change_type == "changed"
+    assert diffs[2].change_type == "added"
+    assert diffs[3].change_type == "removed"
+    assert diffs[4].change_type == "added"
+
+
+def test_diff_model_states_flags_type_changes_and_float_tolerance() -> None:
+    left = {"flag": True, "rate": 0.1}
+    right = {"flag": "True", "rate": 0.10000000005}
+
+    diffs = state.diff_model_states(left, right, float_tol=1e-8)
+
+    assert len(diffs) == 1
+    assert diffs[0].path == "flag"
+    assert diffs[0].change_type == "changed"
+    assert diffs[0].type_changed is True
+
+
+def test_format_model_state_diff_returns_copy_ready_text() -> None:
+    diffs = [
+        state.ModelStateDiff(
+            path="lookback_periods",
+            left=3,
+            right=6,
+            change_type="changed",
+            type_changed=False,
+        ),
+        state.ModelStateDiff(
+            path="metric_weights.sharpe",
+            left=1.0,
+            right=None,
+            change_type="removed",
+        ),
+    ]
+
+    formatted = state.format_model_state_diff(
+        diffs, label_a="alpha", label_b="beta"
+    ).splitlines()
+
+    assert formatted == [
+        "~ lookback_periods: (alpha) 3 -> (beta) 6",
+        "- metric_weights.sharpe: (alpha) 1.0",
+    ]

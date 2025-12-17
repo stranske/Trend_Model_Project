@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
+import numbers
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Literal, Mapping, Optional, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -236,3 +239,172 @@ def import_model_state(name: str, payload: str) -> dict[str, Any]:
 
     save_model_state(name.strip(), parsed)
     return load_saved_model_state(name.strip())
+
+
+@dataclass(frozen=True)
+class ModelStateDiff:
+    """Represents a single difference between two model states."""
+
+    path: str
+    left: Any
+    right: Any
+    change_type: Literal["added", "removed", "changed"]
+    type_changed: bool = False
+
+
+def _is_sequence(value: Any) -> bool:
+    return isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    )
+
+
+def _stringify_value(value: Any) -> str:
+    try:
+        return json.dumps(value, sort_keys=True, default=str)
+    except TypeError:
+        return str(value)
+
+
+def _values_equal(left: Any, right: Any, float_tol: float) -> bool:
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, numbers.Number) and isinstance(right, numbers.Number):
+        return math.isclose(left, right, rel_tol=float_tol, abs_tol=float_tol)
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        if set(left.keys()) != set(right.keys()):
+            return False
+        return all(
+            _values_equal(left[key], right[key], float_tol) for key in left.keys()
+        )
+    if _is_sequence(left) and _is_sequence(right):
+        if len(left) != len(right):
+            return False
+        return all(
+            _values_equal(item_left, item_right, float_tol)
+            for item_left, item_right in zip(left, right)
+        )
+    return left == right
+
+
+def diff_model_states(
+    config_a: Mapping[str, Any],
+    config_b: Mapping[str, Any],
+    *,
+    float_tol: float = 1e-9,
+) -> list[ModelStateDiff]:
+    """Compute a deterministic, recursive diff between two model states."""
+
+    diffs: list[ModelStateDiff] = []
+
+    def _walk(left: Any, right: Any, path: str) -> None:
+        if isinstance(left, Mapping) and isinstance(right, Mapping):
+            keys = sorted(set(left.keys()) | set(right.keys()))
+            for key in keys:
+                next_path = f"{path}.{key}" if path else str(key)
+                in_left = key in left
+                in_right = key in right
+                if not in_left:
+                    diffs.append(
+                        ModelStateDiff(
+                            path=next_path,
+                            left=None,
+                            right=deepcopy(right[key]),
+                            change_type="added",
+                        )
+                    )
+                elif not in_right:
+                    diffs.append(
+                        ModelStateDiff(
+                            path=next_path,
+                            left=deepcopy(left[key]),
+                            right=None,
+                            change_type="removed",
+                        )
+                    )
+                else:
+                    _walk(left[key], right[key], next_path)
+            return
+
+        if _is_sequence(left) and _is_sequence(right):
+            if type(left) is not type(right):
+                diffs.append(
+                    ModelStateDiff(
+                        path=path or "<root>",
+                        left=deepcopy(left),
+                        right=deepcopy(right),
+                        change_type="changed",
+                        type_changed=True,
+                    )
+                )
+                return
+            for idx, (item_left, item_right) in enumerate(
+                zip_longest(left, right, fillvalue=_missing_sentinel)
+            ):
+                next_path = f"{path}[{idx}]" if path else f"[{idx}]"
+                if item_left is _missing_sentinel:
+                    diffs.append(
+                        ModelStateDiff(
+                            path=next_path,
+                            left=None,
+                            right=deepcopy(item_right),
+                            change_type="added",
+                        )
+                    )
+                elif item_right is _missing_sentinel:
+                    diffs.append(
+                        ModelStateDiff(
+                            path=next_path,
+                            left=deepcopy(item_left),
+                            right=None,
+                            change_type="removed",
+                        )
+                    )
+                else:
+                    _walk(item_left, item_right, next_path)
+            return
+
+        if _values_equal(left, right, float_tol):
+            return
+
+        diffs.append(
+            ModelStateDiff(
+                path=path or "<root>",
+                left=deepcopy(left),
+                right=deepcopy(right),
+                change_type="changed",
+                type_changed=type(left) is not type(right),
+            )
+        )
+
+    _missing_sentinel = object()
+    from itertools import zip_longest
+
+    _walk(dict(config_a), dict(config_b), "")
+    return diffs
+
+
+def format_model_state_diff(
+    diffs: Sequence[ModelStateDiff],
+    *,
+    label_a: str = "A",
+    label_b: str = "B",
+) -> str:
+    """Create a copy-friendly text representation of model state differences."""
+
+    if not diffs:
+        return "No differences found."
+
+    lines: list[str] = []
+    for entry in diffs:
+        left = _stringify_value(entry.left)
+        right = _stringify_value(entry.right)
+        if entry.change_type == "added":
+            lines.append(f"+ {entry.path}: ({label_b}) {right}")
+        elif entry.change_type == "removed":
+            lines.append(f"- {entry.path}: ({label_a}) {left}")
+        else:
+            type_note = " [type changed]" if entry.type_changed else ""
+            lines.append(
+                f"~ {entry.path}: ({label_a}) {left} -> ({label_b}) {right}{type_note}"
+            )
+    return "\n".join(lines)
