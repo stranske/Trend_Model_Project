@@ -710,21 +710,6 @@ def make_period_formatter(
     return register_formatter_excel(sheet)(fmt)
 
 
-def make_execution_metrics_formatter() -> Callable[[Any, Any], None]:
-    """Return and register a formatter for the ``execution_metrics`` sheet."""
-
-    @register_formatter_excel("execution_metrics")
-    def _fmt(ws: Any, wb: Any) -> None:
-        pct1 = wb.add_format({"num_format": "0.0%"})
-        # Apply percentage format to Turnover (column 1) and Transaction Cost (column 2)
-        # The data starts at row 1 (after header)
-        ws.set_column(1, 1, 12, pct1)  # Turnover
-        ws.set_column(2, 2, 16, pct1)  # Transaction Cost
-        ws.freeze_panes(1, 0)
-
-    return _fmt
-
-
 def format_summary_text(
     res: Mapping[str, Any],
     in_start: str,
@@ -1769,10 +1754,6 @@ def export_phase1_workbook(
                 continue
             ordered[k] = v
         frames = ordered
-
-    # Register formatter for execution_metrics sheet
-    if "execution_metrics" in frames:
-        make_execution_metrics_formatter()
 
     export_to_excel(frames, output_path)
 
