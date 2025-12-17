@@ -8,8 +8,6 @@ Displays for each year from 2009-2019:
 
 from __future__ import annotations
 
-# mypy: ignore-errors
-
 from pathlib import Path
 
 import numpy as np
