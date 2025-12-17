@@ -45,6 +45,8 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.caption = _noop
     stub.metric = _noop
     stub.write = _noop
+    stub.text_input = lambda _label, value="", **_kwargs: value
+    stub.text_area = lambda _label, value="", **_kwargs: value
     stub.radio = lambda _label, options, index=0, **_kwargs: options[index]
     stub.date_input = lambda _label, value=None, **_kwargs: value
     stub.page_link = _noop
@@ -54,6 +56,8 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     stub.expander = lambda *_args, **_kwargs: Context()
     stub.form = lambda *_args, **_kwargs: Context()
     stub.form_submit_button = lambda *_args, **_kwargs: False
+    stub.button = lambda *_args, **_kwargs: False
+    stub.download_button = _noop
     stub.columns = lambda n: [Context() for _ in range(n)]
     stub.selectbox = lambda _label, options, index=0, **_kwargs: options[index]
     stub.number_input = lambda _label, **kwargs: kwargs.get("value", 0)

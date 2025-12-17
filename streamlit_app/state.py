@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -16,6 +18,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "upload_status": "pending",  # pending, success, error
     "data_hash": None,
     "data_saved_path": None,
+    "saved_model_states": {},
 }
 
 
@@ -24,7 +27,7 @@ def initialize_session_state() -> None:
 
     for key, default_value in _DEFAULT_STATE.items():
         if key not in st.session_state:
-            st.session_state[key] = default_value
+            st.session_state[key] = deepcopy(default_value)
 
 
 def clear_analysis_results() -> None:
@@ -136,3 +139,100 @@ def get_upload_summary() -> str:
         summary_parts.append(f"Frequency: {meta['frequency']}")
 
     return " | ".join(summary_parts)
+
+
+def get_saved_model_states() -> dict[str, dict[str, Any]]:
+    """Return the mapping of saved model states stored in session state."""
+
+    saved = st.session_state.get("saved_model_states")
+    if not isinstance(saved, dict):
+        saved = {}
+        st.session_state["saved_model_states"] = saved
+    return saved
+
+
+def save_model_state(name: str, model_state: Mapping[str, Any]) -> None:
+    """Persist a model configuration under the provided name.
+
+    Raises:
+        ValueError: If the provided name is empty or whitespace-only.
+    """
+
+    if not name or not name.strip():
+        raise ValueError("A non-empty name is required to save a model configuration.")
+
+    saved = get_saved_model_states()
+    saved[name.strip()] = deepcopy(dict(model_state))
+
+
+def load_saved_model_state(name: str) -> dict[str, Any]:
+    """Load a saved model configuration by name.
+
+    Raises:
+        KeyError: If the requested configuration name does not exist.
+    """
+
+    saved = get_saved_model_states()
+    if name not in saved:
+        raise KeyError(f"No saved model configuration named '{name}'.")
+    return deepcopy(saved[name])
+
+
+def rename_saved_model_state(current_name: str, new_name: str) -> None:
+    """Rename a saved model configuration while preserving its payload.
+
+    Raises:
+        KeyError: If ``current_name`` does not exist.
+        ValueError: If ``new_name`` is empty/whitespace-only or already exists.
+    """
+
+    saved = get_saved_model_states()
+    if current_name not in saved:
+        raise KeyError(f"No saved model configuration named '{current_name}'.")
+
+    stripped_new_name = new_name.strip() if new_name else ""
+    if not stripped_new_name:
+        raise ValueError("Provide a new name to rename the configuration.")
+    if stripped_new_name in saved and stripped_new_name != current_name:
+        raise ValueError(f"A configuration named '{stripped_new_name}' already exists.")
+
+    saved[stripped_new_name] = saved.pop(current_name)
+
+
+def delete_saved_model_state(name: str) -> None:
+    """Remove a saved model configuration if it exists."""
+
+    get_saved_model_states().pop(name, None)
+
+
+def export_model_state(name: str) -> str:
+    """Serialize the saved configuration to JSON.
+
+    Raises:
+        KeyError: If the configuration name does not exist.
+    """
+
+    payload = load_saved_model_state(name)
+    return json.dumps(payload, sort_keys=True)
+
+
+def import_model_state(name: str, payload: str) -> dict[str, Any]:
+    """Load a configuration from JSON and store it under the provided name.
+
+    Raises:
+        ValueError: If the name is empty/whitespace-only, the payload is invalid JSON,
+            or the parsed payload is not a JSON object.
+    """
+
+    if not name or not name.strip():
+        raise ValueError("Provide a name for the imported configuration.")
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:  # pragma: no cover - defensive guard
+        raise ValueError("Invalid JSON payload for configuration import.") from exc
+
+    if not isinstance(parsed, Mapping):
+        raise ValueError("Imported configuration must be a JSON object.")
+
+    save_model_state(name.strip(), parsed)
+    return load_saved_model_state(name.strip())
