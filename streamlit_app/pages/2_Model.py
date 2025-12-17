@@ -362,7 +362,7 @@ HELP_TEXT = {
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
     "lookback_periods": "Number of periods for in-sample (training) window.",
     "evaluation_periods": "Number of periods for out-of-sample (testing) window.",
-    "inclusion_approach": "How to select funds: Top N, Top Percentage, or Z-score Threshold.",
+    "inclusion_approach": "How to select funds: Top N, Top Percentage, Z-score Threshold, or Random.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
     # Phase 9: Selection approach details
@@ -973,11 +973,12 @@ def render_model_page() -> None:
         st.markdown("**Fund Selection Approach**")
         approach_c1, approach_c2 = st.columns(2)
         with approach_c1:
-            inclusion_approaches = ["top_n", "top_pct", "threshold"]
+            inclusion_approaches = ["top_n", "top_pct", "threshold", "random"]
             inclusion_labels = {
                 "top_n": "Top N Funds (Ranking)",
                 "top_pct": "Top Percentage (Ranking)",
                 "threshold": "Z-Score Threshold",
+                "random": "Random Selection",
             }
             current_inclusion = model_state.get("inclusion_approach", "top_n")
             inclusion_approach = st.selectbox(
@@ -992,11 +993,17 @@ def render_model_page() -> None:
                 help=HELP_TEXT["inclusion_approach"],
             )
 
-        # Indicate whether this is ranking-based or threshold-based
+        # Indicate whether this is ranking-based, threshold-based, or random
         is_ranking_mode = inclusion_approach in ["top_n", "top_pct"]
+        is_random_mode = inclusion_approach == "random"
 
         with approach_c2:
-            if is_ranking_mode:
+            if is_random_mode:
+                st.caption(
+                    "🎲 **Random Mode**: Funds are randomly selected each period. "
+                    "No in-sample ranking metrics used for selection."
+                )
+            elif is_ranking_mode:
                 st.caption(
                     "🏆 **Ranking Mode**: Funds are ranked by score and the top performers "
                     "are selected. Entry/exit uses ranking stability."
@@ -1173,6 +1180,11 @@ def render_model_page() -> None:
         # Section 3: Metric Weights
         st.divider()
         st.subheader("⚖️ Metric Weights")
+        if is_random_mode:
+            st.info(
+                "🎲 **Random Mode**: Metric weights are not used for selection in random mode. "
+                "Funds are selected randomly. Metrics are still calculated for reporting purposes."
+            )
         st.caption(
             "Relative importance of each metric when ranking funds for selection."
         )
@@ -1775,6 +1787,14 @@ def render_model_page() -> None:
                     st.caption(
                         f"Fund must fall out of top-K for {sticky_drop_periods} period(s)."
                     )
+            elif is_random_mode:
+                # Random mode: no ranking stability needed
+                st.info(
+                    "🎲 **Random Mode**: Funds are randomly selected each period. "
+                    "Ranking stability settings do not apply."
+                )
+                sticky_add_periods = 1
+                sticky_drop_periods = 1
             else:
                 # Defaults for threshold mode
                 sticky_add_periods = 1

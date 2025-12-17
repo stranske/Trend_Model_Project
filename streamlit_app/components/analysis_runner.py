@@ -292,8 +292,12 @@ def _build_portfolio_config(
     # Phase 15: Constraints
     long_only = bool(config.get("long_only", True))
 
+    # Determine selection mode based on approach
+    is_random_mode = selection_approach == "random"
+    selection_mode = "random" if is_random_mode else "rank"
+
     portfolio_cfg: dict[str, Any] = {
-        "selection_mode": "rank",
+        "selection_mode": selection_mode,
         "rank": {
             "inclusion_approach": selection_approach,
             "n": selection_count,
@@ -303,6 +307,7 @@ def _build_portfolio_config(
             "blended_weights": registry_weights,
             "transform": rank_transform,
         },
+        "random_n": selection_count,  # Used when selection_mode is "random"
         "weighting_scheme": weighting_scheme,
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
