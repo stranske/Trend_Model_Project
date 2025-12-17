@@ -666,6 +666,176 @@ def render_model_page() -> None:
     st.markdown("---")
 
     model_state = st.session_state.setdefault("model_state", _initial_model_state())
+    saved_model_states = app_state.get_saved_model_states()
+    saved_names = sorted(saved_model_states)
+
+    st.subheader("💾 Saved Configurations")
+    with st.expander("Save, load, and manage model configurations", expanded=False):
+        save_col, manage_col = st.columns(2)
+
+        with save_col:
+            st.markdown("**Save current settings**")
+            with st.form("save_model_state_form"):
+                default_name = st.session_state.get("active_saved_model_name", "")
+                save_name = st.text_input(
+                    "Configuration name",
+                    value=default_name,
+                    help="Provide a name to save the current model settings.",
+                )
+                overwrite_required = save_name.strip() in saved_model_states
+                overwrite_confirmed = st.checkbox(
+                    "Confirm overwrite",
+                    value=False,
+                    disabled=not overwrite_required,
+                    help=(
+                        "Required because a configuration with this name already exists."
+                        if overwrite_required
+                        else "Disabled until a duplicate name is entered."
+                    ),
+                )
+                save_clicked = st.form_submit_button(
+                    "Save Current Settings", type="primary"
+                )
+
+            if save_clicked:
+                trimmed = save_name.strip()
+                if not trimmed:
+                    st.error("Enter a name to save your configuration.")
+                elif overwrite_required and not overwrite_confirmed:
+                    st.warning(
+                        "This name already exists. Check 'Confirm overwrite' to replace it."
+                    )
+                else:
+                    app_state.save_model_state(trimmed, st.session_state["model_state"])
+                    st.session_state["active_saved_model_name"] = trimmed
+                    st.success(f"Saved configuration '{trimmed}'.")
+
+        with manage_col:
+            st.markdown("**Load or manage saved configurations**")
+            if not saved_names:
+                st.info(
+                    "No saved configurations yet. Save one to enable loading and export."
+                )
+            else:
+                selected_index = 0
+                active_saved_name = st.session_state.get("active_saved_model_name")
+                if active_saved_name in saved_names:
+                    selected_index = saved_names.index(active_saved_name)
+                selected_saved = st.selectbox(
+                    "Saved configurations",
+                    saved_names,
+                    index=selected_index,
+                    key="saved_configuration_selector",
+                )
+
+                if st.button(
+                    "Load selected configuration", key="load_saved_config_button"
+                ):
+                    st.session_state["model_state"] = app_state.load_saved_model_state(
+                        selected_saved
+                    )
+                    st.session_state["active_saved_model_name"] = selected_saved
+                    analysis_runner.clear_cached_analysis()
+                    app_state.clear_analysis_results()
+                    st.success(
+                        f"Loaded configuration '{selected_saved}'. The form has been updated."
+                    )
+                    st.rerun()
+
+                with st.form("rename_saved_config_form"):
+                    rename_target = st.text_input(
+                        "Rename selected configuration",
+                        value=selected_saved,
+                        key="rename_saved_config_input",
+                    )
+                    rename_clicked = st.form_submit_button("Rename configuration")
+
+                if rename_clicked:
+                    try:
+                        app_state.rename_saved_model_state(
+                            selected_saved, rename_target
+                        )
+                    except (KeyError, ValueError) as exc:
+                        st.error(str(exc))
+                    else:
+                        st.session_state["active_saved_model_name"] = (
+                            rename_target.strip()
+                        )
+                        st.success(
+                            f"Renamed configuration to '{rename_target.strip()}'."
+                        )
+                        st.rerun()
+
+                if st.button(
+                    "Delete selected configuration",
+                    key="delete_saved_config_button",
+                    type="secondary",
+                ):
+                    app_state.delete_saved_model_state(selected_saved)
+                    if (
+                        st.session_state.get("active_saved_model_name")
+                        == selected_saved
+                    ):
+                        st.session_state.pop("active_saved_model_name", None)
+                    st.success(f"Deleted configuration '{selected_saved}'.")
+                    st.rerun()
+
+        st.markdown("---")
+        export_col, import_col = st.columns(2)
+        with export_col:
+            st.markdown("**Export saved configuration**")
+            if saved_names:
+                export_index = 0
+                if st.session_state.get("active_saved_model_name") in saved_names:
+                    export_index = saved_names.index(
+                        st.session_state["active_saved_model_name"]
+                    )
+                export_target = st.selectbox(
+                    "Choose configuration to export",
+                    saved_names,
+                    index=export_index,
+                    key="export_config_selector",
+                )
+                export_payload = app_state.export_model_state(export_target)
+                st.text_area(
+                    "Exported JSON",
+                    value=export_payload,
+                    height=160,
+                    key="exported_config_payload",
+                    help="Copy this JSON to share or reuse the configuration.",
+                )
+            else:
+                st.info("Save a configuration to enable export.")
+
+        with import_col:
+            st.markdown("**Import configuration from JSON**")
+            import_name = st.text_input(
+                "Name for imported configuration", key="import_config_name"
+            )
+            import_payload = st.text_area(
+                "Paste JSON to import", key="import_config_payload"
+            )
+            if st.button("Import JSON configuration", key="import_config_button"):
+                if not import_payload.strip():
+                    st.error("Paste a JSON payload to import a configuration.")
+                else:
+                    try:
+                        imported_state = app_state.import_model_state(
+                            import_name, import_payload
+                        )
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.session_state["active_saved_model_name"] = (
+                            import_name.strip()
+                        )
+                        st.session_state["model_state"] = imported_state
+                        analysis_runner.clear_cached_analysis()
+                        app_state.clear_analysis_results()
+                        st.success(
+                            f"Imported configuration '{import_name.strip()}'. The form has been updated."
+                        )
+                        st.rerun()
 
     # =============================================
     # SIMULATION PERIOD SETTINGS (outside form for immediate feedback)

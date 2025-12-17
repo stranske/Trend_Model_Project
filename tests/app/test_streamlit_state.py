@@ -31,6 +31,7 @@ def test_initialize_session_state_preserves_existing_values(
     assert session_state["upload_status"] == "pending"
     assert session_state["data_hash"] is None
     assert session_state["data_saved_path"] is None
+    assert session_state["saved_model_states"] == {}
 
 
 def test_clear_upload_data_removes_payload_but_resets_status(
@@ -193,3 +194,58 @@ def test_clear_analysis_results_removes_cached_outputs(session_state: dict) -> N
     for key in ["analysis_result", "analysis_result_key", "analysis_error"]:
         assert key not in session_state
     assert session_state["other"] == "stay"
+
+
+def test_save_and_load_model_state_round_trip(session_state: dict) -> None:
+    state.initialize_session_state()
+    payload = {
+        "lookback_periods": 3,
+        "metric_weights": {"sharpe": 1.0},
+        "flag": True,
+    }
+
+    state.save_model_state("alpha", payload)
+    payload["lookback_periods"] = 99
+
+    loaded = state.load_saved_model_state("alpha")
+    assert loaded["lookback_periods"] == 3
+    loaded["metric_weights"]["sharpe"] = 9.0
+
+    reloaded = state.load_saved_model_state("alpha")
+    assert reloaded["metric_weights"]["sharpe"] == 1.0
+
+    state.save_model_state("beta", {"lookback_periods": 5})
+    assert set(state.get_saved_model_states()) == {"alpha", "beta"}
+
+
+def test_rename_and_delete_saved_model_state(session_state: dict) -> None:
+    state.initialize_session_state()
+    state.save_model_state("alpha", {"lookback_periods": 3})
+    state.save_model_state("beta", {"lookback_periods": 6})
+
+    state.rename_saved_model_state("beta", "gamma")
+    assert "beta" not in state.get_saved_model_states()
+    assert state.load_saved_model_state("gamma") == {"lookback_periods": 6}
+
+    state.delete_saved_model_state("alpha")
+    assert "alpha" not in state.get_saved_model_states()
+    assert "gamma" in state.get_saved_model_states()
+
+
+def test_export_import_round_trip_preserves_types(session_state: dict) -> None:
+    state.initialize_session_state()
+    original = {
+        "lookback_periods": 3,
+        "selection_count": 10,
+        "metric_weights": {"sharpe": 1.0, "drawdown": 0.5},
+        "risk_target": 0.15,
+        "long_only": True,
+    }
+
+    state.save_model_state("source", original)
+    exported = state.export_model_state("source")
+
+    imported = state.import_model_state("copy", exported)
+    assert imported == state.load_saved_model_state("source")
+    assert isinstance(imported["selection_count"], int)
+    assert isinstance(imported["long_only"], bool)
