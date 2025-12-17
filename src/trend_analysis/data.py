@@ -13,12 +13,12 @@ from trend.input_validation import (
     validate_input,
 )
 
+from .constants import NUMERICAL_TOLERANCE_HIGH
 from .io.market_data import (
     MarketDataValidationError,
     ValidatedMarketData,
     validate_market_data,
 )
-from .constants import NUMERICAL_TOLERANCE_HIGH
 
 MissingLimitArg = int | str | Mapping[str, int | str | None] | None
 

@@ -38,12 +38,12 @@ from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..schedules import get_rebalance_dates
 from ..timefreq import MONTHLY_DATE_FREQ
-from ..util.frequency import detect_frequency
 from ..universe import (
     MembershipTable,
     MembershipWindow,
     apply_membership_windows,
 )
+from ..util.frequency import detect_frequency
 from ..util.missing import apply_missing_policy
 from ..util.risk_free import resolve_risk_free_settings
 from ..weighting import (

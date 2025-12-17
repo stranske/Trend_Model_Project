@@ -8,14 +8,14 @@ import pandas as pd
 import pytest
 
 from trend_analysis.pipeline import (
+    _build_sample_windows,
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
     _frequency_label,
     _policy_from_config,
-    _prepare_preprocess_stage,
     _prepare_input_data,
-    _build_sample_windows,
+    _prepare_preprocess_stage,
     _resolve_sample_split,
     _section_get,
     _unwrap_cfg,
