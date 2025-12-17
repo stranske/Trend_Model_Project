@@ -415,7 +415,7 @@ jobs:
               fi
             done <<<"${ALLOWED_FILE_GLOBS}"
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
-              allowed_patterns=("src/**" "tests/**" "tools/**" ".github/scripts/**")
+              allowed_patterns=("src/**" "tests/**" "streamlit_app/**" "tools/**" ".github/scripts/**")
             fi
             shopt -s nullglob globstar extglob
             disallowed=()

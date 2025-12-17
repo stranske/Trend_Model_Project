@@ -1,0 +1,22 @@
+{
+  "name": "trend_model_project",
+  "version": "1.0.0",
+  "description": "A Python-based financial analysis application for volatility-adjusted trend portfolio construction and backtesting. The project provides a command-line interface, interactive Streamlit web application, and Jupyter notebook support for analyzing fund manager performance and constructing optimized portfolios.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "man": "man",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:e2e:fund-selector": "node tools/playwright/fund_selector.smoke.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.44.1"
+  }
+}
