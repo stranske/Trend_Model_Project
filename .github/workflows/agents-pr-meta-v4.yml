@@ -83,6 +83,7 @@ jobs:
         id: pre_gate
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const result = await evaluateKeepaliveGate({
@@ -109,6 +110,7 @@ jobs:
           GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
           GATE_REASON: ${{ steps.pre_gate.outputs.reason || '' }}
         with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             await detectKeepalive({ core, github, context, env: process.env });
@@ -161,6 +163,7 @@ jobs:
         id: resolve
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const prs = context.payload?.workflow_run?.pull_requests || [];
             const first = prs[0];
@@ -180,6 +183,7 @@ jobs:
         id: gate
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
             const run = context.payload?.workflow_run || {};
@@ -219,6 +223,7 @@ jobs:
           GATE_OK: ${{ steps.gate.outputs.ok }}
           ALLOW_REPLAY: 'true'
         with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
             const comment = JSON.parse(process.env.ACTIVATION_COMMENT || '{}');

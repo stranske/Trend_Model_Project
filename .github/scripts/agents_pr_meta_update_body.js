@@ -193,15 +193,19 @@ function upsertBlock(body, marker, replacement) {
  * @param {Object} options - Configuration options
  * @param {number} [options.attempts=3] - Number of attempts
  * @param {number} [options.delayMs=1000] - Base delay between attempts in ms
+ * @param {number} [options.maxDelayMs=120000] - Maximum delay between retries (default 2 minutes)
  * @param {string} [options.description] - Label for logging
  * @param {Object} [options.core] - GitHub Actions core object for logging
+ * @param {boolean} [options.softFail=false] - If true, return null on rate limit instead of throwing
  * @returns {Promise<any>} Result of the function call
  */
 async function withRetries(fn, options = {}) {
   const attempts = Number(options.attempts) || 3;
   const baseDelay = Number(options.delayMs) || 1000;
+  const maxDelay = Number(options.maxDelayMs) || 120000;
   const label = options.description || 'operation';
   const core = options.core;
+  const softFail = Boolean(options.softFail);
   let lastError;
   
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -220,6 +224,11 @@ async function withRetries(fn, options = {}) {
       const retryable = !status || status >= 500 || status === 429 || isRateLimit;
       
       if (!retryable || attempt === attempts) {
+        // On final attempt with rate limit, consider soft fail
+        if (isRateLimit && softFail) {
+          if (core) core.warning(`Rate limit exceeded for ${label}; soft-failing operation (non-critical).`);
+          return null;
+        }
         if (core) core.error(`Failed ${label}: ${message}`);
         throw error;
       }
@@ -228,7 +237,7 @@ async function withRetries(fn, options = {}) {
       if (isRateLimit && Number.isFinite(reset)) {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-        delay = Math.min(waitMs, 60000);
+        delay = Math.min(waitMs, maxDelay);
         if (core) core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${attempts}).`);
       } else {
         if (core) core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
@@ -543,8 +552,12 @@ async function run({github, context, core, inputs}) {
 
   const prResponse = await withRetries(
     () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
-    {description: `pulls.get #${prInfo.number}`, core},
+    {description: `pulls.get #${prInfo.number}`, core, attempts: 5, maxDelayMs: 120000},
   );
+  if (!prResponse) {
+    core.warning(`Unable to fetch PR #${prInfo.number} due to API limits; skipping update.`);
+    return;
+  }
   const pr = prResponse.data;
   
   if (pr.state === 'closed') {
@@ -587,8 +600,12 @@ async function run({github, context, core, inputs}) {
   core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
   const issueResponse = await withRetries(
     () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-    {description: `issues.get #${issueNumber}`, core},
+    {description: `issues.get #${issueNumber}`, core, attempts: 4, softFail: true},
   );
+  if (!issueResponse) {
+    core.warning(`Unable to fetch issue #${issueNumber} due to API limits; skipping body update.`);
+    return;
+  }
   const issueBody = issueResponse.data.body || '';
 
   if (!issueBody) {
@@ -643,9 +660,11 @@ async function run({github, context, core, inputs}) {
       head_sha: pr.head.sha,
       per_page: 100,
     }),
-    {description: 'list workflow runs', core},
+    {description: 'list workflow runs', core, softFail: true},
   );
-  const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
+  const workflowRuns = workflowRunResponse
+    ? selectLatestWorkflows(workflowRunResponse.data.workflow_runs || [])
+    : [];
 
   const requiredChecksRaw = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
   // Avoid mutating the returned array - create a new one with 'gate' appended if needed
