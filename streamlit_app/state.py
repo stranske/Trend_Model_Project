@@ -152,7 +152,11 @@ def get_saved_model_states() -> dict[str, dict[str, Any]]:
 
 
 def save_model_state(name: str, model_state: Mapping[str, Any]) -> None:
-    """Persist a model configuration under the provided name."""
+    """Persist a model configuration under the provided name.
+
+    Raises:
+        ValueError: If the provided name is empty or whitespace-only.
+    """
 
     if not name or not name.strip():
         raise ValueError("A non-empty name is required to save a model configuration.")
@@ -162,7 +166,11 @@ def save_model_state(name: str, model_state: Mapping[str, Any]) -> None:
 
 
 def load_saved_model_state(name: str) -> dict[str, Any]:
-    """Load a saved model configuration by name."""
+    """Load a saved model configuration by name.
+
+    Raises:
+        KeyError: If the requested configuration name does not exist.
+    """
 
     saved = get_saved_model_states()
     if name not in saved:
@@ -171,17 +179,24 @@ def load_saved_model_state(name: str) -> dict[str, Any]:
 
 
 def rename_saved_model_state(current_name: str, new_name: str) -> None:
-    """Rename a saved model configuration while preserving its payload."""
+    """Rename a saved model configuration while preserving its payload.
+
+    Raises:
+        KeyError: If ``current_name`` does not exist.
+        ValueError: If ``new_name`` is empty/whitespace-only or already exists.
+    """
 
     saved = get_saved_model_states()
     if current_name not in saved:
         raise KeyError(f"No saved model configuration named '{current_name}'.")
-    if not new_name or not new_name.strip():
-        raise ValueError("Provide a new name to rename the configuration.")
-    if new_name in saved and new_name != current_name:
-        raise ValueError(f"A configuration named '{new_name}' already exists.")
 
-    saved[new_name.strip()] = saved.pop(current_name)
+    stripped_new_name = new_name.strip() if new_name else ""
+    if not stripped_new_name:
+        raise ValueError("Provide a new name to rename the configuration.")
+    if stripped_new_name in saved and stripped_new_name != current_name:
+        raise ValueError(f"A configuration named '{stripped_new_name}' already exists.")
+
+    saved[stripped_new_name] = saved.pop(current_name)
 
 
 def delete_saved_model_state(name: str) -> None:
@@ -191,14 +206,23 @@ def delete_saved_model_state(name: str) -> None:
 
 
 def export_model_state(name: str) -> str:
-    """Serialize the saved configuration to JSON."""
+    """Serialize the saved configuration to JSON.
+
+    Raises:
+        KeyError: If the configuration name does not exist.
+    """
 
     payload = load_saved_model_state(name)
     return json.dumps(payload, sort_keys=True)
 
 
 def import_model_state(name: str, payload: str) -> dict[str, Any]:
-    """Load a configuration from JSON and store it under the provided name."""
+    """Load a configuration from JSON and store it under the provided name.
+
+    Raises:
+        ValueError: If the name is empty/whitespace-only, the payload is invalid JSON,
+            or the parsed payload is not a JSON object.
+    """
 
     if not name or not name.strip():
         raise ValueError("Provide a name for the imported configuration.")

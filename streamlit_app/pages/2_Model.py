@@ -709,6 +709,7 @@ def render_model_page() -> None:
                     app_state.save_model_state(trimmed, st.session_state["model_state"])
                     st.session_state["active_saved_model_name"] = trimmed
                     st.success(f"Saved configuration '{trimmed}'.")
+                    st.rerun()
 
         with manage_col:
             st.markdown("**Load or manage saved configurations**")

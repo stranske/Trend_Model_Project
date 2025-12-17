@@ -249,3 +249,46 @@ def test_export_import_round_trip_preserves_types(session_state: dict) -> None:
     assert imported == state.load_saved_model_state("source")
     assert isinstance(imported["selection_count"], int)
     assert isinstance(imported["long_only"], bool)
+
+
+def test_save_model_state_rejects_empty_name(session_state: dict) -> None:
+    state.initialize_session_state()
+
+    with pytest.raises(ValueError):
+        state.save_model_state("   ", {"lookback_periods": 1})
+
+
+def test_loading_nonexistent_model_state_raises_key_error(session_state: dict) -> None:
+    state.initialize_session_state()
+
+    with pytest.raises(KeyError):
+        state.load_saved_model_state("missing")
+
+
+def test_renaming_validates_existence_and_duplicate_names(session_state: dict) -> None:
+    state.initialize_session_state()
+    state.save_model_state("alpha", {"lookback_periods": 1})
+
+    with pytest.raises(KeyError):
+        state.rename_saved_model_state("beta", "gamma")
+
+    state.save_model_state("beta", {"lookback_periods": 2})
+    with pytest.raises(ValueError):
+        state.rename_saved_model_state("alpha", " beta ")
+
+
+def test_export_model_state_requires_existing_entry(session_state: dict) -> None:
+    state.initialize_session_state()
+
+    with pytest.raises(KeyError):
+        state.export_model_state("missing")
+
+
+def test_import_model_state_validates_payload(session_state: dict) -> None:
+    state.initialize_session_state()
+
+    with pytest.raises(ValueError):
+        state.import_model_state("name", "{not json")
+
+    with pytest.raises(ValueError):
+        state.import_model_state("name", "[]")
