@@ -2578,8 +2578,11 @@ def compute_signal(
         freq_str = getattr(df.index, "freqstr", None)
         if isinstance(freq_str, str) and freq_str:
             freq = freq_str
-    except Exception:
-        pass
+    except Exception as exc:  # pragma: no cover - best-effort guard
+        logger.debug(
+            "Failed to read index.freqstr when computing signal cache key: %s",
+            exc,
+        )
 
     dataset_hash = compute_dataset_hash([base])
     method = f"compute_signal:{column}:min{effective_min_periods}"
