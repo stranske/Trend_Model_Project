@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner, charts
+from streamlit_app.components import analysis_runner, charts, comparison
 
 # =============================================================================
 # Formatting Helpers
@@ -180,6 +180,123 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
     return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+
+
+def _data_hash_for_analysis(df: pd.DataFrame) -> str:
+    base_hash = st.session_state.get("data_fingerprint")
+    cols_hash = hashlib.sha256(
+        json.dumps(list(df.columns), default=str).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"{base_hash}:{cols_hash}" if base_hash else cols_hash
+
+
+def _comparison_cache() -> dict[str, Any]:
+    cache = st.session_state.get("comparison_results_cache")
+    if not isinstance(cache, dict):
+        cache = {}
+        st.session_state["comparison_results_cache"] = cache
+    return cache
+
+
+def _run_comparison_analysis(
+    *,
+    config_name: str,
+    model_state: dict[str, Any],
+    df_for_analysis: pd.DataFrame,
+    benchmark: str | None,
+    data_hash: str,
+    funds: list[str],
+    selected_rf: str | None,
+) -> tuple[Any, str]:
+    """Run (or fetch cached) analysis for comparison."""
+
+    effective_model_state = dict(model_state)
+    effective_model_state["risk_free_column"] = selected_rf
+
+    run_key = comparison.comparison_run_key(
+        effective_model_state,
+        benchmark=benchmark,
+        funds=funds,
+        data_fingerprint=st.session_state.get("data_fingerprint"),
+        info_ratio_benchmark=effective_model_state.get("info_ratio_benchmark"),
+        risk_free=selected_rf,
+    )
+
+    cache = _comparison_cache()
+    cached = cache.get(run_key)
+    if cached is None:
+        result = analysis_runner.run_analysis(
+            df_for_analysis, effective_model_state, benchmark, data_hash=data_hash
+        )
+        cache[run_key] = {"result": result, "config_name": config_name}
+    else:
+        result = cached["result"]
+
+    return result, run_key
+
+
+def _render_comparison_results(
+    config_a_name: str,
+    config_b_name: str,
+    result_a: Any,
+    result_b: Any,
+    model_state_a: dict[str, Any],
+    model_state_b: dict[str, Any],
+) -> None:
+    """Render side-by-side comparison outputs."""
+
+    st.caption(
+        "Runs are cached by dataset fingerprint, selected funds, benchmark, and configuration."
+    )
+
+    metrics = comparison.metric_delta_frame(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Top-level metrics")
+    if metrics.empty:
+        st.caption("No comparable metrics available.")
+    else:
+        st.dataframe(metrics, use_container_width=True, hide_index=True)
+
+    period_delta = comparison.period_delta(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Multi-period summary")
+    if period_delta.empty:
+        st.caption("No period-level results available to compare.")
+    else:
+        st.dataframe(period_delta, use_container_width=True, hide_index=True)
+
+    mgr_delta = comparison.manager_change_delta(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Manager change counts by reason")
+    if mgr_delta.empty:
+        st.caption("No manager changes recorded in either run.")
+    else:
+        st.dataframe(mgr_delta, use_container_width=True, hide_index=True)
+
+    diffs = app_state.diff_model_states(model_state_a, model_state_b)
+    diff_text = app_state.format_model_state_diff(
+        diffs, label_a=config_a_name, label_b=config_b_name
+    )
+    bundle = comparison.build_comparison_bundle(
+        config_a=model_state_a,
+        config_b=model_state_b,
+        diff_text=diff_text,
+        metrics=metrics,
+        periods=period_delta,
+        manager_changes=mgr_delta,
+    )
+    st.download_button(
+        "⬇️ Export comparison bundle",
+        data=bundle,
+        file_name="comparison_bundle.zip",
+        mime="application/zip",
+    )
+    st.caption(
+        "Bundle includes configs A/B, config diff text, and comparison CSVs for metrics, periods, and manager changes."
+    )
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
@@ -1892,19 +2009,14 @@ def render_results_page() -> None:
     cached_key = st.session_state.get("analysis_result_key")
     result = st.session_state.get("analysis_result") if cached_key == run_key else None
 
+    data_hash = _data_hash_for_analysis(df_for_analysis)
+
     st.markdown("Run the analysis to generate performance and risk diagnostics.")
     run_clicked = st.button("Run analysis", type="primary")
 
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):
             try:
-                base_hash = st.session_state.get("data_fingerprint")
-                cols_hash = hashlib.sha256(
-                    json.dumps(list(df_for_analysis.columns), default=str).encode(
-                        "utf-8"
-                    )
-                ).hexdigest()[:12]
-                data_hash = f"{base_hash}:{cols_hash}" if base_hash else cols_hash
                 # Pass risk-free column explicitly into the config used by the
                 # backend (without mutating the session model_state).
                 effective_model_state = dict(model_state)
@@ -1990,6 +2102,7 @@ def render_results_page() -> None:
             "📈 Visualizations",
             "📋 Fund Details",
             "💾 Export",
+            "🆚 Compare",
         ]
     )
 
@@ -2179,6 +2292,88 @@ def render_results_page() -> None:
                     "Contains in-sample metrics for all candidates in all periods, "
                     "with selection status and weights."
                 )
+
+    # ==========================================================================
+    # TAB 6: A/B COMPARISON - Compare saved configurations
+    # ==========================================================================
+    with main_tabs[5]:
+        st.header("A/B Comparison (Saved Configurations)")
+        saved_states = app_state.get_saved_model_states()
+        saved_names = sorted(saved_states)
+
+        if len(saved_names) < 2:
+            st.info(
+                "Save at least two configurations on the Model page to enable A/B comparison."
+            )
+        else:
+            col_a, col_b = st.columns(2)
+            with col_a:
+                config_a_name = st.selectbox(
+                    "Configuration A", saved_names, index=0, key="compare_config_a_tab"
+                )
+            with col_b:
+                default_b = 1 if len(saved_names) > 1 else 0
+                config_b_name = st.selectbox(
+                    "Configuration B",
+                    saved_names,
+                    index=default_b,
+                    key="compare_config_b_tab",
+                )
+
+            if config_a_name == config_b_name:
+                st.warning("Select two different configurations to compare.")
+            else:
+                run_compare = st.button("Run A/B comparison", type="primary")
+                cache = _comparison_cache()
+                latest = st.session_state.get("compare_latest") or {}
+                should_render = run_compare
+                if (
+                    not run_compare
+                    and latest.get("configs") == (config_a_name, config_b_name)
+                    and latest.get("a_key") in cache
+                    and latest.get("b_key") in cache
+                ):
+                    should_render = True
+
+                if should_render:
+                    try:
+                        result_a, key_a = _run_comparison_analysis(
+                            config_name=config_a_name,
+                            model_state=saved_states[config_a_name],
+                            df_for_analysis=df_for_analysis,
+                            benchmark=benchmark,
+                            data_hash=data_hash,
+                            funds=sanitized_funds,
+                            selected_rf=selected_rf,
+                        )
+                        result_b, key_b = _run_comparison_analysis(
+                            config_name=config_b_name,
+                            model_state=saved_states[config_b_name],
+                            df_for_analysis=df_for_analysis,
+                            benchmark=benchmark,
+                            data_hash=data_hash,
+                            funds=sanitized_funds,
+                            selected_rf=selected_rf,
+                        )
+                        st.session_state["compare_latest"] = {
+                            "configs": (config_a_name, config_b_name),
+                            "a_key": key_a,
+                            "b_key": key_b,
+                        }
+                    except Exception as exc:
+                        st.error(
+                            "Comparison run failed. Please verify your configurations and try again."
+                        )
+                        st.caption(str(exc))
+                    else:
+                        _render_comparison_results(
+                            config_a_name,
+                            config_b_name,
+                            result_a,
+                            result_b,
+                            saved_states[config_a_name],
+                            saved_states[config_b_name],
+                        )
 
 
 if _should_auto_render():
