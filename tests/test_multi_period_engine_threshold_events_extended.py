@@ -149,7 +149,9 @@ class StaticRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
+    ) -> pd.Series:
         self.calls += 1
         mapping = prev_weights.to_dict()
         if self.calls == 1:
@@ -169,7 +171,9 @@ class NoOpRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         pass
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
+    ) -> pd.Series:
         return prev_weights.astype(float)
 
 

@@ -236,3 +236,52 @@ def import_model_state(name: str, payload: str) -> dict[str, Any]:
 
     save_model_state(name.strip(), parsed)
     return load_saved_model_state(name.strip())
+
+
+def diff_model_states(
+    state_a: Mapping[str, Any], state_b: Mapping[str, Any]
+) -> list[tuple[str, Any, Any]]:
+    """Compare two model state dictionaries and return differences.
+
+    Returns a list of (key, value_a, value_b) tuples for keys that differ.
+    Keys present in only one state are included with None for the missing value.
+    """
+    all_keys = set(state_a.keys()) | set(state_b.keys())
+    diffs: list[tuple[str, Any, Any]] = []
+
+    for key in sorted(all_keys):
+        val_a = state_a.get(key)
+        val_b = state_b.get(key)
+        # Compare values - handle nested dicts specially
+        if val_a != val_b:
+            diffs.append((key, val_a, val_b))
+
+    return diffs
+
+
+def format_model_state_diff(
+    diffs: list[tuple[str, Any, Any]],
+    label_a: str = "Config A",
+    label_b: str = "Config B",
+) -> str:
+    """Format a list of differences into a human-readable string.
+
+    Args:
+        diffs: List of (key, value_a, value_b) tuples from diff_model_states.
+        label_a: Label for the first configuration.
+        label_b: Label for the second configuration.
+
+    Returns:
+        A formatted string showing the differences.
+    """
+    if not diffs:
+        return "No differences found between configurations."
+
+    lines = [f"Differences between {label_a} and {label_b}:", ""]
+    for key, val_a, val_b in diffs:
+        lines.append(f"  {key}:")
+        lines.append(f"    {label_a}: {val_a}")
+        lines.append(f"    {label_b}: {val_b}")
+        lines.append("")
+
+    return "\n".join(lines)

@@ -12,7 +12,8 @@ import pandas as pd
 import streamlit as st
 
 from streamlit_app import state as app_state
-from streamlit_app.components import analysis_runner, charts
+from streamlit_app.components import analysis_runner, charts, comparison
+from streamlit_app.components import comparison_export
 
 # =============================================================================
 # Formatting Helpers
@@ -31,6 +32,86 @@ def _fmt_ratio(x: float) -> str:
     if pd.isna(x) or not np.isfinite(x):
         return "—"
     return f"{x:.2f}"
+
+
+def _format_metric_value(metric_name: str, value: Any) -> str:
+    """Format a metric value based on its name/type for consistent display."""
+    if value is None or (isinstance(value, float) and not np.isfinite(value)):
+        return "—"
+
+    metric_lower = metric_name.lower()
+
+    # Percentage metrics
+    if any(x in metric_lower for x in ["return", "cagr", "vol", "drawdown", "dd"]):
+        try:
+            return _fmt_pct(float(value), 2)
+        except (ValueError, TypeError):
+            return str(value)
+
+    # Ratio metrics
+    if any(x in metric_lower for x in ["sharpe", "sortino", "ratio", "ir"]):
+        try:
+            return _fmt_ratio(float(value))
+        except (ValueError, TypeError):
+            return str(value)
+
+    # Default numeric formatting
+    try:
+        num_val = float(value)
+        if abs(num_val) < 0.01 and num_val != 0:
+            return f"{num_val:.4f}"
+        return f"{num_val:.2f}"
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _format_comparison_summary_df(
+    df: pd.DataFrame,
+    label_a: str,
+    label_b: str,
+) -> pd.DataFrame:
+    """Format comparison summary DataFrame for display with consistent formatting."""
+    if df.empty:
+        return df
+
+    formatted = df.copy()
+
+    for i, row in formatted.iterrows():
+        metric_name = str(row.get("Metric", ""))
+        row_idx = i  # Use the index directly
+
+        # Format the A and B columns
+        if label_a in formatted.columns:
+            formatted.loc[row_idx, label_a] = _format_metric_value(
+                metric_name, row.get(label_a)
+            )
+        if label_b in formatted.columns:
+            formatted.loc[row_idx, label_b] = _format_metric_value(
+                metric_name, row.get(label_b)
+            )
+
+        # Format Delta column
+        if "Delta (B-A)" in formatted.columns:
+            delta_val = row.get("Delta (B-A)")
+            if delta_val is not None:
+                formatted.loc[row_idx, "Delta (B-A)"] = _format_metric_value(
+                    metric_name, delta_val
+                )
+            else:
+                formatted.loc[row_idx, "Delta (B-A)"] = "—"
+
+        # Format % Change column
+        if "% Change" in formatted.columns:
+            pct_val = row.get("% Change")
+            if pct_val is not None:
+                try:
+                    formatted.loc[row_idx, "% Change"] = _fmt_pct(float(pct_val), 1)
+                except (ValueError, TypeError):
+                    formatted.loc[row_idx, "% Change"] = "—"
+            else:
+                formatted.loc[row_idx, "% Change"] = "—"
+
+    return formatted
 
 
 # =============================================================================
@@ -180,6 +261,229 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
     return f"{fingerprint}:{bench}:{funds_hash}:{model_blob}"
+
+
+def _data_hash_for_analysis(df: pd.DataFrame) -> str:
+    base_hash = st.session_state.get("data_fingerprint")
+    cols_hash = hashlib.sha256(
+        json.dumps(list(df.columns), default=str).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"{base_hash}:{cols_hash}" if base_hash else cols_hash
+
+
+def _comparison_cache() -> dict[str, Any]:
+    cache = st.session_state.get("comparison_results_cache")
+    if not isinstance(cache, dict):
+        cache = {}
+        st.session_state["comparison_results_cache"] = cache
+    return cache
+
+
+def _run_comparison_analysis(
+    *,
+    config_name: str,
+    model_state: dict[str, Any],
+    df_for_analysis: pd.DataFrame,
+    benchmark: str | None,
+    data_hash: str,
+    funds: list[str],
+    selected_rf: str | None,
+) -> tuple[Any, str]:
+    """Run (or fetch cached) analysis for comparison."""
+
+    effective_model_state = dict(model_state)
+    effective_model_state["risk_free_column"] = selected_rf
+
+    run_key = comparison.comparison_run_key(
+        effective_model_state,
+        benchmark=benchmark,
+        funds=funds,
+        data_fingerprint=st.session_state.get("data_fingerprint"),
+        info_ratio_benchmark=effective_model_state.get("info_ratio_benchmark"),
+        risk_free=selected_rf,
+    )
+
+    cache = _comparison_cache()
+    cached = cache.get(run_key)
+    if cached is None:
+        result = analysis_runner.run_analysis(
+            df_for_analysis, effective_model_state, benchmark, data_hash=data_hash
+        )
+        cache[run_key] = {"result": result, "config_name": config_name}
+    else:
+        result = cached["result"]
+
+    return result, run_key
+
+
+def _render_comparison_results(
+    config_a_name: str,
+    config_b_name: str,
+    result_a: Any,
+    result_b: Any,
+    model_state_a: dict[str, Any],
+    model_state_b: dict[str, Any],
+) -> None:
+    """Render side-by-side comparison outputs."""
+
+    st.caption(
+        "Runs are cached by dataset fingerprint, selected funds, benchmark, and configuration."
+    )
+
+    # =========================================================================
+    # Configuration Downloads (for debugging)
+    # =========================================================================
+    st.subheader("📥 Configuration Downloads")
+    st.caption("Download individual configurations as JSON for debugging or sharing.")
+
+    config_cols = st.columns(3)
+    with config_cols[0]:
+        config_a_json = json.dumps(model_state_a, indent=2, sort_keys=True, default=str)
+        st.download_button(
+            f"⬇️ {config_a_name} (JSON)",
+            data=config_a_json.encode("utf-8"),
+            file_name=f"config_a_{config_a_name.replace(' ', '_')}.json",
+            mime="application/json",
+            key="compare_download_config_a",
+        )
+
+    with config_cols[1]:
+        config_b_json = json.dumps(model_state_b, indent=2, sort_keys=True, default=str)
+        st.download_button(
+            f"⬇️ {config_b_name} (JSON)",
+            data=config_b_json.encode("utf-8"),
+            file_name=f"config_b_{config_b_name.replace(' ', '_')}.json",
+            mime="application/json",
+            key="compare_download_config_b",
+        )
+
+    with config_cols[2]:
+        # Combined configs in one file for easy sharing
+        combined_configs = {
+            "config_a_name": config_a_name,
+            "config_b_name": config_b_name,
+            "config_a": model_state_a,
+            "config_b": model_state_b,
+        }
+        combined_json = json.dumps(
+            combined_configs, indent=2, sort_keys=True, default=str
+        )
+        st.download_button(
+            "⬇️ Both Configs (JSON)",
+            data=combined_json.encode("utf-8"),
+            file_name="comparison_configs_combined.json",
+            mime="application/json",
+            key="compare_download_both_configs",
+        )
+
+    st.divider()
+
+    # =========================================================================
+    # Top-level Metrics Comparison
+    # =========================================================================
+    metrics = comparison.metric_delta_frame(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Top-level metrics")
+    if metrics.empty:
+        st.caption("No comparable metrics available.")
+    else:
+        st.dataframe(metrics, use_container_width=True, hide_index=True)
+        st.download_button(
+            "⬇️ Download metrics (CSV)",
+            data=metrics.to_csv(index=False).encode("utf-8"),
+            file_name="comparison_metrics.csv",
+            mime="text/csv",
+            key="compare_download_metrics",
+        )
+
+    # =========================================================================
+    # Multi-period Summary Comparison
+    # =========================================================================
+    period_delta = comparison.period_delta(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Multi-period summary")
+    if period_delta.empty:
+        st.caption("No period-level results available to compare.")
+    else:
+        st.dataframe(period_delta, use_container_width=True, hide_index=True)
+        st.download_button(
+            "⬇️ Download period summary (CSV)",
+            data=period_delta.to_csv(index=False).encode("utf-8"),
+            file_name="comparison_periods.csv",
+            mime="text/csv",
+            key="compare_download_periods",
+        )
+
+    # =========================================================================
+    # Manager Changes Comparison
+    # =========================================================================
+    mgr_delta = comparison.manager_change_delta(
+        result_a, result_b, label_a=config_a_name, label_b=config_b_name
+    )
+    st.subheader("Manager change counts by reason")
+    if mgr_delta.empty:
+        st.caption("No manager changes recorded in either run.")
+    else:
+        st.dataframe(mgr_delta, use_container_width=True, hide_index=True)
+        st.download_button(
+            "⬇️ Download manager changes (CSV)",
+            data=mgr_delta.to_csv(index=False).encode("utf-8"),
+            file_name="comparison_manager_changes.csv",
+            mime="text/csv",
+            key="compare_download_manager_changes",
+        )
+
+    # =========================================================================
+    # Configuration Diff Display
+    # =========================================================================
+    st.subheader("Configuration Differences")
+    diffs = app_state.diff_model_states(model_state_a, model_state_b)
+    diff_text = app_state.format_model_state_diff(
+        diffs, label_a=config_a_name, label_b=config_b_name
+    )
+
+    if diffs:
+        # Show diff as a table
+        diff_df = pd.DataFrame(
+            [(k, str(va), str(vb)) for k, va, vb in diffs],
+            columns=["Parameter", config_a_name, config_b_name],
+        )
+        st.dataframe(diff_df, use_container_width=True, hide_index=True)
+        st.download_button(
+            "⬇️ Download config diff (CSV)",
+            data=diff_df.to_csv(index=False).encode("utf-8"),
+            file_name="comparison_config_diff.csv",
+            mime="text/csv",
+            key="compare_download_config_diff",
+        )
+    else:
+        st.info("No differences found between configurations.")
+
+    # =========================================================================
+    # Full Comparison Bundle (ZIP)
+    # =========================================================================
+    st.divider()
+    st.subheader("📦 Full Comparison Bundle")
+    bundle = comparison.build_comparison_bundle(
+        config_a=model_state_a,
+        config_b=model_state_b,
+        diff_text=diff_text,
+        metrics=metrics,
+        periods=period_delta,
+        manager_changes=mgr_delta,
+    )
+    st.download_button(
+        "⬇️ Export full comparison bundle (ZIP)",
+        data=bundle,
+        file_name="comparison_bundle.zip",
+        mime="application/zip",
+        key="compare_download_bundle",
+    )
+    st.caption(
+        "Bundle includes configs A/B (JSON), config diff text, and comparison CSVs for metrics, periods, and manager changes."
+    )
 
 
 def _prepare_equity_series(returns: pd.Series) -> pd.Series:
@@ -1101,8 +1405,13 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                 st.caption("No equal-weight portfolio stats available.")
 
 
-def _render_period_breakdown(result) -> None:
-    """Render period-by-period breakdown with full reproducibility data."""
+def _render_period_breakdown(result, key_prefix: str = "period") -> None:
+    """Render period-by-period breakdown with full reproducibility data.
+
+    Args:
+        result: The analysis result object.
+        key_prefix: Prefix for widget keys to avoid duplicates in compare mode.
+    """
     details = getattr(result, "details", {}) or {}
     period_results = details.get("period_results", [])
 
@@ -1143,6 +1452,7 @@ def _render_period_breakdown(result) -> None:
         "Select period to examine:",
         options=range(len(period_options)),
         format_func=lambda x: period_options[x],
+        key=f"{key_prefix}_period_selector",
     )
 
     if selected_period is not None:
@@ -1305,8 +1615,13 @@ def _format_holdings_for_csv(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _render_download_section(result) -> None:
-    """Render download buttons for portfolio data."""
+def _render_download_section(result, key_prefix: str = "dl") -> None:
+    """Render download buttons for portfolio data.
+
+    Args:
+        result: The analysis result object.
+        key_prefix: Prefix for widget keys to avoid duplicates.
+    """
     weights_df = _build_period_weights_df(result)
     returns_df = _build_period_returns_df(result)
     changes_df = _extract_manager_changes(result)
@@ -1323,6 +1638,7 @@ def _render_download_section(result) -> None:
                 csv,
                 "portfolio_weights.csv",
                 "text/csv",
+                key=f"{key_prefix}_weights",
             )
         else:
             st.caption("No weights")
@@ -1336,6 +1652,7 @@ def _render_download_section(result) -> None:
                 csv,
                 "portfolio_returns.csv",
                 "text/csv",
+                key=f"{key_prefix}_returns",
             )
         else:
             st.caption("No returns")
@@ -1348,6 +1665,7 @@ def _render_download_section(result) -> None:
                 csv,
                 "manager_changes.csv",
                 "text/csv",
+                key=f"{key_prefix}_changes",
             )
         else:
             st.caption("No changes")
@@ -1366,6 +1684,7 @@ def _render_download_section(result) -> None:
                 csv,
                 "fund_holdings.csv",
                 "text/csv",
+                key=f"{key_prefix}_holdings",
             )
         else:
             st.caption("No holdings")
@@ -1406,6 +1725,7 @@ def _render_download_section(result) -> None:
             data=xlsx_bytes,
             file_name="trend_phase1_workbook.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"{key_prefix}_phase1_xlsx",
         )
     else:
         st.caption("Run a multi-period analysis to enable workbook export.")
@@ -1595,6 +1915,7 @@ def _render_download_section(result) -> None:
             data=csv_zip_bytes,
             file_name="trend_phase1_csv_bundle.zip",
             mime="application/zip",
+            key=f"{key_prefix}_phase1_csv",
         )
     else:
         st.caption("Run a multi-period analysis to enable CSV export.")
@@ -1766,16 +2087,65 @@ def render_results_page() -> None:
         st.caption("Using all columns for analysis")
 
     with st.expander("Debug: download current parameters", expanded=False):
-        params = {
-            "uploaded_filename": st.session_state.get("uploaded_filename"),
-            "data_loaded_key": st.session_state.get("data_loaded_key"),
-            "data_fingerprint": st.session_state.get("data_fingerprint"),
-            "selected_benchmark": benchmark,
-            "selected_risk_free": selected_rf,
-            "analysis_fund_columns": st.session_state.get("analysis_fund_columns"),
-            "fund_columns": st.session_state.get("fund_columns"),
-            "model_state": model_state,
-        }
+        # Check if we're in compare mode - use correct session state key
+        compare_mode_active = st.session_state.get("compare_mode_enabled", False)
+        saved_states = st.session_state.get("saved_model_states", {})
+        saved_names = list(saved_states.keys())
+
+        # Get config names from selectbox widgets (if rendered) or use first two saved
+        config_a_name_val = st.session_state.get("compare_config_a_selector", "")
+        config_b_name_val = st.session_state.get("compare_config_b_selector", "")
+
+        # If compare mode is on but selectors not rendered yet, use first two saved configs
+        if compare_mode_active and len(saved_names) >= 2:
+            if not config_a_name_val:
+                config_a_name_val = saved_names[0]
+            if not config_b_name_val:
+                config_b_name_val = (
+                    saved_names[1] if len(saved_names) > 1 else saved_names[0]
+                )
+
+        if (
+            compare_mode_active
+            and config_a_name_val
+            and config_b_name_val
+            and len(saved_names) >= 2
+        ):
+            # In compare mode, include both configurations
+            model_state_a = saved_states.get(config_a_name_val, {})
+            model_state_b = saved_states.get(config_b_name_val, {})
+            params = {
+                "uploaded_filename": st.session_state.get("uploaded_filename"),
+                "data_loaded_key": st.session_state.get("data_loaded_key"),
+                "data_fingerprint": st.session_state.get("data_fingerprint"),
+                "selected_benchmark": benchmark,
+                "selected_risk_free": selected_rf,
+                "analysis_fund_columns": st.session_state.get("analysis_fund_columns"),
+                "fund_columns": st.session_state.get("fund_columns"),
+                "compare_mode": True,
+                "config_a_name": config_a_name_val,
+                "config_b_name": config_b_name_val,
+                "config_a": model_state_a,
+                "config_b": model_state_b,
+            }
+            st.info(
+                f"Compare mode: downloading **{config_a_name_val}** and **{config_b_name_val}**"
+            )
+        else:
+            if compare_mode_active:
+                st.warning(
+                    "⚠️ Compare mode requires 2+ saved configurations. Using current model state."
+                )
+            params = {
+                "uploaded_filename": st.session_state.get("uploaded_filename"),
+                "data_loaded_key": st.session_state.get("data_loaded_key"),
+                "data_fingerprint": st.session_state.get("data_fingerprint"),
+                "selected_benchmark": benchmark,
+                "selected_risk_free": selected_rf,
+                "analysis_fund_columns": st.session_state.get("analysis_fund_columns"),
+                "fund_columns": st.session_state.get("fund_columns"),
+                "model_state": model_state,
+            }
 
         payload = json.dumps(params, indent=2, sort_keys=True, default=str).encode(
             "utf-8"
@@ -1892,19 +2262,14 @@ def render_results_page() -> None:
     cached_key = st.session_state.get("analysis_result_key")
     result = st.session_state.get("analysis_result") if cached_key == run_key else None
 
+    data_hash = _data_hash_for_analysis(df_for_analysis)
+
     st.markdown("Run the analysis to generate performance and risk diagnostics.")
     run_clicked = st.button("Run analysis", type="primary")
 
     if run_clicked or result is None:
         with st.spinner("Running analysis…"):
             try:
-                base_hash = st.session_state.get("data_fingerprint")
-                cols_hash = hashlib.sha256(
-                    json.dumps(list(df_for_analysis.columns), default=str).encode(
-                        "utf-8"
-                    )
-                ).hexdigest()[:12]
-                data_hash = f"{base_hash}:{cols_hash}" if base_hash else cols_hash
                 # Pass risk-free column explicitly into the config used by the
                 # backend (without mutating the session model_state).
                 effective_model_state = dict(model_state)
@@ -1973,11 +2338,222 @@ def render_results_page() -> None:
     sim_start, sim_end = _get_simulation_date_range(result)
 
     # ==========================================================================
+    # COMPARE MODE TOGGLE
+    # ==========================================================================
+    st.divider()
+
+    # Check for saved configurations
+    saved_states = app_state.get_saved_model_states()
+    saved_names = sorted(saved_states.keys())
+
+    compare_col1, compare_col2 = st.columns([1, 3])
+    with compare_col1:
+        compare_mode = st.toggle(
+            "🆚 Compare Mode",
+            value=st.session_state.get("compare_mode_enabled", False),
+            key="compare_mode_toggle",
+            help="Enable to compare two saved configurations",
+            disabled=len(saved_names) < 2,
+        )
+        st.session_state["compare_mode_enabled"] = compare_mode
+
+    with compare_col2:
+        if len(saved_names) < 2:
+            st.caption(
+                "💡 Save at least 2 configurations on the Model page to enable Compare Mode"
+            )
+        elif compare_mode:
+            st.caption("Select two saved configurations to compare")
+
+    # Initialize comparison variables
+    result_a = None
+    result_b = None
+    model_state_a: dict[str, Any] | None = None
+    model_state_b: dict[str, Any] | None = None
+    config_a_name: str = "Config A"
+    config_b_name: str = "Config B"
+    returns_a = None
+    returns_b = None
+
+    if compare_mode and len(saved_names) >= 2:
+        st.markdown("---")
+        compare_setup_cols = st.columns([2, 2, 1])
+
+        with compare_setup_cols[0]:
+            config_a_name = st.selectbox(
+                "Configuration A",
+                options=saved_names,
+                index=0,
+                key="compare_config_a_selector",
+                help="Select first saved configuration",
+            )
+            model_state_a = saved_states.get(config_a_name, {})
+
+        with compare_setup_cols[1]:
+            # Default to second saved config if available
+            default_b_idx = 1 if len(saved_names) > 1 else 0
+            config_b_name = st.selectbox(
+                "Configuration B",
+                options=saved_names,
+                index=default_b_idx,
+                key="compare_config_b_selector",
+                help="Select second saved configuration",
+            )
+            model_state_b = saved_states.get(config_b_name, {})
+
+        with compare_setup_cols[2]:
+            run_compare = st.button(
+                "Run Comparison",
+                type="primary",
+                key="run_comparison_btn",
+                disabled=config_a_name == config_b_name,
+            )
+
+        if config_a_name == config_b_name:
+            st.warning("⚠️ Select two different configurations to compare")
+
+        # Check cache or run comparison analysis for both configs
+        compare_cache = st.session_state.get("comparison_results_cache", {})
+
+        # Build run keys for both configs
+        compare_run_key_a = comparison.comparison_run_key(
+            model_state_a,
+            benchmark=benchmark,
+            funds=sanitized_funds,
+            data_fingerprint=st.session_state.get("data_fingerprint"),
+            info_ratio_benchmark=model_state_a.get("info_ratio_benchmark"),
+            risk_free=selected_rf,
+        )
+        compare_run_key_b = comparison.comparison_run_key(
+            model_state_b,
+            benchmark=benchmark,
+            funds=sanitized_funds,
+            data_fingerprint=st.session_state.get("data_fingerprint"),
+            info_ratio_benchmark=model_state_b.get("info_ratio_benchmark"),
+            risk_free=selected_rf,
+        )
+
+        cached_a = compare_cache.get(compare_run_key_a)
+        cached_b = compare_cache.get(compare_run_key_b)
+
+        if run_compare or (cached_a is not None and cached_b is not None):
+            # Run or retrieve Config A
+            if cached_a is not None and not run_compare:
+                result_a = cached_a.get("result")
+            else:
+                with st.spinner(f"Running analysis for {config_a_name}..."):
+                    try:
+                        effective_model_state_a = dict(model_state_a)
+                        effective_model_state_a["risk_free_column"] = selected_rf
+
+                        result_a = analysis_runner.run_analysis(
+                            df_for_analysis,
+                            effective_model_state_a,
+                            benchmark,
+                            data_hash=data_hash,
+                        )
+
+                        # Cache the result
+                        if not isinstance(compare_cache, dict):
+                            compare_cache = {}
+                        compare_cache[compare_run_key_a] = {
+                            "result": result_a,
+                            "config_name": config_a_name,
+                        }
+                        st.session_state["comparison_results_cache"] = compare_cache
+                    except Exception as exc:
+                        st.error(f"Analysis for {config_a_name} failed: {exc}")
+                        result_a = None
+
+            # Run or retrieve Config B
+            if cached_b is not None and not run_compare:
+                result_b = cached_b.get("result")
+            else:
+                with st.spinner(f"Running analysis for {config_b_name}..."):
+                    try:
+                        effective_model_state_b = dict(model_state_b)
+                        effective_model_state_b["risk_free_column"] = selected_rf
+
+                        result_b = analysis_runner.run_analysis(
+                            df_for_analysis,
+                            effective_model_state_b,
+                            benchmark,
+                            data_hash=data_hash,
+                        )
+
+                        # Cache the result
+                        if not isinstance(compare_cache, dict):
+                            compare_cache = {}
+                        compare_cache[compare_run_key_b] = {
+                            "result": result_b,
+                            "config_name": config_b_name,
+                        }
+                        st.session_state["comparison_results_cache"] = compare_cache
+                    except Exception as exc:
+                        st.error(f"Analysis for {config_b_name} failed: {exc}")
+                        result_b = None
+
+            # Extract returns for A
+            if result_a is not None:
+                analysis_a = getattr(result_a, "analysis", None)
+                details_a = getattr(result_a, "details", {}) or {}
+                returns_a = None
+                if analysis_a is not None:
+                    returns_a = analysis_a.returns
+                if returns_a is None:
+                    returns_a = getattr(result_a, "portfolio", None)
+                if returns_a is None:
+                    returns_a = details_a.get("portfolio_equal_weight_combined")
+                if (
+                    returns_a is None
+                    or not isinstance(returns_a, pd.Series)
+                    or (isinstance(returns_a, pd.Series) and returns_a.empty)
+                ):
+                    if isinstance(details_a, dict):
+                        returns_a = _portfolio_series_from_details(details_a)
+
+            # Extract returns for B
+            if result_b is not None:
+                analysis_b = getattr(result_b, "analysis", None)
+                details_b = getattr(result_b, "details", {}) or {}
+                returns_b = None
+                if analysis_b is not None:
+                    returns_b = analysis_b.returns
+                if returns_b is None:
+                    returns_b = getattr(result_b, "portfolio", None)
+                if returns_b is None:
+                    returns_b = details_b.get("portfolio_equal_weight_combined")
+                if (
+                    returns_b is None
+                    or not isinstance(returns_b, pd.Series)
+                    or (isinstance(returns_b, pd.Series) and returns_b.empty)
+                ):
+                    if isinstance(details_b, dict):
+                        returns_b = _portfolio_series_from_details(details_b)
+
+        # Show comparison status
+        if result_a is not None and result_b is not None:
+            period_count_a = getattr(result_a, "period_count", 0) or (
+                getattr(result_a, "details", {}) or {}
+            ).get("period_count", 0)
+            period_count_b = getattr(result_b, "period_count", 0) or (
+                getattr(result_b, "details", {}) or {}
+            ).get("period_count", 0)
+            st.success(
+                f"✅ Comparison ready: **{config_a_name}** ({period_count_a} periods) vs "
+                f"**{config_b_name}** ({period_count_b} periods)"
+            )
+        elif run_compare:
+            st.warning(
+                "Comparison analysis did not produce results for one or both configurations."
+            )
+
+    # ==========================================================================
     # REORGANIZED LAYOUT FOR REPRODUCIBILITY
     # ==========================================================================
 
     # Header with simulation info
-    if period_count > 0:
+    if period_count > 0 and not compare_mode:
         st.success(
             f"✅ Simulation complete: **{period_count} periods** from {sim_start} to {sim_end}"
         )
@@ -1997,15 +2573,143 @@ def render_results_page() -> None:
     # TAB 1: SUMMARY - Total portfolio performance
     # ==========================================================================
     with main_tabs[0]:
-        st.header("Total Portfolio Performance")
-        st.caption("Aggregated statistics computed from all out-of-sample returns")
+        # Compare mode: show side-by-side summary
+        if compare_mode and result_a is not None and result_b is not None:
+            st.header("Portfolio Performance Comparison")
+            st.caption(f"Side-by-side comparison of {config_a_name} vs {config_b_name}")
 
-        # Selection criteria used
-        st.subheader("🎯 Selection Criteria Used")
-        with st.expander("View selection parameters", expanded=True):
-            _render_selection_criteria(result)
+            # Comparison Summary Table with proper formatting
+            summary_df = comparison_export.build_comparison_summary_df(
+                result_a,
+                result_b,
+                label_a=config_a_name,
+                label_b=config_b_name,
+            )
+            if not summary_df.empty:
+                st.subheader("📊 Key Metrics Comparison")
+                # Format the summary DataFrame for display
+                display_df = _format_comparison_summary_df(
+                    summary_df, config_a_name, config_b_name
+                )
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-        st.divider()
+                # Download button for summary
+                st.download_button(
+                    "⬇️ Download Metrics Comparison (CSV)",
+                    data=summary_df.to_csv(index=False).encode("utf-8"),
+                    file_name="metrics_comparison.csv",
+                    mime="text/csv",
+                    key="download_metrics_compare",
+                )
+
+            st.divider()
+
+            # Side-by-side metrics display
+            st.subheader("📈 Performance Overview")
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+                st.markdown(f"**{config_a_name}**")
+                if (
+                    returns_a is not None
+                    and isinstance(returns_a, pd.Series)
+                    and not returns_a.empty
+                ):
+                    if len(returns_a) >= 12:
+                        total_ret_a = float((1 + returns_a).prod() - 1)
+                        years_a = len(returns_a) / 12
+                        cagr_a = (
+                            float((1 + total_ret_a) ** (1 / years_a) - 1)
+                            if years_a > 0
+                            else 0.0
+                        )
+                        vol_a = float(returns_a.std() * np.sqrt(12))
+                        sharpe_a = cagr_a / vol_a if vol_a > 0 else 0.0
+
+                        m1, m2 = st.columns(2)
+                        m1.metric("Total Return", _fmt_pct(total_ret_a, 1))
+                        m2.metric("CAGR", _fmt_pct(cagr_a, 1))
+                        m3, m4 = st.columns(2)
+                        m3.metric("Volatility", _fmt_pct(vol_a, 1))
+                        m4.metric("Sharpe", _fmt_ratio(sharpe_a))
+
+            with col_b:
+                st.markdown(f"**{config_b_name}**")
+                if (
+                    returns_b is not None
+                    and isinstance(returns_b, pd.Series)
+                    and not returns_b.empty
+                ):
+                    if len(returns_b) >= 12:
+                        total_ret_b = (1 + returns_b).prod() - 1
+                        years_b = len(returns_b) / 12
+                        cagr_b = (
+                            (1 + total_ret_b) ** (1 / years_b) - 1 if years_b > 0 else 0
+                        )
+                        vol_b = returns_b.std() * np.sqrt(12)
+                        sharpe_b = cagr_b / vol_b if vol_b > 0 else 0
+
+                        m1, m2 = st.columns(2)
+                        m1.metric("Total Return", _fmt_pct(total_ret_b, 1))
+                        m2.metric("CAGR", _fmt_pct(cagr_b, 1))
+                        m3, m4 = st.columns(2)
+                        m3.metric("Volatility", _fmt_pct(vol_b, 1))
+                        m4.metric("Sharpe", _fmt_ratio(sharpe_b))
+
+            st.divider()
+
+            # Selection differences
+            st.subheader("🔄 Selection Differences")
+            diff_df = comparison_export.build_selection_differences_df(
+                result_a,
+                result_b,
+                label_a=config_a_name,
+                label_b=config_b_name,
+            )
+            if not diff_df.empty:
+                st.dataframe(diff_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "⬇️ Download Selection Differences (CSV)",
+                    data=diff_df.to_csv(index=False).encode("utf-8"),
+                    file_name="selection_differences.csv",
+                    mime="text/csv",
+                    key="download_selection_diff",
+                )
+            else:
+                st.info("No selection differences between configurations.")
+
+            st.divider()
+
+            # Config differences
+            st.subheader("⚙️ Configuration Differences")
+            diffs = app_state.diff_model_states(model_state_a, model_state_b)
+            if diffs:
+                diff_df_config = pd.DataFrame(
+                    [(k, str(va), str(vb)) for k, va, vb in diffs],
+                    columns=["Parameter", config_a_name, config_b_name],
+                )
+                st.dataframe(diff_df_config, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "⬇️ Download Config Diff (CSV)",
+                    data=diff_df_config.to_csv(index=False).encode("utf-8"),
+                    file_name="config_diff.csv",
+                    mime="text/csv",
+                    key="download_config_diff",
+                )
+            else:
+                st.info("No configuration differences.")
+
+        else:
+            # Single run mode - original display
+            st.header("Total Portfolio Performance")
+            st.caption("Aggregated statistics computed from all out-of-sample returns")
+
+            # Selection criteria used
+            st.subheader("🎯 Selection Criteria Used")
+            with st.expander("View selection parameters", expanded=True):
+                _render_selection_criteria(result)
+
+            st.divider()
 
         # Overall performance metrics
         st.subheader("📊 Cumulative Out-of-Sample Performance")
@@ -2032,43 +2736,213 @@ def render_results_page() -> None:
     # TAB 2: PERIOD ANALYSIS - Period-by-period reproducibility
     # ==========================================================================
     with main_tabs[1]:
-        st.header("Period-by-Period Analysis")
-        st.caption(
-            "Examine the data chain: In-sample metrics → Selection decisions → "
-            "Out-of-sample returns → Period performance"
-        )
+        if compare_mode and result_a is not None and result_b is not None:
+            st.header("Period-by-Period Comparison")
+            st.caption(
+                f"Compare period results between {config_a_name} and {config_b_name}"
+            )
 
-        if period_count > 0:
-            _render_period_breakdown(result)
+            # Period comparison table
+            period_comp_df = comparison_export.build_period_comparison_df(
+                result_a,
+                result_b,
+                label_a=config_a_name,
+                label_b=config_b_name,
+            )
+            if not period_comp_df.empty:
+                st.subheader("📊 Period Summary Comparison")
+                st.dataframe(period_comp_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "⬇️ Download Period Comparison (CSV)",
+                    data=period_comp_df.to_csv(index=False).encode("utf-8"),
+                    file_name="period_comparison.csv",
+                    mime="text/csv",
+                    key="download_period_compare",
+                )
+
+            st.divider()
+
+            # Side-by-side period breakdown
+            st.subheader("📋 Detailed Period Analysis")
+            period_selector_cols = st.columns(2)
+
+            with period_selector_cols[0]:
+                st.markdown(f"**{config_a_name}**")
+                details_a = getattr(result_a, "details", {}) or {}
+                period_count_a = getattr(result_a, "period_count", 0) or details_a.get(
+                    "period_count", 0
+                )
+                if period_count_a > 0:
+                    _render_period_breakdown(result_a, key_prefix="period_a")
+                else:
+                    st.caption("No multi-period data")
+
+            with period_selector_cols[1]:
+                st.markdown(f"**{config_b_name}**")
+                details_b = getattr(result_b, "details", {}) or {}
+                period_count_b = getattr(result_b, "period_count", 0) or details_b.get(
+                    "period_count", 0
+                )
+                if period_count_b > 0:
+                    _render_period_breakdown(result_b, key_prefix="period_b")
+                else:
+                    st.caption("No multi-period data")
+
         else:
-            st.info("Single-period analysis does not have period breakdown.")
-            # Show single period data if available
-            if details:
-                score_frame = details.get("score_frame")
-                if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
-                    st.subheader("In-Sample Metrics (All Candidates)")
-                    st.dataframe(score_frame, use_container_width=True)
+            # Single run mode
+            st.header("Period-by-Period Analysis")
+            st.caption(
+                "Examine the data chain: In-sample metrics → Selection decisions → "
+                "Out-of-sample returns → Period performance"
+            )
+
+            if period_count > 0:
+                _render_period_breakdown(result)
+            else:
+                st.info("Single-period analysis does not have period breakdown.")
+                # Show single period data if available
+                if details:
+                    score_frame = details.get("score_frame")
+                    if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
+                        st.subheader("In-Sample Metrics (All Candidates)")
+                        st.dataframe(score_frame, use_container_width=True)
 
     # ==========================================================================
     # TAB 3: VISUALIZATIONS - Charts
     # ==========================================================================
     with main_tabs[2]:
-        st.header("Portfolio Visualizations")
-        _render_charts(result)
+        if compare_mode and result_a is not None and result_b is not None:
+            st.header("Comparison Visualizations")
+
+            # Overlaid equity curves
+            st.subheader("📈 Equity Curve Comparison")
+            if (
+                returns_a is not None
+                and isinstance(returns_a, pd.Series)
+                and not returns_a.empty
+                and returns_b is not None
+                and isinstance(returns_b, pd.Series)
+                and not returns_b.empty
+            ):
+
+                # Build comparison equity curves
+                equity_a = (1 + returns_a.fillna(0)).cumprod()
+                equity_b = (1 + returns_b.fillna(0)).cumprod()
+
+                # Create combined DataFrame for plotting
+                equity_df = pd.DataFrame(
+                    {
+                        config_a_name: equity_a,
+                        config_b_name: equity_b,
+                    }
+                )
+                st.line_chart(equity_df, use_container_width=True)
+
+                # Download equity data
+                equity_export = equity_df.copy()
+                equity_export.index = equity_export.index.astype(str)
+                st.download_button(
+                    "⬇️ Download Equity Curves (CSV)",
+                    data=equity_export.to_csv().encode("utf-8"),
+                    file_name="equity_curves_comparison.csv",
+                    mime="text/csv",
+                    key="download_equity_compare",
+                )
+            else:
+                st.caption("Insufficient return data for equity comparison.")
+
+            st.divider()
+
+            # Drawdown comparison
+            st.subheader("📉 Drawdown Comparison")
+            if (
+                returns_a is not None
+                and isinstance(returns_a, pd.Series)
+                and not returns_a.empty
+                and returns_b is not None
+                and isinstance(returns_b, pd.Series)
+                and not returns_b.empty
+            ):
+
+                equity_a = (1 + returns_a.fillna(0)).cumprod()
+                equity_b = (1 + returns_b.fillna(0)).cumprod()
+
+                dd_a = equity_a / equity_a.cummax() - 1
+                dd_b = equity_b / equity_b.cummax() - 1
+
+                dd_df = pd.DataFrame(
+                    {
+                        config_a_name: dd_a,
+                        config_b_name: dd_b,
+                    }
+                )
+                st.line_chart(dd_df, use_container_width=True)
+            else:
+                st.caption("Insufficient return data for drawdown comparison.")
+
+            st.divider()
+
+            # Individual charts
+            st.subheader("📊 Individual Run Charts")
+            chart_tabs = st.tabs([config_a_name, config_b_name])
+            with chart_tabs[0]:
+                _render_charts(result_a)
+            with chart_tabs[1]:
+                _render_charts(result_b)
+
+        else:
+            # Single run mode
+            st.header("Portfolio Visualizations")
+            _render_charts(result)
 
     # ==========================================================================
     # TAB 4: FUND DETAILS - Holdings and changes
     # ==========================================================================
     with main_tabs[3]:
-        st.header("Fund Details")
+        if compare_mode and result_a is not None and result_b is not None:
+            st.header("Fund Details Comparison")
 
-        # Manager changes
-        st.subheader("🔄 Manager Hiring & Termination Timeline")
-        _render_manager_changes(result)
+            # Manager changes comparison
+            st.subheader("🔄 Manager Changes Comparison")
+            mgr_delta = comparison.manager_change_delta(
+                result_a,
+                result_b,
+                label_a=config_a_name,
+                label_b=config_b_name,
+            )
+            if not mgr_delta.empty:
+                st.dataframe(mgr_delta, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "⬇️ Download Manager Changes Comparison (CSV)",
+                    data=mgr_delta.to_csv(index=False).encode("utf-8"),
+                    file_name="manager_changes_comparison.csv",
+                    mime="text/csv",
+                    key="download_mgr_changes_compare",
+                )
+            else:
+                st.caption("No manager changes recorded in either run.")
 
-        st.divider()
+            st.divider()
 
-        # Fund holding periods with risk stats
+            # Side-by-side fund holdings
+            st.subheader("📋 Fund Holdings")
+            holdings_tabs = st.tabs([config_a_name, config_b_name])
+            with holdings_tabs[0]:
+                _render_fund_holdings(result_a)
+            with holdings_tabs[1]:
+                _render_fund_holdings(result_b)
+
+        else:
+            # Single run mode
+            st.header("Fund Details")
+
+            # Manager changes
+            st.subheader("🔄 Manager Hiring & Termination Timeline")
+            _render_manager_changes(result)
+
+            st.divider()
+
+            # Fund holding periods with risk stats
         st.subheader("📋 Fund Holdings & Out-of-Sample Performance")
         _render_fund_holdings(result)
 
@@ -2076,109 +2950,236 @@ def render_results_page() -> None:
     # TAB 5: EXPORT - Download data
     # ==========================================================================
     with main_tabs[4]:
-        st.header("Export Data")
-        st.caption("Download detailed data for external analysis and verification")
+        if compare_mode and result_a is not None and result_b is not None:
+            st.header("Comparison Export")
+            st.caption("Download comparison data for external analysis")
 
-        _render_download_section(result)
+            # Config JSON downloads
+            st.subheader("📥 Configuration Downloads")
+            config_cols = st.columns(3)
 
-        # Additional: Full period data export
-        st.divider()
-        st.subheader("📄 Complete Period Data")
-
-        if period_count > 0:
-            period_results = details.get("period_results", [])
-
-            # Build comprehensive export
-            all_period_data = []
-            for i, res in enumerate(period_results):
-                period = res.get("period", ("", "", "", ""))
-                score_frame = res.get("score_frame")
-                selected = res.get("selected_funds", [])
-                weights = res.get("fund_weights", {})
-
-                if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
-                    for fund in score_frame.index:
-                        weight_value = float(weights.get(fund, 0.0) or 0.0)
-                        row = {
-                            "Period": i + 1,
-                            "In-Sample Start": period[0] if len(period) > 0 else "",
-                            "In-Sample End": period[1] if len(period) > 1 else "",
-                            "Out-Sample Start": period[2] if len(period) > 2 else "",
-                            "Out-Sample End": period[3] if len(period) > 3 else "",
-                            "Fund": fund,
-                            "Selected": "Yes" if fund in selected else "No",
-                            # Keep numeric weights for exports; format at display time.
-                            "Weight": weight_value,
-                        }
-                        # Add all score columns
-                        for col in score_frame.columns:
-                            row[f"InSample_{col}"] = score_frame.loc[fund, col]
-                        all_period_data.append(row)
-
-            if all_period_data:
-                full_df = pd.DataFrame(all_period_data)
-                base_cols = [
-                    "Period",
-                    "In-Sample Start",
-                    "In-Sample End",
-                    "Out-Sample Start",
-                    "Out-Sample End",
-                    "Fund",
-                    "Selected",
-                    "Weight",
-                ]
-                metric_cols = [c for c in full_df.columns if c.startswith("InSample_")]
-                ordered_cols = [
-                    c for c in base_cols if c in full_df.columns
-                ] + metric_cols
-                full_df = full_df.loc[:, ordered_cols]
-
-                # Format the DataFrame to match Excel styling
-                export_df = full_df.copy()
-                # Format Weight as percentage
-                if "Weight" in export_df.columns:
-                    export_df["Weight"] = export_df["Weight"].apply(
-                        lambda x: (
-                            f"{x * 100:.1f}%" if pd.notna(x) and np.isfinite(x) else ""
-                        )
-                    )
-                # Format metric columns based on their names
-                for col in metric_cols:
-                    col_lower = col.lower()
-                    if any(p in col_lower for p in ["cagr", "vol", "maxdd", "max_dd"]):
-                        # Percentage format
-                        export_df[col] = export_df[col].apply(
-                            lambda x: (
-                                f"{float(x) * 100:.1f}%"
-                                if pd.notna(x)
-                                and isinstance(x, (int, float))
-                                and np.isfinite(x)
-                                else ""
-                            )
-                        )
-                    elif any(p in col_lower for p in ["sharpe", "sortino", "ir"]):
-                        # Ratio format
-                        export_df[col] = export_df[col].apply(
-                            lambda x: (
-                                f"{float(x):.2f}"
-                                if pd.notna(x)
-                                and isinstance(x, (int, float))
-                                and np.isfinite(x)
-                                else ""
-                            )
-                        )
-
-                csv = export_df.to_csv(index=False)
+            with config_cols[0]:
+                config_a_json = json.dumps(
+                    model_state_a, indent=2, sort_keys=True, default=str
+                )
                 st.download_button(
-                    "📊 Download Complete Period Analysis (CSV)",
-                    csv,
-                    "complete_period_analysis.csv",
-                    "text/csv",
+                    f"⬇️ {config_a_name} JSON",
+                    data=config_a_json.encode("utf-8"),
+                    file_name=f"config_{config_a_name.replace(' ', '_')}.json",
+                    mime="application/json",
+                    key="export_config_a",
                 )
-                st.caption(
-                    "Contains in-sample metrics for all candidates in all periods, "
-                    "with selection status and weights."
+
+            with config_cols[1]:
+                config_b_json = json.dumps(
+                    model_state_b, indent=2, sort_keys=True, default=str
                 )
+                st.download_button(
+                    f"⬇️ {config_b_name} JSON",
+                    data=config_b_json.encode("utf-8"),
+                    file_name=f"config_{config_b_name.replace(' ', '_')}_B.json",
+                    mime="application/json",
+                    key="export_config_b",
+                )
+
+            with config_cols[2]:
+                combined_configs = {
+                    "config_a_name": config_a_name,
+                    "config_b_name": config_b_name,
+                    "config_a": model_state_a,
+                    "config_b": model_state_b,
+                }
+                combined_json = json.dumps(
+                    combined_configs, indent=2, sort_keys=True, default=str
+                )
+                st.download_button(
+                    "⬇️ Both Configs (JSON)",
+                    data=combined_json.encode("utf-8"),
+                    file_name="comparison_configs.json",
+                    mime="application/json",
+                    key="export_both_configs",
+                )
+
+            st.divider()
+
+            # Comparison Excel Workbook
+            st.subheader("📊 Comparison Excel Workbook")
+            st.caption(
+                "Comprehensive workbook with: Summary, Selection Differences, "
+                "Period Comparison, Raw Data (pivot-ready), By Period, By Fund, and Configs"
+            )
+
+            try:
+                xlsx_bytes = comparison_export.build_comparison_excel_workbook(
+                    result_a,
+                    result_b,
+                    model_state_a,
+                    model_state_b,
+                    label_a=config_a_name,
+                    label_b=config_b_name,
+                )
+                st.download_button(
+                    "⬇️ Download Comparison Workbook (XLSX)",
+                    data=xlsx_bytes,
+                    file_name="comparison_workbook.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="export_comparison_xlsx",
+                )
+            except Exception as exc:
+                st.error(f"Could not generate Excel workbook: {exc}")
+
+            st.divider()
+
+            # CSV Bundle
+            st.subheader("📄 Comparison CSV Bundle")
+            st.caption("ZIP file with all comparison data as CSV files")
+
+            try:
+                csv_bundle = comparison_export.build_comparison_csv_bundle(
+                    result_a,
+                    result_b,
+                    model_state_a,
+                    model_state_b,
+                    label_a=config_a_name,
+                    label_b=config_b_name,
+                )
+                st.download_button(
+                    "⬇️ Download Comparison CSV Bundle (ZIP)",
+                    data=csv_bundle,
+                    file_name="comparison_csv_bundle.zip",
+                    mime="application/zip",
+                    key="export_comparison_csv_bundle",
+                )
+            except Exception as exc:
+                st.error(f"Could not generate CSV bundle: {exc}")
+
+            st.divider()
+
+            # Individual run exports
+            st.subheader("📁 Individual Run Exports")
+            export_tabs = st.tabs([config_a_name, config_b_name])
+
+            with export_tabs[0]:
+                st.caption(f"Downloads for {config_a_name}")
+                _render_download_section(result_a, key_prefix="dl_a")
+
+            with export_tabs[1]:
+                st.caption(f"Downloads for {config_b_name}")
+                _render_download_section(result_b, key_prefix="dl_b")
+
+        else:
+            # Single run mode
+            st.header("Export Data")
+            st.caption("Download detailed data for external analysis and verification")
+
+            _render_download_section(result)
+
+            # Additional: Full period data export
+            st.divider()
+            st.subheader("📄 Complete Period Data")
+
+            if period_count > 0:
+                period_results = details.get("period_results", [])
+
+                # Build comprehensive export
+                all_period_data = []
+                for i, res in enumerate(period_results):
+                    period = res.get("period", ("", "", "", ""))
+                    score_frame = res.get("score_frame")
+                    selected = res.get("selected_funds", [])
+                    weights = res.get("fund_weights", {})
+
+                    if isinstance(score_frame, pd.DataFrame) and not score_frame.empty:
+                        for fund in score_frame.index:
+                            weight_value = float(weights.get(fund, 0.0) or 0.0)
+                            row = {
+                                "Period": i + 1,
+                                "In-Sample Start": period[0] if len(period) > 0 else "",
+                                "In-Sample End": period[1] if len(period) > 1 else "",
+                                "Out-Sample Start": (
+                                    period[2] if len(period) > 2 else ""
+                                ),
+                                "Out-Sample End": period[3] if len(period) > 3 else "",
+                                "Fund": fund,
+                                "Selected": "Yes" if fund in selected else "No",
+                                # Keep numeric weights for exports; format at display time.
+                                "Weight": weight_value,
+                            }
+                            # Add all score columns
+                            for col in score_frame.columns:
+                                row[f"InSample_{col}"] = score_frame.loc[fund, col]
+                            all_period_data.append(row)
+
+                if all_period_data:
+                    full_df = pd.DataFrame(all_period_data)
+                    base_cols = [
+                        "Period",
+                        "In-Sample Start",
+                        "In-Sample End",
+                        "Out-Sample Start",
+                        "Out-Sample End",
+                        "Fund",
+                        "Selected",
+                        "Weight",
+                    ]
+                    metric_cols = [
+                        c for c in full_df.columns if c.startswith("InSample_")
+                    ]
+                    ordered_cols = [
+                        c for c in base_cols if c in full_df.columns
+                    ] + metric_cols
+                    full_df = full_df.loc[:, ordered_cols]
+
+                    # Format the DataFrame to match Excel styling
+                    export_df = full_df.copy()
+                    # Format Weight as percentage
+                    if "Weight" in export_df.columns:
+                        export_df["Weight"] = export_df["Weight"].apply(
+                            lambda x: (
+                                f"{x * 100:.1f}%"
+                                if pd.notna(x) and np.isfinite(x)
+                                else ""
+                            )
+                        )
+                    # Format metric columns based on their names
+                    for col in metric_cols:
+                        col_lower = col.lower()
+                        if any(
+                            p in col_lower for p in ["cagr", "vol", "maxdd", "max_dd"]
+                        ):
+                            # Percentage format
+                            export_df[col] = export_df[col].apply(
+                                lambda x: (
+                                    f"{float(x) * 100:.1f}%"
+                                    if pd.notna(x)
+                                    and isinstance(x, (int, float))
+                                    and np.isfinite(x)
+                                    else ""
+                                )
+                            )
+                        elif any(p in col_lower for p in ["sharpe", "sortino", "ir"]):
+                            # Ratio format
+                            export_df[col] = export_df[col].apply(
+                                lambda x: (
+                                    f"{float(x):.2f}"
+                                    if pd.notna(x)
+                                    and isinstance(x, (int, float))
+                                    and np.isfinite(x)
+                                    else ""
+                                )
+                            )
+
+                    csv = export_df.to_csv(index=False)
+                    st.download_button(
+                        "📊 Download Complete Period Analysis (CSV)",
+                        csv,
+                        "complete_period_analysis.csv",
+                        "text/csv",
+                    )
+                    st.caption(
+                        "Contains in-sample metrics for all candidates in all periods, "
+                        "with selection status and weights."
+                    )
 
 
 if _should_auto_render():

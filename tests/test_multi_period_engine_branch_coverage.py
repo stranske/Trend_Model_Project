@@ -93,7 +93,9 @@ class IdentityRebalancer:
     def __init__(self, *_: Any) -> None:
         pass
 
-    def apply_triggers(self, prev_weights: pd.Series, _: pd.DataFrame) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _: pd.DataFrame, **kwargs
+    ) -> pd.Series:
         return prev_weights
 
 

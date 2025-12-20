@@ -80,7 +80,7 @@ class EmptyRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:  # type: ignore[name-defined]
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:  # type: ignore[name-defined]
         self.calls += 1
         return prev_weights.iloc[0:0]
 

@@ -114,7 +114,9 @@ class IdentityRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls: list[pd.Series] = []
 
-    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame) -> pd.Series:
+    def apply_triggers(
+        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
+    ) -> pd.Series:
         self.calls.append(prev_weights.copy())
         return prev_weights.astype(float)
 
@@ -577,7 +579,7 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
             self.calls = 0
 
         def apply_triggers(
-            self, prev_weights: pd.Series, _sf: pd.DataFrame
+            self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs: Any
         ) -> pd.Series:
             self.calls += 1
             series = prev_weights.astype(float).copy()
@@ -858,7 +860,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
             self.invocations: list[pd.Series] = []
 
         def apply_triggers(
-            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame, **kwargs: Any
         ) -> pd.Series:
             self.invocations.append(prev_weights.copy())
             return pd.Series(

@@ -32,6 +32,9 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         # portfolio root (e.g. portfolio.z_exit_soft) instead of under
         # portfolio.threshold_hold.*.
         portfolio = self.cfg.get("portfolio", {}) if isinstance(self.cfg, dict) else {}
+        # Check if random selection mode - if so, disable z-score triggers
+        selection_mode = portfolio.get("selection_mode", "rank")
+        self.is_random_mode = selection_mode == "random"
         th = dict(portfolio.get("threshold_hold", {}) or {})
         for key in (
             "z_exit_soft",
@@ -80,14 +83,48 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self,
         prev_weights: Dict[str, float] | pd.Series,
         score_frame: pd.DataFrame,
+        *,
+        random_seed: int | None = None,
+        target_n: int | None = None,
     ) -> pd.Series:
         """Return next‑period weights after applying the two simple rules
-        required by the unit tests."""
+        required by the unit tests.
+
+        In random selection mode, a completely fresh random selection is made
+        from the available universe each period. This is essential to avoid
+        survivorship bias - we can only select from funds available at each
+        point in time, not funds that we know will survive into the future.
+        """
+        import numpy as np
+
         prev_w = (
             prev_weights.copy()
             if isinstance(prev_weights, pd.Series)
             else pd.Series(prev_weights, dtype=float)
         )
+
+        # In random mode, do a FRESH random selection each period from available universe
+        if self.is_random_mode:
+            # Get available funds from the score_frame (these are funds with data in this period)
+            available = list(score_frame.index)
+            if not available:
+                return pd.Series(dtype=float)
+
+            # Determine how many funds to select
+            n_select = target_n if target_n is not None else self.max_funds
+            n_select = max(
+                1, min(n_select, len(available))
+            )  # Ensure at least 1, at most len(available)
+
+            # Fresh random selection each period
+            # Ensure seed is a valid non-negative integer
+            safe_seed = abs(int(random_seed or 42))
+            rng = np.random.default_rng(safe_seed)
+            selected = list(rng.choice(available, size=n_select, replace=False))
+
+            # Equal weight the randomly selected funds
+            eq = 1.0 / len(selected) if selected else 0.0
+            return pd.Series({f: eq for f in selected}, dtype=float)
 
         # --- 1) update strike counts & decide removals -----------------
         zscores = (
