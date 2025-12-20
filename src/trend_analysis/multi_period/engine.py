@@ -1931,7 +1931,11 @@ def run(
                 ]
                 if candidates:
                     if is_random_mode:
-                        rng = np.random.default_rng(getattr(cfg, "seed", 42))
+                        period_seed = abs(
+                            (getattr(cfg, "seed", 42) or 42)
+                            + hash(str(pt)) % 10000
+                        )
+                        rng = np.random.default_rng(period_seed)
                         rng.shuffle(candidates)
                         ranked = candidates
                     else:
