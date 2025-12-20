@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 
 import streamlit as st
@@ -837,6 +838,68 @@ def render_model_page() -> None:
                             f"Imported configuration '{import_name.strip()}'. The form has been updated."
                         )
                         st.rerun()
+
+        st.markdown("---")
+        st.markdown("**Compare saved configurations**")
+        if len(saved_names) < 2:
+            st.info("Save at least two configurations to compare differences.")
+        else:
+            compare_col_a, compare_col_b = st.columns(2)
+            with compare_col_a:
+                config_a_name = st.selectbox(
+                    "Configuration A",
+                    saved_names,
+                    index=0,
+                    key="compare_config_a",
+                )
+            with compare_col_b:
+                default_b = 1 if len(saved_names) > 1 else 0
+                config_b_name = st.selectbox(
+                    "Configuration B",
+                    saved_names,
+                    index=default_b,
+                    key="compare_config_b",
+                )
+
+            if config_a_name == config_b_name:
+                st.warning("Select two different configurations to compare.")
+            else:
+                diffs = app_state.diff_model_states(
+                    saved_model_states[config_a_name],
+                    saved_model_states[config_b_name],
+                )
+                if not diffs:
+                    st.success(
+                        "No differences found. The selected configurations match."
+                    )
+                else:
+                    diff_rows = []
+                    for entry in diffs:
+                        diff_rows.append(
+                            {
+                                "Setting": entry.path,
+                                "Config A": (
+                                    json.dumps(entry.left, sort_keys=True, default=str)
+                                    if entry.left is not None
+                                    else "—"
+                                ),
+                                "Config B": (
+                                    json.dumps(entry.right, sort_keys=True, default=str)
+                                    if entry.right is not None
+                                    else "—"
+                                ),
+                                "Change": entry.change_type
+                                + (" (type changed)" if entry.type_changed else ""),
+                            }
+                        )
+
+                    st.dataframe(diff_rows, use_container_width=True, hide_index=True)
+
+                    diff_text = app_state.format_model_state_diff(
+                        diffs, label_a=config_a_name, label_b=config_b_name
+                    )
+                    st.caption("Copyable diff output:")
+                    st.code(diff_text, language="text")
 
     # =============================================
     # SIMULATION PERIOD SETTINGS (outside form for immediate feedback)
