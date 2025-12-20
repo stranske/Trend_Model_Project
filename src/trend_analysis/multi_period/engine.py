@@ -1551,9 +1551,12 @@ def run(
             ]
         if not candidates:
             return holdings
-        # In random mode, shuffle candidates randomly instead of ranking by zscore
+        # In random mode, shuffle candidates randomly instead of ranking by zscore.
+        # Use a period-specific seed so different periods get different shuffles.
         if is_random_mode:
-            rng = np.random.default_rng(getattr(cfg, "seed", 42))
+            period_seed_base = getattr(cfg, "seed", 42) or 42
+            period_seed = abs(period_seed_base + hash(str(pt)) % 10000)
+            rng = np.random.default_rng(period_seed)
             rng.shuffle(candidates)
             ranked = candidates
         else:
