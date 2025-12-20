@@ -1981,8 +1981,11 @@ def run(
 
                 def _random_key(mgr: str) -> float:
                     # For random mode: use a seeded random value for stable ordering
-                    # Use abs() to ensure non-negative seed (hash can be negative)
-                    safe_seed = abs(hash(mgr) ^ (getattr(cfg, "seed", 42) or 42))
+                    # Make the seed period-specific by incorporating the score frame.
+                    # Use abs() to ensure non-negative seed (hash can be negative).
+                    base_seed = getattr(cfg, "seed", 42) or 42
+                    combined_seed = (base_seed, id(sf), mgr)
+                    safe_seed = abs(hash(combined_seed))
                     rng = np.random.default_rng(safe_seed)
                     return rng.random()
 
