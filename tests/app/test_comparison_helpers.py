@@ -117,3 +117,56 @@ def test_comparison_bundle_includes_configs_and_diff_text(tmp_path) -> None:
             assert "lookback_periods" in content
         config_a_payload = json.loads(zf.read("config_A.json"))
         assert config_a_payload["lookback_periods"] == 3
+
+
+def test_results_page_comparison_uses_cache(monkeypatch) -> None:
+    import importlib
+
+    results_page = importlib.import_module("streamlit_app.pages.3_Results")
+
+    calls = {"n": 0}
+
+    def _fake_run_analysis(df_for_analysis, model_state, benchmark, *, data_hash=None):
+        calls["n"] += 1
+        return SimpleNamespace(metrics=pd.DataFrame(), details={})
+
+    # Minimal session_state for run_key computation + cache.
+    monkeypatch.setattr(
+        results_page.st,
+        "session_state",
+        {
+            "data_fingerprint": "abc",
+            "comparison_results_cache": {},
+        },
+        raising=False,
+    )
+    monkeypatch.setattr(
+        results_page.analysis_runner, "run_analysis", _fake_run_analysis
+    )
+
+    df_for_analysis = pd.DataFrame({"FundA": [0.01, 0.02], "FundB": [0.0, -0.01]})
+    model_state = {"lookback_periods": 3}
+    funds = ["FundA", "FundB"]
+
+    res1, key1 = results_page._run_comparison_analysis(
+        config_name="A",
+        model_state=model_state,
+        df_for_analysis=df_for_analysis,
+        benchmark="SPX",
+        data_hash="abc:cols",
+        funds=funds,
+        selected_rf=None,
+    )
+    res2, key2 = results_page._run_comparison_analysis(
+        config_name="A",
+        model_state=model_state,
+        df_for_analysis=df_for_analysis,
+        benchmark="SPX",
+        data_hash="abc:cols",
+        funds=funds,
+        selected_rf=None,
+    )
+
+    assert key1 == key2
+    assert calls["n"] == 1
+    assert res2 is res1

@@ -71,7 +71,7 @@ class DummyRebalancer:
         self.calls: list[tuple[pd.Series, list[str]]] = []
 
     def apply_triggers(
-        self, prev_weights: pd.Series, score_frame: pd.DataFrame
+        self, prev_weights: pd.Series, score_frame: pd.DataFrame, **kwargs
     ) -> pd.Series:
         self.calls.append((prev_weights.copy(), score_frame.index.tolist()))
         return prev_weights.sort_index()

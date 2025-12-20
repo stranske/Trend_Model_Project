@@ -45,8 +45,10 @@ class DummyStreamlit:
     def spinner(self, *_args, **_kwargs) -> _ContextManager:
         return _ContextManager()
 
-    def columns(self, count: int) -> list["ColumnContext"]:
-        return [ColumnContext(self) for _ in range(count)]
+    def columns(self, count) -> list["ColumnContext"]:
+        # count can be an int or a list of column weights
+        n = count if isinstance(count, int) else len(count)
+        return [ColumnContext(self) for _ in range(n)]
 
     def subheader(self, text: str) -> None:
         self.subheaders.append(text)

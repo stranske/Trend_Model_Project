@@ -383,6 +383,8 @@ def run_schedule(
     rebalance_strategies: List[str] | None = None,
     rebalance_params: Dict[str, Dict[str, Any]] | None = None,
     weight_policy: Mapping[str, Any] | None = None,
+    seed: int | None = None,
+    target_n: int | None = None,
 ) -> Portfolio:
     """Apply selection and weighting across ``score_frames``.
 
@@ -501,7 +503,14 @@ def run_schedule(
         if rebalancer is not None:
             if prev_weights is None:
                 prev_weights = target_weights["weight"].astype(float)
-            prev_weights = rebalancer.apply_triggers(cast(pd.Series, prev_weights), sf)
+            # For random mode, seed varies per period to get different selections
+            period_seed = abs((seed or 42) + hash(str(date)) % 10000)
+            prev_weights = rebalancer.apply_triggers(
+                cast(pd.Series, prev_weights),
+                sf,
+                random_seed=period_seed,
+                target_n=target_n or 10,
+            )
             target_weights = prev_weights.to_frame("weight")
 
         # Apply rebalancing strategies if configured
@@ -1422,6 +1431,10 @@ def run(
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
     min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
 
+    # Check if random selection mode - if so, disable z-score based entry/exit
+    selection_mode = cfg.portfolio.get("selection_mode", "rank")
+    is_random_mode = selection_mode == "random"
+
     rebalancer = Rebalancer(cfg.model_dump())
 
     # --- main loop ------------------------------------------------------
@@ -1538,7 +1551,16 @@ def run(
             ]
         if not candidates:
             return holdings
-        ranked = sf.loc[candidates].sort_values("zscore", ascending=False).index
+        # In random mode, shuffle candidates randomly instead of ranking by zscore.
+        # Use a period-specific seed so different periods get different shuffles.
+        if is_random_mode:
+            period_seed_base = getattr(cfg, "seed", 42) or 42
+            period_seed = abs(period_seed_base + hash(str(pt)) % 10000)
+            rng = np.random.default_rng(period_seed)
+            rng.shuffle(candidates)
+            ranked = candidates
+        else:
+            ranked = sf.loc[candidates].sort_values("zscore", ascending=False).index
         for c in ranked:
             if len(holdings) >= desired_min:
                 break
@@ -1682,82 +1704,122 @@ def run(
         forced_exits: set[str] = set()
 
         if prev_weights is None:
-            # Seed via rank selector
-            selected, _ = selector.select(sf)
-            # Historical behavior: weight() is invoked during seeding even though
-            # holdings may be refined by constraints afterwards. Some weighting
-            # engines (and unit tests) model state across calls.
-            try:
-                weighting.weight(selected, period_ts)
-            except Exception:  # pragma: no cover - best-effort only
-                pass
-
-            rank_col = getattr(selector, "rank_column", None)
-            if (
-                isinstance(rank_col, str)
-                and rank_col
-                and isinstance(selected, pd.DataFrame)
-                and rank_col in selected.columns
-            ):
-                ascending = rank_col in ASCENDING_METRICS
-                ordered = selected.sort_values(rank_col, ascending=ascending).index
-                holdings = [str(x) for x in ordered.tolist()]
+            # For random mode, do fresh random selection from available universe
+            # rather than using the z-score based selector
+            if is_random_mode:
+                available = list(sf.index)
+                if not available:
+                    # No funds available - skip to placeholder logic below
+                    holdings = []
+                else:
+                    # Seed varies per period to get different selections
+                    period_seed = abs(
+                        (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                    )
+                    rng = np.random.default_rng(period_seed)
+                    n_select = max(1, min(target_n, len(available)))
+                    holdings = list(rng.choice(available, size=n_select, replace=False))
+                    # Enforce one-per-firm constraint
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
+                    # If dedupe reduced us, refill with random selection
+                    if len(holdings) < n_select:
+                        candidates = [c for c in available if c not in holdings]
+                        if candidates:
+                            rng = np.random.default_rng(period_seed + 1)
+                            rng.shuffle(candidates)
+                            seen_firms = {_firm(h) for h in holdings}
+                            for c in candidates:
+                                if len(holdings) >= n_select:
+                                    break
+                                firm = _firm(str(c))
+                                if firm in seen_firms:
+                                    continue
+                                holdings.append(str(c))
+                                seen_firms.add(firm)
             else:
-                holdings = [str(x) for x in selected.index.tolist()]
+                # Seed via rank selector (z-score based)
+                selected, _ = selector.select(sf)
+                # Historical behavior: weight() is invoked during seeding even though
+                # holdings may be refined by constraints afterwards. Some weighting
+                # engines (and unit tests) model state across calls.
+                try:
+                    weighting.weight(selected, period_ts)
+                except Exception:  # pragma: no cover - best-effort only
+                    pass
 
-            # Cap to the requested target size before applying other constraints.
-            if len(holdings) > target_n:
-                holdings = holdings[:target_n]
-            # Enforce one-per-firm on seed
-            holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
-            desired_seed = min(max_funds, target_n)
-            # If we're still above the desired size, trim by zscore (best-first).
-            if len(holdings) > desired_seed:
-                zsorted = sf.loc[holdings].sort_values("zscore", ascending=False).index
-                holdings = list(zsorted[:desired_seed])
+                rank_col = getattr(selector, "rank_column", None)
+                if (
+                    isinstance(rank_col, str)
+                    and rank_col
+                    and isinstance(selected, pd.DataFrame)
+                    and rank_col in selected.columns
+                ):
+                    ascending = rank_col in ASCENDING_METRICS
+                    ordered = selected.sort_values(rank_col, ascending=ascending).index
+                    holdings = [str(x) for x in ordered.tolist()]
+                else:
+                    holdings = [str(x) for x in selected.index.tolist()]
 
-            # If dedupe reduced us below the target size, fill from the remaining
-            # score-frame candidates, best-first by zscore.
-            if len(holdings) < desired_seed:
-                candidates = [c for c in sf.index if c not in holdings]
-                add_from = (
-                    sf.loc[candidates].sort_values("zscore", ascending=False).index
+                # Cap to the requested target size before applying other constraints.
+                if len(holdings) > target_n:
+                    holdings = holdings[:target_n]
+                # Enforce one-per-firm on seed
+                holdings = _dedupe_one_per_firm_with_events(
+                    sf, holdings, metric, events
                 )
-                seen_firms = {_firm(h) for h in holdings}
-                for f in add_from:
-                    if len(holdings) >= desired_seed:
+                desired_seed = min(max_funds, target_n)
+                # If we're still above the desired size, trim by zscore (best-first).
+                if len(holdings) > desired_seed:
+                    zsorted = (
+                        sf.loc[holdings].sort_values("zscore", ascending=False).index
+                    )
+                    holdings = list(zsorted[:desired_seed])
+
+                # If dedupe reduced us below the target size, fill from the remaining
+                # score-frame candidates, best-first by zscore.
+                if len(holdings) < desired_seed:
+                    candidates = [c for c in sf.index if c not in holdings]
+                    add_from = (
+                        sf.loc[candidates].sort_values("zscore", ascending=False).index
+                    )
+                    seen_firms = {_firm(h) for h in holdings}
+                    for f in add_from:
+                        if len(holdings) >= desired_seed:
+                            break
+                        firm = _firm(str(f))
+                        if firm in seen_firms:
+                            continue
+                        holdings.append(str(f))
+                        seen_firms.add(firm)
+
+                # If the risk-free column was inferred via fallback, prefer not to
+                # seed it as an investable holding when we can swap it out without
+                # reducing the portfolio below the desired size.
+                if (
+                    resolved_rf_source == "fallback"
+                    and resolved_rf_col
+                    and resolved_rf_col in holdings
+                ):
+                    candidates = [c for c in sf.index if c not in holdings]
+                    add_from = (
+                        sf.loc[candidates].sort_values("zscore", ascending=False).index
+                        if candidates
+                        else []
+                    )
+                    seen_firms = {_firm(h) for h in holdings if h != resolved_rf_col}
+                    replacement: str | None = None
+                    for f in add_from:
+                        firm = _firm(str(f))
+                        if firm in seen_firms:
+                            continue
+                        replacement = str(f)
                         break
-                    firm = _firm(str(f))
-                    if firm in seen_firms:
-                        continue
-                    holdings.append(str(f))
-                    seen_firms.add(firm)
+                    if replacement is not None:
+                        holdings = [h for h in holdings if h != resolved_rf_col]
+                        holdings.append(replacement)
 
-            # If the risk-free column was inferred via fallback, prefer not to
-            # seed it as an investable holding when we can swap it out without
-            # reducing the portfolio below the desired size.
-            if (
-                resolved_rf_source == "fallback"
-                and resolved_rf_col
-                and resolved_rf_col in holdings
-            ):
-                candidates = [c for c in sf.index if c not in holdings]
-                add_from = (
-                    sf.loc[candidates].sort_values("zscore", ascending=False).index
-                    if candidates
-                    else []
-                )
-                seen_firms = {_firm(h) for h in holdings if h != resolved_rf_col}
-                replacement: str | None = None
-                for f in add_from:
-                    firm = _firm(str(f))
-                    if firm in seen_firms:
-                        continue
-                    replacement = str(f)
-                    break
-                if replacement is not None:
-                    holdings = [h for h in holdings if h != resolved_rf_col]
-                    holdings.append(replacement)
             weights_df = weighting.weight(sf.loc[holdings], period_ts)
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
@@ -1780,7 +1842,16 @@ def run(
             # IMPORTANT: cap holdings to the configured portfolio size so the
             # trigger logic cannot accumulate an unbounded number of positions.
             before_reb = set(prev_weights.index)
-            rebased = rebalancer.apply_triggers(prev_weights.astype(float), sf)
+            # For random mode, seed varies per period to get different selections each period
+            # This is essential to avoid survivorship bias - we select from the available
+            # universe at each point in time, not funds we know will survive.
+            period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
+            rebased = rebalancer.apply_triggers(
+                prev_weights.astype(float),
+                sf,
+                random_seed=period_seed,
+                target_n=target_n,
+            )
 
             # Restrict to funds available in this period's score-frame.
             proposed_holdings = [str(h) for h in list(rebased.index) if h in sf.index]
@@ -1848,6 +1919,7 @@ def run(
             # rebalancer's intended portfolio size (capped by max_funds), using
             # the highest-zscore *new* candidates. Exclude managers already held
             # before the rebalance so we don't silently undo an intended drop.
+            # In random mode, use random selection instead of zscore ranking.
             desired_size = desired_size_natural
             if max_funds > 0:
                 desired_size = min(desired_size, max_funds)
@@ -1861,9 +1933,19 @@ def run(
                     and str(c) not in cooldown_book
                 ]
                 if candidates:
-                    ranked = (
-                        sf.loc[candidates].sort_values("zscore", ascending=False).index
-                    )
+                    if is_random_mode:
+                        period_seed = abs(
+                            (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                        )
+                        rng = np.random.default_rng(period_seed)
+                        rng.shuffle(candidates)
+                        ranked = candidates
+                    else:
+                        ranked = (
+                            sf.loc[candidates]
+                            .sort_values("zscore", ascending=False)
+                            .index
+                        )
                     for c in ranked:
                         if len(proposed_holdings) >= desired_size:
                             break
@@ -1896,10 +1978,24 @@ def run(
                     except Exception:
                         return float("nan")
 
+                def _random_key(mgr: str) -> float:
+                    # For random mode: use a seeded random value for stable ordering
+                    # Make the seed period-specific by incorporating the score frame.
+                    # Use abs() to ensure non-negative seed (hash can be negative).
+                    base_seed = getattr(cfg, "seed", 42) or 42
+                    combined_seed = (base_seed, id(sf), mgr)
+                    safe_seed = abs(hash(combined_seed))
+                    rng = np.random.default_rng(safe_seed)
+                    return rng.random()
+
                 # Safety: if current holdings already exceed desired_size (should
                 # not happen), prune incumbents by weakest zscore.
+                # In random mode, prune randomly instead.
                 if len(kept_existing) > desired_size:
-                    kept_sorted = sorted(kept_existing, key=_zscore, reverse=True)
+                    if is_random_mode:
+                        kept_sorted = sorted(kept_existing, key=_random_key)
+                    else:
+                        kept_sorted = sorted(kept_existing, key=_zscore, reverse=True)
                     keep = kept_sorted[:desired_size]
                     pruned_existing = set(kept_existing) - set(keep)
                     kept_existing = keep
@@ -1918,7 +2014,10 @@ def run(
                 admitted: list[str] = []
                 if slots > 0 and new_candidates:
                     firms = {_firm(m) for m in kept_existing}
-                    ranked_new = sorted(new_candidates, key=_zscore, reverse=True)
+                    if is_random_mode:
+                        ranked_new = sorted(new_candidates, key=_random_key)
+                    else:
+                        ranked_new = sorted(new_candidates, key=_zscore, reverse=True)
                     for mgr in ranked_new:
                         if len(admitted) >= slots:
                             break

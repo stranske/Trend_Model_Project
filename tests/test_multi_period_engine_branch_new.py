@@ -218,7 +218,7 @@ def test_run_schedule_applies_rebalancer(monkeypatch: pytest.MonkeyPatch) -> Non
             pass
 
         def apply_triggers(
-            self, prev_weights: pd.Series, sf: pd.DataFrame
+            self, prev_weights: pd.Series, sf: pd.DataFrame, **kwargs
         ) -> pd.Series:
             calls.append(prev_weights)
             return prev_weights

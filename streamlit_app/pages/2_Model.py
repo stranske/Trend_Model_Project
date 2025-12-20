@@ -109,7 +109,7 @@ PRESET_CONFIGS = {
         # Multi-period & Selection settings (Phase 8)
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
-        "inclusion_approach": "top_n",
+        "inclusion_approach": "threshold",
         "slippage_bps": 0,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
@@ -192,7 +192,7 @@ PRESET_CONFIGS = {
         # Multi-period & Selection settings (Phase 8) - conservative: longer periods
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
-        "inclusion_approach": "top_n",
+        "inclusion_approach": "threshold",
         "slippage_bps": 5,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
@@ -275,7 +275,7 @@ PRESET_CONFIGS = {
         # Multi-period & Selection settings (Phase 8) - aggressive: shorter periods
         "multi_period_enabled": True,
         "multi_period_frequency": "Q",
-        "inclusion_approach": "top_n",
+        "inclusion_approach": "threshold",
         "slippage_bps": 0,
         "bottom_k": 0,
         # Selection approach details (Phase 9)
@@ -1214,7 +1214,7 @@ def render_model_page() -> None:
                 "threshold": "Z-Score Threshold",
                 "random": "Random Selection",
             }
-            current_inclusion = model_state.get("inclusion_approach", "top_n")
+            current_inclusion = model_state.get("inclusion_approach", "threshold")
             inclusion_approach = st.selectbox(
                 "Selection Method",
                 options=inclusion_approaches,
@@ -1222,17 +1222,32 @@ def render_model_page() -> None:
                 index=(
                     inclusion_approaches.index(current_inclusion)
                     if current_inclusion in inclusion_approaches
-                    else 0
+                    else 2  # Default to "threshold" (index 2)
                 ),
                 help=HELP_TEXT["inclusion_approach"],
+                key="inclusion_approach_select",
             )
 
         # Indicate whether this is ranking-based, threshold-based, or random
         is_ranking_mode = inclusion_approach in ["top_n", "top_pct"]
         is_random_mode = inclusion_approach == "random"
+        is_top_n_mode = inclusion_approach == "top_n"
+        is_top_pct_mode = inclusion_approach == "top_pct"
 
         with approach_c2:
-            if is_random_mode:
+            if is_top_pct_mode:
+                # Show percentage selector directly for top_pct mode
+                rank_pct_input = st.number_input(
+                    "Top Percentage (%)",
+                    min_value=1,
+                    max_value=50,
+                    value=int(float(model_state.get("rank_pct", 0.10)) * 100),
+                    step=1,
+                    help="Select top N% of funds by score (e.g., 10 = top 10%)",
+                    key="rank_pct_primary",
+                )
+                st.caption(f"🏆 Select top {rank_pct_input}% of funds by score")
+            elif is_random_mode:
                 st.caption(
                     "🎲 **Random Mode**: Funds are randomly selected each period. "
                     "No in-sample ranking metrics used for selection."
@@ -1363,16 +1378,26 @@ def render_model_page() -> None:
             )
             st.caption("Target holdings (initial selection size)")
 
+        # Disable min/max for top_n mode since fund count is fixed by selection_count
+        min_max_disabled = not mp_enabled_state or is_top_n_mode
+        min_max_help_suffix = (
+            " (disabled for Top N mode - uses Target Funds)" if is_top_n_mode else ""
+        )
+
         with size_c2:
             mp_min_funds = st.number_input(
                 "Minimum Funds",
                 min_value=0,
                 max_value=len(fund_cols) if fund_cols else 100,
                 value=int(model_state.get("mp_min_funds", 0)),
-                help=HELP_TEXT["mp_min_funds"],
-                disabled=not mp_enabled_state,
+                help=HELP_TEXT["mp_min_funds"] + min_max_help_suffix,
+                disabled=min_max_disabled,
+                key="mp_min_funds_input",
             )
-            st.caption("Floor (0 = disabled)")
+            if is_top_n_mode:
+                st.caption("🔒 Disabled (Top N uses Target Funds)")
+            else:
+                st.caption("Floor (0 = disabled)")
 
         with size_c3:
             mp_max_funds = st.number_input(
@@ -1380,10 +1405,14 @@ def render_model_page() -> None:
                 min_value=0,
                 max_value=len(fund_cols) if fund_cols else 100,
                 value=int(model_state.get("mp_max_funds", 0)),
-                help=HELP_TEXT["mp_max_funds"],
-                disabled=not mp_enabled_state,
+                help=HELP_TEXT["mp_max_funds"] + min_max_help_suffix,
+                disabled=min_max_disabled,
+                key="mp_max_funds_input",
             )
-            st.caption("Cap (0 = disabled)")
+            if is_top_n_mode:
+                st.caption("🔒 Disabled (Top N uses Target Funds)")
+            else:
+                st.caption("Cap (0 = disabled)")
 
         st.markdown("**Portfolio weight constraints**")
         w_c1, w_c2 = st.columns(2)
@@ -2192,17 +2221,12 @@ def render_model_page() -> None:
 
             # Additional parameters for specific selection modes
             if inclusion_approach == "top_pct":
-                st.markdown("**Top Percentage Settings**")
-                rank_pct = st.number_input(
-                    "Top Percentage",
-                    min_value=0.01,
-                    max_value=0.50,
-                    value=float(model_state.get("rank_pct", 0.10)),
-                    step=0.01,
-                    format="%.2f",
-                    help=HELP_TEXT["rank_pct"],
+                # Use value from primary input (defined above) - convert from percentage to decimal
+                rank_pct = rank_pct_input / 100.0
+                st.info(
+                    f"📊 Top Percentage is set to **{rank_pct_input}%** above. "
+                    "Adjust it in the Fund Selection Approach section."
                 )
-                st.caption(f"Select top {rank_pct * 100:.0f}% of funds by score")
             else:
                 rank_pct = float(model_state.get("rank_pct", 0.10))
 

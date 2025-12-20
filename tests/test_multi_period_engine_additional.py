@@ -548,7 +548,7 @@ def test_run_threshold_hold_low_weight_replacement(
             self.calls = 0
 
         def apply_triggers(
-            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame, **kwargs
         ) -> pd.Series:
             del score_frame
             self.calls += 1
@@ -802,7 +802,7 @@ def test_run_reconciles_manager_changes_to_pipeline_fund_weights(
             pass
 
         def apply_triggers(
-            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame, **kwargs
         ) -> pd.Series:
             del score_frame
             return prev_weights
@@ -975,7 +975,7 @@ def test_run_threshold_hold_reseeds_and_skips_period(
             self.calls = 0
 
         def apply_triggers(
-            self, prev_weights: pd.Series, score_frame: pd.DataFrame
+            self, prev_weights: pd.Series, score_frame: pd.DataFrame, **kwargs
         ) -> pd.Series:
             del score_frame
             self.calls += 1
@@ -1234,7 +1234,9 @@ def test_threshold_hold_replacements_and_turnover_cap(
     monkeypatch.setattr(
         engine,
         "Rebalancer",
-        lambda *_a, **_k: SimpleNamespace(apply_triggers=lambda weights, sf: weights),
+        lambda *_a, **_k: SimpleNamespace(
+            apply_triggers=lambda weights, sf, **kwargs: weights
+        ),
     )
 
     def fake_apply_missing_policy(
