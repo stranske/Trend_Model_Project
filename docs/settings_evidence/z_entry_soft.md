@@ -19,4 +19,4 @@
 
 ## Economic Interpretation
 
-Setting `z_entry_soft` was tested. Baseline metric: 8066ee3f, Test metric: 22b897e1. The metric unchangedd as expected.
+Setting `z_entry_soft` was tested. Baseline metric: 8066ee3f, Test metric: 22b897e1. The metric changed in the expected direction (decrease).
