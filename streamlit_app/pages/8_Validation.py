@@ -503,8 +503,7 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
     except Exception as e:
         # Log any other unexpected error without breaking callers
         print(
-            "Unexpected error computing _result_hash in extract_key_metrics: "
-            f"{e!r}"
+            "Unexpected error computing _result_hash in extract_key_metrics: " f"{e!r}"
         )
         metrics["_result_hash"] = "error"
 
