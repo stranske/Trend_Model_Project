@@ -946,6 +946,7 @@ def run(
                 risk_window=cfg.vol_adjust.get("window"),
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
+                constraints=cfg.portfolio.get("constraints"),
                 risk_free_column=risk_free_column_cfg,
                 allow_risk_free_fallback=allow_risk_free_fallback_cfg,
             )
@@ -1441,6 +1442,22 @@ def run(
     else:
         weighting = EqualWeight()
 
+    # Risk-based weighting scheme (risk_parity, hrp) from weighting_scheme config.
+    # This overrides the legacy `portfolio.weighting` dict config for primary weights.
+    weighting_scheme = str(
+        cfg.portfolio.get("weighting_scheme", "equal") or "equal"
+    ).lower()
+    use_risk_weighting = weighting_scheme in {"risk_parity", "hrp", "erc", "robust"}
+    risk_weight_engine: Any = None
+    if use_risk_weighting:
+        try:
+            from ..plugins import create_weight_engine
+
+            risk_weight_engine = create_weight_engine(weighting_scheme)
+        except Exception:  # pragma: no cover - best-effort only
+            use_risk_weighting = False
+            risk_weight_engine = None
+
     policy_cfg = cast(dict[str, Any], cfg.portfolio.get("weight_policy", {}))
     policy_mode = str(policy_cfg.get("mode", policy_cfg.get("policy", "drop"))).lower()
     min_assets_policy = int(policy_cfg.get("min_assets", 1) or 0)
@@ -1602,6 +1619,46 @@ def run(
                 }
             )
         return holdings
+
+    def _compute_weights(
+        sf: pd.DataFrame,
+        holdings: list[str],
+        date: pd.Timestamp,
+        returns_window: pd.DataFrame | None = None,
+    ) -> pd.DataFrame:
+        """Compute portfolio weights using risk engine or legacy weighting.
+
+        When ``use_risk_weighting`` is True and ``risk_weight_engine`` is set,
+        compute weights using the risk-based engine (risk_parity, hrp, etc.).
+        Otherwise fall back to the legacy ``weighting`` object.
+        """
+        if use_risk_weighting and risk_weight_engine is not None:
+            # Risk-based weighting requires returns data
+            try:
+                if returns_window is not None and not returns_window.empty:
+                    subset = returns_window.reindex(columns=holdings).dropna(
+                        axis=1, how="all"
+                    )
+                else:
+                    # Fall back to score frame data if no returns window provided
+                    subset = sf.loc[holdings]
+                if subset.empty or len(subset.columns) < 2:
+                    # Not enough data for covariance - fall back to equal weights
+                    return weighting.weight(sf.loc[holdings], date)
+                cov = subset.cov()
+                if cov.isnull().all().all() or cov.empty:
+                    return weighting.weight(sf.loc[holdings], date)
+                w_series = risk_weight_engine.weight(cov)
+                # Ensure all holdings have weights (fill missing with zero)
+                w_series = w_series.reindex(holdings).fillna(0.0)
+                total = w_series.sum()
+                if total > 1e-9:
+                    w_series = w_series / total
+                return pd.DataFrame({"weight": w_series}, index=w_series.index)
+            except Exception:  # pragma: no cover - best-effort fallback
+                return weighting.weight(sf.loc[holdings], date)
+        else:
+            return weighting.weight(sf.loc[holdings], date)
 
     for pt in periods:
         period_ts = pd.to_datetime(pt.out_end)
@@ -2075,7 +2132,10 @@ def run(
                         holdings = [h for h in holdings if h != resolved_rf_col]
                         holdings.append(replacement)
 
-            weights_df = weighting.weight(sf.loc[holdings], period_ts)
+            # Compute weights using risk engine or fallback to legacy weighting
+            weights_df = _compute_weights(
+                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+            )
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
@@ -2626,7 +2686,10 @@ def run(
                     }
                 )
 
-            weights_df = weighting.weight(sf.loc[holdings], period_ts)
+            # Compute weights using risk engine or fallback to legacy weighting
+            weights_df = _compute_weights(
+                sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+            )
             raw_weight_series = _as_weight_series(weights_df)
             signal_slice = sf.loc[holdings, metric] if metric in sf.columns else None
             weight_series = _apply_policy_to_weights(weights_df, signal_slice)
@@ -2702,7 +2765,10 @@ def run(
                         }
                     )
             if holdings:
-                weights_df = weighting.weight(sf.loc[holdings], period_ts)
+                # Compute weights using risk engine or fallback to legacy weighting
+                weights_df = _compute_weights(
+                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+                )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = (
                     sf.loc[holdings, metric] if metric in sf.columns else None
@@ -2725,7 +2791,10 @@ def run(
                 events=events,
             )
             if holdings and prev_weights is not None:
-                weights_df = weighting.weight(sf.loc[holdings], period_ts)
+                # Compute weights using risk engine or fallback to legacy weighting
+                weights_df = _compute_weights(
+                    sf, holdings, period_ts, in_df.reindex(columns=fund_cols)
+                )
                 raw_weight_series = _as_weight_series(weights_df)
                 signal_slice = (
                     sf.loc[holdings, metric] if metric in sf.columns else None
@@ -2862,6 +2931,7 @@ def run(
             benchmarks=cfg.benchmarks,
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
+            constraints=cfg.portfolio.get("constraints"),
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
         )
