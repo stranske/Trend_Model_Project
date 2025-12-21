@@ -2221,8 +2221,9 @@ def run(
                 # each period. This is essential to avoid survivorship bias - we select
                 # from the available universe at each point in time, not funds we know
                 # will survive.
-                period_seed = abs(
-                    (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                period_seed = (
+                    abs(getattr(cfg, "seed", 42) or 42)
+                    + abs(hash(str(pt)) % 10000)
                 )
                 rebased = rebalancer.apply_triggers(
                     prev_weights.astype(float),
