@@ -11,7 +11,6 @@ until its data actually disappears, even if other filters would normally exclude
 
 from __future__ import annotations
 
-
 import numpy as np
 import pandas as pd
 import pytest
