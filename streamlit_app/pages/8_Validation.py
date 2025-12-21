@@ -611,7 +611,7 @@ def render_validation_page() -> None:
         test_value = st.selectbox(
             "Select test value",
             options=selected_setting.test_values,
-            format_func=lambda x: format_value(x),
+            format_func=format_value,
         )
         st.code(f"{selected_setting.key} = {format_value(test_value)}")
 
