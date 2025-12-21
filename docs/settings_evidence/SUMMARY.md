@@ -17,13 +17,13 @@
 | Setting | Baseline | Test | Direction |
 |---------|----------|------|-----------|
 | `inclusion_approach` | 0.2334 | 0.0934 | decrease |
-| `z_entry_soft` | 8066ee3f | 22b897e1 | - |
-| `z_exit_soft` | 8066ee3f | 757e5c44 | - |
+| `z_entry_soft` | N/A | N/A | n/a |
+| `z_exit_soft` | N/A | N/A | n/a |
 | `min_weight` | 0.0345 | 0.0367 | increase |
-| `mp_max_funds` | 8066ee3f | 77047489 | - |
+| `mp_max_funds` | N/A | N/A | n/a |
 | `risk_target` | 0.1315 | 0.2630 | increase |
 | `lookback_periods` | 36 | 60 | increase |
-| `vol_floor` | 8066ee3f | 67ccfd8e | - |
+| `vol_floor` | N/A | N/A | n/a |
 
 ## ❌ Failing Settings (Investigation Required)
 
