@@ -118,7 +118,13 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
 
             # Fresh random selection each period
             # Ensure seed is a valid non-negative integer
-            safe_seed = abs(int(random_seed or 42))
+            try:
+                # Use provided seed if not None; otherwise default to 42
+                raw_seed = random_seed if random_seed is not None else 42
+                safe_seed = abs(int(raw_seed))
+            except (TypeError, ValueError):
+                # Fall back to default seed on any conversion error
+                safe_seed = 42
             rng = np.random.default_rng(safe_seed)
             selected = list(rng.choice(available, size=n_select, replace=False))
 
