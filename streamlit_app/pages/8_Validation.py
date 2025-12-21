@@ -22,7 +22,6 @@ import streamlit as st
 
 from streamlit_app.components import analysis_runner
 
-
 # =============================================================================
 # Setting Definitions
 # =============================================================================
