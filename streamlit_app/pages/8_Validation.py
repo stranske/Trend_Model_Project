@@ -493,7 +493,19 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
             sort_keys=True,
         )
         metrics["_result_hash"] = hashlib.md5(hashable.encode()).hexdigest()[:8]
-    except Exception:
+    except (TypeError, ValueError) as e:
+        # Log serialization issues while preserving existing fallback behavior
+        print(
+            "Error computing _result_hash in extract_key_metrics "
+            f"(serialization issue): {e!r}"
+        )
+        metrics["_result_hash"] = "error"
+    except Exception as e:
+        # Log any other unexpected error without breaking callers
+        print(
+            "Unexpected error computing _result_hash in extract_key_metrics: "
+            f"{e!r}"
+        )
         metrics["_result_hash"] = "error"
 
     return metrics
