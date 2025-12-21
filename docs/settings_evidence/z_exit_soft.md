@@ -19,4 +19,4 @@
 
 ## Economic Interpretation
 
-Setting `z_exit_soft` was tested. Baseline metric: 8066ee3f, Test metric: 757e5c44. The metric unchangedd as expected.
+Setting `z_exit_soft` was tested. Baseline metric: 8066ee3f, Test metric: 757e5c44. The metric changed as expected.
