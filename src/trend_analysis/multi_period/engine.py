@@ -1905,86 +1905,113 @@ def run(
                         holdings = [str(x) for x in selected.index.tolist()]
                 else:
                     # For top_pct and threshold modes, compute directly from score frame
-                    # Compute blended score if configured, else use single metric
-                    if rank_score_by == "blended" and rank_blended_weights:
-                        # Normalize weights
-                        total_w = sum(rank_blended_weights.values())
-                        if total_w > 0:
-                            norm_w = {
-                                k: v / total_w for k, v in rank_blended_weights.items()
-                            }
+                    def _score_and_select_holdings(
+                        score_frame: pd.DataFrame,
+                        rank_score_by: str,
+                        rank_blended_weights: Mapping[str, float] | None,
+                        rank_transform: str,
+                        inclusion_approach: str,
+                        rank_pct: float,
+                        rank_threshold: float,
+                        target_n: int,
+                    ) -> list[str]:
+                        # Compute blended score if configured, else use single metric
+                        if rank_score_by == "blended" and rank_blended_weights:
+                            # Normalize weights
+                            total_w = sum(rank_blended_weights.values())
+                            if total_w > 0:
+                                norm_w = {
+                                    k: v / total_w
+                                    for k, v in rank_blended_weights.items()
+                                }
+                            else:
+                                norm_w = {"Sharpe": 1.0}
+                            # Compute blended score from the score frame
+                            combo = pd.Series(0.0, index=score_frame.index, dtype=float)
+                            for m, w in norm_w.items():
+                                if m in score_frame.columns:
+                                    col_series = score_frame[m].astype(float)
+                                    # Z-score normalize
+                                    mu = float(col_series.mean())
+                                    sigma = float(col_series.std(ddof=0))
+                                    z = (
+                                        (col_series - mu) / sigma
+                                        if sigma > 0
+                                        else pd.Series(
+                                            0.0, index=col_series.index
+                                        )
+                                    )
+                                    # Invert for ascending metrics (smaller is better)
+                                    if m in ASCENDING_METRICS:
+                                        z = -z
+                                    combo += w * z
+                            scores = combo
                         else:
-                            norm_w = {"Sharpe": 1.0}
-                        # Compute blended score from the score frame
-                        combo = pd.Series(0.0, index=sf.index, dtype=float)
-                        for m, w in norm_w.items():
-                            if m in sf.columns:
-                                col_series = sf[m].astype(float)
-                                # Z-score normalize
-                                mu = float(col_series.mean())
-                                sigma = float(col_series.std(ddof=0))
-                                z = (
-                                    (col_series - mu) / sigma
-                                    if sigma > 0
-                                    else pd.Series(0.0, index=col_series.index)
-                                )
-                                # Invert for ascending metrics (smaller is better)
-                                if m in ASCENDING_METRICS:
-                                    z = -z
-                                combo += w * z
-                        scores = combo
-                    else:
-                        # Single metric
-                        score_col = (
-                            rank_score_by if rank_score_by in sf.columns else "Sharpe"
-                        )
-                        scores = sf[score_col].astype(float)
+                            # Single metric
+                            score_col = (
+                                rank_score_by
+                                if rank_score_by in score_frame.columns
+                                else "Sharpe"
+                            )
+                            scores = score_frame[score_col].astype(float)
 
-                    # Apply transform if zscore
-                    if rank_transform == "zscore":
-                        mu, sigma = scores.mean(), scores.std(ddof=0)
-                        if sigma > 0:
-                            scores = (scores - mu) / sigma
-                        else:
-                            scores = pd.Series(0.0, index=scores.index)
-
-                    # Determine sort order
-                    ascending = False  # Higher score is better for blended/zscore
-                    if (
-                        rank_score_by in ASCENDING_METRICS
-                        and rank_transform != "zscore"
-                    ):
-                        ascending = True
-
-                    # Sort scores
-                    sorted_scores = scores.sort_values(ascending=ascending)
-                    all_candidates = list(sorted_scores.index)
-
-                    # Apply inclusion approach
-                    if inclusion_approach == "top_pct":
-                        # Select top X% of funds
-                        k = max(1, int(round(len(all_candidates) * rank_pct)))
-                        holdings = all_candidates[:k]
-                    elif inclusion_approach == "threshold":
-                        # Select funds above threshold
+                        # Apply transform if zscore
                         if rank_transform == "zscore":
-                            # Use z-score threshold
-                            mask = (
-                                sorted_scores >= rank_threshold
-                                if not ascending
-                                else sorted_scores <= rank_threshold
-                            )
-                        else:
-                            mask = (
-                                sorted_scores >= rank_threshold
-                                if not ascending
-                                else sorted_scores <= rank_threshold
-                            )
-                        holdings = list(sorted_scores[mask].index)
-                    else:
-                        # Fallback to taking target_n funds
-                        holdings = all_candidates[:target_n]
+                            mu, sigma = scores.mean(), scores.std(ddof=0)
+                            if sigma > 0:
+                                scores = (scores - mu) / sigma
+                            else:
+                                scores = pd.Series(0.0, index=scores.index)
 
+                        # Determine sort order
+                        ascending = False  # Higher score is better for blended/zscore
+                        if (
+                            rank_score_by in ASCENDING_METRICS
+                            and rank_transform != "zscore"
+                        ):
+                            ascending = True
+
+                        # Sort scores
+                        sorted_scores = scores.sort_values(ascending=ascending)
+                        all_candidates = list(sorted_scores.index)
+
+                        # Apply inclusion approach
+                        if inclusion_approach == "top_pct":
+                            # Select top X% of funds
+                            k = max(1, int(round(len(all_candidates) * rank_pct)))
+                            holdings = all_candidates[:k]
+                        elif inclusion_approach == "threshold":
+                            # Select funds above threshold
+                            if rank_transform == "zscore":
+                                # Use z-score threshold
+                                mask = (
+                                    sorted_scores >= rank_threshold
+                                    if not ascending
+                                    else sorted_scores <= rank_threshold
+                                )
+                            else:
+                                mask = (
+                                    sorted_scores >= rank_threshold
+                                    if not ascending
+                                    else sorted_scores <= rank_threshold
+                                )
+                            holdings = list(sorted_scores[mask].index)
+                        else:
+                            # Fallback to taking target_n funds
+                            holdings = all_candidates[:target_n]
+
+                        return holdings
+
+                    holdings = _score_and_select_holdings(
+                        sf,
+                        rank_score_by=rank_score_by,
+                        rank_blended_weights=rank_blended_weights,
+                        rank_transform=rank_transform,
+                        inclusion_approach=inclusion_approach,
+                        rank_pct=rank_pct,
+                        rank_threshold=rank_threshold,
+                        target_n=target_n,
+                    )
                     # Historical behavior: weight() is invoked during seeding
                     if holdings:
                         try:
