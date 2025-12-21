@@ -448,7 +448,7 @@ class TestResult:
     direction_correct: bool
     status: str  # PASS, FAIL, SKIP, ERROR
     error_message: str = ""
-    details: dict = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 def get_baseline_state() -> dict[str, Any]:
@@ -558,7 +558,7 @@ def run_analysis_with_state(
     index_name = returns.index.name or "Date"
     returns_df = returns_df.rename(columns={index_name: "Date"})
 
-    return run_simulation(config, returns_df)
+    return run_simulation(config, returns_df)  # type: ignore[arg-type]
 
 
 def _build_config_from_state(
@@ -814,8 +814,10 @@ def _build_config_from_state(
     lag = _coerce_positive_int(state.get("trend_lag"), default=base.lag)
     min_periods_raw = state.get("trend_min_periods")
     try:
-        min_periods = (
-            int(min_periods_raw) if min_periods_raw not in (None, "") else None
+        min_periods: int | None = (
+            int(min_periods_raw)  # type: ignore[arg-type]
+            if min_periods_raw not in (None, "")
+            else None
         )
     except (TypeError, ValueError):
         min_periods = None
@@ -1114,21 +1116,21 @@ def check_direction(
         return False
 
     if expected_direction == "change" or expected_direction == "any":
-        return baseline_val != test_val
+        return bool(baseline_val != test_val)
 
     try:
         baseline_num = float(baseline_val)
         test_num = float(test_val)
     except (TypeError, ValueError):
         # For non-numeric values, just check if they changed
-        return baseline_val != test_val
+        return bool(baseline_val != test_val)
 
     if expected_direction == "increase":
-        return test_num > baseline_num
+        return bool(test_num > baseline_num)
     elif expected_direction == "decrease":
-        return test_num < baseline_num
+        return bool(test_num < baseline_num)
 
-    return baseline_val != test_val
+    return bool(baseline_val != test_val)
 
 
 def run_single_test(
@@ -1353,7 +1355,7 @@ def print_summary(results: list[TestResult]) -> None:
             print(f"  - {r.setting_name}: {r.error_message}")
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate all Streamlit app settings are properly wired"
     )
