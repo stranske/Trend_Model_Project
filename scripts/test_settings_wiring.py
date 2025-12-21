@@ -1100,7 +1100,8 @@ def extract_metric(
     if result.details:
         return result.details.get(metric_name)
 
-
+    # Explicitly return None for unknown metrics to make behavior clear
+    return None
 def check_direction(
     baseline_val: Any,
     test_val: Any,
