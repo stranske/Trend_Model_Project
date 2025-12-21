@@ -19,4 +19,4 @@
 
 ## Economic Interpretation
 
-Setting `mp_max_funds` was tested. Baseline metric: 8066ee3f, Test metric: 77047489. The metric unchangedd as expected.
+Setting `mp_max_funds` was tested. Baseline metric: 8066ee3f, Test metric: 77047489. The metric decreased as expected.
