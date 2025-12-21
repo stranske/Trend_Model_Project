@@ -21,4 +21,4 @@
 
 ## Economic Interpretation
 
-Maximum position size constraint. Baseline=1.3741, Test=1.3741. Looser constraints on concentration. Economic intuition: Lower max weights force diversification, potentially reducing volatility.
+Maximum position size constraint. Baseline=1.3741, Test=1.3741. Tighter constraints on concentration. Economic intuition: Lower max weights force diversification, potentially reducing volatility.
