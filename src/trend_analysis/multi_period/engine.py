@@ -1739,8 +1739,9 @@ def run(
                     holdings = []
                 else:
                     # Seed varies per period to get different selections
-                    period_seed = abs(
-                        (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                    period_seed = (
+                        abs(getattr(cfg, "seed", 42) or 42)
+                        + abs(hash(str(pt)) % 10000)
                     )
                     rng = np.random.default_rng(period_seed)
                     n_select = max(1, min(target_n, len(available)))
