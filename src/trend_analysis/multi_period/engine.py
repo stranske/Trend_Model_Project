@@ -2112,8 +2112,8 @@ def run(
 
                     if buy_hold_initial == "random":
                         # Random replacement
-                        period_seed = abs(
-                            (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                        period_seed = abs(getattr(cfg, "seed", 42) or 42) + abs(
+                            hash(str(pt)) % 10000
                         )
                         rng = np.random.default_rng(period_seed)
                         rng.shuffle(available)
