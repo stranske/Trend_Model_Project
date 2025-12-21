@@ -32,7 +32,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
 
-from trend_analysis.config.legacy import Config
+from trend_analysis.config.legacy import Config  # noqa: E402
 
 
 # =============================================================================
@@ -471,8 +471,8 @@ def get_baseline_state() -> dict[str, Any]:
         "rf_rate_annual": 0.0,
         "vol_floor": 0.015,
         "warmup_periods": 0,
-        "max_weight": 0.50,  # Higher max for fewer constraint issues
-        "min_weight": 0.01,  # Lower min for flexibility
+        "max_weight": 0.20,  # Aligned with baseline in 8_Validation.py
+        "min_weight": 0.05,  # Aligned with baseline in 8_Validation.py
         "cooldown_periods": 1,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
@@ -539,10 +539,10 @@ def run_analysis_with_state(
     returns: pd.DataFrame,
     model_state: dict[str, Any],
     benchmark: str | None = None,
-) -> "RunResult":
+) -> Any:
     """Run analysis with given state and return results.
 
-    Returns a RunResult object with attributes:
+    Returns a RunResult-like object with attributes:
     - weights: pd.Series of portfolio weights
     - metrics: pd.DataFrame of summary metrics
     - details: dict with full result payload
@@ -978,11 +978,11 @@ def _build_config_from_state(
 
 
 def extract_metric(
-    result: "RunResult",
+    result: Any,
     metric_name: str,
     model_state: dict[str, Any],
 ) -> Any:
-    """Extract a specific metric from analysis results (RunResult object)."""
+    """Extract a specific metric from analysis results (RunResult-like object)."""
 
     # Handle special computed metrics
     if metric_name == "num_funds_selected":
@@ -1102,6 +1102,8 @@ def extract_metric(
 
     # Explicitly return None for unknown metrics to make behavior clear
     return None
+
+
 def check_direction(
     baseline_val: Any,
     test_val: Any,
@@ -1301,6 +1303,15 @@ def print_summary(results: list[TestResult]) -> None:
     print("SETTINGS WIRING VALIDATION SUMMARY")
     print("=" * 60)
     print(f"Total tests:  {total}")
+    if total == 0:
+        # Avoid division by zero and provide a clear summary when no tests ran
+        print("✅ Passed:    0 (0.0%)")
+        print("❌ Failed:    0 (0.0%)")
+        print("⚠️  Warnings:  0 (0.0%)")
+        print("💥 Errors:    0 (0.0%)")
+        print("=" * 60)
+        print("\nResults by Category:")
+        return
     print(f"✅ Passed:    {passed} ({100*passed/total:.1f}%)")
     print(f"❌ Failed:    {failed} ({100*failed/total:.1f}%)")
     print(f"⚠️  Warnings:  {warnings} ({100*warnings/total:.1f}%)")

@@ -429,7 +429,30 @@ def get_baseline_state() -> dict[str, Any]:
 
 
 def extract_key_metrics(result: Any) -> dict[str, Any]:
-    """Extract key metrics from analysis result (RunResult object) for comparison."""
+    """Extract key metrics from an analysis result for side-by-side comparison.
+
+    The ``result`` argument is expected to be a *RunResult*-like object produced by
+    the core analysis pipeline (for example, ``trend_analysis.multi_period.RunResult``).
+    This function does not depend on the concrete class, only on a small set of
+    attributes that are accessed via ``hasattr`` checks:
+
+    - ``weights``: Optional pandas Series of final portfolio weights indexed by
+      fund identifier.
+    - ``period_results``: Optional iterable of per-period result mappings. Each
+      mapping may contain a ``"weights"`` key whose value is a dict-like object
+      mapping fund identifiers to position weights.
+    - ``period_count``: Optional integer number of periods in the run.
+    - ``metrics``: Optional pandas DataFrame of summary performance metrics.
+    - ``costs``: Optional mapping with keys such as ``"total"``, ``"transaction"``,
+      and ``"slippage"`` containing numeric cost figures.
+    - ``turnover``: Optional pandas Series of per-period turnover values.
+
+    Returns
+    -------
+    dict[str, Any]
+        A flat dictionary containing derived summary metrics plus a ``"_result_hash"``
+        key which is a short hash used for change detection in the validation UI.
+    """
     metrics = {}
 
     # Handle RunResult object attributes
@@ -458,9 +481,9 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
             metrics["min_funds_period"] = min(fund_counts)
             metrics["max_funds_period"] = max(fund_counts)
 
-    # Period count attribute
-    if hasattr(result, "period_count"):
-        metrics["period_count"] = result.period_count
+    # Period count attribute (fallback if period_results not available)
+    if hasattr(result, "period_count") and "num_periods" not in metrics:
+        metrics["num_periods"] = result.period_count
 
     # Summary metrics from metrics DataFrame
     if hasattr(result, "metrics") and result.metrics is not None:
@@ -486,12 +509,11 @@ def extract_key_metrics(result: Any) -> dict[str, Any]:
     if hasattr(result, "turnover") and result.turnover is not None:
         metrics["avg_turnover"] = float(result.turnover.mean())
 
-    # Create a hash of the full result for change detection
+    # Create a hash of the full result for change detection.
+    # Note: MD5 is used only for checksumming/change detection, not security.
     try:
-        hashable = json.dumps(
-            {k: str(v)[:50] for k, v in metrics.items()},
-            sort_keys=True,
-        )
+        # Serialize full metrics dict without truncation for reliable change detection
+        hashable = json.dumps(metrics, sort_keys=True, default=str)
         metrics["_result_hash"] = hashlib.md5(hashable.encode()).hexdigest()[:8]
     except (TypeError, ValueError) as e:
         # Log serialization issues while preserving existing fallback behavior
@@ -668,7 +690,15 @@ def render_validation_page() -> None:
             baseline_hash = baseline_metrics.get("_result_hash", "")
             test_hash = test_metrics.get("_result_hash", "")
 
-            if baseline_hash == test_hash:
+            # Check for hash computation failures before comparing
+            if baseline_hash == "error" or test_hash == "error":
+                st.warning(
+                    f"""
+                ⚠️ **HASH COMPUTATION FAILED**: Could not reliably compare results
+                for setting `{selected_setting.key}`. Check the console for error details.
+                """
+                )
+            elif baseline_hash == test_hash:
                 st.error(
                     f"""
                 ❌ **SETTING NOT WIRED**: The setting `{selected_setting.key}` had 
@@ -699,10 +729,10 @@ def render_validation_page() -> None:
             with col3:
                 st.markdown("**Test**")
 
-            all_keys = set(baseline_metrics.keys()) | set(test_metrics.keys())
-            all_keys = [k for k in sorted(all_keys) if not k.startswith("_")]
+            display_keys = set(baseline_metrics.keys()) | set(test_metrics.keys())
+            display_keys = [k for k in sorted(display_keys) if not k.startswith("_")]
 
-            for key in all_keys:
+            for key in display_keys:
                 baseline_val = baseline_metrics.get(key, "N/A")
                 test_val = test_metrics.get(key, "N/A")
 
@@ -741,17 +771,37 @@ def render_validation_page() -> None:
             progress = st.progress(0)
             status_text = st.empty()
 
+            def _apply_inclusion_approach_special_handling(
+                state: dict[str, Any],
+            ) -> None:
+                """Apply special-case handling for inclusion_approach in batch tests.
+
+                Mirrors the single-test behaviour by ensuring that when
+                inclusion_approach is set to certain modes, the dependent
+                parameters are also populated so the analysis is valid and
+                deterministic.
+                """
+                approach = state.get("inclusion_approach")
+                if approach == "random":
+                    state.setdefault("random_seed", 42)
+                elif approach == "top_pct":
+                    state.setdefault("rank_pct", 0.20)
+
             for i, setting in enumerate(settings_in_cat):
                 status_text.text(f"Testing: {setting.label}...")
 
                 # Run baseline
                 baseline_state = get_baseline_state()
                 baseline_state[setting.key] = setting.baseline
+                if setting.key == "inclusion_approach":
+                    _apply_inclusion_approach_special_handling(baseline_state)
                 baseline_result = run_test_analysis(returns, baseline_state)
 
                 # Run first test value
                 test_state = get_baseline_state()
                 test_state[setting.key] = setting.test_values[0]
+                if setting.key == "inclusion_approach":
+                    _apply_inclusion_approach_special_handling(test_state)
                 test_result = run_test_analysis(returns, test_state)
 
                 if (
