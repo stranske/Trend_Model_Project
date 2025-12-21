@@ -263,9 +263,19 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
         return interpretations[setting]
 
     # Generic interpretation
+    if direction == "increase":
+        direction_phrase = "increased"
+    elif direction == "decrease":
+        direction_phrase = "decreased"
+    elif direction == "unchanged":
+        direction_phrase = "remained unchanged"
+    else:
+        # Fallback: use the raw direction string if it's already a phrase
+        direction_phrase = direction
+
     return (
         f"Setting `{setting}` was tested. Baseline metric: {baseline}, Test metric: {test}. "
-        f"The metric {direction}d as expected."
+        f"The metric {direction_phrase} as expected."
         if status == "PASS"
         else f"The setting change {'had the expected effect' if status == 'PASS' else 'requires further investigation'}."
     )
