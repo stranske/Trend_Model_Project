@@ -230,36 +230,60 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
     test = evidence.get("test_formatted", "N/A")
     direction = evidence.get("actual_direction", "unchanged")
 
+    # Pre-compute conditional text to avoid nested quotes in f-strings
+    concentration_text = (
+        "became more concentrated"
+        if direction == "decrease"
+        else "became more diversified"
+    )
+    constraint_text = (
+        "Tighter constraints" if direction == "decrease" else "Looser constraints"
+    )
+    lookback_text = "Shorter" if direction == "decrease" else "Longer"
+    window_text = "Shorter" if direction == "decrease" else "Longer"
+    risk_text = "Lower" if direction == "decrease" else "Higher"
+
+    # Build selection_count interpretation based on direction
+    if direction != "unchanged":
+        selection_count_text = (
+            f"The number of funds in the portfolio changed from baseline to test. "
+            f"With baseline={baseline} and test={test}, the portfolio "
+            f"{concentration_text}. "
+            "Economic intuition: More funds typically reduce idiosyncratic risk "
+            "but may dilute alpha."
+        )
+    else:
+        selection_count_text = (
+            f"The number of funds in the portfolio remained the same between "
+            f"baseline and test (both {baseline}). Economic intuition: More funds "
+            "typically reduce idiosyncratic risk but may dilute alpha."
+        )
+
     interpretations = {
-        "selection_count": (
-            f"The number of funds in the portfolio "
-            f"{'changed from baseline to test. With baseline={baseline} and test={test}, the portfolio '
-              f\"{'became more concentrated' if direction == 'decrease' else 'became more diversified'}. \""
-            if direction != "unchanged"
-            else (
-                f"remained the same between baseline and test (both {baseline}). "
-            )
-            + "Economic intuition: More funds typically reduce idiosyncratic risk but may dilute alpha."
-        ),
+        "selection_count": selection_count_text,
         "max_weight": (
             f"Maximum position size constraint. Baseline={baseline}, Test={test}. "
-            f"{'Tighter constraints' if direction == 'decrease' else 'Looser constraints'} on concentration. "
-            f"Economic intuition: Lower max weights force diversification, potentially reducing volatility."
+            f"{constraint_text} on concentration. "
+            "Economic intuition: Lower max weights force diversification, "
+            "potentially reducing volatility."
         ),
         "lookback_periods": (
             f"In-sample evaluation window changed. Baseline={baseline}, Test={test}. "
-            f"{'Shorter' if direction == 'decrease' else 'Longer'} lookback for ranking funds. "
-            f"Economic intuition: Longer lookbacks capture more trend persistence but may miss regime changes."
+            f"{lookback_text} lookback for ranking funds. "
+            "Economic intuition: Longer lookbacks capture more trend persistence "
+            "but may miss regime changes."
         ),
         "trend_window": (
             f"Trend signal calculation window. Baseline={baseline}, Test={test}. "
-            f"{'Shorter' if direction == 'decrease' else 'Longer'} window for momentum. "
-            f"Economic intuition: Shorter windows capture faster trends, longer windows reduce noise."
+            f"{window_text} window for momentum. "
+            "Economic intuition: Shorter windows capture faster trends, "
+            "longer windows reduce noise."
         ),
         "risk_target": (
             f"Portfolio volatility target. Baseline={baseline}, Test={test}. "
-            f"{'Lower' if direction == 'decrease' else 'Higher'} risk appetite. "
-            f"Economic intuition: Higher risk targets allow more aggressive positioning."
+            f"{risk_text} risk appetite. "
+            "Economic intuition: Higher risk targets allow more aggressive "
+            "positioning."
         ),
     }
 
@@ -277,12 +301,12 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
         # Fallback: use the raw direction string if it's already a phrase
         direction_phrase = direction
 
-    return (
-        f"Setting `{setting}` was tested. Baseline metric: {baseline}, Test metric: {test}. "
-        f"The metric {direction_phrase} as expected."
-        if status == "PASS"
-        else f"The setting change {'had the expected effect' if status == 'PASS' else 'requires further investigation'}."
-    )
+    if status == "PASS":
+        return (
+            f"Setting `{setting}` was tested. Baseline metric: {baseline}, "
+            f"Test metric: {test}. The metric {direction_phrase} as expected."
+        )
+    return "The setting change requires further investigation."
 
 
 def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
@@ -297,12 +321,12 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
         "# Settings Wiring Evidence Summary",
         "",
         f"**Generated:** {datetime.now().isoformat()}",
-        f"**Data Source:** Trend Universe Data",
+        "**Data Source:** Trend Universe Data",
         "",
         "## Overview",
         "",
-        f"| Status | Count |",
-        f"|--------|-------|",
+        "| Status | Count |",
+        "|--------|-------|",
         f"| ✅ PASS | {len(passed)} |",
         f"| ❌ FAIL | {len(failed)} |",
         f"| ⚠️ WARN | {len(warned)} |",
