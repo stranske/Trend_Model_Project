@@ -1188,7 +1188,11 @@ def run(
         ) + pd.offsets.MonthEnd(0)
 
     def _valid_universe(
-        full: pd.DataFrame, in_start: str, in_end: str, out_start: str, out_end: str
+        full: pd.DataFrame,
+        in_start: str,
+        in_end: str,
+        out_start: str,
+        out_end: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], str]:
         date_col = "Date"
         sub = full.copy()
@@ -1359,6 +1363,16 @@ def run(
     )
     selector = create_selector_by_name("rank", top_n=target_n, rank_column=seed_metric)
 
+    # Extract inclusion approach from rank config (top_n, top_pct, threshold)
+    rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
+    inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
+    rank_pct = float(rank_cfg.get("pct", 0.10))  # For top_pct mode
+    rank_threshold = float(rank_cfg.get("threshold", 1.0))  # For threshold mode
+    rank_score_by = str(rank_cfg.get("score_by", "blended"))
+    rank_blended_weights = rank_cfg.get("blended_weights")
+    # Transform: zscore for threshold mode, raw for ranking modes
+    rank_transform = str(rank_cfg.get("transform", "raw"))
+
     # Portfolio constraints
     constraints = cast(dict[str, Any], cfg.portfolio.get("constraints", {}))
     mp_cfg = cast(dict[str, Any], cfg.model_dump().get("multi_period", {}) or {})
@@ -1434,6 +1448,14 @@ def run(
     # Check if random selection mode - if so, disable z-score based entry/exit
     selection_mode = cfg.portfolio.get("selection_mode", "rank")
     is_random_mode = selection_mode == "random"
+
+    # Buy-and-hold mode: hold initial selection, only replace when funds disappear
+    is_buy_and_hold = selection_mode == "buy_and_hold"
+    buy_hold_cfg = cast(dict[str, Any], portfolio_cfg.get("buy_and_hold", {}) or {})
+    buy_hold_initial = str(buy_hold_cfg.get("initial_method", "top_n"))
+    buy_hold_n = int(buy_hold_cfg.get("n", target_n))
+    buy_hold_pct = float(buy_hold_cfg.get("pct", rank_pct))
+    buy_hold_threshold = float(buy_hold_cfg.get("threshold", rank_threshold))
 
     rebalancer = Rebalancer(cfg.model_dump())
 
@@ -1593,7 +1615,11 @@ def run(
                     cooldown_book[key] = remaining
 
         in_df, out_df, fund_cols, _rf_col = _valid_universe(
-            df, pt.in_start[:7], pt.in_end[:7], pt.out_start[:7], pt.out_end[:7]
+            df,
+            pt.in_start[:7],
+            pt.in_end[:7],
+            pt.out_start[:7],
+            pt.out_end[:7],
         )
         if not fund_cols:
             # Preserve period alignment: produce a minimal placeholder so downstream
@@ -1738,29 +1764,233 @@ def run(
                                     continue
                                 holdings.append(str(c))
                                 seen_firms.add(firm)
-            else:
-                # Seed via rank selector (z-score based)
-                selected, _ = selector.select(sf)
-                # Historical behavior: weight() is invoked during seeding even though
-                # holdings may be refined by constraints afterwards. Some weighting
-                # engines (and unit tests) model state across calls.
-                try:
-                    weighting.weight(selected, period_ts)
-                except Exception:  # pragma: no cover - best-effort only
-                    pass
-
-                rank_col = getattr(selector, "rank_column", None)
-                if (
-                    isinstance(rank_col, str)
-                    and rank_col
-                    and isinstance(selected, pd.DataFrame)
-                    and rank_col in selected.columns
-                ):
-                    ascending = rank_col in ASCENDING_METRICS
-                    ordered = selected.sort_values(rank_col, ascending=ascending).index
-                    holdings = [str(x) for x in ordered.tolist()]
+            elif is_buy_and_hold:
+                # Buy-and-hold mode: select initial holdings using configured method
+                # Holdings will be held until data disappears (fund ceases to exist)
+                available = list(sf.index)
+                if not available:
+                    holdings = []
+                elif buy_hold_initial == "random":
+                    # Random initial selection
+                    period_seed = abs(
+                        (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                    )
+                    rng = np.random.default_rng(period_seed)
+                    n_select = max(1, min(buy_hold_n, len(available)))
+                    holdings = list(rng.choice(available, size=n_select, replace=False))
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
+                    # Refill if dedupe reduced holdings
+                    if len(holdings) < n_select:
+                        candidates = [c for c in available if c not in holdings]
+                        if candidates:
+                            rng = np.random.default_rng(period_seed + 1)
+                            rng.shuffle(candidates)
+                            seen_firms = {_firm(h) for h in holdings}
+                            for c in candidates:
+                                if len(holdings) >= n_select:
+                                    break
+                                firm = _firm(str(c))
+                                if firm in seen_firms:
+                                    continue
+                                holdings.append(str(c))
+                                seen_firms.add(firm)
                 else:
-                    holdings = [str(x) for x in selected.index.tolist()]
+                    # Rank-based initial selection (top_n, top_pct, threshold)
+                    # Compute scores for ranking
+                    if rank_score_by == "blended" and rank_blended_weights:
+                        total_w = sum(rank_blended_weights.values())
+                        if total_w > 0:
+                            norm_w = {
+                                k: v / total_w for k, v in rank_blended_weights.items()
+                            }
+                        else:
+                            norm_w = {"Sharpe": 1.0}
+                        combo = pd.Series(0.0, index=sf.index, dtype=float)
+                        for m, w in norm_w.items():
+                            if m in sf.columns:
+                                col_series = sf[m].astype(float)
+                                mu = float(col_series.mean())
+                                sigma = float(col_series.std(ddof=0))
+                                z = (
+                                    (col_series - mu) / sigma
+                                    if sigma > 0
+                                    else pd.Series(0.0, index=col_series.index)
+                                )
+                                if m in ASCENDING_METRICS:
+                                    z = -z
+                                combo += w * z
+                        scores = combo
+                    else:
+                        score_col = (
+                            rank_score_by if rank_score_by in sf.columns else "Sharpe"
+                        )
+                        scores = sf[score_col].astype(float)
+
+                    # Apply zscore transform if threshold mode
+                    if buy_hold_initial == "threshold":
+                        mu, sigma = scores.mean(), scores.std(ddof=0)
+                        if sigma > 0:
+                            scores = (scores - mu) / sigma
+                        else:
+                            scores = pd.Series(0.0, index=scores.index)
+
+                    ascending = False
+                    if (
+                        rank_score_by in ASCENDING_METRICS
+                        and buy_hold_initial != "threshold"
+                    ):
+                        ascending = True
+
+                    sorted_scores = scores.sort_values(ascending=ascending)
+                    all_candidates = list(sorted_scores.index)
+
+                    if buy_hold_initial == "top_n":
+                        holdings = all_candidates[:buy_hold_n]
+                    elif buy_hold_initial == "top_pct":
+                        k = max(1, int(round(len(all_candidates) * buy_hold_pct)))
+                        holdings = all_candidates[:k]
+                    elif buy_hold_initial == "threshold":
+                        mask = (
+                            sorted_scores >= buy_hold_threshold
+                            if not ascending
+                            else sorted_scores <= buy_hold_threshold
+                        )
+                        holdings = list(sorted_scores[mask].index)
+                        # Cap at target size
+                        if len(holdings) > buy_hold_n:
+                            holdings = holdings[:buy_hold_n]
+                    else:
+                        holdings = all_candidates[:buy_hold_n]
+
+                    # Enforce one-per-firm constraint
+                    holdings = _dedupe_one_per_firm_with_events(
+                        sf, holdings, metric, events
+                    )
+                    # Historical weighting call
+                    if holdings:
+                        try:
+                            weighting.weight(sf.loc[holdings], period_ts)
+                        except Exception:  # pragma: no cover
+                            pass
+            else:
+                # Seed via ranking - supports top_n, top_pct, threshold
+                # For top_n mode, use the selector to maintain backward compatibility
+                # For top_pct and threshold modes, compute directly from score frame
+                if inclusion_approach == "top_n":
+                    # Use selector for backward compatibility with tests
+                    selected, _ = selector.select(sf)
+                    # Historical behavior: weight() is invoked during seeding even though
+                    # holdings may be refined by constraints afterwards. Some weighting
+                    # engines (and unit tests) model state across calls.
+                    try:
+                        weighting.weight(selected, period_ts)
+                    except Exception:  # pragma: no cover - best-effort only
+                        pass
+
+                    rank_col = getattr(selector, "rank_column", None)
+                    if (
+                        isinstance(rank_col, str)
+                        and rank_col
+                        and isinstance(selected, pd.DataFrame)
+                        and rank_col in selected.columns
+                    ):
+                        ascending = rank_col in ASCENDING_METRICS
+                        ordered = selected.sort_values(
+                            rank_col, ascending=ascending
+                        ).index
+                        holdings = [str(x) for x in ordered.tolist()]
+                    else:
+                        holdings = [str(x) for x in selected.index.tolist()]
+                else:
+                    # For top_pct and threshold modes, compute directly from score frame
+                    # Compute blended score if configured, else use single metric
+                    if rank_score_by == "blended" and rank_blended_weights:
+                        # Normalize weights
+                        total_w = sum(rank_blended_weights.values())
+                        if total_w > 0:
+                            norm_w = {
+                                k: v / total_w for k, v in rank_blended_weights.items()
+                            }
+                        else:
+                            norm_w = {"Sharpe": 1.0}
+                        # Compute blended score from the score frame
+                        combo = pd.Series(0.0, index=sf.index, dtype=float)
+                        for m, w in norm_w.items():
+                            if m in sf.columns:
+                                col_series = sf[m].astype(float)
+                                # Z-score normalize
+                                mu = float(col_series.mean())
+                                sigma = float(col_series.std(ddof=0))
+                                z = (
+                                    (col_series - mu) / sigma
+                                    if sigma > 0
+                                    else pd.Series(0.0, index=col_series.index)
+                                )
+                                # Invert for ascending metrics (smaller is better)
+                                if m in ASCENDING_METRICS:
+                                    z = -z
+                                combo += w * z
+                        scores = combo
+                    else:
+                        # Single metric
+                        score_col = (
+                            rank_score_by if rank_score_by in sf.columns else "Sharpe"
+                        )
+                        scores = sf[score_col].astype(float)
+
+                    # Apply transform if zscore
+                    if rank_transform == "zscore":
+                        mu, sigma = scores.mean(), scores.std(ddof=0)
+                        if sigma > 0:
+                            scores = (scores - mu) / sigma
+                        else:
+                            scores = pd.Series(0.0, index=scores.index)
+
+                    # Determine sort order
+                    ascending = False  # Higher score is better for blended/zscore
+                    if (
+                        rank_score_by in ASCENDING_METRICS
+                        and rank_transform != "zscore"
+                    ):
+                        ascending = True
+
+                    # Sort scores
+                    sorted_scores = scores.sort_values(ascending=ascending)
+                    all_candidates = list(sorted_scores.index)
+
+                    # Apply inclusion approach
+                    if inclusion_approach == "top_pct":
+                        # Select top X% of funds
+                        k = max(1, int(round(len(all_candidates) * rank_pct)))
+                        holdings = all_candidates[:k]
+                    elif inclusion_approach == "threshold":
+                        # Select funds above threshold
+                        if rank_transform == "zscore":
+                            # Use z-score threshold
+                            mask = (
+                                sorted_scores >= rank_threshold
+                                if not ascending
+                                else sorted_scores <= rank_threshold
+                            )
+                        else:
+                            mask = (
+                                sorted_scores >= rank_threshold
+                                if not ascending
+                                else sorted_scores <= rank_threshold
+                            )
+                        holdings = list(sorted_scores[mask].index)
+                    else:
+                        # Fallback to taking target_n funds
+                        holdings = all_candidates[:target_n]
+
+                    # Historical behavior: weight() is invoked during seeding
+                    if holdings:
+                        try:
+                            weighting.weight(sf.loc[holdings], period_ts)
+                        except Exception:  # pragma: no cover - best-effort only
+                            pass
 
                 # Cap to the requested target size before applying other constraints.
                 if len(holdings) > target_n:
@@ -1842,19 +2072,169 @@ def run(
             # IMPORTANT: cap holdings to the configured portfolio size so the
             # trigger logic cannot accumulate an unbounded number of positions.
             before_reb = set(prev_weights.index)
-            # For random mode, seed varies per period to get different selections each period
-            # This is essential to avoid survivorship bias - we select from the available
-            # universe at each point in time, not funds we know will survive.
-            period_seed = abs((getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000)
-            rebased = rebalancer.apply_triggers(
-                prev_weights.astype(float),
-                sf,
-                random_seed=period_seed,
-                target_n=target_n,
-            )
 
-            # Restrict to funds available in this period's score-frame.
-            proposed_holdings = [str(h) for h in list(rebased.index) if h in sf.index]
+            # Buy-and-hold mode: keep existing holdings, only replace disappeared funds
+            if is_buy_and_hold:
+                # Check raw out-of-sample data, not the filtered score frame.
+                # A fund should only exit when its data actually disappears,
+                # not when it fails the completeness filter for new selections.
+                current_holdings = []
+                exited_funds_set: set[str] = set()
+                for h in prev_weights.index:
+                    h_str = str(h)
+                    # Fund still has data if it has ANY non-null values in out-of-sample
+                    if h_str in out_df.columns and out_df[h_str].notna().any():
+                        current_holdings.append(h_str)
+                    else:
+                        exited_funds_set.add(h_str)
+                exited_funds = exited_funds_set
+
+                # Log forced exits (data disappeared)
+                for mgr in exited_funds:
+                    events.append(
+                        {
+                            "action": "dropped",
+                            "manager": mgr,
+                            "firm": _firm(mgr),
+                            "reason": "data_ceased",
+                            "detail": "fund data no longer available",
+                        }
+                    )
+                    forced_exits.add(mgr)
+
+                # Replace exited funds using the same initial selection method
+                n_needed = buy_hold_n - len(current_holdings)
+                if n_needed > 0:
+                    available = [
+                        str(c) for c in sf.index if str(c) not in current_holdings
+                    ]
+                    seen_firms = {_firm(h) for h in current_holdings}
+
+                    if buy_hold_initial == "random":
+                        # Random replacement
+                        period_seed = abs(
+                            (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                        )
+                        rng = np.random.default_rng(period_seed)
+                        rng.shuffle(available)
+                        replacements: list[str] = []
+                        for c in available:
+                            if len(replacements) >= n_needed:
+                                break
+                            firm = _firm(c)
+                            if firm in seen_firms:
+                                continue
+                            replacements.append(c)
+                            seen_firms.add(firm)
+                    else:
+                        # Rank-based replacement (top_n, top_pct, threshold)
+                        if rank_score_by == "blended" and rank_blended_weights:
+                            total_w = sum(rank_blended_weights.values())
+                            if total_w > 0:
+                                norm_w = {
+                                    k: v / total_w
+                                    for k, v in rank_blended_weights.items()
+                                }
+                            else:
+                                norm_w = {"Sharpe": 1.0}
+                            combo = pd.Series(0.0, index=sf.index, dtype=float)
+                            for m, w in norm_w.items():
+                                if m in sf.columns:
+                                    col_series = sf[m].astype(float)
+                                    mu = float(col_series.mean())
+                                    sigma = float(col_series.std(ddof=0))
+                                    z = (
+                                        (col_series - mu) / sigma
+                                        if sigma > 0
+                                        else pd.Series(0.0, index=col_series.index)
+                                    )
+                                    if m in ASCENDING_METRICS:
+                                        z = -z
+                                    combo += w * z
+                            scores = combo
+                        else:
+                            score_col = (
+                                rank_score_by
+                                if rank_score_by in sf.columns
+                                else "Sharpe"
+                            )
+                            scores = sf[score_col].astype(float)
+
+                        # Apply zscore transform if threshold mode
+                        if buy_hold_initial == "threshold":
+                            mu, sigma = scores.mean(), scores.std(ddof=0)
+                            if sigma > 0:
+                                scores = (scores - mu) / sigma
+                            else:
+                                scores = pd.Series(0.0, index=scores.index)
+
+                        ascending = False
+                        if (
+                            rank_score_by in ASCENDING_METRICS
+                            and buy_hold_initial != "threshold"
+                        ):
+                            ascending = True
+
+                        # Sort scores and filter to available candidates
+                        sorted_scores = scores.loc[available].sort_values(
+                            ascending=ascending
+                        )
+
+                        # Select replacements respecting threshold if applicable
+                        if buy_hold_initial == "threshold":
+                            mask = (
+                                sorted_scores >= buy_hold_threshold
+                                if not ascending
+                                else sorted_scores <= buy_hold_threshold
+                            )
+                            candidate_list = list(sorted_scores[mask].index)
+                        else:
+                            candidate_list = list(sorted_scores.index)
+
+                        replacements = []
+                        for c in candidate_list:
+                            if len(replacements) >= n_needed:
+                                break
+                            firm = _firm(str(c))
+                            if firm in seen_firms:
+                                continue
+                            replacements.append(str(c))
+                            seen_firms.add(firm)
+
+                    # Log replacements
+                    for mgr in replacements:
+                        events.append(
+                            {
+                                "action": "added",
+                                "manager": mgr,
+                                "firm": _firm(mgr),
+                                "reason": "replacement",
+                                "detail": f"replaced ceased fund via {buy_hold_initial}",
+                            }
+                        )
+                    current_holdings.extend(replacements)
+
+                # Set proposed holdings (skip normal rebalancer)
+                proposed_holdings = current_holdings
+            else:
+                # For random mode, seed varies per period to get different selections
+                # each period. This is essential to avoid survivorship bias - we select
+                # from the available universe at each point in time, not funds we know
+                # will survive.
+                period_seed = abs(
+                    (getattr(cfg, "seed", 42) or 42) + hash(str(pt)) % 10000
+                )
+                rebased = rebalancer.apply_triggers(
+                    prev_weights.astype(float),
+                    sf,
+                    random_seed=period_seed,
+                    target_n=target_n,
+                )
+
+                # Restrict to funds available in this period's score-frame.
+                proposed_holdings = [
+                    str(h) for h in list(rebased.index) if h in sf.index
+                ]
 
             # Enforce cooldown: funds recently removed cannot be re-added.
             # Existing holdings are not blocked (cooldown only applies to re-entry).

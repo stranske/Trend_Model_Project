@@ -275,8 +275,13 @@ def _build_portfolio_config(
     selection_approach = str(
         config.get("inclusion_approach") or config.get("selection_approach") or "top_n"
     )
+    # Buy & Hold mode uses a sub-selection method for initial/replacement selection
+    is_buy_and_hold = selection_approach == "buy_and_hold"
+    buy_hold_initial = str(config.get("buy_hold_initial", "top_n"))
     # Transform is now implicit: threshold mode uses zscore, ranking modes use none
-    rank_transform = "zscore" if selection_approach == "threshold" else "raw"
+    # For buy_and_hold, use the initial method's transform
+    effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
+    rank_transform = "zscore" if effective_approach == "threshold" else "raw"
     slippage_bps = _coerce_positive_int(
         config.get("slippage_bps"), default=0, minimum=0
     )
@@ -294,7 +299,13 @@ def _build_portfolio_config(
 
     # Determine selection mode based on approach
     is_random_mode = selection_approach == "random"
+    # For buy_and_hold with random initial, also set random mode
+    if is_buy_and_hold and buy_hold_initial == "random":
+        is_random_mode = True
     selection_mode = "random" if is_random_mode else "rank"
+    # Override selection_mode for buy_and_hold
+    if is_buy_and_hold:
+        selection_mode = "buy_and_hold"
 
     portfolio_cfg: dict[str, Any] = {
         "selection_mode": selection_mode,
@@ -306,6 +317,13 @@ def _build_portfolio_config(
             "score_by": "blended",
             "blended_weights": registry_weights,
             "transform": rank_transform,
+        },
+        "buy_and_hold": {
+            "initial_method": buy_hold_initial,
+            "n": selection_count,
+            "pct": rank_pct,
+            "threshold": rank_threshold,
+            "blended_weights": registry_weights,
         },
         "random_n": selection_count,  # Used when selection_mode is "random"
         "weighting_scheme": weighting_scheme,

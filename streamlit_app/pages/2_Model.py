@@ -363,7 +363,8 @@ HELP_TEXT = {
     "multi_period_frequency": "Period frequency: Monthly (M), Quarterly (Q), or Annual (A).",
     "lookback_periods": "Number of periods for in-sample (training) window.",
     "evaluation_periods": "Number of periods for out-of-sample (testing) window.",
-    "inclusion_approach": "How to select funds: Top N, Top Percentage, Z-score Threshold, or Random.",
+    "inclusion_approach": "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold.",
+    "buy_hold_initial": "Initial selection method for Buy & Hold mode.",
     "slippage_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
     # Phase 9: Selection approach details
@@ -1207,12 +1208,19 @@ def render_model_page() -> None:
         st.markdown("**Fund Selection Approach**")
         approach_c1, approach_c2 = st.columns(2)
         with approach_c1:
-            inclusion_approaches = ["top_n", "top_pct", "threshold", "random"]
+            inclusion_approaches = [
+                "top_n",
+                "top_pct",
+                "threshold",
+                "random",
+                "buy_and_hold",
+            ]
             inclusion_labels = {
                 "top_n": "Top N Funds (Ranking)",
                 "top_pct": "Top Percentage (Ranking)",
                 "threshold": "Z-Score Threshold",
                 "random": "Random Selection",
+                "buy_and_hold": "Buy & Hold",
             }
             current_inclusion = model_state.get("inclusion_approach", "threshold")
             inclusion_approach = st.selectbox(
@@ -1228,14 +1236,46 @@ def render_model_page() -> None:
                 key="inclusion_approach_select",
             )
 
-        # Indicate whether this is ranking-based, threshold-based, or random
+        # Indicate whether this is ranking-based, threshold-based, random, or buy_and_hold
         is_ranking_mode = inclusion_approach in ["top_n", "top_pct"]
         is_random_mode = inclusion_approach == "random"
         is_top_n_mode = inclusion_approach == "top_n"
         is_top_pct_mode = inclusion_approach == "top_pct"
+        is_buy_and_hold_mode = inclusion_approach == "buy_and_hold"
 
+        # Buy & Hold initial selection method
+        buy_hold_initial = "top_n"  # Default
         with approach_c2:
-            if is_top_pct_mode:
+            if is_buy_and_hold_mode:
+                # Show initial selection method for buy & hold
+                buy_hold_options = ["top_n", "top_pct", "threshold", "random"]
+                buy_hold_labels = {
+                    "top_n": "Top N (Ranking)",
+                    "top_pct": "Top Percentage",
+                    "threshold": "Z-Score Threshold",
+                    "random": "Random",
+                }
+                current_buy_hold = model_state.get("buy_hold_initial", "top_n")
+                buy_hold_initial = st.selectbox(
+                    "Initial Selection Method",
+                    options=buy_hold_options,
+                    format_func=lambda x: buy_hold_labels.get(x, x),
+                    index=(
+                        buy_hold_options.index(current_buy_hold)
+                        if current_buy_hold in buy_hold_options
+                        else 0
+                    ),
+                    help=HELP_TEXT.get(
+                        "buy_hold_initial",
+                        "How to select funds initially. Funds are held until they cease to exist.",
+                    ),
+                    key="buy_hold_initial_select",
+                )
+                st.caption(
+                    f"🔒 **Buy & Hold**: Select funds using {buy_hold_labels[buy_hold_initial]}, "
+                    "then hold until fund data disappears. Replacements use same method."
+                )
+            elif is_top_pct_mode:
                 # Show percentage selector directly for top_pct mode
                 rank_pct_input = st.number_input(
                     "Top Percentage (%)",
@@ -2384,6 +2424,7 @@ def render_model_page() -> None:
                 # Multi-period & Selection settings (Phase 8)
                 "multi_period_enabled": multi_period_enabled,
                 "inclusion_approach": inclusion_approach,
+                "buy_hold_initial": buy_hold_initial,
                 "slippage_bps": slippage_bps,
                 "bottom_k": bottom_k,
                 # Selection approach details (Phase 9)
