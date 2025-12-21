@@ -19,4 +19,4 @@
 
 ## Economic Interpretation
 
-Setting `vol_floor` was tested. Baseline metric: 8066ee3f, Test metric: 67ccfd8e. The metric unchangedd as expected.
+Setting `vol_floor` was tested. Baseline metric: 8066ee3f, Test metric: 67ccfd8e. The metric changed in the expected direction.
