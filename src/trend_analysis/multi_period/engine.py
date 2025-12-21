@@ -1937,9 +1937,7 @@ def run(
                                     z = (
                                         (col_series - mu) / sigma
                                         if sigma > 0
-                                        else pd.Series(
-                                            0.0, index=col_series.index
-                                        )
+                                        else pd.Series(0.0, index=col_series.index)
                                     )
                                     # Invert for ascending metrics (smaller is better)
                                     if m in ASCENDING_METRICS:
