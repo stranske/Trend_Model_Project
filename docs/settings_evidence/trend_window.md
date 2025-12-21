@@ -21,4 +21,4 @@
 
 ## Economic Interpretation
 
-Trend signal calculation window. Baseline=8066ee3f, Test=8066ee3f. Longer window for momentum. Economic intuition: Shorter windows capture faster trends, longer windows reduce noise.
+Trend signal calculation window. Baseline=8066ee3f, Test=8066ee3f. Shorter window for momentum. Economic intuition: Shorter windows capture faster trends, longer windows reduce noise.
