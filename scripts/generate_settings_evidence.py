@@ -232,10 +232,14 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
 
     interpretations = {
         "selection_count": (
-            f"The number of funds in the portfolio changed from baseline to test. "
-            f"With baseline={baseline} and test={test}, the portfolio "
-            f"{'became more concentrated' if direction == 'decrease' else 'became more diversified'}. "
-            f"Economic intuition: More funds typically reduce idiosyncratic risk but may dilute alpha."
+            f"The number of funds in the portfolio "
+            f"{'changed from baseline to test. With baseline={baseline} and test={test}, the portfolio '
+              f\"{'became more concentrated' if direction == 'decrease' else 'became more diversified'}. \""
+            if direction != "unchanged"
+            else (
+                f"remained the same between baseline and test (both {baseline}). "
+            )
+            + "Economic intuition: More funds typically reduce idiosyncratic risk but may dilute alpha."
         ),
         "max_weight": (
             f"Maximum position size constraint. Baseline={baseline}, Test={test}. "
