@@ -1028,13 +1028,25 @@ def extract_metric(
         return 0.0
 
     if metric_name == "portfolio_volatility":
-        if result.metrics is not None and "Volatility" in result.metrics.columns:
-            return float(result.metrics["Volatility"].iloc[0])
+        if result.metrics is not None:
+            # Handle both column naming conventions
+            if "vol" in result.metrics.columns:
+                return float(result.metrics["vol"].iloc[0])
+            if "Volatility" in result.metrics.columns:
+                return float(result.metrics["Volatility"].iloc[0])
         return 0.0
 
     if metric_name == "max_position_weight":
         if result.weights is not None:
             return float(result.weights.max()) if len(result.weights) > 0 else 0.0
+        # Check period results for weights
+        if result.period_results:
+            max_weights = []
+            for p in result.period_results:
+                if "weights" in p and p["weights"]:
+                    max_weights.append(max(p["weights"].values()))
+            if max_weights:
+                return float(max(max_weights))
         return 0.0
 
     if metric_name == "min_position_weight":
