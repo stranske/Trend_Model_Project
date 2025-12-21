@@ -21,4 +21,4 @@
 
 ## Economic Interpretation
 
-The number of funds in the portfolio changed from baseline to test. With baseline=68 and test=68, the portfolio became more diversified. Economic intuition: More funds typically reduce idiosyncratic risk but may dilute alpha.
+The number of funds in the portfolio did not change from baseline to test. With baseline=68 and test=68, there is no evidence that this setting affected portfolio diversification or the number of selected funds; consequently, there is no observable change in idiosyncratic risk or potential alpha dilution attributable to this parameter.
