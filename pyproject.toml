@@ -1,198 +1,37 @@
-[build-system]
-# Pin build dependencies to ensure reproducible installs during Docker builds
-requires = ["setuptools==69.5.1", "wheel==0.43.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "trend-model"
-version = "0.1.0"
-description = "Volatility-adjusted trend analysis package"
-readme = "README.md"
-requires-python = ">=3.11"
-license = {text = "MIT"}
-authors = [
-    {name = "Trend Analysis Contributors"}
-]
-maintainers = [
-    {name = "Trend Analysis Contributors"}
-]
-keywords = ["finance", "trend-analysis", "volatility", "portfolio", "analysis"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Financial and Insurance Industry",
-    "Topic :: Office/Business :: Financial :: Investment",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
-dependencies = [
-    "PyYAML==6.0.3",
-    "fpdf2==2.8.5",
-    "hypothesis==6.145.1",
-    "ipywidgets==8.1.8",
-    "joblib==1.5.2",
-    "matplotlib==3.10.7",
-    "numpy==2.3.4",
-    "openpyxl==3.1.5",
-    "pandas==2.3.3",
-    "pandera==0.20.4",
-    "pydantic==2.12.3",
-    "requests==2.32.5",
-    "scipy==1.16.3",
-    "xlsxwriter==3.2.9",
-]
-
-[project.urls]
-Homepage = "https://github.com/stranske/Trend_Model_Project"
-Repository = "https://github.com/stranske/Trend_Model_Project"
-Issues = "https://github.com/stranske/Trend_Model_Project/issues"
-Documentation = "https://github.com/stranske/Trend_Model_Project#readme"
-
-[project.scripts]
-trend = "trend.cli:main"
-trend-analysis = "trend_analysis.run_analysis:main"
-trend-multi-analysis = "trend_analysis.run_multi_analysis:main"
-trend-model = "trend_analysis.cli:main"
-trend-app = "trend_model.app:main"
-trend-run = "trend_model.cli:run"
-trend-quick-report = "trend.reporting.quick_summary:main"
-
-[tool.setuptools.packages.find]
-where = ["src", "."]
-include = [
-    "trend_analysis*",
-    "trend_portfolio_app*",
-    "trend_model*",
-    "trend*",
-    "utils*",
-    "analysis*",
-    "data",
-    "backtest*",
-]
-# Explicitly exclude retired and legacy modules regardless of their location.
-# This guards against future refactors accidentally reintroducing the folders
-# into the package search path when additional roots are added.
-exclude = ["Old*", "retired*", "**/Old*", "**/retired*"]
-
-[project.optional-dependencies]
-app = [
-    "streamlit==1.51.0",
-    "streamlit-sortables==0.3.1",
-    "fastapi==0.121.2",
-    "uvicorn[standard]==0.38.0",
-]
-notebooks = [
-    "ipyfilechooser==0.6.0",
-    "nbformat==5.10.4",
-]
-dev = [
-    "pre-commit==4.4.0",
-    "black==25.12.0",
-    "ruff==0.14.9",
-    "isort==7.0.0",
-    "docformatter==1.7.7",
-    "mypy==1.19.1",
-    "flake8==7.3.0",
-    "pytest==9.0.2",
-    "pytest-cov==7.0.0",
-    "coverage==7.13.0",
-    "pytest-rerunfailures==16.1",
-    "pytest-xdist==3.8.0",
-    "packaging==25.0",
-    "types-PyYAML==6.0.12.20250915",
-    "types-requests==2.32.4.20250913",
-    "jsonschema==4.25.1",
-    "httpx==0.28.1",
-    "tomlkit==0.13.3",
-]
+# Synced from Workflows repo - tool configuration for consistent formatting
+# This file is managed by the Workflows sync process.
+# Local customizations should be added in project-specific sections.
 
 [tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+include = '\.pyi?$'
 extend-exclude = '''
 /(
-        Old
-    | notebooks/old
-    | archives
-    | archives/legacy_assets
-    | \\.autofix-venv
-    | .*\.ipynb
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.venv
+  | _build
+  | build
+  | dist
 )/
 '''
-force-exclude = '''
-/\.autofix-venv/
-'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
 
 [tool.ruff]
-extend-exclude = [
-    "archives",
-    "archives/**",
-    "archives/legacy_assets",
-    "notebooks/old",
-    "Old",
-    "*.ipynb",
-    "scripts",
-    "manager_attribution_analysis.py",
-    "examples/portfolio_analysis_report.py",
-    "examples/debug_fund_selection.py",
-    "test_multi_period_selection.py",
-    ".autofix-venv",
-]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501"]  # Line too long - handled by black
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+warn_return_any = true
+warn_unused_configs = true
 ignore_missing_imports = true
-exclude = "^(Old/|notebooks/old/|archives/legacy_assets/)"
-mypy_path = ["src", "src/trend_analysis/stubs"]
-explicit_package_bases = true
-namespace_packages = true
-
-[[tool.mypy.overrides]]
-module = "src.*"
-follow_imports = "skip"
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = [
-    "demo_malformed_date_fix",
-    "demo_proxy",
-    "examples.demo_robust_weighting",
-    "examples.demo_turnover_cap",
-]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "streamlit_app.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "health_summarize.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "examples.legacy_streamlit_app.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = [
-    "scripts.verify_codex_bootstrap",
-    "scripts.run_multi_demo",
-    "scripts.run_real_model",
-    "scripts.run_threshold_churn_demo",
-    "scripts.benchmark_performance",
-    "examples.integration_example",
-    "examples.debug_fund_selection",
-    "test_multi_period_selection",
-]
-ignore_errors = true
-
-
-
-[tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks integration tests that exercise external tooling",
-]
