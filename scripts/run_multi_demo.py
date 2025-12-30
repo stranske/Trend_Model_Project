@@ -55,6 +55,7 @@ try:
     from trend_analysis.multi_period import run_schedule, scheduler
     from trend_analysis.multi_period.engine import Portfolio, SelectorProtocol
     from trend_analysis.multi_period.replacer import Rebalancer
+    from trend_analysis.script_logging import setup_script_logging
     from trend_analysis.selector import RankSelector, ZScoreSelector
     from trend_analysis.weighting import (
         AdaptiveBayesWeighting,
@@ -63,7 +64,6 @@ try:
         ScorePropBayesian,
         ScorePropSimple,
     )
-    from trend_analysis.script_logging import setup_script_logging
 except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing install
     raise SystemExit(
         "Trend Model packages are not installed. Run 'pip install -e .[app]' before executing the demo."

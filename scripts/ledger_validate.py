@@ -12,8 +12,8 @@ import argparse
 import datetime as _dt
 import json
 import re
-import sys
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -25,7 +25,6 @@ if SRC_ROOT.exists():  # ensure local package import works before editable insta
     sys.path.insert(0, str(SRC_ROOT))
 
 from utils.paths import proj_path  # noqa: E402
-
 
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")

@@ -16,7 +16,6 @@ import tomllib
 from pathlib import Path
 from typing import Any, Set, cast
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = REPO_ROOT / "src"
 if SRC_PATH.exists():

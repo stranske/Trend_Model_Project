@@ -1,20 +1,15 @@
 # Vol_Adj_Trend_Analysis_Cleanup
 
 # --- 1. SETUP CELL ---
-import datetime
 import logging
-import math
-import os
 import random
 import sys
-import warnings
 
 import ipywidgets as widgets
 import numpy as np
 import pandas as pd
-from ipyfilechooser import FileChooser
-from IPython.display import clear_output, display
-from ipywidgets import HBox, VBox
+from IPython.display import display
+from ipywidgets import VBox
 
 # Configure logging
 logging.basicConfig(

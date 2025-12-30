@@ -6,7 +6,6 @@ from types import ModuleType, SimpleNamespace
 
 import pandas as pd
 import pytest
-
 import trend_portfolio_app.app as app
 
 

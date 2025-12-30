@@ -5,7 +5,6 @@ from typing import List
 import numpy as np
 import pandas as pd
 import pytest
-
 from trend_portfolio_app import sim_runner
 from trend_portfolio_app.event_log import Event, EventLog
 from trend_portfolio_app.policy_engine import MetricSpec, PolicyConfig

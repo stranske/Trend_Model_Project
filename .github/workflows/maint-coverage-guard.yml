@@ -1,8 +1,27 @@
+# -----------------------------------------------------------------------------
+# Coverage Guard — Consumer Repository Template
+# -----------------------------------------------------------------------------
+# Daily monitoring of coverage baseline with automatic issue creation/updates.
+# When coverage falls below baseline, creates a tracking issue with:
+# - Coverage summary (current vs baseline)
+# - Low coverage hotspot files
+# - Link to the source workflow run
+#
+# USAGE:
+#   1. Copy this file to .github/workflows/maint-coverage-guard.yml
+#   2. Create config/coverage-baseline.json with: {"coverage": 80.0}
+#   3. Workflow runs daily and on-demand via workflow_dispatch
+#
+# REQUIREMENTS:
+#   - Gate workflow must use `enable-soft-gate: true`
+#   - Gate workflow must upload coverage artifacts with `artifact-prefix: "gate-"`
+# -----------------------------------------------------------------------------
+
 name: Maint Coverage Guard
 
 'on':
   schedule:
-    - cron: '45 6 * * *'
+    - cron: '45 6 * * *'  # Daily at 6:45 AM UTC
   workflow_dispatch:
 
 permissions:
@@ -11,52 +30,8 @@ permissions:
   issues: write
 
 jobs:
-  # Rate limit gate: skip non-critical coverage checks when API quota is low
-  # This ensures keepalive and core workflows get priority (threshold: 2000)
-  rate-limit-check:
-    name: Rate limit gate
-    runs-on: ubuntu-latest
-    outputs:
-      proceed: ${{ steps.check.outputs.proceed || 'true' }}
-    steps:
-      - name: Check API quota
-        id: check
-        uses: actions/github-script@v7
-        env:
-          # Higher threshold than orchestrator (1000) so keepalive runs first
-          RATE_LIMIT_THRESHOLD: '2000'
-        with:
-          script: |
-            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
-            try {
-              const { data } = await github.rest.rateLimit.get();
-              const remaining = data?.resources?.core?.remaining || 0;
-              const limit = data?.resources?.core?.limit || 5000;
-              const proceed = remaining >= threshold;
-
-              core.setOutput('proceed', proceed ? 'true' : 'false');
-              core.setOutput('remaining', String(remaining));
-
-              if (!proceed) {
-                const reset = data?.resources?.core?.reset || 0;
-                const resetTime = new Date(reset * 1000).toISOString();
-                core.notice(`Deferring coverage guard: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
-                await core.summary
-                  .addHeading('Coverage Guard Deferred', 3)
-                  .addRaw(`API quota too low for non-critical health checks (${remaining}/${limit} remaining).`)
-                  .addEOL()
-                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
-                  .write();
-              }
-            } catch (error) {
-              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
-              core.setOutput('proceed', 'true');
-            }
-
   guard:
     name: coverage baseline monitor
-    needs: rate-limit-check
-    if: needs.rate-limit-check.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -112,26 +87,89 @@ jobs:
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download coverage payload artifact
+      - name: Download coverage artifact
         if: ${{ steps.discover.outputs.run_id }}
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: gate-coverage
+          pattern: gate-coverage-*
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/payload
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          merge-multiple: true
 
-      - name: Run coverage guard
+      - name: Check coverage against baseline
         if: ${{ steps.discover.outputs.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERAGE_RUN_URL: ${{ steps.discover.outputs.run_url }}
-          COVERAGE_RUN_NUMBER: ${{ steps.discover.outputs.run_number }}
+          RUN_URL: ${{ steps.discover.outputs.run_url }}
         run: |
-          python tools/coverage_guard.py \
-            --repo "${{ github.repository }}" \
-            --trend-path coverage_artifacts/trend/coverage-trend.json \
-            --coverage-path coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json \
-            --baseline-path config/coverage-baseline.json \
-            --run-url "${{ steps.discover.outputs.run_url }}"
+          set -euo pipefail
+
+          # Find coverage files
+          TREND_FILE=$(find coverage_artifacts -name "coverage-trend.json" -type f 2>/dev/null | head -1 || true)
+          COVERAGE_FILE=$(find coverage_artifacts -name "coverage.json" -type f 2>/dev/null | head -1 || true)
+
+          # Load baseline
+          BASELINE=80
+          if [ -f "config/coverage-baseline.json" ]; then
+            BASELINE=$(python3 -c "import json; print(json.load(open('config/coverage-baseline.json')).get('coverage', 80))")
+          fi
+
+          # Load current coverage
+          CURRENT=0
+          if [ -n "$COVERAGE_FILE" ] && [ -f "$COVERAGE_FILE" ]; then
+            CURRENT=$(python3 -c "import json; print(json.load(open('$COVERAGE_FILE')).get('totals', {}).get('percent_covered', 0))")
+          elif [ -n "$TREND_FILE" ] && [ -f "$TREND_FILE" ]; then
+            CURRENT=$(python3 -c "import json; print(json.load(open('$TREND_FILE')).get('current', 0))")
+          fi
+
+          echo "Coverage: $CURRENT% (baseline: $BASELINE%)"
+
+          # Compare to baseline
+          if python3 -c "import sys; sys.exit(0 if $CURRENT >= $BASELINE else 1)"; then
+            echo "✅ Coverage meets baseline"
+          else
+            echo "❌ Coverage below baseline - creating/updating issue"
+
+            # Write issue body to file to avoid YAML parsing issues
+            cat > /tmp/coverage_issue.md << 'BODY_EOF'
+          ## Coverage Baseline Breach
+
+          Coverage has dropped below the configured baseline.
+
+          ### Actions
+          1. Review low coverage files in the Gate run summary
+          2. Add tests to improve coverage
+          3. Update baseline once target is reached
+
+          _Auto-updated by coverage guard workflow_
+          BODY_EOF
+
+            # Prepend dynamic content
+            {
+              echo "## Coverage Baseline Breach"
+              echo ""
+              echo "❌ **Current Coverage:** ${CURRENT}% (baseline: ${BASELINE}%)"
+              echo ""
+              echo "### Details"
+              echo "Run URL: ${RUN_URL}"
+              echo "Coverage: ${CURRENT}%"
+              echo "Baseline: ${BASELINE}%"
+              echo ""
+              echo "### Actions"
+              echo "1. Review low coverage files in the Gate run summary"
+              echo "2. Add tests to improve coverage"
+              echo "3. Update baseline once target is reached"
+              echo ""
+              echo "_Auto-updated by coverage guard workflow_"
+            } > /tmp/coverage_issue.md
+
+            # Find or create issue
+            EXISTING=$(gh issue list --search "[coverage] baseline breach in:title" --json number --limit 1 -q '.[0].number' || true)
+
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --body-file /tmp/coverage_issue.md
+              echo "Updated issue #$EXISTING"
+            else
+              gh issue create --title "[coverage] baseline breach" --body-file /tmp/coverage_issue.md --label "coverage"

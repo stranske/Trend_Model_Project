@@ -1,6 +1,5 @@
 import pandas as pd
 import pytest
-
 from trend_portfolio_app.policy_engine import PolicyConfig
 from trend_portfolio_app.sim_runner import _apply_rebalance_pipeline
 
