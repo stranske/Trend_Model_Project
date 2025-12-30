@@ -1,5 +1,3 @@
-from typing import List
-
 #  This file intentionally violates style conventions for test of autofix workflows.
 #  Issues included:
 #  - extra spaces in imports
@@ -17,7 +15,7 @@ def badly_formatted_function(x: int, y: int = 5) -> int:
     return temp
 
 
-def another_func(a: List[int], b: List[int]) -> List[int]:
+def another_func(a: list[int], b: list[int]) -> list[int]:
     result = [i + j for i, j in zip(a, b)]
     return result
 

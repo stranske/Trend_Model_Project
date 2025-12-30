@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping
-from datetime import timedelta, timezone
+from datetime import UTC, timedelta
 from typing import Any
 
 import pandas as pd
@@ -13,7 +13,7 @@ from pandas.tseries.frequencies import to_offset
 
 __all__ = ["coerce_to_utc", "validate_prices"]
 
-UTC = timezone.utc
+UTC = UTC
 
 
 def _datetime_index_from_frame(df: pd.DataFrame) -> pd.DatetimeIndex:
@@ -145,9 +145,7 @@ def _check_frequency(idx: pd.DatetimeIndex, freq: str | None) -> None:
         raise ValueError(f"Unknown frequency alias '{freq}'.") from exc
 
     # Check if frequencies are equivalent (e.g., ME and BME for monthly data)
-    if _frequencies_are_equivalent(
-        expected_offset.rule_code, inferred_offset.rule_code
-    ):
+    if _frequencies_are_equivalent(expected_offset.rule_code, inferred_offset.rule_code):
         return
 
     if expected_offset != inferred_offset:

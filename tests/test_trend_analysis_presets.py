@@ -259,9 +259,7 @@ def test_vol_adjust_defaults_respects_explicit_enabled_flag() -> None:
     assert defaults["window"] == {"length": 12}
 
 
-def test_apply_trend_preset_merges_config(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_apply_trend_preset_merges_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     create_registry(tmp_path, monkeypatch)
     preset = preset_module.get_trend_preset("zulu")
 
@@ -304,9 +302,7 @@ def test_candidate_preset_dirs_prefers_base_then_env(
 def test_candidate_preset_dirs_includes_repository_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        preset_module, "PRESETS_DIR", preset_module._DEFAULT_PRESETS_DIR
-    )
+    monkeypatch.setattr(preset_module, "PRESETS_DIR", preset_module._DEFAULT_PRESETS_DIR)
     monkeypatch.delenv("TREND_PRESETS_DIR", raising=False)
     candidates = preset_module._candidate_preset_dirs()
     assert preset_module._DEFAULT_PRESETS_DIR in candidates

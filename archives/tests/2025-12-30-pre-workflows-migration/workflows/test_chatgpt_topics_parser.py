@@ -66,9 +66,7 @@ Acceptance criteria
 - Acceptance criteria text is non-empty.
 """
 
-_MODULE_SPEC = importlib.util.spec_from_file_location(
-    "parse_chatgpt_topics_module", SCRIPT
-)
+_MODULE_SPEC = importlib.util.spec_from_file_location("parse_chatgpt_topics_module", SCRIPT)
 if _MODULE_SPEC is None or _MODULE_SPEC.loader is None:
     raise RuntimeError("Unable to load parse_chatgpt_topics module")
 parse_module = importlib.util.module_from_spec(_MODULE_SPEC)
@@ -103,24 +101,18 @@ def run_decode_cli(workdir: pathlib.Path, *args: str) -> SimpleNamespace:
     )
 
 
-def run_parser_in_workdir(
-    workdir: pathlib.Path, env: dict | None = None
-) -> SimpleNamespace:
+def run_parser_in_workdir(workdir: pathlib.Path, env: dict | None = None) -> SimpleNamespace:
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     overrides = env or {}
-    original_env: dict[str, str | None] = {
-        key: os.environ.get(key) for key in overrides
-    }
+    original_env: dict[str, str | None] = {key: os.environ.get(key) for key in overrides}
     original_cwd = os.getcwd()
     original_argv = sys.argv
 
     try:
         os.chdir(workdir)
         sys.argv = [str(SCRIPT)]
-        os.environ.update(
-            {key: value for key, value in overrides.items() if value is not None}
-        )
+        os.environ.update({key: value for key, value in overrides.items() if value is not None})
         with (
             contextlib.redirect_stdout(stdout_buffer),
             contextlib.redirect_stderr(stderr_buffer),
@@ -283,9 +275,7 @@ def test_pipeline_handles_repository_issues_file(tmp_path: pathlib.Path) -> None
         if "agents-70-orchestrator.yml" in tasks:
             match = t
             break
-    assert (
-        match is not None
-    ), "Could not find Agents 70 orchestrator topic in parsed topics"
+    assert match is not None, "Could not find Agents 70 orchestrator topic in parsed topics"
     assert "agent:codex" in match["labels"]
     assert "agents-70-orchestrator.yml" in match["sections"]["tasks"]
     acceptance = match["sections"]["acceptance_criteria"].lower()
@@ -380,9 +370,7 @@ def test_parser_main_maps_empty_input(tmp_path: pathlib.Path, monkeypatch) -> No
     assert exc.value.code == 2
 
 
-def test_parser_main_maps_no_numbered_topics(
-    tmp_path: pathlib.Path, monkeypatch
-) -> None:
+def test_parser_main_maps_no_numbered_topics(tmp_path: pathlib.Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "input.txt").write_text("No enumerators here", encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
@@ -400,9 +388,7 @@ def test_parser_main_reraises_other_system_exit(monkeypatch) -> None:
     assert str(exc.value) == "Unexpected failure"
 
 
-def test_parser_main_raises_on_empty_topics(
-    monkeypatch, tmp_path: pathlib.Path
-) -> None:
+def test_parser_main_raises_on_empty_topics(monkeypatch, tmp_path: pathlib.Path) -> None:
     monkeypatch.setattr(parse_module, "parse_topics", lambda: [])
     monkeypatch.chdir(tmp_path)
     with pytest.raises(SystemExit) as exc:

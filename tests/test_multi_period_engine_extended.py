@@ -1,5 +1,6 @@
 import types
-from typing import Any, Dict, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,9 +29,7 @@ class DummyWeighting(engine.BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, df: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, df: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         if df.empty:
             return pd.DataFrame({"weight": pd.Series(dtype=float)})
@@ -45,18 +44,18 @@ class DummyConfig:
     """Small configuration stub satisfying the engine's interface."""
 
     def __init__(self, policy: str = "") -> None:
-        self.data: Dict[str, Any] = {"csv_path": "unused.csv"}
-        self.portfolio: Dict[str, Any] = {
+        self.data: dict[str, Any] = {"csv_path": "unused.csv"}
+        self.portfolio: dict[str, Any] = {
             "policy": policy,
             "rank": {},
             "random_n": 3,
             "custom_weights": None,
         }
-        self.vol_adjust: Dict[str, Any] = {"target_vol": 1.0}
-        self.run: Dict[str, Any] = {"monthly_cost": 0.0}
-        self.performance: Dict[str, Any] = {}
-        self.benchmarks: Dict[str, Any] = {}
-        self.multi_period: Dict[str, Any] = {
+        self.vol_adjust: dict[str, Any] = {"target_vol": 1.0}
+        self.run: dict[str, Any] = {"monthly_cost": 0.0}
+        self.performance: dict[str, Any] = {}
+        self.benchmarks: dict[str, Any] = {}
+        self.multi_period: dict[str, Any] = {
             "frequency": "monthly",
             "in_sample_len": 1,
             "out_sample_len": 1,
@@ -65,11 +64,11 @@ class DummyConfig:
         }
         self.seed = 7
 
-    def model_dump(self) -> Dict[str, Any]:  # pragma: no cover - simple helper
+    def model_dump(self) -> dict[str, Any]:  # pragma: no cover - simple helper
         return {"multi_period": dict(self.multi_period)}
 
 
-def _make_price_frame(date: str, values: Dict[str, float]) -> pd.DataFrame:
+def _make_price_frame(date: str, values: dict[str, float]) -> pd.DataFrame:
     return pd.DataFrame({"Date": [pd.Timestamp(date)], **values})
 
 
@@ -78,9 +77,7 @@ def test_compute_turnover_state_tracks_union_alignment() -> None:
     prev_vals = np.array([0.6, 0.4], dtype=float)
     new_weights = pd.Series({"FundA": 0.2, "FundC": 0.8})
 
-    turnover, next_idx, next_vals = engine._compute_turnover_state(
-        prev_idx, prev_vals, new_weights
-    )
+    turnover, next_idx, next_vals = engine._compute_turnover_state(prev_idx, prev_vals, new_weights)
 
     union = pd.Index(["FundA", "FundC", "FundB"])
     expected_turnover = float(
@@ -113,7 +110,7 @@ def test_run_schedule_applies_rebalance_strategies(
     selector = DummySelector()
     weighting = DummyWeighting()
 
-    captured: list[Dict[str, Any]] = []
+    captured: list[dict[str, Any]] = []
 
     def fake_apply(strategies, params, current, target, *, scores=None):
         captured.append(

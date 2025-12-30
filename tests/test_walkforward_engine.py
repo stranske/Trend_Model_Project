@@ -85,9 +85,7 @@ def test_walkforward_helper_functions_cover_branches():
     assert scalar_ir.iloc[0, 0] == 0.25
     assert np.isnan(scalar_ir.iloc[0, 1])
 
-    series_ir = walkforward._information_ratio_frame(
-        pd.Series({"beta": 0.5, "alpha": 0.75}), cols
-    )
+    series_ir = walkforward._information_ratio_frame(pd.Series({"beta": 0.5, "alpha": 0.75}), cols)
     assert series_ir.loc["information_ratio", "beta"] == 0.5
 
 
@@ -107,9 +105,7 @@ def test_infer_periods_per_year_edge_cases():
     idx_negative = pd.to_datetime(["2020-01-03", "2020-01-01", "2020-01-01"])
     assert walkforward._infer_periods_per_year(idx_negative) == 1
 
-    idx_sparse = pd.to_datetime(
-        ["2020-01-01", "2022-12-31", "2025-12-31", "2028-12-31"]
-    )
+    idx_sparse = pd.to_datetime(["2020-01-01", "2022-12-31", "2025-12-31", "2028-12-31"])
     assert walkforward._infer_periods_per_year(idx_sparse) == 1
 
 
@@ -277,9 +273,7 @@ def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
         walkforward,
         "len",
         lambda obj, _orig=builtins.len: (  # type: ignore[arg-type]
-            0
-            if (obj_id := id(obj)) in flagged and not flagged.remove(obj_id)
-            else _orig(obj)
+            0 if (obj_id := id(obj)) in flagged and not flagged.remove(obj_id) else _orig(obj)
         ),
         raising=False,
     )
@@ -299,9 +293,7 @@ def test_walk_forward_scalar_ir_without_metrics(monkeypatch):
     # with at least two levels: (window, metric_name). This assertion checks that
     # no metric column named "information_ratio" survives, except for the "window" columns.
     assert all(
-        col[1] != "information_ratio"
-        for col in result.oos_windows.columns
-        if col[0] != "window"
+        col[1] != "information_ratio" for col in result.oos_windows.columns if col[0] != "window"
     )
     assert result.by_regime.empty
 

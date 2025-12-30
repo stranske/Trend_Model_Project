@@ -2,7 +2,7 @@ import logging
 import stat
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -116,17 +116,13 @@ def test_finalise_validated_frame_includes_metadata(
     attrs = result.attrs["market_data"]
     assert attrs["metadata"] is sample_metadata
     assert result.attrs["market_data_mode"] == sample_metadata.mode.value
-    assert (
-        result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
-    )
+    assert result.attrs["market_data_frequency_label"] == sample_metadata.frequency_label
 
 
 def test_finalise_validated_frame_without_date_column(
     sample_metadata: MarketDataMetadata,
 ) -> None:
-    frame = pd.DataFrame(
-        {"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date")
-    )
+    frame = pd.DataFrame({"FundA": [1.0, 2.0, 3.0]}, index=pd.Index([1, 2, 3], name="Date"))
     validated = ValidatedMarketData(frame=frame, metadata=sample_metadata)
 
     result = _finalise_validated_frame(validated, include_date_column=False)
@@ -164,14 +160,14 @@ def test_validate_payload_normalises_inputs(
             "FundB": ["3", "4", "5"],
         }
     )
-    captured: Dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
     def fake_validate(
         df: pd.DataFrame,
         *,
         source: str,
-        missing_policy: Dict[str, str] | str | None,
-        missing_limit: Dict[str, int | None] | int | None,
+        missing_policy: dict[str, str] | str | None,
+        missing_limit: dict[str, int | None] | int | None,
     ) -> ValidatedMarketData:
         captured["df"] = df.copy()
         captured["source"] = source
@@ -216,7 +212,7 @@ def test_validate_payload_handles_custom_policy_mapping(
         }
     )
     mapping = StarMapping({"FundA": 1})
-    captured: Dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
     def fake_validate(df: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
         captured.update(kwargs)
@@ -284,9 +280,7 @@ def test_validate_payload_reraises_when_requested(
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
 
     with pytest.raises(MarketDataValidationError):
-        _validate_payload(
-            payload, origin="sample.csv", errors="raise", include_date_column=True
-        )
+        _validate_payload(payload, origin="sample.csv", errors="raise", include_date_column=True)
 
 
 def test_is_readable_checks_permission_bits() -> None:
@@ -333,9 +327,7 @@ def test_load_csv_missing_file_logs_error(caplog: pytest.LogCaptureFixture) -> N
     assert missing_path in caplog.text
 
 
-def test_load_csv_directory_returns_none(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_csv_directory_returns_none(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     directory = tmp_path / "nested"
     directory.mkdir()
     with caplog.at_level(logging.ERROR):
@@ -483,9 +475,7 @@ def test_load_parquet_directory_logs_error(
     assert str(directory) in caplog.text
 
 
-def test_load_parquet_permission_denied(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_permission_denied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 
@@ -497,7 +487,7 @@ def test_load_parquet_permission_denied(
 
 def test_validate_dataframe_delegates(monkeypatch: pytest.MonkeyPatch) -> None:
     df = pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=1), "Fund": [1.0]})
-    called: Dict[str, Any] = {}
+    called: dict[str, Any] = {}
 
     def fake_validate(payload: pd.DataFrame, **kwargs: Any) -> ValidatedMarketData:
         called["payload"] = payload

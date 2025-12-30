@@ -129,10 +129,7 @@ def test_finalise_validated_frame_populates_metadata_attrs() -> None:
     assert result.attrs["market_data"]["metadata"] == metadata
     assert result.attrs["market_data_mode"] == metadata.mode.value
     assert result.attrs["market_data_frequency_label"] == metadata.frequency_label
-    assert (
-        result.attrs["market_data_missing_policy_limit"]
-        == metadata.missing_policy_limit
-    )
+    assert result.attrs["market_data_missing_policy_limit"] == metadata.missing_policy_limit
 
 
 def test_finalise_validated_frame_without_date_column() -> None:
@@ -227,9 +224,7 @@ def test_validate_payload_supports_non_string_policy_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class WildcardMapping(dict[str, object]):
-        def __contains__(
-            self, key: object
-        ) -> bool:  # pragma: no cover - exercised via call
+        def __contains__(self, key: object) -> bool:  # pragma: no cover - exercised via call
             if key == "*":
                 return True
             return super().__contains__(key)
@@ -341,9 +336,7 @@ def test_load_csv_handles_missing_file(tmp_path: Path) -> None:
         load_csv(str(missing), errors="raise")
 
 
-def test_load_parquet_uses_validator(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_parquet_uses_validator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     parquet_path = tmp_path / "data.parquet"
     parquet_path.write_bytes(b"")
 
@@ -664,9 +657,7 @@ def test_load_parquet_handles_validation_error_from_helper(
         raise MarketDataValidationError("Could not be parsed")
 
     monkeypatch.setattr(data, "_is_readable", lambda _mode: True)
-    monkeypatch.setattr(
-        pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]})
-    )
+    monkeypatch.setattr(pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"Value": [1]}))
     monkeypatch.setattr(data, "_validate_payload", raiser)
     caplog.set_level("ERROR", "trend_analysis.data")
     assert load_parquet(str(parquet_path)) is None

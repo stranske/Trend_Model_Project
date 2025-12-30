@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import sys
+from collections.abc import Callable
 from types import ModuleType, SimpleNamespace
-from typing import Callable
 
 import pandas as pd
 import pytest
@@ -36,9 +36,7 @@ class DummyGrid:
 
 
 class DummyUpload:
-    def __init__(
-        self, accept: str = "", multiple: bool = False
-    ) -> None:  # noqa: ARG002
+    def __init__(self, accept: str = "", multiple: bool = False) -> None:  # noqa: ARG002
         self.accept = accept
         self.multiple = multiple
         self.value: dict[str, dict[str, bytes]] = {}
@@ -57,9 +55,7 @@ class DummyUpload:
 
 
 class DummyDropdown:
-    def __init__(
-        self, options, value=None, description: str = ""
-    ) -> None:  # noqa: ANN001, ARG002
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
         self.options = list(options)
         self.description = description
         default_value = self.options[0] if self.options else None
@@ -93,9 +89,7 @@ class DummyCheckbox:
 
 
 class DummyToggleButtons(DummyCheckbox):
-    def __init__(
-        self, options, value=None, description: str = ""
-    ) -> None:  # noqa: ANN001, ARG002
+    def __init__(self, options, value=None, description: str = "") -> None:  # noqa: ANN001, ARG002
         super().__init__(
             value=value if value is not None else (options[0] if options else None),
             description=description,
@@ -264,9 +258,7 @@ def test_template_loader_handles_error_paths(monkeypatch, tmp_path):
     monkeypatch.setattr(app, "_find_config_directory", lambda: fake_dir)
 
     reset_calls: list[ParamStore] = []
-    monkeypatch.setattr(
-        app, "reset_weight_state", lambda store: reset_calls.append(store)
-    )
+    monkeypatch.setattr(app, "reset_weight_state", lambda store: reset_calls.append(store))
 
     widget = app._build_step0(store)
     assert isinstance(widget, DummyVBox)
@@ -320,9 +312,7 @@ def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
 
     monkeypatch.setitem(app.export.EXPORTERS, "csv", fake_export)
     monkeypatch.setattr(app, "save_state", lambda s: calls.append(({}, "saved")))
-    monkeypatch.setattr(
-        app.pipeline, "run", lambda cfg: pd.DataFrame({"metric": [1.0]})
-    )
+    monkeypatch.setattr(app.pipeline, "run", lambda cfg: pd.DataFrame({"metric": [1.0]}))
     monkeypatch.setattr(app.pipeline, "run_full", lambda cfg: {"extra": 1})
 
     widget = app.launch()

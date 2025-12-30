@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Literal, Mapping, Sequence, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -66,12 +67,10 @@ class CostModel:
     def apply(self, turnover: float) -> float:
         if turnover <= 0:
             return 0.0
-        multiplier = (
-            self.effective_per_trade_bps + self.effective_half_spread_bps
-        ) / 10000.0
+        multiplier = (self.effective_per_trade_bps + self.effective_half_spread_bps) / 10000.0
         return float(turnover) * multiplier
 
-    def as_dict(self) -> Dict[str, float]:
+    def as_dict(self) -> dict[str, float]:
         return {
             "bps_per_trade": float(self.bps_per_trade),
             "slippage_bps": float(self.slippage_bps),
@@ -93,7 +92,7 @@ class BacktestResult:
     cost_drag: pd.Series
     rolling_sharpe: pd.Series
     drawdown: pd.Series
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     cost_model: CostModel
     calendar: pd.DatetimeIndex
     window_mode: WindowMode
@@ -101,7 +100,7 @@ class BacktestResult:
     training_windows: Mapping[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]]
     execution_lag: int = 1
 
-    def summary(self) -> Dict[str, object]:
+    def summary(self) -> dict[str, object]:
         """Return a JSON-serializable summary of the backtest metrics."""
 
         return {
@@ -198,8 +197,7 @@ def run_backtest(
     total_rows = len(data.index)
     if window_size > total_rows:
         raise ValueError(
-            "window_size too large relative to available return history; "
-            + _LOOKAHEAD_ERROR
+            "window_size too large relative to available return history; " + _LOOKAHEAD_ERROR
         )
 
     calendar = _rebalance_calendar(data.index, rebalance_freq)
@@ -207,18 +205,16 @@ def run_backtest(
         raise ValueError("rebalance calendar produced no dates – check frequency")
 
     periods_per_year = _infer_periods_per_year(data.index)
-    roll_window = rolling_sharpe_window or min(
-        window_size, max(1, periods_per_year // 3)
-    )
+    roll_window = rolling_sharpe_window or min(window_size, max(1, periods_per_year // 3))
 
     asset_columns = list(data.columns)
     portfolio_returns = pd.Series(index=data.index, dtype=float)
-    weights_history: Dict[pd.Timestamp, pd.Series] = {}
+    weights_history: dict[pd.Timestamp, pd.Series] = {}
     turnover = pd.Series(dtype=float)
     per_period_turnover = pd.Series(0.0, index=data.index, dtype=float)
     cost_drag = pd.Series(0.0, index=data.index, dtype=float)
     tx_costs = pd.Series(dtype=float)
-    training_windows: Dict[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]] = {}
+    training_windows: dict[pd.Timestamp, tuple[pd.Timestamp, pd.Timestamp]] = {}
 
     prev_weights = _initial_weights(asset_columns, initial_weights)
     data_values = data.fillna(0.0).values
@@ -265,15 +261,9 @@ def run_backtest(
             if i == 0:
                 last_available = data.index[-1]
                 raise ValueError(
-                    (
-                        "Execution lag of {lag} on {date} would require access to "
-                        "returns beyond the available history ending {last}, "
-                        "introducing look-ahead bias."
-                    ).format(
-                        lag=execution_lag,
-                        date=date.date(),
-                        last=last_available.date(),
-                    )
+                    f"Execution lag of {execution_lag} on {date.date()} would require access to "
+                    f"returns beyond the available history ending {last_available.date()}, "
+                    "introducing look-ahead bias."
                 )
             break
         if apply_slice.start >= len(data.index):
@@ -289,9 +279,7 @@ def run_backtest(
         if membership_mask is not None:
             active_now = membership_mask.loc[date]
             if not bool(active_now.any()):
-                raise ValueError(
-                    f"No active assets remain in the universe on {date.date()}"
-                )
+                raise ValueError(f"No active assets remain in the universe on {date.date()}")
             proposed = proposed.where(active_now, 0.0)
 
         trades = proposed - prev_weights
@@ -436,9 +424,7 @@ def _prepare_returns(df: pd.DataFrame) -> pd.DataFrame:
     if "Date" in df.columns:
         df = df.set_index("Date")
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError(
-            "returns index must be a DatetimeIndex or include a 'Date' column"
-        )
+        raise ValueError("returns index must be a DatetimeIndex or include a 'Date' column")
     df = df.sort_index()
     numeric_df = df.select_dtypes(include=["number"]).astype(float)
     if numeric_df.empty:
@@ -477,17 +463,12 @@ def _apply_membership_mask(
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Skipping those entries.", message)
-        mask = mask.drop(
-            columns=[col for col in missing_price_cols if col in mask.columns]
-        )
+        mask = mask.drop(columns=[col for col in missing_price_cols if col in mask.columns])
 
     extra_price_cols = sorted(set(data_symbols) - set(mask.columns))
     if extra_price_cols:
         preview = _format_list_preview(extra_price_cols)
-        message = (
-            "Price data includes columns missing from universe membership: "
-            f"{preview}"
-        )
+        message = "Price data includes columns missing from universe membership: " f"{preview}"
         if policy == "raise":
             raise ValueError(message)
         logger.warning("%s. Dropping those columns from analysis.", message)
@@ -588,9 +569,7 @@ def _infer_periods_per_year(index: pd.DatetimeIndex) -> int:
     return max(1, approx)
 
 
-def _initial_weights(
-    columns: Sequence[str], initial: Mapping[str, float] | None
-) -> pd.Series:
+def _initial_weights(columns: Sequence[str], initial: Mapping[str, float] | None) -> pd.Series:
     base = pd.Series(0.0, index=columns, dtype=float)
     if initial is None:
         return base
@@ -616,9 +595,7 @@ def _compute_drawdown(equity_curve: pd.Series) -> pd.Series:
     return drawdown
 
 
-def _rolling_sharpe(
-    returns: pd.Series, periods_per_year: int, window: int
-) -> pd.Series:
+def _rolling_sharpe(returns: pd.Series, periods_per_year: int, window: int) -> pd.Series:
     if window <= 1:
         window = 2
     rolling_mean = returns.rolling(window=window).mean()
@@ -634,7 +611,7 @@ def _compute_metrics(
     drawdown: pd.Series,
     periods_per_year: int,
     active_mask: pd.Series,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     active_returns = returns.where(active_mask).dropna()
     if active_returns.empty:
         active_returns = returns.iloc[0:0]
@@ -658,11 +635,7 @@ def _compute_metrics(
     )
     sortino = active_returns.mean() / downside_std if downside_std else float("nan")
     max_drawdown = float(drawdown.min()) if len(drawdown) else float("nan")
-    calmar = (
-        cagr / abs(max_drawdown)
-        if max_drawdown and not np.isnan(cagr)
-        else float("nan")
-    )
+    calmar = cagr / abs(max_drawdown) if max_drawdown and not np.isnan(cagr) else float("nan")
 
     return {
         "cagr": _to_float(cagr),
@@ -675,17 +648,17 @@ def _compute_metrics(
     }
 
 
-def _series_to_dict(series: pd.Series) -> Dict[str, float]:
+def _series_to_dict(series: pd.Series) -> dict[str, float]:
     if series.empty:
         return {}
     cleaned = series.dropna()
     return {idx.isoformat(): _to_float(val) for idx, val in cleaned.items()}
 
 
-def _weights_to_dict(weights: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+def _weights_to_dict(weights: pd.DataFrame) -> dict[str, dict[str, float]]:
     if weights.empty:
         return {}
-    result: Dict[str, Dict[str, float]] = {}
+    result: dict[str, dict[str, float]] = {}
     for timestamp, row in weights.dropna(how="all").iterrows():
         cleaned_row = {
             col: _to_float(val)

@@ -21,20 +21,16 @@ run = st.session_state["sim_results"]
 config = st.session_state.get("sim_config", {})
 
 # Attach config and seed to run object if available
-setattr(run, "config", config)
-setattr(run, "seed", st.session_state.get("seed", None))
+run.config = config
+run.seed = st.session_state.get("seed", None)
 
 
 def _generate_cache_key(run_obj, config_dict) -> str:
     """Generate a cache key for the results and config."""
     # Create a hash from the portfolio data and config to detect changes
-    portfolio_hash = hashlib.sha256(
-        run_obj.portfolio.to_csv().encode("utf-8")
-    ).hexdigest()[:16]
+    portfolio_hash = hashlib.sha256(run_obj.portfolio.to_csv().encode("utf-8")).hexdigest()[:16]
 
-    config_hash = hashlib.sha256(
-        str(sorted(config_dict.items())).encode("utf-8")
-    ).hexdigest()[:16]
+    config_hash = hashlib.sha256(str(sorted(config_dict.items())).encode("utf-8")).hexdigest()[:16]
 
     return f"export_bundle_{portfolio_hash}_{config_hash}"
 
@@ -100,9 +96,7 @@ try:
 
     # Size warning if approaching limit
     if bundle_size_mb > 40:
-        st.warning(
-            f"⚠️ Bundle size ({bundle_size_mb:.1f} MB) is approaching the 50 MB limit."
-        )
+        st.warning(f"⚠️ Bundle size ({bundle_size_mb:.1f} MB) is approaching the 50 MB limit.")
     elif bundle_size_mb > 50:
         st.error(f"❌ Bundle size ({bundle_size_mb:.1f} MB) exceeds the 50 MB limit.")
 

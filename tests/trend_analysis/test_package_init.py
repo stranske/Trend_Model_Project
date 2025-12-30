@@ -4,17 +4,15 @@ import dataclasses
 import importlib
 import importlib.metadata
 import sys
+from collections.abc import Mapping
 from types import ModuleType
-from typing import Mapping
 
 import pytest
 
 
 def _clear_trend_analysis_modules() -> None:
     for name in [
-        key
-        for key in sys.modules
-        if key == "trend_analysis" or key.startswith("trend_analysis.")
+        key for key in sys.modules if key == "trend_analysis" or key.startswith("trend_analysis.")
     ]:
         sys.modules.pop(name, None)
 
@@ -93,7 +91,7 @@ def test_patch_skips_when_original_is_missing(monkeypatch, load_trend_analysis):
     module._patch_dataclasses_module_guard()
 
     assert module._SAFE_IS_TYPE is previous_safe  # type: ignore[attr-defined]
-    assert getattr(dataclasses, "_is_type") is None
+    assert dataclasses._is_type is None
     assert not getattr(dataclasses, "_trend_model_patched", False)
 
     dataclasses._is_type = original  # type: ignore[attr-defined]
@@ -213,7 +211,7 @@ def test_lazy_loader_imports_module_on_demand(load_trend_analysis):
 def test_lazy_loader_rejects_unknown_attribute(load_trend_analysis):
     module = load_trend_analysis()
     with pytest.raises(AttributeError):
-        getattr(module, "not_a_real_submodule")
+        module.not_a_real_submodule
 
 
 def test_version_metadata_success_path(monkeypatch, load_trend_analysis):

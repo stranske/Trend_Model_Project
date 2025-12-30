@@ -7,9 +7,10 @@ import datetime as dt
 import json
 import os
 import sys
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any
 from urllib import error, parse, request
 
 API_HEADER_ACCEPT = "application/vnd.github+json"
@@ -22,7 +23,7 @@ DEFAULT_TOP_LIMIT = 5
 
 @dataclass
 class BaselineConfig:
-    baseline: Optional[float]
+    baseline: float | None
     warn_drop: float
     recovery_days: int
 
@@ -47,7 +48,7 @@ class CoverageGuardError(RuntimeError):
     """Raised for unrecoverable workflow errors."""
 
 
-def _to_float(value: Any) -> Optional[float]:
+def _to_float(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
@@ -58,7 +59,7 @@ def _to_float(value: Any) -> Optional[float]:
     return None
 
 
-def _to_int(value: Any) -> Optional[int]:
+def _to_int(value: Any) -> int | None:
     if isinstance(value, int):
         return value
     if isinstance(value, float):
@@ -71,7 +72,7 @@ def _to_int(value: Any) -> Optional[int]:
     return None
 
 
-def load_json(path: Path) -> Optional[Any]:
+def load_json(path: Path) -> Any | None:
     if not path.is_file():
         return None
     try:
@@ -86,19 +87,13 @@ def load_baseline(path: Path) -> BaselineConfig:
     baseline = _to_float(data.get("line"))
     warn_drop = _to_float(data.get("warn_drop")) or 1.0
     recovery_days_raw = data.get("recovery_days")
-    recovery_days = (
-        _to_int(recovery_days_raw) if recovery_days_raw is not None else None
-    )
+    recovery_days = _to_int(recovery_days_raw) if recovery_days_raw is not None else None
     if recovery_days is None or recovery_days <= 0:
         recovery_days = 3
-    return BaselineConfig(
-        baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days
-    )
+    return BaselineConfig(baseline=baseline, warn_drop=warn_drop, recovery_days=recovery_days)
 
 
-def load_snapshot(
-    trend_path: Path, config: BaselineConfig
-) -> Optional[CoverageSnapshot]:
+def load_snapshot(trend_path: Path, config: BaselineConfig) -> CoverageSnapshot | None:
     data = load_json(trend_path)
     if not isinstance(data, Mapping):
         print(f"Coverage trend data missing at {trend_path}", file=sys.stderr)
@@ -143,8 +138,8 @@ def github_request(
     url_or_path: str,
     token: str,
     *,
-    params: Optional[dict[str, Any]] = None,
-    payload: Optional[Mapping[str, Any]] = None,
+    params: dict[str, Any] | None = None,
+    payload: Mapping[str, Any] | None = None,
 ) -> tuple[Any, Mapping[str, str]]:
     base_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
     if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
@@ -197,7 +192,7 @@ def github_request(
 def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     url: str | None = f"/repos/{repo}/issues"
-    params: Optional[dict[str, object]] = {
+    params: dict[str, object] | None = {
         "state": "all",
         "labels": label,
         "per_page": 100,
@@ -214,9 +209,7 @@ def list_issues(repo: str, token: str, label: str) -> list[dict[str, Any]]:
     return issues
 
 
-def find_issue(
-    repo: str, token: str, label: str, title: str
-) -> Optional[dict[str, Any]]:
+def find_issue(repo: str, token: str, label: str, title: str) -> dict[str, Any] | None:
     candidates = [
         issue
         for issue in list_issues(repo, token, label)
@@ -228,9 +221,7 @@ def find_issue(
     return candidates[0]
 
 
-def create_issue(
-    repo: str, token: str, title: str, body: str, label: str
-) -> dict[str, Any]:
+def create_issue(repo: str, token: str, title: str, body: str, label: str) -> dict[str, Any]:
     payload = {"title": title, "body": body, "labels": [label]}
     issue, _ = github_request("POST", f"/repos/{repo}/issues", token, payload=payload)
     if not isinstance(issue, Mapping):  # pragma: no cover - defensive
@@ -243,8 +234,8 @@ def update_issue(
     token: str,
     number: int,
     *,
-    body: Optional[str] = None,
-    state: Optional[str] = None,
+    body: str | None = None,
+    state: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {}
     if body is not None:
@@ -257,9 +248,7 @@ def update_issue(
 
 
 def post_comment(repo: str, token: str, number: int, body: str) -> None:
-    github_request(
-        "POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body}
-    )
+    github_request("POST", f"/repos/{repo}/issues/{number}/comments", token, payload={"body": body})
 
 
 def read_metadata(body: str) -> dict[str, Any]:
@@ -311,9 +300,7 @@ def compose_issue_body(config: BaselineConfig, metadata: Mapping[str, Any]) -> s
     return "\n".join(lines) + "\n"
 
 
-def compute_top_files(
-    data: Optional[Mapping[str, Any]], limit: int
-) -> list[FileCoverage]:
+def compute_top_files(data: Mapping[str, Any] | None, limit: int) -> list[FileCoverage]:
     if not isinstance(data, Mapping):
         return []
     files = data.get("files")
@@ -379,7 +366,7 @@ def build_update_comment(
     below_baseline: bool,
     date: dt.date,
     run_url: str,
-    recovery_progress: Optional[str],
+    recovery_progress: str | None,
     top_files: list[FileCoverage],
 ) -> str:
     lines = [f"### {date.isoformat()}"]
@@ -425,14 +412,12 @@ def ensure_issue(
     return issue, metadata
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Maintain coverage guard issue state.")
     parser.add_argument("--repo", required=True, help="Repository in owner/name format")
     parser.add_argument("--trend-path", type=Path, default=Path("coverage-trend.json"))
     parser.add_argument("--coverage-path", type=Path, default=Path("coverage.json"))
-    parser.add_argument(
-        "--baseline-path", type=Path, default=Path("config/coverage-baseline.json")
-    )
+    parser.add_argument("--baseline-path", type=Path, default=Path("config/coverage-baseline.json"))
     parser.add_argument("--issue-title", default=DEFAULT_ISSUE_TITLE)
     parser.add_argument("--label", default=DEFAULT_ISSUE_LABEL)
     parser.add_argument("--recovery-days", type=int, default=None)
@@ -462,9 +447,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         coverage_data = load_json(args.coverage_path)
         top_files = compute_top_files(coverage_data, args.top_limit)
 
-        issue, metadata = ensure_issue(
-            args.repo, token, config, args.issue_title, args.label
-        )
+        issue, metadata = ensure_issue(args.repo, token, config, args.issue_title, args.label)
         issue_number = int(issue["number"])
         is_open = issue.get("state") == "open"
 
@@ -509,11 +492,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             return 0
 
-        recovery = (
-            recovery_count + 1
-            if last_status == "above" or last_status == "recovery"
-            else 1
-        )
+        recovery = recovery_count + 1 if last_status == "above" or last_status == "recovery" else 1
         metadata.update(
             {
                 "recovery": recovery,

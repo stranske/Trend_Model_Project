@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
 
 
 @dataclass(slots=True)
@@ -75,9 +75,7 @@ def _pick_best(outcomes: Iterable[str]) -> str:
 def _aggregate(entries: Iterable[tuple[str, str]]) -> tuple[str, str]:
     pairs = list(entries)
     best = _pick_best([outcome for _, outcome in pairs])
-    detail = ", ".join(
-        f"{runtime}: {_friendly(outcome)}" for runtime, outcome in sorted(pairs)
-    )
+    detail = ", ".join(f"{runtime}: {_friendly(outcome)}" for runtime, outcome in sorted(pairs))
     return best, detail or "no runs"
 
 
@@ -130,9 +128,7 @@ def _detect_cosmetic_failure(
             return False, ()
 
         for name, section in checks.items():
-            outcome = _normalize_check_outcome(
-                section if isinstance(section, Mapping) else None
-            )
+            outcome = _normalize_check_outcome(section if isinstance(section, Mapping) else None)
             if outcome in benign_outcomes:
                 continue
             if name in allowed_failures and outcome == "failure":
@@ -169,9 +165,7 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
     for record in sorted(records, key=lambda item: str(item.get("python_version", ""))):
         runtime = str(record.get("python_version", "unknown"))
         job_name = str(record.get("job_name") or runtime)
-        checks = (
-            record.get("checks") if isinstance(record.get("checks"), Mapping) else {}
-        )
+        checks = record.get("checks") if isinstance(record.get("checks"), Mapping) else {}
 
         def _check(name: str) -> str:
             return _normalize_check_outcome(
@@ -190,13 +184,9 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
         job_results.setdefault(job_name, []).extend([lint, typing, tests, coverage_min])
 
         coverage_info = (
-            record.get("coverage")
-            if isinstance(record.get("coverage"), Mapping)
-            else {}
+            record.get("coverage") if isinstance(record.get("coverage"), Mapping) else {}
         )
-        percent = (
-            coverage_info.get("percent") if isinstance(coverage_info, Mapping) else None
-        )
+        percent = coverage_info.get("percent") if isinstance(coverage_info, Mapping) else None
         if isinstance(percent, (int, float)):
             coverage_percents.append(f"{runtime}: {percent:.2f}%")
             percent_display = f"{percent:.2f}%"
@@ -204,18 +194,7 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
             percent_display = "—"
 
         table.append(
-            "| {runtime} | {lint} {lint_status} | {typing} {type_status} | {tests} {test_status} | {coverage_min} {cov_status} | {percent} |".format(
-                runtime=runtime,
-                lint=_emoji(lint),
-                lint_status=_friendly(lint),
-                typing=_emoji(typing),
-                type_status=_friendly(typing),
-                tests=_emoji(tests),
-                test_status=_friendly(tests),
-                coverage_min=_emoji(coverage_min),
-                cov_status=_friendly(coverage_min),
-                percent=percent_display,
-            )
+            f"| {runtime} | {_emoji(lint)} {_friendly(lint)} | {_emoji(typing)} {_friendly(typing)} | {_emoji(tests)} {_friendly(tests)} | {_emoji(coverage_min)} {_friendly(coverage_min)} | {percent_display} |"
         )
 
     return (
@@ -279,15 +258,9 @@ def _active_lines(
     coverage_status, coverage_detail = _aggregate(coverage_entries)
 
     lines.append("")
-    lines.append(
-        f"- Lint: {_emoji(lint_status)} {_friendly(lint_status)} ({lint_detail})"
-    )
-    lines.append(
-        f"- Type check: {_emoji(type_status)} {_friendly(type_status)} ({type_detail})"
-    )
-    lines.append(
-        f"- Tests: {_emoji(test_status)} {_friendly(test_status)} ({test_detail})"
-    )
+    lines.append(f"- Lint: {_emoji(lint_status)} {_friendly(lint_status)} ({lint_detail})")
+    lines.append(f"- Type check: {_emoji(type_status)} {_friendly(type_status)} ({type_detail})")
+    lines.append(f"- Tests: {_emoji(test_status)} {_friendly(test_status)} ({test_detail})")
     lines.append(
         f"- Coverage minimum: {_emoji(coverage_status)} {_friendly(coverage_status)} ({coverage_detail})"
     )
@@ -417,9 +390,7 @@ def _write_outputs(result: SummaryResult, output_path: Path | None) -> None:
     with output_path.open("a", encoding="utf-8") as handle:
         handle.write(f"state={result.state}\n")
         handle.write(f"description={result.description}\n")
-        handle.write(
-            f"cosmetic_failure={'true' if result.cosmetic_failure else 'false'}\n"
-        )
+        handle.write(f"cosmetic_failure={'true' if result.cosmetic_failure else 'false'}\n")
         if result.failure_checks:
             handle.write("failure_checks=" + ",".join(result.failure_checks) + "\n")
         else:

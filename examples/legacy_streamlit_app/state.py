@@ -1,6 +1,6 @@
 """Session state management for Streamlit app."""
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import pandas as pd
 import streamlit as st
@@ -74,7 +74,7 @@ def record_upload_error(
     clear_analysis_results()
 
 
-def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict]]:
+def get_uploaded_data() -> tuple[pd.DataFrame | None, dict | None]:
     """Retrieve uploaded data from session state."""
     return (st.session_state.get("returns_df"), st.session_state.get("schema_meta"))
 
@@ -83,9 +83,7 @@ def has_valid_upload() -> bool:
     """Check if there's valid uploaded data in session state."""
     df, meta = get_uploaded_data()
     return (
-        df is not None
-        and meta is not None
-        and st.session_state.get("upload_status") == "success"
+        df is not None and meta is not None and st.session_state.get("upload_status") == "success"
     )
 
 

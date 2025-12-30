@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -9,7 +9,7 @@ from trend_analysis.multi_period import engine as mp_engine
 
 @dataclass
 class DummyConfig:
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 1,
@@ -18,8 +18,8 @@ class DummyConfig:
             "end": "2020-02",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
-    portfolio: Dict[str, Any] = field(
+    data: dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "standard",
             "selection_mode": "all",
@@ -30,12 +30,12 @@ class DummyConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: List[Any] = field(default_factory=list)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: list[Any] = field(default_factory=list)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 123
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,

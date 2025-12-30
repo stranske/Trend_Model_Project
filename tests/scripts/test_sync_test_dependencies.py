@@ -43,9 +43,7 @@ def temp_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(sync, "STDLIB_MODULES", {"os", "sys"})
     monkeypatch.setattr(sync, "TEST_FRAMEWORK_MODULES", {"pytest"})
     monkeypatch.setattr(sync, "PROJECT_MODULES", {"tests", "scripts"})
-    monkeypatch.setattr(
-        sync, "MODULE_TO_PACKAGE", {"yaml": "PyYAML", "cv2": "opencv-python"}
-    )
+    monkeypatch.setattr(sync, "MODULE_TO_PACKAGE", {"yaml": "PyYAML", "cv2": "opencv-python"})
 
     _write_pyproject(tmp_path, dev=["pytest", "tomlkit"])
     return tmp_path
@@ -63,9 +61,7 @@ def _create_test_files(base: Path) -> None:
     )
     cache_dir = tests_dir / "__pycache__"
     cache_dir.mkdir()
-    cache_dir.joinpath("ignored.py").write_text(
-        "import should_not_count\n", encoding="utf-8"
-    )
+    cache_dir.joinpath("ignored.py").write_text("import should_not_count\n", encoding="utf-8")
 
 
 def test_extract_imports_handles_syntax_errors(temp_repo: Path) -> None:

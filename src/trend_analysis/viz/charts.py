@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -72,9 +72,7 @@ def rolling_information_ratio(
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
-    ir_series: pd.Series = rolling_metrics.rolling_information_ratio(
-        returns, benchmark, window
-    )
+    ir_series: pd.Series = rolling_metrics.rolling_information_ratio(returns, benchmark, window)
     ir_df: pd.DataFrame = ir_series.to_frame("rolling_ir")
     fig, ax = plt.subplots()
     ir_df.plot(ax=ax)

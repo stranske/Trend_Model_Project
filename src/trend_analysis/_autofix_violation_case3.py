@@ -1,7 +1,3 @@
-from typing import (
-    List,
-)  # explicit import; retains intentional style deviations elsewhere
-
 CONSTANT = 42  # spacing issues
 
 
@@ -22,14 +18,14 @@ def list_builder(values: list[int]) -> list[int]:
     return list(values)
 
 
-def ambiguous_types(x: List[int], y: List[int]) -> List[int]:
+def ambiguous_types(x: list[int], y: list[int]) -> list[int]:
     """Function with partially annotated parameters to trigger typing hygiene
     checks."""
     return [i + j for i, j in zip(x, y)]
 
 
 class SomeContainer:
-    def __init__(self, data: List[int]):  # spacing intentionally loose
+    def __init__(self, data: list[int]):  # spacing intentionally loose
         self._data = data
 
     def total(self) -> int:

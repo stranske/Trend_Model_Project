@@ -5,8 +5,9 @@ from __future__ import annotations
 import inspect
 import math
 from collections import OrderedDict
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence, cast
+from typing import Any, cast
 
 try:  # Optional openpyxl for richer typing; not required at runtime.
     from openpyxl.utils import get_column_letter
@@ -106,9 +107,7 @@ class _OpenpyxlWorksheetProxy:
         if fmt and isinstance(fmt, dict):
             self._apply_format(cell, fmt)
 
-    def write_row(
-        self, row: int, col: int, data: Iterable[Any], fmt: Any | None = None
-    ) -> None:
+    def write_row(self, row: int, col: int, data: Iterable[Any], fmt: Any | None = None) -> None:
         for offset, value in enumerate(data):
             self.write(row, col + offset, value, fmt)
 
@@ -328,9 +327,7 @@ def _format_frequency_policy_line(res: Mapping[str, Any]) -> str:
     dropped_assets = policy.get("dropped_assets")
     dropped_count = len(dropped_assets) if isinstance(dropped_assets, list) else 0
     if dropped_count:
-        extras.append(
-            f"dropped {dropped_count} asset{'s' if dropped_count != 1 else ''}"
-        )
+        extras.append(f"dropped {dropped_count} asset{'s' if dropped_count != 1 else ''}")
     if extras:
         policy_part = f"{policy_part} ({', '.join(extras)})"
     return f"Frequency: {freq_part}; NA policy: {policy_part}"
@@ -345,9 +342,7 @@ def _format_metadata_entries(meta: Mapping[str, Any]) -> list[str]:
         total = cast(int | None, universe.get("count")) or len(members_list)
         selected = universe.get("selected")
         selected_list = list(selected) if isinstance(selected, Sequence) else []
-        selected_count = cast(int | None, universe.get("selected_count")) or len(
-            selected_list
-        )
+        selected_count = cast(int | None, universe.get("selected_count")) or len(selected_list)
         line = "Universe: "
         line += f"{total} assets" if total else "N/A"
         if selected_count:
@@ -601,17 +596,12 @@ def _build_summary_formatter(
                 else None
             )
             is_tr, is_m = total_return_months(
-                in_df[fund]
-                if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
-                else None
+                in_df[fund] if isinstance(in_df, pd.DataFrame) and fund in in_df.columns else None
             )
             ins_vals = metrics_list(stat_in)
             outs_vals = metrics_list(stat_out)
             vals = [os_tr, os_m, *outs_vals[:5]]
-            extra = [
-                res.get("benchmark_ir", {}).get(b, {}).get(fund, "")
-                for b in bench_labels
-            ]
+            extra = [res.get("benchmark_ir", {}).get(b, {}).get(fund, "") for b in bench_labels]
             fmts = numeric_fmts
             vals.extend(extra)
             vals.append(outs_vals[-1])
@@ -633,12 +623,8 @@ def _build_summary_formatter(
             # Prefer a canonical subset if present.
             preferred = ["Period", "action", "manager", "firm", "reason", "detail"]
             keys = list({k for rec in changes for k in rec.keys()})
-            ordered = [k for k in preferred if k in keys] + [
-                k for k in keys if k not in preferred
-            ]
-            ws.write_row(
-                row, 0, [k.capitalize() if k != "Period" else k for k in ordered], bold
-            )
+            ordered = [k for k in preferred if k in keys] + [k for k in keys if k not in preferred]
+            ws.write_row(row, 0, [k.capitalize() if k != "Period" else k for k in ordered], bold)
             # Set reasonable widths
             for idx, k in enumerate(ordered):
                 width = 12 if k in {"Period", "action", "firm"} else 24
@@ -874,20 +860,15 @@ def format_summary_text(
         stat_out = res["out_sample_stats"][fund]
         weight = res["fund_weights"][fund] * 100
         extra = [
-            res.get("benchmark_ir", {}).get(b, {}).get(fund, float("nan"))
-            for b in bench_labels
+            res.get("benchmark_ir", {}).get(b, {}).get(fund, float("nan")) for b in bench_labels
         ]
         os_vals = pct(stat_out)
         is_vals = pct(stat_in)
         os_tr, os_m = total_return_months(
-            out_df[fund]
-            if isinstance(out_df, pd.DataFrame) and fund in out_df.columns
-            else None
+            out_df[fund] if isinstance(out_df, pd.DataFrame) and fund in out_df.columns else None
         )
         is_tr, is_m = total_return_months(
-            in_df[fund]
-            if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
-            else None
+            in_df[fund] if isinstance(in_df, pd.DataFrame) and fund in in_df.columns else None
         )
         vals = [
             os_tr,
@@ -920,13 +901,9 @@ def format_summary_text(
                 header.append(f"  {name}: {float(value):.2%}")
         port_vol = risk_diag.get("portfolio_volatility")
         if isinstance(port_vol, pd.Series) and not port_vol.empty:
-            header.append(
-                f"Portfolio volatility (latest): {float(port_vol.iloc[-1]):.2%}"
-            )
+            header.append(f"Portfolio volatility (latest): {float(port_vol.iloc[-1]):.2%}")
         turnover_value = risk_diag.get("turnover_value")
-        if isinstance(turnover_value, (float, int)) and not math.isnan(
-            float(turnover_value)
-        ):
+        if isinstance(turnover_value, (float, int)) and not math.isnan(float(turnover_value)):
             header.append(f"Turnover applied: {float(turnover_value):.2%}")
     header.extend(
         [
@@ -964,9 +941,7 @@ def format_summary_text(
 
         for portfolio in dict.fromkeys(col[0] for col in regime_table.columns):
             header.append(f"  {portfolio}:")
-            for _, regime in [
-                col for col in regime_table.columns if col[0] == portfolio
-            ]:
+            for _, regime in [col for col in regime_table.columns if col[0] == portfolio]:
                 series = regime_table[(portfolio, regime)]
                 if not _has_metrics(series):
                     header.append(f"    {regime}: insufficient data")
@@ -1040,9 +1015,7 @@ def export_to_excel(
         # still export workbooks without installing the extra package.
         writer = pd.ExcelWriter(path)
         book_any: Any = writer.book
-        supports_custom = all(
-            hasattr(book_any, attr) for attr in ("add_worksheet", "add_format")
-        )
+        supports_custom = all(hasattr(book_any, attr) for attr in ("add_worksheet", "add_format"))
         if not supports_custom:
             workbook_adapter = _OpenpyxlWorkbookAdapter(book_any)
             supports_custom = True
@@ -1085,7 +1058,7 @@ def export_to_excel(
                     # Create an empty worksheet and delegate full rendering
                     # xlsxwriter workbook object provides add_worksheet; cast for typing
                     workbook_obj = writer.book
-                    add_ws = getattr(workbook_obj, "add_worksheet")
+                    add_ws = workbook_obj.add_worksheet
                     ws = cast(Worksheet, add_ws(sheet))
                     writer.sheets[sheet] = ws
                     fmt(ws, writer.book)
@@ -1164,14 +1137,10 @@ def export_to_txt(
     _ensure_dir(prefix)
     for name, df in data.items():
         formatted = _apply_format(df, formatter)
-        prefix.with_name(f"{prefix.stem}_{name}.txt").write_text(
-            formatted.to_string(index=False)
-        )
+        prefix.with_name(f"{prefix.stem}_{name}.txt").write_text(formatted.to_string(index=False))
 
 
-EXPORTERS: dict[
-    str, Callable[[Mapping[str, pd.DataFrame], str, Formatter | None], None]
-] = {
+EXPORTERS: dict[str, Callable[[Mapping[str, pd.DataFrame], str, Formatter | None], None]] = {
     "xlsx": export_to_excel,
     # ``excel`` is kept for backward compatibility with older configs/UI
     "excel": export_to_excel,
@@ -1206,9 +1175,7 @@ def execution_metrics_frame(
             {
                 "Period": label,
                 "Turnover": float(turnover) if turnover is not None else float("nan"),
-                "Transaction Cost": (
-                    float(tx_cost) if tx_cost is not None else float("nan")
-                ),
+                "Transaction Cost": (float(tx_cost) if tx_cost is not None else float("nan")),
             }
         )
     return (
@@ -1248,11 +1215,7 @@ def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     ).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
     return df
 
@@ -1392,14 +1355,10 @@ def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
         os_vals = pct(stat_out)
         is_vals = pct(stat_in)
         os_tr, os_m = total_return_months(
-            out_df[fund]
-            if isinstance(out_df, pd.DataFrame) and fund in out_df.columns
-            else None
+            out_df[fund] if isinstance(out_df, pd.DataFrame) and fund in out_df.columns else None
         )
         is_tr, is_m = total_return_months(
-            in_df[fund]
-            if isinstance(in_df, pd.DataFrame) and fund in in_df.columns
-            else None
+            in_df[fund] if isinstance(in_df, pd.DataFrame) and fund in in_df.columns else None
         )
         vals = [
             os_tr,
@@ -1459,18 +1418,12 @@ def combined_summary_result(
 
     rf_in = pd.Series(0.0, index=pd.concat(ew_in_series).index)
     rf_out = pd.Series(0.0, index=pd.concat(ew_out_series).index)
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)[
-        "ew"
+    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)["ew"]
+    out_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out)["ew"]
+    in_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in)["user"]
+    out_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out)[
+        "user"
     ]
-    out_ew_stats = _compute_stats(
-        pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out
-    )["ew"]
-    in_user_stats = _compute_stats(
-        pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in
-    )["user"]
-    out_user_stats = _compute_stats(
-        pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out
-    )["user"]
 
     # Compute per-fund stats with risk-free series aligned to each fund's
     # concatenated return index to avoid shape mismatches when a fund is
@@ -1543,9 +1496,7 @@ def manager_contrib_table(
 
     rows: list[dict[str, Any]] = []
     for fund, months in months_held.items():
-        concat = (
-            pd.concat(series_map[fund]) if series_map[fund] else pd.Series(dtype=float)
-        )
+        concat = pd.concat(series_map[fund]) if series_map[fund] else pd.Series(dtype=float)
         n = int(concat.shape[0])
         if n > 0:
             s_float = concat.astype(float)
@@ -1564,15 +1515,11 @@ def manager_contrib_table(
         )
 
     if not rows:
-        return pd.DataFrame(
-            columns=["Manager", "Years", "OOS CAGR", "Contribution Share"]
-        )
+        return pd.DataFrame(columns=["Manager", "Years", "OOS CAGR", "Contribution Share"])
 
     df = pd.DataFrame(rows)
     # Order by contribution share descending, then by manager name
-    df.sort_values(
-        ["Contribution Share", "Manager"], ascending=[False, True], inplace=True
-    )
+    df.sort_values(["Contribution Share", "Manager"], ascending=[False, True], inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
 
@@ -1667,19 +1614,13 @@ def flat_frames_from_results(
 
     results_list = list(results)
     frames = workbook_frames_from_results(results_list)
-    period_frames = [
-        (k, v) for k, v in frames.items() if k not in {"summary", "execution_metrics"}
-    ]
+    period_frames = [(k, v) for k, v in frames.items() if k not in {"summary", "execution_metrics"}]
     combined_frames = []
     for name, df in period_frames:
         df = df.copy()
         df.insert(0, "Period", name)
         combined_frames.append(df)
-    combined = (
-        pd.concat(combined_frames, ignore_index=True)
-        if combined_frames
-        else pd.DataFrame()
-    )
+    combined = pd.concat(combined_frames, ignore_index=True) if combined_frames else pd.DataFrame()
     out: dict[str, pd.DataFrame] = {"periods": combined}
     if "summary" in frames:
         out["summary"] = frames["summary"]
@@ -1693,13 +1634,9 @@ def flat_frames_from_results(
     for res in results_list:
         period = res.get("period")
         period_label = (
-            str(period[3])
-            if isinstance(period, (list, tuple)) and len(period) >= 4
-            else ""
+            str(period[3]) if isinstance(period, (list, tuple)) and len(period) >= 4 else ""
         )
-        for ev in (
-            cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []
-        ):
+        for ev in cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []:
             row: dict[str, Any] = {"Period": period_label}
             for k in ["action", "manager", "firm", "reason", "detail"]:
                 val = ev.get(k) if isinstance(ev, Mapping) else None
@@ -1749,14 +1686,9 @@ def export_phase1_workbook(
             for res in results_list:
                 period = res.get("period")
                 period_label = (
-                    str(period[3])
-                    if isinstance(period, (list, tuple)) and len(period) >= 4
-                    else ""
+                    str(period[3]) if isinstance(period, (list, tuple)) and len(period) >= 4 else ""
                 )
-                for ev in (
-                    cast(list[Mapping[str, Any]] | None, res.get("manager_changes"))
-                    or []
-                ):
+                for ev in cast(list[Mapping[str, Any]] | None, res.get("manager_changes")) or []:
                     row: dict[str, Any] = {"Period": period_label}
                     for k in ["action", "manager", "firm", "reason", "detail"]:
                         val = ev.get(k) if isinstance(ev, Mapping) else None

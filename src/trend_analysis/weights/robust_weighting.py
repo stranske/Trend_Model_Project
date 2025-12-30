@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -60,9 +60,7 @@ def ledoit_wolf_shrinkage(
     return shrunk_cov.astype(float, copy=False), float(intensity)
 
 
-def oas_shrinkage(
-    cov: NDArrayFloat, n_samples: int | None = None
-) -> tuple[NDArrayFloat, float]:
+def oas_shrinkage(cov: NDArrayFloat, n_samples: int | None = None) -> tuple[NDArrayFloat, float]:
     """Apply Oracle Approximating Shrinkage (OAS) to covariance matrix.
 
     Args:
@@ -163,9 +161,7 @@ class RobustMeanVariance(WeightEngine):
         except np.linalg.LinAlgError:
             return np.inf
 
-    def _apply_shrinkage(
-        self, cov: NDArrayFloat
-    ) -> tuple[NDArrayFloat, Dict[str, Any]]:
+    def _apply_shrinkage(self, cov: NDArrayFloat) -> tuple[NDArrayFloat, dict[str, Any]]:
         """Apply shrinkage method to covariance matrix."""
         shrinkage_info = {"method": self.shrinkage_method, "intensity": 0.0}
 
@@ -174,9 +170,7 @@ class RobustMeanVariance(WeightEngine):
         elif self.shrinkage_method == "ledoit_wolf":
             shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
-            logger.debug(
-                f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}"
-            )
+            logger.debug(f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}")
             return shrunk_cov, shrinkage_info
         elif self.shrinkage_method == "oas":
             shrunk_cov, intensity = oas_shrinkage(cov)
@@ -203,9 +197,7 @@ class RobustMeanVariance(WeightEngine):
             cov_loaded = diagonal_loading(
                 np.asarray(cov.values, dtype=float), self.diagonal_loading_factor
             )
-            cov_loaded_df = pd.DataFrame(
-                cov_loaded, index=cov.index, columns=cov.columns
-            )
+            cov_loaded_df = pd.DataFrame(cov_loaded, index=cov.index, columns=cov.columns)
             return self._mean_variance_weights(cov_loaded_df)
         else:
             raise ValueError(f"Unknown safe mode: {self.safe_mode}")
@@ -249,9 +241,7 @@ class RobustMeanVariance(WeightEngine):
         # Apply shrinkage
         cov_array = np.asarray(cov.values, dtype=float)
         shrunk_cov_array, shrinkage_info = self._apply_shrinkage(cov_array)
-        shrunk_cov = pd.DataFrame(
-            shrunk_cov_array, index=cov.index, columns=cov.columns
-        )
+        shrunk_cov = pd.DataFrame(shrunk_cov_array, index=cov.index, columns=cov.columns)
 
         # Check condition number
         condition_num = self._check_condition_number(shrunk_cov_array)
@@ -266,9 +256,7 @@ class RobustMeanVariance(WeightEngine):
             return self._safe_mode_weights(cov)
 
         # Use normal mean-variance optimization
-        logger.debug(
-            f"Using mean-variance optimization with {self.shrinkage_method} shrinkage"
-        )
+        logger.debug(f"Using mean-variance optimization with {self.shrinkage_method} shrinkage")
         return self._mean_variance_weights(shrunk_cov)
 
 
@@ -305,9 +293,7 @@ class RobustRiskParity(WeightEngine):
         # Check for non-positive diagonal elements
         diag_vals = np.diag(cov_array)
         if np.any(diag_vals <= 0):
-            logger.warning(
-                "Non-positive diagonal elements detected. Applying diagonal loading."
-            )
+            logger.warning("Non-positive diagonal elements detected. Applying diagonal loading.")
             cov_array = diagonal_loading(cov_array, self.diagonal_loading_factor)
             diag_vals = np.diag(cov_array)
 
@@ -331,9 +317,7 @@ class RobustRiskParity(WeightEngine):
         if max_std <= 0.0:
             # Fallback to equal weights when the covariance matrix collapses.
             logger.warning("Falling back to equal weights due to zero variance inputs")
-            return pd.Series(
-                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
-            )
+            return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
 
         # Handle zero or very small standard deviations
         min_std = max_std * 1e-8 if max_std > 0.0 else np.finfo(float).eps
@@ -342,12 +326,8 @@ class RobustRiskParity(WeightEngine):
         inv_vol = np.reciprocal(std_devs)
         total = float(np.sum(inv_vol))
         if not np.isfinite(total) or total <= 0.0:
-            logger.warning(
-                "Falling back to equal weights due to invalid inverse volatility sum"
-            )
-            return pd.Series(
-                np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index
-            )
+            logger.warning("Falling back to equal weights due to invalid inverse volatility sum")
+            return pd.Series(np.full(len(cov.index), 1.0 / len(cov.index)), index=cov.index)
 
         weights = inv_vol / total
 

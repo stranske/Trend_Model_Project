@@ -26,7 +26,7 @@ def test_metric_cache_hit_and_miss():
     df = _dummy_frame()
     stats_cfg = RiskStatsConfig(risk_free=0.0)
     # Attach flag dynamically (as used in ensure_metric)
-    setattr(stats_cfg, "enable_metric_cache", True)
+    stats_cfg.enable_metric_cache = True
     bundle = WindowMetricBundle(
         key=None,
         start="2020-01",
@@ -41,16 +41,14 @@ def test_metric_cache_hit_and_miss():
     second = bundle.ensure_metric("Sharpe", stats_cfg)
     assert first.equals(second)
     # global_metric_cache should have at least one hit
-    assert (
-        global_metric_cache.hits >= 0
-    )  # sanity; internal miss/hit validated indirectly
+    assert global_metric_cache.hits >= 0  # sanity; internal miss/hit validated indirectly
 
 
 def test_metric_cache_toggle_off():
     clear_metric_cache()
     df = _dummy_frame()
     stats_cfg = RiskStatsConfig(risk_free=0.0)
-    setattr(stats_cfg, "enable_metric_cache", False)
+    stats_cfg.enable_metric_cache = False
     bundle = WindowMetricBundle(
         key=None,
         start="2020-01",
@@ -86,7 +84,7 @@ def test_metric_cache_key_differs_by_metric():
     clear_metric_cache()
     df = _dummy_frame()
     stats_cfg = RiskStatsConfig(risk_free=0.0)
-    setattr(stats_cfg, "enable_metric_cache", True)
+    stats_cfg.enable_metric_cache = True
     bundle = WindowMetricBundle(
         key=None,
         start="2020-01",

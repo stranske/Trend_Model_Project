@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping, MutableMapping
+from typing import Any
 
 import yaml
 
@@ -153,28 +154,15 @@ class TrendPreset:
             portfolio = {}
 
         defaults = {
-            "lookback_periods": _coerce_int(
-                preset.get("lookback_periods"), default=36, minimum=1
-            ),
+            "lookback_periods": _coerce_int(preset.get("lookback_periods"), default=36, minimum=1),
             "rebalance_frequency": str(preset.get("rebalance_frequency", "monthly")),
-            "min_track_months": _coerce_int(
-                preset.get("min_track_months"), default=24, minimum=1
-            ),
-            "selection_count": _coerce_int(
-                preset.get("selection_count"), default=10, minimum=1
-            ),
-            "risk_target": _coerce_optional_float(
-                preset.get("risk_target"), minimum=0.0
-            )
-            or 0.1,
+            "min_track_months": _coerce_int(preset.get("min_track_months"), default=24, minimum=1),
+            "selection_count": _coerce_int(preset.get("selection_count"), default=10, minimum=1),
+            "risk_target": _coerce_optional_float(preset.get("risk_target"), minimum=0.0) or 0.1,
             "weighting_scheme": str(portfolio.get("weighting_scheme", "equal")),
-            "cooldown_months": _coerce_int(
-                portfolio.get("cooldown_months"), default=3, minimum=0
-            ),
+            "cooldown_months": _coerce_int(portfolio.get("cooldown_months"), default=3, minimum=0),
             "metrics": _normalise_metric_weights(
-                preset.get("metrics", {})
-                if isinstance(preset.get("metrics"), Mapping)
-                else {}
+                preset.get("metrics", {}) if isinstance(preset.get("metrics"), Mapping) else {}
             ),
         }
         return defaults
@@ -202,11 +190,7 @@ class TrendPreset:
         preset = self._config.get("vol_adjust")
         if isinstance(preset, Mapping):
             base: dict[str, Any] = {
-                key: (
-                    dict(value)
-                    if key == "window" and isinstance(value, Mapping)
-                    else value
-                )
+                key: (dict(value) if key == "window" and isinstance(value, Mapping) else value)
                 for key, value in preset.items()
             }
         else:
@@ -317,7 +301,7 @@ def _candidate_preset_dirs() -> tuple[Path, ...]:
     return tuple(candidates)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _preset_registry() -> Mapping[str, TrendPreset]:
     registry: dict[str, TrendPreset] = {}
     origins: dict[str, Path] = {}
@@ -405,7 +389,7 @@ def apply_trend_preset(config: Any, preset: TrendPreset) -> None:
         merged = {**current_signals, **signals_mapping}
     else:
         merged = dict(signals_mapping)
-    setattr(config, "signals", merged)
+    config.signals = merged
 
     vol_adjust_cfg = getattr(config, "vol_adjust", {})
     if isinstance(vol_adjust_cfg, MutableMapping):
@@ -417,7 +401,7 @@ def apply_trend_preset(config: Any, preset: TrendPreset) -> None:
 
     defaults = preset.vol_adjust_defaults()
     vol_adjust.update({k: v for k, v in defaults.items() if v is not None})
-    setattr(config, "vol_adjust", vol_adjust)
+    config.vol_adjust = vol_adjust
 
     run_section = getattr(config, "run", {})
     if isinstance(run_section, MutableMapping):
@@ -427,7 +411,7 @@ def apply_trend_preset(config: Any, preset: TrendPreset) -> None:
     else:
         run_cfg = {}
     run_cfg["trend_preset"] = preset.slug
-    setattr(config, "run", run_cfg)
+    config.run = run_cfg
 
 
 __all__ = [

@@ -22,9 +22,10 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 ROOT = Path(__file__).resolve().parent.parent
 # Standard library done; third-party imports
@@ -139,9 +140,7 @@ def _check_generate_demo() -> None:
     )
     if not csv.exists() or xlsx.exists():
         raise SystemExit("generate_demo --no-xlsx failed")
-    subprocess.run(
-        [sys.executable, "scripts/generate_demo.py"], check=True, shell=False
-    )
+    subprocess.run([sys.executable, "scripts/generate_demo.py"], check=True, shell=False)
     if not xlsx.exists():
         raise SystemExit("generate_demo missing Excel")
 
@@ -205,7 +204,7 @@ def _check_schedule(
     # Ensure we have access to model_dump (present on concrete Config and fallback)
     cfg_dump: dict[str, Any]
     if hasattr(cfg, "model_dump"):
-        cfg_dump = getattr(cfg, "model_dump")()  # type: ignore[no-any-return]
+        cfg_dump = cfg.model_dump()  # type: ignore[no-any-return]
     else:  # pragma: no cover - defensive
         cfg_dump = cast(dict[str, Any], getattr(cfg, "__dict__", {}))
     rebalancer = Rebalancer(cfg_dump)
@@ -222,7 +221,7 @@ def _check_schedule(
     if len(weights) > 1 and all(w.equals(weights[0]) for w in weights[1:]):
         print("Warning: weights did not change across periods")
     if hasattr(weighting, "mean") and hasattr(weighting, "tau"):
-        if getattr(weighting, "mean") is None or getattr(weighting, "tau") is None:
+        if weighting.mean is None or weighting.tau is None:
             raise SystemExit("Weighting state not updated")
     return pf
 
@@ -402,9 +401,7 @@ def _check_cli_env_multi(cfg_path: str) -> None:
         raise SystemExit("run_multi_analysis.main env failed")
 
 
-def _check_cli(
-    cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str]
-) -> None:
+def _check_cli(cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str]) -> None:
     """Exercise the simple CLI wrapper."""
 
     cfg_arg = os.fspath(cfg_path)
@@ -511,7 +508,7 @@ def _check_misc(
         raise SystemExit("_compute_metric_series failed")
 
     # verify pipeline alias handling
-    stats_cls = getattr(pipeline, "Stats")
+    stats_cls = pipeline.Stats
     if stats_cls is not pipeline._Stats:
         raise SystemExit("pipeline.Stats alias failed")
 
@@ -649,7 +646,7 @@ def _check_builtin_metric_aliases() -> None:
 
     if builtins.annualize_return(s) != legacy.annualize_return(s):
         raise SystemExit("builtins annualize_return mismatch")
-    av = getattr(builtins, "annualize_volatility")
+    av = builtins.annualize_volatility
     if av(s) != legacy.annualize_volatility(s):
         raise SystemExit("builtins annualize_volatility mismatch")
 
@@ -684,11 +681,7 @@ def _check_metric_helpers() -> None:
     if not np.isnan(metrics._empty_like(ser, "foo")):
         raise SystemExit("_empty_like Series mismatch")
     empty_df = metrics._empty_like(df, "bar")
-    if (
-        not isinstance(empty_df, pd.Series)
-        or empty_df.name != "bar"
-        or not empty_df.isna().all()
-    ):
+    if not isinstance(empty_df, pd.Series) or empty_df.name != "bar" or not empty_df.isna().all():
         raise SystemExit("_empty_like DataFrame mismatch")
 
     try:
@@ -978,9 +971,7 @@ def _check_notebook_utils() -> None:
         return
     tmp = Path("demo/exports/strip_tmp.ipynb")
     shutil.copy(src, tmp)
-    subprocess.run(
-        [sys.executable, "tools/strip_output.py", str(tmp)], check=True, shell=False
-    )
+    subprocess.run([sys.executable, "tools/strip_output.py", str(tmp)], check=True, shell=False)
     data = tmp.read_text(encoding="utf-8")
     if '"outputs": []' not in data:
         raise SystemExit("strip_output failed")
@@ -1079,9 +1070,7 @@ if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.csv").exis
     raise SystemExit("Phase1 multi metrics metrics summary CSV missing")
 if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.json").exists():
     raise SystemExit("Phase1 multi metrics metrics summary JSON missing")
-    if not phase1_prefix.with_name(
-        f"{phase1_prefix.stem}_metrics_summary.txt"
-    ).exists():
+    if not phase1_prefix.with_name(f"{phase1_prefix.stem}_metrics_summary.txt").exists():
         raise SystemExit("Phase1 multi metrics metrics summary TXT missing")
 
 # Additional OS summaries and churn report for convenience
@@ -1120,9 +1109,7 @@ if _comb_stats is not None:
                 "vol": getattr(_comb_stats, "vol", float("nan")),
                 "sharpe": getattr(_comb_stats, "sharpe", float("nan")),
                 "sortino": getattr(_comb_stats, "sortino", float("nan")),
-                "information_ratio": getattr(
-                    _comb_stats, "information_ratio", float("nan")
-                ),
+                "information_ratio": getattr(_comb_stats, "information_ratio", float("nan")),
                 "max_drawdown": getattr(_comb_stats, "max_drawdown", float("nan")),
             }
         ]
@@ -1204,13 +1191,9 @@ export.export_phase1_multi_metrics(
 if not phase1_nom_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("Phase1 multi metrics nometrics Excel missing")
 for ext in ("csv", "json", "txt"):
-    if not phase1_nom_prefix.with_name(
-        f"{phase1_nom_prefix.stem}_periods.{ext}"
-    ).exists():
+    if not phase1_nom_prefix.with_name(f"{phase1_nom_prefix.stem}_periods.{ext}").exists():
         raise SystemExit(f"Phase1 multi metrics nometrics {ext} missing")
-    if not phase1_nom_prefix.with_name(
-        f"{phase1_nom_prefix.stem}_summary.{ext}"
-    ).exists():
+    if not phase1_nom_prefix.with_name(f"{phase1_nom_prefix.stem}_summary.{ext}").exists():
         raise SystemExit(f"Phase1 multi metrics nometrics summary {ext} missing")
 
 mpm_nom_prefix = Path("demo/exports/multi_period_nometrics")
@@ -1272,12 +1255,8 @@ if not summ_prefix.with_suffix(".xlsx").exists():
 
 # Export per-period metrics using all exporters to cover the helper
 metrics_prefix = Path("demo/exports/period_metrics")
-period_metrics = {
-    str(res["period"][3]): export.metrics_from_result(res) for res in results
-}
-export.export_data(
-    period_metrics, str(metrics_prefix), formats=["xlsx", "csv", "json", "txt"]
-)
+period_metrics = {str(res["period"][3]): export.metrics_from_result(res) for res in results}
+export.export_data(period_metrics, str(metrics_prefix), formats=["xlsx", "csv", "json", "txt"])
 if not metrics_prefix.with_suffix(".xlsx").exists():
     raise SystemExit("period metrics Excel missing")
 created = list(metrics_prefix.parent.glob(f"{metrics_prefix.stem}_*.csv"))
@@ -1416,9 +1395,7 @@ df_tmp = pd.DataFrame({"Time": ["2020-01-01", "2020-02-01"], "Val": [0.0, 0.1]})
 dt_tmp = ensure_datetime(df_tmp, "Time")
 if not pd.api.types.is_datetime64_any_dtype(dt_tmp["Time"]):
     raise SystemExit("ensure_datetime custom column failed")
-ew_df = EqualWeight().weight(
-    pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=["A", "B", "C"])
-)
+ew_df = EqualWeight().weight(pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=["A", "B", "C"]))
 if not np.isclose(ew_df["weight"].sum(), 1.0, atol=1e-4):
     raise SystemExit("EqualWeight weight sum mismatch")
 
@@ -1570,11 +1547,7 @@ def extract_metrics_df(full_res):
     for label, ir_map in full_res.get("benchmark_ir", {}).items():
         col = f"ir_{label}"
         metrics_df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
     return metrics_df
 
@@ -1631,9 +1604,7 @@ if not isinstance(performance_by_regime, pd.DataFrame) or performance_by_regime.
     raise SystemExit("pipeline.run_full missing regime table")
 regime_summary_full = str(full_res.get("regime_summary", ""))
 regime_notes_full = full_res.get("regime_notes") or []
-if not regime_summary_full.strip() and not any(
-    str(note).strip() for note in regime_notes_full
-):
+if not regime_summary_full.strip() and not any(str(note).strip() for note in regime_notes_full):
     raise SystemExit("pipeline.run_full missing regime insight")
 _oss = full_res.get("out_sample_stats", {})
 _oss = _oss if isinstance(_oss, dict) else {}
@@ -1659,9 +1630,7 @@ analysis_res = pipeline.run_analysis(
 if not analysis_res or analysis_res.get("score_frame") is None:
     diag = analysis_res.diagnostic
     if diag is not None:
-        raise SystemExit(
-            f"pipeline.run_analysis failed ({diag.reason_code}): {diag.message}"
-        )
+        raise SystemExit(f"pipeline.run_analysis failed ({diag.reason_code}): {diag.message}")
     raise SystemExit("pipeline.run_analysis failed")
 analysis_regime_table = analysis_res.get("performance_by_regime")
 if not isinstance(analysis_regime_table, pd.DataFrame) or analysis_regime_table.empty:
@@ -1711,8 +1680,7 @@ if fw is None:
     diag = cw_res.diagnostic
     if diag is not None:
         raise SystemExit(
-            "_run_analysis custom_weights failed "
-            f"({diag.reason_code}): {diag.message}"
+            "_run_analysis custom_weights failed " f"({diag.reason_code}): {diag.message}"
         )
     raise SystemExit("_run_analysis custom_weights missing fund_weights")
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
@@ -2071,9 +2039,7 @@ def _check_run_full_outputs(cfg: Config) -> None:
     if not res.value:
         diag = res.diagnostic
         if diag is not None:
-            raise SystemExit(
-                f"run_full diagnostic failure ({diag.reason_code}): {diag.message}"
-            )
+            raise SystemExit(f"run_full diagnostic failure ({diag.reason_code}): {diag.message}")
         raise SystemExit("run_full returned no payload")
     required = {
         "selected_funds",

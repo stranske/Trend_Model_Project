@@ -13,9 +13,9 @@ they can be unit tested in isolation.  They provide three responsibilities:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
 
 import pandas as pd
 
@@ -34,7 +34,7 @@ class ResourceEstimate:
     columns: int
     approx_memory_mb: float
     estimated_runtime_s: float
-    warnings: Tuple[str, ...]
+    warnings: tuple[str, ...]
 
 
 @dataclass
@@ -111,7 +111,7 @@ def estimate_resource_usage(rows: int, columns: int) -> ResourceEstimate:
     approx_memory_mb = cells * 8 * 1.5 / (1024**2)
     # Very coarse runtime heuristic: 75k cell operations per second
     estimated_runtime_s = cells / 75_000 if cells else 0.0
-    warnings: List[str] = []
+    warnings: list[str] = []
     if approx_memory_mb > 512:
         warnings.append(
             "Dataset likely exceeds 512 MB in-memory. Consider trimming columns "
@@ -142,10 +142,10 @@ def validate_startup_payload(
     date_column: str,
     risk_target: float,
     timestamps: Iterable[pd.Timestamp],
-) -> tuple[dict[str, object] | None, List[str]]:
+) -> tuple[dict[str, object] | None, list[str]]:
     """Validate a minimal payload without importing heavyweight validators."""
 
-    errors: List[str] = []
+    errors: list[str] = []
     csv_real: Path | None
     if not csv_path:
         errors.append("Upload must be saved to disk before validation.")
@@ -185,9 +185,7 @@ def validate_startup_payload(
     base_dir = csv_real.parent if csv_real is not None else proj_path()
     validated, validation_error = validate_payload(payload, base_path=base_dir)
     if validation_error:
-        error_lines = [
-            line.strip() for line in validation_error.splitlines() if line.strip()
-        ]
+        error_lines = [line.strip() for line in validation_error.splitlines() if line.strip()]
         if not error_lines:
             error_lines = [validation_error]
         return None, errors + error_lines

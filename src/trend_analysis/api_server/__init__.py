@@ -7,8 +7,9 @@ lifespan context manager for startup/shutdown events.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Tuple
+from typing import Tuple
 
 from fastapi import FastAPI
 
@@ -61,7 +62,7 @@ app.add_api_route("/health", health_check, methods=["GET"])
 app.add_api_route("/", root, methods=["GET"])
 
 
-def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
+def run(host: str = "127.0.0.1", port: int = 8000) -> tuple[str, int]:
     """Run the FastAPI server.
 
     Args:

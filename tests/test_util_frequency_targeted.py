@@ -55,9 +55,7 @@ def test_as_datetime_index_rejects_invalid_values(values: list[str]) -> None:
         ("???", None),
     ],
 )
-def test_map_inferred_handles_common_aliases(
-    candidate: str | None, expected: str | None
-) -> None:
+def test_map_inferred_handles_common_aliases(candidate: str | None, expected: str | None) -> None:
     assert freq._map_inferred(candidate) == expected
 
 
@@ -101,9 +99,7 @@ def test_detect_frequency_falls_back_when_infer_freq_fails(
 ) -> None:
     idx = pd.date_range("2024-01-31", periods=6, freq="ME")
 
-    monkeypatch.setattr(
-        pd, "infer_freq", lambda _: (_ for _ in ()).throw(ValueError("boom"))
-    )
+    monkeypatch.setattr(pd, "infer_freq", lambda _: (_ for _ in ()).throw(ValueError("boom")))
 
     summary = freq.detect_frequency(idx)
 

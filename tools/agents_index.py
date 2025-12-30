@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
 
 CODEx_PATTERN = re.compile(r"^codex-(\d+)\.md$")
 
@@ -20,7 +20,7 @@ def _iter_agent_files(agent_dir: Path) -> Iterable[Path]:
 
 def list_agent_bootstraps(
     agent_dir: Path | str = Path(__file__).resolve().parents[1] / "agents",
-) -> List[AgentBootstrap]:
+) -> list[AgentBootstrap]:
     """Return sorted bootstrap metadata for Codex issue trackers.
 
     Args:
@@ -31,7 +31,7 @@ def list_agent_bootstraps(
     """
 
     base = Path(agent_dir)
-    bootstraps: List[AgentBootstrap] = []
+    bootstraps: list[AgentBootstrap] = []
 
     for path in _iter_agent_files(base):
         match = CODEx_PATTERN.match(path.name)

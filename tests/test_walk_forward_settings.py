@@ -99,9 +99,7 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
         ),
     ],
 )
-def test_load_settings_validation_errors(
-    tmp_path: Path, cfg: dict, message: str
-) -> None:
+def test_load_settings_validation_errors(tmp_path: Path, cfg: dict, message: str) -> None:
     cfg_path = _write_config(tmp_path, cfg)
     with pytest.raises(ValueError) as err:
         load_settings(cfg_path)

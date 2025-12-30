@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Generic, Mapping, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -25,7 +26,7 @@ class DiagnosticResult(Generic[T]):
     diagnostic: DiagnosticPayload | None = None
 
     @classmethod
-    def success(cls, value: T) -> "DiagnosticResult[T]":
+    def success(cls, value: T) -> DiagnosticResult[T]:
         return cls(value=value, diagnostic=None)
 
     @classmethod
@@ -35,7 +36,5 @@ class DiagnosticResult(Generic[T]):
         reason_code: str,
         message: str,
         context: Mapping[str, object] | None = None,
-    ) -> "DiagnosticResult[T]":
-        return cls(
-            value=None, diagnostic=DiagnosticPayload(reason_code, message, context)
-        )
+    ) -> DiagnosticResult[T]:
+        return cls(value=None, diagnostic=DiagnosticPayload(reason_code, message, context))

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -33,9 +34,7 @@ MembershipTable = Mapping[str, Sequence[MembershipWindow]]
 def _coerce_timestamp(value: object, *, column: str, fund: str) -> pd.Timestamp:
     ts = pd.to_datetime(value, errors="coerce")
     if pd.isna(ts):
-        raise ValueError(
-            f"Universe membership for '{fund}' is missing a valid {column}."
-        )
+        raise ValueError(f"Universe membership for '{fund}' is missing a valid {column}.")
     return ts
 
 
@@ -68,11 +67,7 @@ def load_universe_membership(path: str | Path) -> MembershipTable:
             getattr(row, "effective_date", None), column="effective_date", fund=fund
         )
         raw_end = getattr(row, "end_date", None)
-        end = (
-            pd.to_datetime(raw_end, errors="coerce")
-            if raw_end not in (None, "")
-            else None
-        )
+        end = pd.to_datetime(raw_end, errors="coerce") if raw_end not in (None, "") else None
         grouped.setdefault(fund, []).append(MembershipWindow(effective, end))
 
     ordered: dict[str, tuple[MembershipWindow, ...]] = {}
@@ -81,9 +76,7 @@ def load_universe_membership(path: str | Path) -> MembershipTable:
     return ordered
 
 
-def apply_membership_windows(
-    frame: pd.DataFrame, membership: MembershipTable
-) -> pd.DataFrame:
+def apply_membership_windows(frame: pd.DataFrame, membership: MembershipTable) -> pd.DataFrame:
     """Return ``frame`` with values outside membership windows nulled."""
 
     if frame.empty or not membership:
@@ -162,9 +155,7 @@ def _normalise_membership_frame(
                 )
         table = pd.DataFrame(rows)
     else:  # pragma: no cover - defensive guard
-        raise TypeError(
-            "membership must be a DataFrame, path to a CSV file, or mapping"
-        )
+        raise TypeError("membership must be a DataFrame, path to a CSV file, or mapping")
     if table.empty:
         return pd.DataFrame(columns=["symbol", "effective_date", "end_date"])
     lookup = {str(col).strip().lower(): col for col in table.columns}
@@ -226,9 +217,7 @@ def build_membership_mask(
     return mask.astype(bool)
 
 
-def _expand_active_pairs(
-    membership: pd.DataFrame, dates: pd.Series | pd.Index
-) -> pd.DataFrame:
+def _expand_active_pairs(membership: pd.DataFrame, dates: pd.Series | pd.Index) -> pd.DataFrame:
     """Return the per-date membership pairs required for an inner join."""
 
     if membership.empty:
@@ -256,9 +245,7 @@ def _expand_active_pairs(
             "symbol": membership["symbol"].to_numpy()[membership_idx],
         }
     )
-    return pairs.sort_values(["date", "symbol"], kind="mergesort").reset_index(
-        drop=True
-    )
+    return pairs.sort_values(["date", "symbol"], kind="mergesort").reset_index(drop=True)
 
 
 def gate_universe(

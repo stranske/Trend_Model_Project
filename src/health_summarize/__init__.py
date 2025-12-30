@@ -12,9 +12,9 @@ import argparse
 import hashlib
 import json
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
 
 _CHECK_SIGNATURE = "Health 43 CI Signature Guard"
 _CHECK_BRANCH = "Health 44 Gate Branch Protection"
@@ -123,11 +123,7 @@ def _signature_row(jobs_path: Path, expected_path: Path) -> dict[str, str]:
             ),
         }
 
-    status = (
-        f"✅ Signature current ({signature})"
-        if expected_sig
-        else f"✅ Computed {signature}"
-    )
+    status = f"✅ Signature current ({signature})" if expected_sig else f"✅ Computed {signature}"
     details = (
         "Signature matches expected fixture."
         if expected_sig
@@ -180,9 +176,7 @@ def _format_require_up_to_date(snapshot: dict) -> str:
     current = snapshot.get("current", {}) if isinstance(snapshot, dict) else {}
     current_strict = current.get("strict") if isinstance(current, dict) else None
     previous_section = _select_previous_section(snapshot)
-    previous_strict = (
-        previous_section.get("strict") if isinstance(previous_section, dict) else None
-    )
+    previous_strict = previous_section.get("strict") if isinstance(previous_section, dict) else None
 
     current_fmt = _format_bool(current_strict)
     if previous_strict is None or previous_strict == current_strict:
@@ -209,12 +203,8 @@ def _format_delta(current: dict, previous_snapshot: dict | None) -> str:
     parts: list[str] = [f"+{ctx}" for ctx in additions]
     parts.extend(f"-{ctx}" for ctx in removals)
 
-    current_strict = (
-        current_section.get("strict") if isinstance(current_section, dict) else None
-    )
-    previous_strict = (
-        previous_section.get("strict") if isinstance(previous_section, dict) else None
-    )
+    current_strict = current_section.get("strict") if isinstance(current_section, dict) else None
+    previous_strict = previous_section.get("strict") if isinstance(previous_section, dict) else None
     if previous_strict != current_strict:
         parts.append(
             "Require up to date: "
@@ -302,9 +292,7 @@ def _branch_row(snapshot_dir: Path, has_token: bool) -> dict[str, str]:
         current_path = snapshot_dir / f"{section.lower()}.json"
         previous_path = previous_dir / f"{section.lower()}.json"
         current_snapshot = _load_json(current_path)
-        previous_snapshot = (
-            _load_json(previous_path) if previous_path.exists() else None
-        )
+        previous_snapshot = _load_json(previous_path) if previous_path.exists() else None
         if current_snapshot:
             snapshots_found = True
         detail, severity = _snapshot_detail(
@@ -375,9 +363,7 @@ def _parse_args(argv: Sequence[str] | None) -> Args:
     ns = parser.parse_args(list(argv) if argv is not None else None)
     return Args(
         signature_jobs=Path(ns.signature_jobs) if ns.signature_jobs else None,
-        signature_expected=(
-            Path(ns.signature_expected) if ns.signature_expected else None
-        ),
+        signature_expected=(Path(ns.signature_expected) if ns.signature_expected else None),
         snapshot_dir=Path(ns.snapshot_dir) if ns.snapshot_dir else None,
         has_enforce_token=_read_bool(ns.has_enforce_token),
         write_json=Path(ns.write_json) if ns.write_json else None,
@@ -390,9 +376,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     rows: list[dict[str, str]] = []
 
     if args.signature_jobs:
-        expected_path = args.signature_expected or args.signature_jobs.with_suffix(
-            ".expected"
-        )
+        expected_path = args.signature_expected or args.signature_jobs.with_suffix(".expected")
         rows.append(_signature_row(args.signature_jobs, expected_path))
 
     if args.snapshot_dir:

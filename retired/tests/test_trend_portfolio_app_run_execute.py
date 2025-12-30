@@ -95,8 +95,8 @@ def test_run_tab_applies_session_state_and_invokes_pipeline(
 
     # The pipeline stub should receive the Config object with the updates.
     cfg_obj = captured["config"]
-    assert getattr(cfg_obj, "data")["csv_path"] == str(csv_path)
-    assert getattr(cfg_obj, "vol_adjust")["window"]["length"] == 42
+    assert cfg_obj.data["csv_path"] == str(csv_path)
+    assert cfg_obj.vol_adjust["window"]["length"] == 42
 
     # Avoid leaking the imported module to other tests.
     sys.modules.pop("trend_portfolio_app.app", None)

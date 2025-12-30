@@ -9,7 +9,7 @@ from streamlit_app.components.data_schema import load_and_validate_csv
 
 
 def test_extract_headers_from_csv_bytes_with_bom() -> None:
-    raw = "\ufeffDate,A,B\n2020-01-01,1,2\n".encode("utf-8")
+    raw = "\ufeffDate,A,B\n2020-01-01,1,2\n".encode()
 
     headers = data_schema.extract_headers_from_bytes(raw, is_excel=False)
 
@@ -96,9 +96,7 @@ def test_load_and_validate_csv(tmp_path):
     assert len(df) == 2
 
 
-def test_load_and_validate_file_sanitizes_headers_and_builds_meta(
-    monkeypatch, tmp_path
-):
+def test_load_and_validate_file_sanitizes_headers_and_builds_meta(monkeypatch, tmp_path):
     csv_path = tmp_path / "formulas.csv"
     csv_path.write_text("=evil,@bad\n1,2\n3,4\n")
 

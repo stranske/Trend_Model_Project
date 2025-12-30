@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import matplotlib
 import numpy as np
@@ -55,9 +56,7 @@ def _annualised_sharpe(returns: pd.Series, periods_per_year: float) -> float:
     vol = returns.std(ddof=0)
     if vol == 0:
         return float("nan")
-    return float(
-        (returns.mean() * periods_per_year) / (vol * math.sqrt(periods_per_year))
-    )
+    return float((returns.mean() * periods_per_year) / (vol * math.sqrt(periods_per_year)))
 
 
 def _annualised_volatility(returns: pd.Series, periods_per_year: float) -> float:
@@ -177,9 +176,7 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     returns = _ensure_datetime_index(results.returns).sort_index()
-    turnover = _ensure_datetime_index(results.turnover).reindex_like(
-        returns, method="ffill"
-    )
+    turnover = _ensure_datetime_index(results.turnover).reindex_like(returns, method="ffill")
 
     equity = (1 + returns.fillna(0)).cumprod()
     drawdown = equity / equity.cummax() - 1
@@ -190,9 +187,7 @@ def render(results: Results, out: Path | str = DEFAULT_OUTPUT) -> tuple[Path, Pa
     max_dd = float(drawdown.min()) if not drawdown.empty else float("nan")
     avg_turnover = float(turnover.mean()) if not turnover.empty else 0.0
     cost_drag = float(
-        results.costs.get("turnover_applied")
-        or results.costs.get("monthly_cost")
-        or 0.0
+        results.costs.get("turnover_applied") or results.costs.get("monthly_cost") or 0.0
     )
 
     roll_window = max(6, min(len(returns), 12))

@@ -72,9 +72,7 @@ def main():
         )
 
     with col2:
-        end_date = st.date_input(
-            "End Date", value=config["end"], help="End of the analysis period"
-        )
+        end_date = st.date_input("End Date", value=config["end"], help="End of the analysis period")
 
     lookback_months = st.slider(
         "Lookback Period (months)",
@@ -115,15 +113,11 @@ def main():
     )
 
     if selection_mode == "top_k":
-        top_k = st.number_input(
-            "Number of Top Assets", min_value=1, max_value=50, value=10
-        )
+        top_k = st.number_input("Number of Top Assets", min_value=1, max_value=50, value=10)
         config["portfolio"]["top_k"] = top_k
 
     elif selection_mode == "random":
-        random_n = st.number_input(
-            "Number of Random Assets", min_value=1, max_value=50, value=8
-        )
+        random_n = st.number_input("Number of Random Assets", min_value=1, max_value=50, value=8)
         config["portfolio"]["random_n"] = random_n
         config["portfolio"]["random_seed"] = st.number_input("Random Seed", value=42)
 

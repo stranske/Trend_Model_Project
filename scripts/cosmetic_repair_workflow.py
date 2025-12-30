@@ -11,8 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 DEFAULT_SUMMARY = Path(".cosmetic-repair-summary.json")
 SUMMARY_KEYS: Sequence[str] = ("status", "branch", "pr_url")
@@ -112,9 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    capture = subparsers.add_parser(
-        "capture", help="write summary fields to GITHUB_OUTPUT"
-    )
+    capture = subparsers.add_parser("capture", help="write summary fields to GITHUB_OUTPUT")
     capture.add_argument("--summary-file", type=Path, default=DEFAULT_SUMMARY)
     capture.add_argument("--output", type=Path, default=None)
 
@@ -123,9 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--output", type=Path, default=None)
     evaluate.add_argument("--pytest-exit-code", type=int, required=True)
 
-    render = subparsers.add_parser(
-        "render", help="print markdown summary for the step summary"
-    )
+    render = subparsers.add_parser("render", help="print markdown summary for the step summary")
     render.add_argument("--summary-file", type=Path, default=DEFAULT_SUMMARY)
 
     return parser

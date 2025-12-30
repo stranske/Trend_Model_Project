@@ -12,18 +12,11 @@ import calendar
 import enum
 import logging
 import re
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     Any,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
     cast,
 )
 
@@ -215,24 +208,22 @@ class MarketDataMetadata(BaseModel):
     start: datetime
     end: datetime
     rows: int
-    columns: List[str] = Field(default_factory=list)
-    symbols: List[str] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list)
+    symbols: list[str] = Field(default_factory=list)
     missing_policy: str = Field(default=_DEFAULT_MISSING_POLICY)
-    missing_policy_limit: Optional[int] = None
-    missing_policy_overrides: Dict[str, str] = Field(default_factory=dict)
-    missing_policy_limits: Dict[str, Optional[int]] = Field(default_factory=dict)
-    missing_policy_filled: Dict[str, MissingPolicyFillDetails] = Field(
-        default_factory=dict
-    )
-    missing_policy_dropped: List[str] = Field(default_factory=list)
-    missing_policy_summary: Optional[str] = None
+    missing_policy_limit: int | None = None
+    missing_policy_overrides: dict[str, str] = Field(default_factory=dict)
+    missing_policy_limits: dict[str, int | None] = Field(default_factory=dict)
+    missing_policy_filled: dict[str, MissingPolicyFillDetails] = Field(default_factory=dict)
+    missing_policy_dropped: list[str] = Field(default_factory=list)
+    missing_policy_summary: str | None = None
 
     @property
-    def date_range(self) -> Tuple[str, str]:
+    def date_range(self) -> tuple[str, str]:
         return self.start.strftime("%Y-%m-%d"), self.end.strftime("%Y-%m-%d")
 
     @model_validator(mode="after")
-    def _sync_symbols(self) -> "MarketDataMetadata":
+    def _sync_symbols(self) -> MarketDataMetadata:
         """Keep the ``columns`` and ``symbols`` fields aligned."""
 
         if not self.symbols and self.columns:
@@ -284,13 +275,11 @@ def _normalise_policy_value(value: str | None) -> str:
     policy = (value or _DEFAULT_MISSING_POLICY).strip().lower()
     if policy not in _VALID_MISSING_POLICIES:
         allowed = ", ".join(sorted(_VALID_MISSING_POLICIES))
-        raise ValueError(
-            f"Unknown missing-data policy '{value}'. Choose one of {allowed}."
-        )
+        raise ValueError(f"Unknown missing-data policy '{value}'. Choose one of {allowed}.")
     return policy
 
 
-def _coerce_limit_value(value: Any) -> Optional[int]:
+def _coerce_limit_value(value: Any) -> int | None:
     if value is None or value == "":
         return None
     try:
@@ -306,28 +295,25 @@ def _build_policy_maps(
     columns: Iterable[Any],
     policy: str | Mapping[str, str] | None,
     limit: int | Mapping[str, int | None] | None,
-) -> tuple[Dict[str, str], str, Dict[str, Optional[int]], Optional[int]]:
+) -> tuple[dict[str, str], str, dict[str, int | None], int | None]:
     cols = [str(col) for col in columns]
     if isinstance(policy, Mapping):
         raw_policy = {str(k): v for k, v in policy.items()}
         default_policy = _normalise_policy_value(raw_policy.get("*"))
         policy_map = {
-            col: _normalise_policy_value(raw_policy.get(col, default_policy))
-            for col in cols
+            col: _normalise_policy_value(raw_policy.get(col, default_policy)) for col in cols
         }
     else:
         default_policy = _normalise_policy_value(policy)
-        policy_map = {col: default_policy for col in cols}
+        policy_map = dict.fromkeys(cols, default_policy)
 
     if isinstance(limit, Mapping):
         raw_limit = {str(k): v for k, v in limit.items()}
         default_limit = _coerce_limit_value(raw_limit.get("*"))
-        limit_map = {
-            col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols
-        }
+        limit_map = {col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols}
     else:
         default_limit = _coerce_limit_value(limit)
-        limit_map = {col: default_limit for col in cols}
+        limit_map = dict.fromkeys(cols, default_limit)
 
     return policy_map, default_policy, limit_map, default_limit
 
@@ -346,7 +332,7 @@ def apply_missing_policy(
     policy: str | Mapping[str, str] | None,
     *,
     limit: int | Mapping[str, int | None] | None = None,
-) -> tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     if frame.empty:
         return frame.copy(), {
             "policy": _DEFAULT_MISSING_POLICY,
@@ -400,16 +386,12 @@ def apply_missing_policy(
                 dropped.append(column)
                 continue
             result[column] = filled_series
-            filled[column] = MissingPolicyFillDetails(
-                method="ffill", count=missing_total
-            )
+            filled[column] = MissingPolicyFillDetails(method="ffill", count=missing_total)
             continue
 
         if col_policy == "zero":
             result[column] = series.fillna(0.0)
-            filled[column] = MissingPolicyFillDetails(
-                method="zero", count=missing_total
-            )
+            filled[column] = MissingPolicyFillDetails(method="zero", count=missing_total)
             continue
 
         raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
@@ -436,7 +418,7 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
     limit = info.get("limit")
     limit_text = f"limit={limit}" if limit is not None else "unlimited"
 
-    overrides: Dict[str, str] = {}
+    overrides: dict[str, str] = {}
     policy_map = cast(Mapping[str, str], info.get("policy_map", {}))
     default_policy = policy
     for column, value in policy_map.items():
@@ -468,9 +450,7 @@ def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
 
     parts = [f"policy={policy}", limit_text]
     if overrides:
-        overrides_text = ", ".join(
-            f"{col}:{val}" for col, val in sorted(overrides.items())
-        )
+        overrides_text = ", ".join(f"{col}:{val}" for col, val in sorted(overrides.items()))
         parts.append(f"overrides={overrides_text}")
     if filled_chunks:
         parts.append("filled=" + ", ".join(sorted(filled_chunks)))
@@ -487,8 +467,8 @@ def _normalize_delta_days(delta_days: pd.Series) -> pd.Series:
 def classify_frequency(
     index: pd.DatetimeIndex,
     *,
-    max_gap_limit: Optional[int] = None,
-) -> Dict[str, Any]:
+    max_gap_limit: int | None = None,
+) -> dict[str, Any]:
     if not isinstance(index, pd.DatetimeIndex) or len(index) < 2:
         return {
             "canonical": "UNKNOWN",
@@ -660,10 +640,7 @@ def _resolve_datetime_index(
             preview = ", ".join(sample_values[:5])
             if len(sample_values) > 5:
                 preview += " …"
-            issues = [
-                "Found dates that could not be parsed. "
-                f"Examples: {preview or 'n/a'}."
-            ]
+            issues = ["Found dates that could not be parsed. " f"Examples: {preview or 'n/a'}."]
             raise MarketDataValidationError(_format_issues(issues), issues) from exc
         if parsed.isna().any():
             bad_values = working.loc[parsed.isna(), date_col].astype(str).tolist()
@@ -727,13 +704,13 @@ def _check_monotonic_index(index: pd.DatetimeIndex) -> list[str]:
 def _infer_frequency(
     index: pd.DatetimeIndex,
     *,
-    max_gap_limit: Optional[int] = None,
-) -> Tuple[str, str, Dict[str, Any]]:
+    max_gap_limit: int | None = None,
+) -> tuple[str, str, dict[str, Any]]:
     info = classify_frequency(index, max_gap_limit=max_gap_limit)
     return info["canonical"], info["label"], info
 
 
-def _strip_percent(series: pd.Series) -> Tuple[pd.Series, bool]:
+def _strip_percent(series: pd.Series) -> tuple[pd.Series, bool]:
     """Strip trailing '%' from string values and divide by 100 if needed.
 
     Returns
@@ -758,7 +735,7 @@ def _strip_percent(series: pd.Series) -> Tuple[pd.Series, bool]:
     return result, True
 
 
-def _coerce_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, list[str]]:
+def _coerce_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     numeric = pd.DataFrame(index=df.index)
     issues: list[str] = []
 
@@ -875,9 +852,7 @@ def validate_market_data(
         raise MarketDataValidationError(_format_issues(issues), issues)
 
     limit_candidates = [
-        value
-        for value in policy_info.get("limit_map", {}).values()
-        if value is not None
+        value for value in policy_info.get("limit_map", {}).values() if value is not None
     ]
     max_gap_limit = max(limit_candidates) if limit_candidates else None
 
@@ -981,11 +956,7 @@ def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.Dat
             "missing_policy_overrides": dict(metadata.missing_policy_overrides),
             "missing_policy_limits": dict(metadata.missing_policy_limits),
             "missing_policy_filled": {
-                column: (
-                    details.model_dump()
-                    if hasattr(details, "model_dump")
-                    else dict(details)
-                )
+                column: (details.model_dump() if hasattr(details, "model_dump") else dict(details))
                 for column, details in metadata.missing_policy_filled.items()
             },
             "missing_policy_dropped": list(metadata.missing_policy_dropped),

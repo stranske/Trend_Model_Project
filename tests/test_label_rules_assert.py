@@ -8,9 +8,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_PATH = (
-    Path(__file__).resolve().parents[1] / ".github/scripts/label_rules_assert.py"
-)
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / ".github/scripts/label_rules_assert.py"
 
 
 def _load_script():
@@ -41,21 +39,15 @@ def trusted_config(tmp_path, monkeypatch):
 
 
 def test_label_rules_assert_passes_with_exact_allowlist(script_module, trusted_config):
-    (trusted_config / ".github/scripts/label_rules_assert.py").write_text(
-        "pass", encoding="utf-8"
-    )
+    (trusted_config / ".github/scripts/label_rules_assert.py").write_text("pass", encoding="utf-8")
 
     exit_code = script_module.main()
 
     assert exit_code == 0
 
 
-def test_label_rules_assert_fails_when_extra_file_present(
-    script_module, trusted_config
-):
-    (trusted_config / ".github/scripts/label_rules_assert.py").write_text(
-        "pass", encoding="utf-8"
-    )
+def test_label_rules_assert_fails_when_extra_file_present(script_module, trusted_config):
+    (trusted_config / ".github/scripts/label_rules_assert.py").write_text("pass", encoding="utf-8")
     # Create a file that is not part of the allowlist and should trigger failure.
     (trusted_config / ".github/extra.json").write_text("{}", encoding="utf-8")
 

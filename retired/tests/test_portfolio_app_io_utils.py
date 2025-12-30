@@ -251,9 +251,7 @@ def test_health_wrapper_runner_injects_src_path(monkeypatch):
 
     health_wrapper = ModuleType("trend_portfolio_app.health_wrapper")
     health_wrapper.main = fake_main  # type: ignore[attr-defined]
-    monkeypatch.setitem(
-        sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper
-    )
+    monkeypatch.setitem(sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper)
 
     module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
@@ -303,9 +301,7 @@ def test_health_wrapper_runner_skips_existing_src_path(monkeypatch):
 
     health_wrapper = ModuleType("trend_portfolio_app.health_wrapper")
     health_wrapper.main = fake_main  # type: ignore[attr-defined]
-    monkeypatch.setitem(
-        sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper
-    )
+    monkeypatch.setitem(sys.modules, "trend_portfolio_app.health_wrapper", health_wrapper)
 
     module_path = src_path / "trend_portfolio_app" / "health_wrapper_runner.py"
     spec = importlib.util.spec_from_file_location(module_name, module_path)

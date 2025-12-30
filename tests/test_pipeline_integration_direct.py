@@ -158,7 +158,7 @@ def test_direct_pipeline_and_exports(tmp_path: Path) -> None:
 
     # Validate JSON export content for sanity.
     json_path = exports_dir / "analysis_metrics.json"
-    with open(json_path, "r", encoding="utf-8") as handle:
+    with open(json_path, encoding="utf-8") as handle:
         payload = json.load(handle)
     assert isinstance(payload, list)
     assert payload, "metrics payload should not be empty"

@@ -71,11 +71,11 @@ def test_nan_returns_become_zero_weight() -> None:
         metrics_to_run=canonical_metric_list(["annual_return", "volatility"]),
         risk_free=0.0,
     )
-    setattr(
-        stats_cfg,
-        "na_as_zero_cfg",
-        {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 2},
-    )
+    stats_cfg.na_as_zero_cfg = {
+        "enabled": True,
+        "max_missing_per_window": 2,
+        "max_consecutive_gap": 2,
+    }
     res = _run_analysis(
         df,
         "2020-01",

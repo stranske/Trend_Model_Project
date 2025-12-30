@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, List, Mapping, Sequence, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -27,7 +28,7 @@ class Split:
 class WalkForwardResult:
     """Result bundle returned by :func:`walk_forward`."""
 
-    splits: List[Split]
+    splits: list[Split]
     full: pd.DataFrame
     oos: pd.DataFrame
     by_regime: pd.DataFrame
@@ -45,10 +46,8 @@ def _prepare_index(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_index()
 
 
-def _generate_splits(
-    index: pd.DatetimeIndex, train: int, test: int, step: int
-) -> List[Split]:
-    splits: List[Split] = []
+def _generate_splits(index: pd.DatetimeIndex, train: int, test: int, step: int) -> list[Split]:
+    splits: list[Split] = []
     start = 0
     n = len(index)
     while start + train + test <= n:
@@ -90,9 +89,7 @@ def _flatten_agg_result(
     if df.empty:
         return pd.Series(dtype=float)
     flattened = df.T.stack(future_stack=True)
-    flattened.index = pd.MultiIndex.from_tuples(
-        flattened.index, names=["metric", "statistic"]
-    )
+    flattened.index = pd.MultiIndex.from_tuples(flattened.index, names=["metric", "statistic"])
     return flattened
 
 
@@ -103,7 +100,7 @@ def _information_ratio_frame(
     if isinstance(ir, pd.Series):
         ser = ir.reindex(columns)
     else:
-        data = {col: np.nan for col in columns}
+        data = dict.fromkeys(columns, np.nan)
         if len(columns):
             data[columns[0]] = float(ir)
         ser = pd.Series(data)
@@ -164,7 +161,7 @@ def walk_forward(
         | str
         | np.ufunc
         | Mapping[Any, Callable[..., Any] | str | np.ufunc]
-        | List[str]
+        | list[str]
     ) = "mean",
 ) -> WalkForwardResult:
     """Run a simple walk‑forward aggregation.
@@ -200,7 +197,7 @@ def walk_forward(
     agg_label = _agg_label(agg)
 
     oos_index: pd.DatetimeIndex = pd.DatetimeIndex([])
-    window_rows: List[dict[tuple[Any, Any], Any]] = []
+    window_rows: list[dict[tuple[Any, Any], Any]] = []
 
     for sp in splits:
         test_df = metrics_df.loc[sp.test_index]
@@ -221,9 +218,7 @@ def walk_forward(
             row[(key[0], key[1])] = value
 
         if not test_df.empty:
-            ir_vals = information_ratio(
-                test_df, benchmark=0.0, periods_per_year=periods_per_year
-            )
+            ir_vals = information_ratio(test_df, benchmark=0.0, periods_per_year=periods_per_year)
             if isinstance(ir_vals, pd.Series):
                 for metric_name, ir_val in ir_vals.items():
                     row[(metric_name, "information_ratio")] = float(ir_val)
@@ -261,16 +256,12 @@ def walk_forward(
             agg_res = subset.agg(cast(Any, agg))
             agg_df = _to_dataframe(agg_res, default_name=agg_label)
             ir_df = _information_ratio_frame(
-                information_ratio(
-                    subset, benchmark=0.0, periods_per_year=periods_per_year
-                ),
+                information_ratio(subset, benchmark=0.0, periods_per_year=periods_per_year),
                 subset.columns,
             )
             table = pd.concat([agg_df, ir_df], axis=0, sort=False)
             row_series = (
-                table.T.stack(future_stack=True)
-                if not table.empty
-                else pd.Series(dtype=float)
+                table.T.stack(future_stack=True) if not table.empty else pd.Series(dtype=float)
             )
             if not row_series.empty:
                 row_series.index = pd.MultiIndex.from_tuples(

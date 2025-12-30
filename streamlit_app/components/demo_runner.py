@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -53,13 +54,13 @@ PIPELINE_METRIC_ALIASES: Mapping[str, str] = {
 class DemoSetup:
     """Container describing the derived configuration for the demo run."""
 
-    config_state: Dict[str, Any]
-    sim_config: Dict[str, Any]
+    config_state: dict[str, Any]
+    sim_config: dict[str, Any]
     pipeline_config: Config
     benchmark: str | None
 
 
-def _load_demo_returns() -> Tuple[pd.DataFrame, SchemaMeta]:
+def _load_demo_returns() -> tuple[pd.DataFrame, SchemaMeta]:
     """Load the built-in demo returns from disk."""
 
     for path in DEMO_DATA_CANDIDATES:
@@ -67,12 +68,10 @@ def _load_demo_returns() -> Tuple[pd.DataFrame, SchemaMeta]:
             with path.open("rb") as handle:
                 df, meta = load_and_validate_file(handle)
             return df, meta
-    raise FileNotFoundError(
-        "Demo returns not found. Expected demo/demo_returns.(csv|xlsx)."
-    )
+    raise FileNotFoundError("Demo returns not found. Expected demo/demo_returns.(csv|xlsx).")
 
 
-def _load_preset(name: str) -> Dict[str, Any]:
+def _load_preset(name: str) -> dict[str, Any]:
     """Load a preset YAML file into a mapping."""
 
     preset_path = PRESET_DIR / f"{name.lower()}.yml"
@@ -100,12 +99,10 @@ def _month_end(ts: pd.Timestamp) -> pd.Timestamp:
 
 def _derive_window(
     df: pd.DataFrame, lookback_periods: int, oos_periods: int = 12
-) -> Tuple[pd.Timestamp, pd.Timestamp]:
+) -> tuple[pd.Timestamp, pd.Timestamp]:
     end = _month_end(pd.Timestamp(df.index.max()))
     start = _month_end(end - pd.DateOffset(months=max(oos_periods - 1, 0)))
-    earliest = _month_end(
-        pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_periods)
-    )
+    earliest = _month_end(pd.Timestamp(df.index.min()) + pd.DateOffset(months=lookback_periods))
     if start < earliest:
         start = earliest
     if start > end:
@@ -113,12 +110,9 @@ def _derive_window(
     return start, end
 
 
-def _build_policy(
-    metric_weights: Mapping[str, float], preset: Mapping[str, Any]
-) -> PolicyConfig:
+def _build_policy(metric_weights: Mapping[str, float], preset: Mapping[str, Any]) -> PolicyConfig:
     metrics = [
-        MetricSpec(name=metric, weight=float(weight))
-        for metric, weight in metric_weights.items()
+        MetricSpec(name=metric, weight=float(weight)) for metric, weight in metric_weights.items()
     ]
     return PolicyConfig(
         top_k=int(preset.get("selection_count", 10)),
@@ -131,8 +125,8 @@ def _build_policy(
     )
 
 
-def _normalise_metric_weights(raw: Mapping[str, Any]) -> Dict[str, float]:
-    weights: Dict[str, float] = {}
+def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
+    weights: dict[str, float] = {}
     for key, value in raw.items():
         metric = UI_METRIC_ALIASES.get(str(key).lower())
         if metric is None:
@@ -299,14 +293,10 @@ def _update_session_state(
         trend_payload = dict(trend_payload)
         trend_payload["preset"] = setup.config_state.get("preset_name")
     # Build model_settings for legacy compatibility
-    lookback = int(
-        overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36))
-    )
+    lookback = int(overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36)))
     selection_count = int(overrides.get("selection_count", 10))
     risk_target = float(overrides.get("risk_target", 0.10))
-    weighting_scheme = str(
-        setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal")
-    )
+    weighting_scheme = str(setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal"))
     metric_weights_dict = {
         k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
     }
@@ -392,7 +382,7 @@ def run_one_click_demo(st_module: Any | None = None) -> bool:
     return True
 
 
-def list_presets() -> list[Dict[str, Any]]:
+def list_presets() -> list[dict[str, Any]]:
     """Return a list of available preset configurations."""
     presets = []
     if not PRESET_DIR.exists():
@@ -418,14 +408,14 @@ def list_presets() -> list[Dict[str, Any]]:
     return presets
 
 
-def load_preset_config(name: str) -> Dict[str, Any]:
+def load_preset_config(name: str) -> dict[str, Any]:
     """Load a preset configuration by name."""
     return _load_preset(name)
 
 
 def run_demo_with_overrides(
     preset_name: str = "Balanced",
-    overrides: Dict[str, Any] | None = None,
+    overrides: dict[str, Any] | None = None,
     st_module: Any | None = None,
 ) -> bool:
     """Execute the demo pipeline with user-specified overrides.
@@ -497,9 +487,7 @@ def run_demo_with_overrides(
         policy = PolicyConfig(
             top_k=policy.top_k,
             bottom_k=policy.bottom_k,
-            cooldown_months=int(
-                portfolio_overrides.get("cooldown_months", policy.cooldown_months)
-            ),
+            cooldown_months=int(portfolio_overrides.get("cooldown_months", policy.cooldown_months)),
             min_track_months=policy.min_track_months,
             max_active=policy.max_active,
             max_weight=float(portfolio_overrides.get("max_weight", policy.max_weight)),

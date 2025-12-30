@@ -44,16 +44,12 @@ def demonstrate_malformed_date_handling():
 
     try:
         print("Test CSV content:")
-        with open(csv_path, "r") as f:
+        with open(csv_path) as f:
             print(f.read())
 
         print("Before Fix:")
-        print(
-            "- Malformed dates ('invalid-date', 'another-bad-date') would be silently"
-        )
-        print(
-            "  converted to NaT (Not a Time) values using pd.to_datetime(..., errors='coerce')"
-        )
+        print("- Malformed dates ('invalid-date', 'another-bad-date') would be silently")
+        print("  converted to NaT (Not a Time) values using pd.to_datetime(..., errors='coerce')")
         print("- These NaT values could then be mistakenly added to expired lists")
         print("- Only a warning would be logged, not a validation error")
         print()
@@ -62,9 +58,7 @@ def demonstrate_malformed_date_handling():
         print("- Malformed dates are explicitly detected after coercion")
         print("- Clear validation errors are raised with specific malformed values")
         print("- Processing stops immediately when malformed dates are found")
-        print(
-            "- Error messages clearly distinguish validation errors from expiration failures"
-        )
+        print("- Error messages clearly distinguish validation errors from expiration failures")
         print()
 
         # The actual validation would look like this (if pandas were available):
@@ -75,9 +69,7 @@ def demonstrate_malformed_date_handling():
         print(
             '    \'Found 2 malformed date(s) that could not be parsed: ["invalid-date", "another-bad-date"].'
         )
-        print(
-            "    These should be treated as validation errors, not expiration failures.'"
-        )
+        print("    These should be treated as validation errors, not expiration failures.'")
         print("  ]")
         print(")")
         print()

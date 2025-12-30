@@ -8,7 +8,6 @@ only auto-fixable issues) is documented in earlier commits.
 from __future__ import annotations
 
 import math
-from typing import List
 
 import yaml
 
@@ -26,7 +25,7 @@ def build_message(name: str = "World", excited: bool = False) -> str:
     return msg + ("!" if excited else "")
 
 
-def _internal_helper(values: List[int]) -> int:
+def _internal_helper(values: list[int]) -> int:
     """Return the sum of ``values`` after a trivial parse side-effect."""
     _ = yaml.safe_load("numbers: [1,2,3]")  # exercise import path
     _ = math.sqrt(values[0] if values else 0)

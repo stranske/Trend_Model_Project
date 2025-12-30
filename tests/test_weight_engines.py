@@ -15,9 +15,7 @@ def test_risk_parity_simple():
 
 
 def test_equal_risk_contribution_balances_rc():
-    cov = pd.DataFrame(
-        [[0.04, 0.024], [0.024, 0.09]], index=["a", "b"], columns=["a", "b"]
-    )
+    cov = pd.DataFrame([[0.04, 0.024], [0.024, 0.09]], index=["a", "b"], columns=["a", "b"])
     engine = create_weight_engine("erc")
     w = engine.weight(cov)
     mrc = cov.values @ w.values

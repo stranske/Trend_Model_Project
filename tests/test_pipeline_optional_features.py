@@ -57,9 +57,7 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
 
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(
-        df, "2020-01", "2020-03", stats_cfg=stats_cfg
-    )
+    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
@@ -96,15 +94,11 @@ def test_single_period_run_surfaces_avg_corr_failure(
 def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
     df = _base_returns_frame()
     stats_cfg = RiskStatsConfig()
-    setattr(
-        stats_cfg,
-        "na_as_zero_cfg",
-        {
-            "enabled": True,
-            "max_missing_per_window": 1,
-            "max_consecutive_gap": 1,
-        },
-    )
+    stats_cfg.na_as_zero_cfg = {
+        "enabled": True,
+        "max_missing_per_window": 1,
+        "max_consecutive_gap": 1,
+    }
 
     result = pipeline._run_analysis(
         df,
@@ -127,15 +121,11 @@ def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
 def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
     df = _base_returns_frame()
     stats_cfg = RiskStatsConfig()
-    setattr(
-        stats_cfg,
-        "na_as_zero_cfg",
-        {
-            "enabled": True,
-            "max_missing_per_window": 0,
-            "max_consecutive_gap": 0,
-        },
-    )
+    stats_cfg.na_as_zero_cfg = {
+        "enabled": True,
+        "max_missing_per_window": 0,
+        "max_consecutive_gap": 0,
+    }
 
     result = pipeline._run_analysis(
         df,
@@ -158,7 +148,7 @@ def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
-    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+    stats_cfg.extra_metrics = ["AvgCorr"]
 
     result = pipeline._run_analysis(
         df,
@@ -188,7 +178,7 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
     df = _clean_returns_frame()[["Date", "FundA", "Benchmark", "RF"]].copy()
     stats_cfg = RiskStatsConfig()
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
-    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+    stats_cfg.extra_metrics = ["AvgCorr"]
 
     result = pipeline._run_analysis(
         df,
@@ -253,7 +243,7 @@ def test_run_analysis_avg_corr_corr_failure(monkeypatch: pytest.MonkeyPatch) -> 
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
-    setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
+    stats_cfg.extra_metrics = ["AvgCorr"]
 
     original_corr = pd.DataFrame.corr
 

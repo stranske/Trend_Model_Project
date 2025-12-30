@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Dict
 
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
 
@@ -18,8 +17,8 @@ def _split_spec(raw: str) -> str:
     return entry.strip().split("[")[0]
 
 
-def _load_lock_versions(path: Path) -> Dict[str, str]:
-    versions: Dict[str, str] = {}
+def _load_lock_versions(path: Path) -> dict[str, str]:
+    versions: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -53,6 +52,4 @@ def test_all_pyproject_dependencies_are_in_lock() -> None:
         if dependency not in lock_versions and normalised not in lock_versions:
             missing.append(dependency)
 
-    assert (
-        not missing
-    ), "requirements.lock is missing pinned versions for: " + ", ".join(missing)
+    assert not missing, "requirements.lock is missing pinned versions for: " + ", ".join(missing)

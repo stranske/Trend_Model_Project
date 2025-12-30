@@ -6,7 +6,7 @@ import nbformat
 
 
 def strip_output(path: str) -> None:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=nbformat.NO_CONVERT)
     changed = False
     for cell in nb.cells:

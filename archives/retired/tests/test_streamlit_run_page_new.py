@@ -52,9 +52,7 @@ def _make_streamlit(button_response: Any = False) -> MagicMock:
 
 
 def _load_run_module(mock_st: MagicMock) -> Any:
-    module_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    module_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
     spec = importlib.util.spec_from_file_location("streamlit_run_page", module_path)
     if spec is None or spec.loader is None:
         raise AssertionError("Unable to load streamlit run page module spec")
@@ -281,9 +279,7 @@ def test_main_handles_non_iterable_session_state() -> None:
     mock_st = _make_streamlit(button_response=[False, True])
     module = _load_run_module(mock_st)
 
-    returns = pd.DataFrame(
-        {"A": [0.1, 0.2]}, index=pd.to_datetime(["2021-01-31", "2021-02-28"])
-    )
+    returns = pd.DataFrame({"A": [0.1, 0.2]}, index=pd.to_datetime(["2021-01-31", "2021-02-28"]))
     config_dict = {
         "start": pd.Timestamp("2021-01-31"),
         "end": pd.Timestamp("2021-02-28"),

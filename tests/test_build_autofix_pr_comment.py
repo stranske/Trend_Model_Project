@@ -119,9 +119,7 @@ def test_build_comment_reports_fallback_patch(
     monkeypatch.setenv("AUTOFIX_DELIVERY_REASON", "missing-pat")
     monkeypatch.setenv("AUTOFIX_PATCH_AVAILABLE", "true")
     monkeypatch.setenv("AUTOFIX_PATCH_ARTIFACT", "autofix-patch-pr-99")
-    monkeypatch.setenv(
-        "AUTOFIX_PATCH_URL", "https://example.test/artifacts/autofix-patch-pr-99"
-    )
+    monkeypatch.setenv("AUTOFIX_PATCH_URL", "https://example.test/artifacts/autofix-patch-pr-99")
 
     try:
         comment = comment_builder.build_comment(
@@ -163,10 +161,7 @@ def test_build_comment_includes_trigger_metadata(
         monkeypatch.delenv("AUTOFIX_TRIGGER_PR_HEAD", raising=False)
 
     assert "| Trigger | failure (trivial) |" in comment
-    assert (
-        "<!-- autofix-meta: conclusion=failure reason=retry head=feature/demo -->"
-        in comment
-    )
+    assert "<!-- autofix-meta: conclusion=failure reason=retry head=feature/demo -->" in comment
 
 
 def test_build_comment_includes_skip_reason(
@@ -388,8 +383,6 @@ def test_build_comment_includes_meta_line(
         pr_number="101",
     )
 
-    meta_line = (
-        "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
-    )
+    meta_line = "<!-- autofix-meta: conclusion=success reason=labeled head=feature/demo -->"
     assert meta_line in comment
     assert comment.splitlines()[1] == meta_line

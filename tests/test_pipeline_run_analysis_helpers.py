@@ -162,9 +162,7 @@ def test_select_universe_reports_missing_funds() -> None:
         allow_risk_free_fallback=True,
     )
 
-    assert (
-        selection.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
-    )
+    assert selection.diagnostic.reason_code == PipelineReasonCode.NO_FUNDS_SELECTED.value
 
 
 def test_select_universe_rejects_unknown_indices() -> None:
@@ -223,9 +221,7 @@ def test_compute_weights_and_stats_produces_metrics(
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(
-        df: pd.DataFrame, *_: object, **__: object
-    ) -> pd.DataFrame:
+    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
@@ -284,9 +280,7 @@ def test_compute_weights_and_stats_produces_metrics(
     )
 
     assert set(computation.in_stats.keys()) == set(selection.fund_cols)
-    assert computation.risk_diagnostics.scale_factors.shape[0] == len(
-        selection.fund_cols
-    )
+    assert computation.risk_diagnostics.scale_factors.shape[0] == len(selection.fund_cols)
 
 
 @pytest.mark.serial
@@ -306,9 +300,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
     df.attrs["calendar_settings"] = {"timezone": None}
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(
-        df: pd.DataFrame, *_: object, **__: object
-    ) -> pd.DataFrame:
+    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
@@ -316,16 +308,12 @@ def test_compute_weights_scopes_signal_inputs_to_window(
 
     observed: dict[str, pd.Timestamp] = {}
 
-    def _fake_compute_trend_signals(
-        df: pd.DataFrame, *_: object, **__: object
-    ) -> pd.DataFrame:
+    def _fake_compute_trend_signals(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
         observed["min"] = df.index.min()
         observed["max"] = df.index.max()
         return pd.DataFrame(0.0, index=df.index, columns=df.columns)
 
-    monkeypatch.setattr(
-        pipeline_module, "compute_trend_signals", _fake_compute_trend_signals
-    )
+    monkeypatch.setattr(pipeline_module, "compute_trend_signals", _fake_compute_trend_signals)
 
     preprocess = _prepare_preprocess_stage(
         df,
@@ -392,9 +380,7 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(
-        df: pd.DataFrame, *_: object, **__: object
-    ) -> pd.DataFrame:
+    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
@@ -476,9 +462,7 @@ def test_assemble_analysis_output_wraps_success(
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
-    def _fake_single_period_run(
-        df: pd.DataFrame, *_: object, **__: object
-    ) -> pd.DataFrame:
+    def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
         cols = [c for c in df.columns if c != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 

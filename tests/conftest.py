@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import pathlib
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -84,12 +84,10 @@ def pytest_collection_modifyitems(config, items):
         it.user_properties.append(("test_markers", ",".join(markers)))
 
 
-def pytest_sessionfinish(
-    session: pytest.Session, exitstatus: int
-) -> None:  # noqa: ARG001
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
     recorder = get_recorder()
     if not recorder.has_entries():
         return
     output_path = Path("ci/autofix/diagnostics.json")
     recorder.flush(output_path)
-    setattr(session.config, "autofix_diagnostics_path", str(output_path))
+    session.config.autofix_diagnostics_path = str(output_path)

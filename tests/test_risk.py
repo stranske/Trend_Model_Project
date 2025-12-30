@@ -245,9 +245,6 @@ def test_realised_volatility_supports_ewma_decay() -> None:
 
     alpha = 1.0 - window.ewma_lambda
     expected = (
-        returns.astype(float)
-        .ewm(alpha=alpha, adjust=False)
-        .std(bias=False)
-        .mul(np.sqrt(12.0))
+        returns.astype(float).ewm(alpha=alpha, adjust=False).std(bias=False).mul(np.sqrt(12.0))
     )
     pdt.assert_frame_equal(vol, expected)

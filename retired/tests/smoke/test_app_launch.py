@@ -133,9 +133,7 @@ def test_app_starts_headlessly():
 
     try:
         # Use sophisticated readiness check instead of hardcoded sleep
-        print(
-            f"Waiting for app to become ready (timeout: {DEFAULT_STARTUP_TIMEOUT}s)..."
-        )
+        print(f"Waiting for app to become ready (timeout: {DEFAULT_STARTUP_TIMEOUT}s)...")
         if not wait_for_streamlit_ready(port):
             # If readiness check fails, check if process is still running
             if proc.poll() is not None:
@@ -151,12 +149,8 @@ def test_app_starts_headlessly():
             else:
                 # Collect any available output for debugging
                 try:
-                    stdout_output = (
-                        proc.stdout.read() if proc.stdout else "No stdout available"
-                    )
-                    stderr_output = (
-                        proc.stderr.read() if proc.stderr else "No stderr available"
-                    )
+                    stdout_output = proc.stdout.read() if proc.stdout else "No stdout available"
+                    stderr_output = proc.stderr.read() if proc.stderr else "No stderr available"
                     print("Process still running but not ready. STDOUT:", stdout_output)
                     print("Process still running but not ready. STDERR:", stderr_output)
                 except Exception as e:
@@ -170,14 +164,10 @@ def test_app_starts_headlessly():
                 )
 
         # Verify the process is still running after successful readiness check
-        assert (
-            proc.poll() is None
-        ), "Streamlit app terminated unexpectedly after startup"
+        assert proc.poll() is None, "Streamlit app terminated unexpectedly after startup"
 
         # Additional health check to ensure the app is serving requests
-        response = requests.get(
-            f"http://localhost:{port}/health", timeout=DEFAULT_READY_TIMEOUT
-        )
+        response = requests.get(f"http://localhost:{port}/health", timeout=DEFAULT_READY_TIMEOUT)
         assert (
             response.status_code == 200
         ), f"Health check failed with status {response.status_code}"

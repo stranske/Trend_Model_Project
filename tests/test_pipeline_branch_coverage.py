@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from types import SimpleNamespace
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -45,9 +46,7 @@ def _stub_diagnostics(columns: Iterator[str]) -> RiskDiagnostics:
 
 
 def test_preprocessing_summary_monthly_branch() -> None:
-    summary = pipeline._preprocessing_summary(
-        "M", normalised=False, missing_summary="none"
-    )
+    summary = pipeline._preprocessing_summary("M", normalised=False, missing_summary="none")
     assert "Monthly (month-end)" in summary
     assert "Missing data: none" in summary
 
@@ -187,9 +186,7 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         return pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Fund_A", "Fund_B"])
 
     def fake_compute_trend_signals(*args: Any, **kwargs: Any) -> pd.DataFrame:
-        return pd.DataFrame(
-            0.0, index=df.set_index("Date").index, columns=["Fund_A", "Fund_B"]
-        )
+        return pd.DataFrame(0.0, index=df.set_index("Date").index, columns=["Fund_A", "Fund_B"])
 
     def fake_compute_constrained_weights(
         *args: Any, **kwargs: Any
@@ -199,9 +196,7 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(pipeline, "single_period_run", fake_single_period_run)
     monkeypatch.setattr(pipeline, "compute_trend_signals", fake_compute_trend_signals)
-    monkeypatch.setattr(
-        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
-    )
+    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
         pipeline,
         "realised_volatility",
@@ -270,9 +265,7 @@ def test_run_analysis_information_ratio_fallback(
         weights = pd.Series({"Fund_A": 0.4, "Fund_B": 0.4, "Fund_C": 0.2}, dtype=float)
         return weights, _stub_diagnostics(weights.index)
 
-    def raising_information_ratio(
-        first: Any, second: Any, *args: Any, **kwargs: Any
-    ) -> Any:
+    def raising_information_ratio(first: Any, second: Any, *args: Any, **kwargs: Any) -> Any:
         if isinstance(first, pd.Series):
             return 0.0
         raise RuntimeError("boom")
@@ -294,9 +287,7 @@ def test_run_analysis_information_ratio_fallback(
             columns=["Fund_A", "Fund_B", "Fund_C"],
         ),
     )
-    monkeypatch.setattr(
-        pipeline, "compute_constrained_weights", fake_compute_constrained_weights
-    )
+    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
         pipeline,
         "realised_volatility",

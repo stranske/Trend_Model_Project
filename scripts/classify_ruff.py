@@ -31,7 +31,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 def _load_json(path: Path) -> Any:
@@ -42,7 +42,7 @@ def _load_json(path: Path) -> Any:
         return None
 
 
-def _normalize_allow_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_allow_entry(entry: dict[str, Any]) -> dict[str, Any]:
     code = entry.get("code")
     if not code:
         raise ValueError("Allowlist entry missing 'code'")
@@ -50,14 +50,12 @@ def _normalize_allow_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     return {"code": str(code), "path": str(path) if path else None}
 
 
-def classify(
-    diagnostics: List[Dict[str, Any]], allow: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def classify(diagnostics: list[dict[str, Any]], allow: list[dict[str, Any]]) -> dict[str, Any]:
     # Build lookup sets
     codes_global = {a["code"] for a in allow if a["path"] is None}
     code_path_pairs = {(a["code"], a["path"]) for a in allow if a["path"] is not None}
 
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "total": 0,
         "allowed": 0,
         "new": 0,
@@ -90,7 +88,7 @@ def classify(
     return out
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     if len(argv) != 4:
         print(
             "Usage: classify_ruff.py <ruff_diagnostics.json> <allowlist.json> <output.json>",
@@ -114,7 +112,7 @@ def main(argv: List[str]) -> int:
         allow_entries = []
 
     # Ruff JSON sometimes wraps diagnostics in {"message":..., "code":..., "filename":...}
-    diagnostics: List[Dict[str, Any]] = []
+    diagnostics: list[dict[str, Any]] = []
     if isinstance(diagnostics_raw, list):
         for item in diagnostics_raw:
             if isinstance(item, dict):

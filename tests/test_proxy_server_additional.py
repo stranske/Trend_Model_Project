@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
-from typing import Any, AsyncIterator
+from typing import Any
 
 import pytest
 
@@ -94,7 +95,7 @@ class DummyConfig:
 
 
 class DummyServer:
-    instances: list["DummyServer"] = []
+    instances: list[DummyServer] = []
 
     def __init__(self, config: DummyConfig) -> None:
         self.config = config
@@ -245,9 +246,7 @@ def test_streamlit_proxy_requires_runtime_deps(monkeypatch: pytest.MonkeyPatch) 
         server.StreamlitProxy()
 
 
-def test_websocket_entry_delegates(
-    patched_server: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_websocket_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     proxy = patched_server.StreamlitProxy()
     calls: list[tuple[Any, str]] = []
 
@@ -266,16 +265,10 @@ def test_handle_websocket_requires_dependency(
     proxy = patched_server.StreamlitProxy()
     monkeypatch.setattr(patched_server, "websockets", None)
     with pytest.raises(RuntimeError):
-        asyncio.run(
-            proxy._handle_websocket(
-                SimpleNamespace(url=SimpleNamespace(query="")), "ws"
-            )
-        )
+        asyncio.run(proxy._handle_websocket(SimpleNamespace(url=SimpleNamespace(query="")), "ws"))
 
 
-def test_http_entry_delegates(
-    patched_server: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_http_entry_delegates(patched_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     proxy = patched_server.StreamlitProxy()
     recorded: list[tuple[Any, str]] = []
 
@@ -326,9 +319,7 @@ def test_handle_websocket_handles_connection_failure(
         assert url == "ws://example.com:1234/ws/path?token=1"
         return FailingConnection()
 
-    monkeypatch.setattr(
-        patched_server, "websockets", SimpleNamespace(connect=failing_connect)
-    )
+    monkeypatch.setattr(patched_server, "websockets", SimpleNamespace(connect=failing_connect))
 
     websocket = FakeWebsocket()
     asyncio.run(proxy._handle_websocket(websocket, "ws/path"))

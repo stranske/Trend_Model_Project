@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -16,7 +16,7 @@ from trend_analysis.multi_period import engine as mp_engine
 class DummyConfig:
     """Minimal config object that satisfies ``mp_engine.run`` dependencies."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 1,
@@ -25,8 +25,8 @@ class DummyConfig:
             "end": "2020-03",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
-    portfolio: Dict[str, Any] = field(
+    data: dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "standard",
             "selection_mode": "all",
@@ -37,13 +37,13 @@ class DummyConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    performance: Dict[str, Any] = field(default_factory=lambda: {"enable_cache": False})
-    benchmarks: List[Any] = field(default_factory=list)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    performance: dict[str, Any] = field(default_factory=lambda: {"enable_cache": False})
+    benchmarks: list[Any] = field(default_factory=list)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 123
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -62,9 +62,7 @@ def test_missing_policy_skip_flag_and_log(
         }
     )
 
-    def fake_run_analysis(
-        frame: pd.DataFrame, *args: Any, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def fake_run_analysis(frame: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
         assert frame["Date"].tolist() == [
             pd.Timestamp("2020-01-31"),
             pd.Timestamp("2020-03-31"),
@@ -78,13 +76,8 @@ def test_missing_policy_skip_flag_and_log(
 
     assert results
     assert all(res.get("missing_policy_applied") is False for res in results)
-    assert all(
-        res.get("missing_policy_reason") == "skipped_user_supplied_input"
-        for res in results
-    )
-    assert any(
-        "Missing-data policy skipped" in rec.getMessage() for rec in caplog.records
-    )
+    assert all(res.get("missing_policy_reason") == "skipped_user_supplied_input" for res in results)
+    assert any("Missing-data policy skipped" in rec.getMessage() for rec in caplog.records)
 
 
 def test_missing_policy_applied_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -98,9 +91,7 @@ def test_missing_policy_applied_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         }
     )
 
-    def fake_run_analysis(
-        frame: pd.DataFrame, *args: Any, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def fake_run_analysis(frame: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
         assert not frame.drop(columns=["Date"]).isna().any().any()
         assert len(frame) == 3
         return {"analysis": "ok"}

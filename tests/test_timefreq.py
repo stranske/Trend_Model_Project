@@ -101,9 +101,7 @@ def test_assert_no_invalid_period_aliases_handles_unreadable_files(
 
     # The helper should silently skip files that cannot be opened, relying on
     # the caller to provide only project-controlled paths.
-    timefreq.assert_no_invalid_period_aliases_in_source(
-        [str(unreadable_file), str(good_file)]
-    )
+    timefreq.assert_no_invalid_period_aliases_in_source([str(unreadable_file), str(good_file)])
 
 
 def test_validate_no_invalid_period_alias_includes_helpful_message() -> None:

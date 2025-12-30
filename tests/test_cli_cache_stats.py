@@ -51,12 +51,8 @@ def test_cli_emits_cache_stats(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(run_logging, "log_step", fake_log_step)
     monkeypatch.setattr(cli, "_log_step", fake_log_step)
     monkeypatch.setattr(run_logging, "init_run_logger", lambda run_id, path: None)
-    monkeypatch.setattr(
-        run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl"
-    )
-    monkeypatch.setattr(
-        cli.export, "format_summary_text", lambda *args, **kwargs: "summary"
-    )
+    monkeypatch.setattr(run_logging, "get_default_log_path", lambda run_id: tmp_path / "log.jsonl")
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *args, **kwargs: "summary")
     monkeypatch.setattr(cli.export, "export_to_excel", lambda *args, **kwargs: None)
     monkeypatch.setattr(cli.export, "export_data", lambda *args, **kwargs: None)
     monkeypatch.setattr(

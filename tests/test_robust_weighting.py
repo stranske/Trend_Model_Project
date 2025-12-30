@@ -23,9 +23,7 @@ def create_well_conditioned_cov():
 def create_ill_conditioned_cov():
     """Create an ill-conditioned covariance matrix (near-singular)."""
     # Create a matrix with very small eigenvalues
-    base = np.array(
-        [[1.0, 0.99999, 0.99998], [0.99999, 1.0, 0.99999], [0.99998, 0.99999, 1.0]]
-    )
+    base = np.array([[1.0, 0.99999, 0.99998], [0.99999, 1.0, 0.99999], [0.99998, 0.99999, 1.0]])
     # Scale to realistic variance levels
     base *= 0.04
     return pd.DataFrame(base, index=["a", "b", "c"], columns=["a", "b", "c"])
@@ -84,9 +82,7 @@ class TestRobustMeanVariance:
         cov = create_ill_conditioned_cov()
 
         # Use a low condition threshold to trigger safe mode
-        engine = create_weight_engine(
-            "robust_mv", condition_threshold=1e6, safe_mode="hrp"
-        )
+        engine = create_weight_engine("robust_mv", condition_threshold=1e6, safe_mode="hrp")
 
         # The engine should handle ill-conditioned matrices gracefully
         weights = engine.weight(cov)
@@ -101,9 +97,7 @@ class TestRobustMeanVariance:
         matrices."""
         cov = create_ill_conditioned_cov()
 
-        engine = create_weight_engine(
-            "robust_mv", condition_threshold=1e6, safe_mode="risk_parity"
-        )
+        engine = create_weight_engine("robust_mv", condition_threshold=1e6, safe_mode="risk_parity")
 
         weights = engine.weight(cov)
 
@@ -135,9 +129,7 @@ class TestRobustMeanVariance:
         """Test handling of completely singular matrices."""
         cov = create_singular_cov()
 
-        engine = create_weight_engine(
-            "robust_mv", condition_threshold=1e10, safe_mode="hrp"
-        )
+        engine = create_weight_engine("robust_mv", condition_threshold=1e10, safe_mode="hrp")
 
         weights = engine.weight(cov)
 
@@ -317,9 +309,7 @@ class TestRobustWeightingBranchCoverage:
             engine.weight(cov)
 
     def test_robust_mv_non_square_matrix(self):
-        cov = pd.DataFrame(
-            [[0.1, 0.02], [0.02, 0.1]], index=["a", "b"], columns=["a", "c"]
-        )
+        cov = pd.DataFrame([[0.1, 0.02], [0.02, 0.1]], index=["a", "b"], columns=["a", "c"])
         engine = rw.RobustMeanVariance()
         with pytest.raises(ValueError, match="Covariance matrix must be square"):
             engine.weight(cov)
@@ -336,17 +326,13 @@ class TestRobustWeightingBranchCoverage:
         assert np.allclose(weights.values, np.repeat(1 / len(cov), len(cov)))
 
     def test_risk_parity_non_square_matrix(self):
-        cov = pd.DataFrame(
-            [[0.05, 0.01], [0.01, 0.04]], index=["a", "b"], columns=["a", "c"]
-        )
+        cov = pd.DataFrame([[0.05, 0.01], [0.01, 0.04]], index=["a", "b"], columns=["a", "c"])
         engine = rw.RobustRiskParity()
         with pytest.raises(ValueError, match="Covariance matrix must be square"):
             engine.weight(cov)
 
     def test_risk_parity_zero_variance_fallback(self):
-        cov = pd.DataFrame(
-            np.zeros((3, 3)), index=["a", "b", "c"], columns=["a", "b", "c"]
-        )
+        cov = pd.DataFrame(np.zeros((3, 3)), index=["a", "b", "c"], columns=["a", "b", "c"])
         engine = rw.RobustRiskParity()
         weights = engine.weight(cov)
         assert pytest.approx(weights.sum()) == 1.0
@@ -420,9 +406,7 @@ class TestSyntheticNearSingularCases:
             [0.0, 1.0, 0.0],  # Medium variance asset
             [0.0, 0.0, 100.0],  # Very high variance asset
         ]
-        cov = pd.DataFrame(
-            cov_data, index=["low", "med", "high"], columns=["low", "med", "high"]
-        )
+        cov = pd.DataFrame(cov_data, index=["low", "med", "high"], columns=["low", "med", "high"])
 
         for method in ["robust_mv", "robust_risk_parity"]:
             engine = create_weight_engine(method)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -16,7 +16,7 @@ from trend_analysis.weighting import BaseWeighting
 class BasicConfig:
     """Minimal configuration object compatible with ``mp_engine.run``."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 1,
@@ -25,13 +25,13 @@ class BasicConfig:
             "end": "2020-02",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "allow_risk_free_fallback": True,
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "standard",
             "selection_mode": "all",
@@ -43,13 +43,13 @@ class BasicConfig:
             "weighting": {"name": "equal", "params": {}},
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 42
-    performance: Dict[str, Any] = field(default_factory=dict)
+    performance: dict[str, Any] = field(default_factory=dict)
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -85,9 +85,7 @@ class EmptyRebalancer:
         return prev_weights.iloc[0:0]
 
 
-def _patch_generate_periods(
-    monkeypatch: pytest.MonkeyPatch, periods: List[DummyPeriod]
-) -> None:
+def _patch_generate_periods(monkeypatch: pytest.MonkeyPatch, periods: list[DummyPeriod]) -> None:
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
 
@@ -100,18 +98,14 @@ def test_run_schedule_handles_missing_rank_column(
     }
 
     class Selector:
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     class Weighting(BaseWeighting):
         def __init__(self) -> None:
             self.update_calls: list[int] = []
 
-        def weight(
-            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-        ) -> pd.DataFrame:
+        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
             del date
             return pd.DataFrame({"weight": [1.0]}, index=selected.index)
 
@@ -161,9 +155,7 @@ def test_run_uses_nan_policy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
     )
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_missing_policy)
-    monkeypatch.setattr(
-        mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"}
-    )
+    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"})
 
     results = mp_engine.run(cfg, df=df)
 
@@ -198,18 +190,14 @@ def test_run_skips_missing_policy_when_price_frames_present(
 
     called = False
 
-    def fail_missing_policy(
-        *_args: Any, **_kwargs: Any
-    ) -> None:  # pragma: no cover - guard
+    def fail_missing_policy(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - guard
         nonlocal called
         called = True
         raise AssertionError("apply_missing_policy should not be invoked")
 
     captures: list[pd.DataFrame] = []
 
-    def fake_run_analysis(
-        df: pd.DataFrame, *_args: Any, **_kwargs: Any
-    ) -> dict[str, Any]:
+    def fake_run_analysis(df: pd.DataFrame, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
         captures.append(df.copy())
         return {"analysis": "ok"}
 
@@ -289,7 +277,7 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
         risk_free_column: Any,
         allow_risk_free_fallback: Any,
         fallback_window: Any = None,
-    ) -> tuple[str, List[str], str]:
+    ) -> tuple[str, list[str], str]:
         return ("FundA", ["FundA", "FundB"], "mocked")
 
     monkeypatch.setattr(mp_engine, "_resolve_risk_free_column", mock_resolve_rf)
@@ -298,9 +286,7 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
         lambda *_a, **_k: StaticSelector(),
     )
     monkeypatch.setattr(mp_engine, "Rebalancer", EmptyRebalancer)
-    monkeypatch.setattr(
-        mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"}
-    )
+    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"})
 
     results = mp_engine.run(cfg, df=df)
 

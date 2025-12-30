@@ -46,11 +46,11 @@ def test_na_as_zero_retains_and_fills():
         metrics_to_run=canonical_metric_list(["annual_return", "volatility"]),
         risk_free=0.0,
     )
-    setattr(
-        stats_cfg,
-        "na_as_zero_cfg",
-        {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 1},
-    )
+    stats_cfg.na_as_zero_cfg = {
+        "enabled": True,
+        "max_missing_per_window": 2,
+        "max_consecutive_gap": 1,
+    }
     res = _run_analysis(
         df,
         "2020-01",
@@ -78,11 +78,11 @@ def test_na_as_zero_rejects_large_consecutive_gap():
         metrics_to_run=canonical_metric_list(["annual_return", "volatility"]),
         risk_free=0.0,
     )
-    setattr(
-        stats_cfg,
-        "na_as_zero_cfg",
-        {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 1},
-    )
+    stats_cfg.na_as_zero_cfg = {
+        "enabled": True,
+        "max_missing_per_window": 2,
+        "max_consecutive_gap": 1,
+    }
 
     res = _run_analysis(
         df,

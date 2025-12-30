@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from tests.workflows.test_workflow_naming import EXPECTED_NAMES
 from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
@@ -41,9 +40,7 @@ def test_disable_handles_non_disableable_workflow(
         "state": "active",
     }
 
-    def fake_list_all_workflows(
-        base_url: str, headers: dict[str, str]
-    ) -> list[dict[str, object]]:
+    def fake_list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
         return [target]
 
     def fake_http_request(

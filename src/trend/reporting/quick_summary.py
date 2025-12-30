@@ -14,10 +14,11 @@ import base64
 import io
 import json
 import os
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from html import escape as html_escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -86,9 +87,7 @@ def _extract_turnover(details: Mapping[str, Any]) -> pd.Series:
     return pd.Series(dtype=float)
 
 
-def _extract_parameter_grid(
-    details: Mapping[str, Any], metrics: pd.DataFrame
-) -> pd.DataFrame:
+def _extract_parameter_grid(details: Mapping[str, Any], metrics: pd.DataFrame) -> pd.DataFrame:
     payload = details.get("parameter_grid")
     if isinstance(payload, Mapping):
         values = payload.get("values")
@@ -134,7 +133,7 @@ def _compute_equity_and_drawdown(returns: pd.Series) -> tuple[pd.Series, pd.Seri
     return equity, drawdown
 
 
-def _encode_plot(fig: "Figure") -> str:
+def _encode_plot(fig: Figure) -> str:
     buffer = io.BytesIO()
     fig.savefig(buffer, format="png")
     plt.close(fig)
@@ -271,21 +270,21 @@ def _render_html(
         else '<p class="placeholder">No equity data available.</p>'
     )
     if equity_diagnostic is not None:
-        equity_block = f'{equity_block}<p class="placeholder">{html_escape(equity_diagnostic.message)}</p>'
+        equity_block = (
+            f'{equity_block}<p class="placeholder">{html_escape(equity_diagnostic.message)}</p>'
+        )
     turnover_block = (
         f'<img alt="Turnover" src="data:image/png;base64,{turnover_chart}">'
         if turnover_chart
         else '<p class="placeholder">No turnover data available.</p>'
     )
     if turnover_diagnostic is not None:
-        turnover_block = f'{turnover_block}<p class="placeholder">{html_escape(turnover_diagnostic.message)}</p>'
-    summary_section = (
-        f"<section><h2>Summary</h2>{summary_block}</section>" if summary_block else ""
-    )
+        turnover_block = (
+            f'{turnover_block}<p class="placeholder">{html_escape(turnover_diagnostic.message)}</p>'
+        )
+    summary_section = f"<section><h2>Summary</h2>{summary_block}</section>" if summary_block else ""
     config_section = (
-        f"<section><h2>Configuration</h2>{config_block}</section>"
-        if config_block
-        else ""
+        f"<section><h2>Configuration</h2>{config_block}</section>" if config_block else ""
     )
     return f"""<!DOCTYPE html>
 <html lang=\"en\">
@@ -344,9 +343,7 @@ def _infer_run_id(artifacts_dir: Path) -> str:
     legacy = artifacts_dir / "metrics.csv"
     if legacy.exists():
         return artifacts_dir.name
-    raise ValueError(
-        f"Unable to infer run identifier from artefacts in {artifacts_dir}"
-    )
+    raise ValueError(f"Unable to infer run identifier from artefacts in {artifacts_dir}")
 
 
 def build_run_report(
@@ -397,9 +394,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="trend-quick-report",
         description="Generate a compact HTML report from trend run artefacts.",
     )
-    parser.add_argument(
-        "--run-id", help="Run identifier (defaults to artefact inference)"
-    )
+    parser.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
     parser.add_argument(
         "--artifacts",
         type=Path,

@@ -89,10 +89,7 @@ def test_build_summary_comment_renders_expected_sections(
 
     assert body.startswith("## Automated Status Summary")
     assert "**Head SHA:** abc123" in body
-    assert (
-        "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)"
-        in body
-    )
+    assert "**Latest Runs:** ❌ failure — [Gate (#101)](https://example.test/gate/101)" in body
     assert (
         "**Required contexts:** Gate / gate, Health 45 Agents Guard / Enforce agents workflow protections"
         in body
@@ -174,10 +171,7 @@ def test_docs_only_fast_pass_includes_context() -> None:
     )
 
     assert "Docs-only change detected; heavy checks skipped." in body
-    assert (
-        "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
-        in body
-    )
+    assert "Docs-only fast-pass: coverage artifacts were not refreshed for this run." in body
     assert "| Gate / core tests (3.11) | ⏭️ skipped |" in body
     assert "| Gate / core tests (3.12) | ⏭️ skipped |" in body
     assert "| Gate / docker smoke | ⏭️ skipped |" in body
@@ -214,10 +208,7 @@ def test_docs_only_note_requires_all_heavy_jobs_skipped() -> None:
     )
 
     assert "Docs-only change detected; heavy checks skipped." not in body
-    assert (
-        "Docs-only fast-pass: coverage artifacts were not refreshed for this run."
-        not in body
-    )
+    assert "Docs-only fast-pass: coverage artifacts were not refreshed for this run." not in body
 
 
 def test_docs_only_fast_pass_note_follows_coverage_lines() -> None:
@@ -322,20 +313,12 @@ def test_job_table_prioritises_failing_and_pending_jobs(sample_runs):
     table_lines = [
         line
         for line in body.splitlines()
-        if line.startswith("| ")
-        and "Workflow / Job" not in line
-        and "------" not in line
+        if line.startswith("| ") and "Workflow / Job" not in line and "------" not in line
     ]
 
-    docker_index = next(
-        (i for i, line in enumerate(table_lines) if "docker smoke" in line), None
-    )
-    flaky_index = next(
-        (i for i, line in enumerate(table_lines) if "flaky-suite" in line), None
-    )
-    docs_index = next(
-        (i for i, line in enumerate(table_lines) if "main / docs" in line), None
-    )
+    docker_index = next((i for i, line in enumerate(table_lines) if "docker smoke" in line), None)
+    flaky_index = next((i for i, line in enumerate(table_lines) if "flaky-suite" in line), None)
+    docs_index = next((i for i, line in enumerate(table_lines) if "main / docs" in line), None)
     optional_index = next(
         (i for i, line in enumerate(table_lines) if "main / optional" in line), None
     )

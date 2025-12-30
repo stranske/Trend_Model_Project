@@ -7,7 +7,7 @@ Run this to see the improvements in temporary file handling.
 """
 
 import os
-from typing import Any, Dict, List
+from typing import Any
 from unittest import mock
 
 # Import the bundle utilities used in this demo
@@ -52,7 +52,7 @@ def create_mock_results() -> mock.MagicMock:
     return mock_results
 
 
-def show_before_after_comparison() -> List[str]:
+def show_before_after_comparison() -> list[str]:
     """Demonstrate the before vs after behavior."""
     print("=" * 60)
     print("EXPORT BUNDLE CLEANUP FIX - DEMONSTRATION")
@@ -79,7 +79,7 @@ def show_before_after_comparison() -> List[str]:
 
     # Create test data
     mock_results = create_mock_results()
-    configs: List[Dict[str, Any]] = [
+    configs: list[dict[str, Any]] = [
         {"lookback_period": 252, "rebalance_freq": "monthly"},
         {"lookback_period": 126, "rebalance_freq": "weekly"},
         {"lookback_period": 60, "rebalance_freq": "daily"},
@@ -89,7 +89,7 @@ def show_before_after_comparison() -> List[str]:
     print("🔧 CREATING EXPORT BUNDLES...")
     print()
 
-    bundle_paths: List[str] = []
+    bundle_paths: list[str] = []
     for i, config in enumerate(configs):
         config["run_id"] = i + 1
         bundle_path = export_bundle(mock_results, config)

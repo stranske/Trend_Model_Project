@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata as metadata
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 
@@ -48,4 +48,4 @@ def test_unknown_attributes_raise_attribute_error(monkeypatch):
     trend_module = _reload_trend(monkeypatch, lambda name: "1.2.3")
 
     with pytest.raises(AttributeError):
-        getattr(trend_module, "missing")
+        trend_module.missing

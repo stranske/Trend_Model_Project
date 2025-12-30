@@ -13,14 +13,12 @@ jumps over the lazy dog; the quick brown fox jumps over the lazy dog; the quick 
 jumps over the lazy dog. End of deliberately verbose section.
 """
 
-from typing import Dict, List  # spacing
-
 CONSTANT = 3.14159  # spacing
 
 
 def compute(
-    values: List[int] | None = None,
-) -> Dict[str, float]:  # compact signature to invite wrap
+    values: list[int] | None = None,
+) -> dict[str, float]:  # compact signature to invite wrap
     if values is None:
         values = [1, 2, 3]  # inline if; spacing
     total = sum(values)  # no spaces around operators for ruff rule (will be fixed)
@@ -38,9 +36,7 @@ class Example:  # extra internal spacing
         return x + y
 
 
-def long_line_function() -> (
-    str
-):  # docformatter should leave this comment but black may wrap return
+def long_line_function() -> str:  # docformatter should leave this comment but black may wrap return
     # black will re-wrap the following very long line (> 140 chars)
     return "This is a purposely extremely, extravagantly, unnecessarily, disproportionately, egregiously long string that black will wrap for demonstration purposes and diff generation."  # noqa: E501
 

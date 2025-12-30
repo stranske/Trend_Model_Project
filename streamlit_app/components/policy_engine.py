@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import builtins
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,17 +33,17 @@ class PolicyConfig:
     # Optional diversification guard: cap number of holdings per bucket.
     # When 0, disabled. Bucket mapping is manager->bucket label.
     diversification_max_per_bucket: int = 0
-    diversification_buckets: Dict[str, str] = field(default_factory=dict)
+    diversification_buckets: builtins.dict[str, str] = field(default_factory=dict)
     # Competing rule sets (ordered). Empty => default behavior (threshold_hold).
-    add_rules: List[str] = field(default_factory=list)
-    drop_rules: List[str] = field(default_factory=list)
+    add_rules: list[str] = field(default_factory=list)
+    drop_rules: list[str] = field(default_factory=list)
     # Sticky rank window parameters and CI level (simple placeholder gate)
     sticky_add_x: int = 1
     sticky_drop_y: int = 1
     ci_level: float = 0.0
-    metrics: List[MetricSpec] = field(default_factory=list)
+    metrics: list[MetricSpec] = field(default_factory=list)
 
-    def dict(self) -> Dict[str, Any]:
+    def dict(self) -> builtins.dict[str, Any]:
         return {
             "top_k": self.top_k,
             "bottom_k": self.bottom_k,
@@ -65,7 +66,7 @@ class PolicyConfig:
 
 class CooldownBook:
     def __init__(self) -> None:
-        self.map: Dict[str, int] = {}
+        self.map: dict[str, int] = {}
 
     def tick(self) -> None:
         for k in list(self.map.keys()):
@@ -90,10 +91,10 @@ def zscore(x: pd.Series) -> pd.Series:
 
 def rank_scores(
     score_frame: pd.DataFrame,
-    metric_weights: Dict[str, float],
-    metric_directions: Dict[str, int],
+    metric_weights: dict[str, float],
+    metric_directions: dict[str, int],
 ) -> pd.Series:
-    parts: List[pd.Series] = []
+    parts: list[pd.Series] = []
     for m, w in metric_weights.items():
         if m not in score_frame.columns:
             continue
@@ -111,19 +112,15 @@ def rank_scores(
 def decide_hires_fires(
     asof: pd.Timestamp,
     score_frame: pd.DataFrame,
-    current: List[str],
+    current: list[str],
     policy: PolicyConfig,
-    directions: Dict[str, int],
+    directions: dict[str, int],
     cooldowns: CooldownBook,
-    eligible_since: Dict[str, int],
-    tenure: Dict[str, int] | None = None,
-    rule_state: Dict[str, Any] | None = None,
-) -> Dict[str, List[Tuple[str, str]]]:
-    eligible = [
-        m
-        for m in score_frame.index
-        if eligible_since.get(m, 0) >= policy.min_track_months
-    ]
+    eligible_since: dict[str, int],
+    tenure: dict[str, int] | None = None,
+    rule_state: dict[str, Any] | None = None,
+) -> dict[str, list[tuple[str, str]]]:
+    eligible = [m for m in score_frame.index if eligible_since.get(m, 0) >= policy.min_track_months]
     sf = score_frame.loc[eligible].copy()
     if sf.empty:
         return {"hire": [], "fire": []}
@@ -157,7 +154,7 @@ def decide_hires_fires(
             # threshold_hold: handled by bottom_k membership
         return True
 
-    to_fire: List[Tuple[str, str]] = []
+    to_fire: list[tuple[str, str]] = []
     if policy.bottom_k > 0:
         bottom = list(sf.tail(policy.bottom_k).index)
         for m in bottom:
@@ -167,23 +164,18 @@ def decide_hires_fires(
                     if int(tenure.get(m, 0)) < int(policy.min_tenure_n):
                         continue
                 to_fire.append((m, "bottom_k"))
-    candidates = [
-        m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)
-    ]
-    hires: List[Tuple[str, str]] = []
+    candidates = [m for m in list(sf.index) if m not in current and not cooldowns.in_cooldown(m)]
+    hires: list[tuple[str, str]] = []
     next_active = list(set(current) - {x for x, _ in to_fire})
     # Diversification-aware hiring: enforce per-bucket caps if configured
-    if (
-        policy.diversification_max_per_bucket
-        and policy.diversification_max_per_bucket > 0
-    ):
+    if policy.diversification_max_per_bucket and policy.diversification_max_per_bucket > 0:
         bucket_map = policy.diversification_buckets or {}
 
         def bucket_of(x: str) -> str:
             # Graceful handling for unknowns: treat as singleton bucket by name
             return bucket_map.get(x, x)
 
-        counts: Dict[str, int] = defaultdict(int)
+        counts: dict[str, int] = defaultdict(int)
         for m in next_active:
             counts[bucket_of(m)] += 1
         for m in candidates:
@@ -208,9 +200,7 @@ def decide_hires_fires(
         len(hires) + len(to_fire) > policy.turnover_budget_max_changes
     ):
         s = sf["_score"].astype(float)
-        moves: List[Tuple[float, str, str, str]] = (
-            []
-        )  # (priority, kind, manager, reason)
+        moves: list[tuple[float, str, str, str]] = []  # (priority, kind, manager, reason)
         for m, reason in hires:
             # Higher-scored hires have higher priority
             prio = float(s.get(m, np.nan))

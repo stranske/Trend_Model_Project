@@ -50,7 +50,7 @@ def _sample_result() -> RunResult:
         },
     }
     result = RunResult(metrics=metrics, details=details, seed=13, environment={})
-    setattr(result, "portfolio", portfolio)
+    result.portfolio = portfolio
     return result
 
 
@@ -324,9 +324,7 @@ def test_main_report_supports_output_file_only(monkeypatch, tmp_path: Path) -> N
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(
-            html="<html>report</html>", pdf_bytes=None, context={}
-        ),
+        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
     )
 
     target = tmp_path / "custom-report.html"
@@ -364,9 +362,7 @@ def test_main_report_writes_pdf_when_requested(monkeypatch, tmp_path: Path) -> N
 
     def fake_generate_unified_report(*a, **k):
         recorded.update(k)
-        return SimpleNamespace(
-            html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={}
-        )
+        return SimpleNamespace(html="<html>with-pdf</html>", pdf_bytes=pdf_bytes, context={})
 
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
@@ -408,9 +404,7 @@ def test_main_report_pdf_dependency_error(monkeypatch, tmp_path: Path, capsys) -
     )
     monkeypatch.setattr(
         "trend.cli.generate_unified_report",
-        lambda *a, **k: SimpleNamespace(
-            html="<html>ok</html>", pdf_bytes=None, context={}
-        ),
+        lambda *a, **k: SimpleNamespace(html="<html>ok</html>", pdf_bytes=None, context={}),
     )
 
     target = tmp_path / "report-output.html"
@@ -490,12 +484,8 @@ def test_cli_report_matches_shared_generator(monkeypatch, tmp_path: Path) -> Non
         "trend_analysis.cli._ensure_dataframe",
         lambda _p: pd.DataFrame({"Date": ["2021-01-31"], "Value": [0.01]}),
     )
-    monkeypatch.setattr(
-        "trend_analysis.cli._print_summary", lambda *args, **kwargs: None
-    )
-    monkeypatch.setattr(
-        "trend_analysis.cli._write_report_files", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr("trend_analysis.cli._print_summary", lambda *args, **kwargs: None)
+    monkeypatch.setattr("trend_analysis.cli._write_report_files", lambda *args, **kwargs: None)
 
     def fake_run_pipeline(*args, **kwargs):  # type: ignore[override]
         return cli_result, "cli-run", None
@@ -852,9 +842,7 @@ def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
     events: list[str] = []
-    monkeypatch.setattr(
-        cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x")
-    )
+    monkeypatch.setattr(cli, "_legacy_maybe_log_step", lambda *a, **k: events.append("x"))
 
     cli._handle_exports(cfg, result, structured_log=True, run_id="rid")
 
@@ -885,13 +873,11 @@ def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> N
     expected_path = (bundle_dir / "analysis_bundle.zip").resolve()
     assert f"Bundle written: {expected_path}" in out
     assert captured["path"] == expected_path
-    assert getattr(result, "input_path") == tmp_path / "source.csv"
-    assert getattr(result, "config") == cfg.__dict__
+    assert result.input_path == tmp_path / "source.csv"
+    assert result.config == cfg.__dict__
 
 
-def test_write_bundle_accepts_explicit_file(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
+def test_write_bundle_accepts_explicit_file(monkeypatch, tmp_path: Path, capsys) -> None:
     cfg = SimpleNamespace(__dict__={"key": "value"})
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
@@ -912,7 +898,7 @@ def test_write_bundle_accepts_explicit_file(
     out = capsys.readouterr().out
     assert f"Bundle written: {bundle_file.resolve()}" in out
     assert recorded["path"] == bundle_file.resolve()
-    assert getattr(result, "config") == cfg.__dict__
+    assert result.config == cfg.__dict__
     assert getattr(result, "input_path", None) is None
 
 
@@ -944,9 +930,7 @@ def test_print_summary_skips_empty_cache_stats(monkeypatch, capsys) -> None:
     assert "Cache statistics" not in out
 
 
-def test_write_report_files_creates_expected_outputs(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_write_report_files_creates_expected_outputs(monkeypatch, tmp_path: Path) -> None:
     metrics = pd.DataFrame({"value": [1.0]})
     result = RunResult(metrics, {"details": {}}, 1, {})
     cfg = SimpleNamespace(sample_split={})
@@ -1017,9 +1001,7 @@ def test_main_reports_unknown_command(monkeypatch, capsys) -> None:
         "_load_configuration",
         lambda path: (Path(path), SimpleNamespace(data={"csv_path": "returns.csv"})),
     )
-    monkeypatch.setattr(
-        cli, "_resolve_returns_path", lambda *_args: Path("returns.csv")
-    )
+    monkeypatch.setattr(cli, "_resolve_returns_path", lambda *_args: Path("returns.csv"))
     monkeypatch.setattr(cli, "_ensure_dataframe", lambda *_args: pd.DataFrame())
     monkeypatch.setattr(cli, "_determine_seed", lambda *_args: 0)
 

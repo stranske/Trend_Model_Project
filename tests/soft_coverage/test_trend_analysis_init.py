@@ -35,9 +35,7 @@ def test_dataclasses_guard_reimports_missing_module(trend_analysis_module, monke
 
     monkeypatch.setattr(trend_analysis_module.importlib, "import_module", fake_import)
 
-    result = safe_is_type(
-        "Example", example_cls, None, example_cls, lambda _obj, _module: True
-    )
+    result = safe_is_type("Example", example_cls, None, example_cls, lambda _obj, _module: True)
 
     assert result is True
     assert placeholder_name in sys.modules
@@ -127,9 +125,7 @@ def test_safe_is_type_successful_reimport(trend_analysis_module, monkeypatch):
 
     monkeypatch.setattr(trend_analysis_module.importlib, "import_module", import_module)
 
-    result = safe_is_type(
-        "Example", example_cls, None, example_cls, lambda _obj, _module: True
-    )
+    result = safe_is_type("Example", example_cls, None, example_cls, lambda _obj, _module: True)
 
     assert result is True
     assert sys.modules[placeholder_name] is imported
@@ -180,12 +176,8 @@ def test_conditional_forwarders_execute(monkeypatch):
     import trend_analysis
 
     trend_analysis_module = importlib.reload(trend_analysis)
-    trend_analysis_module.__dict__["data"] = importlib.import_module(
-        "trend_analysis.data"
-    )
-    trend_analysis_module.__dict__["export"] = importlib.import_module(
-        "trend_analysis.export"
-    )
+    trend_analysis_module.__dict__["data"] = importlib.import_module("trend_analysis.data")
+    trend_analysis_module.__dict__["export"] = importlib.import_module("trend_analysis.export")
 
     block = (
         "\n" * 171
@@ -225,10 +217,7 @@ if "export" in globals():
         trend_analysis_module.identify_risk_free_fund
         is trend_analysis_module.data.identify_risk_free_fund
     )
-    assert (
-        trend_analysis_module.export_bundle
-        is trend_analysis_module.export.export_bundle
-    )
+    assert trend_analysis_module.export_bundle is trend_analysis_module.export.export_bundle
 
 
 def test_version_fallback_used_when_metadata_missing(monkeypatch):

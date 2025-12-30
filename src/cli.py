@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -32,9 +33,7 @@ def _load_returns(cfg: Mapping[str, Any], *, base_dir: Path) -> pd.DataFrame:
     if columns:
         missing = [col for col in columns if col not in numeric.columns]
         if missing:
-            raise ValueError(
-                f"Missing columns in CSV: {', '.join(missing)} (from {csv_path})"
-            )
+            raise ValueError(f"Missing columns in CSV: {', '.join(missing)} (from {csv_path})")
         numeric = numeric.loc[:, list(columns)]
     if numeric.empty:
         raise ValueError("No numeric columns found in returns file")
@@ -68,15 +67,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cv_p = sub.add_parser("cv", help="Run walk-forward cross-validation")
     cv_p.add_argument("--config", required=True, help="Path to YAML config file")
     cv_p.add_argument("--folds", type=int, help="Override folds from config")
-    cv_p.add_argument(
-        "--expand", dest="expand", action="store_true", help="Use expanding windows"
-    )
-    cv_p.add_argument(
-        "--rolling", dest="expand", action="store_false", help="Use rolling windows"
-    )
-    cv_p.add_argument(
-        "--output-dir", help="Directory for exported fold metrics and summary"
-    )
+    cv_p.add_argument("--expand", dest="expand", action="store_true", help="Use expanding windows")
+    cv_p.add_argument("--rolling", dest="expand", action="store_false", help="Use rolling windows")
+    cv_p.add_argument("--output-dir", help="Directory for exported fold metrics and summary")
     cv_p.set_defaults(expand=None)
 
     report_p = sub.add_parser("report", help="Generate a portfolio tearsheet")

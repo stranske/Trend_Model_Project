@@ -8,11 +8,12 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Mapping, Sequence
+from typing import Any
 
 import requests
 
@@ -52,10 +53,10 @@ class BranchProtectionMissingError(BranchProtectionError):
 @dataclass
 class StatusCheckState:
     strict: bool | None
-    contexts: List[str]
+    contexts: list[str]
 
     @classmethod
-    def from_api(cls, payload: Mapping[str, Any]) -> "StatusCheckState":
+    def from_api(cls, payload: Mapping[str, Any]) -> StatusCheckState:
         return _state_from_status_payload(payload)
 
 
@@ -65,9 +66,7 @@ def _state_from_status_payload(
     """Normalise a required status checks payload into a ``StatusCheckState``."""
 
     raw_contexts = payload.get("contexts")
-    if isinstance(raw_contexts, Iterable) and not isinstance(
-        raw_contexts, (str, bytes)
-    ):
+    if isinstance(raw_contexts, Iterable) and not isinstance(raw_contexts, (str, bytes)):
         contexts = [str(context) for context in raw_contexts]
     else:
         contexts = []
@@ -94,9 +93,7 @@ def _build_session(token: str) -> requests.Session:
 
 
 def _status_checks_url(repo: str, branch: str, *, api_root: str) -> str:
-    return (
-        f"{api_root}/repos/{repo}/branches/{branch}/protection/required_status_checks"
-    )
+    return f"{api_root}/repos/{repo}/branches/{branch}/protection/required_status_checks"
 
 
 def _branch_url(repo: str, branch: str, *, api_root: str) -> str:
@@ -119,9 +116,7 @@ def _response_message(response: requests.Response) -> str:
 def _is_rate_limit_response(response: requests.Response) -> bool:
     status = response.status_code
     headers = response.headers
-    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get(
-        "x-ratelimit-remaining"
-    )
+    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get("x-ratelimit-remaining")
     remaining_exhausted = False
     if remaining_raw is not None:
         try:
@@ -194,9 +189,7 @@ def _call_with_rate_limit_retry(
 def _state_from_branch_payload(payload: Mapping[str, Any]) -> StatusCheckState:
     protection = payload.get("protection")
     if not isinstance(protection, Mapping) or not protection.get("enabled"):
-        raise BranchProtectionMissingError(
-            "Branch protection is disabled for this branch."
-        )
+        raise BranchProtectionMissingError("Branch protection is disabled for this branch.")
 
     status_checks = protection.get("required_status_checks")
     if not isinstance(status_checks, Mapping):
@@ -281,10 +274,7 @@ def _fetch_ruleset_status_checks(
             pattern == "~DEFAULT_BRANCH"
             for pattern in (
                 (ruleset.get("conditions", {}).get("ref_name", {}).get("include") or [])
-                + (
-                    ruleset.get("conditions", {}).get("ref_name", {}).get("exclude")
-                    or []
-                )
+                + (ruleset.get("conditions", {}).get("ref_name", {}).get("exclude") or [])
             )
         )
         for ruleset in rulesets
@@ -294,9 +284,7 @@ def _fetch_ruleset_status_checks(
     default_ref: str | None
     if default_branch:
         default_ref = (
-            default_branch
-            if default_branch.startswith("refs/")
-            else f"refs/heads/{default_branch}"
+            default_branch if default_branch.startswith("refs/") else f"refs/heads/{default_branch}"
         )
     else:
         default_ref = None
@@ -325,9 +313,7 @@ def _fetch_ruleset_status_checks(
         local_default_ref = default_ref
         if local_default_branch is None:
             # Fall back to the queried branch when we cannot resolve the repo default
-            local_default_branch = (
-                branch if "/" not in branch else branch.split("/")[-1]
-            )
+            local_default_branch = branch if "/" not in branch else branch.split("/")[-1]
             local_default_ref = f"refs/heads/{local_default_branch}"
 
         def _matches(pattern: object) -> bool:
@@ -396,15 +382,11 @@ def fetch_status_checks(
 ) -> StatusCheckState:
     response = _call_with_rate_limit_retry(
         f"fetching required status checks for {branch}",
-        lambda: session.get(
-            _status_checks_url(repo, branch, api_root=api_root), timeout=30
-        ),
+        lambda: session.get(_status_checks_url(repo, branch, api_root=api_root), timeout=30),
     )
     if response.status_code == 404:
         # Try rulesets as fallback
-        ruleset_state = _fetch_ruleset_status_checks(
-            session, repo, branch, api_root=api_root
-        )
+        ruleset_state = _fetch_ruleset_status_checks(session, repo, branch, api_root=api_root)
         if ruleset_state is not None:
             return ruleset_state
         raise BranchProtectionMissingError(
@@ -412,17 +394,13 @@ def fetch_status_checks(
         )
     if response.status_code == 403:
         # Try rulesets as fallback (they may be readable even without admin access)
-        ruleset_state = _fetch_ruleset_status_checks(
-            session, repo, branch, api_root=api_root
-        )
+        ruleset_state = _fetch_ruleset_status_checks(session, repo, branch, api_root=api_root)
         if ruleset_state is not None:
             return ruleset_state
 
         branch_response = _call_with_rate_limit_retry(
             f"inspecting branch protection for {branch}",
-            lambda: session.get(
-                _branch_url(repo, branch, api_root=api_root), timeout=30
-            ),
+            lambda: session.get(_branch_url(repo, branch, api_root=api_root), timeout=30),
         )
         if branch_response.status_code == 404:
             raise BranchProtectionMissingError(
@@ -523,12 +501,10 @@ def bootstrap_branch_protection(
 
 def load_required_contexts(
     config_path: str | os.PathLike[str] | None = None,
-) -> List[str]:
+) -> list[str]:
     """Return contexts defined in the shared configuration file."""
 
-    candidate = Path(
-        config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or DEFAULT_CONFIG_PATH
-    )
+    candidate = Path(config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or DEFAULT_CONFIG_PATH)
     try:
         payload = json.loads(candidate.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -541,10 +517,8 @@ def load_required_contexts(
     else:
         contexts_value = payload
 
-    contexts: List[str] = []
-    if isinstance(contexts_value, Iterable) and not isinstance(
-        contexts_value, (str, bytes)
-    ):
+    contexts: list[str] = []
+    if isinstance(contexts_value, Iterable) and not isinstance(contexts_value, (str, bytes)):
         for item in contexts_value:
             if isinstance(item, str):
                 candidate_value = item.strip()
@@ -555,11 +529,11 @@ def load_required_contexts(
 
 def parse_contexts(
     values: Iterable[str] | None, *, config_path: str | os.PathLike[str] | None = None
-) -> List[str]:
+) -> list[str]:
     if not values:
         contexts = load_required_contexts(config_path)
         return contexts or list(DEFAULT_CONTEXTS)
-    cleaned: List[str] = []
+    cleaned: list[str] = []
     for value in values:
         candidate = value.strip()
         if not candidate:
@@ -571,9 +545,9 @@ def parse_contexts(
     return cleaned
 
 
-def normalise_contexts(contexts: Sequence[str]) -> List[str]:
+def normalise_contexts(contexts: Sequence[str]) -> list[str]:
     seen: set[str] = set()
-    ordered: List[str] = []
+    ordered: list[str] = []
     for context in contexts:
         if not context or context in seen:
             continue
@@ -610,9 +584,7 @@ def _write_snapshot(path: str, payload: Mapping[str, Any]) -> None:
         handle.write("\n")
 
 
-def diff_contexts(
-    current: Sequence[str], desired: Sequence[str]
-) -> tuple[list[str], list[str]]:
+def diff_contexts(current: Sequence[str], desired: Sequence[str]) -> tuple[list[str], list[str]]:
     current_set = set(current)
     desired_set = set(desired)
 
@@ -721,9 +693,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.repo:
         parser.error("--repo is required when GITHUB_REPOSITORY is not set.")
 
-    desired_contexts = normalise_contexts(
-        parse_contexts(args.contexts, config_path=args.config)
-    )
+    desired_contexts = normalise_contexts(parse_contexts(args.contexts, config_path=args.config))
 
     snapshot: dict[str, Any] | None = None
     if args.snapshot:
@@ -743,9 +713,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     session = _build_session(token)
 
     try:
-        current_state = fetch_status_checks(
-            session, args.repo, args.branch, api_root=api_root
-        )
+        current_state = fetch_status_checks(session, args.repo, args.branch, api_root=api_root)
         if snapshot is not None:
             snapshot["current"] = {
                 "strict": current_state.strict,
@@ -813,9 +781,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         if snapshot is not None:
             snapshot["error"] = str(exc)
-            snapshot.setdefault(
-                "desired", {"strict": True, "contexts": list(desired_contexts)}
-            )
+            snapshot.setdefault("desired", {"strict": True, "contexts": list(desired_contexts)})
             snapshot.setdefault("to_add", list(desired_contexts))
             snapshot.setdefault("to_remove", [])
             _write_snapshot(args.snapshot, snapshot)
@@ -844,9 +810,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     label = "Target contexts" if args.no_clean else "Desired contexts"
     print(f"{label}: {format_contexts(target_contexts)}")
     if strict_is_unknown:
-        print(
-            "Current 'require up to date': (unknown - supply BRANCH_PROTECTION_TOKEN to verify)"
-        )
+        print("Current 'require up to date': (unknown - supply BRANCH_PROTECTION_TOKEN to verify)")
     else:
         print(f"Current 'require up to date': {current_state.strict}")
     print("Desired 'require up to date': True")
@@ -867,9 +831,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.require_strict and strict_is_unknown:
         strict_change = True
 
-    no_changes_required = (
-        not to_add and (args.no_clean or not to_remove) and not strict_change
-    )
+    no_changes_required = not to_add and (args.no_clean or not to_remove) and not strict_change
     changes_required = not no_changes_required
 
     if snapshot is not None:

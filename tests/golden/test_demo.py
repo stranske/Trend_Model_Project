@@ -11,7 +11,6 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List
 
 import pandas as pd
 import pytest
@@ -67,9 +66,7 @@ class TestDemoGoldenMaster:
                     line = "# Generated on NORMALIZED_TIMESTAMP"
                 elif "version" in line.lower():
                     line = "# Version NORMALIZED_VERSION"
-                elif any(
-                    x in line.lower() for x in ["timestamp", "created at", "run at"]
-                ):
+                elif any(x in line.lower() for x in ["timestamp", "created at", "run at"]):
                     line = "# Timestamp NORMALIZED_TIMESTAMP"
                 else:
                     continue  # Skip other timestamp-like metadata
@@ -130,7 +127,7 @@ class TestDemoGoldenMaster:
             return "FILE_NOT_FOUND"
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Normalize content for stable hashing
@@ -138,10 +135,10 @@ class TestDemoGoldenMaster:
 
             # Compute hash
             return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        except (IOError, OSError, UnicodeDecodeError) as e:
+        except (OSError, UnicodeDecodeError) as e:
             return f"ERROR_READING_FILE_{type(e).__name__}"
 
-    def get_key_output_files(self, demo_exports: Path) -> List[Path]:
+    def get_key_output_files(self, demo_exports: Path) -> list[Path]:
         """Identify key CSV output files to validate.
 
         Focuses on the most important outputs that should remain stable.
@@ -237,9 +234,7 @@ class TestDemoGoldenMaster:
         assert demo_exports.exists(), "Demo exports directory not created"
 
         csv_files = list(demo_exports.glob("*.csv"))
-        assert (
-            len(csv_files) >= 1
-        ), f"Expected at least 1 CSV output, found {len(csv_files)}"
+        assert len(csv_files) >= 1, f"Expected at least 1 CSV output, found {len(csv_files)}"
 
         # Step 5: Validate key output structure and content
         key_files = self.get_key_output_files(demo_exports)
@@ -248,9 +243,7 @@ class TestDemoGoldenMaster:
         file_hashes = {}
         for file_path in key_files:
             # Verify file is not empty
-            assert (
-                file_path.stat().st_size > 0
-            ), f"Output file {file_path.name} is empty"
+            assert file_path.stat().st_size > 0, f"Output file {file_path.name} is empty"
 
             # Verify it can be read as CSV
             try:
@@ -291,9 +284,7 @@ class TestDemoGoldenMaster:
                         values = pd.to_numeric(df[col], errors="coerce").dropna()
                         if len(values) > 0:
                             # Check values are reasonable (not all zeros or all same)
-                            assert (
-                                values.std() > 0.001
-                            ), f"Metric {col} has no variation"
+                            assert values.std() > 0.001, f"Metric {col} has no variation"
 
         assert found_metrics, "No metrics files found with expected columns"
 
@@ -459,9 +450,7 @@ class TestDemoGoldenMaster:
 
             fail_under_raw = config.get("report", "fail_under", fallback="")
             if not fail_under_raw:
-                errors.append(
-                    f"Coverage profile {path} must define fail_under threshold"
-                )
+                errors.append(f"Coverage profile {path} must define fail_under threshold")
                 continue
 
             try:
@@ -479,20 +468,14 @@ class TestDemoGoldenMaster:
             )
 
             if name == "core" and "src/trend_analysis" not in include:
-                errors.append(
-                    "Core coverage profile should focus on src/trend_analysis/* modules"
-                )
+                errors.append("Core coverage profile should focus on src/trend_analysis/* modules")
 
         if not active_profiles:
-            pytest.skip(
-                "Coverage profiles not configured; skipping coverage gate policy check"
-            )
+            pytest.skip("Coverage profiles not configured; skipping coverage gate policy check")
 
         script_path = Path("scripts/run_tests.sh")
         if not script_path.exists():
-            pytest.skip(
-                "run_tests.sh missing; coverage gate enforcement handled elsewhere"
-            )
+            pytest.skip("run_tests.sh missing; coverage gate enforcement handled elsewhere")
 
         script_content = script_path.read_text()
         # Accept either coverage run with rcfile OR pytest --cov with cov-config
@@ -553,32 +536,20 @@ class TestDemoGoldenMaster:
 """
 
         # Test that identical content produces identical hashes
-        hash1 = hashlib.sha256(
-            self.normalize_csv_content(sample_csv_content).encode()
-        ).hexdigest()
-        hash2 = hashlib.sha256(
-            self.normalize_csv_content(sample_csv_content).encode()
-        ).hexdigest()
+        hash1 = hashlib.sha256(self.normalize_csv_content(sample_csv_content).encode()).hexdigest()
+        hash2 = hashlib.sha256(self.normalize_csv_content(sample_csv_content).encode()).hexdigest()
         assert hash1 == hash2, "Identical content should produce identical hashes"
 
         # Test that meaningful changes are detected
         modified_content = sample_csv_content.replace("0.015432", "0.025432")
-        hash3 = hashlib.sha256(
-            self.normalize_csv_content(modified_content).encode()
-        ).hexdigest()
+        hash3 = hashlib.sha256(self.normalize_csv_content(modified_content).encode()).hexdigest()
         assert hash1 != hash3, "Modified content should produce different hashes"
 
         # Test that timestamp normalization works but preserves data
-        timestamped_content = (
-            f"# Generated on 2024-01-01T12:00:00Z\n{sample_csv_content}"
-        )
-        hash4 = hashlib.sha256(
-            self.normalize_csv_content(timestamped_content).encode()
-        ).hexdigest()
+        timestamped_content = f"# Generated on 2024-01-01T12:00:00Z\n{sample_csv_content}"
+        hash4 = hashlib.sha256(self.normalize_csv_content(timestamped_content).encode()).hexdigest()
 
-        timestamped_content2 = (
-            f"# Generated on 2024-06-15T15:30:45Z\n{sample_csv_content}"
-        )
+        timestamped_content2 = f"# Generated on 2024-06-15T15:30:45Z\n{sample_csv_content}"
         hash5 = hashlib.sha256(
             self.normalize_csv_content(timestamped_content2).encode()
         ).hexdigest()

@@ -105,9 +105,7 @@ def test_run_backtest_with_dynamic_strategy_and_transaction_costs():
     assert result.rolling_sharpe.notna().any()
     # Summary generation exercises remaining helpers
     summary = result.summary()
-    assert summary["metrics"]["final_value"] == pytest.approx(
-        result.equity_curve.iloc[-1]
-    )
+    assert summary["metrics"]["final_value"] == pytest.approx(result.equity_curve.iloc[-1])
 
 
 def test_run_backtest_handles_duplicate_rebalance_dates():
@@ -276,9 +274,7 @@ def test_infer_periods_per_year_and_weight_helpers(monkeypatch):
     idx_monthly = pd.date_range("2022-01-31", periods=10, freq="ME")
     idx_quarter = pd.date_range("2022-03-31", periods=6, freq="QE")
     idx_short = pd.DatetimeIndex([pd.Timestamp("2022-01-01")])
-    idx_negative = pd.DatetimeIndex(
-        [pd.Timestamp("2022-01-02"), pd.Timestamp("2022-01-01")]
-    )
+    idx_negative = pd.DatetimeIndex([pd.Timestamp("2022-01-02"), pd.Timestamp("2022-01-01")])
 
     assert harness._infer_periods_per_year(idx_short) == 1
     assert harness._infer_periods_per_year(idx_negative) == 1
@@ -305,18 +301,14 @@ def test_infer_periods_per_year_and_weight_helpers(monkeypatch):
     assert seeded.loc["AAA"] == pytest.approx(0.4)
     assert seeded.loc["BBB"] == 0.0
 
-    normalised_series = harness._normalise_weights(
-        pd.Series({"AAA": 0.7, "BBB": 0.3}), columns
-    )
+    normalised_series = harness._normalise_weights(pd.Series({"AAA": 0.7, "BBB": 0.3}), columns)
     assert normalised_series.sum() == pytest.approx(1.0)
     normalised_mapping = harness._normalise_weights({"AAA": 0.5}, columns)
     assert normalised_mapping.tolist() == [0.5, 0.0]
 
 
 def test_metric_and_serialisation_utilities():
-    series = pd.Series(
-        [1.0, 1.2, 1.1], index=pd.date_range("2022-01-01", periods=3, freq="D")
-    )
+    series = pd.Series([1.0, 1.2, 1.1], index=pd.date_range("2022-01-01", periods=3, freq="D"))
     drawdown = harness._compute_drawdown(series)
     assert drawdown.iloc[0] == 0.0
     assert drawdown.iloc[2] == pytest.approx(1.1 / 1.2 - 1, rel=1e-6)
@@ -333,9 +325,7 @@ def test_metric_and_serialisation_utilities():
     )
     assert sharpe.iloc[1] == pytest.approx(expected_sharpe)
 
-    metrics = harness._compute_metrics(
-        returns.fillna(0.0), series, drawdown, 252, returns.notna()
-    )
+    metrics = harness._compute_metrics(returns.fillna(0.0), series, drawdown, 252, returns.notna())
     assert {"cagr", "volatility", "sharpe", "final_value"} <= metrics.keys()
 
     empty_dict = harness._series_to_dict(pd.Series(dtype=float))
@@ -369,9 +359,7 @@ def test_metric_and_serialisation_utilities():
 
 
 def test_compute_metrics_handles_empty_returns():
-    returns = pd.Series(
-        [0.01, -0.02], index=pd.date_range("2022-01-01", periods=2, freq="D")
-    )
+    returns = pd.Series([0.01, -0.02], index=pd.date_range("2022-01-01", periods=2, freq="D"))
     equity = pd.Series([1.0, 0.98], index=returns.index)
     drawdown = pd.Series([-0.0, -0.02], index=returns.index)
     mask = pd.Series([False, False], index=returns.index)

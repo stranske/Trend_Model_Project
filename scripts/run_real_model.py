@@ -8,8 +8,9 @@ stitched out-of-sample portfolio return series.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -45,13 +46,13 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
 
     # Run multi-period to get score_frames and out-of-sample returns per period
     results_raw = run_mp(cfg)
-    results: List[Dict[str, Any]] = [cast(Dict[str, Any], res) for res in results_raw]
+    results: list[dict[str, Any]] = [cast(dict[str, Any], res) for res in results_raw]
     if not results:
         print("No periods generated")
         return 0
 
     # Build score_frame map keyed by OOS start (hire/fire at rebalance date)
-    score_frames: Dict[str, pd.DataFrame] = {}
+    score_frames: dict[str, pd.DataFrame] = {}
     for res in results:
         period = cast(Sequence[str], res.get("period"))
         if len(period) < 3:
@@ -63,12 +64,12 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         score_frames[out_start] = sf_obj.astype(float)
 
     # Selector and performance-based weighting
-    rank_cfg = cast(Dict[str, Any], cfg.portfolio.get("rank", {}))
+    rank_cfg = cast(dict[str, Any], cfg.portfolio.get("rank", {}))
     top_n = int(rank_cfg.get("n", 8))
     rank_col = str(rank_cfg.get("score_by", "Sharpe"))
     selector = RankSelector(top_n=top_n, rank_column=rank_col)
-    weighting_cfg = cast(Dict[str, Any], cfg.portfolio.get("weighting", {}))
-    params_cfg = cast(Dict[str, Any], weighting_cfg.get("params", {}))
+    weighting_cfg = cast(dict[str, Any], cfg.portfolio.get("weighting", {}))
+    params_cfg = cast(dict[str, Any], weighting_cfg.get("params", {}))
     shrink_tau = float(params_cfg.get("shrink_tau", 0.25))
     weighting = ScorePropBayesian(column=rank_col, shrink_tau=shrink_tau)
 
@@ -122,9 +123,7 @@ def main(cfg_path: str = "config/long_backtest.yml") -> int:
         cagr = annual_return(portfolio)
         vol = volatility(portfolio)
         sr = sharpe_ratio(portfolio, rf_aligned)
-        msg = (
-            f"OOS CAGR: {cagr*100:.2f}%  " f"Vol: {vol*100:.2f}%  " f"Sharpe: {sr:.2f}"
-        )
+        msg = f"OOS CAGR: {cagr*100:.2f}%  " f"Vol: {vol*100:.2f}%  " f"Sharpe: {sr:.2f}"
         print(msg)
         print(f"Weights: {weights_path}")
         print(f"OOS returns: {port_path}")

@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import hashlib
 from collections import OrderedDict
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, Callable, Dict, Iterable, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -24,7 +25,7 @@ import pandas as pd
 from .._typing import FloatArray, MatrixF
 from .timing import log_timing
 
-Key = Tuple[str, str, int, str]
+Key = tuple[str, str, int, str]
 
 
 def _universe_hash(assets: Iterable[str]) -> int:
@@ -49,7 +50,7 @@ class CovPayload:
     s1: FloatArray | None = None  # sum of rows (vector)
     s2: MatrixF | None = None  # sum of outer products (matrix)
 
-    def as_dict(self) -> Dict[str, Any]:  # convenience for tests / debug
+    def as_dict(self) -> dict[str, Any]:  # convenience for tests / debug
         return {
             "cov": self.cov,
             "mean": self.mean,
@@ -73,7 +74,7 @@ class CovCache:
     def __init__(self, capacity: int | None = None, *, lru: bool = True) -> None:
         self.capacity = capacity
         self.lru = lru
-        self._store: "OrderedDict[Key, CovPayload]" = OrderedDict()
+        self._store: OrderedDict[Key, CovPayload] = OrderedDict()
         # stats
         self.hits = 0
         self.misses = 0
@@ -98,9 +99,7 @@ class CovCache:
             # Evict oldest
             self._store.popitem(last=False)
 
-    def get_or_compute(
-        self, key: Key, compute_fn: Callable[[], CovPayload]
-    ) -> CovPayload:
+    def get_or_compute(self, key: Key, compute_fn: Callable[[], CovPayload]) -> CovPayload:
         start = perf_counter()
         cached = self.get(key)
         if cached is not None:
@@ -149,9 +148,7 @@ class CovCache:
         }
 
 
-def compute_cov_payload(
-    df: pd.DataFrame, *, materialise_aggregates: bool = False
-) -> CovPayload:
+def compute_cov_payload(df: pd.DataFrame, *, materialise_aggregates: bool = False) -> CovPayload:
     """Compute covariance + aggregates for the provided returns frame.
 
     Parameters

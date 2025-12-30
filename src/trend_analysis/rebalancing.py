@@ -8,8 +8,6 @@ duplicate plugins.
 
 from __future__ import annotations
 
-from typing import Dict
-
 from .plugins import rebalancer_registry
 
 # Import canonical implementations from the package so this shim
@@ -28,7 +26,7 @@ from .rebalancing.strategies import (
 )
 
 
-def get_rebalancing_strategies() -> Dict[str, type]:
+def get_rebalancing_strategies() -> dict[str, type]:
     """Return mapping of registered strategy names to classes."""
 
     # ``PluginRegistry`` exposes its internal mapping via the private

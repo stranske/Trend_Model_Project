@@ -22,9 +22,9 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT_DIRS = [ROOT / "src", ROOT / "tests"]
@@ -133,9 +133,7 @@ def _collect_mypy_issues() -> list[MypyIssue]:
     return issues
 
 
-def _gather_replacements(
-    text: str, issues: Iterable[MypyIssue], path: Path
-) -> list[Replacement]:
+def _gather_replacements(text: str, issues: Iterable[MypyIssue], path: Path) -> list[Replacement]:
     try:
         tree = ast.parse(text, filename=str(path))
     except SyntaxError:
@@ -193,7 +191,7 @@ def main() -> int:
     for issue in issues:
         grouped.setdefault(issue.path, []).append(issue)
 
-    changed_files: List[Path] = []
+    changed_files: list[Path] = []
     for path, file_issues in grouped.items():
         try:
             original_text = path.read_text(encoding="utf-8")

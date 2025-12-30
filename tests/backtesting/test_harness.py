@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Mapping
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -226,9 +226,7 @@ def test_cost_model_slippage_costs_returns() -> None:
     )
 
     assert taxed.transaction_costs.notna().any()
-    expected_costs = taxed.turnover * (
-        (model.bps_per_trade + model.slippage_bps) / 10000.0
-    )
+    expected_costs = taxed.turnover * ((model.bps_per_trade + model.slippage_bps) / 10000.0)
     expected_costs = expected_costs.reindex(taxed.transaction_costs.index).fillna(0.0)
     assert np.allclose(taxed.transaction_costs.values, expected_costs.values)
 
@@ -268,9 +266,7 @@ def test_turnover_cap_and_cost_drag_series() -> None:
         cost_model=model,
     )
 
-    cost_multiplier = (
-        model.effective_per_trade_bps + model.effective_half_spread_bps
-    ) / 10000.0
+    cost_multiplier = (model.effective_per_trade_bps + model.effective_half_spread_bps) / 10000.0
     expected_turnover = pd.Series([0.8, 0.4], index=result.turnover.index)
     pdt.assert_series_equal(result.turnover, expected_turnover)
 
@@ -325,9 +321,7 @@ def test_transaction_costs_drive_expected_drawdown() -> None:
         expected_drawdown.round(12),
         check_names=False,
     )
-    assert taxed.drawdown.loc[first_active] == pytest.approx(
-        expected_returns.loc[first_active]
-    )
+    assert taxed.drawdown.loc[first_active] == pytest.approx(expected_returns.loc[first_active])
 
 
 def test_min_trade_threshold_clamps_micro_churn() -> None:
@@ -767,9 +761,7 @@ def test_run_backtest_respects_initial_weights(monkeypatch: pytest.MonkeyPatch) 
 
     recorded_window: list[int] = []
 
-    def capture_sharpe(
-        series: pd.Series, periods_per_year: int, window: int
-    ) -> pd.Series:
+    def capture_sharpe(series: pd.Series, periods_per_year: int, window: int) -> pd.Series:
         recorded_window.append(window)
         return pd.Series(0.0, index=series.index)
 

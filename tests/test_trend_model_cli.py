@@ -14,9 +14,7 @@ def test_load_configuration_missing_file(tmp_path: Path) -> None:
         cli._load_configuration(str(tmp_path / "absent.yml"))
 
 
-def test_load_configuration_with_toml(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_configuration_with_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text("[section]\nvalue = 1\n", encoding="utf-8")
 
@@ -41,9 +39,7 @@ def test_load_configuration_with_toml(
     assert Path.cwd() == original_cwd
 
 
-def test_load_configuration_with_yaml(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_configuration_with_yaml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text("config: true", encoding="utf-8")
 
@@ -78,9 +74,7 @@ def test_run_requires_artefacts_when_formats_supplied(tmp_path: Path) -> None:
     assert exc.value.code == 2
 
 
-def test_load_toml_payload_requires_table(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_toml_payload_requires_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload_path = tmp_path / "broken.toml"
     payload_path.write_text("ignored = true", encoding="utf-8")
 
@@ -91,9 +85,7 @@ def test_load_toml_payload_requires_table(
         cli._load_toml_payload(payload_path)
 
 
-def test_load_toml_payload_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_toml_payload_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload_path = tmp_path / "config.toml"
     payload_path.write_text("value = 1", encoding="utf-8")
 
@@ -225,9 +217,7 @@ def test_run_pdf_flag_requires_bytes(
     cfg_path.write_text("cfg", encoding="utf-8")
 
     monkeypatch.setattr(cli, "_load_configuration", lambda path: (Path(path), {}))
-    monkeypatch.setattr(
-        cli, "_resolve_returns_path", lambda *_: tmp_path / "returns.csv"
-    )
+    monkeypatch.setattr(cli, "_resolve_returns_path", lambda *_: tmp_path / "returns.csv")
     monkeypatch.setattr(cli, "_ensure_dataframe", lambda *_: pd.DataFrame({"v": [1]}))
     monkeypatch.setattr(cli, "_determine_seed", lambda *_: None)
     monkeypatch.setattr(

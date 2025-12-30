@@ -6,9 +6,10 @@ import hashlib
 import importlib
 import importlib.metadata as importlib_metadata
 import warnings
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -20,7 +21,7 @@ _DEFAULT_MEMBERSHIP_PATH = _ROOT / "data" / "Trend Universe Membership.csv"
 
 
 def _marker(label: str, state: str) -> bytes:
-    return f"<<{label.upper()}:{state.upper()}>>".encode("utf-8")
+    return f"<<{label.upper()}:{state.upper()}>>".encode()
 
 
 def _coerce_series(obj: Any) -> pd.Series:
@@ -75,9 +76,7 @@ def compute_universe_fingerprint(
 ) -> str:
     """Return a short hash describing the current dataset inputs."""
 
-    data_bytes, data_warning = _read_bytes(
-        Path(data_path) if data_path else None, label="data"
-    )
+    data_bytes, data_warning = _read_bytes(Path(data_path) if data_path else None, label="data")
     membership_bytes, membership_warning = _normalise_membership(
         Path(membership_path) if membership_path else None,
         membership_columns,
@@ -124,9 +123,7 @@ def build_metadata(
     """Return a metadata dictionary capturing run context."""
 
     universe_members = sorted({str(member) for member in universe})
-    selected_members = (
-        [str(member) for member in selected] if selected is not None else []
-    )
+    selected_members = [str(member) for member in selected] if selected is not None else []
     lookbacks_payload = {
         "in_sample": {
             "start": lookbacks.get("in_start"),
@@ -180,7 +177,7 @@ class Results:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any]) -> "Results":
+    def from_payload(cls, payload: Mapping[str, Any]) -> Results:
         """Build :class:`Results` from a pipeline result mapping."""
 
         metadata = dict(payload.get("metadata", {}))
@@ -208,13 +205,9 @@ class Results:
         costs = metadata.get("costs")
         if not isinstance(costs, Mapping):
             turnover_value = (
-                risk_diag.get("turnover_value")
-                if isinstance(risk_diag, Mapping)
-                else None
+                risk_diag.get("turnover_value") if isinstance(risk_diag, Mapping) else None
             )
-            costs = (
-                {"turnover_applied": float(turnover_value)} if turnover_value else {}
-            )
+            costs = {"turnover_applied": float(turnover_value)} if turnover_value else {}
 
         return cls(
             returns=returns_series,

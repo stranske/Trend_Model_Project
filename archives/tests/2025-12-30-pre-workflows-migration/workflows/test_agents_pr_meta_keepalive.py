@@ -19,9 +19,7 @@ def _require_node() -> None:
 def _run_scenario(name: str) -> dict:
     _require_node()
     scenario_path = FIXTURES_DIR / f"{name}.json"
-    assert (
-        scenario_path.exists()
-    ), f"Scenario fixture missing: {scenario_path}"  # pragma: no cover
+    assert scenario_path.exists(), f"Scenario fixture missing: {scenario_path}"  # pragma: no cover
     command = ["node", str(HARNESS), str(scenario_path)]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -31,9 +29,7 @@ def _run_scenario(name: str) -> dict:
         )
     try:
         return json.loads(result.stdout or "{}")
-    except (
-        json.JSONDecodeError
-    ) as exc:  # pragma: no cover - harness should return valid JSON
+    except json.JSONDecodeError as exc:  # pragma: no cover - harness should return valid JSON
         pytest.fail(f"Invalid harness output: {exc}: {result.stdout}")
 
 

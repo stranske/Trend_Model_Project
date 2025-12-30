@@ -64,9 +64,7 @@ def demonstrate_usage_examples():
 
     print("\n   Command line usage:")
     print("   python -m trend_analysis.proxy")
-    print(
-        "   python -m trend_analysis.proxy --streamlit-host localhost --streamlit-port 8501"
-    )
+    print("   python -m trend_analysis.proxy --streamlit-host localhost --streamlit-port 8501")
 
     print("\n   Programmatic usage:")
     print("   from trend_analysis.proxy import StreamlitProxy")
@@ -110,9 +108,7 @@ def main():
     print("pip install fastapi uvicorn httpx websockets")
     print("python -m trend_analysis.proxy")
 
-    print(
-        "\n✅ The proxy implementation successfully solves the WebSocket handling issue!"
-    )
+    print("\n✅ The proxy implementation successfully solves the WebSocket handling issue!")
     return 0
 
 

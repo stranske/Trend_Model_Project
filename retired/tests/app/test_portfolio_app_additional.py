@@ -48,9 +48,7 @@ def test_pipeline_proxy_uses_package_attribute(monkeypatch):
     monkeypatch.setitem(sys.modules, "trend_analysis.pipeline", module)
     pkg_module = SimpleNamespace(run=lambda cfg: "package")
     monkeypatch.setattr(app, "_trend_pkg", SimpleNamespace(pipeline=pkg_module))
-    monkeypatch.setattr(
-        app, "_resolve_pipeline", lambda fresh=False, simple=False: module
-    )
+    monkeypatch.setattr(app, "_resolve_pipeline", lambda fresh=False, simple=False: module)
     monkeypatch.setattr(gc, "get_objects", lambda: [])
 
     result = app.pipeline.run(object())
@@ -336,7 +334,7 @@ class StubStreamlit:
         def __exit__(self, exc_type, exc, tb) -> bool:
             return False
 
-    def spinner(self, message: str) -> "StubStreamlit._Spinner":
+    def spinner(self, message: str) -> StubStreamlit._Spinner:
         return StubStreamlit._Spinner()
 
     def dataframe(self, df: pd.DataFrame, **_: object) -> None:
@@ -367,9 +365,7 @@ class StubStreamlit:
 def test_render_run_section_success(monkeypatch):
     stub = StubStreamlit()
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(
-        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
-    )
+    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
 
     summary_df = pd.DataFrame({"Sharpe": [0.8], "CAGR": [0.12]})
@@ -409,9 +405,7 @@ def test_render_run_section_success(monkeypatch):
 def test_render_run_section_failure_message(monkeypatch):
     stub = StubStreamlit()
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(
-        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
-    )
+    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
     monkeypatch.setattr(app, "_summarise_run_df", lambda *_: None)
     monkeypatch.setattr(app.pipeline, "run", lambda cfg: None)
@@ -433,9 +427,7 @@ def test_render_run_section_uses_dataframe_fallback(monkeypatch):
     stub.line_chart = "not-callable"
     stub.bar_chart = "not-callable"
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(
-        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
-    )
+    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
 
     summary_df = pd.DataFrame({"Sharpe": [0.8]})
@@ -460,9 +452,7 @@ def test_render_run_section_uses_dataframe_fallback(monkeypatch):
 def test_render_run_section_logs_info_on_partial_results(monkeypatch):
     stub = StubStreamlit()
     monkeypatch.setattr(app, "st", stub)
-    monkeypatch.setattr(
-        app, "_columns", lambda spec: [app._NullContext(), app._NullContext()]
-    )
+    monkeypatch.setattr(app, "_columns", lambda spec: [app._NullContext(), app._NullContext()])
     monkeypatch.setattr(app, "_build_cfg", lambda cfg: cfg)
 
     summary_df = pd.DataFrame({"Sharpe": [0.8]})

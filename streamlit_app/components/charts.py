@@ -81,9 +81,7 @@ def turnover_chart(turnover: pd.Series) -> alt.Chart:
 
 def exposure_chart(weights: pd.DataFrame | pd.Series) -> alt.Chart:
     if weights is None:
-        return alt.Chart(
-            pd.DataFrame(columns=["Date", "Manager", "Weight"])
-        ).mark_line()
+        return alt.Chart(pd.DataFrame(columns=["Date", "Manager", "Weight"])).mark_line()
 
     if isinstance(weights, pd.Series):
         frame = pd.DataFrame({"Manager": weights.index, "Weight": weights.values})
@@ -101,15 +99,11 @@ def exposure_chart(weights: pd.DataFrame | pd.Series) -> alt.Chart:
         )
 
     if weights.empty:
-        return alt.Chart(
-            pd.DataFrame(columns=["Date", "Manager", "Weight"])
-        ).mark_line()
+        return alt.Chart(pd.DataFrame(columns=["Date", "Manager", "Weight"])).mark_line()
 
     frame = weights.copy()
     frame.index = pd.to_datetime(frame.index, errors="coerce")
-    frame = frame.reset_index().melt(
-        id_vars="index", var_name="Manager", value_name="Weight"
-    )
+    frame = frame.reset_index().melt(id_vars="index", var_name="Manager", value_name="Weight")
     frame = frame.rename(columns={"index": "Date"}).dropna(subset=["Date"])
 
     return (

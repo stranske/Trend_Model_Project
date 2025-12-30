@@ -5,8 +5,9 @@ import dataclasses
 import datetime as dt
 import json
 import os
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
 
 import yaml
 
@@ -17,7 +18,7 @@ class QuarantineRecord:
 
     identifier: str
     expires: dt.date
-    raw: Dict[str, Any]
+    raw: dict[str, Any]
 
 
 @dataclasses.dataclass
@@ -25,17 +26,15 @@ class ValidationReport:
     """Structured outcome of the TTL validation."""
 
     total_entries: int
-    expired: List[QuarantineRecord]
-    invalid: List[str]
+    expired: list[QuarantineRecord]
+    invalid: list[str]
 
     @property
     def ok(self) -> bool:
         return not self.expired and not self.invalid
 
 
-def _parse_date(
-    raw_value: Any, *, entry_id: str
-) -> Tuple[Optional[dt.date], Optional[str]]:
+def _parse_date(raw_value: Any, *, entry_id: str) -> tuple[dt.date | None, str | None]:
     if raw_value is None:
         return None, f"Entry `{entry_id or '<missing id>'}` has no expires field."
     if isinstance(raw_value, dt.date):
@@ -54,12 +53,12 @@ def _parse_date(
     )
 
 
-def load_records(path: Path) -> Tuple[List[QuarantineRecord], List[str]]:
+def load_records(path: Path) -> tuple[list[QuarantineRecord], list[str]]:
     if not path.exists():
         return [], []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    records: List[QuarantineRecord] = []
-    invalid: List[str] = []
+    records: list[QuarantineRecord] = []
+    invalid: list[str] = []
     for entry in data.get("tests", []) or []:
         if not isinstance(entry, dict):
             invalid.append("Non-mapping entry in quarantine list.")
@@ -76,21 +75,19 @@ def load_records(path: Path) -> Tuple[List[QuarantineRecord], List[str]]:
         if not isinstance(expires, dt.date):
             invalid.append(f"Entry `{identifier}` missing valid expires date.")
             continue
-        records.append(
-            QuarantineRecord(identifier=identifier, expires=expires, raw=entry)
-        )
+        records.append(QuarantineRecord(identifier=identifier, expires=expires, raw=entry))
     return records, invalid
 
 
 def evaluate_records(
     records: Iterable[QuarantineRecord],
     *,
-    today: Optional[dt.date] = None,
-    additional_invalid: Optional[Sequence[str]] = None,
+    today: dt.date | None = None,
+    additional_invalid: Sequence[str] | None = None,
 ) -> ValidationReport:
     today = today or dt.date.today()
-    expired: List[QuarantineRecord] = []
-    invalid: List[str] = list(additional_invalid or [])
+    expired: list[QuarantineRecord] = []
+    invalid: list[str] = list(additional_invalid or [])
     total = 0
 
     for record in records:
@@ -110,9 +107,7 @@ def build_summary(report: ValidationReport) -> str:
         if report.expired:
             lines.append("- ❌ Expired quarantines detected:")
             for record in report.expired:
-                lines.append(
-                    f"  - `{record.identifier}` expired on {record.expires.isoformat()}"
-                )
+                lines.append(f"  - `{record.identifier}` expired on {record.expires.isoformat()}")
         if report.invalid:
             lines.append("- ⚠️ Entries with invalid TTL data:")
             for identifier in report.invalid:
@@ -135,7 +130,7 @@ def emit_json(report: ValidationReport) -> str:
     )
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate quarantine TTLs")
     parser.add_argument(
         "path",

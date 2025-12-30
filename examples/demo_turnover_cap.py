@@ -18,7 +18,6 @@ from __future__ import annotations
 import sys
 import warnings
 from pathlib import Path
-from typing import List
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "demo.yml"
 
@@ -31,7 +30,7 @@ def _warn() -> None:
     )
 
 
-def main(argv: List[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     _warn()
     try:
         from trend_analysis.cli import main as trend_main

@@ -3,9 +3,9 @@ from __future__ import annotations
 import importlib
 import inspect
 import sys
+from collections.abc import Callable
 from importlib import metadata
 from types import ModuleType
-from typing import Callable
 
 import pytest
 
@@ -142,9 +142,7 @@ def test_patch_dataclasses_module_guard_reimports_missing_module(
     dataclass_module = ModuleType(sentinel_name)
     sys.modules[sentinel_name] = dataclass_module
 
-    dataclass_type = _make_dataclass_with_module(
-        "Synth", [("value", int)], sentinel_name
-    )
+    dataclass_type = _make_dataclass_with_module("Synth", [("value", int)], sentinel_name)
     sys.modules.pop(sentinel_name)
 
     call_order: list[ModuleType | None] = []
@@ -188,7 +186,7 @@ def test_lazy_attribute_loader_imports_once(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delitem(trend_analysis.__dict__, "proxy", raising=False)
     monkeypatch.delitem(sys.modules, "trend_analysis.proxy", raising=False)
 
-    proxy_module = getattr(trend_analysis, "proxy")
+    proxy_module = trend_analysis.proxy
     assert proxy_module is sys.modules["trend_analysis.proxy"]
     assert trend_analysis.proxy is proxy_module
 
@@ -227,9 +225,7 @@ def test_patch_guard_propagates_when_module_name_missing(
 ) -> None:
     import dataclasses
 
-    dataclass_type = _make_dataclass_with_module(
-        "Nameless", [("value", int)], "tests.nameless"
-    )
+    dataclass_type = _make_dataclass_with_module("Nameless", [("value", int)], "tests.nameless")
     dataclass_type.__module__ = ""
 
     def _probe(*_: object) -> bool:
@@ -252,9 +248,7 @@ def test_patch_guard_retries_when_module_already_loaded(
     module = ModuleType(sentinel_name)
     sys.modules[sentinel_name] = module
 
-    dataclass_type = _make_dataclass_with_module(
-        "Preloaded", [("value", int)], sentinel_name
-    )
+    dataclass_type = _make_dataclass_with_module("Preloaded", [("value", int)], sentinel_name)
 
     call_counter = {"count": 0}
 
@@ -307,9 +301,7 @@ def test_conditional_exports_omitted_when_dependencies_fail(
     monkeypatch.delitem(sys.modules, "trend_analysis.export", raising=False)
     monkeypatch.delitem(trend_analysis.__dict__, "data", raising=False)
     monkeypatch.delitem(trend_analysis.__dict__, "export", raising=False)
-    monkeypatch.delitem(
-        trend_analysis.__dict__, "identify_risk_free_fund", raising=False
-    )
+    monkeypatch.delitem(trend_analysis.__dict__, "identify_risk_free_fund", raising=False)
     monkeypatch.delitem(trend_analysis.__dict__, "export_data", raising=False)
 
     module = reload_trend_analysis()

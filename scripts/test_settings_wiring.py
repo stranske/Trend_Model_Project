@@ -620,8 +620,7 @@ def _build_config_from_state(
     weights = {name: weight / total for name, weight in weights.items()}
 
     registry_weights = {
-        METRIC_REGISTRY.get(metric, metric): float(weight)
-        for metric, weight in weights.items()
+        METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
 
     # Build sample_split
@@ -630,12 +629,8 @@ def _build_config_from_state(
     period_to_months = {"M": 1, "Q": 3, "A": 12}
     months_per_period = period_to_months.get(frequency, 12)
 
-    lookback_periods = _coerce_positive_int(
-        state.get("lookback_periods"), default=3, minimum=1
-    )
-    evaluation_periods = _coerce_positive_int(
-        state.get("evaluation_periods"), default=1, minimum=1
-    )
+    lookback_periods = _coerce_positive_int(state.get("lookback_periods"), default=3, minimum=1)
+    evaluation_periods = _coerce_positive_int(state.get("evaluation_periods"), default=1, minimum=1)
     lookback_months = lookback_periods * months_per_period
     evaluation_months = evaluation_periods * months_per_period
 
@@ -659,9 +654,7 @@ def _build_config_from_state(
     }
 
     # Build portfolio config
-    selection_count = _coerce_positive_int(
-        state.get("selection_count"), default=10, minimum=1
-    )
+    selection_count = _coerce_positive_int(state.get("selection_count"), default=10, minimum=1)
     weighting_scheme = str(state.get("weighting_scheme", "equal") or "equal")
     max_weight = _coerce_positive_float(state.get("max_weight"), default=0.20)
     max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
@@ -669,9 +662,7 @@ def _build_config_from_state(
         state.get("transaction_cost_bps"), default=0, minimum=0
     )
     rebalance_freq = str(state.get("rebalance_freq", "M") or "M")
-    min_tenure_periods = _coerce_positive_int(
-        state.get("min_tenure_periods"), default=0, minimum=0
-    )
+    min_tenure_periods = _coerce_positive_int(state.get("min_tenure_periods"), default=0, minimum=0)
     max_changes_per_period = _coerce_positive_int(
         state.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -756,16 +747,12 @@ def _build_config_from_state(
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight"] = min_weight_val
 
-    min_weight_strikes = _coerce_positive_int(
-        state.get("min_weight_strikes"), default=0, minimum=0
-    )
+    min_weight_strikes = _coerce_positive_int(state.get("min_weight_strikes"), default=0, minimum=0)
     if min_weight_strikes > 0:
         portfolio_cfg.setdefault("constraints", {})
         portfolio_cfg["constraints"]["min_weight_strikes"] = min_weight_strikes
 
-    cooldown_periods = _coerce_positive_int(
-        state.get("cooldown_periods"), default=0, minimum=0
-    )
+    cooldown_periods = _coerce_positive_int(state.get("cooldown_periods"), default=0, minimum=0)
     if cooldown_periods > 0:
         portfolio_cfg["cooldown_periods"] = cooldown_periods
 
@@ -905,15 +892,11 @@ def _build_config_from_state(
     # Vol adjust config
     vol_target_cfg = _coerce_positive_float(state.get("risk_target"), default=0.1)
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
-    warmup_periods_cfg = _coerce_positive_int(
-        state.get("warmup_periods"), default=0, minimum=0
-    )
+    warmup_periods_cfg = _coerce_positive_int(state.get("warmup_periods"), default=0, minimum=0)
 
     # Robustness
     shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
-    shrinkage_method = str(
-        state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf"
-    )
+    shrinkage_method = str(state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
     condition_threshold = float(state.get("condition_threshold", 1.0e12) or 1.0e12)
     safe_mode = str(state.get("safe_mode", "hrp") or "hrp")
 
@@ -1015,9 +998,7 @@ def extract_metric(
         if result.turnover is not None:
             return float(result.turnover.mean()) if len(result.turnover) > 0 else 0.0
         if result.period_results:
-            turnovers = [
-                p.get("turnover", 0.0) for p in result.period_results if "turnover" in p
-            ]
+            turnovers = [p.get("turnover", 0.0) for p in result.period_results if "turnover" in p]
             return np.mean(turnovers) if turnovers else 0.0
         return 0.0
 
@@ -1101,9 +1082,7 @@ def extract_metric(
         hashable_data = {
             "weights": result.weights.to_dict() if result.weights is not None else {},
             "metrics_hash": (
-                str(result.metrics.values.tolist())[:100]
-                if result.metrics is not None
-                else ""
+                str(result.metrics.values.tolist())[:100] if result.metrics is not None else ""
             ),
         }
         hashable = json.dumps(hashable_data, sort_keys=True, default=str)
@@ -1178,9 +1157,7 @@ def run_single_test(
         test_result = run_analysis_with_state(returns, test_state)
 
         # Extract metrics
-        baseline_metric = extract_metric(
-            baseline_result, setting.expected_metric, baseline_state
-        )
+        baseline_metric = extract_metric(baseline_result, setting.expected_metric, baseline_state)
         test_metric = extract_metric(test_result, setting.expected_metric, test_state)
 
         # Check if metric changed
@@ -1394,9 +1371,7 @@ def main() -> int:
 
     # Generate report
     output_path = args.output or (
-        PROJECT_ROOT
-        / "reports"
-        / f"settings_validation_{datetime.now():%Y%m%d_%H%M%S}.csv"
+        PROJECT_ROOT / "reports" / f"settings_validation_{datetime.now():%Y%m%d_%H%M%S}.csv"
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     generate_report(results, output_path)

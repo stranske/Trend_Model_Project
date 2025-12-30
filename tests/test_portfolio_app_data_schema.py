@@ -51,9 +51,7 @@ def test_build_validation_report_flags_warnings(schema_module: Any) -> None:
     assert any("Missing-data policy" in warning for warning in report["warnings"])
 
 
-def test_build_meta_and_validate_df(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_build_meta_and_validate_df(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     raw = pd.DataFrame({"Date": ["2020-01-31"], "A": [1.0], "B": [2.0]})
     processed = raw.set_index("Date")
     validated = _dummy_validated(processed)
@@ -69,9 +67,7 @@ def test_build_meta_and_validate_df(
     assert meta["frequency"] == "Monthly"
 
 
-def test_load_and_validate_csv(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_load_and_validate_csv(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     csv_buffer = io.StringIO("Date,A,B\n2020-01-31,1.0,2.0\n")
     validated = _dummy_validated(pd.DataFrame({"A": [1.0], "B": [2.0]}))
     monkeypatch.setattr(
@@ -84,9 +80,7 @@ def test_load_and_validate_csv(
     assert not frame.empty and meta["symbols"] == ["A", "B"]
 
 
-def test_load_and_validate_excel(
-    monkeypatch: pytest.MonkeyPatch, schema_module: Any
-) -> None:
+def test_load_and_validate_excel(monkeypatch: pytest.MonkeyPatch, schema_module: Any) -> None:
     excel_buffer = io.BytesIO()
     excel_buffer.name = "data.xlsx"  # type: ignore[attr-defined]
 

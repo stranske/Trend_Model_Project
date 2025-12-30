@@ -237,6 +237,4 @@ st.markdown(
 if st.button("📂 Go to Data Upload", use_container_width=True):
     st.switch_page("pages/1_Data.py")
 
-st.caption(
-    "The Model page uses a different analysis pipeline with more configuration options."
-)
+st.caption("The Model page uses a different analysis pipeline with more configuration options.")

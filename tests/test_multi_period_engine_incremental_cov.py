@@ -120,9 +120,7 @@ def test_run_incremental_covariance_coerces_non_positive_shift_steps(
     """Non-positive shift step settings should coerce to at least one step."""
 
     cfg = _Cfg()
-    cfg.performance["shift_detection_max_steps"] = (
-        non_positive_value  # force coercion branch
-    )
+    cfg.performance["shift_detection_max_steps"] = non_positive_value  # force coercion branch
     df = _make_df()
     periods = _make_periods()
 
@@ -584,11 +582,7 @@ def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch
     monkeypatch.setattr(
         cache_mod,
         "CovCache",
-        property(
-            lambda self: (_ for _ in ()).throw(
-                ImportError("No module named 'CovCache'")
-            )
-        ),
+        property(lambda self: (_ for _ in ()).throw(ImportError("No module named 'CovCache'"))),
     )
 
     results = mp_engine.run(cfg, df=df)

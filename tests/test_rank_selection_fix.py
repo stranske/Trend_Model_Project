@@ -18,9 +18,7 @@ def test_rank_selection_sorts_correctly():
     cfg = RiskStatsConfig()
 
     # Select top 2 by Sharpe - should get Mgr_03 and Mgr_04
-    selected = rank_select_funds(
-        df, cfg, inclusion_approach="top_n", n=2, score_by="Sharpe"
-    )
+    selected = rank_select_funds(df, cfg, inclusion_approach="top_n", n=2, score_by="Sharpe")
 
     # Verify we get actual top performers, not just first 2 columns
     assert len(selected) == 2
@@ -42,9 +40,7 @@ def test_rank_selection_ascending_metric():
     df = pd.DataFrame(data)
     cfg = RiskStatsConfig()
 
-    selected = rank_select_funds(
-        df, cfg, inclusion_approach="top_n", n=2, score_by="MaxDrawdown"
-    )
+    selected = rank_select_funds(df, cfg, inclusion_approach="top_n", n=2, score_by="MaxDrawdown")
 
     # Should select funds with lowest (best) drawdowns
     assert len(selected) == 2

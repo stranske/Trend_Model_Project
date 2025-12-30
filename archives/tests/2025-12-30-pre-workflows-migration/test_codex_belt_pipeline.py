@@ -39,9 +39,7 @@ def _load_workflow(slug: str) -> dict[str, Any]:
     path = WORKFLOW_ROOT / slug
     raw = path.read_text(encoding="utf-8")
     data = yaml.safe_load(raw) or {}
-    assert isinstance(
-        data, dict
-    ), f"Workflow {slug} should load into a mapping structure"
+    assert isinstance(data, dict), f"Workflow {slug} should load into a mapping structure"
     return _normalise_keys(data)
 
 
@@ -78,9 +76,7 @@ def test_dispatcher_is_reusable_only_and_exposes_worker_context():
 
     outputs = dispatch_job.get("outputs") or {}
     for key in {"issue", "branch", "base", "reason", "dry_run"}:
-        assert (
-            key in outputs
-        ), f"Dispatcher must expose '{key}' output for orchestrator hand-off"
+        assert key in outputs, f"Dispatcher must expose '{key}' output for orchestrator hand-off"
 
 
 def test_worker_keeps_concurrency_and_pat_guard():
@@ -102,9 +98,7 @@ def test_worker_keeps_concurrency_and_pat_guard():
     assert steps, "Worker bootstrap job must define steps"
     guard = steps[0]
     assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
-    assert _step_runs_command(
-        guard, "ACTIONS_BOT_PAT secret is required for worker actions."
-    )
+    assert _step_runs_command(guard, "ACTIONS_BOT_PAT secret is required for worker actions.")
 
 
 def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
@@ -123,9 +117,7 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
 
     guard = steps[0]
     assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
-    assert _step_runs_command(
-        guard, "ACTIONS_BOT_PAT secret is required for conveyor actions."
-    )
+    assert _step_runs_command(guard, "ACTIONS_BOT_PAT secret is required for conveyor actions.")
 
     gate_steps = [step for step in steps if step.get("name") == "Ensure Gate succeeded"]
     assert gate_steps, "Conveyor must verify Gate success before merging"
@@ -133,9 +125,7 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     assert "getCombinedStatusForRef" in gate_script
     assert "conveyor requires success" in gate_script
 
-    redispatch_steps = [
-        step for step in steps if step.get("name") == "Re-dispatch dispatcher"
-    ]
+    redispatch_steps = [step for step in steps if step.get("name") == "Re-dispatch dispatcher"]
     assert redispatch_steps, "Conveyor must re-trigger the dispatcher"
     redispatch = redispatch_steps[0]
     script = (redispatch.get("with") or {}).get("script", "")

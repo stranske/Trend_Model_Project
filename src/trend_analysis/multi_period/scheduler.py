@@ -7,7 +7,7 @@ and year-end periods.
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -37,7 +37,7 @@ FREQ_MAP = {
 }
 
 
-def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
+def generate_periods(cfg: dict[str, Any]) -> list[PeriodTuple]:
     """Return a list of PeriodTuple driven by ``cfg["multi_period"]``.
 
     • Clock jumps forward by the out‑of‑sample window length
@@ -48,7 +48,7 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     For example, start="2003-07" with annual frequency will produce periods
     starting in July each year, not January.
     """
-    mp = cast(Dict[str, Any], cfg.get("multi_period", {}))
+    mp = cast(dict[str, Any], cfg.get("multi_period", {}))
 
     freq_str = str(mp["frequency"]).upper()
     in_len = int(mp["in_sample_len"])
@@ -80,7 +80,7 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     start_mode = str(mp.get("start_mode", "in") or "in").lower()
     start_is_oos = start_mode in {"oos", "out", "out_sample", "out-of-sample"}
 
-    periods: List[PeriodTuple] = []
+    periods: list[PeriodTuple] = []
 
     # Work in month periods to avoid off-by-one month-end math.
     end_period = end_date.to_period("M")

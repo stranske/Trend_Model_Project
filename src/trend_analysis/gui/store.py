@@ -20,7 +20,7 @@ class ParamStore:
         return self.cfg
 
     @classmethod
-    def from_yaml(cls, path: Path) -> "ParamStore":
+    def from_yaml(cls, path: Path) -> ParamStore:
         return cls(cfg=yaml.safe_load(path.read_text()))
 
 

@@ -218,9 +218,7 @@ def test_results_page_recomputes_when_benchmark_changes(
         "turnover_chart",
         "exposure_chart",
     ]:
-        monkeypatch.setattr(
-            getattr(page, "charts"), chart, lambda *_args, chart_name=chart: chart_name
-        )
+        monkeypatch.setattr(page.charts, chart, lambda *_args, chart_name=chart: chart_name)
 
     monkeypatch.setattr(page.analysis_runner, "run_analysis", fake_run)
 

@@ -15,9 +15,7 @@ LEGACY_COMMENT_WRAPPERS = (
     "selftest-pr-comment.yml",
 )
 
-LEGACY_COMMENT_WRAPPER_STEMS = tuple(
-    pathlib.Path(name).stem for name in LEGACY_COMMENT_WRAPPERS
-)
+LEGACY_COMMENT_WRAPPER_STEMS = tuple(pathlib.Path(name).stem for name in LEGACY_COMMENT_WRAPPERS)
 
 
 def _normalize(text: str) -> str:
@@ -57,9 +55,7 @@ def _resolve_triggers(data: dict) -> dict:
 def test_selftest_workflow_inventory() -> None:
     """Selftest: Reusables should be the only active workflow."""
 
-    selftest_workflows = sorted(
-        path.name for path in WORKFLOW_DIR.glob("*selftest*.yml")
-    )
+    selftest_workflows = sorted(path.name for path in WORKFLOW_DIR.glob("*selftest*.yml"))
     expected = [SELFTEST_WORKFLOW_NAME]
     assert (
         selftest_workflows == expected
@@ -181,9 +177,7 @@ def test_selftest_runner_inputs_cover_variants() -> None:
         field_name: str, expected_options: list[str], *, default: str | None
     ) -> None:
         field = inputs.get(field_name)
-        assert (
-            field is not None
-        ), f"Missing `{field_name}` input on {SELFTEST_WORKFLOW_NAME}."
+        assert field is not None, f"Missing `{field_name}` input on {SELFTEST_WORKFLOW_NAME}."
         assert (
             field.get("type", "choice") == "choice"
         ), f"`{field_name}` should remain a choice input."
@@ -348,9 +342,7 @@ def test_selftest_runner_jobs_contract() -> None:
     assert (
         "'[\"3.11\"]'" in aggregate_python
     ), "Aggregate job should fall back to the default 3.11 matrix."
-    assert env.get(
-        "RUN_REASON"
-    ), "Aggregate job should capture the run reason for summaries."
+    assert env.get("RUN_REASON"), "Aggregate job should capture the run reason for summaries."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
     ), "Aggregate job should capture the trigger event name."
@@ -386,9 +378,7 @@ def test_selftest_runner_jobs_contract() -> None:
         upload_with.get("path") == "selftest-report.json"
     ), "Self-test report upload path drifted; keep JSON summary name stable."
 
-    fail_step = _find_step(
-        lambda step: step.get("name") == "Fail on verification errors"
-    )
+    fail_step = _find_step(lambda step: step.get("name") == "Fail on verification errors")
     assert fail_step, "Aggregate job must fail when verification mismatches occur."
     assert (
         fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}"
@@ -424,9 +414,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     ), "publish needs pull request write access for comment mode."
 
     unexpected_permissions = sorted(
-        key
-        for key in permissions
-        if key not in {"contents", "actions", "pull-requests"}
+        key for key in permissions if key not in {"contents", "actions", "pull-requests"}
     )
     assert not unexpected_permissions, (
         "publish should not request extra permissions: " f"{unexpected_permissions}."
@@ -448,9 +436,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     }
     env = publish.get("env", {})
     missing_env = sorted(required_env - set(env))
-    assert not missing_env, (
-        "publish env block drifted; missing keys: " f"{missing_env}."
-    )
+    assert not missing_env, "publish env block drifted; missing keys: " f"{missing_env}."
 
     steps = publish.get("steps", [])
 
@@ -463,8 +449,7 @@ def test_selftest_runner_publish_job_contract() -> None:
         download_step.get("uses") == "actions/download-artifact@v4"
     ), "Download step should use actions/download-artifact@v4."
     assert (
-        download_step.get("if")
-        == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
+        download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
     ), "Download step must guard on enable_history input and aggregate run id."
     download_with = download_step.get("with", {})
     assert (
@@ -499,9 +484,7 @@ def test_selftest_runner_publish_job_contract() -> None:
         "Self-test reported",
         "Self-test matrix completed with status",
     ):
-        assert (
-            snippet in comment_script
-        ), f"Comment finalizer guard should mention '{snippet}'."
+        assert snippet in comment_script, f"Comment finalizer guard should mention '{snippet}'."
 
 
 def test_selftest_triggers_are_manual_only() -> None:
@@ -582,9 +565,7 @@ def test_selftest_dispatch_reason_input() -> None:
     if isinstance(triggers_raw, dict):
         workflow_dispatch = triggers_raw.get("workflow_dispatch", {})
     else:
-        raise AssertionError(
-            "Selftest workflow must declare workflow_dispatch as a mapping"
-        )
+        raise AssertionError("Selftest workflow must declare workflow_dispatch as a mapping")
 
     inputs = workflow_dispatch.get("inputs", {})
     assert "reason" in inputs, "Selftest workflow dispatch is missing a reason input."
@@ -607,9 +588,7 @@ def test_selftest_dispatch_reason_input() -> None:
 
 
 def test_archived_selftest_inventory() -> None:
-    archived_workflows = sorted(
-        path.name for path in ARCHIVE_DIR.glob("*selftest*.yml")
-    )
+    archived_workflows = sorted(path.name for path in ARCHIVE_DIR.glob("*selftest*.yml"))
     assert not archived_workflows, (
         "Self-test archives should no longer live on disk. "
         "Remove duplicates under Old/workflows/ and retrieve historical YAML from git history when needed."
@@ -663,12 +642,8 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     ), "Aggregate job should always run to summarise results"
 
     permissions = aggregate_job.get("permissions", {})
-    assert (
-        permissions.get("actions") == "read"
-    ), "Aggregate job must read workflow artifacts"
-    assert (
-        permissions.get("contents") == "read"
-    ), "Aggregate job must read repository contents"
+    assert permissions.get("actions") == "read", "Aggregate job must read workflow artifacts"
+    assert permissions.get("contents") == "read", "Aggregate job must read repository contents"
 
     env = aggregate_job.get("env", {})
     aggregate_list = env.get("SCENARIO_LIST", "")
@@ -684,9 +659,7 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
 
     steps = aggregate_job.get("steps", [])
     verify_step = next((step for step in steps if step.get("id") == "verify"), None)
-    assert (
-        verify_step is not None
-    ), "Aggregate job must include the github-script verification step"
+    assert verify_step is not None, "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
     assert (
         verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}"

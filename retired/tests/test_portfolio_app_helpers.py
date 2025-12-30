@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest import mock
 
 import pandas as pd
@@ -12,7 +12,7 @@ import pytest
 import yaml
 
 
-def load_helper_namespace() -> Dict[str, Any]:
+def load_helper_namespace() -> dict[str, Any]:
     """Import the helper portion of ``app.py`` and return its globals, mocking
     Streamlit."""
     with mock.patch.dict("sys.modules", {"streamlit": mock.MagicMock()}):
@@ -23,12 +23,10 @@ def load_helper_namespace() -> Dict[str, Any]:
         assert module is not None
         loader = spec.loader
         assert loader is not None
-        if hasattr(loader, "exec_module") and callable(getattr(loader, "exec_module")):
+        if hasattr(loader, "exec_module") and callable(loader.exec_module):
             loader.exec_module(module)
         else:
-            raise TypeError(
-                f"Loader {type(loader)} does not have an exec_module method"
-            )
+            raise TypeError(f"Loader {type(loader)} does not have an exec_module method")
         return module.__dict__
 
 

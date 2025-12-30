@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Callable
 from types import ModuleType, SimpleNamespace
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -404,9 +405,7 @@ def test_render_run_section_multi_period(
     assert "ew_sharpe" in fake_st.dataframes[-1]
 
 
-def test_app_helper_utilities(
-    monkeypatch: pytest.MonkeyPatch, load_app: ModuleType
-) -> None:
+def test_app_helper_utilities(monkeypatch: pytest.MonkeyPatch, load_app: ModuleType) -> None:
     """Exercise lower-level helper functions for additional coverage."""
 
     module = load_app

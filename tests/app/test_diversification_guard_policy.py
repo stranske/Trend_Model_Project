@@ -29,7 +29,7 @@ def test_diversification_guard_limits_per_bucket():
         metrics=[MetricSpec("sharpe", 1.0)],
     )
     cd = CooldownBook()
-    elig = {m: 24 for m in sf.index}
+    elig = dict.fromkeys(sf.index, 24)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-12-31"),

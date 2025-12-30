@@ -12,14 +12,10 @@ import pytest
 
 
 def _load_configure_module(fake_streamlit: Any):
-    module_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "2_Model.py"
-    )
+    module_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "2_Model.py"
     if not module_path.exists():
         pytest.skip("2_Model.py page does not exist")
-    spec = importlib.util.spec_from_file_location(
-        "streamlit_configure_page", module_path
-    )
+    spec = importlib.util.spec_from_file_location("streamlit_configure_page", module_path)
     if spec is None or spec.loader is None:  # pragma: no cover - sanity guard
         raise AssertionError("Unable to load configure page module")
     module = importlib.util.module_from_spec(spec)
@@ -48,9 +44,7 @@ def _make_streamlit_stub() -> Any:
     stub.button = lambda *_args, **_kwargs: False
     stub.divider = _noop
     stub.json = _noop
-    stub.expander = lambda *_args, **_kwargs: SimpleNamespace(
-        __enter__=_noop, __exit__=_noop
-    )
+    stub.expander = lambda *_args, **_kwargs: SimpleNamespace(__enter__=_noop, __exit__=_noop)
     return stub
 
 

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from .logging_setup import setup_logging
 

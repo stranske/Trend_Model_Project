@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -127,9 +128,7 @@ def apply_constraints(
     if constraints.long_only:
         w = w.clip(lower=0)
         if w.sum() == 0:
-            raise ConstraintViolation(
-                "All weights non-positive under long-only constraint"
-            )
+            raise ConstraintViolation("All weights non-positive under long-only constraint")
     w /= w.sum()
 
     total_allocation = float(w.sum())
@@ -166,22 +165,16 @@ def apply_constraints(
     if constraints.group_caps:
         if not constraints.groups:
             raise ConstraintViolation("Group mapping required when group_caps set")
-        missing_assets = [
-            asset for asset in working.index if asset not in constraints.groups
-        ]
+        missing_assets = [asset for asset in working.index if asset not in constraints.groups]
         if missing_assets:
-            raise KeyError(
-                f"Missing group mapping for assets: {', '.join(missing_assets)}"
-            )
+            raise KeyError(f"Missing group mapping for assets: {', '.join(missing_assets)}")
         group_mapping = {asset: constraints.groups[asset] for asset in working.index}
         working = _apply_group_caps(
             working, constraints.group_caps, group_mapping, total=total_allocation
         )
         # max weight may have been violated again
         if constraints.max_weight is not None:
-            working = _apply_cap(
-                working, constraints.max_weight, total=total_allocation
-            )
+            working = _apply_cap(working, constraints.max_weight, total=total_allocation)
 
     if cash_weight is not None:
         result = working.copy()

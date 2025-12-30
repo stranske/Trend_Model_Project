@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, Tuple
 
 import pandas as pd
 
@@ -24,7 +24,7 @@ class MetricCacheEntry:
 
 class MetricCache:
     def __init__(self) -> None:
-        self._store: Dict[str, MetricCacheEntry] = {}
+        self._store: dict[str, MetricCacheEntry] = {}
         self.hits: int = 0
         self.misses: int = 0
 
@@ -60,7 +60,7 @@ class MetricCache:
 global_metric_cache = MetricCache()
 
 
-def _hash_parts(parts: Tuple[str, ...]) -> str:
+def _hash_parts(parts: tuple[str, ...]) -> str:
     h = hashlib.sha1()
     for p in parts:
         h.update(p.encode("utf-8"))
@@ -71,7 +71,7 @@ def _hash_parts(parts: Tuple[str, ...]) -> str:
 def make_metric_key(
     start: str,
     end: str,
-    universe_cols: Tuple[str, ...],
+    universe_cols: tuple[str, ...],
     metric_name: str,
     cfg_hash: str | None = None,
 ) -> str:
@@ -79,16 +79,14 @@ def make_metric_key(
 
     universe order matters.
     """
-    return _hash_parts(
-        (start, end, ",".join(universe_cols), metric_name, cfg_hash or "_")
-    )
+    return _hash_parts((start, end, ",".join(universe_cols), metric_name, cfg_hash or "_"))
 
 
 def get_or_compute_metric_series(
     *,
     start: str,
     end: str,
-    universe_cols: Tuple[str, ...],
+    universe_cols: tuple[str, ...],
     metric_name: str,
     cfg_hash: str | None,
     compute: Callable[[], pd.Series],

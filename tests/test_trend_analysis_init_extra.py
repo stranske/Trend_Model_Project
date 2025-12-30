@@ -79,9 +79,7 @@ def test_dataclasses_patch_recreates_missing_module(
 def test_dataclasses_patch_reimports_available_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def reimporting_is_type(
-        annotation, cls, a_module, a_type, predicate  # noqa: ANN001
-    ) -> bool:
+    def reimporting_is_type(annotation, cls, a_module, a_type, predicate) -> bool:  # noqa: ANN001
         if cls.__module__ not in sys.modules:
             raise AttributeError("missing module")
         return False

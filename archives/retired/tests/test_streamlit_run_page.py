@@ -27,9 +27,7 @@ pytestmark = [
     ),
 ]
 
-RUN_PAGE_PATH = (
-    Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-)
+RUN_PAGE_PATH = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
 
 def _ctx_mock() -> MagicMock:
@@ -192,9 +190,7 @@ def test_main_dry_run_flow_populates_session_state(run_page_module):
             return {"rows": int(self.frame.shape[0])}
 
     mock_run = MagicMock(return_value={"status": "ok"})
-    estimate = SimpleNamespace(
-        approx_memory_mb=10.0, estimated_runtime_s=30.0, warnings=()
-    )
+    estimate = SimpleNamespace(approx_memory_mb=10.0, estimated_runtime_s=30.0, warnings=())
 
     with (
         patch.object(run_page, "show_disclaimer", return_value=True),
@@ -223,12 +219,8 @@ def test_main_full_run_executes_simulation(run_page_module, tmp_path):
         "portfolio": {"weighting_scheme": "equal"},
     }
     mock_st.session_state = {"returns_df": returns_df, "sim_config": config}
-    estimate = SimpleNamespace(
-        approx_memory_mb=20.0, estimated_runtime_s=60.0, warnings=()
-    )
-    fake_result = SimpleNamespace(
-        metrics=pd.DataFrame({"Sharpe": [1.0]}), fallback_info=None
-    )
+    estimate = SimpleNamespace(approx_memory_mb=20.0, estimated_runtime_s=60.0, warnings=())
+    fake_result = SimpleNamespace(metrics=pd.DataFrame({"Sharpe": [1.0]}), fallback_info=None)
     mock_run = MagicMock(return_value=fake_result)
     fake_logger = SimpleNamespace(info=MagicMock())
 
@@ -237,9 +229,7 @@ def test_main_full_run_executes_simulation(run_page_module, tmp_path):
         patch.object(run_page, "estimate_resource_usage", return_value=estimate),
         patch.object(run_page, "_resolve_run_simulation", return_value=mock_run),
         patch.object(run_page, "init_run_logger", return_value=fake_logger),
-        patch.object(
-            run_page, "get_default_log_path", return_value=tmp_path / "log.jsonl"
-        ),
+        patch.object(run_page, "get_default_log_path", return_value=tmp_path / "log.jsonl"),
         patch.object(run_page, "log_step"),
         patch.dict("sys.modules", {"streamlit": mock_st}),
     ):

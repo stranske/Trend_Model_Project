@@ -26,9 +26,7 @@ def junit_report(tmp_path: Path) -> Path:
     ET.SubElement(root, "testcase", name="test_ok", classname="suite.case", time="0.35")
 
     # Failure case with namespaced tag and text payload
-    failing = ET.SubElement(
-        root, "testcase", name="test_fail", classname="suite.case", time="1.25"
-    )
+    failing = ET.SubElement(root, "testcase", name="test_fail", classname="suite.case", time="1.25")
     failure = ET.SubElement(
         failing, "{http://pytest}failure", message="boom", type="AssertionError"
     )
@@ -45,12 +43,8 @@ def junit_report(tmp_path: Path) -> Path:
     ET.SubElement(skipped, "skipped", message="not relevant")
 
     # Ensure sorted slow-test tie-breaking uses nodeid ordering
-    slow_tie_a = ET.SubElement(
-        root, "testcase", name="test_slow_a", classname="mod.A", time="2.0"
-    )
-    slow_tie_b = ET.SubElement(
-        root, "testcase", name="test_slow_b", classname="mod.B", time="2.0"
-    )
+    slow_tie_a = ET.SubElement(root, "testcase", name="test_slow_a", classname="mod.A", time="2.0")
+    slow_tie_b = ET.SubElement(root, "testcase", name="test_slow_b", classname="mod.B", time="2.0")
     ET.SubElement(slow_tie_b, "{http://pytest}skipped")
 
     path = tmp_path / "report.xml"

@@ -29,9 +29,7 @@ def test_apply_weight_policy_carry_uses_previous_weights():
     signals = pd.Series({"A": 1.0, "B": np.nan})
     previous = pd.Series({"A": 0.4, "B": 0.6})
 
-    result = apply_weight_policy(
-        weights, signals, mode="carry", min_assets=2, previous=previous
-    )
+    result = apply_weight_policy(weights, signals, mode="carry", min_assets=2, previous=previous)
 
     assert set(result.index) == {"A", "B"}
     assert np.isclose(result.sum(), 1.0)
@@ -53,15 +51,11 @@ def test_apply_weight_policy_handles_warmup_with_previous_weights():
     signals = pd.Series({"A": np.nan, "B": np.nan})
     previous = pd.Series({"A": 0.6, "B": 0.4})
 
-    result = apply_weight_policy(
-        weights, signals, mode="carry", min_assets=2, previous=previous
-    )
+    result = apply_weight_policy(weights, signals, mode="carry", min_assets=2, previous=previous)
 
     assert set(result.index) == {"A", "B"}
     assert np.isclose(result.sum(), 1.0)
-    pd.testing.assert_series_equal(
-        result.sort_index(), (previous / previous.sum()).sort_index()
-    )
+    pd.testing.assert_series_equal(result.sort_index(), (previous / previous.sum()).sort_index())
 
 
 def test_apply_weight_policy_cash_mode_clips_negatives():
@@ -80,24 +74,18 @@ def test_apply_weight_policy_drop_mode_fallback_under_min():
     signals = pd.Series({"A": 1.0, "B": 1.0})
     previous = pd.Series({"A": 0.6, "B": 0.4})
 
-    result = apply_weight_policy(
-        weights, signals, mode="DROP", min_assets=2, previous=previous
-    )
+    result = apply_weight_policy(weights, signals, mode="DROP", min_assets=2, previous=previous)
 
     assert set(result.index) == {"A", "B"}
     assert np.isclose(result.sum(), 1.0)
-    pd.testing.assert_series_equal(
-        result.sort_index(), (previous / previous.sum()).sort_index()
-    )
+    pd.testing.assert_series_equal(result.sort_index(), (previous / previous.sum()).sort_index())
 
 
 def test_apply_weight_policy_falls_back_to_empty_when_previous_insufficient():
     weights = pd.Series({"A": np.nan, "B": np.nan})
     previous = pd.Series({"A": 0.7})
 
-    result = apply_weight_policy(
-        weights, None, mode="drop", min_assets=2, previous=previous
-    )
+    result = apply_weight_policy(weights, None, mode="drop", min_assets=2, previous=previous)
 
     assert result.empty
 

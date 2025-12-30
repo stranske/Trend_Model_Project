@@ -28,8 +28,9 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, DefaultDict, Iterable, Mapping, Sequence, cast
+from typing import Any, cast
 
 Diagnostic = dict[str, Any]
 
@@ -79,7 +80,6 @@ TYPING_SYMBOLS = {
     "Union",
     "Unpack",
     "Self",
-    "Required",
     "Required",
     "NotRequired",
 }
@@ -140,9 +140,7 @@ def _run_mypy_subprocess(args: list[str]) -> tuple[str, str, int]:
     return stdout, stderr, status
 
 
-def run_mypy(
-    config_file: str | None, targets: Iterable[Path]
-) -> tuple[str, str, int, bool]:
+def run_mypy(config_file: str | None, targets: Iterable[Path]) -> tuple[str, str, int, bool]:
     # Use ROOT-relative cache to avoid test pollution across runs
     cache_dir = ROOT / ".mypy_cache"
     args: list[str] = [
@@ -219,7 +217,7 @@ def extract_missing_typing_symbol(message: str) -> str | None:
 
 
 def gather_missing_symbols(diags: Iterable[Diagnostic]) -> Mapping[Path, set[str]]:
-    missing: DefaultDict[Path, set[str]] = defaultdict(set)
+    missing: defaultdict[Path, set[str]] = defaultdict(set)
     for diag in diags:
         severity = diag.get("severity")
         if not isinstance(severity, str) or severity not in {"error", "warning"}:
@@ -259,10 +257,7 @@ def current_typing_imports(source: str) -> set[str]:
             continuation = lines[idx].split("#", 1)[0]
             block += "," + continuation.strip()
             paren_balance += continuation.count("(") - continuation.count(")")
-        tokens = [
-            token.strip()
-            for token in block.replace("(", "").replace(")", "").split(",")
-        ]
+        tokens = [token.strip() for token in block.replace("(", "").replace(")", "").split(",")]
         for token in tokens:
             if not token:
                 continue
@@ -281,9 +276,7 @@ def find_import_section(lines: list[str]) -> int:
         index = 0
 
     # Skip encoding comments.
-    while (
-        index < len(lines) and lines[index].startswith("#") and "coding" in lines[index]
-    ):
+    while index < len(lines) and lines[index].startswith("#") and "coding" in lines[index]:
         index += 1
 
     # Skip module docstring if present.
@@ -355,15 +348,11 @@ def apply_typing_imports(path: Path, symbols: set[str], dry_run: bool = False) -
             lines.insert(insert_at + 1, "")
 
     if dry_run:
-        print(
-            f"[mypy_autofix] Would update {path} with typing symbols: {', '.join(missing)}"
-        )
+        print(f"[mypy_autofix] Would update {path} with typing symbols: {', '.join(missing)}")
         return True
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(
-        f"[mypy_autofix] Added typing imports to {path.relative_to(ROOT)}: {', '.join(missing)}"
-    )
+    print(f"[mypy_autofix] Added typing imports to {path.relative_to(ROOT)}: {', '.join(missing)}")
     return True
 
 

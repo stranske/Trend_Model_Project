@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import calendar
 import datetime as dt
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import pandas as pd
 from pandas.tseries.offsets import BusinessMonthEnd, CustomBusinessDay

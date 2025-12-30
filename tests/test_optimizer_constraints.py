@@ -83,9 +83,7 @@ def test_apply_cap_uniformly_redistributes_zero_mass_bucket():
     w = pd.Series([1.0, 0.0, 0.0], index=["a", "b", "c"], dtype=float)
     capped = optimizer._apply_cap(w, 0.6)
     expected = pd.Series([0.6, 0.2, 0.2], index=w.index)
-    pd.testing.assert_series_equal(
-        capped, expected, check_exact=False, atol=1e-12, rtol=1e-12
-    )
+    pd.testing.assert_series_equal(capped, expected, check_exact=False, atol=1e-12, rtol=1e-12)
 
 
 def test_apply_group_caps_handles_missing_cap_entries():
@@ -181,9 +179,7 @@ def test_cash_weight_invalid_range_raises():
 
 def test_cash_weight_negative_value_rejected():
     w = pd.Series([0.55, 0.45], index=["a", "b"], dtype=float)
-    with pytest.raises(
-        ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"
-    ):
+    with pytest.raises(ConstraintViolation, match=r"cash_weight must be in \(0,1\) exclusive"):
         apply_constraints(w, {"cash_weight": -0.1})
 
 
@@ -215,7 +211,5 @@ def test_cash_weight_respects_max_weight_after_residual_scaling():
 
 def test_cash_weight_requires_non_cash_assets():
     w = pd.Series([1.0], index=["CASH"], dtype=float)
-    with pytest.raises(
-        ConstraintViolation, match="No assets available for non-CASH allocation"
-    ):
+    with pytest.raises(ConstraintViolation, match="No assets available for non-CASH allocation"):
         apply_constraints(w, {"cash_weight": 0.2})

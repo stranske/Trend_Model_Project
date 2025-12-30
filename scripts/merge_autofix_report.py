@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timestamp",
         dest="timestamp",
-        default=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        default=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         help="UTC timestamp to record in the report metadata.",
     )
     return parser.parse_args()
@@ -49,9 +49,7 @@ def load_enriched(path: Path) -> object:
         return {}
 
 
-def write_report(
-    payload: object, output_path: Path, pr_number: str, timestamp: str
-) -> None:
+def write_report(payload: object, output_path: Path, pr_number: str, timestamp: str) -> None:
     meta = {
         "pull_request": pr_number,
         "timestamp_utc": timestamp,
@@ -63,9 +61,7 @@ def write_report(
     else:
         data = {"meta": meta, "raw": payload}
 
-    output_path.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def main() -> int:

@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import calendar
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Sequence
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -354,9 +355,7 @@ def validate_input(
     if not is_sorted:
         import logging
 
-        logging.getLogger(__name__).info(
-            "Data not in ascending date order; auto-sorting by date."
-        )
+        logging.getLogger(__name__).info("Data not in ascending date order; auto-sorting by date.")
         sort_order = parsed.argsort()
         working = working.iloc[sort_order].reset_index(drop=True)
         parsed = parsed.iloc[sort_order].reset_index(drop=True)
@@ -366,8 +365,7 @@ def validate_input(
         pos = _first_true_position(duplicates.to_numpy())
         timestamp = parsed.iloc[pos]
         raise InputValidationError(
-            "Duplicate timestamps detected. "
-            f"Row {pos + 1} repeats {timestamp.isoformat()}."
+            "Duplicate timestamps detected. " f"Row {pos + 1} repeats {timestamp.isoformat()}."
         )
 
     working[date_column] = parsed

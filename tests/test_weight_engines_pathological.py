@@ -36,9 +36,7 @@ class TestEqualRiskContribution:
         assert (weights >= 0).all()
 
     def test_handles_negative_eigenvalues(self) -> None:
-        cov = pd.DataFrame(
-            [[2.0, 3.0], [3.0, 2.0]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[2.0, 3.0], [3.0, 2.0]], index=["a", "b"], columns=["a", "b"])
         engine = EqualRiskContribution()
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
@@ -47,9 +45,7 @@ class TestEqualRiskContribution:
     def test_eigen_decomposition_failure_returns_equal_weights(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        cov = pd.DataFrame(
-            [[0.04, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.04, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"])
         engine = EqualRiskContribution()
 
         def boom(_: np.ndarray) -> np.ndarray:
@@ -66,9 +62,7 @@ class TestEqualRiskContribution:
         assert np.allclose(weights.values, np.array([0.5, 0.5]))
 
     def test_non_convergence_emits_equal_weights(self) -> None:
-        cov = pd.DataFrame(
-            [[0.04, 0.024], [0.024, 0.09]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.04, 0.024], [0.024, 0.09]], index=["a", "b"], columns=["a", "b"])
         engine = EqualRiskContribution(max_iter=0)
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
@@ -102,15 +96,11 @@ class TestHierarchicalRiskParity:
     def test_invalid_distance_falls_back_to_equal_weights(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        cov = pd.DataFrame(
-            [[0.04, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.04, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"])
         engine = HierarchicalRiskParity()
 
         def fake_cov_to_corr(_: pd.DataFrame) -> pd.DataFrame:
-            return pd.DataFrame(
-                [[1.5, 1.5], [1.5, 1.5]], index=cov.index, columns=cov.columns
-            )
+            return pd.DataFrame([[1.5, 1.5], [1.5, 1.5]], index=cov.index, columns=cov.columns)
 
         monkeypatch.setattr(
             "trend_analysis.weights.hierarchical_risk_parity._cov_to_corr",
@@ -123,17 +113,13 @@ class TestHierarchicalRiskParity:
     def test_linkage_failure_falls_back_to_equal_weights(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        cov = pd.DataFrame(
-            [[0.04, 0.01], [0.01, 0.09]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.04, 0.01], [0.01, 0.09]], index=["a", "b"], columns=["a", "b"])
         engine = HierarchicalRiskParity()
 
         def raise_error(*_: Any, **__: Any) -> None:
             raise ValueError("linkage failed")
 
-        monkeypatch.setattr(
-            "trend_analysis.weights.hierarchical_risk_parity.linkage", raise_error
-        )
+        monkeypatch.setattr("trend_analysis.weights.hierarchical_risk_parity.linkage", raise_error)
         weights = engine.weight(cov)
         assert np.allclose(weights.values, np.array([0.5, 0.5]))
 
@@ -177,18 +163,14 @@ class TestRiskParity:
             engine.weight(skewed)
 
     def test_non_positive_variances_are_clamped(self) -> None:
-        cov = pd.DataFrame(
-            [[0.0, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.0, 0.0], [0.0, 0.09]], index=["a", "b"], columns=["a", "b"])
         engine = RiskParity()
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
         assert (weights >= 0).all()
 
     def test_non_finite_inverse_volatility_returns_equal_weights(self) -> None:
-        cov = pd.DataFrame(
-            [[0.04, 0.0], [0.0, np.nan]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.04, 0.0], [0.0, np.nan]], index=["a", "b"], columns=["a", "b"])
         engine = RiskParity()
         weights = engine.weight(cov)
         assert np.allclose(weights.values, np.array([0.5, 0.5]))
@@ -201,9 +183,7 @@ class TestRobustRiskParity:
         assert result.empty
 
     def test_non_positive_diagonal_triggers_diagonal_loading(self) -> None:
-        cov = pd.DataFrame(
-            [[0.0, 0.0], [0.0, 0.04]], index=["a", "b"], columns=["a", "b"]
-        )
+        cov = pd.DataFrame([[0.0, 0.0], [0.0, 0.04]], index=["a", "b"], columns=["a", "b"])
         engine = RobustRiskParity()
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)

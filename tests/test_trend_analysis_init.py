@@ -26,7 +26,7 @@ def test_getattr_lazy_import(monkeypatch):
     monkeypatch.setitem(ta._LAZY_SUBMODULES, "dummy_attr", "trend_analysis.dummy_lazy")
     monkeypatch.delitem(ta.__dict__, "dummy_attr", raising=False)
 
-    result = getattr(ta, "dummy_attr")
+    result = ta.dummy_attr
 
     assert result is dummy_mod
     assert ta.dummy_attr is dummy_mod
@@ -36,7 +36,7 @@ def test_getattr_unknown_raises_attribute_error():
     import trend_analysis as ta
 
     with pytest.raises(AttributeError):
-        getattr(ta, "non_existent_submodule")
+        ta.non_existent_submodule
 
 
 def test_safe_is_type_handles_missing_module(monkeypatch):

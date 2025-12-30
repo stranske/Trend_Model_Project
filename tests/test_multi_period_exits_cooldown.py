@@ -69,9 +69,7 @@ def _patch_metric_series(
 ) -> None:
     import trend_analysis.core.rank_selection as rank_selection
 
-    def fake_metric_series(
-        frame: pd.DataFrame, metric: str, stats_cfg: object
-    ) -> pd.Series:
+    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
         del metric, stats_cfg
         if frame.empty:
             return pd.Series(dtype=float)
@@ -87,9 +85,7 @@ def _patch_metric_series(
 
 
 def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {})
-    )
+    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {}))
     monkeypatch.setattr(engine, "_run_analysis", lambda *args, **kwargs: {})
 
 
@@ -131,12 +127,9 @@ def test_threshold_hold_exit_drop_not_blocked_by_turnover_budget(
 
     changes = period2.get("manager_changes") or []
     assert any(
-        ev.get("reason") == "turnover_budget" and ev.get("action") == "skipped"
-        for ev in changes
+        ev.get("reason") == "turnover_budget" and ev.get("action") == "skipped" for ev in changes
     )
-    assert any(
-        ev.get("action") == "dropped" and ev.get("manager") == "B" for ev in changes
-    )
+    assert any(ev.get("action") == "dropped" and ev.get("manager") == "B" for ev in changes)
 
 
 def test_threshold_hold_cooldown_blocks_reentry(
@@ -179,9 +172,7 @@ def test_threshold_hold_cooldown_blocks_reentry(
     assert "B" not in selected
 
     changes = period3.get("manager_changes") or []
-    assert any(
-        ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes
-    )
+    assert any(ev.get("reason") == "cooldown" and ev.get("manager") == "B" for ev in changes)
 
 
 def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -218,7 +209,4 @@ def test_min_funds_can_exceed_turnover_budget(monkeypatch: pytest.MonkeyPatch) -
     assert len(selected) >= 3
 
     changes = period2.get("manager_changes") or []
-    assert any(
-        ev.get("reason") == "min_funds" and ev.get("action") == "added"
-        for ev in changes
-    )
+    assert any(ev.get("reason") == "min_funds" and ev.get("action") == "added" for ev in changes)

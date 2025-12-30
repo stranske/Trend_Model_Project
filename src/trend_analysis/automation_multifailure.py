@@ -8,7 +8,7 @@ delimited string consumed by downstream tests.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 
 def aggregate_numbers(values: Iterable[int]) -> str:
