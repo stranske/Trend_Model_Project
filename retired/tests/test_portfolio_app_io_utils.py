@@ -10,7 +10,6 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-
 from trend_portfolio_app import io_utils
 
 

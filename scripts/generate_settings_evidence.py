@@ -20,13 +20,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from streamlit_app.components.data_schema import load_and_validate_file  # noqa: E402
 from scripts.test_settings_wiring import (  # noqa: E402
     SETTINGS_TO_TEST,
+    extract_metric,
     get_baseline_state,
     run_analysis_with_state,
-    extract_metric,
 )
+from streamlit_app.components.data_schema import load_and_validate_file  # noqa: E402
 
 # Evidence output directory
 EVIDENCE_DIR = PROJECT_ROOT / "docs" / "settings_evidence"

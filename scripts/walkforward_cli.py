@@ -22,7 +22,6 @@ from trend_analysis.engine.walkforward import walk_forward
 from trend_analysis.logging_setup import setup_logging
 from trend_analysis.script_logging import setup_script_logging
 
-
 INPUT_SCHEMA = InputSchema(
     date_column="Date",
     required_columns=("Date",),

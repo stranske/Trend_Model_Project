@@ -37,8 +37,10 @@ BRANCH_PREFIX = "autofix/cosmetic-repair"
 DEFAULT_REPORT = Path(".pytest-cosmetic-report.xml")
 SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
 
-from scripts.classify_test_failures import FailureRecord  # noqa: E402
-from scripts.classify_test_failures import classify_reports  # noqa: E402
+from scripts.classify_test_failures import (
+    FailureRecord,  # noqa: E402
+    classify_reports,  # noqa: E402
+)
 
 _LOG_PATH = ROOT / "docs" / "COSMETIC_REPAIR_LOG.md"
 _GUARD_START = "<!-- cosmetic-repair:start -->"

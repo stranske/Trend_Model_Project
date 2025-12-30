@@ -18,9 +18,9 @@ from trend_analysis.config.models import ConfigProtocol
 from trend_analysis.data import load_csv
 from trend_analysis.multi_period import run_from_config as run_mp
 from trend_analysis.multi_period import run_schedule
+from trend_analysis.script_logging import setup_script_logging
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import ScorePropBayesian
-from trend_analysis.script_logging import setup_script_logging
 
 
 def _ensure_dir(path: str | Path) -> None:

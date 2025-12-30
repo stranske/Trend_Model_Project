@@ -34,7 +34,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
 
 from trend_analysis.config.legacy import Config  # noqa: E402
 
-
 # =============================================================================
 # Setting Definitions with Expected Behaviors
 # =============================================================================
