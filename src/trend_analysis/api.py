@@ -319,9 +319,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     validation_frame = validate_prices_frame(build_validation_frame(returns))
 
     data_settings = getattr(config, "data", {}) or {}
-    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(
-        data_settings
-    )
+    risk_free_column, allow_risk_free_fallback = resolve_risk_free_settings(data_settings)
     max_lag_days = data_settings.get("max_lag_days")
     lag_limit: int | None = None
     if max_lag_days not in (None, ""):
@@ -406,9 +404,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
     )
-    diag_hint = cast(
-        DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None)
-    )
+    diag_hint = cast(DiagnosticPayload | None, getattr(pipeline_output, "diagnostic", None))
     try:
         payload, diag = coerce_pipeline_result(pipeline_output)
     except TypeError as exc:
@@ -460,17 +456,11 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     for label, ir_map in bench_ir_items:
         col = f"ir_{label}"
         metrics_df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
 
     fallback_raw = res_dict.get("weight_engine_fallback")
-    fallback_info: dict[str, Any] | None = (
-        fallback_raw if isinstance(fallback_raw, dict) else None
-    )
+    fallback_info: dict[str, Any] | None = fallback_raw if isinstance(fallback_raw, dict) else None
     # Granular logging (best-effort; keys may vary by configuration)
     try:  # pragma: no cover - observational logging
         if res_dict.get("selected_funds") is not None:
@@ -513,9 +503,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     except Exception:
         pass
     logger.info("run_simulation end")
-    _log_step(
-        run_id, "api_end", "run_simulation complete", fallback=bool(fallback_info)
-    )
+    _log_step(run_id, "api_end", "run_simulation complete", fallback=bool(fallback_info))
     # Construct portfolio series for bundle export (equal-weight baseline)
     try:
         in_scaled = res_dict.get("in_sample_scaled")
@@ -585,7 +573,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
                 parts = [_stringify_key(part) for part in value]
                 return " / ".join(str(part) for part in parts)
             try:
-                iso = getattr(value, "isoformat")
+                iso = value.isoformat
             except AttributeError:
                 pass
             else:

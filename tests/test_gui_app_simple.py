@@ -155,7 +155,7 @@ class TestMockingPatterns:
     @patch("builtins.open", mock_open(read_data='{"test": "data"}'))
     def test_file_mocking_pattern(self):
         """Test file mocking patterns."""
-        with open("dummy.json", "r") as f:
+        with open("dummy.json") as f:
             content = f.read()
         assert '"test": "data"' in content
 

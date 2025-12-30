@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -30,10 +31,10 @@ class DummyUpload:
 
 class DummyStreamlit:
     class _Column:
-        def __init__(self, parent: "DummyStreamlit") -> None:
+        def __init__(self, parent: DummyStreamlit) -> None:
             self._parent = parent
 
-        def __enter__(self) -> "DummyStreamlit._Column":  # pragma: no cover - trivial
+        def __enter__(self) -> DummyStreamlit._Column:  # pragma: no cover - trivial
             return self
 
         def __exit__(self, exc_type, exc, tb) -> bool:  # pragma: no cover - trivial
@@ -122,10 +123,10 @@ class DummyStreamlit:
     def markdown(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
         return None
 
-    def expander(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
+    def expander(self, *_args: Any, **_kwargs: Any) -> DummyStreamlit._Column:
         return DummyStreamlit._Column(self)
 
-    def container(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
+    def container(self, *_args: Any, **_kwargs: Any) -> DummyStreamlit._Column:
         return DummyStreamlit._Column(self)
 
     def checkbox(self, label: str, *, key: str | None = None, **_kwargs: Any) -> bool:
@@ -144,7 +145,7 @@ class DummyStreamlit:
 
         return decorator
 
-    def columns(self, spec: int | list[int]) -> list["DummyStreamlit"]:
+    def columns(self, spec: int | list[int]) -> list[DummyStreamlit]:
         count = spec if isinstance(spec, int) else len(spec)
         return [DummyStreamlit._Column(self) for _ in range(count)]
 
@@ -249,12 +250,8 @@ def test_data_page_autoloads_sample(monkeypatch: pytest.MonkeyPatch, data_page) 
     sample = page.data_cache.SampleDataset("demo.csv", Path("demo/demo_returns.csv"))
 
     monkeypatch.setattr(page.data_cache, "default_sample_dataset", lambda: sample)
-    monkeypatch.setattr(
-        page.data_cache, "dataset_choices", lambda: {sample.label: sample}
-    )
-    monkeypatch.setattr(
-        page.data_cache, "load_dataset_from_path", lambda path: (df, meta)
-    )
+    monkeypatch.setattr(page.data_cache, "dataset_choices", lambda: {sample.label: sample})
+    monkeypatch.setattr(page.data_cache, "load_dataset_from_path", lambda path: (df, meta))
 
     stub.selectbox_map["Choose a sample"] = sample.label
     stub.selectbox_map["Benchmark column (optional)"] = "SPX Index"

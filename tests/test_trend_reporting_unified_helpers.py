@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import base64
 import logging
+from collections.abc import Mapping
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -54,9 +55,7 @@ def test_series_and_stats_helpers():
     assert unified._periods_per_year(range_index) == 12.0
     dt_index = pd.date_range("2024-01-01", periods=4, freq="Q")
     assert unified._periods_per_year(dt_index) == 4.0
-    irregular_index = pd.DatetimeIndex(
-        ["2024-01-01", "2024-02-01", "2024-08-01", "2025-08-01"]
-    )
+    irregular_index = pd.DatetimeIndex(["2024-01-01", "2024-02-01", "2024-08-01", "2025-08-01"])
     assert unified._periods_per_year(irregular_index) == 1.0
     period_index = pd.period_range("2020-01", periods=3, freq="M")
     assert unified._periods_per_year(period_index) == 12.0
@@ -79,9 +78,7 @@ def test_series_and_stats_helpers():
 def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
     index = pd.period_range("2021-01", periods=6, freq="M")
     portfolio = pd.Series([0.01, -0.005, 0.012, 0.008, -0.004, 0.015], index=index)
-    turnover = pd.Series(
-        [0.2, 0.18, 0.22], index=pd.date_range("2021-01-31", periods=3, freq="ME")
-    )
+    turnover = pd.Series([0.2, 0.18, 0.22], index=pd.date_range("2021-01-31", periods=3, freq="ME"))
     final_weights = pd.Series({"FundA": 0.6, "FundB": 0.4})
     regime_table = pd.DataFrame(
         {"Risk-On": [0.12, 0.03, -0.2, 0.6, 24]},
@@ -163,9 +160,7 @@ def test_build_backtest_and_context_generation():
     assert "report-table" in metrics_html
     assert any("Sharpe" in row for row in metrics_text)
 
-    regime_html, regime_text = unified._format_regime_table(
-        result.details["performance_by_regime"]
-    )
+    regime_html, regime_text = unified._format_regime_table(result.details["performance_by_regime"])
     assert "Risk-On" in regime_html
     assert regime_text[0].startswith("Metric")
 
@@ -332,9 +327,7 @@ def test_rank_summary_handles_invalid_inputs():
     bad_pct = unified._rank_summary({"inclusion_approach": "top_pct", "pct": "oops"})
     assert bad_pct == "top_pct"
 
-    bad_threshold = unified._rank_summary(
-        {"inclusion_approach": "threshold", "threshold": "boom"}
-    )
+    bad_threshold = unified._rank_summary({"inclusion_approach": "threshold", "threshold": "boom"})
     assert bad_threshold == "threshold"
 
 
@@ -371,9 +364,7 @@ def test_build_param_summary_exposes_optional_fields():
         run={},
         benchmarks={"SPX": "S&P 500", "NDX": "Nasdaq"},
         trend_spec=SimpleNamespace(window=63, lag=1, vol_adjust=False, zscore=False),
-        backtest_spec=SimpleNamespace(
-            regime={"enabled": True, "method": "rolling"}, metrics=()
-        ),
+        backtest_spec=SimpleNamespace(regime={"enabled": True, "method": "rolling"}, metrics=()),
     )
     params = dict(unified._build_param_summary(config))
     assert params["Out-of-sample window"].endswith("→ 2021-12")
@@ -472,9 +463,7 @@ def test_render_pdf_without_regime_summary(monkeypatch: pytest.MonkeyPatch):
     fake_image = base64.b64encode(b"img").decode("ascii")
     monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
 
-    pdf_bytes = unified._render_pdf(
-        _pdf_context(fake_image, fake_image) | {"regime_summary": ""}
-    )
+    pdf_bytes = unified._render_pdf(_pdf_context(fake_image, fake_image) | {"regime_summary": ""})
     assert pdf_bytes == b"%PDF-no-summary"
 
 
@@ -513,18 +502,14 @@ def test_generate_unified_report_with_pdf(monkeypatch: pytest.MonkeyPatch):
     result, config = _build_result_with_details()
     monkeypatch.setattr(unified, "_load_fpdf", lambda: StubPDF)
 
-    artifacts = unified.generate_unified_report(
-        result, config, run_id="pdf-run", include_pdf=True
-    )
+    artifacts = unified.generate_unified_report(result, config, run_id="pdf-run", include_pdf=True)
     assert artifacts.pdf_bytes == b"%PDF-report"
 
 
 def test_rank_summary_and_pdf_helpers():
     assert unified._rank_summary({}) == ""
     assert "n=5" in unified._rank_summary({"inclusion_approach": "top_n", "n": "5"})
-    assert "pct=20%" in unified._rank_summary(
-        {"inclusion_approach": "top_pct", "pct": 0.2}
-    )
+    assert "pct=20%" in unified._rank_summary({"inclusion_approach": "top_pct", "pct": 0.2})
     assert "≥ 1.50" in unified._rank_summary(
         {"inclusion_approach": "threshold", "threshold": "1.5"}
     )
@@ -575,9 +560,7 @@ def test_chart_helpers_handle_empty_inputs():
     turnover_result = unified._turnover_chart(None)
     assert turnover_result.value is None
     assert turnover_result.diagnostic is not None
-    dummy_backtest = SimpleNamespace(
-        turnover=pd.Series(dtype=float), weights=pd.DataFrame()
-    )
+    dummy_backtest = SimpleNamespace(turnover=pd.Series(dtype=float), weights=pd.DataFrame())
     empty_turnover = unified._turnover_chart(dummy_backtest)
     assert empty_turnover.value is None
     assert empty_turnover.diagnostic is not None
@@ -593,9 +576,7 @@ def test_metrics_and_regime_tables_empty_paths():
     assert "Regime analysis unavailable" in html_regime
     assert text_regime == []
 
-    multi = pd.DataFrame(
-        {("Sharpe", "Q1"): [0.5], ("Sharpe", "Q2"): [0.6]}, index=["Sharpe"]
-    )
+    multi = pd.DataFrame({("Sharpe", "Q1"): [0.5], ("Sharpe", "Q2"): [0.6]}, index=["Sharpe"])
     html_multi, text_multi = unified._format_regime_table(multi)
     assert "Sharpe" in html_multi
     assert any("Sharpe" in row for row in text_multi)

@@ -44,9 +44,7 @@ def test_validate_core_config_round_trips(tmp_path: Path) -> None:
     membership = tmp_path / "membership.csv"
     membership.write_text("fund,date\nA,2020-01-31\n", encoding="utf-8")
 
-    result = validate_core_config(
-        _payload(csv, membership_path=membership), base_path=tmp_path
-    )
+    result = validate_core_config(_payload(csv, membership_path=membership), base_path=tmp_path)
     assert result.data.csv_path == csv.resolve()
     assert result.data.managers_glob is None
     assert result.data.universe_membership_path == membership.resolve()

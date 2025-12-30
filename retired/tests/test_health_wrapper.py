@@ -6,9 +6,7 @@ from trend_portfolio_app import health_wrapper
 def test_create_app_registers_health_routes():
     app = health_wrapper.create_app()
 
-    testclient_mod = pytest.importorskip(
-        "fastapi.testclient", reason="FastAPI test client missing"
-    )
+    testclient_mod = pytest.importorskip("fastapi.testclient", reason="FastAPI test client missing")
     TestClient = testclient_mod.TestClient
 
     client = TestClient(app)
@@ -51,9 +49,7 @@ def test_main_runs_uvicorn_with_env_overrides(monkeypatch, capsys):
 
     monkeypatch.setenv("HEALTH_HOST", "127.0.0.1")
     monkeypatch.setenv("HEALTH_PORT", "1234")
-    monkeypatch.setattr(
-        health_wrapper, "uvicorn", type("UV", (), {"run": staticmethod(fake_run)})
-    )
+    monkeypatch.setattr(health_wrapper, "uvicorn", type("UV", (), {"run": staticmethod(fake_run)}))
 
     health_wrapper.main()
 

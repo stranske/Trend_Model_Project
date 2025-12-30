@@ -232,13 +232,9 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
 
     # Pre-compute conditional text to avoid nested quotes in f-strings
     concentration_text = (
-        "became more concentrated"
-        if direction == "decrease"
-        else "became more diversified"
+        "became more concentrated" if direction == "decrease" else "became more diversified"
     )
-    constraint_text = (
-        "Tighter constraints" if direction == "decrease" else "Looser constraints"
-    )
+    constraint_text = "Tighter constraints" if direction == "decrease" else "Looser constraints"
     lookback_text = "Shorter" if direction == "decrease" else "Longer"
     window_text = "Shorter" if direction == "decrease" else "Longer"
     risk_text = "Lower" if direction == "decrease" else "Higher"
@@ -362,9 +358,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             ]
         )
         for e in failed:
-            lines.append(
-                f"| `{e['setting_name']}` | {e.get('reason', 'No change detected')} |"
-            )
+            lines.append(f"| `{e['setting_name']}` | {e.get('reason', 'No change detected')} |")
         lines.append("")
 
     if warned:
@@ -377,9 +371,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             ]
         )
         for e in warned:
-            lines.append(
-                f"| `{e['setting_name']}` | {e.get('reason', 'Unexpected direction')} |"
-            )
+            lines.append(f"| `{e['setting_name']}` | {e.get('reason', 'Unexpected direction')} |")
         lines.append("")
 
     if errored:
@@ -392,9 +384,7 @@ def generate_summary_report(all_evidence: list[dict[str, Any]]) -> str:
             ]
         )
         for e in errored:
-            lines.append(
-                f"| `{e['setting_name']}` | {e.get('error', 'Unknown error')} |"
-            )
+            lines.append(f"| `{e['setting_name']}` | {e.get('error', 'Unknown error')} |")
         lines.append("")
 
     return "\n".join(lines)
@@ -499,11 +489,7 @@ def main() -> int:
         json_file = EVIDENCE_DIR / f"{setting.name}.json"
         # Convert non-serializable values
         json_safe = {
-            k: (
-                str(v)
-                if not isinstance(v, (str, int, float, bool, type(None), list, dict))
-                else v
-            )
+            k: (str(v) if not isinstance(v, (str, int, float, bool, type(None), list, dict)) else v)
             for k, v in evidence.items()
         }
         json_file.write_text(json.dumps(json_safe, indent=2))

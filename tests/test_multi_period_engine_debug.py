@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
 
 import pandas as pd
 import pytest
@@ -15,7 +14,7 @@ class DummySelector:
 
     rank_column: str = "Sharpe"
 
-    def select(self, score_frame: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         return score_frame, score_frame
 
 
@@ -23,7 +22,7 @@ class DummySelector:
 class SequenceWeighting:
     """Weighting scheme that yields a deterministic sequence of weights."""
 
-    sequences: Tuple[Dict[str, float], ...]
+    sequences: tuple[dict[str, float], ...]
     _idx: int = 0
 
     def update(
@@ -34,9 +33,7 @@ class SequenceWeighting:
         # not need to adjust any internal state here.
         pass
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         weights = self.sequences[self._idx]
         self._idx += 1
@@ -44,7 +41,7 @@ class SequenceWeighting:
         return ordered.to_frame("weight")
 
 
-def build_score_frames() -> Dict[str, pd.DataFrame]:
+def build_score_frames() -> dict[str, pd.DataFrame]:
     sharpe_col = "Sharpe"
     first = pd.DataFrame({sharpe_col: [1.0, 2.0]}, index=["FundA", "FundB"])
     second = pd.DataFrame({sharpe_col: [3.0, 4.0]}, index=["FundB", "FundC"])
@@ -65,9 +62,7 @@ def test_run_schedule_turnover_debug_validation(
 
     monkeypatch.setenv("DEBUG_TURNOVER_VALIDATE", "1")
     try:
-        portfolio = run_schedule(
-            score_frames, selector, weighting, rank_column="Sharpe"
-        )
+        portfolio = run_schedule(score_frames, selector, weighting, rank_column="Sharpe")
 
         # Ensure the debug validator populated history and turnover for each period.
         assert isinstance(portfolio, Portfolio)

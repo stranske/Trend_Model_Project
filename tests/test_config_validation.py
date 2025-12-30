@@ -24,9 +24,7 @@ else:
 # Use constants from the Config class to avoid hardcoded duplication
 _DICT_SECTIONS = Config.REQUIRED_DICT_FIELDS
 
-invalid_values = st.one_of(
-    st.integers(), st.floats(), st.booleans(), st.lists(st.integers())
-)
+invalid_values = st.one_of(st.integers(), st.floats(), st.booleans(), st.lists(st.integers()))
 
 
 def _base_cfg() -> dict[str, object]:
@@ -108,13 +106,9 @@ def test_config_constants_match_model_attributes():
 
     # Verify all fields in ALL_FIELDS exist as attributes
     for field_name in Config.ALL_FIELDS:
-        assert hasattr(
-            cfg, field_name
-        ), f"Field '{field_name}' missing from Config model"
+        assert hasattr(cfg, field_name), f"Field '{field_name}' missing from Config model"
 
     # Verify all REQUIRED_DICT_FIELDS are actually dicts in defaults
     for field_name in Config.REQUIRED_DICT_FIELDS:
         default_value = getattr(cfg, field_name)
-        assert isinstance(
-            default_value, dict
-        ), f"Field '{field_name}' should default to dict"
+        assert isinstance(default_value, dict), f"Field '{field_name}' should default to dict"

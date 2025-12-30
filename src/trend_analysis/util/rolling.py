@@ -11,9 +11,7 @@ import pandas as pd
 class _SupportsRolling(Protocol):
     """Protocol modelling pandas objects that expose ``rolling``."""
 
-    def shift(
-        self, periods: int
-    ) -> "_SupportsRolling": ...  # pragma: no cover - Protocol
+    def shift(self, periods: int) -> _SupportsRolling: ...  # pragma: no cover - Protocol
 
     def rolling(
         self,

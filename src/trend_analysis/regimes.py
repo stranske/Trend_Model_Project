@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -62,9 +63,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     if proxy is not None:
         proxy = str(proxy).strip() or None
 
-    method_raw = (
-        str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
-    )
+    method_raw = str(cfg.get("method", "rolling_return") or "rolling_return").strip().lower()
     method_lookup = {
         "rolling_return": "rolling_return",
         "rolling": "rolling_return",
@@ -85,9 +84,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
 
     risk_on_label = str(cfg.get("risk_on_label", "Risk-On") or "Risk-On").strip()
     risk_off_label = str(cfg.get("risk_off_label", "Risk-Off") or "Risk-Off").strip()
-    default_label = str(
-        cfg.get("default_label", risk_on_label) or risk_on_label
-    ).strip()
+    default_label = str(cfg.get("default_label", risk_on_label) or risk_on_label).strip()
     if not risk_on_label:
         risk_on_label = "Risk-On"
     if not risk_off_label:
@@ -112,9 +109,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     )
 
 
-def _rolling_return_signal(
-    series: pd.Series, *, window: int, smoothing: int
-) -> pd.Series:
+def _rolling_return_signal(series: pd.Series, *, window: int, smoothing: int) -> pd.Series:
     """Return rolling compounded returns smoothed by ``smoothing`` window."""
 
     if window <= 0:
@@ -252,9 +247,7 @@ def compute_regimes(
 
     if not settings.enabled:
         return pd.Series(dtype="string")
-    return _compute_regime_series(
-        proxy, settings, freq=freq, periods_per_year=periods_per_year
-    )
+    return _compute_regime_series(proxy, settings, freq=freq, periods_per_year=periods_per_year)
 
 
 def _format_hit_rate(series: pd.Series) -> float:
@@ -333,16 +326,12 @@ def aggregate_performance_by_regime(
         return pd.DataFrame(), []
 
     if regimes.empty:
-        return pd.DataFrame(), [
-            "Regime labels were unavailable for the analysis window."
-        ]
+        return pd.DataFrame(), ["Regime labels were unavailable for the analysis window."]
 
     # Ensure string dtype for comparisons and align to returns index
     regimes = regimes.astype("string")
 
-    portfolios = {
-        str(name): series.astype(float) for name, series in returns_map.items()
-    }
+    portfolios = {str(name): series.astype(float) for name, series in returns_map.items()}
     all_index = pd.Index([])
     for series in portfolios.values():
         all_index = all_index.union(series.index)
@@ -391,16 +380,10 @@ def aggregate_performance_by_regime(
                 annual_return(subset.dropna(), periods_per_year=int(periods_per_year))
             )
             table.loc["Sharpe", (portfolio, regime)] = float(
-                sharpe_ratio(
-                    subset.dropna(), rf_subset, periods_per_year=int(periods_per_year)
-                )
+                sharpe_ratio(subset.dropna(), rf_subset, periods_per_year=int(periods_per_year))
             )
-            table.loc["Max Drawdown", (portfolio, regime)] = float(
-                max_drawdown(subset.dropna())
-            )
-            table.loc["Hit Rate", (portfolio, regime)] = _format_hit_rate(
-                subset.dropna()
-            )
+            table.loc["Max Drawdown", (portfolio, regime)] = float(max_drawdown(subset.dropna()))
+            table.loc["Hit Rate", (portfolio, regime)] = _format_hit_rate(subset.dropna())
 
         # All periods aggregate
         subset_all = aligned.dropna()
@@ -417,9 +400,7 @@ def aggregate_performance_by_regime(
             table.loc["Sharpe", (portfolio, "All")] = float(
                 sharpe_ratio(subset_all, rf_all, periods_per_year=int(periods_per_year))
             )
-            table.loc["Max Drawdown", (portfolio, "All")] = float(
-                max_drawdown(subset_all)
-            )
+            table.loc["Max Drawdown", (portfolio, "All")] = float(max_drawdown(subset_all))
             table.loc["Hit Rate", (portfolio, "All")] = _format_hit_rate(subset_all)
         else:
             notes.append(
@@ -467,9 +448,7 @@ def build_regime_payload(
         return payload
 
     if not settings.proxy:
-        payload["notes"] = [
-            "Regime proxy column not specified; skipping regime analysis."
-        ]
+        payload["notes"] = ["Regime proxy column not specified; skipping regime analysis."]
         return payload
 
     if settings.proxy not in data.columns:

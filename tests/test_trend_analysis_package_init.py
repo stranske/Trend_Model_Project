@@ -2,7 +2,6 @@ import importlib
 import importlib.metadata
 import sys
 from types import ModuleType
-from typing import Optional
 
 import pytest
 
@@ -11,11 +10,11 @@ def test_lazy_getattr_loads_and_caches_module(monkeypatch: pytest.MonkeyPatch) -
     import trend_analysis
 
     sentinel = ModuleType("trend_analysis.selector")
-    setattr(sentinel, "flag", "sentinel")
+    sentinel.flag = "sentinel"
 
     original_import = importlib.import_module
 
-    def fake_import(name: str, package: Optional[str] = None) -> ModuleType:
+    def fake_import(name: str, package: str | None = None) -> ModuleType:
         if name == "trend_analysis.selector":
             return sentinel
         return original_import(name, package=package)
@@ -76,7 +75,7 @@ def test_eager_import_skips_missing_optional_modules(
 
     original_import = importlib.import_module
 
-    def fake_import(name: str, package: Optional[str] = None) -> ModuleType:
+    def fake_import(name: str, package: str | None = None) -> ModuleType:
         if name == "trend_analysis.signals":
             raise ImportError("optional dependency not available")
         return original_import(name, package=package)
@@ -100,7 +99,7 @@ def test_conditional_reexports_skip_when_dependencies_missing(
 
     original_import = importlib.import_module
 
-    def fake_import(name: str, package: Optional[str] = None) -> ModuleType:
+    def fake_import(name: str, package: str | None = None) -> ModuleType:
         if name in {"trend_analysis.data", "trend_analysis.export"}:
             raise ImportError("optional dependency not available")
         return original_import(name, package=package)

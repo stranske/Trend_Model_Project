@@ -27,11 +27,7 @@ def _load_config_module_without_pydantic(
     """Load ``config.models`` with ``pydantic`` forcibly unavailable."""
 
     module_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "trend_analysis"
-        / "config"
-        / "models.py"
+        Path(__file__).resolve().parents[1] / "src" / "trend_analysis" / "config" / "models.py"
     )
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec and spec.loader is not None
@@ -282,7 +278,7 @@ def test_pydantic_dict_field_detection_handles_item_errors(
         def items(self):  # pragma: no cover - exercised via the except path
             raise RuntimeError("boom")
 
-    original = getattr(models._PydanticConfigImpl, "model_fields")  # type: ignore[attr-defined]
+    original = models._PydanticConfigImpl.model_fields  # type: ignore[attr-defined]
     monkeypatch.setattr(
         models._PydanticConfigImpl,  # type: ignore[attr-defined]
         "model_fields",

@@ -65,9 +65,7 @@ def test_validate_input_rejects_duplicate_dates() -> None:
 
 def test_validate_input_flags_nan_required_values() -> None:
     df = _load_csv("missing_ret.csv")
-    with pytest.raises(
-        InputValidationError, match="Column 'ret' contains missing values"
-    ):
+    with pytest.raises(InputValidationError, match="Column 'ret' contains missing values"):
         validate_input(df)
 
 

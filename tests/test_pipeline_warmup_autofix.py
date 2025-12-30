@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -50,7 +48,7 @@ def compute_expected_rows_for_autofix() -> int:
     return int(result["in_sample_scaled"].shape[0])
 
 
-def _pretend_array(value: Optional[np.ndarray]) -> np.ndarray:
+def _pretend_array(value: np.ndarray | None) -> np.ndarray:
     return value
 
 

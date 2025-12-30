@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from trend.config_schema import CoreConfigError, validate_core_config
 
@@ -22,14 +22,14 @@ def build_config_payload(
     transaction_cost_bps: float,
     slippage_bps: float = 0.0,
     target_vol: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a raw configuration mapping for minimal validation.
 
     Parameters mirror the minimal startup contract.  No validation is
     performed here – callers should pass the result to ``validate_payload``.
     """
 
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "date_column": date_column,
         "frequency": frequency,
     }
@@ -40,7 +40,7 @@ def build_config_payload(
     if managers_glob:
         data["managers_glob"] = managers_glob
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "data": data,
         "portfolio": {
             "rebalance_calendar": rebalance_calendar,
@@ -59,8 +59,8 @@ def build_config_payload(
 
 
 def validate_payload(
-    payload: Dict[str, Any], *, base_path: Path
-) -> Tuple[Dict[str, Any] | None, str | None]:
+    payload: dict[str, Any], *, base_path: Path
+) -> tuple[dict[str, Any] | None, str | None]:
     """Validate a raw payload returning (validated_dict, error_message)."""
 
     try:
@@ -68,11 +68,9 @@ def validate_payload(
     except CoreConfigError as exc:
         return None, str(exc)
 
-    validated: Dict[str, Any] = dict(payload)
+    validated: dict[str, Any] = dict(payload)
     data_section = dict(validated.get("data") or {})
-    data_section["csv_path"] = (
-        str(core.data.csv_path) if core.data.csv_path is not None else None
-    )
+    data_section["csv_path"] = str(core.data.csv_path) if core.data.csv_path is not None else None
     data_section["universe_membership_path"] = (
         str(core.data.universe_membership_path)
         if core.data.universe_membership_path is not None

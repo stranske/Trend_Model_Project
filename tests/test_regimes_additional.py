@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -193,22 +194,16 @@ def test_compute_regime_series_without_cache_returns_labels() -> None:
 def test_compute_regime_series_handles_empty_input() -> None:
     settings = RegimeSettings(enabled=True)
     empty_series = pd.Series(dtype=float)
-    assert _compute_regime_series(
-        empty_series, settings, freq="M", periods_per_year=12
-    ).empty
+    assert _compute_regime_series(empty_series, settings, freq="M", periods_per_year=12).empty
     nan_series = pd.Series(
         [np.nan, np.nan], index=pd.date_range("2024-01-31", periods=2, freq="ME")
     )
-    assert _compute_regime_series(
-        nan_series, settings, freq="M", periods_per_year=12
-    ).empty
+    assert _compute_regime_series(nan_series, settings, freq="M", periods_per_year=12).empty
 
 
 def test_compute_regimes_disabled_returns_empty() -> None:
     settings = RegimeSettings(enabled=False)
-    proxy = pd.Series(
-        [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-    )
+    proxy = pd.Series([0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
     result = compute_regimes(proxy, settings, freq="M", periods_per_year=12)
     assert result.empty
 
@@ -257,9 +252,7 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
     regimes = pd.Series(dtype="string")
     table, notes = aggregate_performance_by_regime(
         returns_map={
-            "Fund": pd.Series(
-                [0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME")
-            )
+            "Fund": pd.Series([0.01, 0.02], index=pd.date_range("2024-01-31", periods=2, freq="ME"))
         },
         risk_free=0.0,
         regimes=regimes,
@@ -291,9 +284,7 @@ def test_aggregate_performance_by_regime_edge_cases() -> None:
 
 def test_build_regime_payload_handling(monkeypatch: pytest.MonkeyPatch) -> None:
     dates = pd.date_range("2024-01-31", periods=3, freq="ME")
-    data = pd.DataFrame(
-        {"Date": dates, "Proxy": [0.01, 0.02, -0.01], "Fund": [0.02, 0.01, 0.03]}
-    )
+    data = pd.DataFrame({"Date": dates, "Proxy": [0.01, 0.02, -0.01], "Fund": [0.02, 0.01, 0.03]})
     returns_map = {"Fund": data.set_index("Date")["Fund"]}
 
     # Disabled configuration short-circuits early.
@@ -384,9 +375,7 @@ def test_build_regime_payload_handles_missing_labels(
 
     monkeypatch.setattr(
         "trend_analysis.regimes.compute_regimes",
-        lambda *_args, **_kwargs: pd.Series(
-            [pd.NA, pd.NA], index=dates, dtype="string"
-        ),
+        lambda *_args, **_kwargs: pd.Series([pd.NA, pd.NA], index=dates, dtype="string"),
     )
 
     payload = build_regime_payload(
@@ -450,10 +439,7 @@ def test_build_regime_payload_generates_summary(
 
     assert not payload["table"].empty
     assert isinstance(payload["summary"], str)
-    assert (
-        "risk-on" in payload["summary"].lower()
-        or "risk-off" in payload["summary"].lower()
-    )
+    assert "risk-on" in payload["summary"].lower() or "risk-off" in payload["summary"].lower()
 
 
 def test_compute_regime_series_volatility_tag_includes_periods(
@@ -568,9 +554,7 @@ def test_build_regime_payload_uses_notes_when_no_user_columns(
         lambda *args, **kwargs: regimes,
     )
 
-    columns = pd.MultiIndex.from_tuples(
-        [("User", "All")], names=["portfolio", "regime"]
-    )
+    columns = pd.MultiIndex.from_tuples([("User", "All")], names=["portfolio", "regime"])
     table = pd.DataFrame([[0.1], [0.2]], index=["CAGR", "Sharpe"], columns=columns)
     monkeypatch.setattr(
         "trend_analysis.regimes.aggregate_performance_by_regime",

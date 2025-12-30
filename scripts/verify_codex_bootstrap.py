@@ -80,9 +80,7 @@ def run(cmd: str, check=True, capture=True, env=None, timeout=60):
         cmd, shell=True, capture_output=capture, text=True, env=env, timeout=timeout
     )
     if check and proc.returncode != 0:
-        raise RuntimeError(
-            f"Command failed ({proc.returncode}): {cmd}\nSTDERR:\n{proc.stderr}"
-        )
+        raise RuntimeError(f"Command failed ({proc.returncode}): {cmd}\nSTDERR:\n{proc.stderr}")
     return proc.stdout.strip()
 
 
@@ -130,9 +128,7 @@ def download_artifact(issue: int, dest: pathlib.Path) -> dict:
     dest.mkdir(exist_ok=True, parents=True)
     # Attempt download up to 5 times
     for attempt in range(5):
-        rc = subprocess.run(
-            f"gh run download -n codex-bootstrap-{issue} -D {dest}", shell=True
-        )
+        rc = subprocess.run(f"gh run download -n codex-bootstrap-{issue} -D {dest}", shell=True)
         if rc.returncode == 0:
             result_file = dest / "codex_bootstrap_result.json"
             if result_file.exists():
@@ -147,11 +143,7 @@ def scenario_t01_basic(ctx: dict) -> ScenarioResult:
     ctx["issue"] = issue
     sleep(8)
     artifact = download_artifact(issue, LOG_DIR / f"t01_{issue}")
-    ok = (
-        artifact.get("reused") is False
-        and artifact.get("pr")
-        and artifact.get("branch")
-    )
+    ok = artifact.get("reused") is False and artifact.get("pr") and artifact.get("branch")
     status = "pass" if ok else "fail"
     return ScenarioResult(
         "t01_basic",
@@ -188,9 +180,7 @@ def scenario_t02_reuse(ctx: dict) -> ScenarioResult:
 def scenario_t03_rebootstrap(ctx: dict) -> ScenarioResult:
     issue = ctx.get("issue")
     if not issue:
-        return ScenarioResult(
-            "t03_rebootstrap", "skip", {}, error="No base issue from t01"
-        )
+        return ScenarioResult("t03_rebootstrap", "skip", {}, error="No base issue from t01")
     # Need PR number
     # Use latest artifact
     art_dir = max(
@@ -199,22 +189,16 @@ def scenario_t03_rebootstrap(ctx: dict) -> ScenarioResult:
         default=None,
     )
     if not art_dir:
-        return ScenarioResult(
-            "t03_rebootstrap", "skip", {}, error="No prior artifact dir"
-        )
+        return ScenarioResult("t03_rebootstrap", "skip", {}, error="No prior artifact dir")
     art_file = next(art_dir.glob("codex_bootstrap_result.json"), None)
     if not art_file:
-        return ScenarioResult(
-            "t03_rebootstrap", "skip", {}, error="Missing artifact file"
-        )
+        return ScenarioResult("t03_rebootstrap", "skip", {}, error="Missing artifact file")
     art = json.loads(art_file.read_text())
     pr = art.get("pr")
     if not pr:
         return ScenarioResult("t03_rebootstrap", "skip", {}, error="No PR in artifact")
     # Close PR
-    run(
-        f"gh pr close {pr} --comment 'Closing for re-bootstrap test' --delete-branch false"
-    )
+    run(f"gh pr close {pr} --comment 'Closing for re-bootstrap test' --delete-branch false")
     sleep(3)
     # Re-label to trigger re-bootstrap
     subprocess.run(f"gh issue edit {issue} --remove-label agent:codex", shell=True)
@@ -320,9 +304,7 @@ def scenario_t06_manual_no_sim(ctx: dict) -> ScenarioResult:
     )
     ctx["t06_issue"] = issue
     try:
-        run(
-            f"gh workflow run 'Codex Assign Minimal' -f test_issue={issue} -f simulate_label='' "
-        )
+        run(f"gh workflow run 'Codex Assign Minimal' -f test_issue={issue} -f simulate_label='' ")
     except Exception as e:
         return ScenarioResult(
             "t06_manual_no_sim",
@@ -357,9 +339,7 @@ def scenario_t07_invalid_manual(ctx: dict) -> ScenarioResult:
     # NOTE: GitHub REST for workflow dispatch requires ref.
     try:
         # Provide a bogus test_issue value to trigger invalid-manual-issue reason.
-        run(
-            "gh workflow run Codex Assign Minimal -f test_issue=abc123 -f simulate_label='' "
-        )
+        run("gh workflow run Codex Assign Minimal -f test_issue=abc123 -f simulate_label='' ")
     except Exception as e:
         return ScenarioResult(
             "t07_invalid_manual", "skip", {}, error=f"workflow dispatch failed: {e}"
@@ -495,9 +475,7 @@ def scenario_t10_primary_403_fallback(ctx: dict) -> ScenarioResult:
 
 def scenario_t11_dual_fail(ctx: dict) -> ScenarioResult:
     # Simulate forced dual failure; expect missing artifact
-    issue = create_issue(
-        "Codex Verification T11", "Forced dual failure", labels=["agent:codex"]
-    )
+    issue = create_issue("Codex Verification T11", "Forced dual failure", labels=["agent:codex"])
     sleep(10)
     try:
         art = download_artifact(issue, LOG_DIR / f"t11_{issue}")
@@ -650,9 +628,7 @@ def scenario_t14_invalid_cmd(ctx: dict) -> ScenarioResult:
 
 def scenario_t15_corrupt_marker(ctx: dict) -> ScenarioResult:
     # Depend on a fresh bootstrap first
-    issue = create_issue(
-        "Codex Verification T15", "Corrupt marker test", labels=["agent:codex"]
-    )
+    issue = create_issue("Codex Verification T15", "Corrupt marker test", labels=["agent:codex"])
     sleep(8)
     try:
         art = download_artifact(issue, LOG_DIR / f"t15_initial_{issue}")
@@ -692,16 +668,10 @@ def scenario_t15_corrupt_marker(ctx: dict) -> ScenarioResult:
                     if marker_obj:
                         marker_obj.pop(next(iter(marker_obj)))
                 corrupted_marker_json = json.dumps(marker_obj)
-                corrupted = (
-                    orig[: match.start(1)]
-                    + corrupted_marker_json
-                    + orig[match.end(1) :]
-                )
+                corrupted = orig[: match.start(1)] + corrupted_marker_json + orig[match.end(1) :]
             except Exception:
                 # If JSON parsing fails, just break the block
-                corrupted = (
-                    orig[: match.start(1)] + "CORRUPTED_MARKER" + orig[match.end(1) :]
-                )
+                corrupted = orig[: match.start(1)] + "CORRUPTED_MARKER" + orig[match.end(1) :]
         else:
             # If no marker found, fallback to previous heuristic
             corrupted = orig.replace("Codex", "CdX")
@@ -815,9 +785,7 @@ def main():
             if exp.expect_artifact and not parts:
                 parts.append("artifact")
             exp_str = "+".join(parts) or "—"
-        note = r.error or (
-            "pr=" + str(r.details.get("pr")) if r.details.get("pr") else ""
-        )
+        note = r.error or ("pr=" + str(r.details.get("pr")) if r.details.get("pr") else "")
         dur = r.duration_s if r.duration_s is not None else ""
         md_lines.append(f"| {r.name} | {r.status} | {dur} | {exp_str} | {note} |")
     (WORKDIR / "codex-verification-report.md").write_text("\n".join(md_lines) + "\n")
@@ -844,9 +812,7 @@ def main():
                 if exp.expect_artifact and not parts:
                     parts.append("artifact")
             exp_str = "+".join(parts) or "—"
-            diff_lines.append(
-                f"| {r.name} | {r.status} | {exp_str} | {(r.error or '')[:140]} |"
-            )
+            diff_lines.append(f"| {r.name} | {r.status} | {exp_str} | {(r.error or '')[:140]} |")
     (WORKDIR / "codex-verification-diff.md").write_text("\n".join(diff_lines) + "\n")
     # Exit non-zero if any fail/error
     if any(r.status in {"fail", "error"} for r in results):

@@ -27,7 +27,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set
 
 import pandas as pd
 
@@ -86,12 +85,12 @@ def main() -> int:
             raise SystemExit(f"Score frame for {lbl} missing 'Sharpe'")
 
     rule = RuleConfig()
-    holdings: Set[str] = set()
-    neg_strikes: Dict[str, int] = {}
-    pos_strikes: Dict[str, int] = {}
+    holdings: set[str] = set()
+    neg_strikes: dict[str, int] = {}
+    pos_strikes: dict[str, int] = {}
 
-    churn_rows: List[dict] = []
-    zsum_rows: List[dict] = []
+    churn_rows: list[dict] = []
+    zsum_rows: list[dict] = []
 
     # Initialize from the first period by top Sharpe
     first_lbl = labels[0]
@@ -105,10 +104,10 @@ def main() -> int:
         sharpe = sf["Sharpe"]
         z = _z_scores(sharpe)
 
-        exits: List[str] = []
-        entries: List[str] = []
-        exit_reasons: Dict[str, str] = {}
-        entry_reasons: Dict[str, str] = {}
+        exits: list[str] = []
+        entries: list[str] = []
+        exit_reasons: dict[str, str] = {}
+        entry_reasons: dict[str, str] = {}
 
         # Evaluate exits on current holdings
         for name in list(holdings):
@@ -125,15 +124,13 @@ def main() -> int:
             # Soft strike accumulation
             if neg_strikes.get(key, 0) >= rule.soft_strikes:
                 exits.append(key)
-                exit_reasons[key] = (
-                    f"soft_exit_{rule.soft_strikes}x z<={rule.z_exit_soft:.1f}"
-                )
+                exit_reasons[key] = f"soft_exit_{rule.soft_strikes}x z<={rule.z_exit_soft:.1f}"
 
         for name in exits:
             holdings.discard(name)
 
         # Update positive strikes for non-holdings and identify candidates
-        candidates: List[tuple[str, float, bool]] = []
+        candidates: list[tuple[str, float, bool]] = []
         for name, z_i in z.items():
             key = str(name)
             if key in holdings:
@@ -161,9 +158,7 @@ def main() -> int:
                 holdings.add(name)
                 entries.append(name)
                 if immediate:
-                    entry_reasons[name] = (
-                        f"hard_entry_z>={rule.z_entry_hard:.1f} (z={zf:.2f})"
-                    )
+                    entry_reasons[name] = f"hard_entry_z>={rule.z_entry_hard:.1f} (z={zf:.2f})"
                 else:
                     entry_reasons[name] = (
                         f"soft_entry_{rule.soft_strikes}x z>={rule.z_entry_soft:.1f}"
@@ -180,14 +175,9 @@ def main() -> int:
                 "max_z": float(z_series.max(skipna=True)),
                 "count_z<=-1.0": int((z_series <= -1.0).sum()),
                 "count_z>=+1.0": int((z_series >= +1.0).sum()),
-                "bottom_names": ",".join(
-                    z_series.sort_values().head(3).index.astype(str).tolist()
-                ),
+                "bottom_names": ",".join(z_series.sort_values().head(3).index.astype(str).tolist()),
                 "top_names": ",".join(
-                    z_series.sort_values(ascending=False)
-                    .head(3)
-                    .index.astype(str)
-                    .tolist()
+                    z_series.sort_values(ascending=False).head(3).index.astype(str).tolist()
                 ),
             }
         )
@@ -210,10 +200,7 @@ def main() -> int:
     pd.DataFrame(churn_rows).to_csv(out_dir / "churn_schedule.csv", index=False)
     pd.DataFrame(zsum_rows).to_csv(out_dir / "z_summary.csv", index=False)
 
-    msg = (
-        f"Wrote {len(churn_rows)} periods to {out_dir}/churn_schedule.csv "
-        "and z_summary.csv"
-    )
+    msg = f"Wrote {len(churn_rows)} periods to {out_dir}/churn_schedule.csv " "and z_summary.csv"
     print(msg)
     return 0
 

@@ -46,10 +46,7 @@ def test_vol_adjust_without_target_inverts_rolling_std() -> None:
     baseline = compute_trend_signals(returns, baseline_spec)
 
     rolling_std = (
-        returns.astype(float)
-        .rolling(window=3, min_periods=3)
-        .std(ddof=0)
-        .shift(spec_no_target.lag)
+        returns.astype(float).rolling(window=3, min_periods=3).std(ddof=0).shift(spec_no_target.lag)
     )
     expected = baseline.mul(1.0 / rolling_std)
 

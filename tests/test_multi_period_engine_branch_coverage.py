@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ import trend_analysis.selector as selector_mod
 class MinimalConfig:
     """Configuration focused on exercising branch-heavy paths."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 2,
@@ -25,13 +26,13 @@ class MinimalConfig:
             "end": "2020-03",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "allow_risk_free_fallback": True,
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
             "random_n": 4,
@@ -48,12 +49,12 @@ class MinimalConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 99
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -77,9 +78,7 @@ class WeightingStub:
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         base = [0.7, 0.6, 0.5]
         values = pd.Series(base[: len(selected)], index=selected.index, dtype=float)
@@ -93,9 +92,7 @@ class IdentityRebalancer:
     def __init__(self, *_: Any) -> None:
         pass
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _: pd.DataFrame, **kwargs) -> pd.Series:
         return prev_weights
 
 
@@ -103,7 +100,7 @@ class IdentityRebalancer:
 class PerPeriodConfig:
     """Configuration that exercises the non-threshold multi-period path."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 1,
@@ -112,8 +109,8 @@ class PerPeriodConfig:
             "end": "2020-02",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "dummy.csv"})
-    portfolio: Dict[str, Any] = field(
+    data: dict[str, Any] = field(default_factory=lambda: {"csv_path": "dummy.csv"})
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "random",
             "selection_mode": "all",
@@ -126,15 +123,15 @@ class PerPeriodConfig:
             "max_turnover": 1.0,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    performance: Dict[str, Any] = field(
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    performance: dict[str, Any] = field(
         default_factory=lambda: {"enable_cache": True, "incremental_cov": True}
     )
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 7
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -142,7 +139,7 @@ class PerPeriodConfig:
         }
 
 
-def _stub_result(period: Any) -> Dict[str, Any]:
+def _stub_result(period: Any) -> dict[str, Any]:
     return {
         "period": (
             period.in_start,
@@ -171,7 +168,7 @@ def _stub_result(period: Any) -> Dict[str, Any]:
     }
 
 
-def _stub_run_analysis(*_: Any, **__: Any) -> Dict[str, Any]:
+def _stub_run_analysis(*_: Any, **__: Any) -> dict[str, Any]:
     return {
         "selected_funds": ["FundA"],
         "in_sample_scaled": pd.DataFrame(),
@@ -241,9 +238,7 @@ def test_run_schedule_calls_weight_update() -> None:
     selector = SelectorStub(["FundA"])
     weighting = UpdateWeighting()
 
-    mp_engine.run_schedule(
-        {"2020-01-31": frame}, selector, weighting, rank_column="Sharpe"
-    )
+    mp_engine.run_schedule({"2020-01-31": frame}, selector, weighting, rank_column="Sharpe")
 
     assert weighting.updates and weighting.updates[0][1] == 0
 
@@ -281,7 +276,7 @@ def test_run_loads_csv_and_handles_missing_policy(
 
     results_iter = iter([None, _stub_result(periods[1])])
 
-    def fake_run_analysis(*args: Any, **kwargs: Any) -> Dict[str, Any] | None:
+    def fake_run_analysis(*args: Any, **kwargs: Any) -> dict[str, Any] | None:
         return next(results_iter)
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)

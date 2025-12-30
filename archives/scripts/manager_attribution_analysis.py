@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import List
 
 
 def _warn() -> None:
@@ -29,7 +28,7 @@ def _warn() -> None:
     )
 
 
-def main(argv: List[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     _warn()
     try:
         from trend_analysis.cli import main as trend_main
@@ -247,23 +246,14 @@ avg_positive = df_mgr[df_mgr["Full_Period_CAGR"] > 0]["Full_Period_CAGR"].mean()
 avg_negative = df_mgr[df_mgr["Full_Period_CAGR"] < 0]["Full_Period_CAGR"].mean()
 
 print("\nPORTFOLIO DIVERSIFICATION:")
-pos_msg = (
-    f"• Positive Contributors: {positive_mgrs}/8 managers "
-    f"(Avg: {avg_positive:.1f}% CAGR)"
-)
+pos_msg = f"• Positive Contributors: {positive_mgrs}/8 managers " f"(Avg: {avg_positive:.1f}% CAGR)"
 print(pos_msg)
-neg_msg = (
-    f"• Negative Contributors: {negative_mgrs}/8 managers "
-    f"(Avg: {avg_negative:.1f}% CAGR)"
-)
+neg_msg = f"• Negative Contributors: {negative_mgrs}/8 managers " f"(Avg: {avg_negative:.1f}% CAGR)"
 print(neg_msg)
 max_cagr = df_mgr["Full_Period_CAGR"].max()
 min_cagr = df_mgr["Full_Period_CAGR"].min()
 spread = max_cagr - min_cagr
-range_msg = (
-    f"• Performance Range: {max_cagr:.1f}% to {min_cagr:.1f}% "
-    f"({spread:.1f}% spread)"
-)
+range_msg = f"• Performance Range: {max_cagr:.1f}% to {min_cagr:.1f}% " f"({spread:.1f}% spread)"
 print(range_msg)
 max_sharpe = df_mgr["Full_Period_Sharpe"].max()
 min_sharpe = df_mgr["Full_Period_Sharpe"].min()

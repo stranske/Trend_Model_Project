@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
 
 from .signals import TrendSpec
 
@@ -16,10 +16,10 @@ class TrendSpecPreset:
     description: str
     spec: TrendSpec
 
-    def as_signal_config(self) -> Dict[str, object]:
+    def as_signal_config(self) -> dict[str, object]:
         """Return a mapping suitable for config ``signals`` sections."""
 
-        payload: Dict[str, object] = {
+        payload: dict[str, object] = {
             "kind": self.spec.kind,
             "window": self.spec.window,
             "lag": self.spec.lag,
@@ -32,11 +32,11 @@ class TrendSpecPreset:
             payload["vol_target"] = self.spec.vol_target
         return payload
 
-    def form_defaults(self) -> Dict[str, object]:
+    def form_defaults(self) -> dict[str, object]:
         """Return defaults for interactive forms (min periods/vol target
         optional)."""
 
-        defaults: Dict[str, object] = {
+        defaults: dict[str, object] = {
             "window": self.spec.window,
             "min_periods": self.spec.min_periods or 0,
             "lag": self.spec.lag,
@@ -49,7 +49,7 @@ class TrendSpecPreset:
 
 _DEFAULT_PRESET_NAME = "Balanced"
 
-_PRESETS: Dict[str, TrendSpecPreset] = {
+_PRESETS: dict[str, TrendSpecPreset] = {
     "conservative": TrendSpecPreset(
         name="Conservative",
         description="Longer window with heavier smoothing and lower volatility target.",
@@ -95,13 +95,13 @@ def default_preset_name() -> str:
     return _DEFAULT_PRESET_NAME
 
 
-def list_trend_spec_presets() -> List[str]:
+def list_trend_spec_presets() -> list[str]:
     """Return the available TrendSpec preset names (title case)."""
 
     return [preset.name for preset in _ordered_presets()]
 
 
-def list_trend_spec_keys() -> List[str]:
+def list_trend_spec_keys() -> list[str]:
     """Return canonical keys for TrendSpec presets (lower case)."""
 
     return [key for key, _ in _ordered_presets_items()]
@@ -130,7 +130,7 @@ def _ordered_presets() -> Iterable[TrendSpecPreset]:
         yield preset
 
 
-def _ordered_presets_items() -> List[tuple[str, TrendSpecPreset]]:
+def _ordered_presets_items() -> list[tuple[str, TrendSpecPreset]]:
     return sorted(_PRESETS.items(), key=lambda item: item[0])
 
 

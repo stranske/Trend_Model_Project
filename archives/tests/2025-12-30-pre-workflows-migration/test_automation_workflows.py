@@ -77,9 +77,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             return mappings
         return []
 
-    def _assert_contains(
-        self, haystack: str, needles: list[str], *, context: str
-    ) -> None:
+    def _assert_contains(self, haystack: str, needles: list[str], *, context: str) -> None:
         for needle in needles:
             with self.subTest(target=context, substring=needle):
                 self.assertIn(needle, haystack, f"Expected `{needle}` in {context}")
@@ -187,18 +185,14 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         )
 
         job_python_ci = jobs["python-ci"]
-        self.assertEqual(
-            job_python_ci.get("uses"), "./.github/workflows/reusable-10-ci-python.yml"
-        )
+        self.assertEqual(job_python_ci.get("uses"), "./.github/workflows/reusable-10-ci-python.yml")
         with_block_python = job_python_ci.get("with", {})
         self.assertEqual(with_block_python.get("python-versions"), '["3.11", "3.12"]')
         self.assertEqual(with_block_python.get("marker"), "not quarantine and not slow")
         self.assertEqual(with_block_python.get("primary-python-version"), "3.11")
 
         job_smoke = jobs["docker-smoke"]
-        self.assertEqual(
-            job_smoke.get("uses"), "./.github/workflows/reusable-12-ci-docker.yml"
-        )
+        self.assertEqual(job_smoke.get("uses"), "./.github/workflows/reusable-12-ci-docker.yml")
 
         job_gate = jobs["summary"]
         self.assertEqual(
@@ -232,15 +226,9 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
         self.assertTrue(gate_job, "Gate workflow must define gate job")
 
         steps = gate_job.get("steps", [])
-        docs_step = next(
-            (step for step in steps if step.get("id") == "docs_only"), None
-        )
-        self.assertIsNotNone(
-            docs_step, "Gate workflow should expose docs-only handler step"
-        )
-        self.assertIsInstance(
-            docs_step, dict, "docs_only step definition should be a mapping"
-        )
+        docs_step = next((step for step in steps if step.get("id") == "docs_only"), None)
+        self.assertIsNotNone(docs_step, "Gate workflow should expose docs-only handler step")
+        self.assertIsInstance(docs_step, dict, "docs_only step definition should be a mapping")
         docs_step_mapping = cast(dict[str, object], docs_step)
 
         with_block = cast(dict[str, object], docs_step_mapping.get("with", {}))
@@ -394,9 +382,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
 
         steps = detect_job.get("steps", [])
         diff_step = next((step for step in steps if step.get("id") == "diff"), None)
-        self.assertIsNotNone(
-            diff_step, "Detect job must use diff step to classify changes"
-        )
+        self.assertIsNotNone(diff_step, "Detect job must use diff step to classify changes")
 
         with_block = cast(dict[str, object], (diff_step or {}).get("with", {}))
         script_obj = with_block.get("script", "")
@@ -539,8 +525,7 @@ class TestAutomationWorkflowCoverage(unittest.TestCase):
             (
                 step
                 for step in steps
-                if isinstance(step, dict)
-                and step.get("name") == "Upload coverage artifact"
+                if isinstance(step, dict) and step.get("name") == "Upload coverage artifact"
             ),
             {},
         )

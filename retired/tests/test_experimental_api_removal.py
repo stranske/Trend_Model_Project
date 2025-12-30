@@ -15,7 +15,7 @@ def test_streamlit_app_no_experimental_fastapi():
     streamlit_app_path = repo_root / "streamlit_app" / "app.py"
 
     # Read the file content
-    with open(streamlit_app_path, "r") as f:
+    with open(streamlit_app_path) as f:
         content = f.read()
 
     # Should not contain experimental FastAPI imports or app creation
@@ -35,7 +35,7 @@ def test_health_wrapper_has_specific_exceptions():
 
     # Read the source file to verify exception handling
     health_wrapper_path = Path(health_wrapper.__file__)
-    with open(health_wrapper_path, "r") as f:
+    with open(health_wrapper_path) as f:
         content = f.read()
 
     # Should use specific exception types instead of broad Exception
@@ -45,17 +45,13 @@ def test_health_wrapper_has_specific_exceptions():
 
     # Check for specific app creation exceptions (may be formatted across multiple lines)
     assert (
-        "ImportError," in content
-        and "AttributeError," in content
-        and "TypeError," in content
+        "ImportError," in content and "AttributeError," in content and "TypeError," in content
     ), "Should catch specific app creation exceptions"
 
     # Should not use bare Exception (except in comments)
     lines = content.split("\n")
     code_lines = [
-        line
-        for line in lines
-        if not line.strip().startswith("#") and "except Exception" in line
+        line for line in lines if not line.strip().startswith("#") and "except Exception" in line
     ]
     assert len(code_lines) == 0, f"Should not use bare Exception: {code_lines}"
 

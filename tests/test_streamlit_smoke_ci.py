@@ -134,9 +134,7 @@ class StreamlitAppManager:
         # If we get here, startup failed
         if self.process:
             self.stop()
-        raise RuntimeError(
-            f"Failed to start Streamlit app after {max_attempts} seconds"
-        )
+        raise RuntimeError(f"Failed to start Streamlit app after {max_attempts} seconds")
 
     def stop(self):
         """Stop the Streamlit app."""
@@ -244,9 +242,7 @@ def test_streamlit_app_run_page_exists():
 
 def test_error_handling_components():
     """Test that error handling components exist in the Results page."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -263,9 +259,7 @@ def test_error_handling_components():
 
 def test_progress_reporting_components():
     """Test that progress/result rendering components exist in the Results page."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for testing")
@@ -288,10 +282,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
     # Step 1: Validate demo data
     assert not demo_data.empty
     assert "Date" in demo_data.columns
-    print(
-        "✅ Demo data validated: "
-        f"{len(demo_data)} rows, {len(demo_data.columns)} columns"
-    )
+    print("✅ Demo data validated: " f"{len(demo_data)} rows, {len(demo_data.columns)} columns")
 
     # Step 2: Run analysis
     try:
@@ -325,9 +316,7 @@ def test_end_to_end_analysis_simulation(demo_data, demo_config):
 
 def test_run_page_imports_successfully():
     """Test that the Results page can be imported without errors."""
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
 
     if not run_page_path.exists():
         pytest.skip("Results page not found for import testing")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -74,7 +74,7 @@ def hit_rate(r: pd.Series) -> float:
     return float((r > 0).mean())
 
 
-AVAILABLE_METRICS: Dict[str, Dict[str, Any]] = {
+AVAILABLE_METRICS: dict[str, dict[str, Any]] = {
     "return_ann": {"fn": annualized_return, "higher_is_better": True},
     "vol": {"fn": volatility, "higher_is_better": False},
     "sharpe": {"fn": sharpe, "higher_is_better": True},

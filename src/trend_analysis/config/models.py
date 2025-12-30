@@ -12,7 +12,7 @@ import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
 import yaml
 
@@ -132,7 +132,7 @@ class SimpleBaseModel:
 
         self._validate()
 
-    def _get_defaults(self) -> Dict[str, Any]:
+    def _get_defaults(self) -> dict[str, Any]:
         """Get default values for this model."""
         return {}
 
@@ -181,7 +181,7 @@ if _HAS_PYDANTIC:
     _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
     _runtime_base = BaseModel if _cached is None else _cached
     if _cached is None:
-        setattr(_bi, "_TREND_CONFIG_CLASS", _runtime_base)
+        _bi._TREND_CONFIG_CLASS = _runtime_base
 
     if TYPE_CHECKING:  # pragma: no cover - typing aid only
         from pydantic import BaseModel as _TypedPydanticBaseModel
@@ -191,7 +191,8 @@ if _HAS_PYDANTIC:
         PydanticConfigBase = cast(type[BaseModel], _runtime_base)
 
     # Provide a typed decorator wrapper to satisfy mypy in strict mode
-    from typing import Callable, TypeVar
+    from collections.abc import Callable
+    from typing import TypeVar
 
     F = TypeVar("F")
 
@@ -205,7 +206,7 @@ if _HAS_PYDANTIC:
         OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {"performance", "signals", "regime"}
 
         @classmethod
-        def _dict_field_names(cls) -> List[str]:
+        def _dict_field_names(cls) -> list[str]:
             """Return names of fields whose type is dict[str, Any] (or
             compatible)."""
             # Support both Pydantic v2 (model_fields) and v1 (__fields__)
@@ -251,10 +252,8 @@ if _HAS_PYDANTIC:
                 # If no args, fall back to including
                 return True
 
-            optional_fields = cast(
-                set[str], getattr(cls, "OPTIONAL_DICT_FIELDS", set())
-            )
-            result: List[str] = []
+            optional_fields = cast(set[str], getattr(cls, "OPTIONAL_DICT_FIELDS", set()))
+            result: list[str] = []
             for name, field in items:
                 tp = getattr(field, "annotation", None)
                 if tp is None:
@@ -264,8 +263,8 @@ if _HAS_PYDANTIC:
             return result
 
         # Placeholders; computed after class creation for reliability
-        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = []
-        ALL_FIELDS: ClassVar[List[str]] = []
+        REQUIRED_DICT_FIELDS: ClassVar[list[str]] = []
+        ALL_FIELDS: ClassVar[list[str]] = []
 
         # Use a plain dict for model_config to avoid type-checker issues when
         # Pydantic is not installed (tests toggle availability).
@@ -382,7 +381,7 @@ if _HAS_PYDANTIC:
 
     # Only cache when creating a fresh class
     if _cached is None:
-        setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
+        _bi._TREND_CONFIG_CLASS = _PydanticConfigImpl
 
     # Compute class-level field lists post definition (works for v1/v2)
     _fields_map = getattr(_PydanticConfigImpl, "model_fields", {})
@@ -390,12 +389,8 @@ if _HAS_PYDANTIC:
         _field_names = list(_fields_map.keys())
     except Exception:  # pragma: no cover
         _field_names = list(_fields_map)
-    setattr(_PydanticConfigImpl, "ALL_FIELDS", _field_names)
-    setattr(
-        _PydanticConfigImpl,
-        "REQUIRED_DICT_FIELDS",
-        _PydanticConfigImpl._dict_field_names(),
-    )
+    _PydanticConfigImpl.ALL_FIELDS = _field_names
+    _PydanticConfigImpl.REQUIRED_DICT_FIELDS = _PydanticConfigImpl._dict_field_names()
 
 else:  # Fallback mode for tests without pydantic
 
@@ -403,7 +398,7 @@ else:  # Fallback mode for tests without pydantic
         """Simplified Config for environments without Pydantic."""
 
         # Field lists as class constants to prevent maintenance burden
-        REQUIRED_DICT_FIELDS: ClassVar[List[str]] = [
+        REQUIRED_DICT_FIELDS: ClassVar[list[str]] = [
             "data",
             "preprocessing",
             "vol_adjust",
@@ -414,7 +409,7 @@ else:  # Fallback mode for tests without pydantic
             "run",
         ]
 
-        ALL_FIELDS: ClassVar[List[str]] = [
+        ALL_FIELDS: ClassVar[list[str]] = [
             "version",
             "data",
             "preprocessing",
@@ -439,25 +434,25 @@ else:  # Fallback mode for tests without pydantic
 
         # Attribute declarations for linters/type-checkers
         version: str
-        data: Dict[str, Any]
-        preprocessing: Dict[str, Any]
-        vol_adjust: Dict[str, Any]
-        sample_split: Dict[str, Any]
-        portfolio: Dict[str, Any]
-        benchmarks: Dict[str, str]
-        metrics: Dict[str, Any]
-        regime: Dict[str, Any]
-        signals: Dict[str, Any]
-        export: Dict[str, Any]
-        performance: Dict[str, Any]
-        output: Dict[str, Any] | None
-        run: Dict[str, Any]
-        multi_period: Dict[str, Any] | None
+        data: dict[str, Any]
+        preprocessing: dict[str, Any]
+        vol_adjust: dict[str, Any]
+        sample_split: dict[str, Any]
+        portfolio: dict[str, Any]
+        benchmarks: dict[str, str]
+        metrics: dict[str, Any]
+        regime: dict[str, Any]
+        signals: dict[str, Any]
+        export: dict[str, Any]
+        performance: dict[str, Any]
+        output: dict[str, Any] | None
+        run: dict[str, Any]
+        multi_period: dict[str, Any] | None
         jobs: int | None
         checkpoint_dir: str | None
         seed: int
 
-        def _get_defaults(self) -> Dict[str, Any]:
+        def _get_defaults(self) -> dict[str, Any]:
             return {
                 "data": {},
                 "preprocessing": {},
@@ -512,9 +507,7 @@ else:  # Fallback mode for tests without pydantic
                     try:
                         tc = float(port["transaction_cost_bps"])
                     except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError(
-                            "transaction_cost_bps must be numeric"
-                        ) from exc
+                        raise ValueError("transaction_cost_bps must be numeric") from exc
                     if tc < 0:
                         raise ValueError("transaction_cost_bps must be >= 0")
                     port["transaction_cost_bps"] = tc
@@ -546,15 +539,13 @@ else:  # Fallback mode for tests without pydantic
                         try:
                             parsed = float(cost_cfg[key])
                         except Exception as exc:  # pragma: no cover - defensive
-                            raise ValueError(
-                                f"cost_model.{key} must be numeric"
-                            ) from exc
+                            raise ValueError(f"cost_model.{key} must be numeric") from exc
                         if parsed < 0:
                             raise ValueError(f"cost_model.{key} must be >= 0")
                         cost_cfg[key] = parsed
 
         # Provide a similar API surface to pydantic for callers
-        def model_dump(self) -> Dict[str, Any]:
+        def model_dump(self) -> dict[str, Any]:
             return {k: getattr(self, k) for k in self.ALL_FIELDS}
 
         def model_dump_json(self, *, indent: int | None = None) -> str:
@@ -573,7 +564,7 @@ class PresetConfig(SimpleBaseModel):
     """Configuration preset with validation."""
 
     # Field lists as class constants to prevent maintenance burden
-    PRESET_DICT_FIELDS: ClassVar[List[str]] = [
+    PRESET_DICT_FIELDS: ClassVar[list[str]] = [
         "data",
         "preprocessing",
         "vol_adjust",
@@ -588,18 +579,18 @@ class PresetConfig(SimpleBaseModel):
 
     name: str
     description: str
-    data: Dict[str, Any]
-    preprocessing: Dict[str, Any]
-    vol_adjust: Dict[str, Any]
-    sample_split: Dict[str, Any]
-    portfolio: Dict[str, Any]
-    metrics: Dict[str, Any]
-    signals: Dict[str, Any]
-    export: Dict[str, Any]
-    run: Dict[str, Any]
+    data: dict[str, Any]
+    preprocessing: dict[str, Any]
+    vol_adjust: dict[str, Any]
+    sample_split: dict[str, Any]
+    portfolio: dict[str, Any]
+    metrics: dict[str, Any]
+    signals: dict[str, Any]
+    export: dict[str, Any]
+    run: dict[str, Any]
 
-    def _get_defaults(self) -> Dict[str, Any]:
-        defaults: Dict[str, Any] = {field: {} for field in self.PRESET_DICT_FIELDS}
+    def _get_defaults(self) -> dict[str, Any]:
+        defaults: dict[str, Any] = {field: {} for field in self.PRESET_DICT_FIELDS}
         for optional_field in self.OPTIONAL_DICT_FIELDS:
             defaults.setdefault(optional_field, {})
         return defaults
@@ -615,20 +606,20 @@ class ColumnMapping(SimpleBaseModel):
 
     # Attribute declarations for type checkers
     date_column: str
-    return_columns: List[str]
+    return_columns: list[str]
     benchmark_column: str | None
     risk_free_column: str | None
-    column_display_names: Dict[str, str]
-    column_tickers: Dict[str, str]
+    column_display_names: dict[str, str]
+    column_tickers: dict[str, str]
 
     def __init__(
         self,
         date_column: str = "",
-        return_columns: List[str] | None = None,
+        return_columns: list[str] | None = None,
         benchmark_column: str | None = None,
         risk_free_column: str | None = None,
-        column_display_names: Dict[str, str] | None = None,
-        column_tickers: Dict[str, str] | None = None,
+        column_display_names: dict[str, str] | None = None,
+        column_tickers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:
         if return_columns is None:
@@ -647,7 +638,7 @@ class ColumnMapping(SimpleBaseModel):
             **kwargs,
         )
 
-    def _get_defaults(self) -> Dict[str, Any]:
+    def _get_defaults(self) -> dict[str, Any]:
         return {
             "date_column": "",
             "return_columns": [],
@@ -671,11 +662,11 @@ class ConfigurationState(SimpleBaseModel):
 
     preset_name: str
     column_mapping: ColumnMapping | None
-    config_dict: Dict[str, Any]
+    config_dict: dict[str, Any]
     uploaded_data: Any
     analysis_results: Any
 
-    def _get_defaults(self) -> Dict[str, Any]:
+    def _get_defaults(self) -> dict[str, Any]:
         return {
             "preset_name": "",
             "column_mapping": None,
@@ -707,7 +698,7 @@ def load_preset(preset_name: str) -> PresetConfig:
     return PresetConfig(**data)
 
 
-def list_available_presets() -> List[str]:
+def list_available_presets() -> list[str]:
     """List all available preset names."""
     config_dir = _find_config_directory()
 
@@ -762,9 +753,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
         validate_trend_config(cfg_dict, base_path=proj_path())
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith(
-            "trend_analysis.config"
-        ):
+        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
             try:
                 validate_trend_config(cfg_dict, base_path=proj_path())
             except Exception:
@@ -850,9 +839,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
         validated = validate_trend_config(data, base_path=base_dir)
     else:
         validator_module = str(getattr(validate_trend_config, "__module__", ""))
-        if (not pydantic_present) or validator_module.startswith(
-            "trend_analysis.config"
-        ):
+        if (not pydantic_present) or validator_module.startswith("trend_analysis.config"):
             try:
                 validated = validate_trend_config(data, base_path=base_dir)
             except Exception:

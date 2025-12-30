@@ -38,13 +38,13 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence, Set
 
 API_VERSION = "2022-11-28"
 
 # Canonical workflow inventory (filenames under .github/workflows/)
-CANONICAL_WORKFLOW_FILES: Set[str] = {
+CANONICAL_WORKFLOW_FILES: set[str] = {
     "agents-63-issue-intake.yml",
     "agents-64-verify-agent-assignment.yml",
     "agents-70-orchestrator.yml",
@@ -86,7 +86,7 @@ CANONICAL_WORKFLOW_FILES: Set[str] = {
 }
 
 # Display names expected to remain active in the Actions UI.
-CANONICAL_WORKFLOW_NAMES: Set[str] = {
+CANONICAL_WORKFLOW_NAMES: set[str] = {
     "Agents 63 Issue Intake",
     "Agents 64 Verify Agent Assignment",
     "Agents 70 Orchestrator",
@@ -139,9 +139,7 @@ class WorkflowAPIError(RuntimeError):
         url: str,
         body: str,
     ) -> None:
-        super().__init__(
-            f"GitHub API request failed ({status_code} {reason}) for {url}: {body}"
-        )
+        super().__init__(f"GitHub API request failed ({status_code} {reason}) for {url}: {body}")
         self.status_code = status_code
         self.reason = reason
         self.url = url
@@ -216,9 +214,7 @@ def _extract_next_link(link_header: str | None) -> str | None:
     return None
 
 
-def _list_all_workflows(
-    base_url: str, headers: dict[str, str]
-) -> list[dict[str, object]]:
+def _list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
     workflows: list[dict[str, object]] = []
     url: str | None = f"{base_url}?per_page=100"
     while url:
@@ -234,8 +230,8 @@ def _list_all_workflows(
     return workflows
 
 
-def _normalize_allowlist(raw_values: Iterable[str]) -> Set[str]:
-    values: Set[str] = set()
+def _normalize_allowlist(raw_values: Iterable[str]) -> set[str]:
+    values: set[str] = set()
     for value in raw_values:
         if not value:
             continue
@@ -301,10 +297,7 @@ def disable_legacy_workflows(
         try:
             _http_request("PUT", disable_url, headers=headers, data=None)
         except WorkflowAPIError as exc:
-            if (
-                exc.status_code == 422
-                and "unable to disable this workflow" in exc.body.lower()
-            ):
+            if exc.status_code == 422 and "unable to disable this workflow" in exc.body.lower():
                 summary["skipped"].append(f"(unsupported) {key}")
                 continue
             raise
@@ -346,9 +339,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     extra_allow = list(args.allow)
-    extra_allow.extend(
-        sorted(_normalize_allowlist([os.environ.get("EXTRA_ALLOWLIST", "")]))
-    )
+    extra_allow.extend(sorted(_normalize_allowlist([os.environ.get("EXTRA_ALLOWLIST", "")])))
 
     try:
         summary = disable_legacy_workflows(
@@ -365,9 +356,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     kept = len(summary.get("kept", []))
     skipped = len(summary.get("skipped", []))
 
-    print(
-        f"Legacy workflow cleanup complete: disabled={disabled}, kept={kept}, skipped={skipped}"
-    )
+    print(f"Legacy workflow cleanup complete: disabled={disabled}, kept={kept}, skipped={skipped}")
     for category in ("disabled", "kept", "skipped"):
         for entry in sorted(summary.get(category, [])):
             print(f"[{category}] {entry}")

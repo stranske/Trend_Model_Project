@@ -1,7 +1,8 @@
 import logging
 import stat
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -43,7 +44,7 @@ def _normalise_policy_alias(value: str | None) -> str:
     return policy
 
 
-def _coerce_limit_entry(value: Any) -> Optional[int]:
+def _coerce_limit_entry(value: Any) -> int | None:
     if value in (None, "", "none"):
         return None
     try:
@@ -128,18 +129,14 @@ def compute_inception_dates(
         values = frame.drop(columns=[date_col])
     else:
         if not isinstance(frame.index, pd.DatetimeIndex):
-            raise TypeError(
-                "compute_inception_dates requires a Date column or DatetimeIndex"
-            )
+            raise TypeError("compute_inception_dates requires a Date column or DatetimeIndex")
         dates = pd.to_datetime(frame.index, errors="coerce")
         values = frame
 
     out: dict[str, pd.Timestamp | None] = {}
     if columns is None:
         columns = [
-            str(c)
-            for c in values.select_dtypes("number").columns
-            if str(c) != str(date_col)
+            str(c) for c in values.select_dtypes("number").columns if str(c) != str(date_col)
         ]
 
     for col in columns:
@@ -176,12 +173,8 @@ def _finalise_validated_frame(
     attrs["market_data_frequency_median_spacing_days"] = (
         validated.metadata.frequency_median_spacing_days
     )
-    attrs["market_data_frequency_missing_periods"] = (
-        validated.metadata.frequency_missing_periods
-    )
-    attrs["market_data_frequency_max_gap_periods"] = (
-        validated.metadata.frequency_max_gap_periods
-    )
+    attrs["market_data_frequency_missing_periods"] = validated.metadata.frequency_missing_periods
+    attrs["market_data_frequency_max_gap_periods"] = validated.metadata.frequency_max_gap_periods
     attrs["market_data_frequency_tolerance_periods"] = (
         validated.metadata.frequency_tolerance_periods
     )
@@ -190,9 +183,7 @@ def _finalise_validated_frame(
     attrs["market_data_date_range"] = validated.metadata.date_range
     attrs["market_data_missing_policy"] = validated.metadata.missing_policy
     attrs["market_data_missing_policy_limit"] = validated.metadata.missing_policy_limit
-    attrs["market_data_missing_policy_summary"] = (
-        validated.metadata.missing_policy_summary
-    )
+    attrs["market_data_missing_policy_summary"] = validated.metadata.missing_policy_summary
 
     # Infer inception dates (first non-zero observation) once at ingestion time.
     # This is used by the multi-period engine to exclude pre-inception series
@@ -204,8 +195,7 @@ def _finalise_validated_frame(
         )
         # Store as ISO strings for JSON friendliness.
         attrs["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None)
-            for k, v in inception.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception.items()
         }
     except Exception:  # pragma: no cover - best effort metadata
         attrs.setdefault("inception_dates", {})
@@ -241,9 +231,7 @@ def _contract_frequency(attrs: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _apply_price_contract(
-    frame: pd.DataFrame, *, include_date_column: bool
-) -> pd.DataFrame:
+def _apply_price_contract(frame: pd.DataFrame, *, include_date_column: bool) -> pd.DataFrame:
     if frame.empty:
         return frame
 
@@ -295,7 +283,7 @@ def _validate_payload(
     include_date_column: bool,
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     try:
         payload = validate_input(
             payload,
@@ -319,9 +307,7 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    if "Date" in payload.columns and isinstance(
-        payload["Date"].dtype, pd.DatetimeTZDtype
-    ):
+    if "Date" in payload.columns and isinstance(payload["Date"].dtype, pd.DatetimeTZDtype):
         payload = payload.copy()
         payload["Date"] = payload["Date"].dt.tz_localize(None)
 
@@ -342,11 +328,9 @@ def _validate_payload(
     else:
         policy_param = _normalise_policy_alias(missing_policy)
 
-    limit_param: int | dict[str, Optional[int]] | None
+    limit_param: int | dict[str, int | None] | None
     if isinstance(missing_limit, Mapping):
-        limit_param = {
-            str(key): _coerce_limit_entry(value) for key, value in missing_limit.items()
-        }
+        limit_param = {str(key): _coerce_limit_entry(value) for key, value in missing_limit.items()}
     else:
         limit_param = _coerce_limit_entry(missing_limit)
 
@@ -367,14 +351,10 @@ def _validate_payload(
         logger.error("Validation failed (%s): %s", origin, message)
         return None
 
-    finalised = _finalise_validated_frame(
-        validated, include_date_column=include_date_column
-    )
+    finalised = _finalise_validated_frame(validated, include_date_column=include_date_column)
 
     try:
-        priced = _apply_price_contract(
-            finalised, include_date_column=include_date_column
-        )
+        priced = _apply_price_contract(finalised, include_date_column=include_date_column)
     except ValueError as exc:
         if errors == "raise":
             raise MarketDataValidationError(str(exc)) from exc
@@ -409,7 +389,7 @@ def load_csv(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Load and validate a CSV expecting a ``Date`` column."""
 
     if missing_policy is None and "nan_policy" in _legacy_kwargs:
@@ -489,7 +469,7 @@ def load_parquet(
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
     **_legacy_kwargs: object,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Load and validate a Parquet file containing market data."""
 
     if missing_policy is None and "nan_policy" in _legacy_kwargs:
@@ -557,7 +537,7 @@ def validate_dataframe(
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
     origin: str = "dataframe",
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Validate an in-memory DataFrame against the market data contract."""
 
     return _validate_payload(
@@ -568,7 +548,7 @@ def validate_dataframe(
     )
 
 
-def identify_risk_free_fund(df: pd.DataFrame) -> Optional[str]:
+def identify_risk_free_fund(df: pd.DataFrame) -> str | None:
     """Return the column with the lowest standard deviation.
 
     Columns named 'Date' or non-numeric dtypes are ignored. ``None`` is
@@ -604,18 +584,14 @@ def ensure_datetime(df: pd.DataFrame, column: str = "Date") -> pd.DataFrame:
                 preview_vals = malformed_values[:5]
                 preview_tail = "..." if len(malformed_values) > 5 else ""
                 logger.error(
-                    (
-                        f"Found {malformed_count} malformed date(s) in column '{column}' "
-                        f"that cannot be parsed: {preview_vals}{preview_tail}"
-                    )
+                    f"Found {malformed_count} malformed date(s) in column '{column}' "
+                    f"that cannot be parsed: {preview_vals}{preview_tail}"
                 )
                 # Raise an exception to prevent malformed dates from being
                 # processed as expired dates or other incorrect handling
                 raise ValueError(
-                    (
-                        f"Malformed dates found in column '{column}'. "
-                        "These should be treated as validation errors, not expiration failures."
-                    )
+                    f"Malformed dates found in column '{column}'. "
+                    "These should be treated as validation errors, not expiration failures."
                 )
             df[column] = parsed_dates
     return df

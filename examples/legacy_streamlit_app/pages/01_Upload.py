@@ -1,12 +1,12 @@
 """Simplified, lint-compliant Upload page (reset after corruption)."""
 
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 import streamlit as st
 
 
-def _lazy_imports() -> Tuple[Any, Any, Any]:
+def _lazy_imports() -> tuple[Any, Any, Any]:
     from trend_analysis.io.validators import (  # type: ignore
         create_sample_template,
         load_and_validate_upload,

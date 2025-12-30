@@ -26,12 +26,8 @@ def test_realized_turnover_sorts_mapping_and_handles_missing():
     # Feb row compares against Jan weights -> |0.55-0.5| + |0-0.5|.
     feb_turnover = abs(0.55 - 0.5) + abs(0.0 - 0.5)
     mar_turnover = abs(0.6 - 0.55) + abs(0.4 - 0.0)
-    assert turnover.loc[pd.Timestamp("2020-02-29"), "turnover"] == pytest.approx(
-        feb_turnover
-    )
-    assert turnover.loc[pd.Timestamp("2020-03-31"), "turnover"] == pytest.approx(
-        mar_turnover
-    )
+    assert turnover.loc[pd.Timestamp("2020-02-29"), "turnover"] == pytest.approx(feb_turnover)
+    assert turnover.loc[pd.Timestamp("2020-03-31"), "turnover"] == pytest.approx(mar_turnover)
 
 
 def test_turnover_cost_scales_basis_points():

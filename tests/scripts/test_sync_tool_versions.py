@@ -45,9 +45,7 @@ def _write_repo_files(tmp_path: Path, version: str = "23.0") -> None:
     )
 
 
-def test_parse_env_file_validates_presence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_parse_env_file_validates_presence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _configure_repo(tmp_path, monkeypatch)
     _write_repo_files(tmp_path)
 
@@ -70,15 +68,11 @@ def test_ensure_pyproject_reports_and_applies_mismatches(
     env = {"BLACK_VERSION": "23.0"}
 
     content = sync.PYPROJECT_FILE.read_text(encoding="utf-8")
-    updated, mismatches = sync.ensure_pyproject(
-        content, sync.TOOL_CONFIGS, env, apply=False
-    )
+    updated, mismatches = sync.ensure_pyproject(content, sync.TOOL_CONFIGS, env, apply=False)
     assert updated == content
     assert mismatches == {"black": "pyproject has 22.0, pin file requires 23.0"}
 
-    updated, mismatches = sync.ensure_pyproject(
-        content, sync.TOOL_CONFIGS, env, apply=True
-    )
+    updated, mismatches = sync.ensure_pyproject(content, sync.TOOL_CONFIGS, env, apply=True)
     assert "black==23.0" in updated
     assert mismatches == {"black": "pyproject has 22.0, pin file requires 23.0"}
 

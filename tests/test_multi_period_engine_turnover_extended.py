@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -40,9 +40,7 @@ class TrackingWeighting(BaseWeighting):
     def __init__(self) -> None:
         self.updates: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         if selected.empty:
             return pd.DataFrame(columns=["weight"])
@@ -68,9 +66,7 @@ def test_run_schedule_fast_turnover_tracks_union(
     class DummySelector:
         column = "Sharpe"
 
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             return score_frame, score_frame
 
     returned_series: list[pd.Series] = []
@@ -117,9 +113,7 @@ def test_run_schedule_fast_turnover_tracks_union(
     new = returned_series[1]
     union = prev.index.union(new.index)
     expected = float(
-        np.abs(
-            new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)
-        ).sum()
+        np.abs(new.reindex(union, fill_value=0.0) - prev.reindex(union, fill_value=0.0)).sum()
     )
     assert portfolio.turnover["2020-02-29"] == pytest.approx(expected)
 
@@ -129,7 +123,7 @@ def test_run_schedule_fast_turnover_tracks_union(
 
 @dataclass
 class IncrementalConfig:
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 3,
@@ -138,8 +132,8 @@ class IncrementalConfig:
             "end": "2020-05",
         }
     )
-    data: Dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
-    portfolio: Dict[str, Any] = field(
+    data: dict[str, Any] = field(default_factory=lambda: {"csv_path": "unused.csv"})
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "standard",
             "selection_mode": "all",
@@ -150,10 +144,10 @@ class IncrementalConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
-    performance: Dict[str, Any] = field(
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    performance: dict[str, Any] = field(
         default_factory=lambda: {
             "enable_cache": True,
             "incremental_cov": True,
@@ -162,7 +156,7 @@ class IncrementalConfig:
     )
     seed: int = 7
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -206,7 +200,7 @@ def test_run_incremental_covariance_path(monkeypatch: pytest.MonkeyPatch) -> Non
 
     run_calls: list[tuple[Any, ...]] = []
 
-    def fake_run_analysis(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run_analysis(*args: Any, **kwargs: Any) -> dict[str, Any]:
         run_calls.append(args)
         return {"status": "ok"}
 

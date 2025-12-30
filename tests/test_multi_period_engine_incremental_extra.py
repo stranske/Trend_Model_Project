@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -12,16 +12,16 @@ import trend_analysis.multi_period.engine as mp_engine
 
 @dataclass
 class _Cfg:
-    data: Dict[str, Any]
-    multi_period: Dict[str, Any]
-    portfolio: Dict[str, Any]
-    vol_adjust: Dict[str, Any]
-    benchmarks: Dict[str, Any]
-    run: Dict[str, Any]
-    performance: Dict[str, Any]
+    data: dict[str, Any]
+    multi_period: dict[str, Any]
+    portfolio: dict[str, Any]
+    vol_adjust: dict[str, Any]
+    benchmarks: dict[str, Any]
+    run: dict[str, Any]
+    performance: dict[str, Any]
     seed: int = 5
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -71,13 +71,13 @@ def test_incremental_update_runs_with_invalid_shift_limit(
         },
     )
 
-    periods: List[_Period] = [
+    periods: list[_Period] = [
         _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
         _Period("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
     ]
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
-    def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
@@ -94,18 +94,12 @@ def test_incremental_update_runs_with_invalid_shift_limit(
         compute_calls.append(frame.shape[0])
         return original_compute(frame, materialise_aggregates=materialise_aggregates)
 
-    def tracking_incremental(
-        prev: Any, old_row: np.ndarray, new_row: np.ndarray
-    ) -> Any:
+    def tracking_incremental(prev: Any, old_row: np.ndarray, new_row: np.ndarray) -> Any:
         incremental_calls.append(1)
         return original_incremental(prev, old_row, new_row)
 
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", tracking_compute
-    )
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.incremental_cov_update", tracking_incremental
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracking_compute)
+    monkeypatch.setattr("trend_analysis.perf.cache.incremental_cov_update", tracking_incremental)
 
     results = mp_engine.run(cfg, df=_make_df())
 
@@ -137,13 +131,13 @@ def test_incremental_update_fallback_on_exception(
         performance={"enable_cache": True, "incremental_cov": True},
     )
 
-    periods: List[_Period] = [
+    periods: list[_Period] = [
         _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
         _Period("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
     ]
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
-    def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
@@ -194,13 +188,13 @@ def test_incremental_update_length_change_triggers_recompute(
         performance={"enable_cache": True, "incremental_cov": True},
     )
 
-    periods: List[_Period] = [
+    periods: list[_Period] = [
         _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
         _Period("2020-02-29", "2020-05-31", "2020-06-30", "2020-06-30"),
     ]
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
-    def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
@@ -214,9 +208,7 @@ def test_incremental_update_length_change_triggers_recompute(
         compute_calls.append(frame.shape[0])
         return original_compute(frame, materialise_aggregates=materialise_aggregates)
 
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", tracking_compute
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", tracking_compute)
 
     results = mp_engine.run(cfg, df=_make_df())
 
@@ -247,12 +239,12 @@ def test_incremental_cov_cache_instantiation_failure(
         performance={"enable_cache": True, "incremental_cov": True},
     )
 
-    periods: List[_Period] = [
+    periods: list[_Period] = [
         _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
     ]
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
-    def fake_run(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
+    def fake_run(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
     monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)

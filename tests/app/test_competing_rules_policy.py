@@ -24,7 +24,7 @@ def test_competing_rules_sticky_add_and_drop():
         metrics=[MetricSpec("sharpe", 1.0)],
     )
     cd = CooldownBook()
-    elig = {m: 24 for m in sf.index}
+    elig = dict.fromkeys(sf.index, 24)
     rule_state = {
         "add_streak": {"A": 1, "B": 1},  # not enough yet to add
         "drop_streak": {"C": 1},  # not enough yet to drop
@@ -76,7 +76,7 @@ def test_confidence_interval_add_gate():
         metrics=[MetricSpec("sharpe", 1.0)],
     )
     cd = CooldownBook()
-    elig = {m: 24 for m in sf.index}
+    elig = dict.fromkeys(sf.index, 24)
 
     decisions = decide_hires_fires(
         pd.Timestamp("2020-12-31"),

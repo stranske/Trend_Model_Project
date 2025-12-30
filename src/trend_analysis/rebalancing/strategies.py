@@ -9,7 +9,7 @@ configuration files.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ class TurnoverCapStrategy(Rebalancer):
     either largest gap or best score delta.
     """
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: dict[str, Any] | None = None):
         super().__init__(params)
         self.max_turnover = float(self.params.get("max_turnover", 0.2))
         self.cost_bps = int(self.params.get("cost_bps", 10))
@@ -42,9 +42,9 @@ class TurnoverCapStrategy(Rebalancer):
         self,
         current_weights: pd.Series,
         target_weights: pd.Series,
-        scores: Optional[pd.Series] = None,
+        scores: pd.Series | None = None,
         **kwargs: Any,
-    ) -> Tuple[pd.Series, float]:
+    ) -> tuple[pd.Series, float]:
         """Apply turnover cap with trade prioritization and cost modeling.
 
         Parameters
@@ -78,9 +78,7 @@ class TurnoverCapStrategy(Rebalancer):
             new_weights = target.copy()
         else:
             # Need to scale trades to respect turnover cap
-            new_weights, actual_turnover = self._apply_turnover_cap(
-                current, target, trades, scores
-            )
+            new_weights, actual_turnover = self._apply_turnover_cap(current, target, trades, scores)
 
         # Apply transaction costs
         cost = self._calculate_cost(actual_turnover)
@@ -92,8 +90,8 @@ class TurnoverCapStrategy(Rebalancer):
         current: pd.Series,
         target: pd.Series,
         trades: pd.Series,
-        scores: Optional[pd.Series] = None,
-    ) -> Tuple[pd.Series, float]:
+        scores: pd.Series | None = None,
+    ) -> tuple[pd.Series, float]:
         """Apply turnover cap with prioritized trade allocation."""
 
         # Calculate trade priorities and order trades descending
@@ -141,7 +139,7 @@ class TurnoverCapStrategy(Rebalancer):
         current: pd.Series,
         target: pd.Series,
         trades: pd.Series,
-        scores: Optional[pd.Series] = None,
+        scores: pd.Series | None = None,
     ) -> pd.Series:
         """Calculate trade priorities based on configured priority method."""
 
@@ -178,14 +176,14 @@ class TurnoverCapStrategy(Rebalancer):
 class PeriodicRebalanceStrategy(Rebalancer):
     """Periodic rebalance strategy - rebalance every N periods."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: dict[str, Any] | None = None):
         super().__init__(params)
         self.interval = int(self.params.get("interval", 1))
         self._period_count = 0
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
-    ) -> Tuple[pd.Series, float]:
+    ) -> tuple[pd.Series, float]:
         """Apply periodic rebalancing."""
         self._period_count += 1
 
@@ -208,7 +206,7 @@ class PeriodicRebalanceStrategy(Rebalancer):
 class DriftBandStrategy(Rebalancer):
     """Drift band rebalancing strategy - rebalance when weights drift beyond bands."""
 
-    def __init__(self, params: Dict[str, Any] | None = None):
+    def __init__(self, params: dict[str, Any] | None = None):
         super().__init__(params)
         self.band_pct = float(self.params.get("band_pct", 0.03))
         self.min_trade = float(self.params.get("min_trade", 0.005))
@@ -216,7 +214,7 @@ class DriftBandStrategy(Rebalancer):
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
-    ) -> Tuple[pd.Series, float]:
+    ) -> tuple[pd.Series, float]:
         """Apply drift band rebalancing."""
         # Align indices
         all_assets = current_weights.index.union(target_weights.index)
@@ -252,7 +250,7 @@ class VolTargetRebalanceStrategy(Rebalancer):
     """Scale weights to hit a target volatility based on recent equity
     curve."""
 
-    def __init__(self, params: Dict[str, Any] | None = None) -> None:
+    def __init__(self, params: dict[str, Any] | None = None) -> None:
         super().__init__(params)
         self.target = float(self.params.get("target", 0.10))
         self.window = int(self.params.get("window", 6))
@@ -261,13 +259,11 @@ class VolTargetRebalanceStrategy(Rebalancer):
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
-    ) -> Tuple[pd.Series, float]:
-        ec: List[float] = list(kwargs.get("equity_curve", []))
+    ) -> tuple[pd.Series, float]:
+        ec: list[float] = list(kwargs.get("equity_curve", []))
         lev = 1.0
         if len(ec) >= self.window + 1:
-            rets = pd.Series(
-                np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1]
-            )
+            rets = pd.Series(np.diff(ec[-(self.window + 1) :]) / ec[-(self.window + 1) : -1])
             vol = float(rets.std(ddof=0)) * np.sqrt(12)
             if vol > 0:
                 lev = float(np.clip(self.target / vol, self.lev_min, self.lev_max))
@@ -279,7 +275,7 @@ class VolTargetRebalanceStrategy(Rebalancer):
 class DrawdownGuardStrategy(Rebalancer):
     """Reduce exposure when portfolio experiences a drawdown."""
 
-    def __init__(self, params: Dict[str, Any] | None = None) -> None:
+    def __init__(self, params: dict[str, Any] | None = None) -> None:
         super().__init__(params)
         self.dd_window = int(self.params.get("dd_window", 12))
         self.dd_threshold = float(self.params.get("dd_threshold", 0.10))
@@ -288,15 +284,13 @@ class DrawdownGuardStrategy(Rebalancer):
 
     def apply(
         self, current_weights: pd.Series, target_weights: pd.Series, **kwargs: Any
-    ) -> Tuple[pd.Series, float]:
+    ) -> tuple[pd.Series, float]:
         # Prefer explicit rb_state dict if provided, else fallback to generic state, else a local dict
         rb_state_obj = kwargs.get("rb_state", kwargs.get("state"))
-        rb_state: Dict[str, Any] = (
-            rb_state_obj if isinstance(rb_state_obj, dict) else {}
-        )
+        rb_state: dict[str, Any] = rb_state_obj if isinstance(rb_state_obj, dict) else {}
         # Equity curve can be passed either directly or via state
         ec_in: Any = kwargs.get("equity_curve", rb_state.get("equity_curve", []))
-        ec: List[float] = list(ec_in)
+        ec: list[float] = list(ec_in)
         guard_on = bool(rb_state.get("guard_on", False))
         dd = 0.0
         if ec:
@@ -319,20 +313,18 @@ class DrawdownGuardStrategy(Rebalancer):
 
 
 # Registry of available strategies
-def create_rebalancing_strategy(
-    name: str, params: Dict[str, Any] | None = None
-) -> Rebalancer:
+def create_rebalancing_strategy(name: str, params: dict[str, Any] | None = None) -> Rebalancer:
     """Create a rebalancing strategy by name using the plugin registry."""
     return create_rebalancer(name, params)
 
 
 def apply_rebalancing_strategies(
-    strategies: List[str],
-    strategy_params: Dict[str, Dict[str, Any]],
+    strategies: list[str],
+    strategy_params: dict[str, dict[str, Any]],
     current_weights: pd.Series,
     target_weights: pd.Series,
     **kwargs: Any,
-) -> Tuple[pd.Series, float]:
+) -> tuple[pd.Series, float]:
     """Apply multiple rebalancing strategies in sequence.
 
     Parameters

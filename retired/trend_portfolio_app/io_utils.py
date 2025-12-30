@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 import zipfile
-from typing import Any, Dict, Protocol
+from typing import Any, Protocol
 
 # Global registry for cleanup of temporary files
 _TEMP_FILES_TO_CLEANUP: list[str] = []
@@ -18,7 +18,7 @@ class _HasPortfolioAndLog(Protocol):
     def event_log_df(self) -> Any:  # noqa: D401
         ...
 
-    def summary(self) -> Dict[str, Any]:  # noqa: D401
+    def summary(self) -> dict[str, Any]:  # noqa: D401
         ...
 
 
@@ -38,7 +38,7 @@ def _cleanup_temp_files() -> None:
 atexit.register(_cleanup_temp_files)
 
 
-def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> str:
+def export_bundle(results: _HasPortfolioAndLog, config_dict: dict[str, Any]) -> str:
     """Export analysis results as a ZIP bundle.
 
     The bundle is assembled in-memory to avoid leaving intermediate files on
@@ -60,9 +60,7 @@ def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> 
             )
         except Exception:
             # Write empty CSV if export fails
-            with open(
-                os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(temp_dir, "portfolio_returns.csv"), "w", encoding="utf-8") as f:
                 f.write("return\n")
 
         # Write event_log.csv with exception handling
@@ -71,9 +69,7 @@ def export_bundle(results: _HasPortfolioAndLog, config_dict: Dict[str, Any]) -> 
             ev.to_csv(os.path.join(temp_dir, "event_log.csv"))
         except Exception:
             # Write empty CSV if export fails
-            with open(
-                os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(temp_dir, "event_log.csv"), "w", encoding="utf-8") as f:
                 f.write("")
         with open(os.path.join(temp_dir, "summary.json"), "w", encoding="utf-8") as f:
             json.dump(results.summary(), f, indent=2)

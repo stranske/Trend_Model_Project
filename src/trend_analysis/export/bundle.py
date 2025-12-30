@@ -5,8 +5,9 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any
 
 import matplotlib
 import pandas as pd
@@ -68,9 +69,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Guard against non-pathlike types
             input_path = None
         input_sha256 = (
-            sha256_file(input_path)
-            if input_path is not None and input_path.exists()
-            else None
+            sha256_file(input_path) if input_path is not None and input_path.exists() else None
         )
         config_sha256 = sha256_config(config)
         run_id_src = "|".join(
@@ -85,7 +84,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         # Results CSVs
         # ------------------------------------------------------------------
         try:
-            portfolio = getattr(run, "portfolio")
+            portfolio = run.portfolio
         except AttributeError:
             raise ValueError(
                 "The 'portfolio' attribute is required for bundle creation "
@@ -95,9 +94,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             # Attempt to preserve temporal structure if possible
             if isinstance(portfolio, dict):
                 # Use dict keys as index
-                portfolio = pd.Series(
-                    list(portfolio.values()), index=list(portfolio.keys())
-                )
+                portfolio = pd.Series(list(portfolio.values()), index=list(portfolio.keys()))
             elif isinstance(portfolio, (list, tuple)):
                 raise ValueError(
                     "Cannot convert portfolio of type list/tuple to pandas Series without an index. "
@@ -182,7 +179,7 @@ def export_bundle(run: Any, path: Path) -> Path:
         # ------------------------------------------------------------------
         # Charts PNGs
         # ------------------------------------------------------------------
-        def _to_list(values: Iterable[Any]) -> List[Any]:
+        def _to_list(values: Iterable[Any]) -> list[Any]:
             return list(values)
 
         def _plot_x(index: pd.Index) -> list[Any]:
@@ -317,11 +314,7 @@ def export_bundle(run: Any, path: Path) -> Path:
             "seed": seed,
             "environment": env,
             "git_hash": _git_hash(),
-            "receipt": {
-                "created": _dt.datetime.now(_dt.timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z")
-            },
+            "receipt": {"created": _dt.datetime.now(_dt.UTC).isoformat().replace("+00:00", "Z")},
             "input_sha256": input_sha256,
         }
         # Pass through structured log reference if present on the run object
@@ -359,7 +352,7 @@ def export_bundle(run: Any, path: Path) -> Path:
 This bundle contains the complete results of a trend analysis run, including data,
 charts, and metadata necessary for reproducibility and sharing.
 
-Generated: {_dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
+Generated: {_dt.datetime.now(_dt.UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC
 
 Contents:
 ---------

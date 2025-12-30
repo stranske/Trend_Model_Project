@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import math
 import numbers
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional, Sequence
+from typing import Any, Literal
 
 import pandas as pd
 import streamlit as st
@@ -107,7 +108,7 @@ def record_upload_error(
     clear_analysis_results()
 
 
-def get_uploaded_data() -> tuple[Optional[pd.DataFrame], Optional[dict[str, Any]]]:
+def get_uploaded_data() -> tuple[pd.DataFrame | None, dict[str, Any] | None]:
     """Retrieve uploaded data from session state."""
 
     df = st.session_state.get("returns_df")
@@ -120,9 +121,7 @@ def has_valid_upload() -> bool:
 
     df, meta = get_uploaded_data()
     return (
-        df is not None
-        and meta is not None
-        and st.session_state.get("upload_status") == "success"
+        df is not None and meta is not None and st.session_state.get("upload_status") == "success"
     )
 
 
@@ -253,9 +252,7 @@ class ModelStateDiff:
 
 
 def _is_sequence(value: Any) -> bool:
-    return isinstance(value, Sequence) and not isinstance(
-        value, (str, bytes, bytearray)
-    )
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
 
 
 def _stringify_value(value: Any) -> str:
@@ -273,9 +270,7 @@ def _values_equal(left: Any, right: Any, float_tol: float) -> bool:
     if isinstance(left, Mapping) and isinstance(right, Mapping):
         if set(left.keys()) != set(right.keys()):
             return False
-        return all(
-            _values_equal(left[key], right[key], float_tol) for key in left.keys()
-        )
+        return all(_values_equal(left[key], right[key], float_tol) for key in left.keys())
     if _is_sequence(left) and _is_sequence(right):
         if len(left) != len(right):
             return False
@@ -404,7 +399,5 @@ def format_model_state_diff(
             lines.append(f"- {entry.path}: ({label_a}) {left}")
         else:
             type_note = " [type changed]" if entry.type_changed else ""
-            lines.append(
-                f"~ {entry.path}: ({label_a}) {left} -> ({label_b}) {right}{type_note}"
-            )
+            lines.append(f"~ {entry.path}: ({label_a}) {left} -> ({label_b}) {right}{type_note}")
     return "\n".join(lines)

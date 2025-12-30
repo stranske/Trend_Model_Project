@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -15,9 +14,7 @@ from trend_analysis.util import frequency as freq
 @pytest.mark.parametrize(
     "values",
     [
-        pd.DatetimeIndex(
-            ["2024-01-03", "2024-01-01", "2024-01-02"], dtype="datetime64[ns]"
-        ),
+        pd.DatetimeIndex(["2024-01-03", "2024-01-01", "2024-01-02"], dtype="datetime64[ns]"),
         ["2024-01-02", "2024-01-01", "2024-01-03"],
     ],
 )
@@ -83,9 +80,7 @@ def test_as_datetime_index_retries_after_initial_failure(
         ("custom", None),
     ],
 )
-def test_map_inferred_collapses_known_codes(
-    inferred: str | None, expected: str | None
-) -> None:
+def test_map_inferred_collapses_known_codes(inferred: str | None, expected: str | None) -> None:
     assert freq._map_inferred(inferred) == expected
 
 
@@ -100,9 +95,7 @@ def test_map_inferred_collapses_known_codes(
         (np.array([150.0, 365.0], dtype=float), "Y"),
     ],
 )
-def test_classify_from_diffs_returns_expected_bucket(
-    diffs: np.ndarray, expected: str
-) -> None:
+def test_classify_from_diffs_returns_expected_bucket(diffs: np.ndarray, expected: str) -> None:
     assert freq._classify_from_diffs(diffs) == expected
 
 

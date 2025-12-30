@@ -52,7 +52,7 @@ def _write_input(tmp_path: Path) -> Path:
 def _schema() -> dict:
     """Load and return the JSON schema for ``run_meta.json`` from file."""
     assert SCHEMA_PATH.exists(), f"Schema file missing: {SCHEMA_PATH}"
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+    with open(SCHEMA_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -65,9 +65,7 @@ def _build_meta(tmp_path: Path) -> dict:
     config = {"dates": dates.strftime("%Y-%m-%d").tolist()}
 
     run = DummyRun(
-        portfolio=pd.Series(
-            [0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")
-        ),
+        portfolio=pd.Series([0.01, -0.02], index=pd.date_range("2020-01", periods=2, freq="ME")),
         config=config,
         seed=42,
         input_path=input_path,

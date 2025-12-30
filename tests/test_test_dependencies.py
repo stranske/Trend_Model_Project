@@ -128,8 +128,7 @@ class TestDependencies:
 
         npm_path = shutil.which("npm")
         assert npm_path, (
-            "Node.js is installed but npm is not found. "
-            "npm is typically bundled with Node.js."
+            "Node.js is installed but npm is not found. " "npm is typically bundled with Node.js."
         )
 
     def test_uv_availability_documented(self) -> None:
@@ -144,9 +143,7 @@ class TestDependencies:
     def test_dev_extra_contains_test_tools(self) -> None:
         """Ensure the dev extra declares core testing dependencies."""
         repo_root = Path(__file__).resolve().parents[1]
-        pyproject = tomllib.loads(
-            (repo_root / "pyproject.toml").read_text(encoding="utf-8")
-        )
+        pyproject = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
         operators = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
         dev_deps = set()
 
@@ -200,9 +197,7 @@ class TestDependencies:
         try:
             import coverage  # noqa: F401
         except ImportError:
-            pytest.fail(
-                "coverage.py not installed. " "Install with: pip install coverage"
-            )
+            pytest.fail("coverage.py not installed. " "Install with: pip install coverage")
 
         # Verify coverage CLI is available
         result = subprocess.run(

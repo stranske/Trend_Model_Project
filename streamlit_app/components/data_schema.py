@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Sequence
 from pathlib import Path
-from typing import IO, Any, Dict, List, Optional, Sequence, Tuple
+from typing import IO, Any
 
 import pandas as pd
 
@@ -26,11 +27,11 @@ UPLOAD_SCHEMA = InputSchema(
 )
 
 
-class SchemaMeta(Dict[str, Any]):
+class SchemaMeta(dict[str, Any]):
     """Lightweight metadata structure shared with the Streamlit app."""
 
-    validation: Optional[Any]
-    metadata: Optional[MarketDataMetadata]
+    validation: Any | None
+    metadata: MarketDataMetadata | None
 
 
 def _normalise_header_value(value: Any) -> str:
@@ -73,9 +74,7 @@ def extract_headers_from_bytes(raw: bytes, *, is_excel: bool) -> list[str] | Non
     return [_normalise_header_value(value) for value in header]
 
 
-def apply_original_headers(
-    df: pd.DataFrame, headers: Sequence[str] | None
-) -> Sequence[str] | None:
+def apply_original_headers(df: pd.DataFrame, headers: Sequence[str] | None) -> Sequence[str] | None:
     """Assign ``headers`` to ``df`` when lengths match, preserving duplicates."""
 
     if not headers:
@@ -116,22 +115,18 @@ def _read_binary_payload(file_like: IO[Any] | str | Path) -> tuple[bytes, str]:
 
 def _build_validation_report(
     validated: ValidatedMarketData,
-    sanitized_columns: Optional[list[Dict[str, str]]] = None,
-) -> Dict[str, Any]:
+    sanitized_columns: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     metadata = validated.metadata
     frame = validated.frame
     warnings: list[str] = []
     rows = metadata.rows
     if rows < 12:
-        warnings.append(
-            f"Dataset is quite small ({rows} periods) – consider a longer history."
-        )
+        warnings.append(f"Dataset is quite small ({rows} periods) – consider a longer history.")
     for column in frame.columns:
         valid = frame[column].notna().sum()
         if rows and valid / rows <= 0.5:
-            warnings.append(
-                f"Column '{column}' has >50% missing values ({valid}/{rows} valid)."
-            )
+            warnings.append(f"Column '{column}' has >50% missing values ({valid}/{rows} valid).")
     if metadata.frequency_missing_periods > 0:
         warnings.append(
             "Date index contains "
@@ -141,21 +136,17 @@ def _build_validation_report(
     if metadata.missing_policy_dropped:
         dropped = ", ".join(sorted(metadata.missing_policy_dropped))
         warnings.append(
-            "Missing-data policy dropped columns: "
-            f"{dropped} (policy={metadata.missing_policy})."
+            "Missing-data policy dropped columns: " f"{dropped} (policy={metadata.missing_policy})."
         )
     if metadata.missing_policy_summary and (
         metadata.frequency_missing_periods > 0
         or bool(metadata.missing_policy_filled)
         or bool(metadata.missing_policy_dropped)
     ):
-        warnings.append(
-            "Missing-data policy applied: " f"{metadata.missing_policy_summary}."
-        )
+        warnings.append("Missing-data policy applied: " f"{metadata.missing_policy_summary}.")
     if sanitized_columns:
         formatted = ", ".join(
-            f"{entry['original']!r} → {entry['sanitized']!r}"
-            for entry in sanitized_columns
+            f"{entry['original']!r} → {entry['sanitized']!r}" for entry in sanitized_columns
         )
         warnings.append(
             "Sanitized column headers (cleaned) to prevent Excel from running formulas: "
@@ -167,14 +158,12 @@ def _build_validation_report(
 
 def _build_meta(
     validated: ValidatedMarketData,
-    sanitized_columns: Optional[list[Dict[str, str]]] = None,
+    sanitized_columns: list[dict[str, str]] | None = None,
 ) -> SchemaMeta:
     metadata = validated.metadata
     meta = SchemaMeta()
     meta["metadata"] = metadata
-    meta["validation"] = _build_validation_report(
-        validated, sanitized_columns=sanitized_columns
-    )
+    meta["validation"] = _build_validation_report(validated, sanitized_columns=sanitized_columns)
     meta["original_columns"] = list(metadata.columns or metadata.symbols)
     meta["symbols"] = list(metadata.symbols)
     meta["n_rows"] = metadata.rows
@@ -219,12 +208,12 @@ def _allocate_unique_name(base: str, occupied: set[str]) -> str:
 
 def _sanitize_formula_headers(
     df: pd.DataFrame,
-) -> Tuple[pd.DataFrame, list[Dict[str, str]]]:
+) -> tuple[pd.DataFrame, list[dict[str, str]]]:
     """Rename headers that could be interpreted as Excel formulas."""
 
     occupied = {str(column) for column in df.columns}
     new_columns: list[Any] = list(df.columns)
-    changes: list[Dict[str, str]] = []
+    changes: list[dict[str, str]] = []
     mutated = False
 
     for idx, column in enumerate(df.columns):
@@ -250,7 +239,7 @@ def _sanitize_formula_headers(
     return sanitized, changes
 
 
-def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
+def _validate_df(df: pd.DataFrame) -> tuple[pd.DataFrame, SchemaMeta]:
     sanitized_source, sanitized_columns = _sanitize_formula_headers(df)
     try:
         normalised = validate_input(sanitized_source, UPLOAD_SCHEMA)
@@ -268,8 +257,7 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
 
         inception = compute_inception_dates(validated.frame)
         meta["inception_dates"] = {
-            k: (v.strftime("%Y-%m-%d") if v is not None else None)
-            for k, v in inception.items()
+            k: (v.strftime("%Y-%m-%d") if v is not None else None) for k, v in inception.items()
         }
     except Exception:
         meta["inception_dates"] = {}
@@ -278,7 +266,7 @@ def _validate_df(df: pd.DataFrame) -> Tuple[pd.DataFrame, SchemaMeta]:
 
 def load_and_validate_csv(
     file_like: IO[Any] | str | Path,
-) -> Tuple[pd.DataFrame, SchemaMeta]:
+) -> tuple[pd.DataFrame, SchemaMeta]:
     raw, name = _read_binary_payload(file_like)
     buffer = io.BytesIO(raw)
     buffer.name = name or "upload.csv"
@@ -290,7 +278,7 @@ def load_and_validate_csv(
 
 def load_and_validate_file(
     file_like: IO[Any] | str | Path,
-) -> Tuple[pd.DataFrame, SchemaMeta]:
+) -> tuple[pd.DataFrame, SchemaMeta]:
     """Load CSV or Excel from an UploadedFile or file-like, then validate."""
 
     raw, name = _read_binary_payload(file_like)
@@ -310,7 +298,7 @@ def load_and_validate_file(
     return _validate_df(df)
 
 
-def infer_benchmarks(columns: List[str]) -> List[str]:
+def infer_benchmarks(columns: list[str]) -> list[str]:
     """Infer benchmark candidates from column names.
 
     Excludes columns that look like risk-free rate proxies.
@@ -354,7 +342,7 @@ def infer_benchmarks(columns: List[str]) -> List[str]:
     return cands
 
 
-def infer_risk_free_candidates(columns: List[str]) -> List[str]:
+def infer_risk_free_candidates(columns: list[str]) -> list[str]:
     """Infer risk-free rate candidates from column names.
 
     Looks for common patterns like TBILL, Treasury, Risk-Free, etc.

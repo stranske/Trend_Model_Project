@@ -14,7 +14,6 @@ import sys
 from datetime import date
 from pathlib import Path
 from types import ModuleType
-from typing import List
 
 import pandas as pd
 import pytest
@@ -38,7 +37,7 @@ def _make_returns_df() -> pd.DataFrame:
 
 
 class _WarningCtx:
-    def __init__(self, msg: str, store: List[str]):
+    def __init__(self, msg: str, store: list[str]):
         self.msg = msg
         self._store = store
         self._store.append(msg)
@@ -51,13 +50,13 @@ class _WarningCtx:
 
 
 def _mock_streamlit_module():  # noqa: D401 - helper
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     class MockSt(ModuleType):
         def __init__(self):  # noqa: D401
             super().__init__("streamlit")
             self.session_state = {}
-            self._button_calls: List[str] = []
+            self._button_calls: list[str] = []
             # First button (run) returns True, second (dismiss) returns False
             self._button_side_effect = [False, True, False]
 
@@ -134,9 +133,7 @@ def test_streamlit_run_page_fallback_banner(monkeypatch):
     }
 
     # Import run page module dynamically
-    run_page_path = (
-        Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
-    )
+    run_page_path = Path(__file__).parent.parent / "streamlit_app" / "pages" / "3_Results.py"
     spec = importlib.util.spec_from_file_location("st_run_page", run_page_path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

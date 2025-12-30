@@ -1,7 +1,8 @@
 import stat
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -64,9 +65,7 @@ def test_normalise_policy_alias_handles_empty_string() -> None:
         (10, 10),
     ],
 )
-def test_coerce_limit_entry_allows_null_and_positive(
-    value: Any, expected: int | None
-) -> None:
+def test_coerce_limit_entry_allows_null_and_positive(value: Any, expected: int | None) -> None:
     assert data_mod._coerce_limit_entry(value) == expected
 
 
@@ -269,13 +268,9 @@ def test_load_csv_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert list(result.columns) == ["Fund"]
 
 
-def test_load_csv_includes_date_column(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_csv_includes_date_column(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     csv_path = tmp_path / "market.csv"
-    pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}).to_csv(
-        csv_path, index=False
-    )
+    pd.DataFrame({"Date": ["2024-01-01"], "Fund": ["1.0"]}).to_csv(csv_path, index=False)
 
     def fake_validate(_: pd.DataFrame, **__: Any):
         frame = pd.DataFrame(
@@ -332,9 +327,7 @@ def test_load_csv_logs_unexpected_error(
     assert "Unexpected error loading" in caplog.text
 
 
-def test_load_parquet_permission_raise(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_parquet_permission_raise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pq_path = tmp_path / "market.parquet"
     pq_path.write_text("placeholder")
 
@@ -357,9 +350,7 @@ def test_load_parquet_validation_error_logs(
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(
-        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
-    )
+    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
     monkeypatch.setattr(
         pd,
         "read_parquet",
@@ -383,9 +374,7 @@ def test_load_parquet_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(
-        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
-    )
+    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
     monkeypatch.setattr(
         pd,
         "read_parquet",
@@ -412,9 +401,7 @@ def test_load_parquet_logs_unexpected_error(
 
     monkeypatch.setattr(Path, "exists", lambda self: self == pq_path)
     monkeypatch.setattr(Path, "is_dir", lambda self: False)
-    monkeypatch.setattr(
-        Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR)
-    )
+    monkeypatch.setattr(Path, "stat", lambda self: SimpleNamespace(st_mode=stat.S_IRUSR))
     monkeypatch.setattr(
         pd,
         "read_parquet",

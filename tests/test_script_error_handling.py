@@ -24,7 +24,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         self.assertTrue(script_path.exists(), "setup_env.sh should exist")
 
         # Read the script content
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             content = f.read()
 
         # Verify that || true patterns have been replaced
@@ -42,7 +42,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "quick_check.sh"
         self.assertTrue(script_path.exists(), "quick_check.sh should exist")
 
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             content = f.read()
 
         # Verify that || true patterns have been replaced
@@ -57,7 +57,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "validate_fast.sh"
         self.assertTrue(script_path.exists(), "validate_fast.sh should exist")
 
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             content = f.read()
 
         # Verify that || true patterns for grep have been replaced
@@ -75,7 +75,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         script_path = self.scripts_dir / "dev_check.sh"
         self.assertTrue(script_path.exists(), "dev_check.sh should exist")
 
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             content = f.read()
 
         # Verify that || true patterns for git operations have been replaced
@@ -129,7 +129,7 @@ class TestScriptErrorHandling(unittest.TestCase):
     def test_error_messages_are_helpful(self):
         """Test that error messages provide useful information."""
         script_path = self.scripts_dir / "setup_env.sh"
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             content = f.read()
 
         # Check that warning messages are descriptive

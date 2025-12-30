@@ -1,12 +1,10 @@
 """Tests for the :mod:`trend_analysis.typing` module contract."""
 
 from collections import UserDict
+from collections.abc import Mapping, MutableMapping, MutableSequence
 from types import MappingProxyType
 from typing import (
     Any,
-    Mapping,
-    MutableMapping,
-    MutableSequence,
     Union,
     cast,
     get_args,

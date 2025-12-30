@@ -38,9 +38,7 @@ def test_resolve_path_uses_base_dir_and_validates(tmp_path: Path) -> None:
         _resolve_path("*.csv", base_dir=base_dir)
 
 
-def test_expand_pattern_deduplicates_roots(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_expand_pattern_deduplicates_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     base_dir = proj_path()
     pattern = "inputs/*.csv"
@@ -235,24 +233,16 @@ def test_portfolio_settings_validator_errors() -> None:
 
 def test_risk_settings_validator_errors() -> None:
     with pytest.raises(ValueError, match="greater than zero"):
-        RiskSettings.model_validate(
-            {"target_vol": 0, "floor_vol": 0.01, "warmup_periods": 0}
-        )
+        RiskSettings.model_validate({"target_vol": 0, "floor_vol": 0.01, "warmup_periods": 0})
 
     with pytest.raises(ValueError, match="floor_vol cannot be negative"):
-        RiskSettings.model_validate(
-            {"target_vol": 0.1, "floor_vol": -0.1, "warmup_periods": 0}
-        )
+        RiskSettings.model_validate({"target_vol": 0.1, "floor_vol": -0.1, "warmup_periods": 0})
 
     with pytest.raises(ValueError, match="warmup_periods cannot be negative"):
-        RiskSettings.model_validate(
-            {"target_vol": 0.1, "floor_vol": 0.01, "warmup_periods": -1}
-        )
+        RiskSettings.model_validate({"target_vol": 0.1, "floor_vol": 0.01, "warmup_periods": -1})
 
 
-def test_resolve_config_path_variants(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resolve_config_path_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     default_path = _resolve_config_path("demo")
     assert default_path.name == "demo.yml"
 

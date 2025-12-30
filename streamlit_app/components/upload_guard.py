@@ -6,9 +6,9 @@ import hashlib
 import os
 import re
 import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
@@ -121,9 +121,7 @@ def guard_and_buffer_upload(
     extension = _normalise_extension(original_name)
     allowed_normalised = {ext.lower() for ext in allowed_extensions}
     if extension not in allowed_normalised:
-        raise UploadViolation(
-            "Unsupported file type. Please upload a CSV or Excel file."
-        )
+        raise UploadViolation("Unsupported file type. Please upload a CSV or Excel file.")
 
     uploaded.seek(0)
     data = uploaded.read()
@@ -167,9 +165,7 @@ def store_buffered_upload(
     extension = _normalise_extension(original_name)
     allowed_normalised = {ext.lower() for ext in allowed_extensions}
     if extension not in allowed_normalised:
-        raise UploadViolation(
-            "Unsupported file type. Please upload a CSV or Excel file."
-        )
+        raise UploadViolation("Unsupported file type. Please upload a CSV or Excel file.")
 
     if not data:
         raise UploadViolation("Uploaded file is empty.")

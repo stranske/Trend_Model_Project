@@ -170,9 +170,7 @@ def test_run_backtest_expanding_mode_handles_date_column_only() -> None:
 def test_run_backtest_input_validation(
     kwargs: dict[str, object], expected_exception: type[Exception], message: str
 ) -> None:
-    df = pd.DataFrame(
-        {"Date": pd.date_range("2021-01-01", periods=3), "FundA": [0.0, 0.1, -0.1]}
-    )
+    df = pd.DataFrame({"Date": pd.date_range("2021-01-01", periods=3), "FundA": [0.0, 0.1, -0.1]})
 
     call_kwargs = {
         "rebalance_freq": "ME",
@@ -215,9 +213,7 @@ def test_run_backtest_requires_enough_history_for_window() -> None:
 def test_run_backtest_errors_on_empty_prepared_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    df = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]}
-    )
+    df = pd.DataFrame({"Date": pd.date_range("2022-01-01", periods=3), "FundA": [0.1, 0.2, 0.3]})
 
     monkeypatch.setattr(h, "_prepare_returns", lambda _: pd.DataFrame())
 
@@ -236,9 +232,7 @@ def test_run_backtest_errors_on_empty_prepared_data(
 def test_run_backtest_errors_when_calendar_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    df = pd.DataFrame(
-        {"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01}
-    )
+    df = pd.DataFrame({"Date": pd.date_range("2022-01-01", periods=4, freq="D"), "FundA": 0.01})
 
     monkeypatch.setattr(h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([]))
 
@@ -475,10 +469,7 @@ def test_helpers_cover_frequency_conversion_and_json_default(
     assert h._series_to_dict(series) == {sample_calendar[0].isoformat(): 1.0}
 
     assert h._json_default(pd.Timestamp("2021-01-01")) == "2021-01-01T00:00:00"
-    assert (
-        h._json_default(pd.Timestamp("2021-01-01") - pd.Timestamp("2020-12-31"))
-        == "P1DT0H0M0S"
-    )
+    assert h._json_default(pd.Timestamp("2021-01-01") - pd.Timestamp("2020-12-31")) == "P1DT0H0M0S"
     assert h._json_default(np.float64(1.23)) == pytest.approx(1.23)
 
     with pytest.raises(TypeError):
@@ -510,9 +501,7 @@ def test_run_backtest_rejects_empty_prepared_returns(
     monkeypatch.setattr(
         h,
         "_prepare_returns",
-        lambda _: pd.DataFrame(
-            columns=["FundA"], index=pd.DatetimeIndex([], name="Date")
-        ),
+        lambda _: pd.DataFrame(columns=["FundA"], index=pd.DatetimeIndex([], name="Date")),
     )
 
     with pytest.raises(ValueError, match="at least one row"):
@@ -536,9 +525,7 @@ def test_run_backtest_rejects_empty_rebalance_calendar(
         }
     )
 
-    monkeypatch.setattr(
-        h, "_prepare_returns", lambda frame: frame.set_index("Date")[["FundA"]]
-    )
+    monkeypatch.setattr(h, "_prepare_returns", lambda frame: frame.set_index("Date")[["FundA"]])
     monkeypatch.setattr(
         h, "_rebalance_calendar", lambda *_: pd.DatetimeIndex([], name="rebalance_date")
     )
@@ -589,9 +576,7 @@ def test_run_backtest_handles_duplicate_index_and_pending_costs() -> None:
     )
 
     assert result.turnover.loc[pd.Timestamp("2021-01-01")] == pytest.approx(1.0)
-    assert result.transaction_costs.loc[pd.Timestamp("2021-01-01")] == pytest.approx(
-        0.001
-    )
+    assert result.transaction_costs.loc[pd.Timestamp("2021-01-01")] == pytest.approx(0.001)
     # The first realised return reflects the pending transaction cost deduction.
     realised = result.returns.loc[pd.Timestamp("2021-01-02")]
     assert realised.iloc[0] == pytest.approx(0.029)
@@ -616,25 +601,11 @@ def test_infer_periods_per_year_branch_coverage() -> None:
     assert h._infer_periods_per_year(pd.DatetimeIndex(["2021-01-01"])) == 1
     duplicate_days = pd.DatetimeIndex(["2021-01-01", "2021-01-01", "2021-01-01"])
     assert h._infer_periods_per_year(duplicate_days) == 1
-    assert (
-        h._infer_periods_per_year(pd.date_range("2021-01-01", periods=60, freq="B"))
-        == 252
-    )
-    assert (
-        h._infer_periods_per_year(pd.date_range("2021-01-03", periods=12, freq="W"))
-        == 52
-    )
-    assert (
-        h._infer_periods_per_year(pd.date_range("2021-01-31", periods=6, freq="ME"))
-        == 12
-    )
-    assert (
-        h._infer_periods_per_year(pd.date_range("2021-03-31", periods=6, freq="QE"))
-        == 4
-    )
-    irregular = pd.DatetimeIndex(
-        ["2021-01-01", "2021-01-21", "2021-02-10", "2021-03-05"]
-    )
+    assert h._infer_periods_per_year(pd.date_range("2021-01-01", periods=60, freq="B")) == 252
+    assert h._infer_periods_per_year(pd.date_range("2021-01-03", periods=12, freq="W")) == 52
+    assert h._infer_periods_per_year(pd.date_range("2021-01-31", periods=6, freq="ME")) == 12
+    assert h._infer_periods_per_year(pd.date_range("2021-03-31", periods=6, freq="QE")) == 4
+    irregular = pd.DatetimeIndex(["2021-01-01", "2021-01-21", "2021-02-10", "2021-03-05"])
     assert h._infer_periods_per_year(irregular) == 18
 
 

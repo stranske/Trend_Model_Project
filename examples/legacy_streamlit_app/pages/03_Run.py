@@ -3,7 +3,6 @@
 import logging
 import traceback
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 import streamlit as st
@@ -86,16 +85,14 @@ def format_error_message(error: Exception) -> str:
     return f"Analysis error ({error_type}): {error_msg}"
 
 
-def create_config_from_session_state() -> Optional[object]:
+def create_config_from_session_state() -> object | None:
     """Create a Config object from session state data."""
     try:
         # Get configuration from session state
         sim_config = st.session_state.get("sim_config", {})
 
         if not sim_config:
-            st.error(
-                "No configuration found. Please set up your analysis configuration first."
-            )
+            st.error("No configuration found. Please set up your analysis configuration first.")
             return None
 
         # Extract required parameters with defaults
@@ -138,7 +135,7 @@ def create_config_from_session_state() -> Optional[object]:
         return None
 
 
-def prepare_returns_data() -> Optional[pd.DataFrame]:
+def prepare_returns_data() -> pd.DataFrame | None:
     """Prepare returns data from session state."""
     try:
         df = st.session_state.get("returns_df")
@@ -172,7 +169,7 @@ def prepare_returns_data() -> Optional[pd.DataFrame]:
         return None
 
 
-def run_analysis_with_progress() -> Optional[object]:
+def run_analysis_with_progress() -> object | None:
     """Run the analysis with progress reporting and error handling."""
 
     # Initialize log handler
@@ -238,10 +235,7 @@ def run_analysis_with_progress() -> Optional[object]:
         logs = log_handler.get_logs()
         if logs:
             log_text = "\n".join(
-                [
-                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
-                    for log in logs[-10:]
-                ]
+                [f"[{log['timestamp']}] {log['level']}: {log['message']}" for log in logs[-10:]]
             )  # Show last 10 logs
             log_display.code(log_text)
 
@@ -256,10 +250,7 @@ def run_analysis_with_progress() -> Optional[object]:
         logs = log_handler.get_logs()
         if logs:
             log_text = "\n".join(
-                [
-                    f"[{log['timestamp']}] {log['level']}: {log['message']}"
-                    for log in logs
-                ]
+                [f"[{log['timestamp']}] {log['level']}: {log['message']}" for log in logs]
             )
             log_display.code(log_text)
 
@@ -298,9 +289,7 @@ def main():
         return
 
     if "sim_config" not in st.session_state or not st.session_state["sim_config"]:
-        st.warning(
-            "⚠️ **Configuration Required**: Please configure your analysis parameters first."
-        )
+        st.warning("⚠️ **Configuration Required**: Please configure your analysis parameters first.")
         st.info("👈 Go to the **Configure** page to set up your analysis.")
         return
 
@@ -343,9 +332,7 @@ def main():
                         else:
                             st.info("No metrics to display.")
 
-                    st.info(
-                        "👉 Go to the **Results** page to explore detailed findings."
-                    )
+                    st.info("👉 Go to the **Results** page to explore detailed findings.")
 
     with clear_col:
         if st.button("🗑️ Clear", help="Clear previous results"):
@@ -357,10 +344,7 @@ def main():
             st.rerun()
 
     # Show previous results if available
-    if (
-        "sim_results" in st.session_state
-        and st.session_state["sim_results"] is not None
-    ):
+    if "sim_results" in st.session_state and st.session_state["sim_results"] is not None:
         st.markdown("---")
         st.markdown("### 📋 Previous Results")
 

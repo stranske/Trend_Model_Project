@@ -158,16 +158,12 @@ def test_autofix_pipeline_handles_diverse_errors(
         _run(command, cwd=repo_root, ok_exit_codes=ok_codes)
 
     monkeypatch.setattr(auto_type_hygiene, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False, raising=False)
     auto_type_hygiene.main()
 
     monkeypatch.setattr(fix_cosmetic_aggregate, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        fix_cosmetic_aggregate, "TARGET", automation_module, raising=False
-    )
+    monkeypatch.setattr(fix_cosmetic_aggregate, "TARGET", automation_module, raising=False)
     fix_cosmetic_aggregate.main()
 
     monkeypatch.setattr(fix_numpy_asserts, "ROOT", repo_root, raising=False)
@@ -204,16 +200,12 @@ def test_autofix_pipeline_handles_diverse_errors(
         sys.modules.pop("tests.test_expectations_mod", None)
 
     monkeypatch.setattr(mypy_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False)
     mypy_autofix.main(["--paths", str(sample_module)])
 
     sample_rel = sample_module.relative_to(repo_root)
     monkeypatch.setattr(mypy_return_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(
         mypy_return_autofix,
         "MYPY_CMD",

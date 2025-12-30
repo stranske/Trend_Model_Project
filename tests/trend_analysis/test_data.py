@@ -1,9 +1,9 @@
 import logging
 import os
 import stat
-from datetime import datetime, timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -151,9 +151,7 @@ def test_finalise_validated_frame_includes_metadata(validated_payload):
 
 
 def test_finalise_validated_frame_without_date(validated_payload):
-    result = data._finalise_validated_frame(
-        validated_payload, include_date_column=False
-    )
+    result = data._finalise_validated_frame(validated_payload, include_date_column=False)
     assert "Date" not in result.columns
     assert result.index.equals(validated_payload.frame.index)
 
@@ -217,9 +215,7 @@ def test_validate_payload_policy_coercions(monkeypatch, validated_payload):
         missing_limit=limit,
     )
 
-    assert result.attrs["market_data_columns"] == list(
-        validated_payload.metadata.columns
-    )
+    assert result.attrs["market_data_columns"] == list(validated_payload.metadata.columns)
 
 
 def test_validate_payload_success(monkeypatch, validated_payload):
@@ -265,17 +261,13 @@ def test_validate_payload_success(monkeypatch, validated_payload):
 
 def test_validate_payload_applies_price_contract(monkeypatch, sample_metadata):
     payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-02"], "AAA": [1, 2]})
-    naive_idx = pd.DatetimeIndex(
-        [datetime(2024, 1, 1), datetime(2024, 1, 2)], name="Date"
-    )
+    naive_idx = pd.DatetimeIndex([datetime(2024, 1, 1), datetime(2024, 1, 2)], name="Date")
     validated = ValidatedMarketData(
         frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=naive_idx),
         metadata=sample_metadata,
     )
 
-    monkeypatch.setattr(
-        data, "validate_market_data", lambda *_args, **_kwargs: validated
-    )
+    monkeypatch.setattr(data, "validate_market_data", lambda *_args, **_kwargs: validated)
 
     result = data._validate_payload(
         payload,
@@ -285,23 +277,19 @@ def test_validate_payload_applies_price_contract(monkeypatch, sample_metadata):
     )
 
     assert isinstance(result.index, pd.DatetimeIndex)
-    assert result.index.tz is timezone.utc
+    assert result.index.tz is UTC
     assert str(result["Date"].dtype) == "datetime64[ns, UTC]"
 
 
 def test_validate_payload_raises_value_error_for_contract(monkeypatch, sample_metadata):
     payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-01"], "AAA": [1, 2]})
-    dup_idx = pd.DatetimeIndex(
-        [datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date"
-    )
+    dup_idx = pd.DatetimeIndex([datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date")
     validated = ValidatedMarketData(
         frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=dup_idx),
         metadata=sample_metadata,
     )
 
-    monkeypatch.setattr(
-        data, "validate_market_data", lambda *_args, **_kwargs: validated
-    )
+    monkeypatch.setattr(data, "validate_market_data", lambda *_args, **_kwargs: validated)
 
     with pytest.raises(ValueError, match="Duplicate"):
         data._validate_payload(
@@ -314,17 +302,13 @@ def test_validate_payload_raises_value_error_for_contract(monkeypatch, sample_me
 
 def test_validate_payload_logs_contract_error(monkeypatch, caplog, sample_metadata):
     payload = pd.DataFrame({"Date": ["2024-01-01", "2024-01-01"], "AAA": [1, 2]})
-    dup_idx = pd.DatetimeIndex(
-        [datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date"
-    )
+    dup_idx = pd.DatetimeIndex([datetime(2024, 1, 1), datetime(2024, 1, 1)], name="Date")
     validated = ValidatedMarketData(
         frame=pd.DataFrame({"AAA": [1.0, 2.0]}, index=dup_idx),
         metadata=sample_metadata,
     )
 
-    monkeypatch.setattr(
-        data, "validate_market_data", lambda *_args, **_kwargs: validated
-    )
+    monkeypatch.setattr(data, "validate_market_data", lambda *_args, **_kwargs: validated)
 
     with caplog.at_level(logging.ERROR):
         result = data._validate_payload(
@@ -359,9 +343,9 @@ def test_validate_payload_missing_policy_string(monkeypatch, validated_payload):
 
     expected_index = validated_payload.frame.index
     if expected_index.tz is None:
-        expected_index = expected_index.tz_localize(timezone.utc)
+        expected_index = expected_index.tz_localize(UTC)
     else:
-        expected_index = expected_index.tz_convert(timezone.utc)
+        expected_index = expected_index.tz_convert(UTC)
     assert result.index.equals(expected_index)
 
 
@@ -371,9 +355,7 @@ def test_validate_payload_logs_market_data_error(monkeypatch, caplog):
     monkeypatch.setattr(
         data,
         "validate_market_data",
-        MagicMock(
-            side_effect=MarketDataValidationError("Date column could not be parsed")
-        ),
+        MagicMock(side_effect=MarketDataValidationError("Date column could not be parsed")),
     )
 
     with caplog.at_level(logging.ERROR):
@@ -614,9 +596,7 @@ def test_load_parquet_legacy_kwargs(tmp_path, monkeypatch):
     monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
 
     captured = {}
-    monkeypatch.setattr(
-        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
-    )
+    monkeypatch.setattr(data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs))
 
     data.load_parquet(
         str(parquet_path),
@@ -637,9 +617,7 @@ def test_load_parquet_legacy_nan_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(pd, "read_parquet", MagicMock(return_value=raw))
 
     captured = {}
-    monkeypatch.setattr(
-        data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs)
-    )
+    monkeypatch.setattr(data, "_validate_payload", lambda *_args, **kwargs: captured.update(kwargs))
 
     data.load_parquet(str(parquet_path), nan_limit="6")
 
@@ -651,9 +629,7 @@ def test_load_parquet_permission_error(monkeypatch, tmp_path):
     parquet_path.write_bytes(b"")
 
     mode = os.stat(parquet_path).st_mode
-    monkeypatch.setattr(
-        Path, "stat", MagicMock(return_value=os.stat_result((mode,) + (0,) * 9))
-    )
+    monkeypatch.setattr(Path, "stat", MagicMock(return_value=os.stat_result((mode,) + (0,) * 9)))
     monkeypatch.setattr(data, "_is_readable", MagicMock(return_value=False))
 
     with pytest.raises(PermissionError):
@@ -678,9 +654,7 @@ def test_load_parquet_handles_validation_error(monkeypatch, tmp_path, caplog):
     assert "Unable to parse Date values" in caplog.text
 
 
-def test_load_parquet_handles_validation_error_without_hint(
-    monkeypatch, tmp_path, caplog
-):
+def test_load_parquet_handles_validation_error_without_hint(monkeypatch, tmp_path, caplog):
     parquet_path = tmp_path / "bad_plain.parquet"
     parquet_path.write_bytes(b"")
 

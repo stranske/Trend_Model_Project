@@ -11,7 +11,8 @@ factory helpers for selectors, rebalancers and weight engines.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, Dict, Generic, List, Type, TypeVar
 
 import pandas as pd
 
@@ -26,12 +27,12 @@ class PluginRegistry(Generic[T]):
     """Simple in-memory registry mapping names to plugin classes."""
 
     def __init__(self) -> None:  # pragma: no cover - trivial container
-        self._plugins: Dict[str, Type[T]] = {}
+        self._plugins: dict[str, type[T]] = {}
 
-    def register(self, name: str) -> Callable[[Type[T]], Type[T]]:
+    def register(self, name: str) -> Callable[[type[T]], type[T]]:
         """Register ``cls`` under ``name`` using a decorator."""
 
-        def decorator(cls: Type[T]) -> Type[T]:
+        def decorator(cls: type[T]) -> type[T]:
             self._plugins[name] = cls
             return cls
 
@@ -47,7 +48,7 @@ class PluginRegistry(Generic[T]):
             ) from exc
         return cls(*args, **kwargs)
 
-    def available(self) -> List[str]:
+    def available(self) -> list[str]:
         """Return a list of registered plugin names."""
         return list(self._plugins.keys())
 
@@ -64,7 +65,7 @@ class Selector(Plugin):
 class Rebalancer(Plugin):
     """Base class for rebalancing strategy plugins."""
 
-    def __init__(self, params: Dict[str, Any] | None = None) -> None:
+    def __init__(self, params: dict[str, Any] | None = None) -> None:
         self.params = params or {}
 
     @abstractmethod
@@ -126,7 +127,7 @@ def create_selector(name: str, **params: Any) -> Selector:
     return selector_registry.create(name, **params)
 
 
-def create_rebalancer(name: str, params: Dict[str, Any] | None = None) -> Rebalancer:
+def create_rebalancer(name: str, params: dict[str, Any] | None = None) -> Rebalancer:
     """Instantiate a rebalancer plugin by ``name``."""
     return rebalancer_registry.create(name, params or {})
 

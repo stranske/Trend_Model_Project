@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple, cast
+from typing import cast
 
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 
@@ -124,16 +124,14 @@ def pipeline_failure(
 
 def coerce_pipeline_result(
     result: object,
-) -> Tuple[AnalysisResult | None, DiagnosticPayload | None]:
+) -> tuple[AnalysisResult | None, DiagnosticPayload | None]:
     """Return a ``(payload, diagnostic)`` pair for arbitrary pipeline outputs."""
 
     if isinstance(result, PipelineResult):
         return result.value, result.diagnostic
 
     diagnostic_attr = getattr(result, "diagnostic", None)
-    if diagnostic_attr is not None and not isinstance(
-        diagnostic_attr, DiagnosticPayload
-    ):
+    if diagnostic_attr is not None and not isinstance(diagnostic_attr, DiagnosticPayload):
         raise TypeError(
             "Pipeline diagnostics must be DiagnosticPayload instances; received "
             f"{type(diagnostic_attr)!r}"
@@ -145,7 +143,7 @@ def coerce_pipeline_result(
     elif isinstance(result, Mapping):
         payload = cast(AnalysisResult | None, result)
     elif hasattr(result, "value"):
-        payload = cast(AnalysisResult | None, getattr(result, "value"))
+        payload = cast(AnalysisResult | None, result.value)
     else:
         payload = cast(AnalysisResult | None, result)
 
@@ -153,9 +151,7 @@ def coerce_pipeline_result(
         return None, diagnostic
 
     if not isinstance(payload, Mapping):
-        raise TypeError(
-            "Pipeline outputs must be mapping-like; received " f"{type(payload)!r}"
-        )
+        raise TypeError("Pipeline outputs must be mapping-like; received " f"{type(payload)!r}")
 
     if isinstance(payload, dict):
         return payload, diagnostic

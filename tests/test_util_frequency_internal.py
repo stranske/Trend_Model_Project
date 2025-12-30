@@ -60,7 +60,7 @@ def test_as_datetime_index_recovers_from_initial_failure(
     calls = {"count": 0}
 
     class FlakyDatetimeIndex(pd.DatetimeIndex):
-        def __new__(cls, *args: object, **kwargs: object) -> "FlakyDatetimeIndex":
+        def __new__(cls, *args: object, **kwargs: object) -> FlakyDatetimeIndex:
             calls["count"] += 1
             if calls["count"] == 1:
                 raise TypeError("cannot construct directly")
@@ -94,9 +94,7 @@ def test_as_datetime_index_recovers_from_initial_failure(
         ("foo", None),
     ],
 )
-def test_map_inferred_normalises_pandas_codes(
-    freq: str | None, expected: str | None
-) -> None:
+def test_map_inferred_normalises_pandas_codes(freq: str | None, expected: str | None) -> None:
     """The inference mapper should collapse Pandas frequency aliases to our codes."""
 
     assert _map_inferred(freq) == expected

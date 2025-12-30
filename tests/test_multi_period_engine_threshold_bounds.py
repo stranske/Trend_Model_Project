@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -13,7 +13,7 @@ from trend_analysis.multi_period import engine as mp_engine
 class MinimalConfig:
     """Minimal configuration for exercising threshold-hold weight bounds."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 2,
@@ -22,13 +22,13 @@ class MinimalConfig:
             "end": "2020-04",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "allow_risk_free_fallback": True,
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
             "transaction_cost_bps": 0.0,
@@ -51,12 +51,12 @@ class MinimalConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 123
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -86,15 +86,13 @@ class ScriptedWeighting:
 
     def __init__(self, *_args: Any, **_kwargs: Any) -> None:
         self.calls = 0
-        self.sequences: List[Dict[str, float]] = [
+        self.sequences: list[dict[str, float]] = [
             {"Alpha One": 0.6, "Alpha Two": 0.4, "Beta One": 0.2, "Gamma One": 0.1},
             {"Alpha One": 0.4, "Beta One": 0.1, "Gamma One": 0.05},
             {"Alpha One": 0.9, "Beta One": 0.4, "Gamma One": 0.35},
         ]
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         seq = self.sequences[min(self.calls, len(self.sequences) - 1)]
         self.calls += 1
@@ -105,9 +103,7 @@ class ScriptedWeighting:
         )
         return weights.to_frame("weight")
 
-    def update(
-        self, scores: pd.Series, days: int
-    ) -> None:  # pragma: no cover - inert hook
+    def update(self, scores: pd.Series, days: int) -> None:  # pragma: no cover - inert hook
         pass
 
 
@@ -117,9 +113,7 @@ class StaticRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         self.calls += 1
         return prev_weights.astype(float)
 
@@ -157,9 +151,7 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import trend_analysis.selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector()
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: ScriptedSelector())
 
     import trend_analysis.core.rank_selection as rank_sel
 
@@ -202,15 +194,13 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         },
     }
 
-    def fake_metric_series(
-        _frame: pd.DataFrame, metric: str, _stats_cfg: Any
-    ) -> pd.Series:
+    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 
     monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)
 
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
 
     def fake_run_analysis(
         _df: pd.DataFrame,
@@ -221,10 +211,10 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         _target_vol: float,
         _monthly_cost: float,
         *,
-        custom_weights: Dict[str, float],
-        manual_funds: List[str],
+        custom_weights: dict[str, float],
+        manual_funds: list[str],
         **_kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         records.append(
             {
                 "weights": dict(custom_weights),

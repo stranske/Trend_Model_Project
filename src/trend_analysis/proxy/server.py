@@ -47,10 +47,10 @@ def _lazy_import_deps() -> bool:
         uvicorn = importlib.import_module("uvicorn")
         websockets = importlib.import_module("websockets")
         fastapi_mod = importlib.import_module("fastapi")
-        FastAPI = getattr(fastapi_mod, "FastAPI")
-        StreamingResponse = getattr(fastapi_mod.responses, "StreamingResponse")
+        FastAPI = fastapi_mod.FastAPI
+        StreamingResponse = fastapi_mod.responses.StreamingResponse
         starlette_bg = importlib.import_module("starlette.background")
-        BackgroundTask = getattr(starlette_bg, "BackgroundTask")
+        BackgroundTask = starlette_bg.BackgroundTask
         _DEPS_AVAILABLE = True
         return True
     except Exception:  # pragma: no cover
@@ -120,9 +120,7 @@ class StreamlitProxy:
     def __init__(self, streamlit_host: str = "localhost", streamlit_port: int = 8501):
         _assert_deps()
         if FastAPI is None or httpx is None:
-            raise RuntimeError(
-                "FastAPI/httpx dependencies are required for StreamlitProxy"
-            )
+            raise RuntimeError("FastAPI/httpx dependencies are required for StreamlitProxy")
         self.streamlit_host = streamlit_host
         self.streamlit_port = streamlit_port
         self.streamlit_base_url = f"http://{streamlit_host}:{streamlit_port}"
@@ -145,17 +143,13 @@ class StreamlitProxy:
     async def _websocket_entry(self, websocket: Any, path: str) -> None:
         await self._handle_websocket(cast(_SupportsWebSocket, websocket), path)
 
-    async def _http_entry(
-        self, request: Any, path: str
-    ) -> Any:  # FastAPI Request at runtime
+    async def _http_entry(self, request: Any, path: str) -> Any:  # FastAPI Request at runtime
         return await self._handle_http_request(request, path)
 
     async def _handle_websocket(self, websocket: _SupportsWebSocket, path: str) -> None:
         _assert_deps()
         if websockets is None:
-            raise RuntimeError(
-                "websockets dependency is required for proxy WebSocket support"
-            )
+            raise RuntimeError("websockets dependency is required for proxy WebSocket support")
         await websocket.accept()
         target_url = f"{self.streamlit_ws_url}/{path}"
         q = getattr(websocket.url, "query", "")
@@ -198,9 +192,7 @@ class StreamlitProxy:
             query_string = str(raw_query)
         if query_string:
             target_url += f"?{query_string}"
-        logger.debug(
-            "Proxying HTTP %s -> %s", getattr(request, "method", "?"), target_url
-        )
+        logger.debug("Proxying HTTP %s -> %s", getattr(request, "method", "?"), target_url)
         headers = dict(request.headers)
         headers.pop("host", None)
         try:  # pragma: no cover
@@ -242,14 +234,10 @@ class StreamlitProxy:
             logger.error("HTTP proxy error: %s", e)
             return {"error": str(e), "status_code": 502}
 
-    async def start(
-        self, host: str = "0.0.0.0", port: int = 8500
-    ) -> None:  # noqa: D401
+    async def start(self, host: str = "0.0.0.0", port: int = 8500) -> None:  # noqa: D401
         _assert_deps()
         if uvicorn is None:
-            raise RuntimeError(
-                "uvicorn dependency is required to start the proxy server"
-            )
+            raise RuntimeError("uvicorn dependency is required to start the proxy server")
         config = uvicorn.Config(app=self.app, host=host, port=port, log_level="info")
         server = uvicorn.Server(config)
         logger.info("Starting Streamlit proxy on %s:%s", host, port)

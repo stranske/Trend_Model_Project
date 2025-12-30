@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -118,9 +119,7 @@ def _select_weights(
 
 def _turnover(prev: pd.Series, current: pd.Series) -> float:
     universe = prev.index.union(current.index)
-    delta = current.reindex(universe, fill_value=0.0) - prev.reindex(
-        universe, fill_value=0.0
-    )
+    delta = current.reindex(universe, fill_value=0.0) - prev.reindex(universe, fill_value=0.0)
     return float(delta.abs().sum())
 
 
@@ -197,9 +196,7 @@ def walk_forward(
 
         if len(net_returns):
             sharpe = float(
-                sharpe_ratio(
-                    net_returns, risk_free=0.0, periods_per_year=periods_per_year
-                )
+                sharpe_ratio(net_returns, risk_free=0.0, periods_per_year=periods_per_year)
             )
             drawdown = float(max_drawdown(net_returns))
         else:
@@ -229,19 +226,13 @@ def walk_forward(
         folds_df["test_start"] = pd.to_datetime(folds_df["test_start"])
         folds_df["test_end"] = pd.to_datetime(folds_df["test_end"])
 
-    combined = (
-        pd.concat(oos_returns).sort_index() if oos_returns else pd.Series(dtype=float)
-    )
+    combined = pd.concat(oos_returns).sort_index() if oos_returns else pd.Series(dtype=float)
     summary = pd.DataFrame(
         [
             {
                 "folds": len(fold_records),
                 "oos_sharpe": (
-                    float(
-                        sharpe_ratio(
-                            combined, risk_free=0.0, periods_per_year=periods_per_year
-                        )
-                    )
+                    float(sharpe_ratio(combined, risk_free=0.0, periods_per_year=periods_per_year))
                     if len(combined)
                     else float("nan")
                 ),
@@ -249,9 +240,7 @@ def walk_forward(
                     float(max_drawdown(combined)) if len(combined) else float("nan")
                 ),
                 "avg_turnover": (
-                    float(folds_df["turnover"].mean())
-                    if not folds_df.empty
-                    else float("nan")
+                    float(folds_df["turnover"].mean()) if not folds_df.empty else float("nan")
                 ),
                 "total_cost_drag": (
                     float(folds_df["cost_drag"].sum()) if not folds_df.empty else 0.0

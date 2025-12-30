@@ -57,9 +57,7 @@ def test_validate_payload_injects_wildcard_default(
 ) -> None:
     """Mappings that advertise a wildcard should gain the fallback entry."""
 
-    frame = pd.DataFrame(
-        {"Date": pd.date_range("2024-01-01", periods=3), "A": [1, 2, 3]}
-    )
+    frame = pd.DataFrame({"Date": pd.date_range("2024-01-01", periods=3), "A": [1, 2, 3]})
     captured: dict[str, Any] = {}
 
     def fake_validate(
@@ -74,12 +72,8 @@ def test_validate_payload_injects_wildcard_default(
         return SimpleNamespace(frame=payload, metadata=SimpleNamespace())
 
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
-    monkeypatch.setattr(
-        "trend_analysis.data._finalise_validated_frame", _dummy_finalise
-    )
-    monkeypatch.setattr(
-        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
-    )
+    monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", _dummy_finalise)
+    monkeypatch.setattr("trend_analysis.data._apply_price_contract", lambda frame, **_: frame)
 
     mapping = _WildcardMapping({"A": "ffill"})
 
@@ -125,9 +119,7 @@ def test_load_csv_missing_limit_kwarg_converted(
         return "finalised"
 
     monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", finalise)
-    monkeypatch.setattr(
-        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
-    )
+    monkeypatch.setattr("trend_analysis.data._apply_price_contract", lambda frame, **_: frame)
 
     result = load_csv(
         str(path),
@@ -191,12 +183,8 @@ def test_load_parquet_missing_limit_kwarg_converted(
         return SimpleNamespace(frame=payload, metadata=SimpleNamespace())
 
     monkeypatch.setattr("trend_analysis.data.validate_market_data", fake_validate)
-    monkeypatch.setattr(
-        "trend_analysis.data._finalise_validated_frame", _dummy_finalise
-    )
-    monkeypatch.setattr(
-        "trend_analysis.data._apply_price_contract", lambda frame, **_: frame
-    )
+    monkeypatch.setattr("trend_analysis.data._finalise_validated_frame", _dummy_finalise)
+    monkeypatch.setattr("trend_analysis.data._apply_price_contract", lambda frame, **_: frame)
 
     result = load_parquet(str(path), missing_limit="9", include_date_column=False)
 
@@ -330,6 +318,4 @@ def test_apply_price_contract_updates_index_and_date_column(
     assert contracted.index.tz is not None
     assert contracted.index.name is None  # cleared when date column is retained
     assert contracted["Date"].dt.tz is not None
-    pd.testing.assert_index_equal(
-        contracted.index, calls["validated"].index, check_names=False
-    )
+    pd.testing.assert_index_equal(contracted.index, calls["validated"].index, check_names=False)

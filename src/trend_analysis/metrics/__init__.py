@@ -10,8 +10,9 @@ from __future__ import annotations
 import builtins as _bi
 import sys
 import types
+from collections.abc import Callable
 from importlib import import_module
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -81,11 +82,7 @@ def _is_zero_everywhere(
         True if the value is zero everywhere, False otherwise
     """
     if isinstance(value, (Series, DataFrame)):
-        result = (
-            (value == 0).all().all()
-            if isinstance(value, DataFrame)
-            else (value == 0).all()
-        )
+        result = (value == 0).all().all() if isinstance(value, DataFrame) else (value == 0).all()
         return bool(result)
 
     # NumPy arrays: require all elements within tolerance
@@ -121,9 +118,7 @@ def _check_shapes(
     if np.isscalar(other):
         return
     assert isinstance(other, (Series, DataFrame))
-    if ret.shape != other.shape or isinstance(ret, DataFrame) != isinstance(
-        other, DataFrame
-    ):
+    if ret.shape != other.shape or isinstance(ret, DataFrame) != isinstance(other, DataFrame):
         raise ValueError(f"{fn}: inputs must have identical shape")
 
 
@@ -434,8 +429,8 @@ sys.modules.setdefault("tests.legacy_metrics", _legacy)
 # trend_analysis/metrics.py  (append near the bottom ­– after all definitions)
 # ---------------------------------------------------------------------------
 
-setattr(_bi, "annualize_return", annualize_return)
-setattr(_bi, "annualize_volatility", annualize_volatility)
+_bi.annualize_return = annualize_return
+_bi.annualize_volatility = annualize_volatility
 
 # Public submodules exposed via attribute assignment for compatibility while
 # keeping Ruff satisfied about unused imports.

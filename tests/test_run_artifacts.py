@@ -114,7 +114,7 @@ def test_data_window_uses_index_when_date_column_missing() -> None:
 
 
 def test_render_html_renders_metrics_and_artifacts() -> None:
-    created = dt.datetime(2023, 1, 2, tzinfo=dt.timezone.utc)
+    created = dt.datetime(2023, 1, 2, tzinfo=dt.UTC)
     manifest = {
         "metrics": {"cagr": 0.1234},
         "artifacts": [{"name": "demo.csv", "size": 4}],
@@ -136,9 +136,7 @@ def test_render_html_renders_metrics_and_artifacts() -> None:
     assert "hello" in html
 
 
-def test_write_run_artifacts_deduplicates_and_coerces(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_write_run_artifacts_deduplicates_and_coerces(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(run_artifacts, "_git_hash", lambda: "fixedhash")
 
     artifact = tmp_path / "artifact.txt"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -12,12 +12,12 @@ class Event:
     action: str
     manager: str
     reason: str
-    details: Optional[Dict[str, Any]] = None
+    details: dict[str, Any] | None = None
 
 
 class EventLog:
     def __init__(self) -> None:
-        self.events: List[Event] = []
+        self.events: list[Event] = []
 
     def append(self, e: Event) -> None:
         self.events.append(e)

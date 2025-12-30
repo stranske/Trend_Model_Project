@@ -14,7 +14,6 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Set
 
 import pytest
 
@@ -142,10 +141,10 @@ def _extract_requirement_name(entry: str) -> str | None:
     return token or None
 
 
-def extract_imports_from_file(file_path: Path) -> Set[str]:
+def extract_imports_from_file(file_path: Path) -> set[str]:
     """Extract all top-level import names from a Python file."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=str(file_path))
     except (SyntaxError, UnicodeDecodeError):
         return set()
@@ -166,7 +165,7 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
     return imports
 
 
-def get_declared_dependencies() -> Set[str]:
+def get_declared_dependencies() -> set[str]:
     """Get all dependencies declared in pyproject.toml."""
     pyproject_file = Path("pyproject.toml")
     if not pyproject_file.exists():
@@ -175,7 +174,7 @@ def get_declared_dependencies() -> Set[str]:
     data = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
     project = data.get("project", {})
 
-    dependencies: Set[str] = set()
+    dependencies: set[str] = set()
 
     for entry in project.get("dependencies", []):
         name = _extract_requirement_name(entry)
@@ -216,13 +215,7 @@ def test_all_test_imports_are_declared() -> None:
     declared = get_declared_dependencies()
 
     # Filter out modules that don't need to be declared
-    undeclared = (
-        all_imports
-        - STDLIB_MODULES
-        - TEST_FRAMEWORK_MODULES
-        - PROJECT_MODULES
-        - declared
-    )
+    undeclared = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES - declared
 
     # Some packages have different import names than package names
     # Handle known exceptions
@@ -288,7 +281,7 @@ def test_external_tools_are_documented() -> None:
             continue
 
         try:
-            with open(test_file, "r", encoding="utf-8") as f:
+            with open(test_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Look for subprocess.run, subprocess.call, etc.

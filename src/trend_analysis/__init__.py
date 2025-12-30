@@ -84,7 +84,7 @@ class _SpecProxy:
     @property
     def name(self) -> str:
         _ensure_registered()
-        return cast(str, getattr(self._spec, "name"))
+        return cast(str, self._spec.name)
 
 
 if _ORIGINAL_SPEC is not None:

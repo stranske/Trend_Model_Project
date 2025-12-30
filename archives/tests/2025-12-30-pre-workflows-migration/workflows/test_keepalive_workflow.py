@@ -38,9 +38,7 @@ def _raw_entries(summary: dict) -> list[str]:
 
 def _details(summary: dict, title_prefix: str) -> dict | None:
     for entry in summary["entries"]:
-        if entry.get("type") == "details" and entry.get("title", "").startswith(
-            title_prefix
-        ):
+        if entry.get("type") == "details" and entry.get("title", "").startswith(title_prefix):
             return entry
     return None
 
@@ -94,24 +92,16 @@ def _assert_scope_block(body: str) -> None:
         "- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:"
         in body
     )
-    assert (
-        "- [ ] Write Round = N and TRACE = … into the step summary for correlation."
-        in body
-    )
+    assert "- [ ] Write Round = N and TRACE = … into the step summary for correlation." in body
     assert "#### Acceptance Criteria" in body
     assert (
         "- [ ] Each keepalive cycle adds exactly one new bot comment (no edits) whose body starts with the three hidden markers"
         in body
     )
-    assert (
-        "- [ ] The posted comment contains the current Scope/Tasks/Acceptance block."
-        in body
-    )
+    assert "- [ ] The posted comment contains the current Scope/Tasks/Acceptance block." in body
 
 
-def _assert_single_dispatch(
-    data: dict, issue: int, *, round_expected: int | None = None
-) -> dict:
+def _assert_single_dispatch(data: dict, issue: int, *, round_expected: int | None = None) -> dict:
     dispatches = _dispatch_events(data)
     assert len(dispatches) == 1
     event = dispatches[0]
@@ -140,9 +130,7 @@ def _assert_single_dispatch(
     return payload
 
 
-def _assert_keepalive_authors(
-    comments: list[dict], expected_login: str = "stranske"
-) -> None:
+def _assert_keepalive_authors(comments: list[dict], expected_login: str = "stranske") -> None:
     for comment in comments:
         assert comment["user"]["login"] == expected_login
 
@@ -177,11 +165,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert data["updated_comments"] == []
     payload = _assert_single_dispatch(data, 101, round_expected=1)
     assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
-    assert (
-        payload.get("meta", {})
-        .get("comment_url", "")
-        .endswith(f"#comment-{created[0]['id']}")
-    )
+    assert payload.get("meta", {}).get("comment_url", "").endswith(f"#comment-{created[0]['id']}")
 
     reactions = data.get("instruction_reactions", [])
     assert reactions == [{"comment_id": created[0]["id"], "content": "hooray"}]
@@ -259,8 +243,7 @@ def test_keepalive_dedupes_configuration() -> None:
 
     assignee_entries = _assignee_entries(summary)
     assert any(
-        "#505 – ensured assignees:" in entry and "Helper-Bot" in entry
-        for entry in assignee_entries
+        "#505 – ensured assignees:" in entry and "Helper-Bot" in entry for entry in assignee_entries
     )
 
 

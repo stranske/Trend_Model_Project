@@ -33,26 +33,19 @@ def test_agents_orchestrator_inputs_and_uses():
     assert "PARAMS_JSON" in text, "Resolve step must pass params_json via env"
     # After extraction, the parsing logic is in agents_orchestrator_resolve.js
     assert (
-        "agents_orchestrator_resolve.js" in text
-        or "agents-orchestrator-resolve" in text
+        "agents_orchestrator_resolve.js" in text or "agents-orchestrator-resolve" in text
     ), "Orchestrator must invoke the resolver helper script"
     # Verify the helper script contains the JSON parsing logic
     resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
     assert resolver_script.exists(), "Resolver helper script must exist"
     resolver_text = resolver_script.read_text(encoding="utf-8")
-    assert (
-        "JSON.parse" in resolver_text
-    ), "Resolver script must parse params_json as JSON"
+    assert "JSON.parse" in resolver_text, "Resolver script must parse params_json as JSON"
     assert "options_json" in text, "options_json output must remain available"
-    assert (
-        "enable_bootstrap:" in text
-    ), "Orchestrator must forward enable_bootstrap flag"
+    assert "enable_bootstrap:" in text, "Orchestrator must forward enable_bootstrap flag"
     assert (
         "bootstrap_issues_label:" in text
     ), "Orchestrator must forward bootstrap label configuration"
-    assert (
-        "keepalive_max_retries" in text
-    ), "Orchestrator must expose keepalive retry configuration"
+    assert "keepalive_max_retries" in text, "Orchestrator must expose keepalive retry configuration"
     assert (
         "./.github/workflows/reusable-16-agents.yml" in text
     ), "Orchestrator must call the reusable agents workflow"
@@ -71,9 +64,7 @@ def test_agents_orchestrator_exposes_dry_run_toggle():
     resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
     assert resolver_script.exists(), "Resolver helper script must exist"
     resolver_text = resolver_script.read_text(encoding="utf-8")
-    assert (
-        "dryRun" in resolver_text
-    ), "Resolve script should compute and surface the dry_run flag"
+    assert "dryRun" in resolver_text, "Resolve script should compute and surface the dry_run flag"
 
 
 def test_orchestrator_bootstrap_label_delegates_fallback():
@@ -113,16 +104,12 @@ def test_legacy_agent_workflows_removed():
         "agents-44-copilot-readiness.yml",
         "agents-45-verify-codex-bootstrap-matrix.yml",
     }
-    assert not (
-        present & forbidden
-    ), f"Legacy agent workflows still present: {present & forbidden}"
+    assert not (present & forbidden), f"Legacy agent workflows still present: {present & forbidden}"
 
 
 def test_agent_watchdog_workflow_absent():
     legacy_watchdog = WORKFLOWS_DIR / "agent-watchdog.yml"
-    assert (
-        not legacy_watchdog.exists()
-    ), "Standalone agent-watchdog workflow must remain deleted"
+    assert not legacy_watchdog.exists(), "Standalone agent-watchdog workflow must remain deleted"
 
 
 def test_issue_intake_handles_codex_events():
@@ -151,42 +138,28 @@ def test_issue_intake_handles_codex_events():
     assert (
         ".github/scripts/parse_chatgpt_topics.py" in text
     ), "Issue intake must parse ChatGPT topics"
-    assert (
-        "github.rest.issues.create" in text
-    ), "Issue intake must create or update GitHub issues"
+    assert "github.rest.issues.create" in text, "Issue intake must create or update GitHub issues"
     assert (
         "./.github/workflows/reusable-agents-issue-bridge.yml" in text
     ), "Issue intake must invoke the reusable agents issue bridge"
 
 
 def test_codex_bootstrap_lite_surfaces_keepalive_mode():
-    action = Path(".github/actions/codex-bootstrap-lite/action.yml").read_text(
-        encoding="utf-8"
-    )
-    assert (
-        "keepalive_mode:" in action
-    ), "Codex bootstrap action must accept a keepalive_mode input"
+    action = Path(".github/actions/codex-bootstrap-lite/action.yml").read_text(encoding="utf-8")
+    assert "keepalive_mode:" in action, "Codex bootstrap action must accept a keepalive_mode input"
     assert (
         "### Keepalive:" in action
     ), "Codex bootstrap action must label PR bodies with keepalive mode"
 
 
 def test_issue_bridge_tracks_keepalive_mode():
-    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
-        encoding="utf-8"
-    )
-    assert (
-        "Resolve keepalive opt-in" in text
-    ), "Issue bridge must detect keepalive opt-in state"
-    assert (
-        "### Keepalive:" in text
-    ), "Issue bridge must propagate keepalive mode to PR content"
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(encoding="utf-8")
+    assert "Resolve keepalive opt-in" in text, "Issue bridge must detect keepalive opt-in state"
+    assert "### Keepalive:" in text, "Issue bridge must propagate keepalive mode to PR content"
 
 
 def test_issue_bridge_keepalive_dispatch_disabled():
-    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(
-        encoding="utf-8"
-    )
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(encoding="utf-8")
     assert (
         "\n      - name: Dispatch Agents Orchestrator (keepalive sync)" not in text
     ), "Issue bridge should no longer dispatch keepalive via orchestrator"
@@ -198,19 +171,13 @@ def test_issue_bridge_keepalive_dispatch_disabled():
 def test_keepalive_job_present():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     text = reusable.read_text(encoding="utf-8")
-    assert (
-        "Codex Keepalive Sweep" in text
-    ), "Keepalive job must exist in reusable agents workflow"
-    assert (
-        "enable_keepalive" in text
-    ), "Keepalive job must document enable_keepalive option"
+    assert "Codex Keepalive Sweep" in text, "Keepalive job must exist in reusable agents workflow"
+    assert "enable_keepalive" in text, "Keepalive job must document enable_keepalive option"
     helper = KEEPALIVE_HELPER.read_text(encoding="utf-8")
     assert (
         "<!-- codex-keepalive-marker -->" in helper
     ), "Keepalive marker must be retained for duplicate suppression"
-    assert (
-        "issue_numbers_json" in text
-    ), "Ready issues step must emit issue_numbers_json output"
+    assert "issue_numbers_json" in text, "Ready issues step must emit issue_numbers_json output"
     assert "first_issue" in text, "Ready issues step must emit first_issue output"
 
 
@@ -293,18 +260,13 @@ def test_bootstrap_summary_includes_scope_and_counts():
         "Bootstrap label: **" in text
     ), "Bootstrap run summary should surface the resolved label scope"
     assert "Skipped issues" in text, "Bootstrap summary must document skipped issues"
-    assert (
-        "Accepted issues:" in text
-    ), "Bootstrap summary must include accepted issue counts"
-    assert (
-        "Skipped issues:" in text
-    ), "Bootstrap summary must include skipped issue counts"
+    assert "Accepted issues:" in text, "Bootstrap summary must include accepted issue counts"
+    assert "Skipped issues:" in text, "Bootstrap summary must include skipped issue counts"
     assert (
         "https://github.com/" in text
     ), "Bootstrap summary should link directly to accepted issues"
     assert (
-        "summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))))"
-        in text
+        "summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))))" in text
     ), "Bootstrap summary must clamp accepted issue output to avoid excessive entries"
 
 
@@ -356,9 +318,7 @@ def test_bootstrap_guard_clears_outputs_on_failure():
 
 def test_run_summary_dedupes_stage_entries():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
-    assert (
-        "const seen = new Map();" in text
-    ), "Run summary should track encountered stages"
+    assert "const seen = new Map();" in text, "Run summary should track encountered stages"
     assert (
         "if (!seen.has(stage.key))" in text
     ), "Run summary must only record the first instance of each stage"
@@ -418,9 +378,7 @@ def test_agents_orchestrator_schedule_preserved():
     assert schedule, "Orchestrator schedule must remain defined"
 
     cron_entries = [
-        entry.get("cron")
-        for entry in schedule
-        if isinstance(entry, dict) and "cron" in entry
+        entry.get("cron") for entry in schedule if isinstance(entry, dict) and "cron" in entry
     ]
     # Schedule reduced from */20 to */30 to conserve API rate limit (R-3)
     assert cron_entries == [
@@ -469,9 +427,7 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
                 break
 
         assert helper_index is not None, f"Job {job_name} must require {helper_path}"
-        assert (
-            checkout_index is not None
-        ), f"Job {job_name} must checkout orchestrator scripts"
+        assert checkout_index is not None, f"Job {job_name} must checkout orchestrator scripts"
         assert (
             checkout_index < helper_index
         ), f"Checkout step must precede {helper_path} usage in job {job_name}"
@@ -502,9 +458,7 @@ def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
     assert scripts_steps, "github-scripts-tests job must define steps"
     checkout_step = scripts_steps[0]
     checkout_with = checkout_step.get("with") or {}
-    expected_repo_expr = (
-        "${{ github.event.pull_request.head.repo.full_name || github.repository }}"
-    )
+    expected_repo_expr = "${{ github.event.pull_request.head.repo.full_name || github.repository }}"
     expected_ref_expr = "${{ github.event.pull_request.head.sha || github.sha }}"
     assert (
         checkout_with.get("repository") == expected_repo_expr
@@ -564,9 +518,7 @@ def test_issue_intake_guard_checks_agent_label():
     assert (
         "github.event.issue.labels" in text
     ), "Issue intake must check issue.labels array for agent:* labels"
-    assert (
-        "agent:" in text
-    ), "Issue intake must check for agent: prefix to match any agent label"
+    assert "agent:" in text, "Issue intake must check for agent: prefix to match any agent label"
 
 
 def test_reusable_agents_jobs_have_timeouts():
@@ -588,13 +540,10 @@ def test_reusable_watchdog_job_gated_by_flag():
     assert (
         watchdog.get("if") == "inputs.enable_watchdog == 'true'"
     ), "Watchdog job must respect enable_watchdog flag"
-    assert (
-        watchdog.get("timeout-minutes") == 20
-    ), "Watchdog job should retain the expected timeout"
+    assert watchdog.get("timeout-minutes") == 20, "Watchdog job should retain the expected timeout"
     steps = watchdog.get("steps") or []
     assert any(
-        isinstance(step, dict) and step.get("uses") == "actions/checkout@v4"
-        for step in steps
+        isinstance(step, dict) and step.get("uses") == "actions/checkout@v4" for step in steps
     ), "Watchdog job must continue performing basic repo checks"
 
 
@@ -616,9 +565,7 @@ def test_keepalive_summary_reports_scope_and_activity():
     assert (
         "Evaluated pull requests:" in text
     ), "Keepalive summary should report how many PRs were inspected"
-    assert (
-        "agents:paused" in text
-    ), "Keepalive runner must recognise the agents:paused label"
+    assert "agents:paused" in text, "Keepalive runner must recognise the agents:paused label"
     assert (
         "Skipped ${paused.length} paused PR" in text
     ), "Keepalive summary must log the number of paused PRs it skipped"
@@ -661,9 +608,7 @@ def test_orchestrator_documents_keepalive_pause_controls():
     keepalive = inputs.get("keepalive_enabled")
     assert keepalive, "Orchestrator must expose keepalive_enabled workflow input"
     assert (
-        str(keepalive.get("description", ""))
-        .lower()
-        .startswith("enable codex keepalive sweep")
+        str(keepalive.get("description", "")).lower().startswith("enable codex keepalive sweep")
     ), "keepalive_enabled input should document its keepalive toggle behaviour"
     assert (
         str(keepalive.get("default", "")).strip("'").lower() == "true"
@@ -696,8 +641,7 @@ def test_orchestrator_forwards_enable_watchdog_flag():
     assert orchestrate, "Orchestrator workflow must dispatch reusable agents job"
     with_section = orchestrate.get("with") or {}
     assert (
-        with_section.get("enable_watchdog")
-        == "${{ needs.resolve-params.outputs.enable_watchdog }}"
+        with_section.get("enable_watchdog") == "${{ needs.resolve-params.outputs.enable_watchdog }}"
     ), "Orchestrator must forward enable_watchdog to the reusable workflow"
 
 

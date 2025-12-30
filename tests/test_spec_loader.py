@@ -25,9 +25,7 @@ def test_load_run_spec_from_file() -> None:
     assert spec.backtest.export_formats
 
 
-def test_load_run_spec_from_file_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_run_spec_from_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     missing_path = tmp_path / "absent.toml"
     with pytest.raises(FileNotFoundError):
         load_run_spec_from_file(missing_path)
@@ -91,9 +89,7 @@ def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) ->
             object.__setattr__(self, "sample_split", sample_split)
             object.__setattr__(self, "portfolio", portfolio)
 
-        def __setattr__(
-            self, name: str, value: Any
-        ) -> None:  # pragma: no cover - guard rail
+        def __setattr__(self, name: str, value: Any) -> None:  # pragma: no cover - guard rail
             raise AttributeError("frozen config")
 
     cfg = FrozenConfig(
@@ -105,7 +101,7 @@ def test_ensure_run_spec_uses_object_setattr(monkeypatch: pytest.MonkeyPatch) ->
     ensured = ensure_run_spec(cfg)
 
     assert ensured is not None
-    assert getattr(cfg, "trend_spec").vol_target == 0.2
+    assert cfg.trend_spec.vol_target == 0.2
 
 
 def test_helper_coercion_and_mapping_behaviour(tmp_path: Path) -> None:

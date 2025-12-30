@@ -62,9 +62,7 @@ def test_doc_url_for_pull_request(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _write_signature_fixture(
-    tmp_path: Path, jobs: list[dict[str, str]]
-) -> tuple[Path, Path]:
+def _write_signature_fixture(tmp_path: Path, jobs: list[dict[str, str]]) -> tuple[Path, Path]:
     jobs_path = tmp_path / "jobs.json"
     jobs_path.write_text(json.dumps(jobs), encoding="utf-8")
     expected_path = tmp_path / "expected.txt"
@@ -422,9 +420,7 @@ def test_write_summary_appends_table(tmp_path: Path) -> None:
     assert "| X | Y | – |" in text
 
 
-def test_main_executes_end_to_end(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_executes_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     jobs = [{"name": "Tests", "step": "pytest", "stack": "trace"}]
     jobs_path, expected_path = _write_signature_fixture(tmp_path, jobs)
 
@@ -488,9 +484,7 @@ def test_main_skips_outputs_when_not_requested(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
-def test_entrypoint_invokes_main(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_entrypoint_invokes_main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     json_path = tmp_path / "rows.json"
     summary_path = tmp_path / "summary.md"
     monkeypatch.setattr(

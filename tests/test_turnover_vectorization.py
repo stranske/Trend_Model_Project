@@ -87,14 +87,10 @@ def python_turnover_cap(
         actual_turnover = float(total_desired)
         new_weights = target_aligned.copy()
     else:
-        priorities = strategy._calculate_priorities(
-            current_aligned, target_aligned, trades, scores
-        )
+        priorities = strategy._calculate_priorities(current_aligned, target_aligned, trades, scores)
         trade_items = [
             (asset, trade, priority)
-            for asset, trade, priority in zip(
-                trades.index, trades.values, priorities.values
-            )
+            for asset, trade, priority in zip(trades.index, trades.values, priorities.values)
         ]
         trade_items.sort(key=lambda x: x[2], reverse=True)
 
@@ -143,9 +139,7 @@ def test_turnover_cap_vectorisation_matches_python(priority: str) -> None:
         strategy_py = TurnoverCapStrategy(params)
         strategy_vec = TurnoverCapStrategy(params)
 
-        expected_weights, expected_cost = python_turnover_cap(
-            strategy_py, current, target, scores
-        )
+        expected_weights, expected_cost = python_turnover_cap(strategy_py, current, target, scores)
         actual_weights, actual_cost = strategy_vec.apply(current, target, scores=scores)
 
         pd.testing.assert_series_equal(

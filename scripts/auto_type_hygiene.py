@@ -27,8 +27,8 @@ import importlib.util
 import os
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIRS = [ROOT / "src", ROOT / "tests"]
@@ -144,9 +144,7 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                 new_lines.append(line)
                 continue
 
-            ignore_match = re.search(
-                r"#\s*type:\s*ignore(?P<bracket>\[[^\]]*\])?", line
-            )
+            ignore_match = re.search(r"#\s*type:\s*ignore(?P<bracket>\[[^\]]*\])?", line)
             if ignore_match:
                 bracket = ignore_match.group("bracket")
                 if bracket is None:
@@ -155,9 +153,7 @@ def process_file(path: Path) -> tuple[bool, list[str]]:
                     bracket_content = bracket[1:-1].strip()
                     if bracket_content:
                         codes = [
-                            code.strip()
-                            for code in bracket_content.split(",")
-                            if code.strip()
+                            code.strip() for code in bracket_content.split(",") if code.strip()
                         ]
                     else:
                         codes = []
@@ -193,7 +189,7 @@ def iter_python_files() -> Iterator[Path]:
 
 
 def main() -> int:
-    modified: List[Path] = []
+    modified: list[Path] = []
     for py_file in iter_python_files():
         changed, new_lines = process_file(py_file)
         if changed:
@@ -203,9 +199,7 @@ def main() -> int:
 
     if modified:
         rels = [str(p.relative_to(ROOT)) for p in modified]
-        print(
-            f"[auto_type_hygiene] Added import-untyped ignores to {len(modified)} file(s):"
-        )
+        print(f"[auto_type_hygiene] Added import-untyped ignores to {len(modified)} file(s):")
         for r in rels:
             print(f"  - {r}")
     else:

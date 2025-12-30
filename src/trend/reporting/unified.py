@@ -8,9 +8,10 @@ import importlib
 import io
 import math
 import textwrap
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import matplotlib
 import pandas as pd
@@ -85,7 +86,7 @@ def _stats_to_dict(stats: Any) -> dict[str, float | None]:
         "max_drawdown",
         "information_ratio",
     )
-    values: dict[str, float | None] = {field: None for field in fields}
+    values: dict[str, float | None] = dict.fromkeys(fields)
     if stats is None:
         return values
     mapping: Mapping[str, Any] | None = None
@@ -230,11 +231,7 @@ def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
     total_return = float((1.0 + filled).prod() - 1.0)
     n_periods = max(len(filled), 1)
     ann_return = float((1.0 + total_return) ** (periods / n_periods) - 1.0)
-    volatility = (
-        float(filled.std(ddof=0) * math.sqrt(periods))
-        if len(filled.dropna()) > 1
-        else 0.0
-    )
+    volatility = float(filled.std(ddof=0) * math.sqrt(periods)) if len(filled.dropna()) > 1 else 0.0
     annualised_mean = float(filled.mean() * periods)
     sharpe = annualised_mean / (volatility + 1e-12) if volatility else 0.0
     drawdown_min = float(drawdown.min()) if not drawdown.empty else 0.0
@@ -244,9 +241,7 @@ def _build_backtest(result: Any) -> DiagnosticResult[BacktestResult]:
         "volatility": volatility,
         "sharpe_ratio": sharpe,
         "max_drawdown": drawdown_min,
-        "turnover_mean": (
-            float(turnover_series.mean()) if not turnover_series.empty else 0.0
-        ),
+        "turnover_mean": (float(turnover_series.mean()) if not turnover_series.empty else 0.0),
     }
     window_mode_value = details.get("window_mode") if details else None
     window_mode = _coerce_window_mode(window_mode_value)
@@ -312,11 +307,9 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
     manager_count = len(selected) if isinstance(selected, Sequence) else None
     bullets: list[str] = []
     bullets.append(
-        (
-            "User-weight portfolio delivered an out-of-sample CAGR of "
-            f"{_format_percent(out_stats['cagr'])} with Sharpe {_format_ratio(out_stats['sharpe'])} "
-            f"and max drawdown {_format_percent(out_stats['max_drawdown'])}."
-        )
+        "User-weight portfolio delivered an out-of-sample CAGR of "
+        f"{_format_percent(out_stats['cagr'])} with Sharpe {_format_ratio(out_stats['sharpe'])} "
+        f"and max drawdown {_format_percent(out_stats['max_drawdown'])}."
     )
     bullets.append(
         ("Equal-weight baseline recorded {_cagr} CAGR with Sharpe {_sharpe}.").format(
@@ -325,9 +318,7 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
         )
     )
     if manager_count is not None:
-        bullets.append(
-            f"Selection size: {manager_count} funds; diversification assessed below."
-        )
+        bullets.append(f"Selection size: {manager_count} funds; diversification assessed below.")
     if backtest is not None:
         metrics = backtest.metrics
         bullets.append(
@@ -348,9 +339,7 @@ def _build_exec_summary(result: Any, backtest: BacktestResult | None) -> list[st
     return bullets
 
 
-def _extend_params(
-    params: list[tuple[str, str]], entries: Sequence[tuple[str, str]]
-) -> None:
+def _extend_params(params: list[tuple[str, str]], entries: Sequence[tuple[str, str]]) -> None:
     existing = {key for key, _ in params}
     for key, value in entries:
         if key in existing:
@@ -442,9 +431,7 @@ def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     return entries
 
 
-def _build_param_summary(
-    config: Any, spec: TrendRunSpec | None = None
-) -> list[tuple[str, str]]:
+def _build_param_summary(config: Any, spec: TrendRunSpec | None = None) -> list[tuple[str, str]]:
     def _get(section: Any, key: str, default: Any = None) -> Any:
         if section is None:
             return default
@@ -465,9 +452,7 @@ def _build_param_summary(
     if in_start or in_end:
         params.append(("In-sample window", f"{in_start or '—'} → {in_end or '—'}"))
     if out_start or out_end:
-        params.append(
-            ("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}")
-        )
+        params.append(("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}"))
     target_vol = _get(vol_adj, "target_vol")
     if isinstance(target_vol, (int, float)):
         params.append(("Target volatility", _format_percent(float(target_vol))))
@@ -503,9 +488,7 @@ def _build_param_summary(
     trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
     if trend_spec_obj is None:
         trend_spec_obj = getattr(config, "trend_spec", None)
-    backtest_spec_obj = (
-        getattr(resolved_spec, "backtest", None) if resolved_spec else None
-    )
+    backtest_spec_obj = getattr(resolved_spec, "backtest", None) if resolved_spec else None
     if backtest_spec_obj is None:
         backtest_spec_obj = getattr(config, "backtest_spec", None)
     _extend_params(params, _trend_spec_summary(trend_spec_obj))
@@ -518,9 +501,7 @@ def _build_caveats(result: Any, backtest: BacktestResult | None) -> list[str]:
     fallback = getattr(result, "fallback_info", None)
     if isinstance(fallback, Mapping) and fallback:
         engine = fallback.get("engine") or "unknown"
-        reason = (
-            fallback.get("error") or fallback.get("error_type") or "unspecified error"
-        )
+        reason = fallback.get("error") or fallback.get("error_type") or "unspecified error"
         caveats.append(f"Weight engine fallback engaged ({engine}): {reason}.")
     details = (
         getattr(result, "details", {})
@@ -528,16 +509,12 @@ def _build_caveats(result: Any, backtest: BacktestResult | None) -> list[str]:
         else {}
     )
     if not getattr(result, "metrics", pd.DataFrame()).size:
-        caveats.append(
-            "Metrics table is empty – verify scoring inputs and configuration."
-        )
+        caveats.append("Metrics table is empty – verify scoring inputs and configuration.")
     selected = details.get("selected_funds")
     if isinstance(selected, Sequence) and not selected:
         caveats.append("No funds selected after preprocessing filters.")
     if backtest is None:
-        caveats.append(
-            "Backtest result unavailable – narrative derived from limited data."
-        )
+        caveats.append("Backtest result unavailable – narrative derived from limited data.")
     return caveats
 
 
@@ -594,9 +571,7 @@ def _metrics_table_html(metrics: pd.DataFrame) -> tuple[str, list[str]]:
     display = metrics.copy()
     for column in display.columns:
         if pd.api.types.is_numeric_dtype(display[column]):
-            display[column] = display[column].map(
-                lambda val: "" if pd.isna(val) else f"{val:,.4f}"
-            )
+            display[column] = display[column].map(lambda val: "" if pd.isna(val) else f"{val:,.4f}")
         else:
             display[column] = display[column].astype(str)
     display.index = display.index.astype(str)
@@ -650,9 +625,7 @@ def _format_regime_table(table: pd.DataFrame) -> tuple[str, list[str]]:
     return html_table, text_rows
 
 
-def _narrative(
-    backtest: BacktestResult | None, regime_summary: str | None = None
-) -> str:
+def _narrative(backtest: BacktestResult | None, regime_summary: str | None = None) -> str:
     if backtest is None or backtest.returns.empty:
         base = (
             "Backtest metrics were unavailable; please review the configuration and ensure "
@@ -672,11 +645,7 @@ def _narrative(
         end_text = pd.Timestamp(end).strftime("%b %Y")
     else:
         end_text = str(end)
-    top_alloc = (
-        backtest.weights.iloc[-1]
-        if not backtest.weights.empty
-        else pd.Series(dtype=float)
-    )
+    top_alloc = backtest.weights.iloc[-1] if not backtest.weights.empty else pd.Series(dtype=float)
     if not top_alloc.empty:
         top_alloc = top_alloc.sort_values(ascending=False).head(3)
         alloc_text = ", ".join(
@@ -711,24 +680,18 @@ def _render_html(context: Mapping[str, Any]) -> str:
     regime_table_html = context["regime_html"]
     regime_summary_text = context.get("regime_summary") or ""
     regime_summary_html = (
-        f"    <p>{html.escape(regime_summary_text)}</p>\n"
-        if regime_summary_text
-        else ""
+        f"    <p>{html.escape(regime_summary_text)}</p>\n" if regime_summary_text else ""
     )
     regime_notes = context.get("regime_notes", [])
     regime_notes_html = ""
     if regime_notes:
-        items = "\n".join(
-            f"      <li>{html.escape(note)}</li>" for note in regime_notes
-        )
+        items = "\n".join(f"      <li>{html.escape(note)}</li>" for note in regime_notes)
         regime_notes_html = f"    <ul>\n{items}\n    </ul>\n"
     params_rows = "\n".join(
         f"      <tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
         for k, v in context["parameters"]
     )
-    caveats_items = "\n".join(
-        f"      <li>{html.escape(item)}</li>" for item in context["caveats"]
-    )
+    caveats_items = "\n".join(f"      <li>{html.escape(item)}</li>" for item in context["caveats"])
     turnover_img = (
         f'<img src="data:image/png;base64,{context["turnover_chart"]}" alt="Turnover chart" />'
         if context["turnover_chart"]
@@ -875,9 +838,7 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
     pdf.cell(0, 8, "Executive summary", ln=True)
     pdf.set_font("Helvetica", "", 11)
     for item in context["exec_summary"]:
-        wrapped = _wrap_pdf_text(
-            item, initial_indent="- ", subsequent_indent="  ", width=84
-        )
+        wrapped = _wrap_pdf_text(item, initial_indent="- ", subsequent_indent="  ", width=84)
         pdf.multi_cell(usable_width, 6, _pdf_safe(wrapped))
     pdf.ln(2)
 
@@ -912,9 +873,7 @@ def _render_pdf(context: Mapping[str, Any]) -> bytes:
         pdf.multi_cell(usable_width, 5, _pdf_safe(_wrap_pdf_text(row, width=84)))
     regime_notes = context.get("regime_notes", [])
     for note in regime_notes:
-        wrapped_note = _wrap_pdf_text(
-            note, initial_indent="- ", subsequent_indent="  ", width=84
-        )
+        wrapped_note = _wrap_pdf_text(note, initial_indent="- ", subsequent_indent="  ", width=84)
         pdf.multi_cell(usable_width, 5, _pdf_safe(wrapped_note))
     pdf.ln(2)
 
@@ -1005,16 +964,12 @@ def generate_unified_report(
     )
     raw_regime_table = details_mapping.get("performance_by_regime")
     regime_table = (
-        raw_regime_table
-        if isinstance(raw_regime_table, pd.DataFrame)
-        else pd.DataFrame()
+        raw_regime_table if isinstance(raw_regime_table, pd.DataFrame) else pd.DataFrame()
     )
     regime_html, regime_text = _format_regime_table(regime_table)
     regime_notes = list(details_mapping.get("regime_notes", []))
     regime_summary = details_mapping.get("regime_summary")
-    narrative = _narrative(
-        backtest, regime_summary if isinstance(regime_summary, str) else None
-    )
+    narrative = _narrative(backtest, regime_summary if isinstance(regime_summary, str) else None)
     diagnostics: list[DiagnosticPayload] = []
     if backtest_result.diagnostic:
         diagnostics.append(backtest_result.diagnostic)

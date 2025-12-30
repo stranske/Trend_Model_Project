@@ -60,9 +60,7 @@ def test_pipeline_failure_defaults_message_and_copies_context():
     assert isinstance(diagnostic, DiagnosticPayload)
     assert (
         diagnostic.message
-        == diagnostics._DEFAULT_MESSAGES[
-            diagnostics.PipelineReasonCode.SAMPLE_WINDOW_EMPTY
-        ]
+        == diagnostics._DEFAULT_MESSAGES[diagnostics.PipelineReasonCode.SAMPLE_WINDOW_EMPTY]
     )
     assert diagnostic.context == context
     assert diagnostic.context is not context

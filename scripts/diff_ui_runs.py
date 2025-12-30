@@ -22,9 +22,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 
@@ -125,8 +126,7 @@ def _diff_csv(a_path: Path, b_path: Path, *, tol: float) -> dict[str, Any]:
     numeric_cols = [
         c
         for c in common_cols
-        if pd.api.types.is_numeric_dtype(a_df[c])
-        and pd.api.types.is_numeric_dtype(b_df[c])
+        if pd.api.types.is_numeric_dtype(a_df[c]) and pd.api.types.is_numeric_dtype(b_df[c])
     ]
 
     # Compare numeric columns with tolerance (ignore NaNs)
@@ -204,9 +204,7 @@ def _write_markdown(out_path: Path, payload: dict[str, Any]) -> None:
             numeric = info.get("numeric") or {}
             changed_cells_by_col = numeric.get("changed_cells_by_col") or {}
             total_changed = sum(int(v) for v in changed_cells_by_col.values())
-            lines.append(
-                f"- numeric_tol={numeric.get('tolerance')} changed_cells={total_changed}"
-            )
+            lines.append(f"- numeric_tol={numeric.get('tolerance')} changed_cells={total_changed}")
             lines.append("")
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -260,9 +258,7 @@ def main() -> int:
         config_payload = {
             "diff_count": len(diffs),
             "diffs": [
-                {"path": d.path, "a": d.a, "b": d.b}
-                for d in diffs
-                if not d.path.startswith("repr")
+                {"path": d.path, "a": d.a, "b": d.b} for d in diffs if not d.path.startswith("repr")
             ],
         }
 

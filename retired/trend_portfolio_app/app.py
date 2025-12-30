@@ -9,7 +9,7 @@ import types
 from collections.abc import Mapping, Sequence
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pandas as pd
 import streamlit as st
@@ -111,11 +111,7 @@ class _PipelineProxy:
 
             if name == "run":
                 pkg_module = getattr(_trend_pkg, "pipeline", None)
-                pkg_attr = (
-                    getattr(pkg_module, name, missing)
-                    if pkg_module is not None
-                    else missing
-                )
+                pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
                 _PIPELINE_DEBUG.append(
                     (
                         name,
@@ -130,11 +126,7 @@ class _PipelineProxy:
                 return attr
 
             pkg_module = getattr(_trend_pkg, "pipeline", None)
-            pkg_attr = (
-                getattr(pkg_module, name, missing)
-                if pkg_module is not None
-                else missing
-            )
+            pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
             if pkg_attr is not missing:
                 return pkg_attr
 
@@ -160,11 +152,7 @@ class _PipelineProxy:
         # resolved so debugging info is available if needed.
         if name == "run":
             pkg_module = getattr(_trend_pkg, "pipeline", None)
-            pkg_attr = (
-                getattr(pkg_module, name, missing)
-                if pkg_module is not None
-                else missing
-            )
+            pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
             _PIPELINE_DEBUG.append(
                 (
                     name,
@@ -200,9 +188,7 @@ class _PipelineProxy:
 
         # Otherwise attempt to resolve via the package attribute as a fallback.
         pkg_module = getattr(_trend_pkg, "pipeline", None)
-        pkg_attr = (
-            getattr(pkg_module, name, missing) if pkg_module is not None else missing
-        )
+        pkg_attr = getattr(pkg_module, name, missing) if pkg_module is not None else missing
 
         if pkg_attr is not missing:
             return pkg_attr
@@ -234,7 +220,7 @@ else:  # pragma: no cover - runtime fallback when pydantic models are optional
 class _NullContext:
     """Minimal context manager used when Streamlit is mocked in tests."""
 
-    def __enter__(self) -> "_NullContext":  # pragma: no cover - trivial
+    def __enter__(self) -> _NullContext:  # pragma: no cover - trivial
         return self
 
     def __exit__(self, *_exc: Any) -> Literal[False]:  # pragma: no cover - trivial
@@ -261,7 +247,7 @@ def _is_mock_streamlit(module: Any) -> bool:
     return cls.__module__ == "unittest.mock" and cls.__name__ == "MagicMock"
 
 
-def _read_defaults() -> Dict[str, Any]:
+def _read_defaults() -> dict[str, Any]:
     """Load the default YAML configuration bundled with the analysis
     package."""
 
@@ -269,7 +255,7 @@ def _read_defaults() -> Dict[str, Any]:
     if not isinstance(data, dict):  # pragma: no cover - defensive
         raise TypeError("Default configuration must be a mapping")
 
-    defaults: Dict[str, Any] = dict(data)
+    defaults: dict[str, Any] = dict(data)
     defaults.setdefault("data", {})
     defaults.setdefault("portfolio", {})
 
@@ -282,7 +268,7 @@ def _read_defaults() -> Dict[str, Any]:
 
 
 @st.cache_data(show_spinner=False)
-def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
+def _analyze_csv_columns(csv_path: str) -> dict[str, Any]:
     """Load CSV and analyze columns for risk-free and benchmark candidates.
 
     Returns a dict with:
@@ -292,7 +278,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     - benchmark_candidates: list of detected benchmark/index columns
     - error: error message if loading failed (or None)
     """
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "columns": [],
         "numeric_columns": [],
         "risk_free_candidate": None,
@@ -333,9 +319,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
 
         # First check for already-numeric columns
         numeric_cols = [
-            c
-            for c in df.select_dtypes(include=["number"]).columns
-            if c not in date_cols
+            c for c in df.select_dtypes(include=["number"]).columns if c not in date_cols
         ]
 
         # If no numeric columns found, try to detect percentage-formatted columns
@@ -350,9 +334,7 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
                     continue
                 # Check if values contain % or look numeric
                 looks_numeric = (
-                    sample.str.replace(r"[%,\s]", "", regex=True)
-                    .str.match(r"^-?\d*\.?\d+$")
-                    .any()
+                    sample.str.replace(r"[%,\s]", "", regex=True).str.match(r"^-?\d*\.?\d+$").any()
                 )
                 if looks_numeric:
                     numeric_cols.append(col)
@@ -396,21 +378,21 @@ def _analyze_csv_columns(csv_path: str) -> Dict[str, Any]:
     return result
 
 
-def _to_yaml(d: Dict[str, Any]) -> str:
+def _to_yaml(d: dict[str, Any]) -> str:
     """Serialise a mapping to YAML while preserving insertion order."""
 
     dumped: str = yaml.safe_dump(d, sort_keys=False, allow_unicode=True)
     return dumped
 
 
-def _merge_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+def _merge_update(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
     """Recursively merge ``updates`` into a shallow copy of ``base``."""
 
-    merged: Dict[str, Any] = dict(base)
+    merged: dict[str, Any] = dict(base)
     for key, value in updates.items():
         base_value = merged.get(key)
         if isinstance(base_value, dict) and isinstance(value, Mapping):
-            merged[key] = _merge_update(cast(Dict[str, Any], base_value), dict(value))
+            merged[key] = _merge_update(cast(dict[str, Any], base_value), dict(value))
         else:
             merged[key] = value
     return merged
@@ -424,7 +406,7 @@ def _expected_columns(spec: Any) -> int:
     return 1
 
 
-def _normalize_columns(cols: Any, expected: int) -> List[Any]:
+def _normalize_columns(cols: Any, expected: int) -> list[Any]:
     if isinstance(cols, (list, tuple)):
         normalised = list(cols)
     elif cols is None:
@@ -447,12 +429,12 @@ def _normalize_columns(cols: Any, expected: int) -> List[Any]:
     return normalised[:expected]
 
 
-def _columns(spec: Any) -> List[Any]:
+def _columns(spec: Any) -> list[Any]:
     expected = max(1, _expected_columns(spec))
     return _normalize_columns(st.columns(spec), expected)
 
 
-def _build_cfg(d: Dict[str, Any]) -> ConfigType:
+def _build_cfg(d: dict[str, Any]) -> ConfigType:
     """Instantiate the flexible ``Config`` object used by the pipeline."""
     validate_trend_config(d, base_path=proj_path())
     return Config(**d)
@@ -481,7 +463,7 @@ def _build_summary_from_result(result: Mapping[str, Any] | None) -> pd.DataFrame
     if not isinstance(out_stats, Mapping) or not out_stats:
         return pd.DataFrame()
 
-    rows: Dict[str, Dict[str, Any]] = {}
+    rows: dict[str, dict[str, Any]] = {}
     for key, value in out_stats.items():
         if hasattr(value, "__dict__"):
             rows[key] = dict(vars(value))
@@ -504,10 +486,10 @@ def _build_summary_from_result(result: Mapping[str, Any] | None) -> pd.DataFrame
     return summary
 
 
-def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
+def _summarise_multi(results: list[dict[str, Any]]) -> pd.DataFrame:
     """Create a tidy summary table from multi-period back-test results."""
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     def _period_value(period: Any, index: int) -> Any:
         if period is None:
@@ -563,18 +545,18 @@ def _summarise_multi(results: List[Dict[str, Any]]) -> pd.DataFrame:
 # Streamlit UI wiring
 
 
-def _apply_session_state(cfg_dict: Dict[str, Any]) -> None:
+def _apply_session_state(cfg_dict: dict[str, Any]) -> None:
     """Fold dotted session-state keys back into the nested configuration."""
 
-    def _set_nested(target: Dict[str, Any], dotted: str, value: Any) -> None:
+    def _set_nested(target: dict[str, Any], dotted: str, value: Any) -> None:
         parts = dotted.split(".")
-        cursor: Dict[str, Any] = target
+        cursor: dict[str, Any] = target
         for key in parts[:-1]:
             next_val = cursor.get(key)
             if not isinstance(next_val, dict):
                 next_val = {}
                 cursor[key] = next_val
-            cursor = cast(Dict[str, Any], next_val)
+            cursor = cast(dict[str, Any], next_val)
         cursor[parts[-1]] = value
 
     prefixes = (
@@ -609,7 +591,7 @@ def _apply_session_state(cfg_dict: Dict[str, Any]) -> None:
         _set_nested(cfg_dict, csv_key, st.session_state[csv_key])
 
 
-def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
+def _render_sidebar(cfg_dict: dict[str, Any]) -> None:
     st.header("Configuration")
 
     if st.button("Reset to defaults", use_container_width=True):
@@ -641,9 +623,7 @@ def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
             if num_cols > 0:
                 st.caption(f"📊 {num_cols} data columns detected")
             else:
-                st.caption(
-                    f"📊 {total_cols} columns detected (will be converted on load)"
-                )
+                st.caption(f"📊 {total_cols} columns detected (will be converted on load)")
 
             # Get columns for selection - use numeric if available, else all non-date
             selectable_cols = analysis["numeric_columns"]
@@ -686,20 +666,16 @@ def _render_sidebar(cfg_dict: Dict[str, Any]) -> None:
 
             # Benchmark/Index columns (informational)
             if analysis["benchmark_candidates"]:
-                st.caption(
-                    f"📈 Detected benchmarks: {', '.join(analysis['benchmark_candidates'])}"
-                )
+                st.caption(f"📈 Detected benchmarks: {', '.join(analysis['benchmark_candidates'])}")
             else:
                 st.caption("ℹ️ No benchmark columns detected (SPX, TSX, INDEX, etc.)")
 
     st.divider()
     yaml_bytes = _to_yaml(cfg_dict).encode("utf-8")
-    st.download_button(
-        "Download YAML", data=yaml_bytes, file_name="config.yml", mime="text/yaml"
-    )
+    st.download_button("Download YAML", data=yaml_bytes, file_name="config.yml", mime="text/yaml")
 
 
-def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
+def _render_run_section(cfg_dict: dict[str, Any]) -> None:
     st.subheader("Execute analysis")
     col1, col2 = _columns(2)
     with col1:
@@ -734,9 +710,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                 run_full_error = exc
                 full_result = None
             if full_result is not None:
-                full_result_payload, full_result_diag = coerce_pipeline_result(
-                    full_result
-                )
+                full_result_payload, full_result_diag = coerce_pipeline_result(full_result)
 
         summary = _summarise_run_df(
             summary_frame if isinstance(summary_frame, pd.DataFrame) else None
@@ -748,8 +722,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
             message = "Analysis failed for the configured period. Please check your data and configuration settings."
             if full_result_diag is not None:
                 message = (
-                    f"{message} ({full_result_diag.reason_code}: "
-                    f"{full_result_diag.message})"
+                    f"{message} ({full_result_diag.reason_code}: " f"{full_result_diag.message})"
                 )
             elif run_full_error is not None:
                 message = f"{message} ({run_full_error})"
@@ -795,10 +768,7 @@ def _render_run_section(cfg_dict: Dict[str, Any]) -> None:
                             st.dataframe(port_df)
 
                     turnover_series = risk_diag.get("turnover")
-                    if (
-                        isinstance(turnover_series, pd.Series)
-                        and not turnover_series.empty
-                    ):
+                    if isinstance(turnover_series, pd.Series) and not turnover_series.empty:
                         st.caption("Turnover per rebalance")
                         turnover_df = turnover_series.to_frame("turnover")
                         if callable(bar_chart):

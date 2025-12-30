@@ -81,9 +81,7 @@ def test_main_detailed_mode_handles_empty_metrics(
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis_mod.api, "run_simulation", lambda cfg, frame: empty_result
-    )
+    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: empty_result)
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -137,9 +135,7 @@ def test_main_exports_summary(
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
-    )
+    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
     monkeypatch.setattr(
         run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary text"
     )
@@ -231,9 +227,7 @@ def test_main_supports_legacy_nan_keys(
 
     monkeypatch.setattr(run_analysis_mod, "load", lambda path: sample_config)
     monkeypatch.setattr(run_analysis_mod, "load_csv", fake_load_csv)
-    monkeypatch.setattr(
-        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
-    )
+    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
 
     rc = run_analysis_mod.main(["-c", "config.yml", "--detailed"])
     assert rc == 0
@@ -370,9 +364,7 @@ def test_main_defaults_output_targets(
     )
     result = DummyResult(
         metrics=pd.DataFrame({"metric": ["Sharpe"], "value": [1.0]}),
-        details={
-            "performance_by_regime": pd.DataFrame({"regime": ["base"], "value": [0.5]})
-        },
+        details={"performance_by_regime": pd.DataFrame({"regime": ["base"], "value": [0.5]})},
     )
 
     export_calls: dict[str, Any] = {}
@@ -385,15 +377,9 @@ def test_main_defaults_output_targets(
         "load_csv",
         lambda path, **kwargs: csv_frame,
     )
-    monkeypatch.setattr(
-        run_analysis_mod.api, "run_simulation", lambda cfg, frame: result
-    )
-    monkeypatch.setattr(
-        run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary"
-    )
-    monkeypatch.setattr(
-        run_analysis_mod.export, "make_summary_formatter", lambda *a, **k: object()
-    )
+    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, frame: result)
+    monkeypatch.setattr(run_analysis_mod.export, "format_summary_text", lambda *a, **k: "summary")
+    monkeypatch.setattr(run_analysis_mod.export, "make_summary_formatter", lambda *a, **k: object())
     monkeypatch.setattr(
         run_analysis_mod.export,
         "summary_frame_from_result",
@@ -402,9 +388,7 @@ def test_main_defaults_output_targets(
     monkeypatch.setattr(
         run_analysis_mod.export,
         "export_data",
-        lambda data, path, formats: export_calls.setdefault(
-            "export", (data, path, formats)
-        ),
+        lambda data, path, formats: export_calls.setdefault("export", (data, path, formats)),
     )
     rc = run_analysis_mod.main(["-c", "config.yml"])
     assert rc == 0

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -17,7 +17,7 @@ from trend_analysis.util.risk_free import resolve_risk_free_settings
 
 @dataclass
 class _MultiPeriodDummyConfig:
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 1,
@@ -26,8 +26,8 @@ class _MultiPeriodDummyConfig:
             "end": "2020-03",
         }
     )
-    data: Dict[str, Any] = field(default_factory=dict)
-    portfolio: Dict[str, Any] = field(
+    data: dict[str, Any] = field(default_factory=dict)
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "standard",
             "selection_mode": "all",
@@ -38,12 +38,12 @@ class _MultiPeriodDummyConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: List[Any] = field(default_factory=list)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: list[Any] = field(default_factory=list)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 123
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -54,7 +54,7 @@ class _MultiPeriodDummyConfig:
 def _make_single_config(
     allow_risk_free_fallback: bool | None, risk_free_column: str | None
 ) -> Config:
-    data_section: Dict[str, Any] = {"date_column": "Date", "frequency": "M"}
+    data_section: dict[str, Any] = {"date_column": "Date", "frequency": "M"}
     if risk_free_column is not None:
         data_section["risk_free_column"] = risk_free_column
     if allow_risk_free_fallback is not None:
@@ -157,9 +157,7 @@ def test_entry_points_resolve_risk_free_settings_consistently(
 
     multi_invocations: list[dict[str, Any]] = []
 
-    def fake_multi_run(
-        *_: Any, **kwargs: Any
-    ) -> DiagnosticResult[dict[str, Any] | None]:
+    def fake_multi_run(*_: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
         multi_invocations.append(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
@@ -208,9 +206,7 @@ def test_missing_risk_free_requires_explicit_flag(
 
 
 @pytest.mark.parametrize("risk_free_column", [None, "RF"])
-@pytest.mark.parametrize(
-    "allow_value, expected", [(None, False), (True, True), (False, False)]
-)
+@pytest.mark.parametrize("allow_value, expected", [(None, False), (True, True), (False, False)])
 def test_trend_config_validation_resolves_defaults(
     allow_value: bool | None,
     risk_free_column: str | None,

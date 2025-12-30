@@ -250,9 +250,7 @@ def test_export_phase1_workbook_order(tmp_path):
     out = tmp_path / "res.xlsx"
     export_phase1_workbook(results, str(out))
     book = pd.ExcelFile(out)
-    expected = ["summary", "execution_metrics"] + [
-        str(cast(dict, r)["period"][3]) for r in results
-    ]
+    expected = ["summary", "execution_metrics"] + [str(cast(dict, r)["period"][3]) for r in results]
     assert book.sheet_names == expected
 
 

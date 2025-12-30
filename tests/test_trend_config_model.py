@@ -47,9 +47,7 @@ def test_load_trend_config_defaults() -> None:
     assert isinstance(cfg, TrendConfig)
 
 
-def test_load_trend_config_env_override(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     cfg_path = _write_config(tmp_path, csv_file)
@@ -108,9 +106,7 @@ def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
 def test_trend_config_accepts_valid_managers_glob(tmp_path: Path) -> None:
     managers_dir = tmp_path / "managers"
     managers_dir.mkdir()
-    (managers_dir / "fund_a.csv").write_text(
-        "Date,A\n2020-01-31,0.1\n", encoding="utf-8"
-    )
+    (managers_dir / "fund_a.csv").write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
 
     cfg = {
         "version": "1",

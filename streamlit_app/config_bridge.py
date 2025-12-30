@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from trend.config_schema import CoreConfigError, validate_core_config
 
@@ -20,8 +20,8 @@ def build_config_payload(
     transaction_cost_bps: float,
     slippage_bps: float = 0.0,
     target_vol: float,
-) -> Dict[str, Any]:
-    data: Dict[str, Any] = {
+) -> dict[str, Any]:
+    data: dict[str, Any] = {
         "version": "1",
         "data": {
             "csv_path": csv_path,
@@ -45,18 +45,16 @@ def build_config_payload(
 
 
 def validate_payload(
-    payload: Dict[str, Any], *, base_path: Path
-) -> Tuple[dict, None] | Tuple[None, str]:
+    payload: dict[str, Any], *, base_path: Path
+) -> tuple[dict, None] | tuple[None, str]:
     try:
         core = validate_core_config(payload, base_path=base_path)
     except CoreConfigError as exc:
         return None, str(exc)
 
-    validated: Dict[str, Any] = dict(payload)
+    validated: dict[str, Any] = dict(payload)
     data_section = dict(validated.get("data") or {})
-    data_section["csv_path"] = (
-        str(core.data.csv_path) if core.data.csv_path is not None else None
-    )
+    data_section["csv_path"] = str(core.data.csv_path) if core.data.csv_path is not None else None
     data_section["universe_membership_path"] = (
         str(core.data.universe_membership_path)
         if core.data.universe_membership_path is not None

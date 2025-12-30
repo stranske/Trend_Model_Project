@@ -43,4 +43,4 @@ def test_unknown_attribute_raises_attribute_error() -> None:
     trend = reload_trend()
 
     with pytest.raises(AttributeError):
-        getattr(trend, "unknown_attribute")
+        trend.unknown_attribute

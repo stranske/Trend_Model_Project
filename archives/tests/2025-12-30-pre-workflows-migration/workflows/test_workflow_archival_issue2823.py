@@ -29,9 +29,7 @@ SUPERSEDED_WORKFLOWS: dict[str, tuple[str, ...]] = {
 def test_superseded_workflows_absent_from_inventory() -> None:
     """Legacy wrappers should stay deleted after the archival sweep."""
 
-    lingering = sorted(
-        name for name in SUPERSEDED_WORKFLOWS if (WORKFLOW_DIR / name).exists()
-    )
+    lingering = sorted(name for name in SUPERSEDED_WORKFLOWS if (WORKFLOW_DIR / name).exists())
     assert not lingering, f"Superseded workflows resurfaced: {lingering}"
 
 

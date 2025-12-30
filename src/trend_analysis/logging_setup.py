@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import TextIO
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNS_ROOT = _REPO_ROOT / "perf" / "runs"
@@ -37,10 +37,10 @@ def _clear_existing_handlers(logger: logging.Logger) -> None:
 def setup_logging(
     *,
     level: int | str = logging.INFO,
-    console_level: Optional[int | str] = None,
-    timestamp: Optional[str] = None,
+    console_level: int | str | None = None,
+    timestamp: str | None = None,
     app_name: str = "app",
-    stream: Optional[TextIO] = None,
+    stream: TextIO | None = None,
     enable_console: bool = True,
 ) -> Path:
     """Configure root logging and return the log file path.
@@ -65,7 +65,7 @@ def setup_logging(
     """
 
     RUNS_ROOT.mkdir(parents=True, exist_ok=True)
-    run_id = timestamp or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    run_id = timestamp or datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     run_dir = RUNS_ROOT / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / f"{app_name}.log"
@@ -86,9 +86,7 @@ def setup_logging(
         stream_handler = logging.StreamHandler(stream or sys.stderr)
         stream_handler.setFormatter(formatter)
         stream_level = (
-            _resolve_level(console_level)
-            if console_level is not None
-            else _resolve_level(level)
+            _resolve_level(console_level) if console_level is not None else _resolve_level(level)
         )
         stream_handler.setLevel(stream_level)
         setattr(stream_handler, _HANDLER_FLAG, True)

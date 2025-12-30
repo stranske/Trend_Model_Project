@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import pandas as pd
 
@@ -63,9 +63,7 @@ class MissingPolicyResult(Mapping[str, Any]):
 
     @property
     def filled_cells(self) -> tuple[tuple[str, int], ...]:
-        return tuple(
-            (asset, count) for asset, count in sorted(self.filled.items()) if count > 0
-        )
+        return tuple((asset, count) for asset, count in sorted(self.filled.items()) if count > 0)
 
     @property
     def total_filled(self) -> int:
@@ -180,9 +178,7 @@ def apply_missing_policy(
     applied_policy: dict[str, str] = {}
     limit_used: dict[str, int | None] = {}
 
-    result_columns: dict[str, pd.Series] = {
-        col: work[col] for col in df.columns if col not in cols
-    }
+    result_columns: dict[str, pd.Series] = {col: work[col] for col in df.columns if col not in cols}
     for col in cols:
         series = work[col]
         col_policy = per_column_policy.get(col, default_policy)

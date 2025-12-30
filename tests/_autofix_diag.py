@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -13,12 +13,12 @@ class DiagnosticEntry:
     scenario: str
     outcome: str
     changed: bool
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 @dataclass
 class DiagnosticsRecorder:
-    _entries: List[DiagnosticEntry] = field(default_factory=list)
+    _entries: list[DiagnosticEntry] = field(default_factory=list)
 
     def reset(self) -> None:
         self._entries.clear()
@@ -33,7 +33,7 @@ class DiagnosticsRecorder:
         scenario: str,
         outcome: str,
         changed: bool,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> None:
         self._entries.append(
             DiagnosticEntry(
@@ -45,8 +45,8 @@ class DiagnosticsRecorder:
             )
         )
 
-    def _tool_summary(self) -> Dict[str, Any]:
-        summary: Dict[str, Any] = {}
+    def _tool_summary(self) -> dict[str, Any]:
+        summary: dict[str, Any] = {}
         for entry in self._entries:
             tool_bucket = summary.setdefault(
                 entry.tool,
@@ -78,14 +78,12 @@ class DiagnosticsRecorder:
 
     def flush(self, target: Path) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "entry_count": len(self._entries),
             "tools": self._tool_summary(),
         }
-        target.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return target
 
 

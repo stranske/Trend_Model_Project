@@ -58,9 +58,7 @@ def test_autofix_pipeline_repairs_live_documents(
     if yaml_stub_src.exists():
         shutil.copytree(yaml_stub_src, src_dir / "yaml")
 
-    expectation_module_src = (
-        real_root / "tests" / "workflows" / "test_autofix_repo_regressions.py"
-    )
+    expectation_module_src = real_root / "tests" / "workflows" / "test_autofix_repo_regressions.py"
     expectation_module_target = tests_dir / "test_autofix_repo_regressions.py"
     shutil.copy2(expectation_module_src, expectation_module_target)
 
@@ -109,9 +107,7 @@ def test_autofix_pipeline_repairs_live_documents(
             numpy_rewritten = True
             continue
         modified_lines.append(line)
-    expectation_module_target.write_text(
-        "\n".join(modified_lines) + "\n", encoding="utf-8"
-    )
+    expectation_module_target.write_text("\n".join(modified_lines) + "\n", encoding="utf-8")
 
     return_probe = src_dir / "trend_analysis" / "return_type_probe.py"
     return_probe.write_text(
@@ -147,15 +143,11 @@ def summarise_payload(values: Iterable[int]) -> int:
         importlib.reload(module)
 
     monkeypatch.setattr(auto_type_hygiene, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(auto_type_hygiene, "DRY_RUN", False, raising=False)
 
     monkeypatch.setattr(fix_cosmetic_aggregate, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        fix_cosmetic_aggregate, "TARGET", automation_path, raising=False
-    )
+    monkeypatch.setattr(fix_cosmetic_aggregate, "TARGET", automation_path, raising=False)
 
     monkeypatch.setattr(fix_numpy_asserts, "ROOT", repo_root, raising=False)
     monkeypatch.setattr(fix_numpy_asserts, "TEST_ROOT", tests_dir, raising=False)
@@ -182,14 +174,10 @@ def summarise_payload(values: Iterable[int]) -> int:
     )
 
     monkeypatch.setattr(mypy_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_autofix, "DEFAULT_TARGETS", [src_dir, tests_dir], raising=False)
 
     monkeypatch.setattr(mypy_return_autofix, "ROOT", repo_root, raising=False)
-    monkeypatch.setattr(
-        mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False
-    )
+    monkeypatch.setattr(mypy_return_autofix, "PROJECT_DIRS", [src_dir, tests_dir], raising=False)
     monkeypatch.setattr(
         mypy_return_autofix,
         "MYPY_CMD",

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -18,11 +18,11 @@ import trend_analysis.multi_period.engine as mp_engine
 class _Config:
     """Minimal configuration object for exercising ``engine.run``."""
 
-    data: Dict[str, Any]
-    multi_period: Dict[str, Any] = field(
+    data: dict[str, Any]
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {"periods": [{"in": {}, "out": {}}]}
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "selection_mode": "all",
             "random_n": 4,
@@ -32,15 +32,15 @@ class _Config:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
-    performance: Dict[str, Any] = field(
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    performance: dict[str, Any] = field(
         default_factory=lambda: {"enable_cache": True, "incremental_cov": True}
     )
     seed: int = 11
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -60,7 +60,7 @@ class _DummyCache:
     def __init__(self) -> None:
         self.incremental_updates = 0
 
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return {
             "entries": 0,
             "hits": 0,
@@ -99,7 +99,7 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         }
     )
 
-    periods: List[_Period] = [
+    periods: list[_Period] = [
         _Period("2020-01-31", "2020-03-31", "2020-04-30", "2020-04-30"),
         _Period("2020-02-29", "2020-04-30", "2020-05-31", "2020-05-31"),
     ]
@@ -108,7 +108,7 @@ def test_incremental_covariance_falls_back_to_full_recompute(
 
     run_calls: list[tuple[Any, ...]] = []
 
-    def fake_run_analysis(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def fake_run_analysis(*args: Any, **kwargs: Any) -> dict[str, Any]:
         run_calls.append(args)
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
@@ -122,17 +122,11 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         compute_calls.append(frame.shape[0])
         return _payload_for(frame)
 
-    def fake_incremental_cov_update(
-        *args: Any, **kwargs: Any
-    ) -> None:  # pragma: no cover
-        raise AssertionError(
-            "incremental update path should not be used in fallback test"
-        )
+    def fake_incremental_cov_update(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        raise AssertionError("incremental update path should not be used in fallback test")
 
     monkeypatch.setattr("trend_analysis.perf.cache.CovCache", _DummyCache)
-    monkeypatch.setattr(
-        "trend_analysis.perf.cache.compute_cov_payload", fake_compute_cov_payload
-    )
+    monkeypatch.setattr("trend_analysis.perf.cache.compute_cov_payload", fake_compute_cov_payload)
     monkeypatch.setattr(
         "trend_analysis.perf.cache.incremental_cov_update", fake_incremental_cov_update
     )

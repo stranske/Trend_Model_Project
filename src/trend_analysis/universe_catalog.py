@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
 
 import pandas as pd
 import yaml
@@ -78,9 +78,7 @@ def _clean_members(values: Iterable[object] | None) -> tuple[str, ...] | None:
     return tuple(cleaned) if cleaned else None
 
 
-def load_universe_spec(
-    key: str | Path, *, base_dir: Path | None = None
-) -> NamedUniverse:
+def load_universe_spec(key: str | Path, *, base_dir: Path | None = None) -> NamedUniverse:
     """Load a named universe definition from ``config/universe``.
 
     Parameters
@@ -127,14 +125,10 @@ def _resolve_date_column(prices: pd.DataFrame, candidate: str) -> str:
     try:
         return str(lookup[candidate.lower()])
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise KeyError(
-            f"Date column '{candidate}' was not found in price data"
-        ) from exc
+        raise KeyError(f"Date column '{candidate}' was not found in price data") from exc
 
 
-def _filter_membership(
-    membership: pd.DataFrame, members: Sequence[str] | None
-) -> pd.DataFrame:
+def _filter_membership(membership: pd.DataFrame, members: Sequence[str] | None) -> pd.DataFrame:
     if members is None:
         return membership
     member_set = {str(item) for item in members}

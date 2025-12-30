@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -133,9 +134,7 @@ def test_main_translates_missing_arguments(
         "load_csv",
         load_csv_new if factory is _detailed_result else load_csv_legacy,
     )
-    monkeypatch.setattr(
-        run_analysis_mod.api, "run_simulation", lambda cfg, df: factory()
-    )
+    monkeypatch.setattr(run_analysis_mod.api, "run_simulation", lambda cfg, df: factory())
 
     summary_calls: list[tuple[dict[str, Any], str, str, str, str]] = []
     export_calls: list[tuple[dict[str, pd.DataFrame], str, list[str]]] = []
@@ -159,9 +158,7 @@ def test_main_translates_missing_arguments(
         export_calls.append((data, path, formats))
 
     if factory is _summary_result:
-        monkeypatch.setattr(
-            run_analysis_mod.export, "format_summary_text", fake_format_summary
-        )
+        monkeypatch.setattr(run_analysis_mod.export, "format_summary_text", fake_format_summary)
         monkeypatch.setattr(run_analysis_mod.export, "export_data", fake_export_data)
         config_template.export = {
             "directory": "output",

@@ -28,12 +28,8 @@ def test_quarantine_smoke_success(
         assert report.ok is True
         return "summary-output"
 
-    monkeypatch.setattr(
-        smoke.validate_quarantine_ttl, "load_records", fake_load_records
-    )
-    monkeypatch.setattr(
-        smoke.validate_quarantine_ttl, "evaluate_records", fake_evaluate
-    )
+    monkeypatch.setattr(smoke.validate_quarantine_ttl, "load_records", fake_load_records)
+    monkeypatch.setattr(smoke.validate_quarantine_ttl, "evaluate_records", fake_evaluate)
     monkeypatch.setattr(smoke.validate_quarantine_ttl, "build_summary", fake_summary)
 
     smoke._quarantine_smoke()

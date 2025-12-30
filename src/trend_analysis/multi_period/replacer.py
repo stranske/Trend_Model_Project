@@ -11,7 +11,7 @@ keeps running. Real strike / replacement logic comes later.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 
@@ -23,7 +23,7 @@ _HIGH_Z = 1.0  # addition trigger (soft)
 class Rebalancer:  # pylint: disable=too-few-public-methods
     """Stub implementation that fulfils the Phase‑2 unit tests."""
 
-    def __init__(self, cfg: Dict[str, Any] | None = None) -> None:
+    def __init__(self, cfg: dict[str, Any] | None = None) -> None:
         self.cfg = cfg or {}
         self._strikes: dict[str, int] = {}
         self._entry_strikes: dict[str, int] = {}
@@ -60,9 +60,7 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self.entry_eligible_strikes = int(
             th.get("entry_eligible_strikes", max(1, self.entry_soft_strikes - 1))
         )
-        constraints = (
-            portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
-        )
+        constraints = portfolio.get("constraints", {}) if isinstance(portfolio, dict) else {}
         mp_cfg = self.cfg.get("multi_period", {}) if isinstance(self.cfg, dict) else {}
         self.max_funds = int(constraints.get("max_funds", mp_cfg.get("max_funds", 10)))
         # Weighting behaviour for survivors during run_schedule
@@ -73,15 +71,13 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         )
         self.weighting_name = str(th_name).lower()
         self.weighting_params = (
-            portfolio.get("weighting", {}).get("params", {})
-            if isinstance(portfolio, dict)
-            else {}
+            portfolio.get("weighting", {}).get("params", {}) if isinstance(portfolio, dict) else {}
         )
 
     # ------------------------------------------------------------------
     def apply_triggers(
         self,
-        prev_weights: Dict[str, float] | pd.Series,
+        prev_weights: dict[str, float] | pd.Series,
         score_frame: pd.DataFrame,
         *,
         random_seed: int | None = None,
@@ -130,13 +126,11 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
 
             # Equal weight the randomly selected funds
             eq = 1.0 / len(selected) if selected else 0.0
-            return pd.Series({f: eq for f in selected}, dtype=float)
+            return pd.Series(dict.fromkeys(selected, eq), dtype=float)
 
         # --- 1) update strike counts & decide removals -----------------
         zscores = (
-            score_frame["zscore"]
-            if "zscore" in score_frame.columns
-            else score_frame.iloc[:, 0]
+            score_frame["zscore"] if "zscore" in score_frame.columns else score_frame.iloc[:, 0]
         )
         to_drop: list[str] = []
 

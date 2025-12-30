@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -13,7 +14,7 @@ from trend_analysis.multi_period import engine as mp_engine
 class DummyConfig:
     """Minimal configuration object for exercising threshold-hold branches."""
 
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 2,
@@ -22,13 +23,13 @@ class DummyConfig:
             "end": "2020-05",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "allow_risk_free_fallback": True,
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
             "random_n": 4,
@@ -50,12 +51,12 @@ class DummyConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
     seed: int = 123
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": self.multi_period,
             "portfolio": self.portfolio,
@@ -74,14 +75,12 @@ class DummyPeriod:
 class SequenceWeighting:
     """Deterministic weighting helper providing scripted outputs."""
 
-    def __init__(self, sequences: Sequence[Dict[str, float]]) -> None:
+    def __init__(self, sequences: Sequence[dict[str, float]]) -> None:
         self._sequences = list(sequences) or [{}]
         self.calls = 0
         self.update_calls: list[tuple[pd.Series, int]] = []
 
-    def weight(
-        self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-    ) -> pd.DataFrame:
+    def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
         del date
         seq = self._sequences[min(self.calls, len(self._sequences) - 1)]
         weights = pd.Series(
@@ -114,20 +113,18 @@ class IdentityRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls: list[pd.Series] = []
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         self.calls.append(prev_weights.copy())
         return prev_weights.astype(float)
 
 
-def _stub_run_analysis(call_log: list[Dict[str, Any]]):
+def _stub_run_analysis(call_log: list[dict[str, Any]]):
     def _run(
         *_args: Any,
         manual_funds: Sequence[str] | None = None,
-        custom_weights: Dict[str, float] | None = None,
+        custom_weights: dict[str, float] | None = None,
         **_kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         call_log.append(
             {
                 "manual_funds": list(manual_funds or []),
@@ -174,7 +171,7 @@ def test_threshold_hold_yields_placeholder_when_universe_empty(
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
-    run_calls: list[Dict[str, Any]] = []
+    run_calls: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
@@ -297,14 +294,10 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
 
     import trend_analysis.selector as selector_mod
 
-    selector = ScriptedSelector(
-        ["Alpha One", "Alpha Two", "Beta One", "Gamma One", "Delta One"]
-    )
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: selector
-    )
+    selector = ScriptedSelector(["Alpha One", "Alpha Two", "Beta One", "Gamma One", "Delta One"])
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
-    run_calls: list[Dict[str, Any]] = []
+    run_calls: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
@@ -324,8 +317,7 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
         for change in changes
     )
     assert any(
-        change["manager"] == "Gamma One" and change["reason"] == "replacement"
-        for change in changes
+        change["manager"] == "Gamma One" and change["reason"] == "replacement" for change in changes
     )
 
 
@@ -392,11 +384,9 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     import trend_analysis.selector as selector_mod
 
     selector = ScriptedSelector(["Alpha One", "Beta One"])
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: selector
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
-    run_calls: list[Dict[str, Any]] = []
+    run_calls: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
@@ -559,9 +549,7 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
         def __init__(self, ordering: Sequence[str]) -> None:
             self._ordering = list(ordering)
 
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = [fund for fund in self._ordering if fund in score_frame.index]
             selected = score_frame.loc[ordered]
             return selected, selected
@@ -593,7 +581,7 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
 
     monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
 
-    run_calls: List[Dict[str, Any]] = []
+    run_calls: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
@@ -627,12 +615,8 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     score_frames = {
-        "2020-01-31": pd.DataFrame(
-            {"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]
-        ),
-        "2020-02-29": pd.DataFrame(
-            {"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]
-        ),
+        "2020-01-31": pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Alpha One", "Beta One"]),
+        "2020-02-29": pd.DataFrame({"Sharpe": [0.3, 1.2]}, index=["Alpha One", "Beta One"]),
     }
 
     selector = ScriptedSelector(["Alpha One", "Beta One"])
@@ -640,11 +624,11 @@ def test_run_schedule_applies_strategy_and_turnover_fast_path(
         [{"Alpha One": 0.55, "Beta One": 0.45}, {"Alpha One": 0.2, "Beta One": 0.8}]
     )
 
-    apply_calls: list[Dict[str, Any]] = []
+    apply_calls: list[dict[str, Any]] = []
 
     def fake_apply(
-        strategies: List[str],
-        params: Dict[str, Dict[str, Any]],
+        strategies: list[str],
+        params: dict[str, dict[str, Any]],
         current: pd.Series,
         target: pd.Series,
         *,
@@ -808,9 +792,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
             self.top_n = top_n
             self.rank_column = rank_column
 
-        def select(
-            self, score_frame: pd.DataFrame
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        def select(self, score_frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             ordered = score_frame.sort_values(self.rank_column, ascending=False)
             picked = ordered.head(self.top_n)
             return picked, picked
@@ -825,9 +807,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
         def __init__(self, *_, **__) -> None:
             self.calls = 0
 
-        def weight(
-            self, selected: pd.DataFrame, date: pd.Timestamp | None = None
-        ) -> pd.DataFrame:
+        def weight(self, selected: pd.DataFrame, date: pd.Timestamp | None = None) -> pd.DataFrame:
             del date
             sequences = [
                 {
@@ -873,14 +853,14 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
 
     monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
 
-    run_calls: list[Dict[str, Any]] = []
+    run_calls: list[dict[str, Any]] = []
 
     def fake_run_analysis(
         *_args: Any,
         manual_funds: Sequence[str] | None = None,
-        custom_weights: Dict[str, float] | None = None,
+        custom_weights: dict[str, float] | None = None,
         **_kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         run_calls.append(
             {
                 "manual_funds": list(manual_funds or []),
@@ -1006,17 +986,13 @@ def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
     selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: selector
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
-    weighting = SequenceWeighting(
-        [{"Alpha One": 0.01, "Bravo One": 0.02, "Charlie One": 0.03}]
-    )
+    weighting = SequenceWeighting([{"Alpha One": 0.01, "Bravo One": 0.02, "Charlie One": 0.03}])
     monkeypatch.setattr(mp_engine, "EqualWeight", lambda: weighting)
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
-    call_log: list[Dict[str, Any]] = []
+    call_log: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
 
     results = mp_engine.run(cfg, df=df)
@@ -1111,9 +1087,7 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
     selector = ScriptedSelector(["Alpha One", "Bravo One", "Charlie One"])
     from trend_analysis import selector as selector_mod
 
-    monkeypatch.setattr(
-        selector_mod, "create_selector_by_name", lambda *a, **k: selector
-    )
+    monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
     weighting = SequenceWeighting(
         [
@@ -1125,7 +1099,7 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
     monkeypatch.setattr(mp_engine, "EqualWeight", lambda: weighting)
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
-    call_log: list[Dict[str, Any]] = []
+    call_log: list[dict[str, Any]] = []
     monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
 
     results = mp_engine.run(cfg, df=df)

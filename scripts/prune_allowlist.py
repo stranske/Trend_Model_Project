@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-from typing import Sequence
+from collections.abc import Sequence
 
 ALLOW = pathlib.Path(".ruff-residual-allowlist.json")
 HISTORY = pathlib.Path("ci/autofix/history.json")
@@ -83,8 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # If code appears (count>0) in any of the tail snapshots, keep.
         by_code_maps = [snap.get("by_code") for snap in tail]
         if any(
-            isinstance(by_code, dict) and int(by_code.get(code, 0)) > 0
-            for by_code in by_code_maps
+            isinstance(by_code, dict) and int(by_code.get(code, 0)) > 0 for by_code in by_code_maps
         ):
             continue
         # Additional guard: if code never appears in any snapshot we can prune too.

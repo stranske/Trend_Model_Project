@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from time import perf_counter
-from typing import Callable, Sequence
 
 import pandas as pd
 from pandas.util import hash_pandas_object
@@ -83,9 +83,7 @@ class RollingCache:
     def is_enabled(self) -> bool:
         return self._enabled
 
-    def _build_path(
-        self, dataset_hash: str, window: int, freq: str, method: str
-    ) -> Path:
+    def _build_path(self, dataset_hash: str, window: int, freq: str, method: str) -> Path:
         safe_method = _normalise_component(method)
         safe_freq = _normalise_component(freq)
         file_name = f"{dataset_hash}_{safe_method}_{safe_freq}_{window}.joblib"

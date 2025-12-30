@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
@@ -110,9 +111,7 @@ def _frequency_label(code: str) -> str:
     return {"D": "Daily", "W": "Weekly", "M": "Monthly"}.get(code, code)
 
 
-def _preprocessing_summary(
-    freq_code: str, *, normalised: bool, missing_summary: str | None
-) -> str:
+def _preprocessing_summary(freq_code: str, *, normalised: bool, missing_summary: str | None) -> str:
     cadence = _frequency_label(freq_code)
     cadence_text = f"Cadence: {cadence}"
     if normalised and freq_code != "M":
@@ -236,10 +235,7 @@ def _prepare_preprocess_stage(
         )
     except ValueError as exc:
         message = str(exc)
-        if (
-            "contains no valid timestamps" in message
-            or "All rows were removed" in message
-        ):
+        if "contains no valid timestamps" in message or "All rows were removed" in message:
             return pipeline_failure(
                 PipelineReasonCode.CALENDAR_ALIGNMENT_WIPE,
                 context={"error": message},
@@ -320,9 +316,7 @@ def _prepare_preprocess_stage(
         "target_label": freq_summary.target_label,
         "resampled": freq_summary.resampled,
     }
-    periods_per_year = periods_per_year_override or periods_per_year_from_code(
-        freq_summary.target
-    )
+    periods_per_year = periods_per_year_override or periods_per_year_from_code(freq_summary.target)
     missing_payload = {
         "policy": missing_result.default_policy,
         "policy_map": missing_result.policy,
@@ -433,9 +427,7 @@ def _build_sample_windows(
             )
             overrides = {k: v for k, v in policy_map.items() if v != default_policy}
             policy_spec: dict[str, str] | str = (
-                {"default": default_policy, **overrides}
-                if overrides
-                else default_policy
+                {"default": default_policy, **overrides} if overrides else default_policy
             )
 
             limit_map = dict(getattr(preprocess.missing_result, "limit", {}) or {})
@@ -575,9 +567,7 @@ def _select_universe(
     if requested_indices:
         available_cols = set(window.in_df.columns)
         available_indices = [idx for idx in requested_indices if idx in available_cols]
-        missing_indices = [
-            idx for idx in requested_indices if idx not in available_cols
-        ]
+        missing_indices = [idx for idx in requested_indices if idx not in available_cols]
 
         for idx in available_indices:
             has_data = window.in_df[idx].notnull().any()
@@ -604,10 +594,7 @@ def _select_universe(
         [window.in_df.reset_index(), window.out_df.reset_index()],
         ignore_index=True,
     )
-    if (
-        preprocess.date_col not in fallback_window.columns
-        and "index" in fallback_window.columns
-    ):
+    if preprocess.date_col not in fallback_window.columns and "index" in fallback_window.columns:
         fallback_window = fallback_window.rename(columns={"index": preprocess.date_col})
     rf_col, fund_cols, rf_source = _resolve_risk_free_column(
         preprocess.df,
@@ -679,9 +666,7 @@ def _select_universe(
         bundle = None
         if stats_cfg is not None and fund_cols:
             try:
-                window_key = make_window_key(
-                    window.in_start, window.in_end, sub.columns, stats_cfg
-                )
+                window_key = make_window_key(window.in_start, window.in_end, sub.columns, stats_cfg)
             except Exception:  # pragma: no cover - defensive
                 window_key = None
         if window_key is not None:
@@ -807,9 +792,7 @@ def _compute_weights_and_stats(
                 )
                 raise ValueError(msg)
 
-            scoped = frame.loc[
-                (frame.index >= allowed_start) & (frame.index <= allowed_end)
-            ]
+            scoped = frame.loc[(frame.index >= allowed_start) & (frame.index <= allowed_end)]
             scoped = scoped.loc[:, ~scoped.columns.duplicated()]
             scoped = scoped.reindex(columns=fund_cols)
             return scoped.astype(float)
@@ -829,19 +812,13 @@ def _compute_weights_and_stats(
 
         if signal_source is None:
             signal_source = (
-                pd.concat([window.in_df, window.out_df])
-                .sort_index()
-                .reindex(columns=fund_cols)
+                pd.concat([window.in_df, window.out_df]).sort_index().reindex(columns=fund_cols)
             )
 
         return _filter_window(signal_source, strict=strict_enforcement)
 
     weight_engine_fallback: dict[str, str] | None = None
-    if (
-        custom_weights is None
-        and weighting_scheme
-        and weighting_scheme.lower() != "equal"
-    ):
+    if custom_weights is None and weighting_scheme and weighting_scheme.lower() != "equal":
         try:
             from .plugins import create_weight_engine
 
@@ -855,14 +832,13 @@ def _compute_weights_and_stats(
                 extra={"weight_engine": weighting_scheme},
             )
         except Exception as e:  # pragma: no cover - exercised via tests
-            msg = (
-                "Weight engine '%s' failed (%s: %s); falling back to equal weights"
-                % (weighting_scheme, type(e).__name__, e)
+            msg = "Weight engine '%s' failed (%s: %s); falling back to equal weights" % (
+                weighting_scheme,
+                type(e).__name__,
+                e,
             )
             logger.warning(msg)
-            logger.debug(
-                "Weight engine creation failed, falling back to equal weights: %s", e
-            )
+            logger.debug("Weight engine creation failed, falling back to equal weights: %s", e)
             weight_engine_fallback = {
                 "engine": str(weighting_scheme),
                 "error_type": type(e).__name__,
@@ -902,9 +878,7 @@ def _compute_weights_and_stats(
     )
     raw_groups = constraints_cfg.get("groups")
     groups_map = (
-        {str(k): str(v) for k, v in raw_groups.items()}
-        if isinstance(raw_groups, Mapping)
-        else None
+        {str(k): str(v) for k, v in raw_groups.items()} if isinstance(raw_groups, Mapping) else None
     )
 
     window_cfg = dict(risk_window or {})
@@ -920,9 +894,7 @@ def _compute_weights_and_stats(
         ewma_lambda = float(lambda_value)
     except (TypeError, ValueError):
         ewma_lambda = 0.94
-    window_spec = RiskWindow(
-        length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda
-    )
+    window_spec = RiskWindow(length=window_length, decay=decay_mode, ewma_lambda=ewma_lambda)
 
     turnover_cap = None
     if max_turnover is not None:
@@ -964,9 +936,7 @@ def _compute_weights_and_stats(
             groups=groups_map,
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.warning(
-            "Risk controls failed; falling back to base weights: %s", exc, exc_info=True
-        )
+        logger.warning("Risk controls failed; falling back to base weights: %s", exc, exc_info=True)
         weights_series = base_series.copy()
         asset_vol = realised_volatility(
             window.in_df[fund_cols],
@@ -1009,9 +979,7 @@ def _compute_weights_and_stats(
     if not signal_frame.empty:
         try:
             target_index = (
-                window.out_df.index[0]
-                if len(window.out_df.index)
-                else signal_frame.index[-1]
+                window.out_df.index[0] if len(window.out_df.index) else signal_frame.index[-1]
             )
             aligned = signal_frame.reindex(columns=fund_cols)
             if target_index in aligned.index:
@@ -1119,9 +1087,7 @@ def _compute_weights_and_stats(
 
     in_user_stats = _compute_stats(pd.DataFrame({"user": in_user}), rf_in)["user"]
     out_user_stats = _compute_stats(pd.DataFrame({"user": out_user}), rf_out)["user"]
-    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)[
-        "user"
-    ]
+    out_user_stats_raw = _compute_stats(pd.DataFrame({"user": out_user_raw}), rf_out)["user"]
 
     return _ComputationStage(
         weights_series=weights_series,
@@ -1195,12 +1161,12 @@ def _assemble_analysis_output(
         if col not in in_df.columns or col not in out_df.columns:
             continue
         benchmark_stats[label] = {
-            "in_sample": _compute_stats(
-                pd.DataFrame({label: in_df[col]}), computation.rf_in
-            )[label],
-            "out_sample": _compute_stats(
-                pd.DataFrame({label: out_df[col]}), computation.rf_out
-            )[label],
+            "in_sample": _compute_stats(pd.DataFrame({label: in_df[col]}), computation.rf_in)[
+                label
+            ],
+            "out_sample": _compute_stats(pd.DataFrame({label: out_df[col]}), computation.rf_out)[
+                label
+            ],
         }
         ir_series = information_ratio(computation.out_scaled[fund_cols], out_df[col])
         ir_dict = (
@@ -1212,14 +1178,10 @@ def _assemble_analysis_output(
             ir_eq = information_ratio(out_ew_raw, out_df[col])
             ir_usr = information_ratio(out_user_raw, out_df[col])
             ir_dict["equal_weight"] = (
-                float(ir_eq)
-                if isinstance(ir_eq, (float, int, np.floating))
-                else float("nan")
+                float(ir_eq) if isinstance(ir_eq, (float, int, np.floating)) else float("nan")
             )
             ir_dict["user_weight"] = (
-                float(ir_usr)
-                if isinstance(ir_usr, (float, int, np.floating))
-                else float("nan")
+                float(ir_usr) if isinstance(ir_usr, (float, int, np.floating)) else float("nan")
             )
         except Exception:
             pass
@@ -1300,9 +1262,7 @@ def _assemble_analysis_output(
             "signal_spec": computation.effective_signal_spec,
             "performance_by_regime": regime_payload.get("table", pd.DataFrame()),
             "regime_labels": regime_payload.get("labels", pd.Series(dtype="string")),
-            "regime_labels_out": regime_payload.get(
-                "out_labels", pd.Series(dtype="string")
-            ),
+            "regime_labels_out": regime_payload.get("out_labels", pd.Series(dtype="string")),
             "regime_notes": regime_payload.get("notes", []),
             "regime_settings": regime_payload.get("settings", {}),
             "regime_summary": regime_payload.get("summary"),
@@ -1440,9 +1400,7 @@ def _policy_from_config(
     limit_base = cfg.get("limit")
     per_asset_limit = cfg.get("per_asset_limit")
     if isinstance(per_asset_limit, Mapping):
-        limit_map: dict[str, int | None] = {
-            str(k): v for k, v in per_asset_limit.items()
-        }
+        limit_map: dict[str, int | None] = {str(k): v for k, v in per_asset_limit.items()}
         if limit_base is not None:
             limit_map = {"default": limit_base, **limit_map}
         limit_spec: Mapping[str, int | None] | None = limit_map
@@ -1531,9 +1489,7 @@ def _resolve_sample_split(
         return resolved
 
     if "Date" not in df.columns:
-        raise ValueError(
-            "Input data must contain a 'Date' column to derive sample splits"
-        )
+        raise ValueError("Input data must contain a 'Date' column to derive sample splits")
 
     date_series = pd.to_datetime(df["Date"], errors="coerce")
     date_series = date_series.dropna()
@@ -1567,9 +1523,7 @@ def _resolve_sample_split(
 
     still_missing = [key for key in required_keys if key not in resolved]
     if still_missing:
-        raise ValueError(
-            f"Unable to derive sample split values for: {', '.join(still_missing)}"
-        )
+        raise ValueError(f"Unable to derive sample split values for: {', '.join(still_missing)}")
     return resolved
 
 
@@ -1636,9 +1590,7 @@ def _prepare_input_data(
     return monthly_df, freq_summary, missing_result, normalised
 
 
-def calc_portfolio_returns(
-    weights: NDArray[Any], returns_df: pd.DataFrame
-) -> pd.Series:
+def calc_portfolio_returns(weights: NDArray[Any], returns_df: pd.DataFrame) -> pd.Series:
     """Calculate weighted portfolio returns."""
     return returns_df.mul(weights, axis=1).sum(axis=1)
 
@@ -1676,9 +1628,7 @@ def _resolve_risk_free_column(
 
     configured_rf = (risk_free_column or "").strip()
 
-    numeric_cols = [
-        c for c in candidate_df.select_dtypes("number").columns if c != date_col
-    ]
+    numeric_cols = [c for c in candidate_df.select_dtypes("number").columns if c != date_col]
     if not numeric_cols:
         raise ValueError(
             "No numeric return columns were found in the requested window; cannot select risk-free series"
@@ -1738,9 +1688,7 @@ def _resolve_risk_free_column(
                 f"Configured risk-free column '{configured_rf}' was not found in the dataset"
             )
         if configured_rf not in candidate_df.select_dtypes("number").columns:
-            raise ValueError(
-                f"Configured risk-free column '{configured_rf}' must be numeric"
-            )
+            raise ValueError(f"Configured risk-free column '{configured_rf}' must be numeric")
         if configured_rf in idx_set:
             raise ValueError(
                 f"Risk-free column '{configured_rf}' cannot also be listed as an index/benchmark"
@@ -1760,11 +1708,9 @@ def _resolve_risk_free_column(
             )
         elif configured_coverage < min_non_null:
             raise ValueError(
-                (
-                    f"Configured risk-free column '{configured_rf}' has insufficient coverage "
-                    f"in the requested window ({configured_coverage}/{total_rows} non-null; "
-                    f"require at least {min_non_null})"
-                )
+                f"Configured risk-free column '{configured_rf}' has insufficient coverage "
+                f"in the requested window ({configured_coverage}/{total_rows} non-null; "
+                f"require at least {min_non_null})"
             )
         rf_col = configured_rf
         source = "configured"
@@ -1772,16 +1718,12 @@ def _resolve_risk_free_column(
         # Restrict candidates to columns with sufficient non-null coverage within
         # the requested windows. This keeps the fallback selection aligned with the
         # analysis slice rather than the full dataset.
-        ret_cols = [
-            c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)
-        ]
+        ret_cols = [c for c in numeric_cols if c not in idx_set and coverage_mask.get(c, False)]
 
         if not ret_cols:
             raise ValueError(
-                (
-                    "No numeric return columns meet the coverage requirement "
-                    f"({min_non_null}/{total_rows} non-null observations) in the requested window"
-                )
+                "No numeric return columns meet the coverage requirement "
+                f"({min_non_null}/{total_rows} non-null observations) in the requested window"
             )
 
         # BREAKING CHANGE: The default behavior of allow_risk_free_fallback has changed.
@@ -1800,9 +1742,7 @@ def _resolve_risk_free_column(
                 "Set data.risk_free_column or enable data.allow_risk_free_fallback to select a risk-free series."
             )
         window_df = expanded_df.reset_index().rename(columns={"index": date_col})
-        probe_cols = (
-            [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
-        )
+        probe_cols = [date_col, *ret_cols] if date_col in window_df.columns else ret_cols
 
         # With <2 observations, volatility is undefined (std = NaN), which can
         # cause the fallback heuristic to return NaN. Prefer obvious RF-like
@@ -1832,9 +1772,7 @@ def _resolve_risk_free_column(
             )
         else:
             detected = identify_risk_free_fund(window_df[probe_cols])
-            if detected is None or (
-                isinstance(detected, float) and math.isnan(detected)
-            ):
+            if detected is None or (isinstance(detected, float) and math.isnan(detected)):
                 raise ValueError(
                     "Risk-free fallback could not find a numeric return series in the requested window"
                 )
@@ -1911,9 +1849,7 @@ def single_period_run(
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
     parts = [
-        _compute_metric_series(
-            window_no_all_nan, m, stats_cfg, risk_free_override=risk_free
-        )
+        _compute_metric_series(window_no_all_nan, m, stats_cfg, risk_free_override=risk_free)
         for m in metrics
     ]
     score_frame = pd.concat(parts, axis=1)
@@ -1940,8 +1876,7 @@ def single_period_run(
             )
         except Exception as exc:  # pragma: no cover - defensive
             msg = (
-                "Failed to compute AvgCorr for single_period_run"
-                f" window {start} to {end}: {exc}"
+                "Failed to compute AvgCorr for single_period_run" f" window {start} to {end}: {exc}"
             )
             logger.error(msg)
             raise RuntimeError(msg) from exc
@@ -2219,8 +2154,7 @@ def run_analysis(
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
-        value is not None
-        for value in (calendar_frequency, calendar_timezone, holiday_calendar)
+        value is not None for value in (calendar_frequency, calendar_timezone, holiday_calendar)
     ):
         df = df.copy()
         calendar_settings = dict(getattr(df, "attrs", {}).get("calendar_settings", {}))
@@ -2382,16 +2316,10 @@ def run(cfg: Config) -> pd.DataFrame:
     res = diag_res.value
     stats = cast(dict[str, _Stats], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-    for label, ir_map in cast(
-        dict[str, dict[str, float]], res.get("benchmark_ir", {})
-    ).items():
+    for label, ir_map in cast(dict[str, dict[str, float]], res.get("benchmark_ir", {})).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
-            {
-                k: v
-                for k, v in ir_map.items()
-                if k not in {"equal_weight", "user_weight"}
-            }
+            {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
         )
     if diag:
         df.attrs["diagnostic"] = diag

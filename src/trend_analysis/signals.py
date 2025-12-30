@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Hashable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
+from typing import Any, Literal, TypeAlias, cast
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ class _FrameHandle:
     def get(self) -> pd.DataFrame:
         return self.frame
 
-    def __deepcopy__(self, memo: dict[Any, Any]) -> "_FrameHandle":
+    def __deepcopy__(self, memo: dict[Any, Any]) -> _FrameHandle:
         return self
 
 

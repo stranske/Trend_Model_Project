@@ -11,15 +11,15 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List
 
 
 @dataclass
 class ReadyIssues:
     """Container for the outputs emitted by the GitHub Script step."""
 
-    numbers: List[int]
+    numbers: list[int]
 
     @property
     def issue_numbers_output(self) -> str:
@@ -55,8 +55,8 @@ class ReadyIssues:
         return str(first)
 
 
-def parse_issue_numbers(raw_values: Iterable[str]) -> List[int]:
-    numbers: List[int] = []
+def parse_issue_numbers(raw_values: Iterable[str]) -> list[int]:
+    numbers: list[int] = []
     for raw in raw_values:
         text = raw.strip()
         if not text:
@@ -64,13 +64,11 @@ def parse_issue_numbers(raw_values: Iterable[str]) -> List[int]:
         try:
             numbers.append(int(text))
         except ValueError as exc:  # pragma: no cover - argparse guards input
-            raise argparse.ArgumentTypeError(
-                f"Invalid issue number '{raw}': {exc}"
-            ) from exc
+            raise argparse.ArgumentTypeError(f"Invalid issue number '{raw}': {exc}") from exc
     return numbers
 
 
-def main(argv: List[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Simulate the Codex bootstrap readiness step by emitting the same "

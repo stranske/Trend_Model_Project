@@ -24,10 +24,7 @@ def create_test_scenarios():
 
     # Scenario 2: Ill-conditioned (near-singular) matrix
     ill_cond = (
-        np.array(
-            [[1.0, 0.99999, 0.99998], [0.99999, 1.0, 0.99999], [0.99998, 0.99999, 1.0]]
-        )
-        * 0.04
+        np.array([[1.0, 0.99999, 0.99998], [0.99999, 1.0, 0.99999], [0.99998, 0.99999, 1.0]]) * 0.04
     )
     scenarios["ill_conditioned"] = pd.DataFrame(
         ill_cond,
@@ -97,9 +94,7 @@ def demonstrate_robust_weighting():
 
             for scenario_name, cov_matrix in scenarios.items():
                 print(f"\nScenario: {scenario_name}")
-                print(
-                    f"Matrix condition number: {np.linalg.cond(cov_matrix.values):.2e}"
-                )
+                print(f"Matrix condition number: {np.linalg.cond(cov_matrix.values):.2e}")
 
                 try:
                     weights = engine.weight(cov_matrix)
@@ -155,9 +150,7 @@ def demonstrate_config_usage():
 
 def main() -> None:
     log_path = setup_logging()
-    logging.getLogger(__name__).info(
-        "Robust weighting demo logs stored at %s", log_path
-    )
+    logging.getLogger(__name__).info("Robust weighting demo logs stored at %s", log_path)
 
     demonstrate_robust_weighting()
     demonstrate_config_usage()
@@ -166,9 +159,7 @@ def main() -> None:
     print("The robust weighting system provides:")
     print("• Automatic shrinkage (Ledoit-Wolf/OAS) for covariance stabilization")
     print("• Condition number monitoring with configurable thresholds")
-    print(
-        "• Safe mode fallback (HRP/Risk Parity/Diagonal Loading) for ill-conditioned matrices"
-    )
+    print("• Safe mode fallback (HRP/Risk Parity/Diagonal Loading) for ill-conditioned matrices")
     print("• Comprehensive logging of all robustness decisions")
     print("• Backwards compatibility with existing configurations")
     print("• Enhanced numerical stability for pathological inputs")

@@ -16,8 +16,8 @@ Rationale:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
-from typing import Iterable
 
 import pandas as pd
 
@@ -54,9 +54,7 @@ def monthly_period_range(
 
     Uses legacy alias 'M' intentionally (see module docstring).
     """
-    return pd.period_range(
-        start=start, periods=periods, end=end, freq=MONTHLY_PERIOD_FREQ
-    )
+    return pd.period_range(start=start, periods=periods, end=end, freq=MONTHLY_PERIOD_FREQ)
 
 
 def _validate_no_invalid_period_alias(freq: str) -> None:
@@ -94,7 +92,7 @@ def assert_no_invalid_period_aliases_in_source(paths: Iterable[str]) -> None:
         ):  # skip envs + this file’s examples
             continue
         try:
-            text = open(p, "r", encoding="utf-8").read()
+            text = open(p, encoding="utf-8").read()
         except OSError:
             continue
         for m in pattern.finditer(text):

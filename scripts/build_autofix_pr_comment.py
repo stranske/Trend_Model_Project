@@ -19,8 +19,9 @@ import json
 import os
 import pathlib
 import sys
-from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, cast
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
+from typing import Any, cast
 
 MARKER = "<!-- autofix-status: DO NOT EDIT -->"
 
@@ -61,15 +62,15 @@ def coerce_int(value: object, default: int = 0) -> int:
 
 def format_timestamp(raw: str | None) -> str:
     if not raw:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     try:
         normalized = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
         stamp = datetime.fromisoformat(normalized)
     except ValueError:
         return raw
     if stamp.tzinfo is None:
-        stamp = stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        stamp = stamp.replace(tzinfo=UTC)
+    return stamp.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def format_spark(series: object | None) -> str:
@@ -157,9 +158,7 @@ def build_comment(
     history_points = 0
     if isinstance(history_obj, Mapping):
         history_points = len(history_obj)
-    elif isinstance(history_obj, Sequence) and not isinstance(
-        history_obj, (str, bytes)
-    ):
+    elif isinstance(history_obj, Sequence) and not isinstance(history_obj, (str, bytes)):
         history_points = len(history_obj)
 
     remaining_latest = coerce_int(trend.get("remaining_latest"), remaining)
@@ -266,9 +265,7 @@ def build_comment(
         meta_segments.append(f"reason={trigger_reason}")
     if trigger_head:
         meta_segments.append(f"head={trigger_head}")
-    meta_line = (
-        f"<!-- autofix-meta: {' '.join(meta_segments)} -->" if meta_segments else None
-    )
+    meta_line = f"<!-- autofix-meta: {' '.join(meta_segments)} -->" if meta_segments else None
 
     lines = [
         MARKER,

@@ -29,9 +29,7 @@ def _run_resolver(name: str) -> dict:
         )
     try:
         return json.loads(result.stdout or "{}")
-    except (
-        json.JSONDecodeError
-    ) as exc:  # pragma: no cover - harness should return valid JSON
+    except json.JSONDecodeError as exc:  # pragma: no cover - harness should return valid JSON
         pytest.fail(f"Invalid harness output: {exc}: {result.stdout}")
 
 

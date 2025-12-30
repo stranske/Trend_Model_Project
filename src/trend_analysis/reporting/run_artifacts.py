@@ -7,8 +7,9 @@ import html
 import json
 import shutil
 import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -197,7 +198,7 @@ def write_run_artifacts(
 ) -> Path:
     """Copy exported files into a timestamped directory with manifest + HTML."""
 
-    created = _dt.datetime.now(_dt.timezone.utc)
+    created = _dt.datetime.now(_dt.UTC)
     base_dir = Path(output_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
     run_prefix = run_id[:8] or "run"
@@ -232,9 +233,7 @@ def write_run_artifacts(
         )
 
     selected = details.get("selected_funds")
-    if isinstance(selected, Sequence) and not isinstance(
-        selected, (str, bytes, bytearray)
-    ):
+    if isinstance(selected, Sequence) and not isinstance(selected, (str, bytes, bytearray)):
         selected_list = list(selected)
     elif selected is None:
         selected_list = []
@@ -250,8 +249,7 @@ def write_run_artifacts(
         "config_sha256": sha256_config(config),
         "git_hash": _git_hash(),
         "data_window": _data_window(df),
-        "metrics": _serialise_stats(details.get("out_ew_stats"))
-        or _summarise_metrics(metrics_df),
+        "metrics": _serialise_stats(details.get("out_ew_stats")) or _summarise_metrics(metrics_df),
         "metrics_overview": _summarise_metrics(metrics_df),
         "selected_funds": selected_list,
         "artifacts": copied,
@@ -268,15 +266,11 @@ def write_run_artifacts(
     manifest["run_directory"] = str(run_dir)
 
     manifest_path = run_dir / "manifest.json"
-    manifest_path.write_text(
-        json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(normalise_for_json(manifest), indent=2), encoding="utf-8")
 
     html_path = run_dir / "report.html"
     html_path.write_text(
-        _render_html(
-            run_id=run_id, created=created, manifest=manifest, summary_text=summary_text
-        ),
+        _render_html(run_id=run_id, created=created, manifest=manifest, summary_text=summary_text),
         encoding="utf-8",
     )
 

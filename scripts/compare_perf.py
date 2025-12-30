@@ -27,7 +27,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -63,8 +63,8 @@ MONITORED = [
 ]
 
 
-def _flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, float]:
-    out: Dict[str, float] = {}
+def _flatten(d: dict[str, Any], prefix: str = "") -> dict[str, float]:
+    out: dict[str, float] = {}
     for k, v in d.items():
         key = f"{prefix}.{k}" if prefix else k
         if isinstance(v, dict):
@@ -74,14 +74,12 @@ def _flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, float]:
     return out
 
 
-def compare(
-    current: Dict[str, Any], baseline: Dict[str, Any], threshold_pct: float
-) -> int:
+def compare(current: dict[str, Any], baseline: dict[str, Any], threshold_pct: float) -> int:
     flat_cur = _flatten(current)
     flat_base = _flatten(baseline)
 
-    missing: List[str] = []
-    regressions: List[tuple[str, float, float, float]] = []
+    missing: list[str] = []
+    regressions: list[tuple[str, float, float, float]] = []
 
     for metric in MONITORED:
         if metric not in flat_base:
@@ -100,9 +98,7 @@ def compare(
         if pct > threshold_pct:  # strictly greater triggers fail
             status = "REGRESSION"
             regressions.append((metric, b, c, pct))
-        print(
-            f"{metric:70s} baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% {status}"
-        )
+        print(f"{metric:70s} baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% {status}")
 
     if missing:
         print("ERROR: missing metrics in current run:", ", ".join(missing))
@@ -110,9 +106,7 @@ def compare(
     if regressions:
         print("\nFAILED: Performance regressions exceeding threshold:")
         for m, b, c, pct in regressions:
-            print(
-                f"  {m}: baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% > threshold"
-            )
+            print(f"  {m}: baseline={b:.6g} current={c:.6g} delta={pct:+.2f}% > threshold")
         return 1
     print("\nSUCCESS: All monitored metrics within regression budget.")
     return 0
@@ -129,9 +123,9 @@ def main() -> None:
     )
     args = p.parse_args()
 
-    with open(args.current, "r", encoding="utf-8") as f:
+    with open(args.current, encoding="utf-8") as f:
         current = json.load(f)
-    with open(args.baseline, "r", encoding="utf-8") as f:
+    with open(args.baseline, encoding="utf-8") as f:
         baseline = json.load(f)
 
     code = compare(current, baseline, args.threshold_pct)

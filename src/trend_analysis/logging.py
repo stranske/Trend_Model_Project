@@ -4,9 +4,10 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 
 import pandas as _pd
 
@@ -31,9 +32,7 @@ class JsonlHandler(logging.Handler):
     because logging volume here is modest (a few dozen lines per run).
     """
 
-    def __init__(
-        self, path: Path, max_size_kb: int | None = 1024
-    ):  # pragma: no cover - trivial
+    def __init__(self, path: Path, max_size_kb: int | None = 1024):  # pragma: no cover - trivial
         super().__init__()
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,9 +82,7 @@ class JsonlHandler(logging.Handler):
                 # Rotate if exceeding size (simple single backup strategy)
                 if self.max_size_kb and self.path.exists():
                     if self.path.stat().st_size > self.max_size_kb * 1024:
-                        backup = self.path.with_suffix(
-                            self.path.suffix + ".1"
-                        )  # e.g. run.jsonl.1
+                        backup = self.path.with_suffix(self.path.suffix + ".1")  # e.g. run.jsonl.1
                         try:
                             if backup.exists():
                                 backup.unlink()
@@ -122,9 +119,7 @@ def init_run_logger(run_id: str, log_path: Path) -> logging.Logger:
     return logger
 
 
-def log_step(
-    run_id: str, step: str, message: str, level: str = "INFO", **extra: Any
-) -> None:
+def log_step(run_id: str, step: str, message: str, level: str = "INFO", **extra: Any) -> None:
     """Emit a structured log line for a pipeline step.
 
     Parameters
@@ -156,7 +151,7 @@ def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
 
     if not Path(path).exists():  # pragma: no cover - guard
         return
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:
@@ -175,7 +170,7 @@ def latest_errors(path: Path, limit: int = 20) -> list[dict[str, Any]]:
     return errs[-limit:]
 
 
-def get_default_log_path(run_id: str, base: Optional[os.PathLike[str]] = None) -> Path:
+def get_default_log_path(run_id: str, base: os.PathLike[str] | None = None) -> Path:
     base_dir = Path(base) if base else Path("outputs") / "logs"
     base_dir.mkdir(parents=True, exist_ok=True)
     return base_dir / f"run_{run_id}.jsonl"

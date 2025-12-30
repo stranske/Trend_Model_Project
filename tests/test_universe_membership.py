@@ -60,9 +60,7 @@ def test_apply_membership_masks_adds_and_drops() -> None:
         # FundB enters after the first month
         "FundB": (MembershipWindow(pd.Timestamp("2020-02-29"), None),),
         # FundC exits after February
-        "FundC": (
-            MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),
-        ),
+        "FundC": (MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),),
     }
 
     masked = apply_membership_windows(frame, membership)
@@ -234,9 +232,7 @@ def test_build_membership_mask_marks_entries_and_exits() -> None:
 def test_build_membership_mask_accepts_membership_table() -> None:
     dates = pd.date_range("2020-01-31", periods=2, freq="ME")
     membership = {
-        "AAA": (
-            MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),
-        )
+        "AAA": (MembershipWindow(pd.Timestamp("2020-01-31"), pd.Timestamp("2020-02-29")),)
     }
 
     mask = build_membership_mask(dates, membership)

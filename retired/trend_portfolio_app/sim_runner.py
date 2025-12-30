@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import importlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -24,9 +25,7 @@ except Exception:
     ta_pipeline = None
 
 
-def compute_score_frame_local(
-    panel: pd.DataFrame, rf_annual: float = 0.0
-) -> pd.DataFrame:
+def compute_score_frame_local(panel: pd.DataFrame, rf_annual: float = 0.0) -> pd.DataFrame:
     idx = panel.index
     out = {}
     for col in panel.columns:
@@ -42,9 +41,7 @@ def compute_score_frame_local(
                     val = spec["fn"](r, idx)
                 col_metrics[name] = val
             except Exception as e:
-                logger.warning(
-                    "Failed to compute metric '%s' for column '%s': %s", name, col, e
-                )
+                logger.warning("Failed to compute metric '%s' for column '%s': %s", name, col, e)
                 col_metrics[name] = np.nan
         out[col] = col_metrics
     df = pd.DataFrame(out).T
@@ -99,12 +96,12 @@ def compute_score_frame(
 
 @dataclass
 class SimResult:
-    dates: List[pd.Timestamp]
+    dates: list[pd.Timestamp]
     portfolio: pd.Series
-    weights: Dict[pd.Timestamp, pd.Series]
+    weights: dict[pd.Timestamp, pd.Series]
     event_log: EventLog
-    benchmark: Optional[pd.Series]
-    _bootstrap_cache: Dict[tuple[int, int, int | None], pd.DataFrame] = field(
+    benchmark: pd.Series | None
+    _bootstrap_cache: dict[tuple[int, int, int | None], pd.DataFrame] = field(
         default_factory=dict, init=False, repr=False
     )
 
@@ -165,7 +162,7 @@ class SimResult:
     def event_log_df(self) -> pd.DataFrame:
         return self.event_log.to_frame()
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         curve = self.portfolio_curve()
         dd = self.drawdown_curve().min()
         total = curve.iloc[-1] - 1.0
@@ -186,21 +183,19 @@ class Simulator:
     def __init__(
         self,
         returns_df: pd.DataFrame,
-        benchmark_col: Optional[str] = None,
+        benchmark_col: str | None = None,
         cash_rate_annual: float = 0.0,
     ):
         self.df = returns_df.copy()
         self.benchmark_col = benchmark_col
         self.cash_rate_annual = cash_rate_annual
         self.benchmark = (
-            self.df[benchmark_col]
-            if benchmark_col and benchmark_col in self.df.columns
-            else None
+            self.df[benchmark_col] if benchmark_col and benchmark_col in self.df.columns else None
         )
 
     def _gen_review_dates(
         self, start: pd.Timestamp, end: pd.Timestamp, freq: str
-    ) -> List[pd.Timestamp]:
+    ) -> list[pd.Timestamp]:
         dates = pd.period_range(start=start, end=end, freq="M").to_timestamp(how="end")
         if freq.startswith("q"):
             dates = dates[dates.to_period("Q").to_timestamp(how="end") == dates]
@@ -213,27 +208,23 @@ class Simulator:
         freq: str,
         lookback_months: int,
         policy: PolicyConfig,
-        rebalance: Optional[Dict[str, Any]] = None,
-        progress_cb: Optional[Callable[[int, int], None]] = None,
+        rebalance: dict[str, Any] | None = None,
+        progress_cb: Callable[[int, int], None] | None = None,
     ) -> SimResult:
         review_dates = self._gen_review_dates(start, end, freq)
-        weights_by_date: Dict[pd.Timestamp, pd.Series] = {}
+        weights_by_date: dict[pd.Timestamp, pd.Series] = {}
         event_log = EventLog()
-        active: List[str] = []
+        active: list[str] = []
         cooldowns = CooldownBook()
-        eligible_since: Dict[str, int] = {
-            m: 0 for m in self.df.columns if m != self.benchmark_col
-        }
+        eligible_since: dict[str, int] = {m: 0 for m in self.df.columns if m != self.benchmark_col}
         # Track how many consecutive periods each active manager has been held
-        tenure: Dict[str, int] = {
-            m: 0 for m in self.df.columns if m != self.benchmark_col
-        }
+        tenure: dict[str, int] = {m: 0 for m in self.df.columns if m != self.benchmark_col}
 
-        portfolio_returns: List[Tuple[Any, float]] = []
+        portfolio_returns: list[tuple[Any, float]] = []
         # Rebalance state: track timing and risk stats
-        rb_cfg: Dict[str, Any] = dict(rebalance or {})
+        rb_cfg: dict[str, Any] = dict(rebalance or {})
         rb_cfg.setdefault("bayesian_only", True)
-        rb_state: Dict[str, Any] = {
+        rb_state: dict[str, Any] = {
             "since_last_reb": 0,
             "equity_curve": [],  # list of equity values up to current period
         }
@@ -278,16 +269,12 @@ class Simulator:
                 if m in active:
                     active.remove(m)
                     cooldowns.set(m, policy.cooldown_months)
-                    event_log.append(
-                        Event(date=d, action="fire", manager=m, reason=reason)
-                    )
+                    event_log.append(Event(date=d, action="fire", manager=m, reason=reason))
             for m, reason in decisions["hire"]:
                 if m not in active:
                     active.append(m)
                     tenure[m] = 0  # reset tenure on (re)hire
-                    event_log.append(
-                        Event(date=d, action="hire", manager=m, reason=reason)
-                    )
+                    event_log.append(Event(date=d, action="hire", manager=m, reason=reason))
 
             # Target weights (from selection/weighting stage). For now, equal-weight.
             if active:
@@ -365,8 +352,8 @@ def _apply_rebalance_pipeline(
     prev_weights: pd.Series,
     target_weights: pd.Series,
     date: pd.Timestamp,
-    rb_cfg: Dict[str, Any],
-    rb_state: Dict[str, Any],
+    rb_cfg: dict[str, Any],
+    rb_state: dict[str, Any],
     policy: PolicyConfig,
 ) -> pd.Series:
     """Apply rebalancing strategies in order to realize target weights.
@@ -396,13 +383,13 @@ def _apply_rebalance_pipeline(
         return tw
 
     # Strategy order and params
-    strategies: List[str] = list(rb_cfg.get("strategies", ["drift_band"]))
-    params: Dict[str, Any] = dict(rb_cfg.get("params", {}))
+    strategies: list[str] = list(rb_cfg.get("strategies", ["drift_band"]))
+    params: dict[str, Any] = dict(rb_cfg.get("params", {}))
 
     work = pw.copy()
 
     # Helper to cap weights and normalise
-    def _cap_and_norm(s: pd.Series, gross: Optional[float] = None) -> pd.Series:
+    def _cap_and_norm(s: pd.Series, gross: float | None = None) -> pd.Series:
         out = s.clip(lower=0.0)
         if policy.max_weight < 1.0 and policy.max_weight > 0.0:
             out = out.clip(upper=float(policy.max_weight))
@@ -464,7 +451,7 @@ def _apply_rebalance_pipeline(
             lev_max = float(cfg.get("lev_max", 1.5))
             window = int(cfg.get("window", 6))
             # Estimate realized vol from rb_state equity_curve
-            ec: List[float] = list(rb_state.get("equity_curve", []))
+            ec: list[float] = list(rb_state.get("equity_curve", []))
             if len(ec) >= window + 1:
                 # Compute past window simple returns from equity
                 rets = pd.Series(np.diff(ec[-(window + 1) :]) / ec[-(window + 1) : -1])
@@ -478,7 +465,7 @@ def _apply_rebalance_pipeline(
             dd_th = float(cfg.get("dd_threshold", 0.10))
             guard_mult = float(cfg.get("guard_multiplier", 0.5))
             recover = float(cfg.get("recover_threshold", 0.05))
-            eq_curve: List[float] = list(rb_state.get("equity_curve", []))
+            eq_curve: list[float] = list(rb_state.get("equity_curve", []))
             guard_on = bool(rb_state.get("guard_on", False))
             dd = 0.0
             if len(eq_curve) >= 1:

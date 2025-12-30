@@ -10,8 +10,8 @@ alongside diagnostics that power reporting layers.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
-from typing import Iterable, Mapping, MutableMapping
 
 import numpy as np
 import pandas as pd
@@ -216,13 +216,9 @@ def compute_constrained_weights(
     }
     constrained = optimizer_mod.apply_constraints(scaled, constraint_payload)
 
-    prev_series = (
-        _ensure_series(previous_weights) if previous_weights is not None else None
-    )
+    prev_series = _ensure_series(previous_weights) if previous_weights is not None else None
     constrained = _apply_turnover_penalty(constrained, prev_series, lambda_tc)
-    constrained, turnover_value = _enforce_turnover_cap(
-        constrained, prev_series, max_turnover
-    )
+    constrained, turnover_value = _enforce_turnover_cap(constrained, prev_series, max_turnover)
     constrained = constrained.reindex(base.index, fill_value=0.0)
     constrained = _normalise(constrained)
 

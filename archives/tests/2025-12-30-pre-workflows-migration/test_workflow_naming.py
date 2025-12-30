@@ -22,9 +22,7 @@ def _workflow_paths():
 
 def test_workflow_slugs_follow_wfv1_prefixes():
     non_compliant = [
-        path.name
-        for path in _workflow_paths()
-        if not path.name.startswith(ALLOWED_PREFIXES)
+        path.name for path in _workflow_paths() if not path.name.startswith(ALLOWED_PREFIXES)
     ]
     assert (
         not non_compliant
@@ -80,9 +78,7 @@ def test_gate_docs_only_branching_logic():
     gate_job = jobs.get("summary") or {}
     gate_steps = gate_job.get("steps") or []
     docs_only_steps = [
-        step
-        for step in gate_steps
-        if isinstance(step, dict) and step.get("id") == "docs_only"
+        step for step in gate_steps if isinstance(step, dict) and step.get("id") == "docs_only"
     ]
     assert docs_only_steps, "Summary job must include docs-only handling step"
     docs_only_step = docs_only_steps[0]
@@ -103,19 +99,15 @@ def test_gate_docs_only_branching_logic():
         "fast-pass message": "Gate fast-pass: docs-only change detected; heavy checks skipped.",
     }
     for label, snippet in expected_snippets.items():
-        assert (
-            snippet in helper_source
-        ), f"Docs-only helper script should define {label}"
+        assert snippet in helper_source, f"Docs-only helper script should define {label}"
 
 
 def test_inventory_docs_list_all_workflows():
     docs = {
-        "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path(
-            "docs/ci/WORKFLOW_SYSTEM.md"
-        ).read_text(encoding="utf-8"),
-        "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(
+        "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(
             encoding="utf-8"
         ),
+        "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(encoding="utf-8"),
     }
 
     def _listed(contents: str, slug: str) -> bool:
@@ -126,9 +118,7 @@ def test_inventory_docs_list_all_workflows():
         return any(option in contents for option in options)
 
     missing_by_doc = {
-        doc_name: [
-            path.name for path in _workflow_paths() if not _listed(contents, path.name)
-        ]
+        doc_name: [path.name for path in _workflow_paths() if not _listed(contents, path.name)]
         for doc_name, contents in docs.items()
     }
     failures = {doc: names for doc, names in missing_by_doc.items() if names}
@@ -161,9 +151,7 @@ def test_workflow_display_names_are_unique():
         assert display_name, f"Workflow {path.name} missing name field"
         names_to_files.setdefault(display_name, []).append(path.name)
 
-    duplicates = {
-        name: files for name, files in names_to_files.items() if len(files) > 1
-    }
+    duplicates = {name: files for name, files in names_to_files.items() if len(files) > 1}
     assert not duplicates, f"Duplicate workflow display names detected: {duplicates}"
 
 

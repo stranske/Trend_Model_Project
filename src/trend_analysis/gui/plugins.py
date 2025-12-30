@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Type
 
-_PLUGIN_REGISTRY: list[Type[object]] = []
+_PLUGIN_REGISTRY: list[type[object]] = []
 
 
-def register_plugin(cls: Type[object]) -> None:
+def register_plugin(cls: type[object]) -> None:
     if cls not in _PLUGIN_REGISTRY:
         _PLUGIN_REGISTRY.append(cls)
 
 
-def iter_plugins() -> Iterable[Type[object]]:
+def iter_plugins() -> Iterable[type[object]]:
     yield from _PLUGIN_REGISTRY
 
 

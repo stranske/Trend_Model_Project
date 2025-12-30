@@ -87,9 +87,7 @@ def test_rank_select_funds_blended_requires_weights():
     cfg = rs.RiskStatsConfig(risk_free=0.0)
 
     with pytest.raises(ValueError, match="blended score requires blended_weights"):
-        rs.rank_select_funds(
-            df, cfg, inclusion_approach="top_n", n=1, score_by="blended"
-        )
+        rs.rank_select_funds(df, cfg, inclusion_approach="top_n", n=1, score_by="blended")
 
 
 def test_canonical_metric_list_alias_and_default():

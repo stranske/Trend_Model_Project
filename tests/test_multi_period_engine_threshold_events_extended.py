@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import types
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -12,7 +12,7 @@ from trend_analysis.multi_period import engine as mp_engine
 
 @dataclass
 class ThresholdConfig:
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 3,
@@ -21,13 +21,13 @@ class ThresholdConfig:
             "end": "2020-06",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "risk_free_column": "RF",
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
             "transaction_cost_bps": 25.0,
@@ -49,13 +49,13 @@ class ThresholdConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
-    performance: Dict[str, Any] = field(default_factory=dict)
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    performance: dict[str, Any] = field(default_factory=dict)
     seed: int = 21
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": dict(self.multi_period),
             "portfolio": dict(self.portfolio),
@@ -65,7 +65,7 @@ class ThresholdConfig:
 
 @dataclass
 class ShortConfig:
-    multi_period: Dict[str, Any] = field(
+    multi_period: dict[str, Any] = field(
         default_factory=lambda: {
             "frequency": "M",
             "in_sample_len": 2,
@@ -74,13 +74,13 @@ class ShortConfig:
             "end": "2020-04",
         }
     )
-    data: Dict[str, Any] = field(
+    data: dict[str, Any] = field(
         default_factory=lambda: {
             "csv_path": "unused.csv",
             "risk_free_column": "RF",
         }
     )
-    portfolio: Dict[str, Any] = field(
+    portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
             "transaction_cost_bps": 0.0,
@@ -98,13 +98,13 @@ class ShortConfig:
             "indices_list": None,
         }
     )
-    vol_adjust: Dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
-    benchmarks: Dict[str, Any] = field(default_factory=dict)
-    run: Dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
-    performance: Dict[str, Any] = field(default_factory=dict)
+    vol_adjust: dict[str, Any] = field(default_factory=lambda: {"target_vol": 1.0})
+    benchmarks: dict[str, Any] = field(default_factory=dict)
+    run: dict[str, Any] = field(default_factory=lambda: {"monthly_cost": 0.0})
+    performance: dict[str, Any] = field(default_factory=dict)
     seed: int = 99
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "multi_period": dict(self.multi_period),
             "portfolio": dict(self.portfolio),
@@ -113,10 +113,10 @@ class ShortConfig:
 
 
 class SequencedWeighting:
-    def __init__(self, sequences: List[Dict[str, float]]) -> None:
+    def __init__(self, sequences: list[dict[str, float]]) -> None:
         self.sequences = sequences
         self.calls = 0
-        self.updates: List[Tuple[pd.Series, int]] = []
+        self.updates: list[tuple[pd.Series, int]] = []
 
     def weight(self, selected: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame:
         idx = min(self.calls, len(self.sequences) - 1)
@@ -134,7 +134,7 @@ class SequencedWeighting:
 
 
 class ScriptedSelector:
-    def __init__(self, order: List[str], top_n: int) -> None:
+    def __init__(self, order: list[str], top_n: int) -> None:
         self._order = order
         self.top_n = top_n
         self.rank_column = "Sharpe"
@@ -149,9 +149,7 @@ class StaticRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         self.calls = 0
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         self.calls += 1
         mapping = prev_weights.to_dict()
         if self.calls == 1:
@@ -171,9 +169,7 @@ class NoOpRebalancer:
     def __init__(self, *_cfg: Any) -> None:
         pass
 
-    def apply_triggers(
-        self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs
-    ) -> pd.Series:
+    def apply_triggers(self, prev_weights: pd.Series, _sf: pd.DataFrame, **kwargs) -> pd.Series:
         return prev_weights.astype(float)
 
 
@@ -204,7 +200,7 @@ def _build_base_frame() -> pd.DataFrame:
 def _patch_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     import trend_analysis.core.rank_selection as rank_sel
 
-    metric_maps: Dict[str, Dict[str, float]] = {
+    metric_maps: dict[str, dict[str, float]] = {
         "AnnualReturn": {
             "Alpha One": 0.11,
             "Alpha Two": 0.09,
@@ -339,7 +335,7 @@ def test_threshold_hold_event_log_and_replacements(
         ),
     )
 
-    analysis_calls: List[Dict[str, Any]] = []
+    analysis_calls: list[dict[str, Any]] = []
 
     def fake_run_analysis(
         _df: pd.DataFrame,
@@ -350,10 +346,10 @@ def test_threshold_hold_event_log_and_replacements(
         _target_vol: float,
         _monthly_cost: float,
         *,
-        custom_weights: Dict[str, float],
-        manual_funds: List[str],
+        custom_weights: dict[str, float],
+        manual_funds: list[str],
         **_kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         analysis_calls.append(
             {
                 "period": (in_start, out_end),
@@ -399,9 +395,7 @@ def test_threshold_hold_event_log_and_replacements(
     assert "Gamma One" not in manual_funds
 
     assert second_period["turnover"] == pytest.approx(0.25)
-    expected_cost = second_period["turnover"] * (
-        cfg.portfolio["transaction_cost_bps"] / 10000.0
-    )
+    expected_cost = second_period["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000.0)
     assert second_period["transaction_cost"] == pytest.approx(expected_cost)
 
 
@@ -442,7 +436,7 @@ def test_threshold_hold_weight_bounds_deficit(monkeypatch: pytest.MonkeyPatch) -
         lambda *_args, **_kwargs: ScriptedSelector(["Alpha One", "Beta One"], 2),
     )
 
-    analysis_calls: List[Dict[str, Any]] = []
+    analysis_calls: list[dict[str, Any]] = []
 
     def fake_run_analysis(
         _df: pd.DataFrame,
@@ -453,10 +447,10 @@ def test_threshold_hold_weight_bounds_deficit(monkeypatch: pytest.MonkeyPatch) -
         _target_vol: float,
         _monthly_cost: float,
         *,
-        custom_weights: Dict[str, float],
-        manual_funds: List[str],
+        custom_weights: dict[str, float],
+        manual_funds: list[str],
         **_kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         analysis_calls.append(
             {
                 "period": (in_start, out_end),

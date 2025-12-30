@@ -1,8 +1,9 @@
 """Disclaimer modal component for the Streamlit app."""
 
 import os
+from collections.abc import Callable
 from contextlib import nullcontext
-from typing import Any, Callable, ContextManager, cast
+from typing import Any, ContextManager, cast
 
 import streamlit as st
 

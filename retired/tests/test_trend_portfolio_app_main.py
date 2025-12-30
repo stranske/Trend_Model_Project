@@ -5,15 +5,13 @@ from __future__ import annotations
 import importlib
 import sys
 import types
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 
 
-def _install_streamlit_stub(
-    monkeypatch: pytest.MonkeyPatch, calls: list[Iterable[str]]
-) -> None:
+def _install_streamlit_stub(monkeypatch: pytest.MonkeyPatch, calls: list[Iterable[str]]) -> None:
     """Register a lightweight ``streamlit.web.cli`` stub in ``sys.modules``."""
 
     def fake_main() -> None:
@@ -49,9 +47,7 @@ def test_main_injects_src_path_and_invokes_streamlit(
     assert "Starting Streamlit app" in captured
     assert "health service" in captured
 
-    assert calls == [
-        ("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))
-    ]
+    assert calls == [("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))]
     assert sys.path[0] == str(src_path)
 
 
@@ -70,9 +66,7 @@ def test_main_avoids_duplicate_src_in_sys_path(monkeypatch: pytest.MonkeyPatch) 
     module.main()
 
     assert sys.path == original_path
-    assert calls == [
-        ("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))
-    ]
+    assert calls == [("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))]
 
 
 def test_module_entry_point_executes_main(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -88,6 +82,4 @@ def test_module_entry_point_executes_main(monkeypatch: pytest.MonkeyPatch) -> No
     runpy = importlib.import_module("runpy")
     runpy.run_module("trend_portfolio_app.__main__", run_name="__main__")
 
-    assert calls == [
-        ("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))
-    ]
+    assert calls == [("streamlit", "run", str(Path(module.__file__).resolve().parent / "app.py"))]
