@@ -72,8 +72,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     raise SystemExit(main())
