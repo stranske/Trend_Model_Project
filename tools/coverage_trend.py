@@ -242,7 +242,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--artifact-path", type=Path, required=True)
     parser.add_argument("--github-output", type=Path, default=None)
     parser.add_argument("--minimum", type=float, default=None)
-    parser.add_argument("--soft", action="store_true", help="Soft gate - report only, always exit 0")
+    parser.add_argument(
+        "--soft", action="store_true", help="Soft gate - report only, always exit 0"
+    )
     return parser.parse_args(argv)
 
 
