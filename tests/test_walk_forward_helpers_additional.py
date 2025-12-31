@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -50,6 +51,15 @@ def test_tie_breaker_is_deterministic_with_rng(simple_index: pd.DatetimeIndex) -
     )
 
 
+def test_tie_breaker_without_rng_returns_index_order(
+    simple_index: pd.DatetimeIndex,
+) -> None:
+    tie_series = wf._tie_breaker(simple_index, None)
+
+    assert tie_series.index.equals(simple_index)
+    assert tie_series.tolist() == list(range(len(simple_index)))
+
+
 def test_select_weights_applies_band_and_tie_breaking(
     simple_index: pd.DatetimeIndex,
 ) -> None:
@@ -69,6 +79,24 @@ def test_select_weights_applies_band_and_tie_breaking(
     assert pytest.approx(weights.sum()) == 1.0
     # With all scores equal, tie-breaker ordering should be deterministic with RNG
     assert list(weights.index) == ["b", "a"]
+
+
+def test_select_weights_falls_back_when_no_scores_above_band(
+    simple_index: pd.DatetimeIndex,
+) -> None:
+    data = pd.DataFrame(
+        {
+            "a": [1.0, 1.0, 1.0, 1.0, 1.0],
+            "b": [0.4, 0.4, 0.4, 0.4, 0.4],
+            "c": [0.2, 0.2, 0.2, 0.2, 0.2],
+        },
+        index=simple_index,
+    )
+    params = {"top_n": 2, "band": 2.0, "lookback": 3}
+
+    weights = wf._select_weights(data, params, None)
+
+    assert list(weights.index) == ["a", "b"]
 
 
 def test_compute_turnover_handles_union_of_indices() -> None:
@@ -100,6 +128,14 @@ def test_evaluate_parameter_grid_builds_records_and_summary() -> None:
     assert folds["fold"].iloc[0] == 1
 
 
+def test_evaluate_parameter_grid_rejects_empty_returns() -> None:
+    windows = wf.WindowConfig(train=2, test=1, step=1)
+    strategy = wf.StrategyConfig(grid={"lookback": [1]})
+
+    with pytest.raises(ValueError, match="returns DataFrame must not be empty"):
+        wf.evaluate_parameter_grid(pd.DataFrame(), windows, strategy)
+
+
 def test_json_default_serializes_known_types(simple_index: pd.DatetimeIndex) -> None:
     payload = {
         "float": np.float64(1.23),
@@ -120,3 +156,78 @@ def test_json_default_serializes_known_types(simple_index: pd.DatetimeIndex) -> 
 
     with pytest.raises(TypeError):
         wf._json_default(object())
+
+
+def test_json_default_handles_index_and_timedelta() -> None:
+    payload = {
+        "index": pd.Index(["x", "y"]),
+        "delta": pd.Timedelta(days=1),
+    }
+
+    encoded = json.dumps(payload, default=wf._json_default)
+
+    parsed = json.loads(encoded)
+    assert parsed == {"index": ["x", "y"], "delta": "P1DT0H0M0S"}
+
+
+def test_write_jsonl_emits_lines(tmp_path: Path) -> None:
+    path = tmp_path / "out.jsonl"
+    records = [{"value": np.float64(1.5)}, {"value": np.float64(2.0)}]
+
+    wf._write_jsonl(path, records)
+
+    lines = path.read_text(encoding="utf-8").strip().splitlines()
+    assert [json.loads(line) for line in lines] == [{"value": 1.5}, {"value": 2.0}]
+
+
+def test_infer_periods_per_year_handles_non_positive_diffs() -> None:
+    idx = pd.DatetimeIndex([pd.Timestamp("2020-01-01")] * 2)
+
+    assert wf.infer_periods_per_year(idx) == 1
+
+
+def test_load_returns_raises_for_missing_columns(tmp_path: Path) -> None:
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text("Date,A,B\n2020-01-01,0.1,0.2", encoding="utf-8")
+    cfg = wf.DataConfig(csv_path=csv_path, date_column="Date", columns=["C"])
+
+    with pytest.raises(ValueError, match="Missing columns in CSV"):
+        wf.load_returns(cfg)
+
+
+def test_run_from_config_emits_expected_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_path = tmp_path / "returns.csv"
+    data_path.write_text(
+        "Date,A,B\n2020-01-31,0.01,0.02\n2020-02-29,0.03,0.01\n2020-03-31,0.0,0.01\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "wf.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "data:",
+                f"  csv_path: {data_path.name}",
+                "walk_forward:",
+                "  train: 2",
+                "  test: 1",
+                "  step: 1",
+                "strategy:",
+                "  grid:",
+                "    lookback: [1]",
+                "run:",
+                "  name: smoke",
+                "  output_dir: outputs",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(wf, "_maybe_render_heatmap", lambda *_args, **_kwargs: None)
+
+    run_dir = wf.run_from_config(config_path)
+
+    assert run_dir.is_dir()
+    assert (run_dir / "folds.csv").is_file()
+    assert (run_dir / "summary.csv").is_file()
+    assert (run_dir / "summary.jsonl").is_file()
