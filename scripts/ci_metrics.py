@@ -20,9 +20,10 @@ import datetime as _dt
 import json
 import os
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 from xml.etree import ElementTree as ET
 
 _DEFAULT_JUNIT = "pytest-junit.xml"
@@ -203,7 +204,12 @@ def build_metrics(
     slow_tests = _collect_slow_tests(cases, top_n=top_n, min_seconds=min_seconds)
 
     payload: dict[str, Any] = {
-        "generated_at": _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        "generated_at": (
+            _dt.datetime.now(_dt.UTC)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        ),
         "junit_path": str(junit_path),
         "summary": summary,
         "failures": failures,
@@ -238,7 +244,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised via tests importing main
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
     sys.exit(main())

@@ -173,6 +173,3 @@ jobs:
               echo "Updated issue #$EXISTING"
             else
               gh issue create --title "[coverage] baseline breach" --body-file /tmp/coverage_issue.md --label "coverage"
-              echo "Created new issue"
-            fi
-          fi

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -11,11 +11,12 @@ from scripts import ci_metrics as cm
 
 
 class _FrozenDatetime(datetime):
-    """datetime subclass with deterministic ``utcnow``."""
+    """datetime subclass with deterministic ``now`` for timezone-aware usage."""
 
     @classmethod
-    def utcnow(cls) -> datetime:  # type: ignore[override]
-        return datetime(2024, 8, 22, 17, 45, 0)
+    def now(cls, tz: object = None) -> datetime:  # type: ignore[override]
+        # Return timezone-aware UTC datetime when tz is provided
+        return datetime(2024, 8, 22, 17, 45, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture
