@@ -1218,6 +1218,10 @@ def run_single_test(
         baseline_state["weighting_scheme"] = "risk_parity"
         test_state["weighting_scheme"] = "risk_parity"
 
+    # random_seed test needs random selection mode to demonstrate effect
+    if setting.name == "random_seed":
+        baseline_state["inclusion_approach"] = "random"
+        test_state["inclusion_approach"] = "random"
     try:
         if verbose:
             print(f"  Running baseline: {setting.name}={setting.baseline_value}")
