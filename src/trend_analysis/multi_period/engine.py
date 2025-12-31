@@ -2913,6 +2913,13 @@ def run(
             str(k): float(v) * 100.0 for k, v in final_w.items()
         }
 
+        # Construct previous weights dict for pipeline (turnover tracking)
+        prev_weights_for_pipeline: dict[str, float] | None = None
+        if prev_final_weights is not None:
+            prev_weights_for_pipeline = {
+                str(k): float(v) * 100.0 for k, v in prev_final_weights.items()
+            }
+
         res = _call_pipeline_with_diag(
             df,
             pt.in_start[:7],
@@ -2935,6 +2942,13 @@ def run(
             constraints=cfg.portfolio.get("constraints"),
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+            # Pass turnover parameters for pipeline-level enforcement.
+            # The pipeline applies vol-scaling after which turnover may exceed
+            # the threshold-hold logic's pre-scaled cap; passing these ensures
+            # the final weights respect the turnover constraint.
+            previous_weights=prev_weights_for_pipeline,
+            max_turnover=max_turnover_cap if max_turnover_cap < 1.0 else None,
+            lambda_tc=lambda_tc if lambda_tc > 0 else None,
         )
         payload = res.value
         diag = res.diagnostic
