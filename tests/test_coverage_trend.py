@@ -51,13 +51,25 @@ def test_get_hotspots_returns_sorted_files() -> None:
     data = {
         "files": {
             "high.py": {
-                "summary": {"percent_covered": 90.0, "missing_lines": 5, "covered_lines": 45}
+                "summary": {
+                    "percent_covered": 90.0,
+                    "missing_lines": 5,
+                    "covered_lines": 45,
+                }
             },
             "low.py": {
-                "summary": {"percent_covered": 30.0, "missing_lines": 35, "covered_lines": 15}
+                "summary": {
+                    "percent_covered": 30.0,
+                    "missing_lines": 35,
+                    "covered_lines": 15,
+                }
             },
             "mid.py": {
-                "summary": {"percent_covered": 60.0, "missing_lines": 20, "covered_lines": 30}
+                "summary": {
+                    "percent_covered": 60.0,
+                    "missing_lines": 20,
+                    "covered_lines": 30,
+                }
             },
         }
     }
@@ -74,9 +86,27 @@ def test_get_hotspots_limits_results() -> None:
     """Test _get_hotspots respects limit parameter."""
     data = {
         "files": {
-            "a.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9, "covered_lines": 1}},
-            "b.py": {"summary": {"percent_covered": 20.0, "missing_lines": 8, "covered_lines": 2}},
-            "c.py": {"summary": {"percent_covered": 30.0, "missing_lines": 7, "covered_lines": 3}},
+            "a.py": {
+                "summary": {
+                    "percent_covered": 10.0,
+                    "missing_lines": 9,
+                    "covered_lines": 1,
+                }
+            },
+            "b.py": {
+                "summary": {
+                    "percent_covered": 20.0,
+                    "missing_lines": 8,
+                    "covered_lines": 2,
+                }
+            },
+            "c.py": {
+                "summary": {
+                    "percent_covered": 30.0,
+                    "missing_lines": 7,
+                    "covered_lines": 3,
+                }
+            },
         }
     }
     hotspots, _ = coverage_trend._get_hotspots(data, limit=2)
@@ -106,27 +136,39 @@ def test_main_with_coverage_json(tmp_path: Path) -> None:
     """Test main function processes coverage.json correctly."""
     coverage_json = tmp_path / "coverage.json"
     coverage_json.write_text(
-        json.dumps({
-            "totals": {"percent_covered": 85.0},
-            "files": {
-                "src/app.py": {
-                    "summary": {"percent_covered": 90.0, "missing_lines": 5, "covered_lines": 45}
-                }
-            },
-        }),
+        json.dumps(
+            {
+                "totals": {"percent_covered": 85.0},
+                "files": {
+                    "src/app.py": {
+                        "summary": {
+                            "percent_covered": 90.0,
+                            "missing_lines": 5,
+                            "covered_lines": 45,
+                        }
+                    }
+                },
+            }
+        ),
         encoding="utf-8",
     )
-    
+
     artifact = tmp_path / "artifact.json"
     summary = tmp_path / "summary.md"
-    
-    exit_code = coverage_trend.main([
-        "--coverage-json", str(coverage_json),
-        "--artifact-path", str(artifact),
-        "--summary-path", str(summary),
-        "--minimum", "80",
-    ])
-    
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--artifact-path",
+            str(artifact),
+            "--summary-path",
+            str(summary),
+            "--minimum",
+            "80",
+        ]
+    )
+
     assert exit_code == 0
     assert artifact.exists()
     artifact_data = json.loads(artifact.read_text())
@@ -141,12 +183,16 @@ def test_main_fails_below_minimum(tmp_path: Path) -> None:
         json.dumps({"totals": {"percent_covered": 50.0}, "files": {}}),
         encoding="utf-8",
     )
-    
-    exit_code = coverage_trend.main([
-        "--coverage-json", str(coverage_json),
-        "--minimum", "80",
-    ])
-    
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--minimum",
+            "80",
+        ]
+    )
+
     assert exit_code == 1
 
 
@@ -157,11 +203,15 @@ def test_main_soft_mode_always_passes(tmp_path: Path) -> None:
         json.dumps({"totals": {"percent_covered": 50.0}, "files": {}}),
         encoding="utf-8",
     )
-    
-    exit_code = coverage_trend.main([
-        "--coverage-json", str(coverage_json),
-        "--minimum", "80",
-        "--soft",
-    ])
-    
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--minimum",
+            "80",
+            "--soft",
+        ]
+    )
+
     assert exit_code == 0
