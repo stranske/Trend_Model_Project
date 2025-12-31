@@ -1,186 +1,167 @@
+"""Tests for coverage_trend module.
+
+Tests the utilities for computing coverage trend information for CI workflows.
+"""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
-
-from tools.coverage_trend import (
-    DEFAULT_WARN_DROP,
-    Baseline,
-    TrendResult,
-    dump_artifact,
-    evaluate_trend,
-    load_baseline,
-    main,
-    read_coverage,
-    write_github_output,
-)
+from tools import coverage_trend
 
 
-def write_file(path: Path, content: str) -> None:
-    path.write_text(content, encoding="utf-8")
+def test_load_json_returns_empty_dict_on_missing_file(tmp_path: Path) -> None:
+    """Test _load_json returns empty dict when file doesn't exist."""
+    result = coverage_trend._load_json(tmp_path / "missing.json")
+    assert result == {}
 
 
-def test_read_coverage_prefers_xml(tmp_path: Path) -> None:
-    xml = tmp_path / "coverage.xml"
-    write_file(
-        xml,
-        """<?xml version='1.0'?><coverage line-rate='0.875'></coverage>""",
-    )
-    json_path = tmp_path / "coverage.json"
-    write_file(
-        json_path, json.dumps({"totals": {"covered_lines": 30, "num_statements": 40}})
-    )
-    current = read_coverage(xml, json_path)
-    assert current == pytest.approx(87.5, rel=1e-4)
+def test_load_json_returns_empty_dict_on_invalid_json(tmp_path: Path) -> None:
+    """Test _load_json returns empty dict on invalid JSON."""
+    bad_file = tmp_path / "bad.json"
+    bad_file.write_text("not valid json {", encoding="utf-8")
+    result = coverage_trend._load_json(bad_file)
+    assert result == {}
 
 
-def test_read_coverage_falls_back_to_json(tmp_path: Path) -> None:
-    xml = tmp_path / "coverage.xml"
-    json_path = tmp_path / "coverage.json"
-    write_file(
-        json_path, json.dumps({"totals": {"covered_lines": 45, "num_statements": 50}})
-    )
-    current = read_coverage(xml, json_path)
-    assert current == pytest.approx(90.0, rel=1e-4)
+def test_load_json_returns_data_from_valid_file(tmp_path: Path) -> None:
+    """Test _load_json returns data from valid JSON file."""
+    good_file = tmp_path / "good.json"
+    good_file.write_text('{"key": "value"}', encoding="utf-8")
+    result = coverage_trend._load_json(good_file)
+    assert result == {"key": "value"}
 
 
-def test_load_baseline_missing_file_uses_defaults(tmp_path: Path) -> None:
-    baseline_path = tmp_path / "missing.json"
-    baseline = load_baseline(baseline_path)
-    assert baseline.line is None
-    assert baseline.warn_drop == pytest.approx(1.0)
+def test_extract_coverage_percent_from_totals() -> None:
+    """Test _extract_coverage_percent extracts from totals."""
+    data = {"totals": {"percent_covered": 85.5}}
+    result = coverage_trend._extract_coverage_percent(data)
+    assert result == 85.5
 
 
-def test_load_baseline_negative_warn_drop_resets_to_default(tmp_path: Path) -> None:
-    baseline_path = tmp_path / "baseline.json"
-    write_file(
-        baseline_path,
-        json.dumps({"line": 88.0, "warn_drop": -2}),
-    )
-    baseline = load_baseline(baseline_path)
-    assert baseline.line == pytest.approx(88.0)
-    assert baseline.warn_drop == pytest.approx(DEFAULT_WARN_DROP)
+def test_extract_coverage_percent_returns_zero_when_missing() -> None:
+    """Test _extract_coverage_percent returns 0 when totals missing."""
+    result = coverage_trend._extract_coverage_percent({})
+    assert result == 0.0
 
 
-def test_evaluate_trend_warns_on_drop() -> None:
-    baseline = Baseline(line=92.0, warn_drop=0.5)
-    result = evaluate_trend(90.9, baseline)
-    assert result.status == "warn"
-    assert result.delta == pytest.approx(-1.1, rel=1e-3)
-    comment = result.comment_body()
-    assert "Coverage drop alert" in comment
-
-
-def test_summary_lines_include_warning_details() -> None:
-    baseline = Baseline(line=91.0, warn_drop=1.0)
-    result = evaluate_trend(89.4, baseline, minimum=85.0)
-    summary = result.summary_lines()
-    assert summary[0] == "### Coverage Trend"
-    assert "- Trend: 91.00% → 89.40% (-1.60 pts)" in summary
-    assert "- Current: 89.40%" in summary
-    assert "- Baseline: 91.00%" in summary
-    assert "- Change: -1.60 pts" in summary
-    assert "- Warning: drop exceeds 1.00-pt soft limit" in summary
-    assert "- Soft drop limit: 1.00 pts" in summary
-    assert "- Required minimum: 85.00%" in summary
-
-
-def test_evaluate_trend_ok_when_within_tolerance() -> None:
-    baseline = Baseline(line=92.0, warn_drop=2.0)
-    result = evaluate_trend(91.0, baseline)
-    assert result.status == "ok"
-    assert result.delta == pytest.approx(-1.0, rel=1e-3)
-    assert result.comment_body() == ""
-
-
-def test_dump_artifact_and_outputs(tmp_path: Path) -> None:
-    result = TrendResult(
-        current=88.0,
-        baseline=90.0,
-        warn_drop=1.0,
-        delta=-2.0,
-        status="warn",
-        minimum=85.0,
-    )
-    artifact_path = tmp_path / "artifact" / "coverage.json"
-    dump_artifact(artifact_path, result)
-    data = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert data == {
-        "current": 88.0,
-        "baseline": 90.0,
-        "delta": -2.0,
-        "warn_drop": 1.0,
-        "minimum": 85.0,
-        "status": "warn",
+def test_get_hotspots_returns_sorted_files() -> None:
+    """Test _get_hotspots returns files sorted by coverage ascending."""
+    data = {
+        "files": {
+            "high.py": {
+                "summary": {"percent_covered": 90.0, "missing_lines": 5, "covered_lines": 45}
+            },
+            "low.py": {
+                "summary": {"percent_covered": 30.0, "missing_lines": 35, "covered_lines": 15}
+            },
+            "mid.py": {
+                "summary": {"percent_covered": 60.0, "missing_lines": 20, "covered_lines": 30}
+            },
+        }
     }
-    output_path = tmp_path / "output.txt"
-    write_github_output(output_path, result)
-    output = output_path.read_text(encoding="utf-8").strip().splitlines()
-    assert "status=warn" in output
-    assert "minimum=85.00" in output
-    assert any(line.startswith("comment<<EOF") for line in output)
-    comment_index = output.index("comment<<EOF") + 1
-    comment_lines = output[comment_index : comment_index + 6]
-    assert any(line.strip() == "Hard minimum: 85.00%" for line in comment_lines)
+    hotspots, low = coverage_trend._get_hotspots(data, limit=10, low_threshold=50.0)
+    assert len(hotspots) == 3
+    assert hotspots[0]["file"] == "low.py"
+    assert hotspots[1]["file"] == "mid.py"
+    assert hotspots[2]["file"] == "high.py"
+    assert len(low) == 1
+    assert low[0]["file"] == "low.py"
 
 
-def test_main_generates_summary_and_artifacts(tmp_path: Path) -> None:
-    coverage_xml = tmp_path / "coverage.xml"
-    write_file(
-        coverage_xml,
-        """<?xml version='1.0'?><coverage line-rate='0.90'></coverage>""",
+def test_get_hotspots_limits_results() -> None:
+    """Test _get_hotspots respects limit parameter."""
+    data = {
+        "files": {
+            "a.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9, "covered_lines": 1}},
+            "b.py": {"summary": {"percent_covered": 20.0, "missing_lines": 8, "covered_lines": 2}},
+            "c.py": {"summary": {"percent_covered": 30.0, "missing_lines": 7, "covered_lines": 3}},
+        }
+    }
+    hotspots, _ = coverage_trend._get_hotspots(data, limit=2)
+    assert len(hotspots) == 2
+
+
+def test_format_hotspot_table_returns_empty_for_no_files() -> None:
+    """Test _format_hotspot_table returns empty string for empty list."""
+    result = coverage_trend._format_hotspot_table([], "Test Title")
+    assert result == ""
+
+
+def test_format_hotspot_table_creates_markdown() -> None:
+    """Test _format_hotspot_table creates proper markdown table."""
+    files = [
+        {"file": "low.py", "coverage": 30.5, "missing_lines": 35},
+        {"file": "mid.py", "coverage": 60.0, "missing_lines": 20},
+    ]
+    result = coverage_trend._format_hotspot_table(files, "Coverage Hotspots")
+    assert "### Coverage Hotspots" in result
+    assert "| File | Coverage | Missing |" in result
+    assert "`low.py`" in result
+    assert "30.5%" in result
+
+
+def test_main_with_coverage_json(tmp_path: Path) -> None:
+    """Test main function processes coverage.json correctly."""
+    coverage_json = tmp_path / "coverage.json"
+    coverage_json.write_text(
+        json.dumps({
+            "totals": {"percent_covered": 85.0},
+            "files": {
+                "src/app.py": {
+                    "summary": {"percent_covered": 90.0, "missing_lines": 5, "covered_lines": 45}
+                }
+            },
+        }),
+        encoding="utf-8",
     )
-    baseline_path = tmp_path / "baseline.json"
-    write_file(baseline_path, json.dumps({"line": 90.0, "warn_drop": 1.5}))
-    summary_path = tmp_path / "summary.md"
-    job_summary_path = tmp_path / "job_summary.md"
-    artifact_path = tmp_path / "artifact.json"
-    output_path = tmp_path / "github.txt"
-
-    exit_code = main(
-        [
-            "--coverage-xml",
-            str(coverage_xml),
-            "--coverage-json",
-            str(tmp_path / "coverage.json"),
-            "--baseline",
-            str(baseline_path),
-            "--summary-path",
-            str(summary_path),
-            "--job-summary",
-            str(job_summary_path),
-            "--artifact-path",
-            str(artifact_path),
-            "--github-output",
-            str(output_path),
-            "--minimum",
-            "85",
-        ]
-    )
-
+    
+    artifact = tmp_path / "artifact.json"
+    summary = tmp_path / "summary.md"
+    
+    exit_code = coverage_trend.main([
+        "--coverage-json", str(coverage_json),
+        "--artifact-path", str(artifact),
+        "--summary-path", str(summary),
+        "--minimum", "80",
+    ])
+    
     assert exit_code == 0
-    summary = summary_path.read_text(encoding="utf-8").strip().splitlines()
-    assert summary[0] == "### Coverage Trend"
-    assert any(
-        line.startswith("- Trend: 90.00% → 90.00% (+0.00 pts)") for line in summary
+    assert artifact.exists()
+    artifact_data = json.loads(artifact.read_text())
+    assert artifact_data["current"] == 85.0
+    assert artifact_data["passes_minimum"] is True
+
+
+def test_main_fails_below_minimum(tmp_path: Path) -> None:
+    """Test main returns non-zero when coverage below minimum."""
+    coverage_json = tmp_path / "coverage.json"
+    coverage_json.write_text(
+        json.dumps({"totals": {"percent_covered": 50.0}, "files": {}}),
+        encoding="utf-8",
     )
-    assert any("Current: 90.00%" in line for line in summary)
-    assert any("Baseline: 90.00%" in line for line in summary)
-    assert any("Soft drop limit: 1.50 pts" in line for line in summary)
-    assert any("Required minimum: 85.00%" in line for line in summary)
+    
+    exit_code = coverage_trend.main([
+        "--coverage-json", str(coverage_json),
+        "--minimum", "80",
+    ])
+    
+    assert exit_code == 1
 
-    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert artifact["status"] == "ok"
-    assert artifact["delta"] == pytest.approx(0.0, abs=1e-9)
-    assert artifact["minimum"] == pytest.approx(85.0)
 
-    github_output = output_path.read_text(encoding="utf-8").strip().splitlines()
-    assert "status=ok" in github_output
-    assert "minimum=85.00" in github_output
-    assert all(not line.startswith("comment<<EOF") for line in github_output)
-
-    job_summary = job_summary_path.read_text(encoding="utf-8").strip().splitlines()
-    assert job_summary[0] == "### Coverage Trend"
-    assert any("Trend: 90.00% → 90.00%" in line for line in job_summary)
+def test_main_soft_mode_always_passes(tmp_path: Path) -> None:
+    """Test main with --soft flag returns 0 even below minimum."""
+    coverage_json = tmp_path / "coverage.json"
+    coverage_json.write_text(
+        json.dumps({"totals": {"percent_covered": 50.0}, "files": {}}),
+        encoding="utf-8",
+    )
+    
+    exit_code = coverage_trend.main([
+        "--coverage-json", str(coverage_json),
+        "--minimum", "80",
+        "--soft",
+    ])
+    
+    assert exit_code == 0
