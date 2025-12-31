@@ -18,6 +18,7 @@ class _FrozenDatetime(datetime):
         # Return timezone-aware UTC datetime when tz is provided
         return datetime(2024, 8, 22, 17, 45, 0, tzinfo=timezone.utc)
 
+
 @pytest.fixture
 def junit_report(tmp_path: Path) -> Path:
     root = ET.Element("testsuite")
