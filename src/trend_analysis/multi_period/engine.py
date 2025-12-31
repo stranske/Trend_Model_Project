@@ -2092,7 +2092,10 @@ def run(
 
                 # If dedupe reduced us below the target size, fill from the remaining
                 # score-frame candidates, best-first by zscore.
-                if len(holdings) < desired_seed:
+                # Note: For top_pct mode, we respect the percentage selection and don't
+                # automatically fill up to target_n, as the intent is to select exactly
+                # that percentage of the universe.
+                if len(holdings) < desired_seed and inclusion_approach != "top_pct":
                     candidates = [c for c in sf.index if c not in holdings]
                     add_from = (
                         sf.loc[candidates].sort_values("zscore", ascending=False).index

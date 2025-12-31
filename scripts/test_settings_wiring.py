@@ -1222,6 +1222,16 @@ def run_single_test(
     if setting.name == "random_seed":
         baseline_state["inclusion_approach"] = "random"
         test_state["inclusion_approach"] = "random"
+
+    # rank_pct test needs top_pct selection mode
+    if setting.name == "rank_pct":
+        baseline_state["inclusion_approach"] = "top_pct"
+        test_state["inclusion_approach"] = "top_pct"
+
+    # shrinkage tests need robust_mv weighting where shrinkage is applied
+    if setting.name in ["shrinkage_enabled", "shrinkage_method"]:
+        baseline_state["weighting_scheme"] = "robust_mv"
+        test_state["weighting_scheme"] = "robust_mv"
     try:
         if verbose:
             print(f"  Running baseline: {setting.name}={setting.baseline_value}")
