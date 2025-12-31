@@ -125,6 +125,11 @@ def test_coerce_path_resolves_relative_and_missing(tmp_path, monkeypatch):
         loaders._coerce_path("./missing.csv", field="data.csv_path")
 
 
+def test_coerce_path_rejects_unexpected_type():
+    with pytest.raises(KeyError):
+        loaders._coerce_path(123, field="data.csv_path")
+
+
 def test_load_membership_normalises_and_sorts(tmp_path):
     membership = tmp_path / "universe.csv"
     membership.write_text(
@@ -137,6 +142,37 @@ def test_load_membership_normalises_and_sorts(tmp_path):
     assert list(result.columns) == ["fund", "effective_date", "end_date"]
     assert result["fund"].tolist() == ["A", "B"]
     assert pd.isna(result.loc[1, "end_date"])
+
+
+def test_load_membership_fills_missing_end_date_column(tmp_path):
+    membership = tmp_path / "universe.csv"
+    membership.write_text("fund,effective_date\nA,2024-01-01\n")
+
+    cfg = DummyConfig(data={"universe_membership_path": membership})
+    result = loaders.load_membership(cfg)
+
+    assert list(result.columns) == ["fund", "effective_date", "end_date"]
+    assert pd.isna(result.loc[0, "end_date"])
+
+
+def test_load_membership_rejects_invalid_effective_dates(tmp_path):
+    membership = tmp_path / "universe.csv"
+    membership.write_text("fund,effective_date\nA,not-a-date\n")
+
+    cfg = DummyConfig(data={"universe_membership_path": membership})
+    with pytest.raises(ValueError):
+        loaders.load_membership(cfg)
+
+
+def test_load_membership_empty_file_returns_empty(tmp_path):
+    membership = tmp_path / "universe.csv"
+    membership.write_text("fund,effective_date,end_date\n")
+
+    cfg = DummyConfig(data={"universe_membership_path": membership})
+    result = loaders.load_membership(cfg)
+
+    assert result.empty
+    assert list(result.columns) == ["fund", "effective_date", "end_date"]
 
 
 def test_load_membership_missing_required_columns_raises(tmp_path):
@@ -192,9 +228,51 @@ def test_load_benchmarks_returns_empty_when_no_mapping():
     assert list(empty.columns) == ["Date"]
 
 
+def test_load_benchmarks_auto_detects_indices_logs_info(caplog):
+    import logging
+
+    prices = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2024-01-01"]),
+            "SPX": [1.0],
+            "Funds": [2.0],
+        }
+    )
+
+    cfg = DummyConfig(benchmarks={})
+
+    with caplog.at_level(logging.INFO):
+        frame = loaders.load_benchmarks(cfg, prices)
+
+    assert frame.empty
+    assert "Auto-detected potential benchmark columns" in caplog.text
+
+
 def test_load_benchmarks_requires_date_column():
     prices = pd.DataFrame({"AAA": [1.0]})
     cfg = DummyConfig(benchmarks={"Bench1": "AAA"})
 
     with pytest.raises(KeyError):
         loaders.load_benchmarks(cfg, prices)
+
+
+def test_load_prices_raises_when_loader_returns_none(monkeypatch, tmp_path):
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("Date,AAA\n2024-01-01,1.0\n")
+
+    def fake_load_csv(path, *, errors, missing_policy, missing_limit):
+        return None
+
+    monkeypatch.setattr(loaders, "load_csv", fake_load_csv)
+
+    cfg = DummyConfig(data={"csv_path": str(csv_path)})
+    with pytest.raises(FileNotFoundError):
+        loaders.load_prices(cfg)
+
+
+def test_detect_index_columns_matches_hints():
+    columns = ["Fund_A", "spx_total_return", "MSCI World", "Other"]
+    detected = loaders.detect_index_columns(columns)
+
+    assert "spx_total_return" in detected
+    assert "MSCI World" in detected
