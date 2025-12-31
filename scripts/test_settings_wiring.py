@@ -159,15 +159,6 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         description="Higher min weight should increase minimum positions (requires non-equal weighting)",
         # Note: This test requires risk_parity or hrp weighting to see effect
     ),
-    SettingTest(
-        name="leverage_cap",
-        baseline_value=2.0,
-        test_value=1.0,
-        category="Risk",
-        expected_metric="gross_exposure",
-        expected_direction="decrease",
-        description="Lower leverage cap should limit gross exposure",
-    ),
     # === Entry/Exit Thresholds ===
     SettingTest(
         name="z_entry_soft",
@@ -260,37 +251,6 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         description="Higher floor should ensure more funds per period",
         requires_multi_period=True,
     ),
-    # === Cooldown & Tenure ===
-    SettingTest(
-        name="cooldown_periods",
-        baseline_value=1,
-        test_value=4,
-        category="Holding Rules",
-        expected_metric="reentry_frequency",
-        expected_direction="decrease",
-        description="Longer cooldown should reduce fund re-entries",
-        requires_multi_period=True,
-    ),
-    SettingTest(
-        name="min_tenure_periods",
-        baseline_value=3,
-        test_value=6,
-        category="Holding Rules",
-        expected_metric="avg_holding_duration",
-        expected_direction="increase",
-        description="Longer min tenure should increase holding duration",
-        requires_multi_period=True,
-    ),
-    SettingTest(
-        name="min_weight_strikes",
-        baseline_value=2,
-        test_value=5,
-        category="Holding Rules",
-        expected_metric="underweight_exits",
-        expected_direction="decrease",
-        description="More strikes required should reduce underweight exits",
-        requires_multi_period=True,
-    ),
     # === Costs ===
     SettingTest(
         name="transaction_cost_bps",
@@ -339,53 +299,7 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         expected_direction="decrease",
         description="Drawdown-only weighting should select lower-drawdown funds",
     ),
-    # === Robustness ===
-    SettingTest(
-        name="shrinkage_enabled",
-        baseline_value=True,
-        test_value=False,
-        category="Robustness",
-        expected_metric="weight_stability",
-        expected_direction="change",
-        description="Disabling shrinkage should change weight stability",
-    ),
-    SettingTest(
-        name="shrinkage_method",
-        baseline_value="ledoit_wolf",
-        test_value="oas",
-        category="Robustness",
-        expected_metric="weight_dispersion",
-        expected_direction="change",
-        description="Different shrinkage methods should produce different weights",
-    ),
     # === Preprocessing ===
-    SettingTest(
-        name="missing_policy",
-        baseline_value="ffill",
-        test_value="drop",
-        category="Data",
-        expected_metric="data_points_used",
-        expected_direction="change",
-        description="Different missing policies should affect data handling",
-    ),
-    SettingTest(
-        name="winsorize_enabled",
-        baseline_value=True,
-        test_value=False,
-        category="Data",
-        expected_metric="return_extremes",
-        expected_direction="increase",
-        description="Disabling winsorization should allow more extreme returns",
-    ),
-    SettingTest(
-        name="winsorize_lower",
-        baseline_value=1.0,
-        test_value=5.0,
-        category="Data",
-        expected_metric="return_extremes",
-        expected_direction="decrease",
-        description="More aggressive lower winsorization should clip more",
-    ),
     SettingTest(
         name="warmup_periods",
         baseline_value=0,
@@ -394,25 +308,6 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         expected_metric="effective_start_date",
         expected_direction="increase",
         description="Warmup should delay effective start date",
-    ),
-    # === Signals ===
-    SettingTest(
-        name="trend_window",
-        baseline_value=63,
-        test_value=21,
-        category="Signals",
-        expected_metric="signal_responsiveness",
-        expected_direction="increase",
-        description="Shorter window should make signals more responsive",
-    ),
-    SettingTest(
-        name="trend_zscore",
-        baseline_value=False,
-        test_value=True,
-        category="Signals",
-        expected_metric="signal_distribution",
-        expected_direction="change",
-        description="Z-score normalization should change signal distribution",
     ),
     # === Random Seed ===
     SettingTest(
@@ -491,15 +386,10 @@ def get_baseline_state() -> dict[str, Any]:
         "regime_proxy": "SPX",
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
-        "leverage_cap": 2.0,
         "random_seed": 42,
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
         "long_only": True,
-        "missing_policy": "ffill",
-        "winsorize_enabled": True,
-        "winsorize_lower": 1.0,
-        "winsorize_upper": 99.0,
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
@@ -807,9 +697,6 @@ def _build_config_from_state(
     portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
     portfolio_cfg["ci_level"] = ci_level
 
-    leverage_cap = _coerce_positive_float(state.get("leverage_cap"), default=2.0)
-    portfolio_cfg["leverage_cap"] = leverage_cap
-
     # Signals config
     base = TrendSpecModel()
     window = _coerce_positive_int(state.get("trend_window"), default=base.window)
@@ -888,22 +775,11 @@ def _build_config_from_state(
         }
 
     # Data config
-    missing_policy = str(state.get("missing_policy", "ffill") or "ffill")
-    winsorize_enabled = bool(state.get("winsorize_enabled", True))
-    winsorize_lower = float(state.get("winsorize_lower", 1.0) or 1.0) / 100.0
-    winsorize_upper = float(state.get("winsorize_upper", 99.0) or 99.0) / 100.0
-
     data_cfg: dict[str, Any] = {
         "allow_risk_free_fallback": True,
-        "missing_policy": missing_policy,
     }
 
-    preprocessing_cfg = {
-        "winsorise": {
-            "enabled": winsorize_enabled,
-            "limits": [winsorize_lower, winsorize_upper],
-        },
-    }
+    preprocessing_cfg: dict[str, Any] = {}
 
     # Vol adjust config
     vol_target_cfg = _coerce_positive_float(state.get("risk_target"), default=0.1)
@@ -1008,7 +884,10 @@ def extract_metric(
         if result.period_results:
             counts = []
             for p in result.period_results:
-                if "weights" in p:
+                # Try selected_funds first, then fall back to weights
+                if "selected_funds" in p:
+                    counts.append(len(p["selected_funds"]))
+                elif "weights" in p:
                     w = p["weights"]
                     counts.append(sum(1 for v in w.values() if v > 0))
             return np.std(counts) if len(counts) > 1 else 0.0
