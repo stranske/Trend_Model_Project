@@ -133,12 +133,12 @@ SETTINGS_TO_TEST: list[SettingTest] = [
     ),
     SettingTest(
         name="vol_floor",
-        baseline_value=0.015,
-        test_value=0.05,
+        baseline_value=0.05,
+        test_value=0.15,  # 15% floor will affect funds with vol ~10%
         category="Risk",
         expected_metric="scaling_factor",
-        expected_direction="change",
-        description="Higher vol floor should change scaling behavior",
+        expected_direction="decrease",  # Higher floor -> lower scale factors
+        description="Higher vol floor should reduce scaling factors for low-vol assets",
     ),
     SettingTest(
         name="max_weight",
@@ -151,12 +151,13 @@ SETTINGS_TO_TEST: list[SettingTest] = [
     ),
     SettingTest(
         name="min_weight",
-        baseline_value=0.05,
+        baseline_value=0.03,
         test_value=0.08,
         category="Constraints",
         expected_metric="min_position_weight",
         expected_direction="increase",
-        description="Higher min weight should increase minimum positions",
+        description="Higher min weight should increase minimum positions (requires non-equal weighting)",
+        # Note: This test requires risk_parity or hrp weighting to see effect
     ),
     SettingTest(
         name="leverage_cap",
@@ -1040,8 +1041,33 @@ def extract_metric(
         return 0.0
 
     if metric_name == "portfolio_volatility":
-        if result.metrics is not None and "Volatility" in result.metrics.columns:
-            return float(result.metrics["Volatility"].iloc[0])
+        # Try to get from out_user_stats in period_results first (most accurate)
+        if result.period_results:
+            vols = []
+            for p in result.period_results:
+                out_stats = p.get("out_user_stats")
+                if out_stats and hasattr(out_stats, "vol"):
+                    vols.append(float(out_stats.vol))
+            if vols:
+                return float(np.mean(vols))
+        # Fallback to metrics DataFrame
+        if result.metrics is not None:
+            for col in ["Volatility", "vol", "Vol"]:
+                if col in result.metrics.columns:
+                    return float(result.metrics[col].iloc[0])
+        return 0.0
+
+    if metric_name == "scaling_factor":
+        # Extract average scale factor from risk_diagnostics
+        if result.period_results:
+            scale_factors = []
+            for p in result.period_results:
+                rd = p.get("risk_diagnostics", {})
+                sf = rd.get("scale_factors")
+                if sf is not None:
+                    scale_factors.append(float(sf.mean()))
+            if scale_factors:
+                return float(np.mean(scale_factors))
         return 0.0
 
     if metric_name == "max_position_weight":
@@ -1050,6 +1076,18 @@ def extract_metric(
         return 0.0
 
     if metric_name == "min_position_weight":
+        # For multi-period, extract from period results to get per-period weights
+        if result.period_results:
+            min_weights = []
+            for p in result.period_results:
+                fw = p.get("fund_weights", {})
+                if fw:
+                    pos = [v for v in fw.values() if v > 0]
+                    if pos:
+                        min_weights.append(min(pos))
+            if min_weights:
+                return float(min(min_weights))
+        # Fallback to aggregated weights
         if result.weights is not None:
             pos = result.weights[result.weights > 0]
             return float(pos.min()) if len(pos) > 0 else 0.0
@@ -1174,6 +1212,11 @@ def run_single_test(
             test_state["rank_pct"] = 0.20  # Ensure meaningful selection
         elif setting.test_value == "random":
             test_state["random_seed"] = 42  # Ensure reproducibility
+
+    # min_weight constraint needs non-equal weighting to have observable effect
+    if setting.name == "min_weight":
+        baseline_state["weighting_scheme"] = "risk_parity"
+        test_state["weighting_scheme"] = "risk_parity"
 
     try:
         if verbose:
