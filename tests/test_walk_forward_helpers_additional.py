@@ -1,4 +1,6 @@
 import json
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -99,6 +101,16 @@ def test_select_weights_falls_back_when_no_scores_above_band(
     assert list(weights.index) == ["a", "b"]
 
 
+def test_select_weights_returns_empty_when_no_columns(
+    simple_index: pd.DatetimeIndex,
+) -> None:
+    data = pd.DataFrame(index=simple_index)
+
+    weights = wf._select_weights(data, {"top_n": 2}, None)
+
+    assert weights.empty
+
+
 def test_compute_turnover_handles_union_of_indices() -> None:
     prev = pd.Series({"a": 0.5, "b": 0.5})
     new = pd.Series({"b": 0.5, "c": 0.5})
@@ -106,6 +118,24 @@ def test_compute_turnover_handles_union_of_indices() -> None:
     turnover = wf._compute_turnover(prev, new)
 
     assert turnover == pytest.approx(1.0)
+
+
+def test_evaluate_parameter_grid_handles_empty_weights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    returns = pd.DataFrame(
+        {"a": [0.01, 0.02, 0.03], "b": [0.0, 0.01, -0.01]},
+        index=pd.date_range("2021-01-01", periods=3, freq="D"),
+    )
+    windows = wf.WindowConfig(train=2, test=1, step=1)
+    strategy = wf.StrategyConfig(grid={"lookback": [1]})
+
+    monkeypatch.setattr(wf, "_select_weights", lambda *_args, **_kwargs: pd.Series(dtype=float))
+
+    folds, summary = wf.evaluate_parameter_grid(returns, windows, strategy)
+
+    assert (folds["selected"] == "").all()
+    assert summary["folds"].iloc[0] == 1
 
 
 def test_evaluate_parameter_grid_builds_records_and_summary() -> None:
@@ -231,3 +261,75 @@ def test_run_from_config_emits_expected_outputs(
     assert (run_dir / "folds.csv").is_file()
     assert (run_dir / "summary.csv").is_file()
     assert (run_dir / "summary.jsonl").is_file()
+
+
+def test_maybe_render_heatmap_emits_png(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyAxes:
+        def imshow(self, *args, **kwargs):
+            return object()
+
+        def set_xticks(self, *_args, **_kwargs):
+            return None
+
+        def set_xticklabels(self, *_args, **_kwargs):
+            return None
+
+        def set_yticks(self, *_args, **_kwargs):
+            return None
+
+        def set_yticklabels(self, *_args, **_kwargs):
+            return None
+
+        def set_xlabel(self, *_args, **_kwargs):
+            return None
+
+        def set_ylabel(self, *_args, **_kwargs):
+            return None
+
+        def set_title(self, *_args, **_kwargs):
+            return None
+
+    class DummyFigure:
+        def __init__(self, target: Path) -> None:
+            self._target = target
+
+        def colorbar(self, *_args, **_kwargs):
+            return None
+
+        def tight_layout(self):
+            return None
+
+        def savefig(self, path, **_kwargs):
+            Path(path).write_bytes(b"png")
+
+    class DummyPyplot:
+        def __init__(self, target: Path) -> None:
+            self._target = target
+
+        def subplots(self, **_kwargs):
+            return DummyFigure(self._target), DummyAxes()
+
+        def close(self, *_args, **_kwargs):
+            return None
+
+    summary = pd.DataFrame(
+        {
+            "param_lookback": [1, 1, 2, 2],
+            "param_band": [0.0, 1.0, 0.0, 1.0],
+            "mean_cagr": [0.01, 0.02, 0.03, 0.04],
+        }
+    )
+    output = tmp_path / "heatmap.png"
+    dummy_pyplot = DummyPyplot(output)
+    dummy_pyplot_module = types.ModuleType("matplotlib.pyplot")
+    dummy_pyplot_module.subplots = dummy_pyplot.subplots
+    dummy_pyplot_module.close = dummy_pyplot.close
+    dummy_matplotlib = types.ModuleType("matplotlib")
+    dummy_matplotlib.pyplot = dummy_pyplot_module
+
+    monkeypatch.setitem(sys.modules, "matplotlib", dummy_matplotlib)
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", dummy_pyplot_module)
+
+    wf._maybe_render_heatmap(summary, output)
+
+    assert output.read_bytes() == b"png"
