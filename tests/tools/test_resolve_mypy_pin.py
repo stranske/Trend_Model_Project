@@ -1,5 +1,7 @@
+"""Tests for resolve_mypy_pin module."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -7,106 +9,94 @@ import pytest
 from tools import resolve_mypy_pin
 
 
-def test_resolve_pin_prefers_pyproject_pin(tmp_path: Path) -> None:
+def test_get_mypy_python_version_from_pyproject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test extracting python_version from pyproject.toml."""
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         """
-        [tool.mypy]
-        python_version = "3.12"
-        """,
+[tool.mypy]
+python_version = "3.12"
+""",
         encoding="utf-8",
     )
-
-    result = resolve_mypy_pin.resolve_pin(pyproject, "3.11")
-
-    assert result.pin == "3.12"
-    assert result.notices == ()
-
-
-def test_resolve_pin_defaults_to_matrix_when_missing_file(tmp_path: Path) -> None:
-    pyproject = tmp_path / "pyproject.toml"
-
-    result = resolve_mypy_pin.resolve_pin(pyproject, " 3.11 ")
-
-    assert result.pin == "3.11"
-    assert result.notices == (
-        (
-            "notice",
-            "pyproject.toml not found; defaulting mypy python_version to matrix interpreter 3.11",
-        ),
-    )
+    monkeypatch.chdir(tmp_path)
+    
+    result = resolve_mypy_pin.get_mypy_python_version()
+    
+    assert result == "3.12"
 
 
-def test_resolve_pin_warns_without_pyproject_and_matrix(tmp_path: Path) -> None:
-    pyproject = tmp_path / "pyproject.toml"
-
-    result = resolve_mypy_pin.resolve_pin(pyproject, None)
-
-    assert result.pin is None
-    assert result.notices == (
-        (
-            "warning",
-            "pyproject.toml not found and no matrix interpreter provided; skipping mypy pin resolution",
-        ),
-    )
+def test_get_mypy_python_version_returns_none_when_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test returns None when pyproject.toml doesn't exist."""
+    monkeypatch.chdir(tmp_path)
+    
+    result = resolve_mypy_pin.get_mypy_python_version()
+    
+    assert result is None
 
 
-def test_resolve_pin_warns_when_no_pin_available(tmp_path: Path) -> None:
+def test_get_mypy_python_version_returns_none_when_no_mypy_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test returns None when [tool.mypy] section is missing."""
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         """
-        [tool]
-        other = "value"
-        """,
+[tool.black]
+line-length = 100
+""",
         encoding="utf-8",
     )
-
-    result = resolve_mypy_pin.resolve_pin(pyproject, "")
-
-    assert result.pin is None
-    assert (
-        "warning",
-        "No mypy python_version pin found and matrix version unavailable",
-    ) in result.notices
+    monkeypatch.chdir(tmp_path)
+    
+    result = resolve_mypy_pin.get_mypy_python_version()
+    
+    assert result is None
 
 
-def test_main_writes_to_github_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_main_writes_to_github_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main() writes resolved version to GITHUB_OUTPUT."""
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         """
-        [tool.mypy]
-        python_version = "3.12"
-        """,
+[tool.mypy]
+python_version = "3.12"
+""",
         encoding="utf-8",
     )
-
     output_file = tmp_path / "output.txt"
-    monkeypatch.setenv("PYPROJECT_PATH", str(pyproject))
+    
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
     monkeypatch.delenv("MATRIX_PYTHON_VERSION", raising=False)
-
-    return_code = resolve_mypy_pin.main(())
-
-    assert return_code == 0
-    captured = capsys.readouterr()
-    assert "Resolved mypy python_version pin: 3.12" in captured.out
-    assert output_file.read_text(encoding="utf-8").strip() == "python-version=3.12"
+    
+    result = resolve_mypy_pin.main()
+    
+    assert result == 0
+    assert "python-version=3.12" in output_file.read_text(encoding="utf-8")
 
 
-def test_main_reports_toml_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text("invalid = [unclosed", encoding="utf-8")
-
-    monkeypatch.setenv("PYPROJECT_PATH", str(pyproject))
+def test_main_uses_matrix_version_as_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main() falls back to MATRIX_PYTHON_VERSION when no pyproject.toml."""
+    output_file = tmp_path / "output.txt"
+    
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
     monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.11")
+    
+    result = resolve_mypy_pin.main()
+    
+    assert result == 0
+    assert "python-version=3.11" in output_file.read_text(encoding="utf-8")
 
-    return_code = resolve_mypy_pin.main(())
 
-    assert return_code == 1
-    captured = capsys.readouterr()
-    assert f"::error file={pyproject}" in captured.out
-    assert "Failed to parse" in captured.out
+def test_main_defaults_to_311_when_no_version_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main() defaults to 3.11 when no version is available."""
+    output_file = tmp_path / "output.txt"
+    
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.delenv("MATRIX_PYTHON_VERSION", raising=False)
+    
+    result = resolve_mypy_pin.main()
+    
+    assert result == 0
+    assert "python-version=3.11" in output_file.read_text(encoding="utf-8")
