@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -16,8 +16,7 @@ class _FrozenDatetime(datetime):
     @classmethod
     def now(cls, tz: object = None) -> datetime:  # type: ignore[override]
         # Return timezone-aware UTC datetime when tz is provided
-        return datetime(2024, 8, 22, 17, 45, 0)
-
+        return datetime(2024, 8, 22, 17, 45, 0, tzinfo=timezone.utc)
 
 @pytest.fixture
 def junit_report(tmp_path: Path) -> Path:
