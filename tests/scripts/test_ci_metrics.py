@@ -11,12 +11,12 @@ from scripts import ci_metrics as cm
 
 
 class _FrozenDatetime(datetime):
-    """datetime subclass with deterministic ``utcnow``."""
+    """datetime subclass with deterministic ``now`` for timezone-aware usage."""
 
     @classmethod
-    def utcnow(cls) -> datetime:  # type: ignore[override]
+    def now(cls, tz: object = None) -> datetime:  # type: ignore[override]
+        # Return timezone-aware UTC datetime when tz is provided
         return datetime(2024, 8, 22, 17, 45, 0)
-
 
 @pytest.fixture
 def junit_report(tmp_path: Path) -> Path:
