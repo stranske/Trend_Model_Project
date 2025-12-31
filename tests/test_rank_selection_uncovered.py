@@ -18,9 +18,7 @@ def test_call_metric_series_forwards_risk_free_override(monkeypatch):
 
     monkeypatch.setattr(rs, "_compute_metric_series", with_override)
 
-    result = rs._call_metric_series(
-        df, "AnnualReturn", cfg, risk_free_override=0.25
-    )
+    result = rs._call_metric_series(df, "AnnualReturn", cfg, risk_free_override=0.25)
     assert captured["value"] == 0.25
     assert result.index.tolist() == ["FundA"]
 
@@ -36,9 +34,7 @@ def test_call_metric_series_skips_risk_free_override_when_unsupported(monkeypatc
 
     monkeypatch.setattr(rs, "_compute_metric_series", no_override)
 
-    result = rs._call_metric_series(
-        df, "AnnualReturn", cfg, risk_free_override=0.25
-    )
+    result = rs._call_metric_series(df, "AnnualReturn", cfg, risk_free_override=0.25)
     assert calls["count"] == 1
     assert result.iloc[0] == 2.0
 
