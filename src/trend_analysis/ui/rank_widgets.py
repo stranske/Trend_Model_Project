@@ -218,7 +218,7 @@ def build_ui() -> widgets.VBox:  # pragma: no cover - UI wiring exercised manual
             manual_weights.clear()
             rows: list[widgets.Widget] = []
             manual_funds: list[str] = []
-            for f, score in scores.iteritems():
+            for f, score in scores.items():
                 chk = widgets.Checkbox(value=False, description=f)
                 wt = widgets.FloatText(value=0.0, layout=widgets.Layout(width="80px"))
                 manual_checks.append(chk)

@@ -49,6 +49,41 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
     assert settings.run.seed == 7
 
 
+def test_load_settings_rejects_missing_csv_path(tmp_path: Path) -> None:
+    cfg_path = _write_config(
+        tmp_path,
+        {
+            "data": {},
+            "walk_forward": {"train": 1, "test": 1, "step": 1},
+            "strategy": {"grid": {"lookback": [1]}},
+            "run": {},
+        },
+    )
+
+    with pytest.raises(ValueError, match="data.csv_path must be provided"):
+        load_settings(cfg_path)
+
+
+def test_load_settings_accepts_absolute_paths(tmp_path: Path) -> None:
+    data_csv = tmp_path / "data.csv"
+    data_csv.write_text("Date,A\n2020-01-01,0.1", encoding="utf-8")
+    output_dir = tmp_path / "absolute_output"
+    cfg_path = _write_config(
+        tmp_path,
+        {
+            "data": {"csv_path": str(data_csv)},
+            "walk_forward": {"train": 1, "test": 1, "step": 1},
+            "strategy": {"grid": {"lookback": [1]}},
+            "run": {"output_dir": str(output_dir)},
+        },
+    )
+
+    settings = load_settings(cfg_path)
+
+    assert settings.data.csv_path == data_csv
+    assert settings.run.output_dir == output_dir
+
+
 @pytest.mark.parametrize(
     "cfg, message",
     [
@@ -69,6 +104,15 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
                 "run": {},
             },
             "data.columns",
+        ),
+        (
+            {
+                "data": {"csv_path": "data.csv"},
+                "walk_forward": {"train": 1, "test": 1, "step": 1},
+                "strategy": {"defaults": "nope", "grid": {"lookback": [1]}},
+                "run": {},
+            },
+            "strategy.defaults",
         ),
         (
             {
@@ -96,6 +140,15 @@ def test_load_settings_resolves_relative_paths(tmp_path: Path) -> None:
                 "run": {},
             },
             "strategy.grid entry",
+        ),
+        (
+            {
+                "data": {"csv_path": "data.csv"},
+                "walk_forward": {"train": 1, "test": 1, "step": 1},
+                "strategy": {"grid": {"lookback": 2}},
+                "run": {},
+            },
+            "strategy.grid values",
         ),
     ],
 )
@@ -140,6 +193,12 @@ def test_infer_periods_per_year_handles_varied_frequencies() -> None:
     assert infer_periods_per_year(idx_weekly) == 52
     assert infer_periods_per_year(idx_monthly) == 12
     assert infer_periods_per_year(pd.DatetimeIndex([])) == 1
+
+
+def test_infer_periods_per_year_handles_quarterly_frequency() -> None:
+    idx_quarterly = pd.date_range("2020-01-01", periods=4, freq="QS")
+
+    assert infer_periods_per_year(idx_quarterly) == 4
 
 
 def test_persist_artifacts_emits_files(tmp_path: Path) -> None:
