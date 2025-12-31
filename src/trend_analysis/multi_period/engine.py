@@ -1490,6 +1490,7 @@ def run(
     prev_final_weights: pd.Series | None = None
     # Transaction cost and turnover-cap controls (Issue #429)
     tc_bps = float(cfg.portfolio.get("transaction_cost_bps", 0.0))
+    slippage_bps = float(cfg.portfolio.get("slippage_bps", 0.0))
     max_turnover_cap = float(cfg.portfolio.get("max_turnover", 1.0))
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
@@ -3061,7 +3062,7 @@ def run(
             abs_diff = float((effective_w - last_effective).abs().sum())
             period_turnover = 0.5 * abs_diff
 
-        period_cost = period_turnover * (tc_bps / 10000.0)
+        period_cost = period_turnover * ((tc_bps + slippage_bps) / 10000.0)
 
         # Reconcile manager change log to the realised holdings delta.
         actual_before = set(last_effective[last_effective.abs() > eps].index)

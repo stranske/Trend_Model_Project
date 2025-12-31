@@ -722,6 +722,7 @@ def _build_config_from_state(
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
         "transaction_cost_bps": transaction_cost_bps,
+        "slippage_bps": slippage_bps,
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,
@@ -1022,6 +1023,17 @@ def extract_metric(
             return np.mean(turnovers) if turnovers else 0.0
         return 0.0
 
+    if metric_name == "actual_turnover":
+        # Extract turnover from period results
+        if result.period_results:
+            turnovers = [
+                p.get("turnover", 0.0) for p in result.period_results if "turnover" in p
+            ]
+            return float(sum(turnovers)) if turnovers else 0.0
+        if result.turnover is not None:
+            return float(result.turnover.sum()) if len(result.turnover) > 0 else 0.0
+        return 0.0
+
     if metric_name == "weight_dispersion":
         if result.weights is not None:
             return float(result.weights.std()) if len(result.weights) > 0 else 0.0
@@ -1051,6 +1063,12 @@ def extract_metric(
     if metric_name == "total_costs":
         if result.costs:
             return result.costs.get("total", 0.0)
+        # Fallback: sum transaction costs from period_results
+        if result.period_results:
+            total_cost = sum(
+                p.get("transaction_cost", 0.0) for p in result.period_results
+            )
+            return float(total_cost)
         return 0.0
 
     if metric_name == "in_sample_months":
