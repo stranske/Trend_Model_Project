@@ -1525,6 +1525,11 @@ def run(
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
 
+    def _eligible_sticky_add(manager: str) -> bool:
+        if sticky_add_periods <= 1:
+            return True
+        return int(add_streaks.get(manager, 0)) >= sticky_add_periods
+
     def _dedupe_one_per_firm(
         sf: pd.DataFrame, holdings: list[str], metric: str
     ) -> list[str]:
@@ -1608,12 +1613,15 @@ def run(
             if str(c) not in holdings
             and str(c) not in excluded
             and str(c) not in in_cooldown
+            and _eligible_sticky_add(str(c))
         ]
         if not candidates:
             candidates = [
                 str(c)
                 for c in sf.index
-                if str(c) not in holdings and str(c) not in in_cooldown
+                if str(c) not in holdings
+                and str(c) not in in_cooldown
+                and _eligible_sticky_add(str(c))
             ]
         if not candidates:
             return holdings
@@ -2503,6 +2511,7 @@ def run(
                     if str(c) not in proposed_holdings
                     and str(c) not in before_reb
                     and str(c) not in cooldown_book
+                    and _eligible_sticky_add(str(c))
                 ]
                 if candidates:
                     if is_random_mode:
@@ -2848,7 +2857,11 @@ def run(
                 desired_after_low_weight = min(desired_after_low_weight, max_funds)
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
-                candidates = [c for c in sf.index if c not in holdings]
+                candidates = [
+                    c
+                    for c in sf.index
+                    if c not in holdings and _eligible_sticky_add(str(c))
+                ]
                 if cooldown_periods > 0 and cooldown_book:
                     candidates = [c for c in candidates if str(c) not in cooldown_book]
                 add_from = (
