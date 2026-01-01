@@ -23,6 +23,8 @@ updates:
       prefix: "deps"
       include: "scope"
     # Ignore dev tools - synced from stranske/Workflows via maint-52
+    # NOTE: Only dev tools should be ignored. Runtime deps (hypothesis, pyyaml,
+    # pydantic, jsonschema) should be managed by Dependabot.
     ignore:
       - dependency-name: "ruff"
       - dependency-name: "black"
@@ -33,7 +35,6 @@ updates:
       - dependency-name: "isort"
       - dependency-name: "docformatter"
       - dependency-name: "coverage"
-      - dependency-name: "hypothesis"
     groups:
       runtime-minor:
         patterns:
