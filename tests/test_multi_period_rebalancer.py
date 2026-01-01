@@ -54,6 +54,27 @@ def test_rebalancer_hard_exit_protects_above_threshold() -> None:
     assert set(updated.index) == {"A", "B"}
 
 
+def test_rebalancer_null_hard_thresholds_preserve_soft_exits() -> None:
+    """Explicit null hard thresholds should not block soft exit behavior."""
+
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_exit_soft": -0.2,
+                "soft_strikes": 1,
+                "z_exit_hard": None,
+                "z_entry_hard": None,
+            }
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 0.7, "B": 0.3})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.0}})
+
+    updated = reb.apply_triggers(prev, frame)
+    assert list(updated.index) == ["B"]
+
+
 def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
     """Hard entry candidates should consume capacity before auto entries."""
 

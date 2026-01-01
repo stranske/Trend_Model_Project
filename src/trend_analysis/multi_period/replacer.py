@@ -48,11 +48,18 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         ):
             if key not in th and key in portfolio:
                 th[key] = portfolio[key]
+        def _parse_optional_float(value: Any) -> float | None:
+            if value in (None, "", "null"):
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
         # Soft exits/entries; hard thresholds act as absolute barriers.
         self.low_z_soft = float(th.get("z_exit_soft", _LOW_Z))
-        self.low_z_hard = float(th["z_exit_hard"]) if "z_exit_hard" in th else None
+        self.low_z_hard = _parse_optional_float(th.get("z_exit_hard"))
         self.high_z_soft = float(th.get("z_entry_soft", _HIGH_Z))
-        self.high_z_hard = float(th["z_entry_hard"]) if "z_entry_hard" in th else None
+        self.high_z_hard = _parse_optional_float(th.get("z_entry_hard"))
         self.soft_strikes = int(th.get("soft_strikes", _LOW_STRIKES))
         # Soft entry requires consecutive z >= z_entry_soft periods
         self.entry_soft_strikes = int(th.get("entry_soft_strikes", 1))
