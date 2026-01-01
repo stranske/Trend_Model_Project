@@ -23,7 +23,6 @@ def test_rebalancer_thresholds_and_strikes():
             "threshold_hold": {
                 "z_exit_soft": -1.0,
                 "soft_strikes": 2,
-                "z_entry_hard": 1.0,
                 "weighting": "equal",
             }
         }
@@ -66,7 +65,6 @@ def test_rebalancer_bayesian_weighting_option():
             "threshold_hold": {
                 "z_exit_soft": -1.0,
                 "soft_strikes": 2,
-                "z_entry_hard": 1.0,
                 "weighting": "score_prop_bayes",
             },
         }

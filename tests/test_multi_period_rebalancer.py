@@ -31,17 +31,24 @@ def test_rebalancer_drops_after_consecutive_soft_strikes() -> None:
     assert pytest.approx(final.loc["B"], rel=1e-9) == 1.0
 
 
-def test_rebalancer_hard_exit_overrides_soft_counts() -> None:
-    """A hard exit threshold should drop a fund immediately."""
+def test_rebalancer_hard_exit_protects_above_threshold() -> None:
+    """A hard exit threshold should prevent removals above the threshold."""
 
-    cfg = {"portfolio": {"threshold_hold": {"z_exit_hard": -2.5}}}
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_exit_soft": -0.2,
+                "soft_strikes": 1,
+                "z_exit_hard": -0.5,
+            }
+        }
+    }
     reb = Rebalancer(cfg)
     prev = {"A": 0.7, "B": 0.3}  # dict input exercises the Series conversion path
-    frame = pd.DataFrame({"zscore": {"A": -3.0, "B": 0.0}})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.0}})
 
     updated = reb.apply_triggers(prev, frame)
-    assert list(updated.index) == ["B"]
-    assert "A" not in updated
+    assert set(updated.index) == {"A", "B"}
 
 
 def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
@@ -66,6 +73,29 @@ def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
     result = reb.apply_triggers(prev, frame)
     assert set(result.index) == {"A", "B"}
     assert "C" not in result
+
+
+def test_rebalancer_entry_hard_blocks_soft_entries() -> None:
+    """Funds below the hard entry threshold should never be added."""
+
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_entry_hard": 1.5,
+                "z_entry_soft": 0.5,
+                "entry_soft_strikes": 1,
+                "entry_eligible_strikes": 1,
+            },
+            "constraints": {"max_funds": 3},
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 1.0})
+    frame = pd.DataFrame({"zscore": {"B": 1.0, "C": 1.6}})
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "C"}
+    assert "B" not in result
 
 
 def test_rebalancer_adds_eligible_after_multiple_periods() -> None:

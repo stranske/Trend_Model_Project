@@ -48,7 +48,7 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         ):
             if key not in th and key in portfolio:
                 th[key] = portfolio[key]
-        # Soft/hard exits and entries; default to legacy constants
+        # Soft exits/entries; hard thresholds act as absolute barriers.
         self.low_z_soft = float(th.get("z_exit_soft", _LOW_Z))
         self.low_z_hard = float(th["z_exit_hard"]) if "z_exit_hard" in th else None
         self.high_z_soft = float(th.get("z_entry_soft", _HIGH_Z))
@@ -143,10 +143,9 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         for f in prev_w.index:
             f_str = str(f)
             z = zscores.get(f_str, 0.0)
-            # Hard exit: immediate drop if below hard threshold (only if configured)
-            if self.low_z_hard is not None and z < self.low_z_hard:
-                to_drop.append(f_str)
-                self._strikes.pop(f_str, None)
+            # Hard exit protection: never remove while above the hard threshold.
+            if self.low_z_hard is not None and z >= self.low_z_hard:
+                self._strikes[f_str] = 0
                 continue
             # Soft exit: accumulate strikes below soft threshold
             if z < self.low_z_soft:
@@ -168,6 +167,10 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         for f, z in zscores.items():
             f_str = str(f)
             if f_str in prev_w:
+                continue
+            # Hard entry barrier: never add below the hard threshold.
+            if self.high_z_hard is not None and z < self.high_z_hard:
+                self._entry_strikes[f_str] = 0
                 continue
             # Update soft entry strike counts
             if z >= self.high_z_soft:
