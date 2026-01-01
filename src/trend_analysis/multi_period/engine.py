@@ -674,6 +674,7 @@ def run(
         risk_free_column_cfg,
         allow_risk_free_fallback_cfg,
     ) = _resolve_risk_free_settings(data_settings)
+    regime_cfg = getattr(cfg, "regime", {}) or {}
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -951,6 +952,7 @@ def run(
                 previous_weights=cfg.portfolio.get("previous_weights"),
                 max_turnover=cfg.portfolio.get("max_turnover"),
                 constraints=cfg.portfolio.get("constraints"),
+                regime_cfg=regime_cfg,
                 risk_free_column=risk_free_column_cfg,
                 allow_risk_free_fallback=allow_risk_free_fallback_cfg,
             )
@@ -2947,6 +2949,7 @@ def run(
             seed=getattr(cfg, "seed", 42),
             risk_window=cfg.vol_adjust.get("window"),
             constraints=cfg.portfolio.get("constraints"),
+            regime_cfg=regime_cfg,
             risk_free_column=risk_free_column_cfg,
             allow_risk_free_fallback=allow_risk_free_fallback_cfg,
             # Pass turnover parameters for pipeline-level enforcement.
