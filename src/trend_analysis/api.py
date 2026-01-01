@@ -27,6 +27,7 @@ from trend.validation import (
 from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (
+    _build_trend_spec,
     _policy_from_config,
     _resolve_sample_split,
     _resolve_target_vol,
@@ -34,8 +35,18 @@ from .pipeline import (
 )
 from .util.risk_free import resolve_risk_free_settings
 
-# Back-compat attribute so legacy tests can patch ``api._run_analysis``.
-_run_analysis = _run_analysis_with_diagnostics
+def _run_analysis(
+    *args: Any,
+    signals_cfg: Mapping[str, Any] | None = None,
+    vol_adjust_cfg: Mapping[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Back-compat hook for tests while wiring signals into the pipeline."""
+
+    if signals_cfg is not None and "signal_spec" not in kwargs:
+        trend_spec = _build_trend_spec({"signals": signals_cfg}, vol_adjust_cfg or {})
+        kwargs["signal_spec"] = trend_spec
+    return _run_analysis_with_diagnostics(*args, **kwargs)
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +360,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         )
 
     regime_cfg = getattr(config, "regime", {}) or {}
+    vol_adjust_cfg = getattr(config, "vol_adjust", {}) or {}
+    signals_cfg = getattr(config, "signals", None)
+    if not isinstance(signals_cfg, Mapping):
+        signals_cfg = None
 
     preprocessing_section = getattr(config, "preprocessing", {}) or {}
     missing_section = (
@@ -382,10 +397,10 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         resolved_split["in_end"],
         resolved_split["out_start"],
         resolved_split["out_end"],
-        _resolve_target_vol(getattr(config, "vol_adjust", {})),
+        _resolve_target_vol(vol_adjust_cfg),
         getattr(config, "run", {}).get("monthly_cost", 0.0),
-        floor_vol=config.vol_adjust.get("floor_vol"),
-        warmup_periods=int(config.vol_adjust.get("warmup_periods", 0) or 0),
+        floor_vol=vol_adjust_cfg.get("floor_vol"),
+        warmup_periods=int(vol_adjust_cfg.get("warmup_periods", 0) or 0),
         selection_mode=config.portfolio.get("selection_mode", "all"),
         random_n=config.portfolio.get("random_n", 8),
         custom_weights=config.portfolio.get("custom_weights"),
@@ -399,10 +414,12 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         stats_cfg=stats_cfg,
         missing_policy=policy_spec,
         missing_limit=limit_spec,
-        risk_window=config.vol_adjust.get("window"),
+        risk_window=vol_adjust_cfg.get("window"),
         previous_weights=config.portfolio.get("previous_weights"),
         lambda_tc=config.portfolio.get("lambda_tc"),
         max_turnover=config.portfolio.get("max_turnover"),
+        signals_cfg=signals_cfg,
+        vol_adjust_cfg=vol_adjust_cfg,
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,
