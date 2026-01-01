@@ -360,7 +360,10 @@ HELP_TEXT = {
     "condition_threshold": "Maximum acceptable condition number for covariance matrix.",
     "safe_mode": "Fallback weighting method when matrix is ill-conditioned.",
     # Phase 15: Constraints
-    "long_only": "Enforce long-only positions (no short selling).",
+    "long_only": (
+        "Enforce long-only positions (no short selling). Most built-in schemes are "
+        "already non-negative; this matters when custom/manual weights include shorts."
+    ),
 }
 
 

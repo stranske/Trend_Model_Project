@@ -51,3 +51,44 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
     assert all(w <= 0.4 + 1e-9 for w in weights.values())
     # Ensure no CASH synthetic line leaked into fund weights
     assert "CASH" not in weights
+
+
+def test_pipeline_long_only_blocks_negative_custom_weights():
+    df = make_dummy_returns()
+    custom_weights = {"FundA": 70.0, "FundB": -20.0, "FundC": 50.0, "FundD": 0.0}
+
+    res_long_only = _run_analysis(
+        df,
+        in_start="2022-01",
+        in_end="2022-12",
+        out_start="2023-01",
+        out_end="2023-12",
+        target_vol=None,
+        monthly_cost=0.0,
+        selection_mode="all",
+        custom_weights=custom_weights,
+        stats_cfg=RiskStatsConfig(),
+        constraints={"long_only": True},
+        **RUN_KWARGS,
+    )
+    assert res_long_only is not None
+    weights_long = res_long_only["fund_weights"]
+    assert all(weight >= 0 for weight in weights_long.values())
+
+    res_short_ok = _run_analysis(
+        df,
+        in_start="2022-01",
+        in_end="2022-12",
+        out_start="2023-01",
+        out_end="2023-12",
+        target_vol=None,
+        monthly_cost=0.0,
+        selection_mode="all",
+        custom_weights=custom_weights,
+        stats_cfg=RiskStatsConfig(),
+        constraints={"long_only": False},
+        **RUN_KWARGS,
+    )
+    assert res_short_ok is not None
+    weights_short = res_short_ok["fund_weights"]
+    assert any(weight < 0 for weight in weights_short.values())

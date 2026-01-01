@@ -836,6 +836,8 @@ def _compute_weights_and_stats(
 
         return _filter_window(signal_source, strict=strict_enforcement)
 
+    custom_weights_input = custom_weights is not None
+    weight_engine_used = False
     weight_engine_fallback: dict[str, str] | None = None
     if (
         custom_weights is None
@@ -849,6 +851,7 @@ def _compute_weights_and_stats(
             engine = create_weight_engine(weighting_scheme.lower())
             w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+            weight_engine_used = True
             logger.debug(
                 "Successfully created %s weight engine",
                 weighting_scheme,
@@ -874,17 +877,6 @@ def _compute_weights_and_stats(
     if custom_weights is None:
         custom_weights = {c: 100 / len(fund_cols) for c in fund_cols}
 
-    base_series = pd.Series(
-        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
-        dtype=float,
-    )
-    if float(base_series.sum()) <= 0:
-        base_series = pd.Series(
-            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
-            index=fund_cols,
-            dtype=float,
-        )
-
     constraints_cfg = constraints or {}
     if not isinstance(constraints_cfg, Mapping):
         constraints_cfg = {}
@@ -906,6 +898,34 @@ def _compute_weights_and_stats(
         if isinstance(raw_groups, Mapping)
         else None
     )
+
+    base_series = pd.Series(
+        {c: float(custom_weights.get(c, 0.0)) / 100.0 for c in fund_cols},
+        dtype=float,
+    )
+    if float(base_series.sum()) <= 0:
+        base_series = pd.Series(
+            np.repeat(1.0 / len(fund_cols), len(fund_cols)),
+            index=fund_cols,
+            dtype=float,
+        )
+
+    negative_assets = base_series[base_series < 0].index.tolist()
+    if negative_assets:
+        if weight_engine_used:
+            source = f"weight engine '{weighting_scheme}'"
+        elif custom_weights_input:
+            source = "custom weights"
+        else:
+            source = "base weights"
+        action = "clip negatives to zero" if long_only else "allow short allocations"
+        logger.info(
+            "%s produced %d negative weights; long_only=%s so pipeline will %s.",
+            source,
+            len(negative_assets),
+            long_only,
+            action,
+        )
 
     window_cfg = dict(risk_window or {})
     try:
