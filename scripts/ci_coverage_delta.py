@@ -54,7 +54,12 @@ def _build_payload(
     *,
     fail_on_drop: bool,
 ) -> tuple[dict[str, Any], bool]:
-    timestamp = _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    timestamp = (
+        _dt.datetime.now(_dt.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     drop = max(0.0, baseline - current) if baseline > 0 else 0.0
     delta = current - baseline
     status: str
@@ -113,7 +118,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
     sys.exit(main())

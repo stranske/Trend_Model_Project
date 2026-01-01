@@ -14,8 +14,7 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Set, cast
-
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = REPO_ROOT / "src"
@@ -76,6 +75,7 @@ STDLIB_MODULES = {
     "signal",
     "sitecustomize",
     "socket",
+    "sqlite3",
     "stat",
     "string",
     "struct",
@@ -90,6 +90,7 @@ STDLIB_MODULES = {
     "unittest",
     "urllib",
     "uuid",
+    "venv",
     "warnings",
     "weakref",
     "xml",
@@ -110,8 +111,9 @@ TEST_FRAMEWORK_MODULES = {
     "pluggy",
 }
 
-# Project modules (installed via ``pip install -e .``)
-PROJECT_MODULES = {
+# Base project modules (installed via ``pip install -e .``)
+# Additional modules are detected dynamically from src/ directory
+_BASE_PROJECT_MODULES = {
     "analysis",
     "cli",
     "trend_analysis",
@@ -137,6 +139,51 @@ PROJECT_MODULES = {
     "health_summarize",
 }
 
+
+def _detect_local_project_modules() -> set[str]:
+    """Dynamically detect first-party modules from src/ and other common dirs.
+
+    Scans for packages (directories with __init__.py) and standalone modules
+    in standard source locations to prevent false positives on first-party imports.
+    """
+    detected: set[str] = set()
+    source_dirs = [Path("src"), Path(".")]
+
+    for source_dir in source_dirs:
+        if not source_dir.is_dir():
+            continue
+
+        for item in source_dir.iterdir():
+            # Skip hidden dirs, test dirs, common non-module dirs
+            if item.name.startswith(".") or item.name in (
+                "__pycache__",
+                "tests",
+                "test",
+                ".git",
+                "venv",
+                ".venv",
+                "node_modules",
+            ):
+                continue
+
+            # Check for packages (directories with __init__.py)
+            if item.is_dir() and (item / "__init__.py").exists():
+                detected.add(item.name)
+            # Check for standalone .py modules (but not in root .)
+            elif source_dir != Path(".") and item.suffix == ".py":
+                detected.add(item.stem)
+
+    return detected
+
+
+def get_project_modules() -> set[str]:
+    """Return the full set of project modules (static + dynamically detected)."""
+    return _BASE_PROJECT_MODULES | _detect_local_project_modules()
+
+
+# For backward compatibility - will be populated on first use
+PROJECT_MODULES: set[str] = set()
+
 # Module name to package name mappings for known exceptions
 MODULE_TO_PACKAGE = {
     "yaml": "PyYAML",
@@ -144,6 +191,7 @@ MODULE_TO_PACKAGE = {
     "sklearn": "scikit-learn",
     "cv2": "opencv-python",
     "pre_commit": "pre-commit",
+    "pptx": "python-pptx",
 }
 
 
@@ -177,10 +225,10 @@ def _extract_requirement_name(entry: str) -> str | None:
     return token or None
 
 
-def extract_imports_from_file(file_path: Path) -> Set[str]:
+def extract_imports_from_file(file_path: Path) -> set[str]:
     """Extract all top-level import names from a Python file."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=str(file_path))
     except (SyntaxError, UnicodeDecodeError):
         return set()
@@ -191,15 +239,14 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
             for alias in node.names:
                 module = alias.name.split(".")[0]
                 imports.add(module)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                module = node.module.split(".")[0]
-                imports.add(module)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            module = node.module.split(".")[0]
+            imports.add(module)
 
     return imports
 
 
-def get_all_test_imports() -> Set[str]:
+def get_all_test_imports() -> set[str]:
     """Get all imports used across all test files."""
     test_dir = Path("tests")
     if not test_dir.exists():
@@ -215,7 +262,7 @@ def get_all_test_imports() -> Set[str]:
     return all_imports
 
 
-def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
+def get_declared_dependencies() -> tuple[set[str], dict[str, list[str]]]:
     """Return declared dependency module names and raw dependency groups."""
     if not PYPROJECT_FILE.exists():
         return set(), {}
@@ -223,7 +270,7 @@ def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
     data = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
     project = data.get("project", {})
 
-    declared: Set[str] = set()
+    declared: set[str] = set()
     groups: dict[str, list[str]] = {}
 
     for entry in project.get("dependencies", []):
@@ -244,14 +291,16 @@ def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
     return declared, groups
 
 
-def find_missing_dependencies() -> Set[str]:
+def find_missing_dependencies() -> set[str]:
     """Find imports that are not declared as dependencies."""
     declared, _ = get_declared_dependencies()
     all_imports = get_all_test_imports()
 
-    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES
+    # Use dynamic project module detection
+    project_modules = get_project_modules()
+    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - project_modules
 
-    missing: Set[str] = set()
+    missing: set[str] = set()
     for import_name in potential:
         package_name = MODULE_TO_PACKAGE.get(import_name, import_name)
         normalised = _normalise_package_name(package_name)
@@ -261,7 +310,7 @@ def find_missing_dependencies() -> Set[str]:
     return missing
 
 
-def add_dependencies_to_pyproject(missing: Set[str], fix: bool = False) -> bool:
+def add_dependencies_to_pyproject(missing: set[str], fix: bool = False) -> bool:
     """Add missing dependencies to the dev extra inside pyproject.toml."""
     if not missing or not fix:
         return False
@@ -345,8 +394,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     sys.exit(main())

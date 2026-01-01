@@ -34,7 +34,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "streamlit_app"))
 
 from trend_analysis.config.legacy import Config  # noqa: E402
 
-
 # =============================================================================
 # Setting Definitions with Expected Behaviors
 # =============================================================================
@@ -384,7 +383,7 @@ def get_baseline_state() -> dict[str, Any]:
         "metric_weights": {"sharpe": 1.0, "return_ann": 1.0, "drawdown": 0.5},
         "risk_target": 0.10,
         "date_mode": "relative",
-        "rf_override_enabled": False,
+        "rf_override_enabled": True,  # Enable rf override to test rf_rate_annual
         "rf_rate_annual": 0.0,
         "vol_floor": 0.015,
         "warmup_periods": 0,
@@ -411,8 +410,6 @@ def get_baseline_state() -> dict[str, Any]:
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
         "long_only": True,
-        "rf_override_enabled": True,  # Enable rf override to test rf_rate_annual
-        "rf_rate_annual": 0.0,
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
@@ -975,6 +972,14 @@ def extract_metric(
     if metric_name == "max_position_weight":
         if result.weights is not None:
             return float(result.weights.max()) if len(result.weights) > 0 else 0.0
+        # Check period results for weights
+        if result.period_results:
+            max_weights = []
+            for p in result.period_results:
+                if "weights" in p and p["weights"]:
+                    max_weights.append(max(p["weights"].values()))
+            if max_weights:
+                return float(max(max_weights))
         return 0.0
 
     if metric_name == "min_position_weight":

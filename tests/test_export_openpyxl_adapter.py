@@ -387,6 +387,7 @@ def test_export_to_excel_populates_proxy_with_renamed_sheets(monkeypatch, tmp_pa
 
 
 def test_export_to_excel_strips_temp_sheet_key(monkeypatch, tmp_path):
+    export.reset_formatters_excel()
     utils_mod = SimpleNamespace(get_column_letter=lambda idx: chr(ord("A") + idx - 1))
     monkeypatch.setitem(sys.modules, "openpyxl", SimpleNamespace(utils=utils_mod))
     monkeypatch.setitem(sys.modules, "openpyxl.utils", utils_mod)

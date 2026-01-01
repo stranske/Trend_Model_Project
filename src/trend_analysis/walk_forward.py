@@ -66,9 +66,10 @@ def load_settings(path: Path | str) -> WalkForwardSettings:
     strat_section = raw.get("strategy", {})
     run_section = raw.get("run", {})
 
-    csv_path = Path(data_section.get("csv_path", ""))
-    if not csv_path:
+    csv_path_value = data_section.get("csv_path")
+    if not csv_path_value:
         raise ValueError("data.csv_path must be provided")
+    csv_path = Path(csv_path_value)
     if not csv_path.is_absolute():
         csv_path = (cfg_path.parent / csv_path).resolve()
     date_column = str(data_section.get("date_column", "Date"))
@@ -108,7 +109,8 @@ def load_settings(path: Path | str) -> WalkForwardSettings:
         prepared_grid[key] = seq
 
     run_name = str(run_section.get("name", "wf"))
-    output_dir = Path(run_section.get("output_dir", "perf/wf"))
+    output_dir_value = run_section.get("output_dir", "perf/wf")
+    output_dir = Path(output_dir_value)
     if not output_dir.is_absolute():
         output_dir = (cfg_path.parent / output_dir).resolve()
     seed_value = run_section.get("seed")

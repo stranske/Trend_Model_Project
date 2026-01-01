@@ -29,22 +29,22 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from streamlit_app.components.analysis_runner import (  # noqa: E402
+    AnalysisPayload,
+    _build_config,
+    _prepare_returns,
+)
 from streamlit_app.components.csv_validation import (  # noqa: E402
     CSVValidationError,
     DateCorrectionNeeded,
     validate_uploaded_csv,
 )
-from streamlit_app.components.date_correction import (  # noqa: E402
-    apply_date_corrections,
-)
 from streamlit_app.components.data_cache import (  # noqa: E402
     load_dataset_from_bytes,
     load_dataset_from_path,
 )
-from streamlit_app.components.analysis_runner import (  # noqa: E402
-    AnalysisPayload,
-    _build_config,
-    _prepare_returns,
+from streamlit_app.components.date_correction import (  # noqa: E402
+    apply_date_corrections,
 )
 from trend_analysis.api import run_simulation  # noqa: E402
 

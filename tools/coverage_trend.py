@@ -1,264 +1,225 @@
-"""Utilities for computing coverage trend information for CI workflows."""
+#!/usr/bin/env python3
+"""Generate coverage trend analysis from coverage outputs.
+
+This script compares current coverage against a baseline and generates trend
+artifacts for CI reporting, including low-coverage hotspot files.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
-
-DEFAULT_WARN_DROP = 1.0
+from typing import Any
 
 
-@dataclass
-class Baseline:
-    """Represents the stored coverage baseline configuration."""
-
-    line: Optional[float]
-    warn_drop: float
-
-
-@dataclass
-class TrendResult:
-    """Computed coverage trend details."""
-
-    current: Optional[float]
-    baseline: Optional[float]
-    warn_drop: float
-    delta: Optional[float]
-    status: str
-    minimum: Optional[float]
-
-    def summary_lines(self) -> list[str]:
-        lines = ["### Coverage Trend"]
-        if (
-            self.current is not None
-            and self.baseline is not None
-            and self.delta is not None
-        ):
-            lines.append(
-                f"- Trend: {self.baseline:.2f}% → {self.current:.2f}% ({self.delta:+.2f} pts)"
-            )
-        elif self.current is not None and self.baseline is None:
-            lines.append(
-                f"- Trend: current {self.current:.2f}% (no baseline configured)"
-            )
-        elif self.current is None and self.baseline is not None:
-            lines.append(f"- Trend: baseline {self.baseline:.2f}% (no coverage data)")
-        else:
-            lines.append("- Trend: coverage unavailable")
-        if self.current is not None:
-            lines.append(f"- Current: {self.current:.2f}%")
-        else:
-            lines.append("- Current: unavailable")
-        if self.baseline is not None:
-            lines.append(f"- Baseline: {self.baseline:.2f}%")
-        else:
-            lines.append("- Baseline: unavailable")
-        if self.delta is not None:
-            lines.append(f"- Change: {self.delta:+.2f} pts")
-            if self.status == "warn":
-                lines.append(
-                    f"- Warning: drop exceeds {self.warn_drop:.2f}-pt soft limit"
-                )
-        lines.append(f"- Soft drop limit: {self.warn_drop:.2f} pts")
-        if self.minimum is not None:
-            lines.append(f"- Required minimum: {self.minimum:.2f}%")
-        return lines
-
-    def comment_body(self) -> str:
-        if (
-            self.status != "warn"
-            or self.delta is None
-            or self.current is None
-            or self.baseline is None
-        ):
-            return ""
-        lines = [
-            "🔶 Coverage drop alert",
-            "",
-            f"Baseline coverage: {self.baseline:.2f}%",
-            f"Current coverage: {self.current:.2f}%",
-            f"Change: {self.delta:+.2f} percentage points",
-        ]
-        if self.minimum is not None:
-            lines.append(f"Hard minimum: {self.minimum:.2f}%")
-        lines.extend(
-            [
-                "",
-                (
-                    "The drop exceeds the soft limit of "
-                    f"{self.warn_drop:.2f} points. This is a warning only; CI remains green."
-                ),
-                "",
-                "Update config/coverage-baseline.json if the new level is expected.",
-            ]
-        )
-        return "\n".join(lines)
-
-
-def read_coverage(coverage_xml: Path, coverage_json: Path) -> Optional[float]:
-    """Return the coverage percentage from XML or JSON reports."""
-
-    if coverage_xml.is_file():
-        try:
-            root = ET.parse(coverage_xml).getroot()
-        except ET.ParseError as exc:  # pragma: no cover - defensive logging
-            print(f"Failed to parse {coverage_xml}: {exc}", file=sys.stderr)
-        else:
-            rate = root.get("line-rate")
-            if rate is not None:
-                try:
-                    return float(rate) * 100.0
-                except ValueError:  # pragma: no cover - defensive logging
-                    print(f"Invalid line-rate value: {rate}", file=sys.stderr)
-    if coverage_json.is_file():
-        try:
-            payload = json.loads(coverage_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:  # pragma: no cover - defensive logging
-            print(f"Failed to parse {coverage_json}: {exc}", file=sys.stderr)
-        else:
-            totals = payload.get("totals") or {}
-            try:
-                covered = float(totals.get("covered_lines", 0))
-                total = float(totals.get("num_statements", 0))
-            except (TypeError, ValueError):
-                return None
-            if total:
-                return covered / total * 100.0
-    return None
-
-
-def load_baseline(path: Path) -> Baseline:
-    """Load the coverage baseline configuration."""
-
-    if not path:
-        return Baseline(line=None, warn_drop=DEFAULT_WARN_DROP)
-    if not path.is_file():
-        print(f"Baseline file {path} not found", file=sys.stderr)
-        return Baseline(line=None, warn_drop=DEFAULT_WARN_DROP)
+def _load_json(path: Path) -> dict[str, Any]:
+    """Load JSON from a file, returning empty dict on error."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        print(f"Unable to parse baseline file {path}: {exc}", file=sys.stderr)
-        return Baseline(line=None, warn_drop=DEFAULT_WARN_DROP)
-    line_value = data.get("line")
-    warn_value = data.get("warn_drop", DEFAULT_WARN_DROP)
-    line = float(line_value) if isinstance(line_value, (int, float)) else None
-    warn = (
-        float(warn_value)
-        if isinstance(warn_value, (int, float)) and warn_value >= 0
-        else DEFAULT_WARN_DROP
-    )
-    if line is None:
-        print(
-            f"Baseline file {path} missing numeric 'line' entry",
-            file=sys.stderr,
+        if isinstance(data, dict):
+            return data
+        return {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _extract_coverage_percent(coverage_json: dict[str, Any]) -> float:
+    """Extract overall coverage percentage from coverage.json."""
+    totals = coverage_json.get("totals", {})
+    return float(totals.get("percent_covered", 0.0))
+
+
+def _get_hotspots(
+    coverage_json: dict[str, Any],
+    limit: int = 15,
+    low_threshold: float = 50.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Extract hotspot files from coverage.json.
+
+    Returns:
+        Tuple of (all_hotspots sorted by coverage, low_coverage_files below threshold)
+    """
+    files = coverage_json.get("files", {})
+    all_files = []
+
+    for filepath, data in files.items():
+        summary = data.get("summary", {})
+        percent = summary.get("percent_covered", 0.0)
+        missing = summary.get("missing_lines", 0)
+        covered = summary.get("covered_lines", 0)
+        all_files.append(
+            {
+                "file": filepath,
+                "coverage": percent,
+                "missing_lines": missing,
+                "covered_lines": covered,
+            }
         )
-    return Baseline(line=line, warn_drop=warn)
+
+    # Sort by coverage ascending (lowest first)
+    all_files.sort(key=lambda x: x["coverage"])
+
+    # Split into hotspots and low coverage
+    hotspots = all_files[:limit]
+    low_coverage = [f for f in all_files if f["coverage"] < low_threshold][:limit]
+
+    return hotspots, low_coverage
 
 
-def evaluate_trend(
-    current: Optional[float],
-    baseline: Baseline,
-    minimum: Optional[float] = None,
-) -> TrendResult:
-    """Compute the coverage trend and return the structured result."""
+def _format_hotspot_table(files: list[dict[str, Any]], title: str) -> str:
+    """Format a markdown table of hotspot files."""
+    if not files:
+        return ""
 
-    delta: Optional[float] = None
-    status = "no-data"
-    if current is not None and baseline.line is not None:
-        delta = current - baseline.line
-        status = "warn" if delta < -baseline.warn_drop else "ok"
-    elif current is not None:
-        status = "no-baseline"
-    return TrendResult(
-        current=current,
-        baseline=baseline.line,
-        warn_drop=baseline.warn_drop,
-        delta=delta,
-        status=status,
-        minimum=minimum,
-    )
+    lines = [
+        f"### {title}",
+        "",
+        "| File | Coverage | Missing |",
+        "|------|----------|---------|",
+    ]
+
+    for f in files:
+        lines.append(f"| `{f['file']}` | {f['coverage']:.1f}% | {f['missing_lines']} |")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
-def write_lines(path: Optional[Path], lines: Iterable[str], *, append: bool) -> None:
-    if not path:
-        return
-    mode = "a" if append else "w"
-    with path.open(mode, encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
-
-
-def dump_artifact(path: Path, result: TrendResult) -> None:
-    payload = {
-        "current": result.current,
-        "baseline": result.baseline,
-        "delta": result.delta,
-        "warn_drop": result.warn_drop,
-        "minimum": result.minimum,
-        "status": result.status,
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-
-
-def write_github_output(path: Optional[Path], result: TrendResult) -> None:
-    if not path:
-        return
-    outputs = []
-    if result.current is not None:
-        outputs.append(f"current={result.current:.2f}")
-    if result.baseline is not None:
-        outputs.append(f"baseline={result.baseline:.2f}")
-    if result.delta is not None:
-        outputs.append(f"delta={result.delta:.2f}")
-    outputs.append(f"warn_drop={result.warn_drop:.2f}")
-    if result.minimum is not None:
-        outputs.append(f"minimum={result.minimum:.2f}")
-    outputs.append(f"status={result.status}")
-    comment = result.comment_body()
-    if comment:
-        outputs.append("comment<<EOF")
-        outputs.append(comment)
-        outputs.append("EOF")
-    with path.open("a", encoding="utf-8") as handle:
-        for line in outputs:
-            handle.write(line + "\n")
-
-
-def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compute coverage trend data.")
-    parser.add_argument("--coverage-xml", type=Path, default=Path("coverage.xml"))
-    parser.add_argument("--coverage-json", type=Path, default=Path("coverage.json"))
+def main(args: list[str] | None = None) -> int:
+    """Main entry point for coverage trend analysis."""
+    parser = argparse.ArgumentParser(description="Coverage trend analysis")
+    parser.add_argument("--coverage-xml", type=Path, help="Path to coverage.xml")
+    parser.add_argument("--coverage-json", type=Path, help="Path to coverage.json")
+    parser.add_argument("--baseline", type=Path, help="Path to baseline JSON")
     parser.add_argument(
-        "--baseline", type=Path, default=Path("config/coverage-baseline.json")
+        "--summary-path", type=Path, help="Path to output summary markdown"
     )
-    parser.add_argument("--summary-path", type=Path, default=None)
-    parser.add_argument("--job-summary", type=Path, default=None)
-    parser.add_argument("--artifact-path", type=Path, required=True)
-    parser.add_argument("--github-output", type=Path, default=None)
-    parser.add_argument("--minimum", type=float, default=None)
-    return parser.parse_args(argv)
+    parser.add_argument("--job-summary", type=Path, help="Path to GITHUB_STEP_SUMMARY")
+    parser.add_argument(
+        "--artifact-path", type=Path, help="Path to output trend artifact"
+    )
+    parser.add_argument("--github-output", type=Path, help="Path to write env file")
+    parser.add_argument(
+        "--minimum", type=float, default=70.0, help="Minimum coverage threshold"
+    )
+    parser.add_argument(
+        "--hotspot-limit", type=int, default=15, help="Max hotspot files to show"
+    )
+    parser.add_argument(
+        "--low-threshold", type=float, default=50.0, help="Low coverage threshold"
+    )
+    parser.add_argument(
+        "--soft",
+        action="store_true",
+        help="Soft gate mode - report only, always exit 0",
+    )
+    parsed = parser.parse_args(args)
+
+    # Load current coverage
+    coverage_data = {}
+    current_coverage = 0.0
+    if parsed.coverage_json and parsed.coverage_json.exists():
+        coverage_data = _load_json(parsed.coverage_json)
+        current_coverage = _extract_coverage_percent(coverage_data)
+
+    # Load baseline
+    baseline_coverage = 0.0
+    if parsed.baseline and parsed.baseline.exists():
+        baseline_data = _load_json(parsed.baseline)
+        baseline_coverage = float(baseline_data.get("coverage", 0.0))
+
+    # Calculate delta
+    delta = current_coverage - baseline_coverage
+    passes_minimum = current_coverage >= parsed.minimum
+
+    # Get hotspots
+    hotspots, low_coverage = _get_hotspots(
+        coverage_data,
+        limit=parsed.hotspot_limit,
+        low_threshold=parsed.low_threshold,
+    )
+
+    # Generate trend record
+    trend_record = {
+        "current": current_coverage,
+        "baseline": baseline_coverage,
+        "delta": delta,
+        "minimum": parsed.minimum,
+        "passes_minimum": passes_minimum,
+        "hotspot_count": len(hotspots),
+        "low_coverage_count": len(low_coverage),
+    }
+
+    # Write outputs
+    if parsed.artifact_path:
+        parsed.artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        # Include hotspots in artifact for downstream processing
+        artifact_data = {
+            **trend_record,
+            "hotspots": hotspots,
+            "low_coverage_files": low_coverage,
+        }
+        parsed.artifact_path.write_text(
+            json.dumps(artifact_data, indent=2), encoding="utf-8"
+        )
+
+    status = "✅ Pass" if passes_minimum else "❌ Below minimum"
+    summary = f"""## Coverage Trend
+
+| Metric | Value |
+|--------|-------|
+| Current | {current_coverage:.2f}% |
+| Baseline | {baseline_coverage:.2f}% |
+| Delta | {delta:+.2f}% |
+| Minimum | {parsed.minimum:.2f}% |
+| Status | {status} |
+
+"""
+
+    # Add hotspot tables if we have coverage data
+    if hotspots:
+        summary += _format_hotspot_table(
+            hotspots, "Top Coverage Hotspots (lowest coverage)"
+        )
+
+    if low_coverage:
+        summary += _format_hotspot_table(
+            low_coverage,
+            f"Low Coverage Files (<{parsed.low_threshold}%)",
+        )
+
+    if parsed.summary_path:
+        parsed.summary_path.parent.mkdir(parents=True, exist_ok=True)
+        parsed.summary_path.write_text(summary, encoding="utf-8")
+
+    if parsed.job_summary and parsed.job_summary.exists():
+        with parsed.job_summary.open("a", encoding="utf-8") as f:
+            f.write(summary)
+
+    if parsed.github_output:
+        parsed.github_output.parent.mkdir(parents=True, exist_ok=True)
+        with parsed.github_output.open("w", encoding="utf-8") as f:
+            f.write(f"coverage={current_coverage:.2f}\n")
+            f.write(f"baseline={baseline_coverage:.2f}\n")
+            f.write(f"delta={delta:.2f}\n")
+            f.write(f"passes_minimum={'true' if passes_minimum else 'false'}\n")
+            f.write(f"hotspot_count={len(hotspots)}\n")
+            f.write(f"low_coverage_count={len(low_coverage)}\n")
+
+    print(
+        f"Coverage: {current_coverage:.2f}% "
+        f"(baseline: {baseline_coverage:.2f}%, delta: {delta:+.2f}%)"
+    )
+    if hotspots:
+        print(f"Hotspots: {len(hotspots)} files with lowest coverage")
+
+    # In soft mode, always return 0 (report only, don't fail build)
+    if parsed.soft:
+        return 0
+    return 0 if passes_minimum else 1
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    args = parse_args(argv)
-    current = read_coverage(args.coverage_xml, args.coverage_json)
-    baseline = load_baseline(args.baseline)
-    result = evaluate_trend(current, baseline, minimum=args.minimum)
-    summary_lines = result.summary_lines()
-    if args.summary_path:
-        write_lines(args.summary_path, summary_lines, append=False)
-    if args.job_summary:
-        write_lines(args.job_summary, summary_lines, append=True)
-    dump_artifact(args.artifact_path, result)
-    write_github_output(args.github_output, result)
-    return 0
-
-
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     sys.exit(main())
