@@ -105,14 +105,23 @@ def realised_volatility(
 
 def _scale_factors(
     latest_vol: pd.Series,
-    target_vol: float,
+    target_vol: float | None,
     *,
     floor_vol: float | None = None,
 ) -> pd.Series:
+    if target_vol is None:
+        return pd.Series(1.0, index=latest_vol.index, dtype=float)
+    try:
+        target = float(target_vol)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return pd.Series(1.0, index=latest_vol.index, dtype=float)
+    if target <= 0:
+        return pd.Series(1.0, index=latest_vol.index, dtype=float)
+
     vol = latest_vol.astype(float).replace(0.0, np.nan)
     if floor_vol is not None and floor_vol > 0:
         vol = vol.clip(lower=float(floor_vol))
-    factors = pd.Series(target_vol, index=vol.index, dtype=float).div(vol)
+    factors = pd.Series(target, index=vol.index, dtype=float).div(vol)
     factors = factors.replace([np.inf, -np.inf], 0.0).fillna(0.0)
     return factors
 
@@ -177,7 +186,7 @@ def compute_constrained_weights(
     returns: pd.DataFrame,
     *,
     window: RiskWindow,
-    target_vol: float,
+    target_vol: float | None,
     periods_per_year: float,
     floor_vol: float | None,
     long_only: bool,
