@@ -16,10 +16,10 @@ running ``pytest``.
 
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import sys
 from pathlib import Path
-import importlib.util
 from typing import Iterator
 
 import pytest
