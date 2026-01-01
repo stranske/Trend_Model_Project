@@ -1408,6 +1408,24 @@ def run(
     except (TypeError, ValueError):
         cooldown_periods = 0
     cooldown_periods = max(0, cooldown_periods)
+    sticky_add_raw = portfolio_cfg.get("sticky_add_x")
+    if sticky_add_raw is None:
+        sticky_add_raw = portfolio_cfg.get("sticky_add_periods")
+    if sticky_add_raw is None:
+        sticky_add_raw = th_cfg.get("sticky_add_x")
+    sticky_drop_raw = portfolio_cfg.get("sticky_drop_y")
+    if sticky_drop_raw is None:
+        sticky_drop_raw = portfolio_cfg.get("sticky_drop_periods")
+    if sticky_drop_raw is None:
+        sticky_drop_raw = th_cfg.get("sticky_drop_y")
+    try:
+        sticky_add_periods = max(1, int(sticky_add_raw or 1))
+    except (TypeError, ValueError):
+        sticky_add_periods = 1
+    try:
+        sticky_drop_periods = max(1, int(sticky_drop_raw or 1))
+    except (TypeError, ValueError):
+        sticky_drop_periods = 1
     min_w_bound = float(constraints.get("min_weight", 0.05))  # decimal
     max_w_bound = float(constraints.get("max_weight", 0.18))  # decimal
     # consecutive below-min to replace
@@ -1501,6 +1519,8 @@ def run(
     lambda_tc = float(cfg.portfolio.get("lambda_tc", 0.0) or 0.0)
     low_weight_strikes: dict[str, int] = {}
     cooldown_book: dict[str, int] = {}
+    add_streaks: dict[str, int] = {}
+    drop_streaks: dict[str, int] = {}
 
     def _firm(name: str) -> str:
         return str(name).split()[0] if isinstance(name, str) and name else str(name)
@@ -2352,6 +2372,82 @@ def run(
                         continue
                     filtered.append(mgr)
                 proposed_holdings = filtered
+
+            if sticky_add_periods > 1 or sticky_drop_periods > 1:
+                before_list = [str(h) for h in before_reb]
+                before_set = set(before_list)
+                proposed_list = [str(h) for h in proposed_holdings]
+                proposed_set = set(proposed_list)
+                sf_set = {str(h) for h in sf.index}
+                forced_drop = {h for h in before_set if h not in sf_set}
+
+                for h in sf_set:
+                    if h in before_set:
+                        add_streaks[h] = 0
+                    elif h in proposed_set:
+                        add_streaks[h] = int(add_streaks.get(h, 0)) + 1
+                    else:
+                        add_streaks[h] = 0
+
+                for h in before_set:
+                    if h in forced_drop:
+                        drop_streaks.pop(h, None)
+                        continue
+                    if h not in proposed_set:
+                        drop_streaks[h] = int(drop_streaks.get(h, 0)) + 1
+                    else:
+                        drop_streaks[h] = 0
+
+                if sticky_add_periods > 1:
+                    blocked_adds: list[str] = []
+                    for h in sorted(proposed_set - before_set):
+                        if add_streaks.get(h, 0) < sticky_add_periods:
+                            proposed_set.discard(h)
+                            blocked_adds.append(h)
+                    for mgr in blocked_adds:
+                        events.append(
+                            {
+                                "action": "skipped",
+                                "manager": mgr,
+                                "firm": _firm(mgr),
+                                "reason": "sticky_add",
+                                "detail": (
+                                    f"streak={add_streaks.get(mgr, 0)}/"
+                                    f"{sticky_add_periods}"
+                                ),
+                            }
+                        )
+
+                if sticky_drop_periods > 1:
+                    blocked_drops: list[str] = []
+                    for h in sorted(before_set - proposed_set):
+                        if h in forced_drop:
+                            continue
+                        if drop_streaks.get(h, 0) < sticky_drop_periods:
+                            proposed_set.add(h)
+                            blocked_drops.append(h)
+                    for mgr in blocked_drops:
+                        events.append(
+                            {
+                                "action": "skipped",
+                                "manager": mgr,
+                                "firm": _firm(mgr),
+                                "reason": "sticky_drop",
+                                "detail": (
+                                    f"streak={drop_streaks.get(mgr, 0)}/"
+                                    f"{sticky_drop_periods}"
+                                ),
+                            }
+                        )
+
+                final_holdings: list[str] = []
+                for h in proposed_list:
+                    if h in proposed_set and h in sf_set and h not in final_holdings:
+                        final_holdings.append(h)
+                for h in before_list:
+                    if h in proposed_set and h in sf_set and h not in final_holdings:
+                        final_holdings.append(h)
+                proposed_holdings = final_holdings
 
             # Log attempted adds prior to firm/cap constraints. This preserves
             # the user's intent signal (e.g., a z_entry candidate) even if the
