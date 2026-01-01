@@ -116,7 +116,7 @@ class TrendSpec:
     lag: int = 1
     vol_adjust: bool = False
     vol_target: float | None = None
-    zscore: bool = False
+    zscore: bool | float = False
 
     def __post_init__(self) -> None:
         if self.window <= 0:
@@ -144,6 +144,18 @@ def _zscore_rows(frame: pd.DataFrame) -> pd.DataFrame:
     std = frame.std(axis=1, skipna=True, ddof=0).replace(0.0, np.nan)
     normalised = demeaned.div(std, axis=0)
     return normalised.fillna(0.0)
+
+
+def _resolve_zscore_scale(setting: bool | float) -> float | None:
+    if isinstance(setting, bool):
+        return 1.0 if setting else None
+    try:
+        scale = float(setting)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(scale) or scale <= 0:
+        return None
+    return scale
 
 
 def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFrame:
@@ -175,9 +187,12 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
         scale = scale.replace([np.inf, -np.inf], np.nan)
         signal = signal.mul(scale)
 
-    if spec.zscore:
+    zscore_scale = _resolve_zscore_scale(spec.zscore)
+    if zscore_scale is not None:
         with _timed_stage("trend_zscore"):
             signal = _zscore_rows(signal)
+        if zscore_scale != 1.0:
+            signal = signal.mul(zscore_scale)
 
     signal = signal.replace([np.inf, -np.inf], np.nan).astype(float)
     signal.attrs["spec"] = asdict(spec)

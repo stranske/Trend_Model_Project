@@ -90,7 +90,7 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
         {
             "trend_window": 20,
             "trend_lag": 1,
-            "trend_zscore": False,
+            "trend_zscore": 1.0,
             "trend_vol_adjust": False,
         },
     )
@@ -99,7 +99,7 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
         {
             "trend_window": 20,
             "trend_lag": 1,
-            "trend_zscore": True,
+            "trend_zscore": 2.0,
             "trend_vol_adjust": False,
         },
     )

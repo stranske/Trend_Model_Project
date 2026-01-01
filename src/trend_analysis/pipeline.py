@@ -1605,7 +1605,18 @@ def _build_trend_spec(
     except (TypeError, ValueError):
         vol_target = None
 
-    zscore_flag = bool(_signal_setting("zscore", "trend_zscore", False))
+    zscore_setting = _signal_setting("zscore", "trend_zscore", False)
+    if isinstance(zscore_setting, bool):
+        zscore_flag: bool | float = zscore_setting
+    else:
+        try:
+            zscore_value = float(zscore_setting)
+        except (TypeError, ValueError):
+            zscore_flag = False
+        else:
+            zscore_flag = zscore_value if np.isfinite(zscore_value) else False
+            if isinstance(zscore_flag, float) and zscore_flag <= 0:
+                zscore_flag = False
 
     return TrendSpec(
         kind="tsmom",
