@@ -2359,6 +2359,8 @@ def run(
                     str(h) for h in list(rebased.index) if h in sf.index
                 ]
 
+            raw_proposed_holdings = [str(h) for h in proposed_holdings]
+
             # Enforce cooldown: funds recently removed cannot be re-added.
             # Existing holdings are not blocked (cooldown only applies to re-entry).
             if cooldown_periods > 0 and cooldown_book:
@@ -2385,7 +2387,7 @@ def run(
                 before_list = [str(h) for h in before_reb]
                 before_set = set(before_list)
                 proposed_list = [str(h) for h in proposed_holdings]
-                raw_proposed_set = set(proposed_list)
+                raw_proposed_set = set(raw_proposed_holdings)
                 proposed_set = set(proposed_list)
                 sf_set = {str(h) for h in sf.index}
                 forced_drop = {h for h in before_set if h not in sf_set}
