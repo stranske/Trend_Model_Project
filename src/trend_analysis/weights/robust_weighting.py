@@ -261,27 +261,44 @@ class RobustMeanVariance(WeightEngine):
             shrunk_cov_array, index=cov.index, columns=cov.columns
         )
 
-        # Check condition number
-        condition_num = self._check_condition_number(cov_array)
+        # Check condition number on the matrix actually used for optimization.
+        raw_condition_num = self._check_condition_number(cov_array)
+        condition_num = self._check_condition_number(shrunk_cov_array)
+        condition_source = "shrunk_cov" if self.shrinkage_method != "none" else "raw_cov"
 
         if self.log_condition_numbers:
-            logger.debug(f"Covariance matrix condition number: {condition_num:.2e}")
+            logger.debug(
+                f"Raw covariance matrix condition number: {raw_condition_num:.2e}"
+            )
+            if self.shrinkage_method != "none":
+                logger.debug(
+                    "Shrinkage-adjusted covariance matrix condition number: "
+                    f"{condition_num:.2e}"
+                )
 
+        used_safe_mode = condition_num > self.condition_threshold
         self.diagnostics = {
             "condition_number": condition_num,
+            "raw_condition_number": raw_condition_num,
+            "condition_source": condition_source,
             "condition_threshold": self.condition_threshold,
             "safe_mode": self.safe_mode,
-            "used_safe_mode": condition_num > self.condition_threshold,
+            "used_safe_mode": used_safe_mode,
             "shrinkage": shrinkage_info,
         }
 
-        if condition_num > self.condition_threshold:
+        if used_safe_mode:
+            self.diagnostics["fallback_reason"] = "condition_threshold_exceeded"
             if self.log_method_switches:
                 logger.warning(
-                    f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e} > "
-                    f"threshold: {self.condition_threshold:.2e}). Switching to safe mode: {self.safe_mode}"
+                    "Ill-conditioned covariance matrix (%s condition number: %.2e > "
+                    "threshold: %.2e). Switching to safe mode: %s",
+                    condition_source,
+                    condition_num,
+                    self.condition_threshold,
+                    self.safe_mode,
                 )
-            return self._safe_mode_weights(cov)
+            return self._safe_mode_weights(shrunk_cov)
 
         # Use normal mean-variance optimization
         logger.debug(
