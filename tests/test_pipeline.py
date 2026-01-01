@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -292,6 +293,93 @@ def test_run_full_includes_risk_diagnostics(tmp_path):
     assert not asset_vol.empty
 
 
+def test_run_full_robustness_settings_affect_weights(tmp_path):
+    cfg = make_cfg(tmp_path, _make_three_fund_df())
+    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["robustness"] = {
+        "shrinkage": {"enabled": False},
+        "condition_check": {
+            "enabled": True,
+            "threshold": 1.0,
+            "safe_mode": "risk_parity",
+            "diagonal_loading_factor": 1.0e-6,
+        },
+    }
+
+    res_rp = pipeline.run_full(cfg)
+    diag_rp = res_rp["weight_engine_diagnostics"]
+    assert diag_rp["used_safe_mode"] is True
+    assert diag_rp["safe_mode"] == "risk_parity"
+    weights_rp = res_rp["fund_weights"]
+
+    cfg.portfolio["robustness"]["condition_check"]["safe_mode"] = "diagonal_mv"
+    res_diag = pipeline.run_full(cfg)
+    diag_diag = res_diag["weight_engine_diagnostics"]
+    assert diag_diag["used_safe_mode"] is True
+    assert diag_diag["safe_mode"] == "diagonal_mv"
+    weights_diag = res_diag["fund_weights"]
+
+    rp_values = np.array([weights_rp["A"], weights_rp["B"], weights_rp["C"]])
+    diag_values = np.array([weights_diag["A"], weights_diag["B"], weights_diag["C"]])
+    assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
+
+
+def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
+    df = _make_ill_conditioned_df()
+    cfg = make_cfg(tmp_path, df)
+    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["robustness"] = {
+        "shrinkage": {"enabled": False},
+        "condition_check": {
+            "enabled": True,
+            "threshold": 1.0,
+            "safe_mode": "risk_parity",
+            "diagonal_loading_factor": 1.0e-6,
+        },
+    }
+    cfg.sample_split.update(
+        {
+            "in_start": "2020-01",
+            "in_end": "2020-06",
+            "out_start": "2020-07",
+            "out_end": "2020-08",
+        }
+    )
+
+    df_from_csv = pd.read_csv(cfg.data["csv_path"])
+    preprocess = pipeline._prepare_preprocess_stage(
+        df_from_csv,
+        floor_vol=None,
+        warmup_periods=0,
+        missing_policy=None,
+        missing_limit=None,
+        stats_cfg=None,
+        periods_per_year_override=None,
+        allow_risk_free_fallback=False,
+    )
+    assert not isinstance(preprocess, pipeline.PipelineResult)
+    window = pipeline._build_sample_windows(
+        preprocess,
+        in_start="2020-01",
+        in_end="2020-06",
+        out_start="2020-07",
+        out_end="2020-08",
+    )
+    assert not isinstance(window, pipeline.PipelineResult)
+    cov = window.in_df[["A", "B", "C"]].cov()
+    raw_condition = float(np.linalg.cond(cov.values))
+    cfg.portfolio["robustness"]["condition_check"]["threshold"] = raw_condition / 2.0
+
+    res = pipeline.run_full(cfg)
+    diag = res["weight_engine_diagnostics"]
+    assert diag["condition_source"] == "raw_cov"
+    assert diag["condition_number"] == pytest.approx(raw_condition)
+    assert diag["used_safe_mode"] is True
+    fallback = res["weight_engine_fallback"]
+    assert fallback["reason"] == "condition_threshold_exceeded"
+    assert fallback["safe_mode"] == "risk_parity"
+
+
 def _make_two_fund_df() -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     return pd.DataFrame(
@@ -300,6 +388,34 @@ def _make_two_fund_df() -> pd.DataFrame:
             "RF": 0.0,
             "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
             "B": [0.01, 0.02, 0.02, 0.03, 0.01, 0.02],
+        }
+    )
+
+
+def _make_three_fund_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
+            "B": [0.01, 0.008, 0.012, 0.009, 0.011, 0.01],
+            "C": [0.002, 0.001, 0.003, 0.0025, 0.0015, 0.002],
+        }
+    )
+
+
+def _make_ill_conditioned_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=8, freq="ME")
+    base = np.array([0.01, 0.011, 0.009, 0.012, 0.0105, 0.0115, 0.0095, 0.0108])
+    jitter = np.array([1e-4, -1e-4, 5e-5, -5e-5, 8e-5, -8e-5, 6e-5, -6e-5])
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": base,
+            "B": base + jitter,
+            "C": base * 0.2 + 0.001,
         }
     )
 

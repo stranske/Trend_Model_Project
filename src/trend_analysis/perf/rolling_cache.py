@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import tempfile
 from pathlib import Path
 from time import perf_counter
 from typing import Callable, Sequence
@@ -17,22 +18,32 @@ from trend_analysis.util.joblib_shim import dump, load
 from .timing import log_timing
 
 
+def _safe_resolve(path: Path) -> Path:
+    try:
+        return path.expanduser().resolve()
+    except OSError:
+        return path.expanduser()
+
+
+def _get_home_dir() -> Path:
+    try:
+        return _safe_resolve(Path.home())
+    except Exception:
+        return _safe_resolve(Path(tempfile.gettempdir()))
+
+
 def _get_default_cache_dir() -> Path:
     env_path = os.getenv("TREND_ROLLING_CACHE")
+    home = _get_home_dir()
     if env_path:
-        # Expand user and resolve to absolute path
-        cache_path = Path(env_path).expanduser().resolve()
-        # Optionally, ensure cache_path is within the user's home directory
+        cache_path = _safe_resolve(Path(env_path))
         try:
-            home = Path.home().resolve()
-            if not str(cache_path).startswith(str(home)):
-                # Fallback to safe default if outside home
+            if not cache_path.is_relative_to(home):
                 cache_path = home / ".cache/trend_model/rolling"
-        except Exception:
-            cache_path = Path.home() / ".cache/trend_model/rolling"
+        except ValueError:
+            cache_path = home / ".cache/trend_model/rolling"
         return cache_path
-    else:
-        return Path.home() / ".cache/trend_model/rolling"
+    return home / ".cache/trend_model/rolling"
 
 
 _DEFAULT_CACHE_DIR = _get_default_cache_dir()
@@ -74,8 +85,23 @@ class RollingCache:
 
     def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = (cache_dir or _DEFAULT_CACHE_DIR).expanduser()
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._enabled = True
+        self.cache_dir = self._ensure_cache_dir(self.cache_dir)
+
+    def _ensure_cache_dir(self, cache_dir: Path) -> Path:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            return cache_dir
+        except (OSError, PermissionError):
+            fallback = (
+                Path(tempfile.gettempdir()) / "trend_model" / "rolling"
+            ).resolve()
+            try:
+                fallback.mkdir(parents=True, exist_ok=True)
+                return fallback
+            except (OSError, PermissionError):
+                self._enabled = False
+                return cache_dir
 
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = bool(enabled)

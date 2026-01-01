@@ -81,3 +81,19 @@ def test_risk_parity_and_robust_variants_manage_degenerate_cases() -> None:
     mv_regular_weights = mv_regular.weight(cov)
     assert pytest.approx(float(mv_regular_weights.sum()), rel=1e-6) == 1.0
     assert (mv_regular_weights >= 0).all()
+
+
+def test_weight_engines_emit_non_negative_weights() -> None:
+    cov = _make_covariance()
+    engines = [
+        ("risk_parity", RiskParity()),
+        ("hrp", HierarchicalRiskParity()),
+        ("erc", EqualRiskContribution(max_iter=200)),
+        ("robust_risk_parity", RobustRiskParity()),
+        ("robust_mean_variance", RobustMeanVariance()),
+    ]
+
+    for name, engine in engines:
+        weights = engine.weight(cov)
+        assert pytest.approx(float(weights.sum()), rel=1e-6) == 1.0
+        assert (weights >= 0).all(), f"{name} produced negative weights"
