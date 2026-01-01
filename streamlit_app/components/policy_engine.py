@@ -36,7 +36,8 @@ class PolicyConfig:
     # Competing rule sets (ordered). Empty => default behavior (threshold_hold).
     add_rules: List[str] = field(default_factory=list)
     drop_rules: List[str] = field(default_factory=list)
-    # Sticky rank window parameters and CI level (reporting-only)
+    # Sticky rank window parameters; ci_level is reporting-only and does not
+    # alter portfolio construction.
     sticky_add_x: int = 1
     sticky_drop_y: int = 1
     ci_level: float = 0.0

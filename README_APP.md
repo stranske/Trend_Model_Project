@@ -47,6 +47,10 @@ reports downloaded from the UI are byte-identical to those produced via
 - If available, the code calls `trend_analysis.pipeline.single_period_run(...)` to compute the score frame.
 - If import fails, it falls back to a local metrics implementation so the app still runs.
 
+## Confidence interval reporting
+The `ci_level` slider controls reporting-only confidence interval annotations.
+It does not change portfolio construction, selection, or policy decisions.
+
 ## Trend presets in the UI and CLI
 
 The Configure page surfaces curated signal presets so users can quickly load
