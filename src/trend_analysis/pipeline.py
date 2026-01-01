@@ -1425,6 +1425,7 @@ def _apply_regime_overrides(
         updated_random_n = max(1, int(round(random_n * multiplier)))
 
     updated_rank = dict(rank_kwargs or {})
+    inclusion_approach = str(updated_rank.get("inclusion_approach", "") or "").lower()
     if "n" in updated_rank and updated_rank.get("n") is not None:
         try:
             current_n = int(updated_rank["n"])
@@ -1432,6 +1433,26 @@ def _apply_regime_overrides(
             current_n = None
         if current_n is not None and current_n > 1:
             updated_rank["n"] = max(1, int(round(current_n * multiplier)))
+
+    if inclusion_approach == "top_pct" and updated_rank.get("pct") is not None:
+        try:
+            current_pct = float(updated_rank["pct"])
+        except (TypeError, ValueError):
+            current_pct = None
+        if current_pct is not None and current_pct > 0:
+            adjusted_pct = min(1.0, max(0.0, current_pct * multiplier))
+            updated_rank["pct"] = adjusted_pct
+
+    if inclusion_approach == "threshold" and updated_rank.get("threshold") is not None:
+        try:
+            current_threshold = float(updated_rank["threshold"])
+        except (TypeError, ValueError):
+            current_threshold = None
+        if current_threshold is not None:
+            if current_threshold > 0:
+                updated_rank["threshold"] = current_threshold / multiplier
+            elif current_threshold < 0:
+                updated_rank["threshold"] = current_threshold * multiplier
 
     return updated_random_n, updated_rank if updated_rank else rank_kwargs
 
