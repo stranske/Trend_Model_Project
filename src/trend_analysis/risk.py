@@ -79,8 +79,9 @@ def realised_volatility(
     if returns.empty:
         raise ValueError("returns cannot be empty")
 
+    min_periods_val = 1 if not min_periods else int(min_periods)
     rolling_kwargs: MutableMapping[str, object] = {
-        "min_periods": min_periods or 1,
+        "min_periods": min_periods_val,
     }
 
     if window.length <= 0:
@@ -96,7 +97,14 @@ def realised_volatility(
                 f"ewma_lambda must be between 0 and 1 (got {lam}); "
                 f"computed alpha = 1 - ewma_lambda = {alpha:.4f} must be between 0 and 1"
             )
-        vol = returns.ewm(alpha=alpha, adjust=False).std(bias=False)
+
+        def _ewma_std(values: np.ndarray) -> float:
+            series = pd.Series(values, dtype=float)
+            return float(series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1])
+
+        vol = returns.rolling(window=window.length, min_periods=min_periods_val).apply(
+            _ewma_std, raw=True
+        )
     else:
         vol = returns.rolling(window=window.length, **rolling_kwargs).std(ddof=0)
 

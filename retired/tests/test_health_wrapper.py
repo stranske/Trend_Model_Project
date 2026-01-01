@@ -1,4 +1,5 @@
 import pytest
+
 from trend_portfolio_app import health_wrapper
 
 

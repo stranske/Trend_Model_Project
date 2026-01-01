@@ -2270,6 +2270,10 @@ def render_model_page() -> None:
                 "rf_rate_annual": rf_rate_annual,
                 "vol_floor": vol_floor,
                 "warmup_periods": warmup_periods,
+                "vol_adjust_enabled": vol_adj_enabled,
+                "vol_window_length": vol_window_length,
+                "vol_window_decay": vol_window_decay,
+                "vol_ewma_lambda": vol_ewma_lambda,
                 # Advanced settings
                 "max_weight": max_weight_decimal,
                 "min_weight": min_weight_decimal,
