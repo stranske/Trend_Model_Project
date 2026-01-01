@@ -97,6 +97,7 @@ def realised_volatility(
                 f"ewma_lambda must be between 0 and 1 (got {lam}); "
                 f"computed alpha = 1 - ewma_lambda = {alpha:.4f} must be between 0 and 1"
             )
+
         def _ewma_std(values: np.ndarray) -> float:
             series = pd.Series(values, dtype=float)
             return float(series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1])

@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
 import pytest
-from trend_portfolio_app import sim_runner
 from trend_portfolio_app.event_log import Event, EventLog
 from trend_portfolio_app.policy_engine import PolicyConfig
+
+from trend_portfolio_app import sim_runner
 
 
 def test_compute_score_frame_local_handles_failure(monkeypatch):
