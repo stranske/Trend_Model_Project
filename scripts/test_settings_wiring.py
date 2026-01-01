@@ -319,6 +319,16 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         expected_direction="change",
         description="Different seed should produce different random selections",
     ),
+    # === Risk-Free Rate ===
+    SettingTest(
+        name="rf_rate_annual",
+        baseline_value=0.0,
+        test_value=0.05,
+        category="Risk",
+        expected_metric="average_sharpe",
+        expected_direction="change",
+        description="Higher risk-free rate should change Sharpe ratios",
+    ),
 ]
 
 
@@ -390,6 +400,8 @@ def get_baseline_state() -> dict[str, Any]:
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
         "long_only": True,
+        "rf_override_enabled": True,  # Enable rf override to test rf_rate_annual
+        "rf_rate_annual": 0.0,
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
@@ -970,6 +982,13 @@ def extract_metric(
         if result.weights is not None:
             pos = result.weights[result.weights > 0]
             return float(pos.min()) if len(pos) > 0 else 0.0
+        return 0.0
+
+    if metric_name == "average_sharpe":
+        # Extract average Sharpe ratio from per-fund metrics
+        if result.metrics is not None and isinstance(result.metrics, pd.DataFrame):
+            if "sharpe" in result.metrics.columns:
+                return float(result.metrics["sharpe"].mean())
         return 0.0
 
     if metric_name == "num_periods":

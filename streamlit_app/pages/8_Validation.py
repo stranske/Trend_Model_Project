@@ -99,6 +99,15 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         economic_intuition="Higher floor → less extreme scaling for low-vol assets",
     ),
     SettingDef(
+        key="rf_rate_annual",
+        label="Risk-Free Rate",
+        category="Risk",
+        baseline=0.0,
+        test_values=[0.02, 0.05, 0.08],
+        expected_effect="Sharpe and Sortino ratios",
+        economic_intuition="Higher rf rate → lower excess returns → changed ratios",
+    ),
+    SettingDef(
         key="max_weight",
         label="Max Weight",
         category="Constraints",
