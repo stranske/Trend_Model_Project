@@ -372,6 +372,8 @@ def _build_config(payload: AnalysisPayload) -> Config:
         state.get("vol_window_length"), default=63, minimum=1
     )
     vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
+    if vol_window_decay == "constant":
+        vol_window_decay = "simple"
     if vol_window_decay not in {"ewma", "simple"}:
         vol_window_decay = "ewma"
     vol_ewma_lambda = _coerce_positive_float(state.get("vol_ewma_lambda"), default=0.94)
