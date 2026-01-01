@@ -56,6 +56,25 @@ def test_run_simulation_handles_none_result(monkeypatch: pytest.MonkeyPatch) -> 
     assert result.environment["python"]
 
 
+def test_run_simulation_passes_regime_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _DummyConfig()
+    cfg.regime = {"enabled": True, "proxy": "SPX"}
+    returns = _make_returns()
+    captured: dict[str, object] = {}
+
+    def _capture_run_analysis(*_args, **kwargs):
+        captured["regime_cfg"] = kwargs.get("regime_cfg")
+        return None
+
+    monkeypatch.setattr(api, "_run_analysis", _capture_run_analysis)
+
+    api.run_simulation(cfg, returns)
+
+    assert captured["regime_cfg"] == {"enabled": True, "proxy": "SPX"}
+
+
 def test_run_simulation_sanitizes_details_and_combines_portfolio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

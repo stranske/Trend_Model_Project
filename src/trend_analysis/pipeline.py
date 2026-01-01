@@ -36,7 +36,7 @@ from .metrics import (
 )
 from .perf.rolling_cache import compute_dataset_hash, get_cache  # noqa: F401
 from .portfolio import apply_weight_policy
-from .regimes import build_regime_payload
+from .regimes import build_regime_payload, compute_regimes, normalise_settings
 from .risk import (
     RiskDiagnostics,
     RiskWindow,
@@ -1363,6 +1363,119 @@ def _resolve_target_vol(vol_adjust_cfg: Mapping[str, Any] | Any) -> float | None
     return target
 
 
+# Default multiplier for reducing fund count/selection during risk-off regimes.
+# Must match the value in config/defaults.yml regime.risk_off_fund_count_multiplier
+_DEFAULT_RISK_OFF_FUND_MULTIPLIER = 0.5
+
+
+def _resolve_regime_label(
+    preprocess: _PreprocessStage,
+    window: _WindowStage,
+    regime_cfg: Mapping[str, Any] | None,
+) -> tuple[str | None, Any]:
+    settings = normalise_settings(regime_cfg)
+    if not settings.enabled:
+        return None, settings
+    proxy = settings.proxy
+    if not proxy or proxy not in window.in_df.columns:
+        return None, settings
+    proxy_series = window.in_df[proxy].astype(float).dropna()
+    if proxy_series.empty:
+        return None, settings
+    labels = compute_regimes(
+        proxy_series,
+        settings,
+        freq=preprocess.freq_summary.target,
+        periods_per_year=window.periods_per_year,
+    )
+    if labels.empty:
+        return None, settings
+    aligned = labels.reindex(window.in_df.index).ffill().bfill()
+    if aligned.empty:
+        return None, settings
+    return str(aligned.iloc[-1]), settings
+
+
+def _apply_regime_overrides(
+    *,
+    random_n: int,
+    rank_kwargs: Mapping[str, Any] | None,
+    regime_label: str | None,
+    settings: Any,
+    regime_cfg: Mapping[str, Any] | None = None,
+) -> tuple[int, Mapping[str, Any] | None]:
+    if not regime_label:
+        return random_n, rank_kwargs
+    if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
+        return random_n, rank_kwargs
+
+    # Get multiplier from config or use default
+    cfg = dict(regime_cfg or {})
+    multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
+    if "risk_off_fund_count_multiplier" in cfg:
+        try:
+            multiplier = float(cfg["risk_off_fund_count_multiplier"])
+            if multiplier <= 0 or multiplier > 1:
+                multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
+        except (TypeError, ValueError):
+            pass
+
+    updated_random_n = random_n
+    if isinstance(random_n, int) and random_n > 1:
+        updated_random_n = max(1, int(round(random_n * multiplier)))
+
+    updated_rank = dict(rank_kwargs or {})
+    if "n" in updated_rank and updated_rank.get("n") is not None:
+        try:
+            current_n = int(updated_rank["n"])
+        except (TypeError, ValueError):
+            current_n = None
+        if current_n is not None and current_n > 1:
+            updated_rank["n"] = max(1, int(round(current_n * multiplier)))
+
+    return updated_random_n, updated_rank if updated_rank else rank_kwargs
+
+
+def _apply_regime_weight_overrides(
+    *,
+    target_vol: float | None,
+    constraints: dict[str, Any] | None,
+    regime_label: str | None,
+    settings: Any,
+    regime_cfg: Mapping[str, Any] | None,
+) -> tuple[float | None, dict[str, Any] | None]:
+    if target_vol is None:
+        return None, constraints
+    if not regime_label:
+        return target_vol, constraints
+    if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
+        return target_vol, constraints
+
+    cfg = dict(regime_cfg or {})
+
+    def _coerce_positive_float(value: Any, default: float) -> float:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return default
+        if num <= 0:
+            return default
+        return num
+
+    updated_target = target_vol
+    if "risk_off_target_vol" in cfg:
+        updated_target = _coerce_positive_float(
+            cfg.get("risk_off_target_vol"), target_vol
+        )
+    else:
+        multiplier = _coerce_positive_float(
+            cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5
+        )
+        updated_target = float(target_vol) * multiplier
+
+    return updated_target, constraints
+
+
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
     current = cfg
     visited: set[int] = set()
@@ -2051,6 +2164,24 @@ def _run_analysis_with_diagnostics(
     )
     if isinstance(window_stage, PipelineResult):
         return window_stage
+
+    regime_label, regime_settings = _resolve_regime_label(
+        preprocess_stage, window_stage, regime_cfg
+    )
+    random_n, rank_kwargs = _apply_regime_overrides(
+        random_n=random_n,
+        rank_kwargs=rank_kwargs,
+        regime_label=regime_label,
+        settings=regime_settings,
+        regime_cfg=regime_cfg,
+    )
+    target_vol, constraints = _apply_regime_weight_overrides(
+        target_vol=target_vol,
+        constraints=constraints,
+        regime_label=regime_label,
+        settings=regime_settings,
+        regime_cfg=regime_cfg,
+    )
 
     selection_stage = _select_universe(
         preprocess_stage,

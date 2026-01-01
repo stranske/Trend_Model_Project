@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
@@ -10,6 +11,8 @@ import pandas as pd
 
 from .metrics import annual_return, max_drawdown, sharpe_ratio
 from .perf.rolling_cache import compute_dataset_hash, get_cache
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -184,7 +187,20 @@ def _compute_regime_series(
         return pd.Series(dtype="string")
 
     window = max(int(settings.lookback), 1)
+    window = min(window, len(clean))
     smoothing = max(int(settings.smoothing), 1)
+    max_smoothing = max(len(clean) - window + 1, 1)
+    if smoothing > max_smoothing:
+        original_smoothing = int(settings.smoothing)
+        smoothing = max_smoothing
+        logger.warning(
+            "Smoothing parameter clamped from %d to %d "
+            "(data length %d, window %d limits max smoothing)",
+            original_smoothing,
+            smoothing,
+            len(clean),
+            window,
+        )
 
     periods = None
     if periods_per_year is not None and periods_per_year > 0:
