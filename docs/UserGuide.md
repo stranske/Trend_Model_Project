@@ -147,7 +147,7 @@ Volatility targeting and basic constraints live under the `vol_adjust` and
 | `vol_adjust.floor_vol` | float | Minimum annualised volatility per asset to avoid excessive leverage. |
 | `vol_adjust.warmup_periods` | integer | Number of initial rows with zero exposure after re-scaling. |
 | `portfolio.max_turnover` | float | Turnover cap (fraction of the book) enforced at each rebalance. |
-| `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation. |
+| `portfolio.constraints.long_only` | bool | Clip negative weights before normalisation; relevant for custom/manual weights or schedules that include shorts. |
 | `portfolio.constraints.max_weight` | float | Maximum weight per asset before normalisation. |
 
 The CLI summary and Streamlit app now display a “Risk diagnostics” panel that
@@ -349,7 +349,7 @@ Supported keys (YAML under `portfolio.constraints`):
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `long_only` | bool | `true` | Clip negative weights then renormalise. Raises if all become zero. |
+| `long_only` | bool | `true` | Clip negative weights then renormalise. Relevant when user-supplied weights include shorts; built-in schemes are non-negative. |
 | `max_weight` | float | `null` | Per-asset cap (exclusive of redistribution tolerance). Must satisfy `max_weight * N >= 1`. |
 | `group_caps` | mapping(str->float) | `null` | Upper bounds for groups; excess is redistributed to other groups. |
 | `groups` | mapping(asset->group) | `null` | Required when `group_caps` set; every asset must map to a group present. |
@@ -394,4 +394,3 @@ print(projected)
 ```
 
 To ignore all constraints (legacy behaviour), omit the `portfolio.constraints` block.
-
