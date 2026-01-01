@@ -4,6 +4,7 @@
 
 ## Progress updates
 - Round 1: Reviewed recent commits for regime wiring, added results-page coverage for regime proxy inputs, and validated targeted tests.
+- Round 2: Added random-selection regime wiring test and ran `pytest -p no:rerunfailures tests/test_pipeline_optional_features.py -m "not slow"`.
 
 ## Scope
 The regime detection settings (`regime_enabled`, `regime_proxy`) have no observable effect on portfolio construction. Users expect regime detection to modify fund selection or weights based on market conditions.

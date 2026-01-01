@@ -339,6 +339,40 @@ def test_regime_enabled_scales_top_pct_selection_count() -> None:
     assert len(enabled["selected_funds"]) == 2
 
 
+def test_regime_enabled_scales_random_selection_count() -> None:
+    df = _regime_returns_frame()
+    base = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="random",
+        random_n=4,
+        regime_cfg={"enabled": False, "proxy": "SPX"},
+        **RUN_KWARGS,
+    )
+    enabled = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="random",
+        random_n=4,
+        regime_cfg={"enabled": True, "proxy": "SPX"},
+        **RUN_KWARGS,
+    )
+    assert base is not None
+    assert enabled is not None
+    assert len(base["selected_funds"]) == 4
+    assert len(enabled["selected_funds"]) == 2
+
+
 # Default multiplier from config/defaults.yml regime.risk_off_target_vol_multiplier
 RISK_OFF_TARGET_VOL_MULTIPLIER = 0.5
 
