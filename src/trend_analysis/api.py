@@ -59,6 +59,32 @@ def _safe_len(obj: Any) -> int:
     return len(obj) if isinstance(obj, Sized) else 0
 
 
+def _attach_reporting_metadata(res_dict: dict[str, Any], config: ConfigType) -> None:
+    """Attach reporting-only metadata from config without affecting computation."""
+
+    portfolio = getattr(config, "portfolio", None)
+    if not isinstance(portfolio, Mapping):
+        return
+    ci_level = portfolio.get("ci_level")
+    if ci_level in (None, ""):
+        return
+    try:
+        ci_level_val = float(ci_level)
+    except (TypeError, ValueError):
+        return
+    if ci_level_val <= 0:
+        return
+    metadata = res_dict.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+        res_dict["metadata"] = metadata
+    reporting = metadata.get("reporting")
+    if not isinstance(reporting, dict):
+        reporting = {}
+        metadata["reporting"] = reporting
+    reporting["ci_level"] = ci_level_val
+
+
 @dataclass
 class RunResult:
     """Container for simulation output.
@@ -467,6 +493,8 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             logger.warning("run_simulation produced no result (unknown reason)")
         return RunResult(pd.DataFrame(), {}, seed, env, diagnostic=diag)
     res_dict = payload
+    if isinstance(res_dict, dict):
+        _attach_reporting_metadata(res_dict, config)
 
     _log_step(run_id, "metrics_build", "Building metrics dataframe")
     stats_obj = res_dict.get("out_sample_stats")

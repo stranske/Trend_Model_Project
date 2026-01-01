@@ -218,3 +218,23 @@ def test_run_simulation_populates_structured_results(monkeypatch) -> None:
     pd.testing.assert_series_equal(
         result.weights.astype(float), pd.Series({"FundA": 0.6})
     )
+
+
+def test_run_simulation_attaches_ci_level_metadata(monkeypatch) -> None:
+    config = _make_config(portfolio={"ci_level": 0.9})
+    returns = _make_returns()
+
+    payload = {
+        "out_sample_stats": {
+            "FundA": SimpleNamespace(alpha=1.0, beta=0.5),
+        },
+        "benchmark_ir": {},
+        "metadata": {},
+    }
+
+    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+
+    result = api.run_simulation(config, returns)
+
+    assert result.analysis is not None
+    assert result.analysis.metadata["reporting"]["ci_level"] == 0.9
