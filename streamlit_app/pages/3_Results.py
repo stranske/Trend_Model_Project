@@ -1857,7 +1857,10 @@ def render_results_page() -> None:
 
     selected_rf = st.session_state.get("selected_risk_free")
     info_ratio_benchmark = model_state.get("info_ratio_benchmark")
-    prohibited = {selected_rf, benchmark, info_ratio_benchmark} - {None}
+    regime_proxy = None
+    if bool(model_state.get("regime_enabled", False)):
+        regime_proxy = model_state.get("regime_proxy")
+    prohibited = {selected_rf, benchmark, info_ratio_benchmark, regime_proxy} - {None}
 
     # Policy: benchmark/index columns (including Info Ratio benchmark) and RF
     # are never investable funds.
@@ -1866,7 +1869,7 @@ def render_results_page() -> None:
     ]
     removed = [c for c in applied_funds if c in df.columns and c in prohibited]
     keep_cols = list(sanitized_funds)
-    for extra in (selected_rf, benchmark):
+    for extra in (selected_rf, benchmark, regime_proxy):
         if extra and extra in df.columns and extra not in keep_cols:
             keep_cols.append(extra)
 
