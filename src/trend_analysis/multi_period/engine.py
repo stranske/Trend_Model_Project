@@ -2377,6 +2377,7 @@ def run(
                 before_list = [str(h) for h in before_reb]
                 before_set = set(before_list)
                 proposed_list = [str(h) for h in proposed_holdings]
+                raw_proposed_set = set(proposed_list)
                 proposed_set = set(proposed_list)
                 sf_set = {str(h) for h in sf.index}
                 forced_drop = {h for h in before_set if h not in sf_set}
@@ -2384,7 +2385,7 @@ def run(
                 for h in sf_set:
                     if h in before_set:
                         add_streaks[h] = 0
-                    elif h in proposed_set:
+                    elif h in raw_proposed_set:
                         add_streaks[h] = int(add_streaks.get(h, 0)) + 1
                     else:
                         add_streaks[h] = 0
@@ -2393,7 +2394,7 @@ def run(
                     if h in forced_drop:
                         drop_streaks.pop(h, None)
                         continue
-                    if h not in proposed_set:
+                    if h not in raw_proposed_set:
                         drop_streaks[h] = int(drop_streaks.get(h, 0)) + 1
                     else:
                         drop_streaks[h] = 0
