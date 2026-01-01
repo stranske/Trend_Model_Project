@@ -1549,32 +1549,53 @@ def _empty_run_full_result() -> dict[str, object]:
 def _build_trend_spec(
     cfg: Mapping[str, Any] | Any,
     vol_adjust_cfg: Mapping[str, Any] | Any,
-) -> TrendSpec:
+) -> TrendSpec | None:
+    """Build a TrendSpec from config, or None if no signals config is present.
+
+    Returns None when no ``signals`` section is configured, so that callers
+    fall back to the existing default behaviour (signal window derived from
+    the in-sample risk window).
+    """
     signals_cfg = _cfg_section(cfg, "signals")
+
+    # Return None when no signals config is present - this preserves the old
+    # default behaviour where signal_spec=None causes the pipeline to derive
+    # the window from the risk window length rather than hardcoding 63.
+    if not signals_cfg:
+        return None
+
+    def _signal_setting(key: str, alias: str | None, default: Any = None) -> Any:
+        value = _section_get(signals_cfg, key, None)
+        if value is None and alias:
+            value = _section_get(signals_cfg, alias, None)
+        return default if value is None else value
+
     kind = str(_section_get(signals_cfg, "kind", "tsmom") or "tsmom").lower()
     if kind != "tsmom":  # pragma: no cover - future extension guard
         raise ValueError(f"Unsupported trend signal kind: {kind}")
 
     try:
-        window_raw = _section_get(signals_cfg, "window", 63)
+        window_raw = _signal_setting("window", "trend_window", 63)
         window = int(window_raw)
     except (TypeError, ValueError):
         window = 63
-    min_periods_raw = _section_get(signals_cfg, "min_periods")
+    min_periods_raw = _signal_setting("min_periods", "trend_min_periods")
     try:
         min_periods = int(min_periods_raw) if min_periods_raw is not None else None
     except (TypeError, ValueError):
         min_periods = None
 
     try:
-        lag_raw = _section_get(signals_cfg, "lag", 1)
+        lag_raw = _signal_setting("lag", "trend_lag", 1)
         lag = max(1, int(lag_raw))
     except (TypeError, ValueError):
         lag = 1
 
     vol_adjust_default = bool(_section_get(vol_adjust_cfg, "enabled", False))
-    vol_adjust_flag = bool(_section_get(signals_cfg, "vol_adjust", vol_adjust_default))
-    vol_target_raw = _section_get(signals_cfg, "vol_target")
+    vol_adjust_flag = bool(
+        _signal_setting("vol_adjust", "trend_vol_adjust", vol_adjust_default)
+    )
+    vol_target_raw = _signal_setting("vol_target", "trend_vol_target")
     if vol_target_raw is None and vol_adjust_flag:
         vol_target_raw = _section_get(vol_adjust_cfg, "target_vol")
     try:
@@ -1584,7 +1605,18 @@ def _build_trend_spec(
     except (TypeError, ValueError):
         vol_target = None
 
-    zscore_flag = bool(_section_get(signals_cfg, "zscore", False))
+    zscore_setting = _signal_setting("zscore", "trend_zscore", False)
+    if isinstance(zscore_setting, bool):
+        zscore_flag: bool | float = zscore_setting
+    else:
+        try:
+            zscore_value = float(zscore_setting)
+        except (TypeError, ValueError):
+            zscore_flag = False
+        else:
+            zscore_flag = zscore_value if np.isfinite(zscore_value) else False
+            if isinstance(zscore_flag, float) and zscore_flag <= 0:
+                zscore_flag = False
 
     return TrendSpec(
         kind="tsmom",

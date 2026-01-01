@@ -34,6 +34,7 @@ from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..diagnostics import PipelineResult
 from ..pipeline import (
+    _build_trend_spec,
     _invoke_analysis_with_diag,
     _resolve_risk_free_column,
     _resolve_target_vol,
@@ -685,6 +686,7 @@ def run(
         allow_risk_free_fallback_cfg,
     ) = _resolve_risk_free_settings(data_settings)
     regime_cfg = getattr(cfg, "regime", {}) or {}
+    trend_spec = _build_trend_spec(cfg, getattr(cfg, "vol_adjust", {}) or {})
 
     if df is None:
         csv_path = data_settings.get("csv_path")
@@ -965,6 +967,7 @@ def run(
                 regime_cfg=regime_cfg,
                 risk_free_column=risk_free_column_cfg,
                 allow_risk_free_fallback=allow_risk_free_fallback_cfg,
+                signal_spec=trend_spec,
             )
             payload = analysis_res.value
             diag = analysis_res.diagnostic
@@ -3190,6 +3193,7 @@ def run(
             previous_weights=prev_weights_for_pipeline,
             max_turnover=max_turnover_cap if max_turnover_cap < 1.0 else None,
             lambda_tc=lambda_tc if lambda_tc > 0 else None,
+            signal_spec=trend_spec,
         )
         payload = res.value
         diag = res.diagnostic
