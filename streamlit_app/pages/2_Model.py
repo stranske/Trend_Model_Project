@@ -85,18 +85,12 @@ PRESET_CONFIGS = {
         # Robustness & Expert settings (Phase 7)
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
-        "leverage_cap": 2.0,
         "random_seed": 42,
         # Robustness fallbacks (Phase 14)
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
         # Constraints (Phase 15)
         "long_only": True,
-        # Data/Preprocessing (Phase 16)
-        "missing_policy": "ffill",
-        "winsorize_enabled": True,
-        "winsorize_lower": 1.0,
-        "winsorize_upper": 99.0,
         # Entry/Exit thresholds (Phase 5)
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
@@ -168,18 +162,12 @@ PRESET_CONFIGS = {
         # Robustness & Expert settings - more conservative
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
-        "leverage_cap": 1.5,
         "random_seed": 42,
         # Robustness fallbacks (Phase 14) - conservative: stricter threshold
         "condition_threshold": 1.0e10,
         "safe_mode": "risk_parity",
         # Constraints (Phase 15)
         "long_only": True,
-        # Data/Preprocessing (Phase 16) - conservative: stricter cleaning
-        "missing_policy": "drop",
-        "winsorize_enabled": True,
-        "winsorize_lower": 2.0,
-        "winsorize_upper": 98.0,
         # Entry/Exit thresholds - conservative: stricter entry, lenient exit
         "z_entry_soft": 1.5,
         "z_exit_soft": -1.0,
@@ -251,18 +239,12 @@ PRESET_CONFIGS = {
         # Robustness & Expert settings - more flexibility
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
-        "leverage_cap": 3.0,
         "random_seed": 42,
         # Robustness fallbacks (Phase 14) - aggressive: higher tolerance
         "condition_threshold": 1.0e14,
         "safe_mode": "hrp",
         # Constraints (Phase 15)
         "long_only": True,
-        # Data/Preprocessing (Phase 16) - aggressive: less cleaning
-        "missing_policy": "ffill",
-        "winsorize_enabled": False,
-        "winsorize_lower": 1.0,
-        "winsorize_upper": 99.0,
         # Entry/Exit thresholds - aggressive: lenient entry, quick exit
         "z_entry_soft": 0.5,
         "z_exit_soft": -0.5,
@@ -347,7 +329,6 @@ HELP_TEXT = {
     # Phase 7: Robustness & Expert settings
     "shrinkage_enabled": "Apply covariance matrix shrinkage to improve stability.",
     "shrinkage_method": "Shrinkage method: Ledoit-Wolf or Oracle Approximating Shrinkage.",
-    "leverage_cap": "Maximum gross exposure (1.0 = no leverage).",
     "random_seed": "Random seed for reproducibility. Change for different random selections.",
     # Phase 5: Entry/Exit thresholds
     "z_entry_soft": "Z-score threshold for fund entry consideration. Higher = stricter entry.",
@@ -380,11 +361,6 @@ HELP_TEXT = {
     "safe_mode": "Fallback weighting method when matrix is ill-conditioned.",
     # Phase 15: Constraints
     "long_only": "Enforce long-only positions (no short selling).",
-    # Phase 16: Data/Preprocessing
-    "missing_policy": "How to handle missing data: drop rows, forward-fill, or replace with zero.",
-    "winsorize_enabled": "Clip extreme returns to reduce impact of outliers.",
-    "winsorize_lower": "Lower percentile cutoff for winsorization (e.g., 1% = clip below 1st percentile).",
-    "winsorize_upper": "Upper percentile cutoff for winsorization (e.g., 99% = clip above 99th percentile).",
 }
 
 
@@ -478,18 +454,12 @@ def _initial_model_state() -> dict[str, Any]:
         # Robustness & Expert settings (Phase 7)
         "shrinkage_enabled": baseline["shrinkage_enabled"],
         "shrinkage_method": baseline["shrinkage_method"],
-        "leverage_cap": baseline["leverage_cap"],
         "random_seed": baseline["random_seed"],
         # Robustness fallbacks (Phase 14)
         "condition_threshold": baseline["condition_threshold"],
         "safe_mode": baseline["safe_mode"],
         # Constraints (Phase 15)
         "long_only": baseline["long_only"],
-        # Data/Preprocessing (Phase 16)
-        "missing_policy": baseline["missing_policy"],
-        "winsorize_enabled": baseline["winsorize_enabled"],
-        "winsorize_lower": baseline["winsorize_lower"],
-        "winsorize_upper": baseline["winsorize_upper"],
         # Entry/Exit thresholds (Phase 5)
         "z_entry_soft": baseline["z_entry_soft"],
         "z_exit_soft": baseline["z_exit_soft"],
@@ -1140,7 +1110,6 @@ def render_model_page() -> None:
                 # Robustness & Expert settings (Phase 7)
                 "shrinkage_enabled": preset_config["shrinkage_enabled"],
                 "shrinkage_method": preset_config["shrinkage_method"],
-                "leverage_cap": preset_config["leverage_cap"],
                 "random_seed": preset_config["random_seed"],
                 # Entry/Exit thresholds (Phase 5)
                 "z_entry_soft": preset_config["z_entry_soft"],
@@ -1939,29 +1908,15 @@ def render_model_page() -> None:
                 f"fallback to {safe_mode_labels.get(safe_mode, safe_mode)}."
             )
 
-            # Leverage and seed
-            st.markdown("**Portfolio Limits & Reproducibility**")
-            exp_c3, exp_c4 = st.columns(2)
-            with exp_c3:
-                leverage_cap = st.number_input(
-                    "Leverage Cap",
-                    min_value=1.0,
-                    max_value=5.0,
-                    value=float(model_state.get("leverage_cap", 2.0)),
-                    step=0.5,
-                    format="%.1f",
-                    help=HELP_TEXT["leverage_cap"],
-                )
-                st.caption(f"Max gross exposure: {leverage_cap:.1f}x")
-
-            with exp_c4:
-                random_seed = st.number_input(
-                    "Random Seed",
-                    min_value=0,
-                    max_value=99999,
-                    value=int(model_state.get("random_seed", 42)),
-                    help=HELP_TEXT["random_seed"],
-                )
+            # Reproducibility
+            st.markdown("**Reproducibility**")
+            random_seed = st.number_input(
+                "Random Seed",
+                min_value=0,
+                max_value=99999,
+                value=int(model_state.get("random_seed", 42)),
+                help=HELP_TEXT["random_seed"],
+            )
 
             # Phase 15: Constraints
             st.markdown("**Constraints**")
@@ -1975,67 +1930,6 @@ def render_model_page() -> None:
                     "⚠️ Short positions enabled. Ensure your data and strategy "
                     "support short selling."
                 )
-
-            # Phase 16: Data/Preprocessing
-            st.markdown("**Data Preprocessing**")
-            prep_c1, prep_c2 = st.columns(2)
-            with prep_c1:
-                missing_policies = ["drop", "ffill", "zero"]
-                missing_labels = {
-                    "drop": "Drop Missing",
-                    "ffill": "Forward Fill",
-                    "zero": "Replace with Zero",
-                }
-                current_missing = model_state.get("missing_policy", "ffill")
-                missing_policy = st.selectbox(
-                    "Missing Data Policy",
-                    options=missing_policies,
-                    format_func=lambda x: missing_labels.get(x, x),
-                    index=(
-                        missing_policies.index(current_missing)
-                        if current_missing in missing_policies
-                        else 1
-                    ),
-                    help=HELP_TEXT["missing_policy"],
-                )
-            with prep_c2:
-                winsorize_enabled = st.checkbox(
-                    "Enable Winsorization",
-                    value=bool(model_state.get("winsorize_enabled", True)),
-                    help=HELP_TEXT["winsorize_enabled"],
-                )
-
-            # Always show winsorize settings, disabled when checkbox is off (forms don't rerun)
-            win_c1, win_c2 = st.columns(2)
-            with win_c1:
-                winsorize_lower = st.number_input(
-                    "Lower Limit (%)",
-                    min_value=0.0,
-                    max_value=10.0,
-                    value=float(model_state.get("winsorize_lower", 1.0)),
-                    step=0.5,
-                    format="%.1f",
-                    help=HELP_TEXT["winsorize_lower"],
-                    disabled=not winsorize_enabled,
-                )
-            with win_c2:
-                winsorize_upper = st.number_input(
-                    "Upper Limit (%)",
-                    min_value=90.0,
-                    max_value=100.0,
-                    value=float(model_state.get("winsorize_upper", 99.0)),
-                    step=0.5,
-                    format="%.1f",
-                    help=HELP_TEXT["winsorize_upper"],
-                    disabled=not winsorize_enabled,
-                )
-            if winsorize_enabled:
-                st.caption(
-                    f"Extreme returns clipped to [{winsorize_lower:.1f}%, "
-                    f"{winsorize_upper:.1f}%] percentiles."
-                )
-            else:
-                st.caption("Enable winsorization to clip extreme returns.")
 
         # =====================================================================
         # Section 10: Entry/Exit Rules (Phase 5) - conditional on selection mode
@@ -2400,18 +2294,12 @@ def render_model_page() -> None:
                 # Robustness & Expert settings (Phase 7)
                 "shrinkage_enabled": shrinkage_enabled,
                 "shrinkage_method": shrinkage_method,
-                "leverage_cap": leverage_cap,
                 "random_seed": random_seed,
                 # Robustness fallbacks (Phase 14)
                 "condition_threshold": condition_threshold,
                 "safe_mode": safe_mode,
                 # Constraints (Phase 15)
                 "long_only": long_only,
-                # Data/Preprocessing (Phase 16)
-                "missing_policy": missing_policy,
-                "winsorize_enabled": winsorize_enabled,
-                "winsorize_lower": winsorize_lower,
-                "winsorize_upper": winsorize_upper,
                 # Entry/Exit thresholds (Phase 5)
                 "z_entry_soft": z_entry_soft,
                 "z_exit_soft": z_exit_soft,

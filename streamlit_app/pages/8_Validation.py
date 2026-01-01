@@ -99,6 +99,15 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         economic_intuition="Higher floor → less extreme scaling for low-vol assets",
     ),
     SettingDef(
+        key="rf_rate_annual",
+        label="Risk-Free Rate",
+        category="Risk",
+        baseline=0.0,
+        test_values=[0.02, 0.05, 0.08],
+        expected_effect="Sharpe and Sortino ratios",
+        economic_intuition="Higher rf rate → lower excess returns → changed ratios",
+    ),
+    SettingDef(
         key="max_weight",
         label="Max Weight",
         category="Constraints",
@@ -115,15 +124,6 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         test_values=[0.02, 0.08, 0.10],
         expected_effect="Minimum position size",
         economic_intuition="Higher floor → fewer very small positions",
-    ),
-    SettingDef(
-        key="leverage_cap",
-        label="Leverage Cap",
-        category="Risk",
-        baseline=2.0,
-        test_values=[1.0, 1.5, 3.0],
-        expected_effect="Gross exposure limit",
-        economic_intuition="Lower cap → constrained gross exposure",
     ),
     # === Entry/Exit Thresholds ===
     SettingDef(
@@ -208,34 +208,6 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         expected_effect="Minimum portfolio size",
         economic_intuition="Higher floor → must hold more funds",
     ),
-    # === Holding Rules ===
-    SettingDef(
-        key="cooldown_periods",
-        label="Cooldown Periods",
-        category="Holding Rules",
-        baseline=1,
-        test_values=[0, 3, 5],
-        expected_effect="Re-entry frequency for dropped funds",
-        economic_intuition="Longer cooldown → less fund churning",
-    ),
-    SettingDef(
-        key="min_tenure_periods",
-        label="Min Tenure Periods",
-        category="Holding Rules",
-        baseline=3,
-        test_values=[1, 5, 8],
-        expected_effect="Average holding duration",
-        economic_intuition="Longer tenure → forced to hold longer",
-    ),
-    SettingDef(
-        key="min_weight_strikes",
-        label="Underweight Strikes",
-        category="Holding Rules",
-        baseline=2,
-        test_values=[1, 4, 6],
-        expected_effect="Underweight exit frequency",
-        economic_intuition="More strikes → slower to exit underweights",
-    ),
     # === Costs ===
     SettingDef(
         key="transaction_cost_bps",
@@ -278,44 +250,7 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         expected_effect="Which funds get selected",
         economic_intuition="Different weights prioritize different fund characteristics",
     ),
-    # === Robustness ===
-    SettingDef(
-        key="shrinkage_enabled",
-        label="Shrinkage Enabled",
-        category="Robustness",
-        baseline=True,
-        test_values=[False],
-        expected_effect="Weight stability and estimation",
-        economic_intuition="Shrinkage → more stable covariance estimates",
-    ),
-    SettingDef(
-        key="shrinkage_method",
-        label="Shrinkage Method",
-        category="Robustness",
-        baseline="ledoit_wolf",
-        test_values=["oas"],
-        expected_effect="Covariance estimation approach",
-        economic_intuition="Different methods → different weight allocations",
-    ),
     # === Data/Preprocessing ===
-    SettingDef(
-        key="missing_policy",
-        label="Missing Data Policy",
-        category="Data",
-        baseline="ffill",
-        test_values=["drop", "zero"],
-        expected_effect="How missing data is handled",
-        economic_intuition="Different policies → different data availability",
-    ),
-    SettingDef(
-        key="winsorize_enabled",
-        label="Winsorize Enabled",
-        category="Data",
-        baseline=True,
-        test_values=[False],
-        expected_effect="Treatment of extreme returns",
-        economic_intuition="Winsorization → less impact from outliers",
-    ),
     SettingDef(
         key="warmup_periods",
         label="Warmup Periods",
@@ -324,25 +259,6 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         test_values=[6, 12, 24],
         expected_effect="Effective analysis start date",
         economic_intuition="Warmup → ignore early unstable estimates",
-    ),
-    # === Signals ===
-    SettingDef(
-        key="trend_window",
-        label="Trend Window",
-        category="Signals",
-        baseline=63,
-        test_values=[21, 42, 126],
-        expected_effect="Signal smoothness/responsiveness",
-        economic_intuition="Shorter window → more responsive signals",
-    ),
-    SettingDef(
-        key="trend_zscore",
-        label="Z-Score Signals",
-        category="Signals",
-        baseline=False,
-        test_values=[True],
-        expected_effect="Signal distribution",
-        economic_intuition="Z-score → normalized cross-sectional signals",
     ),
     # === Reproducibility ===
     SettingDef(
@@ -353,6 +269,16 @@ TESTABLE_SETTINGS: list[SettingDef] = [
         test_values=[123, 456, 789],
         expected_effect="Random selection outcomes",
         economic_intuition="Different seeds → different random samples",
+    ),
+    # === Buy and Hold ===
+    SettingDef(
+        key="buy_hold_initial",
+        label="Buy & Hold Initial Selection",
+        category="Selection",
+        baseline="top_n",
+        test_values=["threshold", "random"],
+        expected_effect="Initial fund selection for buy-and-hold",
+        economic_intuition="Different initial methods → different starting portfolios",
     ),
 ]
 
@@ -397,15 +323,10 @@ def get_baseline_state() -> dict[str, Any]:
         "regime_proxy": "SPX",
         "shrinkage_enabled": True,
         "shrinkage_method": "ledoit_wolf",
-        "leverage_cap": 2.0,
         "random_seed": 42,
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",
         "long_only": True,
-        "missing_policy": "ffill",
-        "winsorize_enabled": True,
-        "winsorize_lower": 1.0,
-        "winsorize_upper": 99.0,
         "z_entry_soft": 1.0,
         "z_exit_soft": -1.0,
         "soft_strikes": 2,
