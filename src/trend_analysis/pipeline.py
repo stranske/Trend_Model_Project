@@ -859,6 +859,46 @@ def _compute_weights_and_stats(
             custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
             weight_engine_used = True
             weight_engine_diagnostics = getattr(engine, "diagnostics", None)
+            if (
+                weight_engine_diagnostics
+                and isinstance(weight_engine_diagnostics, Mapping)
+                and weight_engine_diagnostics.get("used_safe_mode")
+            ):
+                safe_mode = weight_engine_diagnostics.get("safe_mode")
+                condition_number = weight_engine_diagnostics.get("condition_number")
+                condition_threshold = weight_engine_diagnostics.get(
+                    "condition_threshold"
+                )
+                condition_source = weight_engine_diagnostics.get("condition_source")
+                fallback_reason = weight_engine_diagnostics.get(
+                    "fallback_reason", "safe_mode"
+                )
+                weight_engine_fallback = {
+                    "engine": str(weighting_scheme),
+                    "reason": str(fallback_reason),
+                    "safe_mode": safe_mode,
+                    "condition_number": condition_number,
+                    "condition_threshold": condition_threshold,
+                    "condition_source": condition_source,
+                }
+                if isinstance(condition_number, (int, float)) and isinstance(
+                    condition_threshold, (int, float)
+                ):
+                    logger.warning(
+                        "Weight engine '%s' switched to safe mode '%s' "
+                        "(%s condition number %.2e > threshold %.2e).",
+                        weighting_scheme,
+                        safe_mode,
+                        condition_source or "covariance",
+                        condition_number,
+                        condition_threshold,
+                    )
+                else:
+                    logger.warning(
+                        "Weight engine '%s' switched to safe mode '%s'.",
+                        weighting_scheme,
+                        safe_mode,
+                    )
             logger.debug(
                 "Successfully created %s weight engine",
                 weighting_scheme,
