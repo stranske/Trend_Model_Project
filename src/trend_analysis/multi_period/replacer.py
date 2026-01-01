@@ -48,6 +48,7 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         ):
             if key not in th and key in portfolio:
                 th[key] = portfolio[key]
+
         def _parse_optional_float(value: Any) -> float | None:
             if value in (None, "", "null"):
                 return None
@@ -55,6 +56,7 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
                 return float(value)
             except (TypeError, ValueError):
                 return None
+
         # Soft exits/entries; hard thresholds act as absolute barriers.
         self.low_z_soft = float(th.get("z_exit_soft", _LOW_Z))
         self.low_z_hard = _parse_optional_float(th.get("z_exit_hard"))
