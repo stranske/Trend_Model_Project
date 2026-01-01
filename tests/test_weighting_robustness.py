@@ -201,7 +201,7 @@ class TestRobustMeanVariance:
             raise np.linalg.LinAlgError("failure")
 
         monkeypatch.setattr(
-            "trend_analysis.weights.robust_weighting.np.linalg.eigvalsh", explode
+            "trend_analysis.weights.robust_weighting.np.linalg.cond", explode
         )
 
         assert engine._check_condition_number(np.eye(2)) == np.inf

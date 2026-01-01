@@ -281,6 +281,7 @@ def test_compute_weights_and_stats_produces_metrics(
         warmup=0,
         min_floor=0.0,
         stats_cfg=stats_cfg,
+        weight_engine_params=None,
     )
 
     assert set(computation.in_stats.keys()) == set(selection.fund_cols)
@@ -379,6 +380,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
         warmup=0,
         min_floor=0.0,
         stats_cfg=stats_cfg,
+        weight_engine_params=None,
     )
 
     assert observed["min"] == window.in_df.index.min()
@@ -466,6 +468,7 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
             warmup=0,
             min_floor=0.0,
             stats_cfg=stats_cfg,
+            weight_engine_params=None,
         )
 
 
@@ -534,6 +537,7 @@ def test_assemble_analysis_output_wraps_success(
         warmup=0,
         min_floor=0.0,
         stats_cfg=stats_cfg,
+        weight_engine_params=None,
     )
 
     result = _assemble_analysis_output(
