@@ -33,7 +33,11 @@ from ..constants import NUMERICAL_TOLERANCE_HIGH
 from ..core.rank_selection import ASCENDING_METRICS
 from ..data import load_csv
 from ..diagnostics import PipelineResult
-from ..pipeline import _invoke_analysis_with_diag, _resolve_risk_free_column
+from ..pipeline import (
+    _invoke_analysis_with_diag,
+    _resolve_risk_free_column,
+    _resolve_target_vol,
+)
 from ..portfolio import apply_weight_policy
 from ..rebalancing import apply_rebalancing_strategies
 from ..schedules import get_rebalance_dates
@@ -929,7 +933,7 @@ def run(
                 pt.in_end[:7],
                 pt.out_start[:7],
                 pt.out_end[:7],
-                cfg.vol_adjust.get("target_vol", 1.0),
+                _resolve_target_vol(getattr(cfg, "vol_adjust", {})),
                 getattr(cfg, "run", {}).get("monthly_cost", 0.0),
                 floor_vol=cfg.vol_adjust.get("floor_vol"),
                 warmup_periods=int(cfg.vol_adjust.get("warmup_periods", 0) or 0),

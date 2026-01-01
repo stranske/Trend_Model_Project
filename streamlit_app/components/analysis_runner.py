@@ -363,10 +363,20 @@ def _build_config(payload: AnalysisPayload) -> Config:
     vol_target = _coerce_positive_float(state.get("risk_target"), default=0.1)
 
     # Risk settings
+    vol_adjust_enabled = bool(state.get("vol_adjust_enabled", True))
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
     warmup_periods = _coerce_positive_int(
         state.get("warmup_periods"), default=0, minimum=0
     )
+    vol_window_length = _coerce_positive_int(
+        state.get("vol_window_length"), default=63, minimum=1
+    )
+    vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
+    if vol_window_decay not in {"ewma", "simple"}:
+        vol_window_decay = "ewma"
+    vol_ewma_lambda = _coerce_positive_float(state.get("vol_ewma_lambda"), default=0.94)
+    if not (0.0 < vol_ewma_lambda < 1.0):
+        vol_ewma_lambda = 0.94
     rf_override_enabled = bool(state.get("rf_override_enabled", False))
     rf_rate_annual = _coerce_positive_float(state.get("rf_rate_annual"), default=0.0)
 
@@ -604,9 +614,15 @@ def _build_config(payload: AnalysisPayload) -> Config:
         data=data_cfg,
         preprocessing=preprocessing_cfg,
         vol_adjust={
+            "enabled": vol_adjust_enabled,
             "target_vol": vol_target,
             "floor_vol": vol_floor,
             "warmup_periods": warmup_periods,
+            "window": {
+                "length": vol_window_length,
+                "decay": vol_window_decay,
+                "lambda": vol_ewma_lambda,
+            },
         },
         sample_split=sample_split,
         portfolio=portfolio_cfg,

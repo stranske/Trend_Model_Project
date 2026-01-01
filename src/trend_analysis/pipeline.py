@@ -739,7 +739,7 @@ def _compute_weights_and_stats(
     window: _WindowStage,
     selection: _SelectionStage,
     *,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     custom_weights: dict[str, float] | None,
     weighting_scheme: str | None,
@@ -980,12 +980,15 @@ def _compute_weights_and_stats(
         latest_vol = latest_vol.fillna(fallback_vol)
         if min_floor > 0:
             latest_vol = latest_vol.clip(lower=min_floor)
-        scale_factors = (
-            pd.Series(target_vol, index=fund_cols, dtype=float)
-            .div(latest_vol)
-            .replace([np.inf, -np.inf], 0.0)
-            .fillna(0.0)
-        )
+        if target_vol is None:
+            scale_factors = pd.Series(1.0, index=fund_cols, dtype=float)
+        else:
+            scale_factors = (
+                pd.Series(target_vol, index=fund_cols, dtype=float)
+                .div(latest_vol)
+                .replace([np.inf, -np.inf], 0.0)
+                .fillna(0.0)
+            )
         scaled_returns = window.in_df[fund_cols].mul(scale_factors, axis=1)
         portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
         portfolio_vol = realised_volatility(
@@ -1158,7 +1161,7 @@ def _assemble_analysis_output(
     *,
     benchmarks: Mapping[str, str] | None,
     regime_cfg: Mapping[str, Any] | None,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     min_floor: float,
 ) -> PipelineResult:
@@ -1342,6 +1345,22 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
             return default
     attr_value = getattr(section, key, default)
     return attr_value
+
+
+def _resolve_target_vol(vol_adjust_cfg: Mapping[str, Any] | Any) -> float | None:
+    enabled = _section_get(vol_adjust_cfg, "enabled")
+    if enabled is False:
+        return None
+    target_raw = _section_get(vol_adjust_cfg, "target_vol", 1.0)
+    if target_raw is None:
+        return 1.0
+    try:
+        target = float(target_raw)
+    except (TypeError, ValueError):
+        return 1.0
+    if target <= 0:
+        return None
+    return target
 
 
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
@@ -1981,7 +2000,7 @@ def _run_analysis_with_diagnostics(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,
@@ -2092,7 +2111,7 @@ def _run_analysis(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,
@@ -2185,7 +2204,7 @@ def run_analysis(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,

@@ -140,6 +140,42 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         description="Higher vol floor should reduce scaling factors for low-vol assets",
     ),
     SettingTest(
+        name="vol_adjust_enabled",
+        baseline_value=True,
+        test_value=False,
+        category="Risk",
+        expected_metric="scaling_factor",
+        expected_direction="change",
+        description="Disabling vol adjustment should remove volatility scaling",
+    ),
+    SettingTest(
+        name="vol_window_length",
+        baseline_value=63,
+        test_value=21,
+        category="Risk",
+        expected_metric="scaling_factor",
+        expected_direction="change",
+        description="Shorter window should change volatility scaling",
+    ),
+    SettingTest(
+        name="vol_window_decay",
+        baseline_value="ewma",
+        test_value="simple",
+        category="Risk",
+        expected_metric="scaling_factor",
+        expected_direction="change",
+        description="Decay method should change volatility scaling",
+    ),
+    SettingTest(
+        name="vol_ewma_lambda",
+        baseline_value=0.94,
+        test_value=0.8,
+        category="Risk",
+        expected_metric="scaling_factor",
+        expected_direction="change",
+        description="EWMA lambda should change volatility scaling",
+    ),
+    SettingTest(
         name="max_weight",
         baseline_value=0.20,
         test_value=0.10,
@@ -382,6 +418,10 @@ def get_baseline_state() -> dict[str, Any]:
         "weighting_scheme": "equal",
         "metric_weights": {"sharpe": 1.0, "return_ann": 1.0, "drawdown": 0.5},
         "risk_target": 0.10,
+        "vol_adjust_enabled": True,
+        "vol_window_length": 63,
+        "vol_window_decay": "ewma",
+        "vol_ewma_lambda": 0.94,
         "date_mode": "relative",
         "rf_override_enabled": True,  # Enable rf override to test rf_rate_annual
         "rf_rate_annual": 0.0,
@@ -803,10 +843,20 @@ def _build_config_from_state(
 
     # Vol adjust config
     vol_target_cfg = _coerce_positive_float(state.get("risk_target"), default=0.1)
+    vol_adjust_enabled = bool(state.get("vol_adjust_enabled", True))
     vol_floor = _coerce_positive_float(state.get("vol_floor"), default=0.015)
     warmup_periods_cfg = _coerce_positive_int(
         state.get("warmup_periods"), default=0, minimum=0
     )
+    vol_window_length = _coerce_positive_int(
+        state.get("vol_window_length"), default=63, minimum=1
+    )
+    vol_window_decay = str(state.get("vol_window_decay", "ewma") or "ewma").lower()
+    if vol_window_decay not in {"ewma", "simple"}:
+        vol_window_decay = "ewma"
+    vol_ewma_lambda = _coerce_positive_float(state.get("vol_ewma_lambda"), default=0.94)
+    if not (0.0 < vol_ewma_lambda < 1.0):
+        vol_ewma_lambda = 0.94
 
     # Robustness
     shrinkage_enabled = bool(state.get("shrinkage_enabled", True))
@@ -855,9 +905,15 @@ def _build_config_from_state(
         data=data_cfg,
         preprocessing=preprocessing_cfg,
         vol_adjust={
+            "enabled": vol_adjust_enabled,
             "target_vol": vol_target_cfg,
             "floor_vol": vol_floor,
             "warmup_periods": warmup_periods_cfg,
+            "window": {
+                "length": vol_window_length,
+                "decay": vol_window_decay,
+                "lambda": vol_ewma_lambda,
+            },
         },
         sample_split=sample_split,
         portfolio=portfolio_cfg,
@@ -1166,6 +1222,11 @@ def run_single_test(
     if setting.name in ["shrinkage_enabled", "shrinkage_method"]:
         baseline_state["weighting_scheme"] = "robust_mv"
         test_state["weighting_scheme"] = "robust_mv"
+
+    # vol_window_length should be tested with simple decay to ensure window length is used
+    if setting.name == "vol_window_length":
+        baseline_state["vol_window_decay"] = "simple"
+        test_state["vol_window_decay"] = "simple"
     try:
         if verbose:
             print(f"  Running baseline: {setting.name}={setting.baseline_value}")
