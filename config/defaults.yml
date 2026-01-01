@@ -137,6 +137,7 @@ regime:
   risk_on_label: "Risk-On"
   risk_off_label: "Risk-Off"
   risk_off_target_vol_multiplier: 0.5
+  risk_off_fund_count_multiplier: 0.5
   cache: true
   annualise_volatility: true   # applies when method: volatility
 

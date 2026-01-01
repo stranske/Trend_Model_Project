@@ -249,6 +249,10 @@ def test_regime_proxy_changes_selection_count() -> None:
     assert len(spx["selected_funds"]) != len(acwi["selected_funds"])
 
 
+# Default multiplier from config/defaults.yml regime.risk_off_target_vol_multiplier
+RISK_OFF_TARGET_VOL_MULTIPLIER = 0.5
+
+
 def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
     df = _regime_returns_frame()
     base = pipeline._run_analysis(
@@ -286,7 +290,7 @@ def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
     )
     mask = base_scale > 0
     ratio = enabled_scale[mask] / base_scale[mask]
-    assert np.allclose(ratio, 0.5, rtol=1e-3, atol=1e-3)
+    assert np.allclose(ratio, RISK_OFF_TARGET_VOL_MULTIPLIER, rtol=1e-3, atol=1e-3)
 
 
 def test_run_analysis_avg_corr_metrics_populate_stats() -> None:

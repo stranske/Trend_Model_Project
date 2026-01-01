@@ -739,7 +739,7 @@ def _compute_weights_and_stats(
     window: _WindowStage,
     selection: _SelectionStage,
     *,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     custom_weights: dict[str, float] | None,
     weighting_scheme: str | None,
@@ -980,12 +980,15 @@ def _compute_weights_and_stats(
         latest_vol = latest_vol.fillna(fallback_vol)
         if min_floor > 0:
             latest_vol = latest_vol.clip(lower=min_floor)
-        scale_factors = (
-            pd.Series(target_vol, index=fund_cols, dtype=float)
-            .div(latest_vol)
-            .replace([np.inf, -np.inf], 0.0)
-            .fillna(0.0)
-        )
+        if target_vol is None:
+            scale_factors = pd.Series(1.0, index=fund_cols, dtype=float)
+        else:
+            scale_factors = (
+                pd.Series(target_vol, index=fund_cols, dtype=float)
+                .div(latest_vol)
+                .replace([np.inf, -np.inf], 0.0)
+                .fillna(0.0)
+            )
         scaled_returns = window.in_df[fund_cols].mul(scale_factors, axis=1)
         portfolio_returns = scaled_returns.mul(weights_series, axis=1).sum(axis=1)
         portfolio_vol = realised_volatility(
@@ -1158,7 +1161,7 @@ def _assemble_analysis_output(
     *,
     benchmarks: Mapping[str, str] | None,
     regime_cfg: Mapping[str, Any] | None,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     min_floor: float,
 ) -> PipelineResult:
@@ -1344,6 +1347,27 @@ def _section_get(section: Any, key: str, default: Any = None) -> Any:
     return attr_value
 
 
+def _resolve_target_vol(vol_adjust_cfg: Mapping[str, Any] | Any) -> float | None:
+    enabled = _section_get(vol_adjust_cfg, "enabled")
+    if enabled is False:
+        return None
+    target_raw = _section_get(vol_adjust_cfg, "target_vol", 1.0)
+    if target_raw is None:
+        return 1.0
+    try:
+        target = float(target_raw)
+    except (TypeError, ValueError):
+        return 1.0
+    if target <= 0:
+        return None
+    return target
+
+
+# Default multiplier for reducing fund count/selection during risk-off regimes.
+# Must match the value in config/defaults.yml regime.risk_off_fund_count_multiplier
+_DEFAULT_RISK_OFF_FUND_MULTIPLIER = 0.5
+
+
 def _resolve_regime_label(
     preprocess: _PreprocessStage,
     window: _WindowStage,
@@ -1378,15 +1402,27 @@ def _apply_regime_overrides(
     rank_kwargs: Mapping[str, Any] | None,
     regime_label: str | None,
     settings: Any,
+    regime_cfg: Mapping[str, Any] | None = None,
 ) -> tuple[int, Mapping[str, Any] | None]:
     if not regime_label:
         return random_n, rank_kwargs
     if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
         return random_n, rank_kwargs
 
+    # Get multiplier from config or use default
+    cfg = dict(regime_cfg or {})
+    multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
+    if "risk_off_fund_count_multiplier" in cfg:
+        try:
+            multiplier = float(cfg["risk_off_fund_count_multiplier"])
+            if multiplier <= 0 or multiplier > 1:
+                multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
+        except (TypeError, ValueError):
+            pass
+
     updated_random_n = random_n
     if isinstance(random_n, int) and random_n > 1:
-        updated_random_n = max(1, int(round(random_n * 0.5)))
+        updated_random_n = max(1, int(round(random_n * multiplier)))
 
     updated_rank = dict(rank_kwargs or {})
     if "n" in updated_rank and updated_rank.get("n") is not None:
@@ -1395,19 +1431,21 @@ def _apply_regime_overrides(
         except (TypeError, ValueError):
             current_n = None
         if current_n is not None and current_n > 1:
-            updated_rank["n"] = max(1, int(round(current_n * 0.5)))
+            updated_rank["n"] = max(1, int(round(current_n * multiplier)))
 
     return updated_random_n, updated_rank if updated_rank else rank_kwargs
 
 
 def _apply_regime_weight_overrides(
     *,
-    target_vol: float,
+    target_vol: float | None,
     constraints: dict[str, Any] | None,
     regime_label: str | None,
     settings: Any,
     regime_cfg: Mapping[str, Any] | None,
-) -> tuple[float, dict[str, Any] | None]:
+) -> tuple[float | None, dict[str, Any] | None]:
+    if target_vol is None:
+        return None, constraints
     if not regime_label:
         return target_vol, constraints
     if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
@@ -2075,7 +2113,7 @@ def _run_analysis_with_diagnostics(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,
@@ -2135,6 +2173,7 @@ def _run_analysis_with_diagnostics(
         rank_kwargs=rank_kwargs,
         regime_label=regime_label,
         settings=regime_settings,
+        regime_cfg=regime_cfg,
     )
     target_vol, constraints = _apply_regime_weight_overrides(
         target_vol=target_vol,
@@ -2203,7 +2242,7 @@ def _run_analysis(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,
@@ -2296,7 +2335,7 @@ def run_analysis(
     in_end: str,
     out_start: str,
     out_end: str,
-    target_vol: float,
+    target_vol: float | None,
     monthly_cost: float,
     *,
     floor_vol: float | None = None,
@@ -2451,7 +2490,7 @@ def run(cfg: Config) -> pd.DataFrame:
         resolved_split["in_end"],
         resolved_split["out_start"],
         resolved_split["out_end"],
-        _section_get(vol_adjust, "target_vol", 1.0),
+        _resolve_target_vol(vol_adjust),
         _section_get(run_settings, "monthly_cost", 0.0),
         floor_vol=_section_get(vol_adjust, "floor_vol"),
         warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),
@@ -2570,7 +2609,7 @@ def run_full(cfg: Config) -> PipelineResult:
         resolved_split["in_end"],
         resolved_split["out_start"],
         resolved_split["out_end"],
-        _section_get(vol_adjust, "target_vol", 1.0),
+        _resolve_target_vol(vol_adjust),
         _section_get(run_settings, "monthly_cost", 0.0),
         floor_vol=_section_get(vol_adjust, "floor_vol"),
         warmup_periods=int(_section_get(vol_adjust, "warmup_periods", 0) or 0),

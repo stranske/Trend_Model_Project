@@ -120,6 +120,177 @@ def test_compute_constrained_weights_handles_non_datetime_index(monkeypatch):
     assert pytest.approx(result.sum()) == 1.0
 
 
+def test_compute_constrained_weights_skips_scaling_when_disabled(monkeypatch):
+    returns = pd.DataFrame(
+        {
+            "A": [0.01, 0.01, 0.01, 0.2, -0.2],
+            "B": [0.02, 0.02, 0.02, 0.02, 0.02],
+        },
+        index=pd.date_range("2024-01-31", periods=5, freq="ME"),
+    )
+
+    def passthrough(weights: pd.Series, payload: dict[str, object]):
+        return weights
+
+    monkeypatch.setattr(risk.optimizer_mod, "apply_constraints", passthrough)
+
+    base_weights = pd.Series({"A": 0.5, "B": 0.5})
+    window = risk.RiskWindow(length=3, decay="simple")
+
+    disabled, diag_disabled = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=window,
+        target_vol=None,
+        periods_per_year=12.0,
+        floor_vol=0.0,
+        long_only=True,
+        max_weight=None,
+    )
+    enabled, _ = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=window,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=0.0,
+        long_only=True,
+        max_weight=None,
+    )
+
+    assert disabled.index.tolist() == ["A", "B"]
+    assert disabled.loc["A"] == pytest.approx(0.5)
+    assert disabled.loc["B"] == pytest.approx(0.5)
+    assert not np.allclose(disabled.values, enabled.values)
+    assert np.allclose(diag_disabled.scale_factors.values, 1.0)
+
+
+def test_compute_constrained_weights_window_length_changes_scaling(monkeypatch):
+    returns = pd.DataFrame(
+        {
+            "A": [0.01, 0.01, 0.01, 0.01, 0.2, -0.2],
+            "B": [0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+        },
+        index=pd.date_range("2024-01-31", periods=6, freq="ME"),
+    )
+
+    def passthrough(weights: pd.Series, payload: dict[str, object]):
+        return weights
+
+    monkeypatch.setattr(risk.optimizer_mod, "apply_constraints", passthrough)
+
+    base_weights = pd.Series({"A": 0.5, "B": 0.5})
+    short_window = risk.RiskWindow(length=2, decay="simple")
+    long_window = risk.RiskWindow(length=5, decay="simple")
+
+    _, diag_short = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=short_window,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+    _, diag_long = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=long_window,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+
+    assert diag_short.scale_factors.loc["A"] != diag_long.scale_factors.loc["A"]
+
+
+def test_compute_constrained_weights_decay_changes_scaling(monkeypatch):
+    returns = pd.DataFrame(
+        {
+            "A": [0.01, 0.01, 0.01, 0.01, 0.2, -0.2],
+            "B": [0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+        },
+        index=pd.date_range("2024-01-31", periods=6, freq="ME"),
+    )
+
+    def passthrough(weights: pd.Series, payload: dict[str, object]):
+        return weights
+
+    monkeypatch.setattr(risk.optimizer_mod, "apply_constraints", passthrough)
+
+    base_weights = pd.Series({"A": 0.5, "B": 0.5})
+    simple_window = risk.RiskWindow(length=4, decay="simple")
+    ewma_window = risk.RiskWindow(length=4, decay="ewma", ewma_lambda=0.5)
+
+    _, diag_simple = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=simple_window,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+    _, diag_ewma = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=ewma_window,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+
+    assert diag_simple.scale_factors.loc["A"] != diag_ewma.scale_factors.loc["A"]
+
+
+def test_compute_constrained_weights_ewma_lambda_changes_scaling(monkeypatch):
+    returns = pd.DataFrame(
+        {
+            "A": [0.01, 0.01, 0.01, 0.01, 0.2, -0.2],
+            "B": [0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+        },
+        index=pd.date_range("2024-01-31", periods=6, freq="ME"),
+    )
+
+    def passthrough(weights: pd.Series, payload: dict[str, object]):
+        return weights
+
+    monkeypatch.setattr(risk.optimizer_mod, "apply_constraints", passthrough)
+
+    base_weights = pd.Series({"A": 0.5, "B": 0.5})
+    fast_decay = risk.RiskWindow(length=4, decay="ewma", ewma_lambda=0.5)
+    slow_decay = risk.RiskWindow(length=4, decay="ewma", ewma_lambda=0.9)
+
+    _, diag_fast = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=fast_decay,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+    _, diag_slow = risk.compute_constrained_weights(
+        base_weights,
+        returns,
+        window=slow_decay,
+        target_vol=0.2,
+        periods_per_year=12.0,
+        floor_vol=None,
+        long_only=True,
+        max_weight=None,
+    )
+
+    assert diag_fast.scale_factors.loc["A"] != diag_slow.scale_factors.loc["A"]
+
+
 def test_compute_constrained_weights_validates_inputs(monkeypatch):
     returns = pd.DataFrame([[0.01, 0.02]])
 

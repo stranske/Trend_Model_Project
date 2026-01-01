@@ -29,6 +29,7 @@ from .logging import log_step as _log_step  # lightweight import
 from .pipeline import (
     _policy_from_config,
     _resolve_sample_split,
+    _resolve_target_vol,
     _run_analysis_with_diagnostics,
 )
 from .util.risk_free import resolve_risk_free_settings
@@ -381,7 +382,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         resolved_split["in_end"],
         resolved_split["out_start"],
         resolved_split["out_end"],
-        config.vol_adjust.get("target_vol", 1.0),
+        _resolve_target_vol(getattr(config, "vol_adjust", {})),
         getattr(config, "run", {}).get("monthly_cost", 0.0),
         floor_vol=config.vol_adjust.get("floor_vol"),
         warmup_periods=int(config.vol_adjust.get("warmup_periods", 0) or 0),
