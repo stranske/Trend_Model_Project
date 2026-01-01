@@ -249,6 +249,46 @@ def test_regime_proxy_changes_selection_count() -> None:
     assert len(spx["selected_funds"]) != len(acwi["selected_funds"])
 
 
+def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
+    df = _regime_returns_frame()
+    base = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="all",
+        indices_list=["SPX", "ACWI"],
+        regime_cfg={"enabled": False, "proxy": "SPX"},
+        **RUN_KWARGS,
+    )
+    enabled = pipeline._run_analysis(
+        df,
+        "2020-01",
+        "2020-03",
+        "2020-04",
+        "2020-06",
+        target_vol=1.0,
+        monthly_cost=0.0,
+        selection_mode="all",
+        indices_list=["SPX", "ACWI"],
+        regime_cfg={"enabled": True, "proxy": "SPX"},
+        **RUN_KWARGS,
+    )
+    assert base is not None
+    assert enabled is not None
+    assert base["selected_funds"] == enabled["selected_funds"]
+    base_scale = base["risk_diagnostics"]["scale_factors"]
+    enabled_scale = enabled["risk_diagnostics"]["scale_factors"].reindex(
+        base_scale.index
+    )
+    mask = base_scale > 0
+    ratio = enabled_scale[mask] / base_scale[mask]
+    assert np.allclose(ratio, 0.5, rtol=1e-3, atol=1e-3)
+
+
 def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()

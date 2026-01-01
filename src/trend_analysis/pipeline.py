@@ -1400,6 +1400,44 @@ def _apply_regime_overrides(
     return updated_random_n, updated_rank if updated_rank else rank_kwargs
 
 
+def _apply_regime_weight_overrides(
+    *,
+    target_vol: float,
+    constraints: Mapping[str, Any] | None,
+    regime_label: str | None,
+    settings: Any,
+    regime_cfg: Mapping[str, Any] | None,
+) -> tuple[float, Mapping[str, Any] | None]:
+    if not regime_label:
+        return target_vol, constraints
+    if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
+        return target_vol, constraints
+
+    cfg = dict(regime_cfg or {})
+
+    def _coerce_positive_float(value: Any, default: float) -> float:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return default
+        if num <= 0:
+            return default
+        return num
+
+    updated_target = target_vol
+    if "risk_off_target_vol" in cfg:
+        updated_target = _coerce_positive_float(
+            cfg.get("risk_off_target_vol"), target_vol
+        )
+    else:
+        multiplier = _coerce_positive_float(
+            cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5
+        )
+        updated_target = float(target_vol) * multiplier
+
+    return updated_target, constraints
+
+
 def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
     current = cfg
     visited: set[int] = set()
@@ -2097,6 +2135,13 @@ def _run_analysis_with_diagnostics(
         rank_kwargs=rank_kwargs,
         regime_label=regime_label,
         settings=regime_settings,
+    )
+    target_vol, constraints = _apply_regime_weight_overrides(
+        target_vol=target_vol,
+        constraints=constraints,
+        regime_label=regime_label,
+        settings=regime_settings,
+        regime_cfg=regime_cfg,
     )
 
     selection_stage = _select_universe(
