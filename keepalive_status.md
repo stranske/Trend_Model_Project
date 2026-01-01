@@ -3,6 +3,7 @@
 To avoid PR conflicts between concurrent keepalive runs, place each run's checklist in its own file under `docs/keepalive/status/`.
 
 Active/most recent entries:
+- PR #4063 (hard threshold barriers): [docs/keepalive/status/PR4063_Status.md](docs/keepalive/status/PR4063_Status.md)
 - PR #4055 (regime detection wiring): [docs/keepalive/status/PR4055_Status.md](docs/keepalive/status/PR4055_Status.md)
 - PR #4019 (Codex keepalive coverage march): [docs/keepalive/status/PR4019_Status.md](docs/keepalive/status/PR4019_Status.md)
 - PR #3802 (widget import isolation for ranking modules): [docs/keepalive/status/PR3802_Status.md](docs/keepalive/status/PR3802_Status.md)

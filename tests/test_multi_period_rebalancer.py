@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
+from trend_analysis.config import load_config
 from trend_analysis.multi_period.replacer import Rebalancer
 
 
@@ -31,17 +34,45 @@ def test_rebalancer_drops_after_consecutive_soft_strikes() -> None:
     assert pytest.approx(final.loc["B"], rel=1e-9) == 1.0
 
 
-def test_rebalancer_hard_exit_overrides_soft_counts() -> None:
-    """A hard exit threshold should drop a fund immediately."""
+def test_rebalancer_hard_exit_protects_above_threshold() -> None:
+    """A hard exit threshold should prevent removals above the threshold."""
 
-    cfg = {"portfolio": {"threshold_hold": {"z_exit_hard": -2.5}}}
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_exit_soft": -0.2,
+                "soft_strikes": 1,
+                "z_exit_hard": -0.5,
+            }
+        }
+    }
     reb = Rebalancer(cfg)
     prev = {"A": 0.7, "B": 0.3}  # dict input exercises the Series conversion path
-    frame = pd.DataFrame({"zscore": {"A": -3.0, "B": 0.0}})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.0}})
+
+    updated = reb.apply_triggers(prev, frame)
+    assert set(updated.index) == {"A", "B"}
+
+
+def test_rebalancer_null_hard_thresholds_preserve_soft_exits() -> None:
+    """Explicit null hard thresholds should not block soft exit behavior."""
+
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_exit_soft": -0.2,
+                "soft_strikes": 1,
+                "z_exit_hard": None,
+                "z_entry_hard": None,
+            }
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 0.7, "B": 0.3})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.0}})
 
     updated = reb.apply_triggers(prev, frame)
     assert list(updated.index) == ["B"]
-    assert "A" not in updated
 
 
 def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
@@ -65,6 +96,103 @@ def test_rebalancer_hard_candidates_fill_capacity_first() -> None:
     # Only the hard candidate can be added; auto candidate is skipped due to capacity
     result = reb.apply_triggers(prev, frame)
     assert set(result.index) == {"A", "B"}
+    assert "C" not in result
+
+
+def test_rebalancer_entry_hard_blocks_soft_entries() -> None:
+    """Funds below the hard entry threshold should never be added."""
+
+    cfg = {
+        "portfolio": {
+            "threshold_hold": {
+                "z_entry_hard": 1.5,
+                "z_entry_soft": 0.5,
+                "entry_soft_strikes": 1,
+                "entry_eligible_strikes": 1,
+            },
+            "constraints": {"max_funds": 3},
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 1.0})
+    frame = pd.DataFrame({"zscore": {"B": 1.0, "C": 1.6}})
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "C"}
+    assert "B" not in result
+
+
+def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
+    """Root-level threshold settings should reach the rebalancer."""
+
+    cfg = {
+        "portfolio": {
+            "z_entry_hard": 1.5,
+            "z_exit_hard": -0.5,
+            "z_entry_soft": 0.5,
+            "z_exit_soft": -0.2,
+            "soft_strikes": 1,
+            "entry_soft_strikes": 1,
+            "entry_eligible_strikes": 1,
+            "constraints": {"max_funds": 3},
+        }
+    }
+    reb = Rebalancer(cfg)
+    prev = _series({"A": 0.5, "B": 0.5})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": -0.6, "C": 1.6, "D": 1.0}})
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "C"}
+    assert "B" not in result
+    assert "D" not in result
+
+
+def test_rebalancer_reads_hard_thresholds_from_loaded_config(
+    tmp_path: Path,
+) -> None:
+    """Config loading should preserve hard thresholds for selection logic."""
+
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+
+    cfg = load_config(
+        {
+            "version": "1",
+            "data": {
+                "csv_path": str(csv_file),
+                "date_column": "Date",
+                "frequency": "M",
+            },
+            "preprocessing": {},
+            "sample_split": {},
+            "metrics": {},
+            "export": {},
+            "run": {},
+            "portfolio": {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "transaction_cost_bps": 10,
+                "threshold_hold": {
+                    "z_exit_soft": -0.2,
+                    "soft_strikes": 1,
+                    "z_exit_hard": -0.5,
+                    "z_entry_hard": 1.5,
+                    "z_entry_soft": 0.5,
+                    "entry_soft_strikes": 1,
+                    "entry_eligible_strikes": 1,
+                },
+                "constraints": {"max_funds": 3},
+            },
+            "vol_adjust": {"target_vol": 0.1},
+        }
+    )
+
+    reb = Rebalancer(cfg.model_dump())
+    prev = _series({"A": 0.5, "B": 0.5})
+    frame = pd.DataFrame({"zscore": {"A": -0.4, "B": 0.1, "C": 1.0, "D": 1.6}})
+
+    result = reb.apply_triggers(prev, frame)
+    assert set(result.index) == {"A", "B", "D"}
     assert "C" not in result
 
 
