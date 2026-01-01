@@ -1403,11 +1403,11 @@ def _apply_regime_overrides(
 def _apply_regime_weight_overrides(
     *,
     target_vol: float,
-    constraints: Mapping[str, Any] | None,
+    constraints: dict[str, Any] | None,
     regime_label: str | None,
     settings: Any,
     regime_cfg: Mapping[str, Any] | None,
-) -> tuple[float, Mapping[str, Any] | None]:
+) -> tuple[float, dict[str, Any] | None]:
     if not regime_label:
         return target_vol, constraints
     if regime_label != getattr(settings, "risk_off_label", "Risk-Off"):
