@@ -247,9 +247,7 @@ def test_realised_volatility_supports_ewma_decay() -> None:
 
     def _ewma_std(values: np.ndarray) -> float:
         series = pd.Series(values, dtype=float)
-        return float(
-            series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1]
-        )
+        return float(series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1])
 
     expected = (
         returns.astype(float)

@@ -100,13 +100,11 @@ def realised_volatility(
 
         def _ewma_std(values: np.ndarray) -> float:
             series = pd.Series(values, dtype=float)
-            return float(
-                series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1]
-            )
+            return float(series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1])
 
-        vol = returns.rolling(
-            window=window.length, min_periods=min_periods_val
-        ).apply(_ewma_std, raw=True)
+        vol = returns.rolling(window=window.length, min_periods=min_periods_val).apply(
+            _ewma_std, raw=True
+        )
     else:
         vol = returns.rolling(window=window.length, **rolling_kwargs).std(ddof=0)
 
