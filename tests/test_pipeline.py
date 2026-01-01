@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -292,6 +293,37 @@ def test_run_full_includes_risk_diagnostics(tmp_path):
     assert not asset_vol.empty
 
 
+def test_run_full_robustness_settings_affect_weights(tmp_path):
+    cfg = make_cfg(tmp_path, _make_three_fund_df())
+    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["robustness"] = {
+        "shrinkage": {"enabled": False},
+        "condition_check": {
+            "enabled": True,
+            "threshold": 1.0,
+            "safe_mode": "risk_parity",
+            "diagonal_loading_factor": 1.0e-6,
+        },
+    }
+
+    res_rp = pipeline.run_full(cfg)
+    diag_rp = res_rp["weight_engine_diagnostics"]
+    assert diag_rp["used_safe_mode"] is True
+    assert diag_rp["safe_mode"] == "risk_parity"
+    weights_rp = res_rp["fund_weights"]
+
+    cfg.portfolio["robustness"]["condition_check"]["safe_mode"] = "diagonal_mv"
+    res_diag = pipeline.run_full(cfg)
+    diag_diag = res_diag["weight_engine_diagnostics"]
+    assert diag_diag["used_safe_mode"] is True
+    assert diag_diag["safe_mode"] == "diagonal_mv"
+    weights_diag = res_diag["fund_weights"]
+
+    rp_values = np.array([weights_rp["A"], weights_rp["B"], weights_rp["C"]])
+    diag_values = np.array([weights_diag["A"], weights_diag["B"], weights_diag["C"]])
+    assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
+
+
 def _make_two_fund_df() -> pd.DataFrame:
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     return pd.DataFrame(
@@ -300,6 +332,19 @@ def _make_two_fund_df() -> pd.DataFrame:
             "RF": 0.0,
             "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
             "B": [0.01, 0.02, 0.02, 0.03, 0.01, 0.02],
+        }
+    )
+
+
+def _make_three_fund_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": 0.0,
+            "A": [0.02, 0.01, 0.03, 0.04, 0.02, 0.01],
+            "B": [0.01, 0.008, 0.012, 0.009, 0.011, 0.01],
+            "C": [0.002, 0.001, 0.003, 0.0025, 0.0015, 0.002],
         }
     )
 

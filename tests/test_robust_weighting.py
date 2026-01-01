@@ -45,6 +45,14 @@ def create_negative_eigenvalue_cov():
     return pd.DataFrame(base, index=["a", "b", "c"], columns=["a", "b", "c"])
 
 
+def create_realistic_cov():
+    """Create a realistic covariance matrix with varied volatilities."""
+    corr = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.3], [0.2, 0.3, 1.0]])
+    stds = np.array([0.3, 0.2, 0.1])
+    cov = np.outer(stds, stds) * corr
+    return pd.DataFrame(cov, index=["a", "b", "c"], columns=["a", "b", "c"])
+
+
 class TestRobustMeanVariance:
     """Tests for RobustMeanVariance weight engine."""
 
@@ -130,6 +138,44 @@ class TestRobustMeanVariance:
         assert np.isclose(weights.sum(), 1.0)
         assert (weights >= 0).all()
         assert len(weights) == 3
+
+    def test_safe_mode_diagnostics_and_weight_differences(self):
+        cov = create_realistic_cov()
+
+        hrp_engine = create_weight_engine(
+            "robust_mv",
+            condition_threshold=1.0,
+            safe_mode="hrp",
+            shrinkage_method="none",
+        )
+        hrp_weights = hrp_engine.weight(cov)
+        diag = hrp_engine.diagnostics
+        assert diag["used_safe_mode"] is True
+        assert diag["condition_number"] > 1.0
+
+        rp_engine = create_weight_engine(
+            "robust_mv",
+            condition_threshold=1.0,
+            safe_mode="risk_parity",
+            shrinkage_method="none",
+        )
+        rp_weights = rp_engine.weight(cov)
+
+        diag_engine = create_weight_engine(
+            "robust_mv",
+            condition_threshold=1.0,
+            safe_mode="diagonal_mv",
+            shrinkage_method="none",
+            diagonal_loading_factor=1e-4,
+        )
+        diag_weights = diag_engine.weight(cov)
+
+        assert not np.allclose(
+            hrp_weights.values, rp_weights.values, rtol=1e-3, atol=1e-4
+        )
+        assert not np.allclose(
+            rp_weights.values, diag_weights.values, rtol=1e-3, atol=1e-4
+        )
 
     def test_singular_matrix_fallback(self):
         """Test handling of completely singular matrices."""

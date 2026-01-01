@@ -134,6 +134,9 @@ class RobustMeanVariance(WeightEngine):
         diagonal_loading_factor: float = 1e-6,
         min_weight: float = 0.0,
         max_weight: float = 1.0,
+        log_condition_numbers: bool = True,
+        log_method_switches: bool = True,
+        log_shrinkage_intensity: bool = True,
     ) -> None:
         """Initialize robust mean-variance optimizer.
 
@@ -151,15 +154,18 @@ class RobustMeanVariance(WeightEngine):
         self.diagonal_loading_factor = float(diagonal_loading_factor)
         self.min_weight = float(min_weight)
         self.max_weight = float(max_weight)
+        self.log_condition_numbers = bool(log_condition_numbers)
+        self.log_method_switches = bool(log_method_switches)
+        self.log_shrinkage_intensity = bool(log_shrinkage_intensity)
+        self.diagnostics: Dict[str, Any] = {}
 
     def _check_condition_number(self, cov: NDArrayFloat) -> float:
         """Compute condition number of covariance matrix."""
         try:
-            eigenvals = np.linalg.eigvalsh(cov)
-            eigenvals = eigenvals[eigenvals > 0]  # Only positive eigenvalues
-            if len(eigenvals) == 0:
+            condition_num = float(np.linalg.cond(cov))
+            if not np.isfinite(condition_num):
                 return np.inf
-            return float(np.max(eigenvals) / np.min(eigenvals))
+            return condition_num
         except np.linalg.LinAlgError:
             return np.inf
 
@@ -174,14 +180,16 @@ class RobustMeanVariance(WeightEngine):
         elif self.shrinkage_method == "ledoit_wolf":
             shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
-            logger.debug(
-                f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}"
-            )
+            if self.log_shrinkage_intensity:
+                logger.debug(
+                    f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}"
+                )
             return shrunk_cov, shrinkage_info
         elif self.shrinkage_method == "oas":
             shrunk_cov, intensity = oas_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
-            logger.debug(f"Applied OAS shrinkage with intensity {intensity:.4f}")
+            if self.log_shrinkage_intensity:
+                logger.debug(f"Applied OAS shrinkage with intensity {intensity:.4f}")
             return shrunk_cov, shrinkage_info
         else:
             raise ValueError(f"Unknown shrinkage method: {self.shrinkage_method}")
@@ -254,15 +262,25 @@ class RobustMeanVariance(WeightEngine):
         )
 
         # Check condition number
-        condition_num = self._check_condition_number(shrunk_cov_array)
+        condition_num = self._check_condition_number(cov_array)
 
-        logger.debug(f"Covariance matrix condition number: {condition_num:.2e}")
+        if self.log_condition_numbers:
+            logger.debug(f"Covariance matrix condition number: {condition_num:.2e}")
+
+        self.diagnostics = {
+            "condition_number": condition_num,
+            "condition_threshold": self.condition_threshold,
+            "safe_mode": self.safe_mode,
+            "used_safe_mode": condition_num > self.condition_threshold,
+            "shrinkage": shrinkage_info,
+        }
 
         if condition_num > self.condition_threshold:
-            logger.warning(
-                f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e} > "
-                f"threshold: {self.condition_threshold:.2e}). Switching to safe mode: {self.safe_mode}"
-            )
+            if self.log_method_switches:
+                logger.warning(
+                    f"Ill-conditioned covariance matrix (condition number: {condition_num:.2e} > "
+                    f"threshold: {self.condition_threshold:.2e}). Switching to safe mode: {self.safe_mode}"
+                )
             return self._safe_mode_weights(cov)
 
         # Use normal mean-variance optimization
@@ -290,6 +308,7 @@ class RobustRiskParity(WeightEngine):
         """
         self.condition_threshold = float(condition_threshold)
         self.diagonal_loading_factor = float(diagonal_loading_factor)
+        self.diagnostics: Dict[str, Any] = {}
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         """Compute risk parity weights with robustness checks."""
@@ -350,6 +369,13 @@ class RobustRiskParity(WeightEngine):
             )
 
         weights = inv_vol / total
+
+        self.diagnostics = {
+            "condition_number": condition_num,
+            "condition_threshold": self.condition_threshold,
+            "used_diagonal_loading": condition_num > self.condition_threshold,
+            "diagonal_loading_factor": self.diagonal_loading_factor,
+        }
 
         logger.debug("Successfully computed robust risk parity weights")
         return pd.Series(weights, index=cov.index)
