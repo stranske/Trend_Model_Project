@@ -35,6 +35,7 @@ from .pipeline import (
 )
 from .util.risk_free import resolve_risk_free_settings
 
+
 def _run_analysis(
     *args: Any,
     signals_cfg: Mapping[str, Any] | None = None,
@@ -47,6 +48,7 @@ def _run_analysis(
         trend_spec = _build_trend_spec({"signals": signals_cfg}, vol_adjust_cfg or {})
         kwargs["signal_spec"] = trend_spec
     return _run_analysis_with_diagnostics(*args, **kwargs)
+
 
 logger = logging.getLogger(__name__)
 
