@@ -66,7 +66,9 @@ def _attach_reporting_metadata(res_dict: dict[str, Any], config: ConfigType) -> 
     if not isinstance(portfolio, Mapping):
         return
     ci_level = portfolio.get("ci_level")
-    if ci_level in (None, ""):
+    if ci_level is None:
+        return
+    if isinstance(ci_level, str) and ci_level == "":
         return
     try:
         ci_level_val = float(ci_level)
