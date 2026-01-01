@@ -87,8 +87,8 @@ class TestRobustMeanVariance:
         # Different shrinkage methods should give different results
         assert not np.allclose(weights_lw.values, weights_oas.values, rtol=1e-3)
 
-    def test_condition_threshold_uses_shrunk_covariance(self):
-        """Condition checks should use the post-shrinkage matrix."""
+    def test_condition_threshold_uses_worst_condition_number(self):
+        """Condition checks should use the worst condition number observed."""
         cov = create_ill_conditioned_cov()
         raw_condition = np.linalg.cond(cov.values)
         shrunk_cov, _ = rw.ledoit_wolf_shrinkage(cov.values)
@@ -104,9 +104,12 @@ class TestRobustMeanVariance:
         )
         weights = engine.weight(cov)
         assert np.isclose(weights.sum(), 1.0)
-        assert engine.diagnostics["used_safe_mode"] is False
-        assert engine.diagnostics["condition_source"] == "shrunk_cov"
-        assert engine.diagnostics["condition_number"] == pytest.approx(shrunk_condition)
+        assert engine.diagnostics["used_safe_mode"] is True
+        assert engine.diagnostics["condition_source"] == "raw_cov"
+        assert engine.diagnostics["condition_number"] == pytest.approx(raw_condition)
+        assert engine.diagnostics["shrunk_condition_number"] == pytest.approx(
+            shrunk_condition
+        )
 
     def test_ill_conditioned_safe_mode_hrp(self):
         """Test safe mode fallback to HRP for ill-conditioned matrices."""

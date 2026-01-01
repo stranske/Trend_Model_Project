@@ -261,12 +261,19 @@ class RobustMeanVariance(WeightEngine):
             shrunk_cov_array, index=cov.index, columns=cov.columns
         )
 
-        # Check condition number on the matrix actually used for optimization.
+        # Check condition numbers on both the raw and post-shrinkage matrices.
         raw_condition_num = self._check_condition_number(cov_array)
-        condition_num = self._check_condition_number(shrunk_cov_array)
-        condition_source = (
-            "shrunk_cov" if self.shrinkage_method != "none" else "raw_cov"
-        )
+        shrunk_condition_num = self._check_condition_number(shrunk_cov_array)
+        if self.shrinkage_method != "none":
+            if raw_condition_num >= shrunk_condition_num:
+                condition_num = raw_condition_num
+                condition_source = "raw_cov"
+            else:
+                condition_num = shrunk_condition_num
+                condition_source = "shrunk_cov"
+        else:
+            condition_num = raw_condition_num
+            condition_source = "raw_cov"
 
         if self.log_condition_numbers:
             logger.debug(
@@ -275,13 +282,14 @@ class RobustMeanVariance(WeightEngine):
             if self.shrinkage_method != "none":
                 logger.debug(
                     "Shrinkage-adjusted covariance matrix condition number: "
-                    f"{condition_num:.2e}"
+                    f"{shrunk_condition_num:.2e}"
                 )
 
         used_safe_mode = condition_num > self.condition_threshold
         self.diagnostics = {
             "condition_number": condition_num,
             "raw_condition_number": raw_condition_num,
+            "shrunk_condition_number": shrunk_condition_num,
             "condition_source": condition_source,
             "condition_threshold": self.condition_threshold,
             "safe_mode": self.safe_mode,
@@ -293,10 +301,13 @@ class RobustMeanVariance(WeightEngine):
             self.diagnostics["fallback_reason"] = "condition_threshold_exceeded"
             if self.log_method_switches:
                 logger.warning(
-                    "Ill-conditioned covariance matrix (%s condition number: %.2e > "
-                    "threshold: %.2e). Switching to safe mode: %s",
+                    "Ill-conditioned covariance matrix (%s condition number: %.2e; "
+                    "raw: %.2e; shrunk: %.2e > threshold: %.2e). Switching to safe "
+                    "mode: %s",
                     condition_source,
                     condition_num,
+                    raw_condition_num,
+                    shrunk_condition_num,
                     self.condition_threshold,
                     self.safe_mode,
                 )
