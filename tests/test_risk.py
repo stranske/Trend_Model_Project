@@ -244,10 +244,17 @@ def test_realised_volatility_supports_ewma_decay() -> None:
     vol = risk.realised_volatility(returns, window, periods_per_year=12.0)
 
     alpha = 1.0 - window.ewma_lambda
+
+    def _ewma_std(values: np.ndarray) -> float:
+        series = pd.Series(values, dtype=float)
+        return float(
+            series.ewm(alpha=alpha, adjust=False).std(bias=False).iloc[-1]
+        )
+
     expected = (
         returns.astype(float)
-        .ewm(alpha=alpha, adjust=False)
-        .std(bias=False)
+        .rolling(window=window.length, min_periods=1)
+        .apply(_ewma_std, raw=True)
         .mul(np.sqrt(12.0))
     )
     pdt.assert_frame_equal(vol, expected)

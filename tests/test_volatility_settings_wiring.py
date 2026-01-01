@@ -125,6 +125,15 @@ def test_vol_window_length_changes_scaling() -> None:
     assert not np.isclose(baseline_mean, test_mean, rtol=1e-4, atol=1e-6)
 
 
+def test_vol_window_length_changes_scaling_for_ewma() -> None:
+    cfg = VolatilityConfig()
+    cfg.vol_adjust["window"] = {"length": 6, "decay": "ewma", "lambda": 0.9}
+    baseline_mean = _run_config(cfg)
+    cfg.vol_adjust["window"] = {"length": 3, "decay": "ewma", "lambda": 0.9}
+    test_mean = _run_config(cfg)
+    assert not np.isclose(baseline_mean, test_mean, rtol=1e-4, atol=1e-6)
+
+
 def test_vol_window_decay_changes_scaling() -> None:
     cfg = VolatilityConfig()
     cfg.vol_adjust["window"] = {"length": 6, "decay": "ewma", "lambda": 0.9}
